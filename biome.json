@@ -1,0 +1,86 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!!**/.expo",
+      "!!**/convex/_generated",
+      "!!**/components/__tests__",
+      "!!**/global.css"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "performance": {
+        "noAccumulatingSpread": "error"
+      },
+      "style": {
+        "useBlockStatements": "warn",
+        "noImplicitBoolean": "warn",
+        "useConst": "warn"
+      },
+      "suspicious": {
+        "noAsyncPromiseExecutor": "error",
+        "noCatchAssign": "error",
+        "noDoubleEquals": "error",
+        "noDuplicateObjectKeys": "error",
+        "noMisleadingCharacterClass": "error",
+        "noPrototypeBuiltins": "error",
+        "noRedeclare": "error",
+        "noSelfCompare": "error",
+        "noUnsafeNegation": "error",
+        "noConsole": "warn"
+      },
+      "correctness": {
+        "noConstAssign": "error",
+        "noConstantCondition": "error",
+        "noEmptyCharacterClassInRegex": "error",
+        "noEmptyPattern": "error",
+        "noInnerDeclarations": "error",
+        "noInvalidConstructorSuper": "error",
+        "noInvalidUseBeforeDeclaration": "error",
+        "noPrecisionLoss": "error",
+        "noSelfAssign": "error",
+        "noSetterReturn": "error",
+        "noUndeclaredVariables": "error",
+        "noUnreachable": "error",
+        "noUnsafeFinally": "error",
+        "useIsNan": "error",
+        "useValidForDirection": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["convex/_generated/**", "global.css"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noExplicitAny": "off", "noUnknownAtRules": "off" },
+          "correctness": { "noUnusedVariables": "off" },
+          "complexity": { "noBannedTypes": "off" }
+        }
+      }
+    }
+  ],
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "es5"
+    }
+  }
+}

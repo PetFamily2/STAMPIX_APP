@@ -1,0 +1,128 @@
+# תבנית אפליקציית מובייל (React Native & Convex)
+
+ברוכים הבאים לתבנית הפיתוח לאפליקציית React Native עם Expo ו-Convex. תבנית זו מותאמת מראש לעברית (RTL) וכוללת מערכת אימות מלאה, ניווט ועיצוב מודרני.
+
+## 📚 תוכן עניינים
+
+1. [מבנה האפליקציה](#מבנה-האפליקציה)
+2. [צעדים ראשונים](#צעדים-ראשונים)
+3. [הגדרת מסד נתונים ואימות (Convex)](#הגדרת-מסד-נתונים-ואימות-convex)
+4. [התקנה והרצה](#התקנה-והרצה)
+5. [פיצ'רים מרכזיים](#פיצרים-מרכזיים)
+
+---
+
+## 🏗 מבנה האפליקציה
+
+האפליקציה בנויה ממספר רכיבים מרכזיים:
+
+- **Frontend (צד לקוח):**
+  - **Expo & React Native:** התשתית לפיתוח האפליקציה למובייל (iOS ו-Android).
+  - **Expo Router:** מערכת ניווט מבוססת קבצים (בתיקיית `app/`).
+  - **NativeWind:** ספריית עיצוב המאפשרת שימוש ב-Tailwind CSS בתוך React Native.
+  - **RTL Support:** תמיכה מובנית בשפות מימין-לשמאל (עברית), כולל פתרונות היברידיים ל-Expo Go ול-Production.
+
+- **Backend (צד שרת):**
+  - **Convex:** פלטפורמת Backend-as-a-Service המספקת מסד נתונים בזמן אמת, פונקציות שרת (Server Functions) ואימות משתמשים.
+  - **Convex Auth:** מערכת אימות משתמשים מאובטחת המוטמעת ישירות ב-Convex.
+
+### תיקיות חשובות:
+- `app/`: מכילה את מסכי האפליקציה והניווט.
+  - `(auth)/`: מסכי התחברות והרשמה (לפני אימות).
+    - `paywall/`: מסך Paywall (תשלום).
+  - `(authenticated)/`: מסכים הזמינים רק למשתמשים מחוברים (האפליקציה הראשית).
+- `convex/`: מכילה את לוגיקת השרת (Schema, פונקציות, הגדרות אימות).
+- `components/`: רכיבי UI לשימוש חוזר.
+- `config/`: קבצי קונפיגורציה מרכזיים.
+  - `appConfig.ts`: דגלי תכונות וקונפיגורציה כללית.
+- `contexts/`: קונטקסטים גלובליים.
+  - `RevenueCatContext.tsx`: ניהול מנויים ותשלומים.
+- `utils/`: כלי עזר.
+  - `revenueCatConfig.ts`: קונפיגורציית RevenueCat.
+- `lib/`: ספריות עזר (כגון `rtl.ts` לתמיכה בעברית).
+
+---
+
+## 🚀 צעדים ראשונים (עם קבלת התבנית)
+
+כאשר אתם מקבלים את התבנית הזו, בצעו את הפעולות הבאות:
+
+1. **התקנת חבילות:** התחילו בהתקנת התלויות: `bun install`.
+2. **הגדרת Convex:** צרו פרויקט וייצרו מפתחות אימות (Auth).
+3. **בדיקה ראשונית:** הריצו את האפליקציה וודאו שהכל עובד.
+4. **שמירה בענן:** שמרו את הקוד ב-GitHub.
+
+ראה **מדריך התקנה והגדרה** (`setup.md`) להוראות מפורטות.
+
+---
+
+## 🗄 הגדרת מסד נתונים ואימות (Convex)
+
+כדי שהאפליקציה תעבוד, עליכם לקשר אותה לפרויקט Convex וליצור מפתחות אימות:
+
+1. **יצירת פרויקט:** הריצו `bunx convex dev`.
+   - **חשוב:** במובייל, העתיקו את `NEXT_PUBLIC_CONVEX_URL` ל-`EXPO_PUBLIC_CONVEX_URL` בקובץ `.env`.
+2. **יצירת מפתחות אימות:** הריצו `bunx @convex-dev/auth`.
+
+---
+
+## 📦 התקנה והרצה
+
+### 1. התקנת חבילות
+התקינו את כל התלויות של הפרויקט באמצעות bun:
+```bash
+bun install
+```
+
+### 2. הרצת השרת (Convex)
+פתחו טרמינל נפרד והריצו את שרת הפיתוח של Convex (כדי לסנכרן שינויים ב-Backend בזמן אמת):
+```bash
+bunx convex dev
+```
+(השאירו את הטרמינל הזה פתוח ברקע).
+
+### 3. הרצת האפליקציה (Expo)
+בטרמינל נוסף, הריצו את האפליקציה:
+```bash
+bun dev
+```
+לאחר מכן:
+- לחצו `i` כדי לפתוח בסימולטור **iOS**.
+- לחצו `a` כדי לפתוח באמולטור **Android**.
+- או סרקו את ה-QR Code עם אפליקציית **Expo Go** במכשיר הפיזי שלכם. (חייבים להיות מחוברים לאותו שרת או Wi-Fi)
+
+---
+
+---
+
+## 🎯 פיצ'רים מרכזיים
+
+### מערכת תשלומים (RevenueCat)
+האפליקציה כוללת אינטגרציה מלאה עם [RevenueCat](https://www.revenuecat.com) למערכת תשלומים:
+- **Paywall Screen:** מסך תשלום בעברית עם תוכניות מנוי (חודשי, שנתי)
+- **RevenueCat Context:** ניהול מנויים, רכישות ושחזור רכישות
+- **Mock Payments:** מצב בדיקה שמאפשר לבדוק את ה-Paywall בלי תשלום אמיתי
+- **Webhook Integration:** סנכרון אוטומטי של סטטוס מנוי ל-Convex Database
+
+📖 **מדריך הגדרה:** ראה `docs/REVENUECAT_SETUP.md` להגדרה מפורטת ל-iOS ו-Android.
+
+### קונפיגורציה מרכזית (`appConfig.ts`)
+קובץ קונפיגורציה מרכזי לניהול דגלי תכונות:
+- `PAYMENT_SYSTEM_ENABLED`: הפעלה/כיבוי של מערכת התשלומים האמיתית
+- `MOCK_PAYMENTS`: מצב בדיקה לתשלומים מדומים
+- `IS_DEV_MODE`: זיהוי אוטומטי של מצב פיתוח
+- `FORCE_PROD_MODE`: כפיית מצב ייצור לבדיקות
+
+### מחיקת חשבון
+משתמשים יכולים למחוק את החשבון שלהם דרך מסך ההגדרות, עם אישור דו-שלבי.
+
+---
+
+## 💡 טיפים נוספים
+
+- **עברית (RTL):** האפליקציה מוגדרת לעבוד מימין לשמאל. אם אתם מוסיפים מסכים חדשים, השתמשו בקבצי העזר ב-`lib/rtl.ts` כדי להבטיח התאמה מלאה.
+- **אבטחה:** מפתחות API סודיים לא נשמרים בקוד אלא במשתני סביבה. ודאו שקובץ `.env` לא עולה ל-Git (הוא כבר ב-.gitignore).
+- **בדיקות:** הריצו `bun run check` כדי לוודא שאין שגיאות קוד לפני ביצוע שינויים משמעותיים.
+- **תשלומים:** לפני פריסה לייצור, ודאו שמוגדרים כל משתני הסביבה הנדרשים (ראה `docs/REVENUECAT_SETUP.md`).
+
+בהצלחה בפיתוח! 🚀
