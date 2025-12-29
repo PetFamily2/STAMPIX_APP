@@ -11,13 +11,9 @@ export const getCurrentUser = query({
       return null;
     }
 
-    // חיפוש המשתמש ב-Database לפי כתובת האימייל מה-Identity
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email ?? ''))
-      .unique();
-
-    return user;
+    // מקור אמת לזיהוי משתמש: identity.subject (לא אימייל)
+    const user = await ctx.db.get(identity.subject as any);
+    return user ?? null;
   },
 });
 
@@ -37,48 +33,6 @@ export const listActive = query({
       .query('users')
       .filter((q) => q.eq(q.field('isActive'), true))
       .collect();
-  },
-});
-
-// יצירה או עדכון של משתמש (נקרא בדרך כלל מתהליך האימות)
-export const createOrUpdateUser = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('Not authenticated');
-    }
-
-    const email = identity.email ?? '';
-    const now = Date.now();
-
-    // בדיקה אם המשתמש כבר קיים
-    const existing = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', email))
-      .unique();
-
-    const userData = {
-      email,
-      emailVerified: identity.emailVerified ?? false,
-      fullName: identity.name || identity.nickname || 'User',
-      role: 'user' as const,
-      userType: 'free' as const, // ברירת מחדל - משתמש חינמי
-      isActive: true,
-      updatedAt: now,
-    };
-
-    // עדכון משתמש קיים
-    if (existing) {
-      await ctx.db.patch(existing._id, userData);
-      return existing._id;
-    }
-
-    // יצירת משתמש חדש
-    return await ctx.db.insert('users', {
-      ...userData,
-      createdAt: now,
-    });
   },
 });
 
@@ -114,22 +68,19 @@ export const updateUserType = mutation({
       throw new Error('לא מחובר למערכת');
     }
 
-    // חיפוש המשתמש לפי אימייל
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', identity.email ?? ''))
-      .unique();
+    const userId = identity.subject as any;
+    const user = await ctx.db.get(userId);
 
     if (!user) {
       throw new Error('משתמש לא נמצא');
     }
 
-    await ctx.db.patch(user._id, {
+    await ctx.db.patch(userId, {
       userType,
       updatedAt: Date.now(),
     });
 
-    return user._id;
+    return userId;
   },
 });
 
@@ -156,36 +107,18 @@ export const deleteMyAccount = mutation({
       throw new Error('לא מחובר למערכת');
     }
 
-    // קבלת מזהה המשתמש מה-identity
-    const userId = identity.subject;
+    const userId = identity.subject as any;
     let deletedCount = 0;
 
-    // כאן תוכל להוסיף מחיקה של טבלאות נוספות שקשורות למשתמש
-    // לדוגמה:
-    // const userPosts = await ctx.db
-    //   .query('posts')
-    //   .withIndex('by_user', (q) => q.eq('userId', userId))
-    //   .collect();
-    // for (const post of userPosts) {
-    //   await ctx.db.delete(post._id);
-    //   deletedCount += 1;
-    // }
-
-    // מחיקת המשתמש מטבלת המשתמשים
-    // הערה: Convex Auth מנהל את טבלת המשתמשים, אך אנחנו יכולים למחוק את הרשומה
-    const user = await ctx.db
-      .query('users')
-      .filter((q) => q.eq(q.field('_id'), userId))
-      .first();
-
+    const user = await ctx.db.get(userId);
     if (user) {
-      await ctx.db.delete(user._id);
+      await ctx.db.delete(userId);
       deletedCount += 1;
     }
 
     return {
       success: true,
-      message: `נמחקו ${deletedCount} רשומות עבור משתמש ${userId}`,
+      message: `נמחקו ${deletedCount} רשומות עבור משתמש ${String(userId)}`,
       deletedCount,
     };
   },

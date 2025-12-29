@@ -1,11 +1,12 @@
 import { useQuery } from 'convex/react'; // ייבוא Hook לביצוע שאילתות מול הדאטה בייס
+import type { Doc } from '@/convex/_generated/dataModel';
 import { ScrollView, Text, View } from 'react-native'; // רכיבי UI בסיסיים של React Native
 import { SafeAreaView } from 'react-native-safe-area-context'; // רכיב שדואג שהתוכן לא יוסתר על ידי ה-Notch או ה-Home Indicator
 import { api } from '@/convex/_generated/api'; // ה-API שנוצר אוטומטית על ידי Convex
 import { tw } from '@/lib/rtl'; // ספריית עזר לתמיכה ב-RTL (ימין לשמאל)
 
 export default function HomePage() {
-  const user = useQuery(api.users.getCurrentUser); // שליפת המשתמש הנוכחי מהשרת
+  const user = useQuery(api.users.getCurrentUser) as Doc<'users'> | null; // שליפת המשתמש הנוכחי מהשרת
 
   // תצוגת שם המשתמש (שם מלא או החלק הראשון של האימייל)
   const displayName = user?.fullName || user?.email?.split('@')[0] || 'משתמש';
