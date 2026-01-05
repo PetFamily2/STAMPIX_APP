@@ -1,22 +1,30 @@
 import { createContext, useContext } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
+
+type UserDocument = Doc<'users'> | null;
 
 type UserContextValue = {
-  user: any | null;
+  user: UserDocument;
   isLoading: boolean;
 };
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const user = useQuery(api.users.getCurrentUser);
+  const userResult = useQuery(api.users.getCurrentUser) as
+    | Doc<'users'>
+    | null
+    | undefined;
+
+  const isLoading = userResult === undefined;
 
   return (
     <UserContext.Provider
       value={{
-        user,
-        isLoading: user === undefined,
+        user: userResult ?? null,
+        isLoading,
       }}
     >
       {children}

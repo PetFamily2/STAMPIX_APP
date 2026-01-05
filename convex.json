@@ -1,0 +1,13 @@
+{
+  "node": {
+    "externalPackages": [
+      "@auth/core",
+      "@convex-dev/auth",
+      "cookie",
+      "oauth4webapi",
+      "jose",
+      "preact",
+      "preact-render-to-string"
+    ]
+  }
+}

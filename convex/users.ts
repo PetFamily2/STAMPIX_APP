@@ -1,5 +1,78 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import { requireCurrentUser } from './guards';
+import { SubscriptionPlan } from '../lib/domain/subscriptions';
+
+const SUBSCRIPTION_PLAN_UNION = v.union(
+  v.literal('free'),
+  v.literal('pro'),
+  v.literal('unlimited')
+);
+
+const SUBSCRIPTION_STATUS_UNION = v.union(
+  v.literal('active'),
+  v.literal('inactive'),
+  v.literal('cancelled')
+);
+
+type SubscriptionPlanStatus = 'active' | 'inactive' | 'cancelled';
+
+const DEFAULT_PLAN_STATUS: Record<SubscriptionPlan, SubscriptionPlanStatus> = {
+  free: 'inactive',
+  pro: 'active',
+  unlimited: 'active',
+};
+
+async function patchSubscriptionPlan(
+  ctx: any,
+  userId: Id<'users'>,
+  plan: SubscriptionPlan,
+  options?: {
+    productId?: string;
+    status?: SubscriptionPlanStatus;
+    updatedAt?: number;
+  }
+) {
+  const timestamp = options?.updatedAt ?? Date.now();
+  const status = options?.status ?? DEFAULT_PLAN_STATUS[plan];
+  await ctx.db.patch(userId, {
+    subscriptionPlan: plan,
+    subscriptionStatus: status,
+    subscriptionProductId: options?.productId ?? undefined,
+    subscriptionUpdatedAt: timestamp,
+    userType: plan === 'free' ? 'free' : 'paid',
+    updatedAt: timestamp,
+  });
+}
+
+async function findUserByExternalId(ctx: any, externalId: string) {
+  return await ctx.db
+    .query('users')
+    .withIndex('by_externalId', (q: any) => q.eq('externalId', externalId))
+    .unique();
+}
+
+export async function updateSubscriptionPlanByExternalId(
+  ctx: any,
+  externalId: string,
+  plan: SubscriptionPlan,
+  options?: {
+    productId?: string;
+    status?: SubscriptionPlanStatus;
+    updatedAt?: number;
+  }
+) {
+  if (!externalId) {
+    throw new Error('EXTERNAL_ID_REQUIRED');
+  }
+  const user = await findUserByExternalId(ctx, externalId);
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
+  }
+  await patchSubscriptionPlan(ctx, user._id, plan, options);
+  return user._id;
+}
 
 // שליפת המשתמש הנוכחי המחובר
 // מחזיר null אם המשתמש לא מחובר
@@ -7,12 +80,15 @@ export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
+    if (!identity) return null;
+    const subject = identity.subject;
+    if (!subject) return null;
 
-    // מקור אמת לזיהוי משתמש: identity.subject (לא אימייל)
-    const user = await ctx.db.get(identity.subject as any);
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_externalId', (q) => q.eq('externalId', subject))
+      .unique();
+
     return user ?? null;
   },
 });
@@ -57,30 +133,20 @@ export const updateProfile = mutation({
   },
 });
 
-// עדכון סוג המשתמש (חינמי/בתשלום)
-export const updateUserType = mutation({
+// עדכון תוכנית מנוי עבור המשתמש הנוכחי
+export const updateSubscriptionPlan = mutation({
   args: {
-    userType: v.union(v.literal('free'), v.literal('paid')),
+    plan: SUBSCRIPTION_PLAN_UNION,
+    productId: v.optional(v.string()),
+    status: v.optional(SUBSCRIPTION_STATUS_UNION),
   },
-  handler: async (ctx, { userType }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('לא מחובר למערכת');
-    }
-
-    const userId = identity.subject as any;
-    const user = await ctx.db.get(userId);
-
-    if (!user) {
-      throw new Error('משתמש לא נמצא');
-    }
-
-    await ctx.db.patch(userId, {
-      userType,
-      updatedAt: Date.now(),
+  handler: async (ctx, { plan, productId, status }) => {
+    const user = await requireCurrentUser(ctx);
+    await patchSubscriptionPlan(ctx, user._id, plan, {
+      productId: productId ?? undefined,
+      status,
     });
-
-    return userId;
+    return user._id;
   },
 });
 
@@ -107,19 +173,41 @@ export const deleteMyAccount = mutation({
       throw new Error('לא מחובר למערכת');
     }
 
-    const userId = identity.subject as any;
-    let deletedCount = 0;
-
-    const user = await ctx.db.get(userId);
-    if (user) {
-      await ctx.db.delete(userId);
-      deletedCount += 1;
+    const externalId = identity.subject ?? '';
+    if (!externalId) {
+      throw new Error('זהות המשתמש חסרה');
     }
+
+    const user = await findUserByExternalId(ctx, externalId);
+
+    if (!user) {
+      return {
+        success: true,
+        message: `לא נמצאה רשומת משתמש עבור ${externalId}`,
+        deletedCount: 0,
+      };
+    }
+
+    await ctx.db.delete(user._id);
 
     return {
       success: true,
-      message: `נמחקו ${deletedCount} רשומות עבור משתמש ${String(userId)}`,
-      deletedCount,
+      message: `נמחקה רשומת משתמש עבור ${externalId}`,
+      deletedCount: 1,
+    };
+  },
+});
+
+// Debug: return raw auth identity (for diagnosis)
+export const debugIdentity = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    return {
+      hasIdentity: !!identity,
+      subject: identity?.subject ?? null,
+      email: (identity as any)?.email ?? null,
+      identity,
     };
   },
 });

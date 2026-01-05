@@ -3,7 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -13,5 +15,10 @@
     "nativewind-env.d.ts",
     ".expo/types/**/*.ts"
   ],
-  "exclude": ["convex.config.ts"]
+  "exclude": [
+    "convex.config.ts",
+    "reference-ui",
+    "reference-ui/**",
+    "stampix---loyalty-made-simple"
+  ]
 }

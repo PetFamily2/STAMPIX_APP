@@ -1,7 +1,3 @@
-export type AppRole =
-  | 'customer'
-  | 'business_owner'
-  | 'business_staff'
-  | 'admin_support';
+export type AppRole = 'customer' | 'merchant' | 'staff' | 'admin';
 
 export type BusinessStaffRole = 'owner' | 'staff';

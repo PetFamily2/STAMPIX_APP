@@ -1,0 +1,11 @@
+{
+  "businessId": "k17dkgqwtp4hjy1gsd0rgfj8td7yffz7",
+  "demoCustomerExternalId": "demo-customer-1",
+  "demoCustomerUserId": "jx7c3f36fkvx06twfj9eh4kwy97y9azy",
+  "howToUse": {
+    "businessIdPaste": "k17dkgqwtp4hjy1gsd0rgfj8td7yffz7",
+    "programIdPaste": "m173tsjz3fjxq5dhq4e25k7q8d7yeh3q",
+    "qrData": "externalId:demo-customer-1"
+  },
+  "programId": "m173tsjz3fjxq5dhq4e25k7q8d7yeh3q"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "STAMPIX - Loyalty Made Simple",
+  "description": "A comprehensive digital loyalty card platform for customers and businesses, featuring stamp collection, reward redemption, and AI-powered merchant tools.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

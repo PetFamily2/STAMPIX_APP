@@ -42,7 +42,8 @@
           "supportsRTL": true,
           "forcesRTL": true
         }
-      ]
+      ],
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true

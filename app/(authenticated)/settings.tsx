@@ -1,6 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useMutation } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useMutation, useQuery } from 'convex/react';
+import { Redirect, useRouter } from 'expo-router';
 import {
   Bug,
   ChevronLeft,
@@ -22,6 +22,11 @@ import {
 } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
+import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { useRoleGuard, BUSINESS_ROLES } from '@/lib/hooks/useRoleGuard';
+import {
+  SUBSCRIPTION_PLAN_LABELS,
+} from '@/lib/domain/subscriptions';
 import { tw } from '@/lib/rtl';
 
 // ============================================================================
@@ -29,11 +34,27 @@ import { tw } from '@/lib/rtl';
 // ============================================================================
 
 export default function SettingsScreen() {
+  const { user, isLoading, isAuthorized } = useRoleGuard(BUSINESS_ROLES);
   const router = useRouter();
   const { signOut } = useAuthActions();
-  const { isPremium, isConfigured, isExpoGo } = useRevenueCat();
+  const { isPremium, isConfigured, isExpoGo, subscriptionPlan } =
+    useRevenueCat();
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const deleteMyAccount = useMutation(api.users.deleteMyAccount);
+  const debugIdentity = useQuery(api.users.debugIdentity);
+
+  if (isLoading) {
+    return <FullScreenLoading />;
+  }
+
+  if (!user) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  if (!isAuthorized) {
+    return <Redirect href="/(authenticated)/wallet" />;
+  }
+
 
   // ============================================================================
   // פעולות
@@ -130,6 +151,11 @@ export default function SettingsScreen() {
     router.push('/(auth)/sign-up?preview=true');
   };
 
+  const openBusinessScanner = () => {
+    router.push('/(authenticated)/business/scanner' as any);
+  };
+
+
   // ============================================================================
   // רינדור
   // ============================================================================
@@ -142,6 +168,11 @@ export default function SettingsScreen() {
           <Text className={`text-[#ededed] text-3xl font-bold ${tw.textStart}`}>
             הגדרות
           </Text>
+        </View>
+
+        <View className="mx-4 mb-4 p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+          <Text className="text-zinc-400 text-sm">משתמש נוכחי (דיבאג)</Text>
+          <Text className="text-white text-base">{user ? 'OK' : 'NULL'}</Text>
         </View>
 
         {/* סטטוס מנוי */}
@@ -157,7 +188,7 @@ export default function SettingsScreen() {
                   isPremium ? 'text-[#4fc3f7]' : 'text-zinc-400'
                 }`}
               >
-                {isPremium ? 'פרימיום' : 'חינמי'}
+                {SUBSCRIPTION_PLAN_LABELS[subscriptionPlan]}
               </Text>
             </View>
             <Text
@@ -166,7 +197,25 @@ export default function SettingsScreen() {
               סטטוס מנוי
             </Text>
           </View>
+          {!isPremium && (
+            <Text className="text-xs text-zinc-500 mt-3">
+              שדרגו ל-Pro או Unlimited כדי לגשת לכלים מתקדמים.
+            </Text>
+          )}
         </View>
+
+        {!isPremium && (
+          <View className="mx-4 mb-4">
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/paywall')}
+              className="rounded-xl border border-blue-500 bg-blue-500/10 px-4 py-3"
+            >
+              <Text className="text-blue-300 text-sm text-center font-semibold">
+                שדרג היום ותפתח פיצ'רים מתקדמים
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* כפתור התנתקות */}
         <View className="mx-4 mb-4">

@@ -14,11 +14,17 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { Alert } from 'react-native';
 import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
+import {
+  SubscriptionPlan,
+  planFromRevenueCatSubscriber,
+  getPrimaryProductIdFromSubscriber,
+} from '@/lib/domain/subscriptions';
 import {
   getCurrentPlatformRevenueCatApiKey,
   isRevenueCatConfigured,
@@ -46,6 +52,7 @@ type RevenueCatContextType = {
   isPremium: boolean;
   isConfigured: boolean;
   isExpoGo: boolean;
+  subscriptionPlan: SubscriptionPlan;
 
   // חבילות זמינות
   packages: PackageInfo[];
@@ -115,33 +122,50 @@ export function RevenueCatProvider({
   children: React.ReactNode;
 }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>('free');
   const [packages, setPackages] = useState<PackageInfo[]>(PREVIEW_PACKAGES);
   const [isInitialized, setIsInitialized] = useState(false);
+  const didInitializationRun = useRef(false);
 
   const isExpoGo = isRunningInExpoGo();
-  const isConfigured = isRevenueCatConfigured();
-  const updateUserType = useMutation(api.users.updateUserType);
+  const isConfigured = isRevenueCatConfigured();  const user = null as any;
+  const updateSubscriptionPlan = useMutation(api.users.updateSubscriptionPlan);
+  const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<string | null>(null);
 
-  // ============================================================================
-  // סנכרון userType עם מצב פרימיום
-  // ============================================================================
-
-  // פונקציה לסנכרון סוג המשתמש עם מצב הפרימיום
-  const syncUserType = useCallback(
-    async (premium: boolean) => {
-      // רק אם מערכת התשלומים פעילה - סנכרן את userType
-      if (!PAYMENT_SYSTEM_ENABLED) {
+  const syncSubscriptionPlan = useCallback(
+    async (plan: SubscriptionPlan, productId?: string) => {
+      if (!PAYMENT_SYSTEM_ENABLED || !user) {
         return;
       }
 
       try {
-        await updateUserType({ userType: premium ? 'paid' : 'free' });
+        await updateSubscriptionPlan({
+          plan,
+          productId,
+        });
       } catch (_error) {
-        // התעלמות משגיאות - לא קריטי אם הסנכרון נכשל
+        // ignore failures
       }
     },
-    [updateUserType]
+    [PAYMENT_SYSTEM_ENABLED, updateSubscriptionPlan, user]
+  );
+
+  const handleCustomerInfo = useCallback(
+    async (customerInfo: any): Promise<SubscriptionPlan> => {
+      if (!customerInfo) {
+        setSubscriptionPlan('free');
+        return 'free';
+      }
+
+      const plan = planFromRevenueCatSubscriber(customerInfo);
+      setSubscriptionPlan(plan);
+      await syncSubscriptionPlan(
+        plan,
+        getPrimaryProductIdFromSubscriber(customerInfo)
+      );
+      return plan;
+    },
+    [syncSubscriptionPlan]
   );
 
   // ============================================================================
@@ -149,17 +173,20 @@ export function RevenueCatProvider({
   // ============================================================================
 
   useEffect(() => {
+    if (didInitializationRun.current) {
+      return;
+    }
+
+    didInitializationRun.current = true;
+
     async function initialize() {
-      // אם מערכת התשלומים כבויה - המשתמש הוא פרימיום אוטומטית
       if (!PAYMENT_SYSTEM_ENABLED) {
-        setIsPremium(true);
-        // סנכרון userType - במצב זה המשתמש נשאר 'free' כי אין תשלומים
+        setSubscriptionPlan('pro');
         setIsLoading(false);
         setIsInitialized(true);
         return;
       }
 
-      // ב-Expo Go אין גישה למודולים מקוריים
       if (isExpoGo) {
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
@@ -167,7 +194,6 @@ export function RevenueCatProvider({
         return;
       }
 
-      // אם אין מפתחות מוגדרים - עובדים במצב תצוגה מקדימה
       if (!isConfigured) {
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
@@ -175,20 +201,17 @@ export function RevenueCatProvider({
         return;
       }
 
-      // ניסיון לאתחל את RevenueCat SDK
       try {
         const apiKey = getCurrentPlatformRevenueCatApiKey();
         if (!apiKey) {
           throw new Error('אין מפתח API לפלטפורמה הנוכחית');
         }
 
-        // ייבוא דינמי למניעת קריסות ב-Expo Go
         const Purchases = (await import('react-native-purchases')).default;
 
         Purchases.setLogLevel(Purchases.LOG_LEVEL.VERBOSE);
         await Purchases.configure({ apiKey });
 
-        // טעינת ההצעות
         const offerings = await Purchases.getOfferings();
         if (offerings.current?.availablePackages) {
           const loadedPackages: PackageInfo[] =
@@ -204,18 +227,10 @@ export function RevenueCatProvider({
           setPackages(loadedPackages);
         }
 
-        // בדיקת סטטוס פרימיום
         const customerInfo = await Purchases.getCustomerInfo();
-        const hasPremium =
-          customerInfo.entitlements.active.Pro !== undefined ||
-          customerInfo.entitlements.active.premium !== undefined;
-        setIsPremium(hasPremium);
-        // סנכרון userType עם מצב הפרימיום
-        await syncUserType(hasPremium);
-
+        await handleCustomerInfo(customerInfo);
         setIsInitialized(true);
       } catch (_error) {
-        // במקרה של שגיאה - עובדים במצב תצוגה מקדימה
         setPackages(PREVIEW_PACKAGES);
         setIsInitialized(true);
       } finally {
@@ -224,7 +239,49 @@ export function RevenueCatProvider({
     }
 
     initialize();
-  }, [isExpoGo, isConfigured, syncUserType]);
+  }, [handleCustomerInfo, isConfigured, isExpoGo]);
+
+  useEffect(() => {
+    if (!isInitialized || isExpoGo || !isConfigured) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function ensureIdentifier() {
+      try {
+        const targetId = user?.externalId ?? user?._id;
+        const Purchases = (await import('react-native-purchases')).default;
+
+        if (!targetId) {
+          if (lastIdentifiedUserId) {
+            await Purchases.logOut();
+            if (!cancelled) {
+              setLastIdentifiedUserId(null);
+            }
+          }
+          return;
+        }
+
+        if (lastIdentifiedUserId === targetId) {
+          return;
+        }
+
+        await Purchases.logIn(targetId);
+        if (!cancelled) {
+          setLastIdentifiedUserId(targetId);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    void ensureIdentifier();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConfigured, isExpoGo, isInitialized, lastIdentifiedUserId, user]);
 
   // ============================================================================
   // רכישת חבילה
@@ -235,9 +292,7 @@ export function RevenueCatProvider({
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        setIsPremium(true);
-        // סנכרון userType למצב בתשלום
-        await syncUserType(true);
+        setSubscriptionPlan('pro');
         Alert.alert('הצלחה', 'הרכישה הושלמה בהצלחה (מצב בדיקה)');
         return true;
       }
@@ -273,14 +328,8 @@ export function RevenueCatProvider({
 
         const { customerInfo } =
           await Purchases.purchasePackage(packageToPurchase);
-        const hasPremium =
-          customerInfo.entitlements.active.Pro !== undefined ||
-          customerInfo.entitlements.active.premium !== undefined;
-        setIsPremium(hasPremium);
-        // סנכרון userType עם מצב הפרימיום לאחר רכישה
-        await syncUserType(hasPremium);
-
-        return hasPremium;
+        const plan = await handleCustomerInfo(customerInfo);
+        return plan !== 'free';
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'שגיאה לא ידועה';
@@ -297,7 +346,7 @@ export function RevenueCatProvider({
         return false;
       }
     },
-    [isExpoGo, isConfigured, syncUserType]
+    [isExpoGo, isConfigured, handleCustomerInfo]
   );
 
   // ============================================================================
@@ -327,25 +376,21 @@ export function RevenueCatProvider({
     try {
       const Purchases = (await import('react-native-purchases')).default;
       const customerInfo = await Purchases.restorePurchases();
-      const hasPremium =
-        customerInfo.entitlements.active.Pro !== undefined ||
-        customerInfo.entitlements.active.premium !== undefined;
-      setIsPremium(hasPremium);
-      // סנכרון userType עם מצב הפרימיום לאחר שחזור
-      await syncUserType(hasPremium);
+      const plan = await handleCustomerInfo(customerInfo);
+      const isPaid = plan !== 'free';
 
-      if (hasPremium) {
+      if (isPaid) {
         Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
       } else {
         Alert.alert('שחזור', 'לא נמצאו רכישות קודמות.');
       }
 
-      return hasPremium;
+      return isPaid;
     } catch (_error) {
       Alert.alert('שגיאה', 'שחזור הרכישות נכשל. אנא נסה שוב.');
       return false;
     }
-  }, [isExpoGo, isConfigured, syncUserType]);
+  }, [isExpoGo, isConfigured, handleCustomerInfo]);
 
   // ============================================================================
   // רענון מידע רוכש
@@ -359,20 +404,17 @@ export function RevenueCatProvider({
     try {
       const Purchases = (await import('react-native-purchases')).default;
       const customerInfo = await Purchases.getCustomerInfo();
-      const hasPremium =
-        customerInfo.entitlements.active.Pro !== undefined ||
-        customerInfo.entitlements.active.premium !== undefined;
-      setIsPremium(hasPremium);
-      // סנכרון userType עם מצב הפרימיום לאחר רענון
-      await syncUserType(hasPremium);
+      await handleCustomerInfo(customerInfo);
     } catch (_error) {
       // שגיאה בשקט - לא צריך להציג למשתמש
     }
-  }, [isConfigured, isExpoGo, isInitialized, syncUserType]);
+  }, [isConfigured, isExpoGo, isInitialized, handleCustomerInfo]);
 
   // ============================================================================
   // רינדור
   // ============================================================================
+
+  const isPremium = subscriptionPlan !== 'free';
 
   return (
     <RevenueCatContext.Provider
@@ -382,6 +424,7 @@ export function RevenueCatProvider({
         isConfigured,
         isExpoGo,
         packages,
+        subscriptionPlan,
         purchasePackage,
         restorePurchases,
         refreshPurchaserInfo,

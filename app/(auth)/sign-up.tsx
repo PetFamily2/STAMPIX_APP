@@ -95,8 +95,8 @@ export default function SignUpScreen() {
         await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
 
-      // מעבר לאזור המאומת
-      router.replace('/(authenticated)');
+      // מעבר לתהליך אונבורדינג לעסקים
+      router.replace('/merchant/onboarding/create-business');
     } catch (err: unknown) {
       const error = err as { message?: string };
       const errorMessage = error.message || '';

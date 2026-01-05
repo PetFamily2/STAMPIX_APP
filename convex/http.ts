@@ -3,8 +3,7 @@ import { auth } from './auth';
 
 const http = httpRouter();
 
-// הגדרת נתיבי HTTP עבור אימות (Convex Auth)
-// זה מאפשר ביצוע פעולות אימות דרך HTTP Endpoints
+// Register Convex auth routes so the client-side auth hooks work.
 auth.addHttpRoutes(http);
 
 export default http;

@@ -11,10 +11,27 @@ export default defineSchema({
   users: defineTable({
     externalId: v.optional(v.string()),
     email: v.optional(v.string()),
+    emailVerified: v.optional(v.boolean()),
     phone: v.optional(v.string()),
     fullName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
+    subscriptionPlan: v.optional(
+      v.union(v.literal('free'), v.literal('pro'), v.literal('unlimited'))
+    ),
+    subscriptionStatus: v.optional(
+      v.union(v.literal('active'), v.literal('inactive'), v.literal('cancelled'))
+    ),
+    subscriptionProductId: v.optional(v.string()),
+    subscriptionUpdatedAt: v.optional(v.number()),
+    role: v.optional(
+      v.union(
+        v.literal('customer'),
+        v.literal('merchant'),
+        v.literal('staff'),
+        v.literal('admin')
+      )
+    ),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -91,6 +108,18 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_customerUserId', ['customerUserId'])
     .index('by_createdAt', ['createdAt']),
+
+  scanTokenEvents: defineTable({
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+    customerId: v.id('users'),
+    signature: v.string(),
+    tokenTimestamp: v.number(),
+    createdAt: v.number(),
+  })
+    .index('by_signature', ['signature'])
+    .index('by_businessProgram', ['businessId', 'programId'])
+    .index('by_customerId', ['customerId']),
 
   // -------------------------
   // Future scaffolds (no MVP UI)

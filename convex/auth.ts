@@ -9,23 +9,65 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     async createOrUpdateUser(ctx, args) {
       const now = Date.now();
+      const profile = (args as any)?.profile ?? {};
+      const rawExternalId =
+        (args as any)?.userId ??
+        profile.subject ??
+        profile.sub ??
+        profile.id ??
+        profile.userId ??
+        '';
 
-      const patch = {
-        email: args.profile.email ?? undefined,
-        emailVerified: args.profile.emailVerified ?? false,
-        fullName: args.profile.name || 'User',
+      if (!rawExternalId) {
+        throw new Error('Missing identity subject for externalId');
+      }
+
+      const externalId = String(rawExternalId);
+      const rawEmail = profile.email ?? null;
+      const email = rawEmail ? String(rawEmail).toLowerCase() : null;
+
+      const defaultRole = 'customer' as const;
+      const basePatch = {
+        externalId,
+        email: email ?? undefined,
+        emailVerified: profile.emailVerified ?? false,
+        fullName: profile.name || 'User',
         userType: 'free' as const,
+        subscriptionPlan: 'free' as const,
+        subscriptionStatus: 'inactive' as const,
+        subscriptionProductId: undefined,
+        subscriptionUpdatedAt: now,
+        role: defaultRole,
         isActive: true,
         updatedAt: now,
       };
 
-      if (args.existingUserId) {
-        await ctx.db.patch(args.existingUserId, patch);
-        return args.existingUserId;
+      const existingFromArgs = (args as any)?.existingUserId;
+
+      if (existingFromArgs) {
+        const existingUser = await ctx.db.get(existingFromArgs);
+        await ctx.db.patch(existingFromArgs, {
+          ...basePatch,
+          role: existingUser?.role ?? defaultRole,
+        });
+        return existingFromArgs;
+      }
+
+      const existing = await ctx.db
+        .query('users')
+        .filter((q) => q.eq(q.field('externalId'), externalId))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          ...basePatch,
+          role: existing.role ?? defaultRole,
+        });
+        return existing._id;
       }
 
       return await ctx.db.insert('users', {
-        ...patch,
+        ...basePatch,
         createdAt: now,
       });
     },

@@ -1,29 +1,35 @@
 import { useConvexAuth } from 'convex/react';
 import { Redirect, Tabs, useRootNavigationState } from 'expo-router';
-import { FileSpreadsheet, FileText, Home, Settings } from 'lucide-react-native';
-import { ActivityIndicator, I18nManager, View } from 'react-native';
+import {
+  BarChart,
+  Compass,
+  FileScan,
+  Home,
+  Settings,
+  Wallet,
+} from 'lucide-react-native';
+import { I18nManager } from 'react-native';
+import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { useUser } from '@/contexts/UserContext';
+import type { AppRole } from '@/lib/domain/roles';
+import { BUSINESS_ROLES, CUSTOMER_ROLE } from '@/lib/hooks/useRoleGuard';
+import { canAccessAdvancedFeatures } from '@/lib/domain/subscriptions';
 import { IS_RTL } from '@/lib/rtl';
 
 export default function AuthenticatedLayout() {
-  const { isAuthenticated, isLoading } = useConvexAuth(); // בדיקת סטטוס האימות
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth(); // בדיקת סטטוס האימות
   const navigationState = useRootNavigationState();
+  const { user, isLoading: isUserLoading } = useUser();
 
   // המתנה לטעינת הניווט (מונע שגיאות בטעינה ראשונית)
   if (!navigationState?.key) {
-    return (
-      <View className="flex-1 bg-black items-center justify-center">
-        <ActivityIndicator size="large" color="#4fc3f7" />
-      </View>
-    );
+    return <FullScreenLoading />;
   }
 
   // מסך טעינה בזמן בדיקת האימות
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-black items-center justify-center">
-        <ActivityIndicator size="large" color="#4fc3f7" />
-      </View>
-    );
+  if (isAuthLoading || isUserLoading) {
+    return <FullScreenLoading />;
   }
 
   // הפניה לדף התחברות אם המשתמש לא מחובר
@@ -31,22 +37,44 @@ export default function AuthenticatedLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  // הגדרת הטאבים בסדר לוגי (בית ראשון, ואז עמודים, ולבסוף הגדרות)
-  const tabs = [
+  if (!user) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  type TabConfig = {
+    name: string;
+    title: string;
+    icon: React.ComponentType<{ size: number; color: string }>;
+  };
+
+  const customerTabs: TabConfig[] = [
     {
-      name: 'index',
-      title: 'בית',
+      name: 'wallet',
+      title: 'ארנק',
+      icon: Wallet,
+    },
+    {
+      name: 'discovery',
+      title: 'Discovery',
+      icon: Compass,
+    },
+  ];
+
+  const businessTabs: TabConfig[] = [
+    {
+      name: 'business/dashboard',
+      title: 'לוח בקרה',
       icon: Home,
     },
     {
-      name: 'page1',
-      title: 'עמוד 1',
-      icon: FileText,
+      name: 'business/scanner',
+      title: 'סריקה',
+      icon: FileScan,
     },
     {
-      name: 'page2',
-      title: 'עמוד 2',
-      icon: FileSpreadsheet,
+      name: 'business/analytics',
+      title: 'Analytics',
+      icon: BarChart,
     },
     {
       name: 'settings',
@@ -54,6 +82,16 @@ export default function AuthenticatedLayout() {
       icon: Settings,
     },
   ];
+
+  const role = (user.role ?? CUSTOMER_ROLE) as AppRole;
+  const isBusinessUser = BUSINESS_ROLES.includes(role);
+  const { subscriptionPlan } = useRevenueCat();
+  const showAnalytics =
+    isBusinessUser && canAccessAdvancedFeatures(subscriptionPlan);
+  const baseTabs: TabConfig[] = isBusinessUser ? businessTabs : customerTabs;
+  const effectiveTabs = isBusinessUser && !showAnalytics
+    ? businessTabs.filter((tab) => tab.name !== 'business/analytics')
+    : baseTabs;
 
   // אסטרטגיית סידור טאבים היברידית ל-RTL (ראה docs/rtl-knowhow.md):
   //
@@ -70,10 +108,10 @@ export default function AuthenticatedLayout() {
 
   // קביעת סדר הטאבים בהתאם לסביבה
   const orderedTabs = isNativeRTLEnabled
-    ? tabs // Native RTL הופך אוטומטית - שומרים על סדר רגיל
+    ? effectiveTabs
     : IS_RTL
-      ? [...tabs].reverse() // הופכים ידנית עבור Expo Go
-      : tabs; // LTR - שומרים על סדר רגיל
+      ? [...effectiveTabs].reverse()
+      : effectiveTabs;
 
   return (
     <Tabs
@@ -87,7 +125,7 @@ export default function AuthenticatedLayout() {
         },
       }}
     >
-      {orderedTabs.map((tab) => (
+    {orderedTabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}
           name={tab.name}

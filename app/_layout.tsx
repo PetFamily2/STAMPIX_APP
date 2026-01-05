@@ -49,17 +49,13 @@ const secureStorage = {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      {/* StatusBar: translucent={false} מונע מהתוכן להיכנס מתחת לבר הסטטוס באנדרואיד */}
-      {/* זה עובד ב-Expo Go, בניגוד להגדרות ב-app.json */}
       <StatusBar style="light" translucent={false} backgroundColor="#0a0a0a" />
-
-      {/* ספק האימות של Convex עוטף את כל האפליקציה ומנהל את מצב ההתחברות */}
       <ConvexAuthProvider client={convex} storage={secureStorage}>
-        {/* ספק RevenueCat לניהול מנויים ורכישות */}
-        <RevenueCatProvider>
-          {/* Slot מעבד את הראוטים (Routes) הילדים - ה-Layouts הפנימיים מנהלים את הניווט שלהם */}
-          <Slot />
-        </RevenueCatProvider>
+        <UserProvider>
+          <RevenueCatProvider>
+            <Slot />
+          </RevenueCatProvider>
+        </UserProvider>
       </ConvexAuthProvider>
     </SafeAreaProvider>
   );

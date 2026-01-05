@@ -201,6 +201,8 @@ EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD=appl_...
 # RevenueCat - Android
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV=goog_...
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD=goog_...
+# RevenueCat Webhook
+REVENUECAT_WEBHOOK_SECRET=whsec_...
 ```
 
 **הערה:** ניתן להשתמש במפתח יחיד לכל סביבה (ללא `_DEV`/`_PROD`) אם אתם לא מפרידים בין סביבות.
@@ -219,6 +221,9 @@ eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PR
 # RevenueCat - Android Production
 eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD --value "goog_..."
 
+# RevenueCat Webhook Secret
+eas secret:create --scope project --name REVENUECAT_WEBHOOK_SECRET --value "whsec_..."
+
 # RevenueCat - iOS Development (אופציונלי)
 eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV --value "appl_..."
 
@@ -227,6 +232,12 @@ eas secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_D
 ```
 
 **אלטרנטיבה:** ניתן להגדיר דרך האתר של Expo תחת **Project Settings** → **Secrets**.
+
+### הגדרת Webhook
+
+1. בתוך Dashboard של RevenueCat, הוסיפו Webhook שמכוון ל-`https://your-convex-url.convex.cloud/api/revenuecat/webhook`.
+2. העתיקו את ה-**Webhook Secret** מה-Webhook ושמרו אותו כמשתנה סביבה `REVENUECAT_WEBHOOK_SECRET` (או secret ב-EAS).
+3. בצד הלקוח, וודאו שהעברת `app_user_id` תואמת ל־`externalId` של המשתמש ב־Convex (ה־`subject`), כך שניתן יהיה לעדכן את תוכנית המנוי של המשתמש הנכון.
 
 ---
 
