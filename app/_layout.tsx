@@ -1,13 +1,28 @@
+import React from 'react';
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { ConvexReactClient } from 'convex/react';
-import { Slot } from 'expo-router';
+import { Slot, usePathname } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text } from 'react-native';
 import '../global.css';
 
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import { getConvexUrl } from '@/utils/convexConfig';
+import * as UserCtx from '@/contexts/UserContext';
+
+console.log('UserContext exports:', Object.keys(UserCtx));
+console.log('typeof UserCtx.UserProvider:', typeof (UserCtx as any).UserProvider);
+
+function Boot() {
+  console.log('BOOT COMPONENT RENDER');
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'yellow' }}>
+      <Text style={{ fontSize: 40, color: 'black' }}>BOOT OK</Text>
+    </View>
+  );
+}
 
 // אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
 // 1. תוסף expo-localization (app.json) - מגדיר RTL ברמת ה-Native (עובד ב-Dev Builds ו-Production)
@@ -46,16 +61,53 @@ const secureStorage = {
   },
 };
 
+class RootErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: any) {
+    console.log('RootErrorBoundary caught', { error: error?.message, info });
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }}>
+          <Text style={{ color: 'red', fontSize: 16 }}>
+            {this.state.error?.message ?? 'Unknown error'}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function RootLayout() {
+  console.log('RootLayout render');
+  const pathname = usePathname();
+  console.log('[ROOT] pathname:', pathname);
   return (
     <SafeAreaProvider>
+      <Text style={{ color: 'white', fontSize: 16 }}>BEFORE PROVIDERS</Text>
       <StatusBar style="light" translucent={false} backgroundColor="#0a0a0a" />
       <ConvexAuthProvider client={convex} storage={secureStorage}>
-        <UserProvider>
+        <UserCtx.UserProvider>
           <RevenueCatProvider>
-            <Slot />
+            <RootErrorBoundary>
+              <Slot />
+            </RootErrorBoundary>
           </RevenueCatProvider>
-        </UserProvider>
+        </UserCtx.UserProvider>
       </ConvexAuthProvider>
     </SafeAreaProvider>
   );
