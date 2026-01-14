@@ -40,7 +40,7 @@ export default function DiscoveryScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050505]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-6 py-8 space-y-5">
           <Text className={`text-4xl font-bold text-white ${tw.textStart}`}>Discovery</Text>

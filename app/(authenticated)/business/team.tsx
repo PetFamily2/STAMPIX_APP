@@ -89,7 +89,7 @@ export default function BusinessTeamScreen() {
   const staffList = staffMembers ?? [];
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050505]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-6 pb-16 pt-6 space-y-6">
           <View className="flex-row items-center justify-between">

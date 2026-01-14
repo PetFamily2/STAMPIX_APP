@@ -67,7 +67,7 @@ export default function CardDetailsScreen() {
 
   if (!membershipId) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <View className="flex-1 items-center justify-center">
           <Text className="text-sm text-zinc-400">הכרטיס לא זמין</Text>
         </View>
@@ -77,7 +77,7 @@ export default function CardDetailsScreen() {
 
   if (!membership) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-lg font-semibold text-white mb-2">כרטיס אינו זמין</Text>
           <Text className="text-sm text-zinc-400 text-center">
@@ -110,7 +110,7 @@ export default function CardDetailsScreen() {
     : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-6 py-6 space-y-6">
           <TouchableOpacity

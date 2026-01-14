@@ -1,6 +1,6 @@
-import React from "react";
-import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
+import React from "react";
 
 export default function AuthenticatedLayout() {
   return (
@@ -8,6 +8,24 @@ export default function AuthenticatedLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
+        tabBarStyle: {
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: "#2F6BFF",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: "#2F6BFF",
+        tabBarInactiveTintColor: "#9AA4B8",
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
       }}
     >
       {/* Customer tabs */}
@@ -41,9 +59,9 @@ export default function AuthenticatedLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "הגדרות",
+          title: "פרופיל",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={size} color={color} />
           ),
         }}
       />

@@ -161,7 +161,7 @@ export default function SettingsScreen() {
   // ============================================================================
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         {/* כותרת */}
         <View className="px-6 pt-6 pb-4">

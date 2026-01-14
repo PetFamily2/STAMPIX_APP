@@ -5,7 +5,7 @@ import { tw } from '@/lib/rtl'; // כלי עזר ל-RTL
 // עמוד דוגמה 1
 export default function Page1() {
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-8 pb-12 pt-8">
           <Text

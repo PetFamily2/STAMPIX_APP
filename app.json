@@ -14,18 +14,27 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ExpoLocalization_supportsRTL": true,
+        "ExpoLocalization_forcesRTL": true
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": false
+      "edgeToEdgeEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.CAMERA"
+      ],
+      "package": "com.anonymous.mobiletemplate"
     },
     "androidStatusBar": {
       "translucent": false,
-      "backgroundColor": "#0a0a0a"
+      "backgroundColor": "#E9F0FF"
     },
     "web": {
       "bundler": "metro",

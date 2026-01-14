@@ -9,7 +9,7 @@ export default function ScannerScreen() {
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-6 pb-12 pt-6 space-y-6">
           <Text className={`text-[#ededed] text-3xl font-bold ${tw.textStart}`}>סריקה זמנית מושבתת</Text>

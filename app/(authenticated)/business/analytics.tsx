@@ -66,7 +66,7 @@ export default function BusinessAnalyticsScreen() {
 
   if (!showAnalytics) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-3xl font-bold text-white mb-3 text-center">
             Analytics requires Pro or Unlimited
@@ -110,7 +110,7 @@ export default function BusinessAnalyticsScreen() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-6 py-8 space-y-6">
           <Text className={`text-4xl font-bold text-white ${tw.textStart}`}>Analytics</Text>

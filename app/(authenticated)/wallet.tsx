@@ -1,223 +1,290 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput } from "react-native";
+import React from "react";
+import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 
-type DemoCard = {
-  id: string;
-  businessName: string;
-  subtitle: string;
-  stampsCurrent: number;
-  stampsGoal: number;
-};
-
-const demoCards: DemoCard[] = [
-  { id: "cafe", businessName: "Cafe ניקוד+", subtitle: "קבל מתנה לאחר 8 ניקובים", stampsCurrent: 3, stampsGoal: 8 },
-  { id: "bakery", businessName: "בייקרי לילה", subtitle: "חמישה קינוחים ב-40 ש״ח", stampsCurrent: 1, stampsGoal: 5 },
-  { id: "library", businessName: "ספרייה מקומית", subtitle: "ניקוד כפול באירועים", stampsCurrent: 6, stampsGoal: 10 },
+const walletCards = [
+  {
+    id: "louise",
+    name: "קפה לואיז",
+    benefit: "הטבה: קפה חינם",
+    progress: 6,
+    goal: 10,
+    accent: "#2F6BFF",
+    tint: "#E5EEFF",
+  },
+  {
+    id: "brgr",
+    name: "ברגריה",
+    benefit: "הטבה: תוספות 10 חינם",
+    progress: 2,
+    goal: 10,
+    accent: "#F47818",
+    tint: "#FFF1E4",
+  },
 ];
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n));
-}
-
 export default function WalletScreen() {
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = query.trim();
-    if (!q) return demoCards;
-    return demoCards.filter((c) => c.businessName.includes(q) || c.subtitle.includes(q));
-  }, [query]);
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F6F8FC" }} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 28,
-        }}
-        keyboardShouldPersistTaps="handled"
+        style={styles.scrollBackground}
+        contentContainerStyle={styles.scrollContainer}
+        alwaysBounceVertical={false}
       >
-        <View style={{ marginTop: 6 }}>
-          <Text style={{ fontSize: 26, fontWeight: "800", textAlign: "right", color: "#0B1220" }}>
-            כרטיסיות הנאמנות שלי
-          </Text>
-          <Text style={{ marginTop: 6, fontSize: 13, textAlign: "right", color: "#5B6475" }}>
-            כל הכרטיסיות שלך במקום אחד
-          </Text>
-        </View>
-
-        <View
-          style={{
-            marginTop: 14,
-            flexDirection: "row-reverse",
-            gap: 10,
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              backgroundColor: "#FFFFFF",
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: "#E6EBF5",
-              paddingHorizontal: 12,
-              height: 46,
-            }}
-          >
-            <Ionicons name="search" size={18} color="#7B879C" />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="חפש עסק או הטבה"
-              placeholderTextColor="#9AA4B2"
-              style={{
-                flex: 1,
-                textAlign: "right",
-                marginRight: 8,
-                color: "#0B1220",
-                fontSize: 14,
-              }}
+        {/* Header - ללא מסגרת, ישירות על הרקע */}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.walletBadge}>
+              <Ionicons name="qr-code-outline" size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.headerLabel}>DIGITAL WALLET</Text>
+              <Text style={styles.headerTitle}>ישראל ישראלי 👋</Text>
+            </View>
+            <Image
+              source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
+              style={styles.headerLogo}
+              resizeMode="contain"
             />
           </View>
-
-          <Pressable
-            onPress={() => {}}
-            style={({ pressed }) => ({
-              width: 46,
-              height: 46,
-              borderRadius: 14,
-              backgroundColor: "#FFFFFF",
-              borderWidth: 1,
-              borderColor: "#E6EBF5",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: pressed ? 0.85 : 1,
-            })}
-          >
-            <Ionicons name="options-outline" size={20} color="#2F6BFF" />
-          </Pressable>
+          <View style={styles.ticker}>
+            <Text style={styles.tickerText}>Reactive Live</Text>
+          </View>
         </View>
 
-        <View style={{ marginTop: 14, gap: 12 }}>
-          {filtered.map((c) => {
-            const pct = clamp((c.stampsCurrent / c.stampsGoal) * 100, 0, 100);
+        {/* כותרת כרטיסיות */}
+        <Text style={styles.cardsTitle}>הכרטיסיות שלי ({walletCards.length})</Text>
 
-            return (
-              <Pressable
-                key={c.id}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(authenticated)/card",
-                    params: {
-                      businessName: c.businessName,
-                      subtitle: c.subtitle,
-                      stampsCurrent: String(c.stampsCurrent),
-                      stampsGoal: String(c.stampsGoal),
-                    },
-                  })
-                }
-                style={({ pressed }) => ({
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: "#E6EBF5",
-                  padding: 14,
-                  opacity: pressed ? 0.92 : 1,
-                })}
-              >
-                <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", justifyContent: "space-between" }}>
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-                    <View
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 14,
-                        backgroundColor: "#F3F6FF",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderWidth: 1,
-                        borderColor: "#E3E9FF",
-                      }}
-                    >
-                      <Ionicons name="storefront-outline" size={20} color="#2F6BFF" />
-                    </View>
+        <View style={styles.cardList}>
+          {walletCards.map((card) => (
+            <View key={card.id} style={styles.cardContainer}>
+              <View style={styles.cardTopRow}>
+                <Text style={styles.progressLabel}>
+                  {card.progress}/{card.goal}
+                </Text>
+                <View style={styles.cardTextColumn}>
+                  <Text style={styles.cardTitle}>{card.name}</Text>
+                  <Text style={styles.cardSubtitle}>{card.benefit}</Text>
+                </View>
+                <View style={[styles.imagePlaceholder, { backgroundColor: card.tint }]}>
+                  <Image
+                    source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              </View>
 
-                    <View style={{ maxWidth: 220 }}>
-                      <Text style={{ fontSize: 16, fontWeight: "800", textAlign: "right", color: "#0B1220" }}>
-                        {c.businessName}
-                      </Text>
-                      <Text style={{ marginTop: 4, fontSize: 12, textAlign: "right", color: "#5B6475" }}>
-                        {c.subtitle}
-                      </Text>
-                    </View>
-                  </View>
-
+              <View style={styles.stampRow}>
+                {Array.from({ length: card.goal }).map((_, index) => (
                   <View
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      backgroundColor: "#F3F6FF",
-                      borderWidth: 1,
-                      borderColor: "#E3E9FF",
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: "800", color: "#2F6BFF" }}>
-                      {c.stampsCurrent}/{c.stampsGoal}
-                    </Text>
-                  </View>
-                </View>
+                    key={`${card.id}-${index}`}
+                    style={[
+                      styles.stampDot,
+                      index < card.progress
+                        ? { backgroundColor: card.accent, borderColor: card.accent }
+                        : styles.stampDotEmpty,
+                    ]}
+                  />
+                ))}
+              </View>
 
-                <View style={{ marginTop: 12, height: 8, backgroundColor: "#E9EEF9", borderRadius: 999, overflow: "hidden" }}>
-                  <View style={{ width: `${pct}%`, height: 8, backgroundColor: "#2F6BFF", borderRadius: 999 }} />
-                </View>
-
-                <View style={{ marginTop: 12, flexDirection: "row-reverse", justifyContent: "flex-start" }}>
-                  <View
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: "#2F6BFF",
-                    }}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 13 }}>הצג כרטיסיה</Text>
-                  </View>
-                </View>
+              <Pressable style={({ pressed }) => [styles.cardAction, pressed && styles.cardActionPressed]}>
+                <Text style={styles.cardActionText}>הצג כרטיסיה</Text>
               </Pressable>
-            );
-          })}
-
-          {filtered.length === 0 ? (
-            <View
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: "#E6EBF5",
-                padding: 16,
-                marginTop: 6,
-              }}
-            >
-              <Text style={{ textAlign: "right", fontWeight: "800", color: "#0B1220" }}>לא נמצאו תוצאות</Text>
-              <Text style={{ marginTop: 6, textAlign: "right", color: "#5B6475", fontSize: 12 }}>
-                נסה חיפוש אחר או נקה את החיפוש.
-              </Text>
             </View>
-          ) : null}
+          ))}
         </View>
 
-        <Text style={{ marginTop: 14, textAlign: "right", color: "#8A94A6", fontSize: 11 }}>
-          דמו זמני: בשלב הבא נחבר ל-Convex ונציג כרטיסיות אמיתיות.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#E9F0FF",
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 120,
+  },
+  scrollBackground: {
+    backgroundColor: "#E9F0FF",
+  },
+  header: {
+    // ללא מסגרת - ישירות על הרקע
+    paddingVertical: 8,
+    marginBottom: 20,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#E3E9FF",
+  },
+  walletBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: "#2F6BFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerText: {
+    flex: 1,
+    flexDirection: "column",
+    gap: 2,
+    alignItems: "flex-end",
+    marginRight: 12,
+  },
+  headerLabel: {
+    fontSize: 11,
+    textAlign: "right",
+    letterSpacing: 1.5,
+    color: "#2F6BFF",
+    fontWeight: "600",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1A2B4A",
+    textAlign: "right",
+  },
+  ticker: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#D4EDFF",
+  },
+  tickerText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#2F6BFF",
+  },
+  cardsTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1A2B4A",
+    textAlign: "right",
+    marginBottom: 16,
+  },
+  cardList: {
+    marginTop: 8,
+    gap: 12,
+  },
+  cardContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E3E9FF",
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTextColumn: {
+    flex: 1,
+    flexDirection: "column",
+    gap: 2,
+    marginHorizontal: 8,
+  },
+  progressLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2F6BFF",
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0B1220",
+    flex: 1,
+    textAlign: "right",
+  },
+  imagePlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E3E9FF",
+  },
+  cardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  cardSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#5B6475",
+    textAlign: "right",
+  },
+  stampRow: {
+    marginTop: 12,
+    flexDirection: "row-reverse",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  stampDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+  },
+  stampDotEmpty: {
+    borderColor: "#E5EAF5",
+    backgroundColor: "#E9EEF9",
+  },
+  cardAction: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "#2F6BFF",
+  },
+  cardActionPressed: {
+    opacity: 0.85,
+  },
+  cardActionText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  bottomNav: {
+    marginTop: 28,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E3E9FF",
+  },
+  navItem: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
