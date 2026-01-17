@@ -98,8 +98,7 @@ export default function RootLayout() {
   console.log('[ROOT] pathname:', pathname);
   return (
     <SafeAreaProvider>
-      <Text style={{ color: 'white', fontSize: 16 }}>BEFORE PROVIDERS</Text>
-      <StatusBar style="light" translucent={false} backgroundColor="#0a0a0a" />
+      <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />
       <ConvexAuthProvider client={convex} storage={secureStorage}>
         <UserCtx.UserProvider>
           <RevenueCatProvider>

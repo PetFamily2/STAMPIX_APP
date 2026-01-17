@@ -1,68 +1,165 @@
-import { Redirect } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useMemo, useState } from "react";
+import { View, Text, ScrollView, TextInput, Pressable } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
-import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { useRoleGuard, CUSTOMER_ROLE } from '@/lib/hooks/useRoleGuard';
-import { tw } from '@/lib/rtl';
+type Business = { id: string; name: string; subtitle: string; distanceKm: number };
 
-const DISCOVERY_TIPS = [
-  {
-    id: '1',
-    title: 'Cafe +ניקוד',
-    subtitle: 'קבל מתנה לאחר 8 ניקובים',
-  },
-  {
-    id: '2',
-    title: 'בייקרי לילה',
-    subtitle: 'חמישה קינוחים ב-40 ש"ח',
-  },
-  {
-    id: '3',
-    title: 'ספרייה מקומית',
-    subtitle: 'ניקוד כפול באירועים',
-  },
+const demoBusinesses: Business[] = [
+  { id: "l1", name: "קפה לואיז", subtitle: "הטבת הצטרפות: חותמת כפולה", distanceKm: 0.7 },
+  { id: "b1", name: "ברגריה", subtitle: "הטבת הצטרפות: תוספת חינם", distanceKm: 1.9 },
+  { id: "p1", name: "פיצה שכונתית", subtitle: "הטבת הצטרפות: שתייה חינם", distanceKm: 2.4 },
 ];
 
 export default function DiscoveryScreen() {
-  const { isLoading, user, isAuthorized } = useRoleGuard([CUSTOMER_ROLE]);
+  const insets = useSafeAreaInsets();
+  const [q, setQ] = useState("");
 
-  if (isLoading) {
-    return <FullScreenLoading />;
-  }
-
-  if (!user) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
-  if (!isAuthorized) {
-    return <Redirect href="/(authenticated)/business/dashboard" />;
-  }
+  const filtered = useMemo(() => {
+    const s = q.trim();
+    if (!s) return demoBusinesses;
+    return demoBusinesses.filter((b) => b.name.includes(s) || b.subtitle.includes(s));
+  }, [q]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-      <ScrollView className="flex-1">
-        <View className="max-w-3xl w-full mx-auto px-6 py-8 space-y-5">
-          <Text className={`text-4xl font-bold text-white ${tw.textStart}`}>Discovery</Text>
-          <Text className={`text-sm text-zinc-400 ${tw.textStart}`}>
-            המקום שבו תוכל לגלות עסקים חדשים ולהרוויח ניקודים
-          </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: (insets.top || 0) + 16,
+          paddingBottom: 120,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={{ fontSize: 24, fontWeight: "800", color: "#1A2B4A", textAlign: "right" }}>
+          גילוי עסקים
+        </Text>
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 13,
+            color: "#2F6BFF",
+            textAlign: "right",
+            fontWeight: "600",
+          }}
+        >
+          מצא מועדונים חדשים להצטרפות
+        </Text>
 
-          <View className="space-y-3">
-            {DISCOVERY_TIPS.map((tip) => (
-              <View
-                key={tip.id}
-                className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-4 space-y-2"
-              >
-                <Text className="text-xl font-bold text-white">{tip.title}</Text>
-                <Text className="text-sm text-zinc-400">{tip.subtitle}</Text>
-              </View>
-            ))}
+        <View style={{ marginTop: 14, flexDirection: "row-reverse", gap: 10, alignItems: "center" }}>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: "#E3E9FF",
+              paddingHorizontal: 12,
+              height: 46,
+            }}
+          >
+            <Ionicons name="search" size={18} color="#7B879C" />
+            <TextInput
+              value={q}
+              onChangeText={setQ}
+              placeholder="חפש עסק או קטגוריה"
+              placeholderTextColor="#9AA4B2"
+              style={{
+                flex: 1,
+                textAlign: "right",
+                marginRight: 8,
+                color: "#0B1220",
+                fontSize: 14,
+              }}
+            />
           </View>
+
+          <Pressable
+            onPress={() => router.push("/(authenticated)/join")}
+            style={({ pressed }) => ({
+              width: 46,
+              height: 46,
+              borderRadius: 14,
+              backgroundColor: "#FFFFFF",
+              borderWidth: 1,
+              borderColor: "#E3E9FF",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Ionicons name="options-outline" size={20} color="#2F6BFF" />
+          </Pressable>
+        </View>
+
+        <View style={{ marginTop: 14, gap: 12 }}>
+          {filtered.length === 0 ? (
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 24,
+                padding: 16,
+                borderWidth: 1,
+                borderColor: "#E3E9FF",
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+                לא נמצאו עסקים
+              </Text>
+              <Text style={{ marginTop: 6, fontSize: 13, color: "#5B6475", textAlign: "right" }}>
+                נסה חיפוש אחר, או נקה את השדה.
+              </Text>
+            </View>
+          ) : (
+            filtered.map((b) => (
+              <View
+                key={b.id}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 24,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: "#E3E9FF",
+                }}
+              >
+                <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+                      {b.name}
+                    </Text>
+                    <Text style={{ marginTop: 6, fontSize: 13, color: "#5B6475", textAlign: "right" }}>
+                      {b.subtitle}
+                    </Text>
+                  </View>
+                  <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "#D4EDFF" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: "#2F6BFF" }}>
+                      {b.distanceKm.toFixed(1)} ק״מ
+                    </Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  onPress={() => router.push("/(authenticated)/join")}
+                  style={({ pressed }) => ({
+                    marginTop: 12,
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 14,
+                    backgroundColor: "#2F6BFF",
+                    opacity: pressed ? 0.9 : 1,
+                  })}
+                >
+                  <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>הצטרף למועדון</Text>
+                </Pressable>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-

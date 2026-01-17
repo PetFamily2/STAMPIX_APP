@@ -1,38 +1,40 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-
-const walletCards = [
-  {
-    id: "louise",
-    name: "קפה לואיז",
-    benefit: "הטבה: קפה חינם",
-    progress: 6,
-    goal: 10,
-    accent: "#2F6BFF",
-    tint: "#E5EEFF",
-  },
-  {
-    id: "brgr",
-    name: "ברגריה",
-    benefit: "הטבה: תוספות 10 חינם",
-    progress: 2,
-    goal: 10,
-    accent: "#F47818",
-    tint: "#FFF1E4",
-  },
-];
+import { router } from "expo-router";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function WalletScreen() {
+  const insets = useSafeAreaInsets();
+
+  const memberships = useQuery(api.memberships.byCustomer);
+  const createDemoMembershipForMe = useMutation(api.debug.createDemoMembershipForMe);
+
+  const [creating, setCreating] = useState(false);
+  const isLoading = memberships === undefined;
+
+  async function handleCreateDemo() {
+    if (creating) return;
+    try {
+      setCreating(true);
+      await createDemoMembershipForMe({});
+      // query הוא ריאקטיבי, אמור להתעדכן לבד
+    } catch (e: any) {
+      console.log("[WALLET] create demo failed", e?.message ?? e);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         style={styles.scrollBackground}
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={[styles.scrollContainer, { paddingTop: (insets.top || 0) + 16 }]}
         alwaysBounceVertical={false}
       >
-        {/* Header - ללא מסגרת, ישירות על הרקע */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.walletBadge}>
@@ -40,7 +42,7 @@ export default function WalletScreen() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerLabel}>DIGITAL WALLET</Text>
-              <Text style={styles.headerTitle}>ישראל ישראלי 👋</Text>
+              <Text style={styles.headerTitle}>ישראל ישראלי ���</Text>
             </View>
             <Image
               source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
@@ -53,50 +55,96 @@ export default function WalletScreen() {
           </View>
         </View>
 
-        {/* כותרת כרטיסיות */}
-        <Text style={styles.cardsTitle}>הכרטיסיות שלי ({walletCards.length})</Text>
+        <Text style={styles.cardsTitle}>
+          הכרטיסיות שלי ({isLoading ? "..." : memberships.length})
+        </Text>
+
+        {isLoading ? (
+          <View style={styles.cardContainer}>
+            <Text style={{ textAlign: "right", color: "#5B6475", fontWeight: "700" }}>
+              טוען כרטיסיות...
+            </Text>
+          </View>
+        ) : null}
+
+        {!isLoading && memberships.length === 0 ? (
+          <View style={styles.cardContainer}>
+            <Text style={{ textAlign: "right", color: "#0B1220", fontWeight: "800", fontSize: 16 }}>
+              עדיין אין כרטיסיות
+            </Text>
+            <Text style={{ marginTop: 6, textAlign: "right", color: "#5B6475", fontWeight: "600", fontSize: 13 }}>
+              בשלב הבא תהיה הצטרפות דרך QR של עסק. כרגע אפשר ליצור כרטיסיית דמו בלחיצה אחת.
+            </Text>
+
+            <Pressable
+              onPress={handleCreateDemo}
+              style={({ pressed }) => ({
+                marginTop: 12,
+                alignSelf: "flex-start",
+                backgroundColor: "#2F6BFF",
+                borderRadius: 16,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                opacity: pressed ? 0.92 : 1,
+              })}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>
+                {creating ? "יוצר..." : "צור כרטיסיית דמו"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={styles.cardList}>
-          {walletCards.map((card) => (
-            <View key={card.id} style={styles.cardContainer}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.progressLabel}>
-                  {card.progress}/{card.goal}
-                </Text>
-                <View style={styles.cardTextColumn}>
-                  <Text style={styles.cardTitle}>{card.name}</Text>
-                  <Text style={styles.cardSubtitle}>{card.benefit}</Text>
-                </View>
-                <View style={[styles.imagePlaceholder, { backgroundColor: card.tint }]}>
-                  <Image
-                    source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                </View>
-              </View>
+          {!isLoading
+            ? memberships.map((m: any) => {
+                const current = Number(m.currentStamps ?? 0);
+                const goal = Number(m.maxStamps ?? 10);
+                const membershipId = String(m.membershipId);
 
-              <View style={styles.stampRow}>
-                {Array.from({ length: card.goal }).map((_, index) => (
-                  <View
-                    key={`${card.id}-${index}`}
-                    style={[
-                      styles.stampDot,
-                      index < card.progress
-                        ? { backgroundColor: card.accent, borderColor: card.accent }
-                        : styles.stampDotEmpty,
-                    ]}
-                  />
-                ))}
-              </View>
+                return (
+                  <Pressable
+                    key={membershipId}
+                    style={styles.cardContainer}
+                    onPress={() => router.push(`/(authenticated)/card/${membershipId}`)}
+                  >
+                    <View style={styles.cardTopRow}>
+                      <Text style={[styles.progressLabel, { color: "#2F6BFF" }]}>
+                        {current}/{goal}
+                      </Text>
 
-              <Pressable style={({ pressed }) => [styles.cardAction, pressed && styles.cardActionPressed]}>
-                <Text style={styles.cardActionText}>הצג כרטיסיה</Text>
-              </Pressable>
-            </View>
-          ))}
+                      <View style={styles.cardTextColumn}>
+                        <Text style={styles.cardTitle}>{m.businessName ?? "עסק"}</Text>
+                        <Text style={styles.cardSubtitle}>הטבה: {m.rewardName ?? "הטבה"}</Text>
+                      </View>
+
+                      <View style={[styles.imagePlaceholder, { backgroundColor: "#E5EEFF" }]}>
+                        <Image
+                          source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
+                          style={styles.cardImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.stampRow}>
+                      {Array.from({ length: goal }).map((_, index) => (
+                        <View
+                          key={`${membershipId}-${index}`}
+                          style={[
+                            styles.stampDot,
+                            index < current
+                              ? { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }
+                              : styles.stampDotEmpty,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </Pressable>
+                );
+              })
+            : null}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -109,14 +157,12 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
     paddingBottom: 120,
   },
   scrollBackground: {
     backgroundColor: "#E9F0FF",
   },
   header: {
-    // ללא מסגרת - ישירות על הרקע
     paddingVertical: 8,
     marginBottom: 20,
   },
@@ -210,7 +256,6 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#2F6BFF",
   },
   cardTitle: {
     fontSize: 18,
@@ -252,39 +297,5 @@ const styles = StyleSheet.create({
   stampDotEmpty: {
     borderColor: "#E5EAF5",
     backgroundColor: "#E9EEF9",
-  },
-  cardAction: {
-    marginTop: 14,
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: "#2F6BFF",
-  },
-  cardActionPressed: {
-    opacity: 0.85,
-  },
-  cardActionText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 14,
-  },
-  bottomNav: {
-    marginTop: 28,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#E3E9FF",
-  },
-  navItem: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

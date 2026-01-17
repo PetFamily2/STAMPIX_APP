@@ -92,6 +92,7 @@ export const seedMvp = mutation({
       }));
 
     return {
+      debugVersion: 'seedMvp-debug-v1',
       businessId,
       programId,
       demoCustomerExternalId: demoExternalId,
@@ -100,6 +101,8 @@ export const seedMvp = mutation({
         businessIdPaste: String(businessId),
         programIdPaste: String(programId),
         qrData: `externalId:${demoExternalId}`,
+        businessExternalId: `biz:${now}`,
+        businessQrData: `businessExternalId:biz:${now}`,
       },
     };
   },
