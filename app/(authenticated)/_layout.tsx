@@ -1,10 +1,10 @@
+import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Tabs } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 
 export default function AuthenticatedLayout() {
   const insets = useSafeAreaInsets();
@@ -155,6 +155,22 @@ export default function AuthenticatedLayout() {
       {/* Card routes (IMPORTANT: must reference exact file routes) */}
       <Tabs.Screen name="card/index" options={{ href: null }} />
       <Tabs.Screen name="card/[membershipId]" options={{ href: null }} />
+
+      {/* Full-screen scanner routes (hide tab bar) */}
+      <Tabs.Screen
+        name="join"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tabs.Screen
+        name="business/scanner"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
     </Tabs>
   );
 }

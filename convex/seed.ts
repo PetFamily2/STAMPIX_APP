@@ -43,7 +43,7 @@ export const seedMvp = mutation({
     const businessName = args.businessName ?? 'Demo Coffee';
     const { businessId } = await createBusinessForOwner(ctx, {
       ownerUserId,
-      externalId: `biz:${now}`,
+      externalId: "biz:demo-1",
       name: businessName,
       logoUrl: undefined,
       colors: undefined,
@@ -101,8 +101,8 @@ export const seedMvp = mutation({
         businessIdPaste: String(businessId),
         programIdPaste: String(programId),
         qrData: `externalId:${demoExternalId}`,
-        businessExternalId: `biz:${now}`,
-        businessQrData: `businessExternalId:biz:${now}`,
+        businessExternalId: "biz:demo-1",
+        businessQrData: "businessExternalId:biz:demo-1",
       },
     };
   },
