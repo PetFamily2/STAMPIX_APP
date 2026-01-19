@@ -1,21 +1,20 @@
 import { api } from "@/convex/_generated/api";
-import { Ionicons } from "@expo/vector-icons";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Tabs } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppMode } from "@/contexts/AppModeContext";
 
 export default function AuthenticatedLayout() {
-  const insets = useSafeAreaInsets();
-
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const user = useQuery(api.users.getCurrentUser);
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
+  const router = useRouter();
+  const segments = useSegments();
 
   const ran = useRef(false);
+  const lastRedirectRef = useRef<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [booting, setBooting] = useState(false);
 
@@ -23,10 +22,8 @@ export default function AuthenticatedLayout() {
     if (!isAuthenticated) return;
     if (isLoading) return;
 
-    // אם יש user, אין מה לעשות
     if (user && !bootError) return;
 
-    // אם אין user (null) נריץ bootstrap פעם אחת
     if (user === null && !ran.current) {
       ran.current = true;
       setBooting(true);
@@ -41,7 +38,7 @@ export default function AuthenticatedLayout() {
           setBootError(null);
         } catch (e: any) {
           setBootError(e?.message ?? String(e));
-          ran.current = false; // לאפשר Retry
+          ran.current = false;
         } finally {
           setBooting(false);
         }
@@ -51,10 +48,50 @@ export default function AuthenticatedLayout() {
     }
   }, [isAuthenticated, isLoading, user, bootError, createOrUpdateUser]);
 
+  useEffect(() => {
+    if (isAppModeLoading || isLoading || booting || bootError) return;
+
+    const currentSegments = (Array.isArray(segments) ? segments.filter(Boolean) : []) as string[];
+    if (currentSegments.includes("join") || currentSegments.includes("card")) return;
+
+    const currentPath = `/${currentSegments.join("/")}`;
+    const target =
+      appMode === "customer"
+        ? "/(authenticated)/(customer)/wallet"
+        : "/(authenticated)/(business)/business/dashboard";
+
+    if (currentPath === target) return;
+    if (lastRedirectRef.current === target) return;
+
+    const inCustomerGroup = currentSegments.includes("(customer)");
+    const inBusinessGroup = currentSegments.includes("(business)");
+
+    if (!inCustomerGroup && !inBusinessGroup) {
+      lastRedirectRef.current = target;
+      router.replace(target);
+      return;
+    }
+
+    if (appMode === "customer" && inBusinessGroup) {
+      const customerTarget = "/(authenticated)/(customer)/wallet";
+      if (lastRedirectRef.current === customerTarget) return;
+      lastRedirectRef.current = customerTarget;
+      router.replace(customerTarget);
+      return;
+    }
+
+    if (appMode === "business" && inCustomerGroup) {
+      const businessTarget = "/(authenticated)/(business)/business/dashboard";
+      if (lastRedirectRef.current === businessTarget) return;
+      lastRedirectRef.current = businessTarget;
+      router.replace(businessTarget);
+    }
+  }, [appMode, bootError, booting, isAppModeLoading, isLoading, router, segments]);
+
   if (isLoading || booting || isAppModeLoading || (isAuthenticated && user === undefined)) {
     return (
       <View style={{ flex: 1, backgroundColor: "#E9F0FF", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>טוען...</Text>
+        <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>????...</Text>
       </View>
     );
   }
@@ -62,7 +99,7 @@ export default function AuthenticatedLayout() {
   if (bootError) {
     return (
       <View style={{ flex: 1, backgroundColor: "#E9F0FF", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <Text style={{ fontWeight: "900", color: "#D92D20", textAlign: "center" }}>שגיאת טעינת משתמש</Text>
+        <Text style={{ fontWeight: "900", color: "#D92D20", textAlign: "center" }}>????? ?????? ?????</Text>
         <Text style={{ marginTop: 8, color: "#5B6475", textAlign: "center" }}>{bootError}</Text>
         <Pressable
           onPress={() => {
@@ -84,121 +121,13 @@ export default function AuthenticatedLayout() {
     );
   }
 
-  const isCustomerMode = appMode === "customer";
-
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
-        tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopWidth: 0,
-          elevation: 8,
-          shadowColor: "#2F6BFF",
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          height: 60 + (insets.bottom || 0),
-          paddingBottom: 8 + (insets.bottom || 0),
-          paddingTop: 8,
-        },
-        tabBarActiveTintColor: "#2F6BFF",
-        tabBarInactiveTintColor: "#9AA4B8",
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
-      }}
-    >
-      {/* Customer tabs */}
-      <Tabs.Screen
-        name="wallet"
-        options={{
-          title: "ארנק",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
-          ),
-          ...(isCustomerMode ? {} : { href: null }),
-        }}
-      />
-      <Tabs.Screen
-        name="rewards"
-        options={{
-          title: "הטבות",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="gift-outline" size={size} color={color} />
-          ),
-          ...(isCustomerMode ? {} : { href: null }),
-        }}
-      />
-      <Tabs.Screen
-        name="discovery"
-        options={{
-          title: "גילוי",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
-          ),
-          ...(isCustomerMode ? {} : { href: null }),
-        }}
-      />
-      {/* Merchant tabs */}
-      <Tabs.Screen
-        name="business/dashboard"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
-          ),
-          ...(isCustomerMode ? { href: null } : {}),
-        }}
-      />
-      <Tabs.Screen
-        name="business/team"
-        options={{
-          title: "Team",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-          ...(isCustomerMode ? { href: null } : {}),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "פרופיל",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
-        }}
-      />
-
-      {/* Hide non-tab routes */}
-      <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="page1" options={{ href: null }} />
-      <Tabs.Screen name="page2" options={{ href: null }} />
-      <Tabs.Screen name="merchant" options={{ href: null }} />
-      <Tabs.Screen name="business" options={{ href: null }} />
-
-      {/* Card routes (IMPORTANT: must reference exact file routes) */}
-      <Tabs.Screen name="card/index" options={{ href: null }} />
-      <Tabs.Screen name="card/[membershipId]" options={{ href: null }} />
-
-      {/* Full-screen scanner routes (hide tab bar) */}
-      <Tabs.Screen
-        name="join"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
-      <Tabs.Screen
-        name="business/scanner"
-        options={{
-          href: null,
-          tabBarStyle: { display: "none" },
-        }}
-      />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(customer)" />
+      <Stack.Screen name="(business)" />
+      <Stack.Screen name="join" />
+      <Stack.Screen name="card/index" />
+      <Stack.Screen name="card/[membershipId]" />
+    </Stack>
   );
 }

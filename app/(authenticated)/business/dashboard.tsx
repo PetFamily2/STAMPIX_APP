@@ -11,6 +11,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { SUBSCRIPTION_PLAN_LABELS, canAccessAdvancedFeatures } from '@/lib/domain/subscriptions';
 import { tw } from '@/lib/rtl';
+import { useAppMode } from '@/contexts/AppModeContext';
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
@@ -45,6 +46,7 @@ const ACTIVITY_FEED: Activity[] = [
 
 export default function MerchantDashboardScreen() {
   const router = useRouter();
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const { user } = useUser();
   const hasAccess = canAccessAdvancedFeatures(subscriptionPlan);
@@ -67,6 +69,13 @@ export default function MerchantDashboardScreen() {
       return list[0].businessId;
     });
   }, [businesses]);
+
+  useEffect(() => {
+    if (isAppModeLoading) return;
+    if (appMode !== 'business') {
+      router.replace('/(authenticated)/(customer)/wallet');
+    }
+  }, [appMode, isAppModeLoading, router]);
 
   const analyticsArgs =
     selectedBusinessId ? { businessId: selectedBusinessId } : 'skip';
@@ -126,6 +135,12 @@ export default function MerchantDashboardScreen() {
             </Card>
           ) : (
             <Card className="rounded-2xl border border-gray-200 bg-white/5 p-4">
+              <TouchableOpacity
+                onPress={() => router.push('/merchant/onboarding')}
+                className="mt-3 rounded-xl border border-blue-500 px-4 py-2 bg-blue-50 self-start"
+              >
+                <Text className="text-sm font-semibold text-blue-600">???? ???</Text>
+              </TouchableOpacity>
               <Text className="text-xs text-zinc-500">אין עסקים פעילים כרגע.</Text>
             </Card>
           )}
@@ -148,6 +163,40 @@ export default function MerchantDashboardScreen() {
 
         <View className="px-5 py-6">
           <PrimaryButton title="סריקת לקוח" onPress={() => {}} />
+        </View>
+
+        <View className="px-5">
+          <Card className="rounded-2xl border border-gray-200 bg-white/5 p-4 space-y-3">
+            <Text className={`text-[10px] uppercase tracking-[0.4em] text-zinc-500 ${tw.textStart}`}>
+              ?????? ???
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <TouchableOpacity
+                onPress={() => router.push('/merchant/store-settings')}
+                className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
+              >
+                <Text className="text-sm font-semibold text-gray-800">?????? ????</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/merchant/profile-settings')}
+                className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
+              >
+                <Text className="text-sm font-semibold text-gray-800">???? ??? ???</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/merchant/qr')}
+                className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
+              >
+                <Text className="text-sm font-semibold text-gray-800">QR ????</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/(authenticated)/(business)/business/qr')}
+                className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
+              >
+                <Text className="text-sm font-semibold text-gray-800">QR ???????? ??????</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
         </View>
 
         <View className="px-5">
@@ -179,7 +228,7 @@ export default function MerchantDashboardScreen() {
               key={action.id}
               onPress={() => {
                 if (action.id === 'team') {
-                  router.push('/(authenticated)/business/team');
+                  router.push('/(authenticated)/(business)/business/team');
                 }
               }}
               className="bg-white rounded-[26px] border border-gray-100 px-5 py-5 flex-row items-center justify-between shadow-sm active:scale-[0.98]"

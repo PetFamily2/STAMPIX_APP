@@ -81,13 +81,12 @@ export default function SettingsScreen() {
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
   const [appModeBusy, setAppModeBusy] = useState(false);
 
-  const handleAppModeChange = async (nextMode: "customer" | "merchant") => {
+  const handleAppModeChange = async (nextMode: "customer" | "business") => {
     if (isAppModeLoading || appModeBusy) return;
     if (nextMode === appMode) return;
     try {
       setAppModeBusy(true);
       await setAppMode(nextMode);
-      router.replace(nextMode === "customer" ? "/wallet" : "/business/scanner");
     } finally {
       setAppModeBusy(false);
     }
@@ -98,7 +97,7 @@ export default function SettingsScreen() {
     try {
       setRoleBusy(true);
       await setMyRole({ role: "merchant" });
-      router.push("/business/scanner");
+      router.push("/(authenticated)/(business)/business/dashboard");
     } finally {
       setRoleBusy(false);
     }
@@ -127,54 +126,63 @@ export default function SettingsScreen() {
         <View
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: 18,
+            borderRadius: 20,
             borderWidth: 1,
             borderColor: "#E3E9FF",
-            padding: 6,
-            flexDirection: "row-reverse",
-            gap: 6,
+            padding: 12,
           }}
         >
-          <Pressable
-            onPress={() => handleAppModeChange("customer")}
-            style={({ pressed }) => ({
-              flex: 1,
-              borderRadius: 14,
-              paddingVertical: 10,
-              backgroundColor: appMode === "customer" ? "#2F6BFF" : "transparent",
-              opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-              alignItems: "center",
-            })}
-          >
-            <Text
-              style={{
-                color: appMode === "customer" ? "#FFFFFF" : "#1A2B4A",
-                fontWeight: "900",
-              }}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+            <Pressable
+              onPress={() => handleAppModeChange("business")}
+              style={({ pressed }) => ({
+                paddingHorizontal: 8,
+                opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+              })}
             >
-              לקוח
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleAppModeChange("merchant")}
-            style={({ pressed }) => ({
-              flex: 1,
-              borderRadius: 14,
-              paddingVertical: 10,
-              backgroundColor: appMode === "merchant" ? "#2F6BFF" : "transparent",
-              opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-              alignItems: "center",
-            })}
-          >
-            <Text
-              style={{
-                color: appMode === "merchant" ? "#FFFFFF" : "#1A2B4A",
-                fontWeight: "900",
-              }}
+              <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>בעל עסק</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleAppModeChange(appMode === "customer" ? "business" : "customer")}
+              style={({ pressed }) => ({
+                width: 56,
+                height: 30,
+                borderRadius: 999,
+                backgroundColor: "#D9DEE7",
+                padding: 3,
+                justifyContent: "center",
+                opacity: pressed || isAppModeLoading || appModeBusy ? 0.8 : 1,
+              })}
             >
-              בעל עסק
-            </Text>
-          </Pressable>
+              <View
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  alignSelf: appMode === "customer" ? "flex-end" : "flex-start",
+                  shadowColor: "#000",
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleAppModeChange("customer")}
+              style={({ pressed }) => ({
+                paddingHorizontal: 8,
+                opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+              })}
+            >
+              <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>לקוח</Text>
+            </Pressable>
+          </View>
+          <Text style={{ marginTop: 8, fontSize: 11, color: "#5B6475", textAlign: "right" }}>
+            מצב זה משנה את תפריט הטאבים
+          </Text>
         </View>
 
         <View>

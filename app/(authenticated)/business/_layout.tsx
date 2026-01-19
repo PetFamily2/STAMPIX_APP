@@ -17,9 +17,8 @@ export default function BusinessAreaLayout() {
 
   const role = (user.role ?? CUSTOMER_ROLE) as AppRole;
   if (!BUSINESS_ROLES.includes(role)) {
-    return <Redirect href="/(authenticated)/wallet" />;
+    return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 
   return <Slot />;
 }
-

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 
-export type AppMode = "customer" | "merchant";
+export type AppMode = "customer" | "business";
 
 type AppModeContextValue = {
   appMode: AppMode;
@@ -21,10 +21,16 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const stored = await SecureStore.getItemAsync(STORAGE_KEY);
-        if (stored === "customer" || stored === "merchant") {
+        if (stored === "customer" || stored === "business") {
           if (isMounted) {
             setAppModeState(stored);
           }
+        }
+        if (stored === "merchant") {
+          if (isMounted) {
+            setAppModeState("business");
+          }
+          await SecureStore.setItemAsync(STORAGE_KEY, "business");
         }
       } finally {
         if (isMounted) {

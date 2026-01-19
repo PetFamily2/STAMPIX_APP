@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "expo-router";
 
 import { api } from "@/convex/_generated/api";
 import QrScanner from "@/components/QrScanner";
+import { useAppMode } from "@/contexts/AppModeContext";
+import type { Id } from "@/convex/_generated/dataModel";
 
 type ResolvedScan = {
   customerUserId: string;
@@ -37,6 +40,8 @@ const mapScanError = (error: unknown) => {
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [businessIndex, setBusinessIndex] = useState(0);
   const selectedBusiness = businesses[businessIndex] ?? businesses[0];
@@ -50,6 +55,13 @@ export default function ScannerScreen() {
       setBusinessIndex(0);
     }
   }, [businesses.length, businessIndex]);
+
+  useEffect(() => {
+    if (isAppModeLoading) return;
+    if (appMode !== "business") {
+      router.replace("/(authenticated)/(customer)/wallet");
+    }
+  }, [appMode, isAppModeLoading, router]);
 
   const programs = useQuery(api.loyaltyPrograms.listByBusiness, {
     businessId: selectedBusiness?.businessId,
@@ -145,7 +157,7 @@ export default function ScannerScreen() {
       await addStamp({
         businessId: selectedBusiness.businessId,
         programId: selectedProgram.loyaltyProgramId,
-        customerUserId: resolved.customerUserId,
+        customerUserId: resolved.customerUserId as Id<"users">,
       });
       setStatusMessage("ניקוב נוסף");
       if (scanToken) {

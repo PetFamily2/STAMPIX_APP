@@ -78,7 +78,7 @@ export default function DiscoveryScreen() {
           </View>
 
           <Pressable
-            onPress={() => router.push("/(authenticated)/join")}
+            onPress={() => router.push("/join")}
             style={({ pressed }) => ({
               width: 46,
               height: 46,
@@ -142,7 +142,7 @@ export default function DiscoveryScreen() {
                 </View>
 
                 <Pressable
-                  onPress={() => router.push("/(authenticated)/join")}
+                  onPress={() => router.push("/join")}
                   style={({ pressed }) => ({
                     marginTop: 12,
                     alignSelf: "flex-start",

@@ -51,7 +51,7 @@ export default function JoinScreen() {
         await joinByBusinessQr({ qrData: data });
         setManual("");
         setScannerResetKey((prev) => prev + 1);
-        router.replace("/wallet");
+        router.replace("/(authenticated)/(customer)/wallet");
       } catch (error) {
         console.log("[JOIN] failed", error);
         setFeedback({ type: "error", message: getFriendlyError(error) });

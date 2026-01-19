@@ -2,8 +2,9 @@ import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import QRCode from 'react-native-qrcode-svg';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
@@ -63,7 +64,7 @@ export default function CardDetailsScreen() {
   }
 
   if (!isAuthorized) {
-    return <Redirect href="/(authenticated)/business/dashboard" />;
+    return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 
   if (!membershipId) {
@@ -93,12 +94,6 @@ export default function CardDetailsScreen() {
   const goal = Math.max(1, Number(membership.maxStamps ?? 0) || 0);
   const dots = Math.min(goal, 20);
   const overflow = Math.max(0, goal - dots);
-
-  const qrUri = scanTokenPayload
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
-        scanTokenPayload
-      )}`
-    : null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -146,18 +141,20 @@ export default function CardDetailsScreen() {
           <Text style={styles.cardTitle}>QR אישי</Text>
           <Text style={styles.cardSubtitle}>הראה לצוות כדי לקבל ניקוב</Text>
           <View style={styles.qrFrame}>
-            {qrUri ? (
-              <Image source={{ uri: qrUri }} style={styles.qrImage} resizeMode="contain" />
+            {scanTokenPayload ? (
+              <QRCode value={scanTokenPayload} size={200} color="#1A2B4A" backgroundColor="#FFFFFF" />
             ) : (
               <View style={styles.qrPlaceholder}>
                 {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
                 <Text style={styles.qrPlaceholderText}>
-                  {tokenError ? 'לא הצלחנו ליצור QR' : 'טוען QR...'}
+                  {tokenError ? '?? ?????? ????? QR' : '???? QR...'}
                 </Text>
               </View>
             )}
           </View>
-
+          {scanTokenPayload ? (
+            <Text style={styles.qrPayloadText}>{scanTokenPayload}</Text>
+          ) : null}
           {tokenError ? (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>משהו השתבש. נסה שוב.</Text>
@@ -316,10 +313,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
-  qrImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FFFFFF',
+  qrPayloadText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#5B6475',
+    textAlign: 'center',
   },
   qrPlaceholder: {
     flex: 1,

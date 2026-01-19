@@ -1,16 +1,36 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
 
   const memberships = useQuery(api.memberships.byCustomer);
+  const seedMvp = useMutation(api.seed.seedMvp);
   const isLoading = memberships === undefined;
+  const [seedStatus, setSeedStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [seedBusy, setSeedBusy] = useState(false);
+
+  const handleCreateDemo = async () => {
+    if (seedBusy) return;
+    try {
+      setSeedBusy(true);
+      setSeedStatus(null);
+      await seedMvp({});
+      setSeedStatus({ type: "success", message: "כרטיסיית דמו נוצרה בהצלחה." });
+    } catch (error: any) {
+      setSeedStatus({
+        type: "error",
+        message: error?.message ?? "לא הצלחנו ליצור כרטיסיית דמו.",
+      });
+    } finally {
+      setSeedBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -29,7 +49,7 @@ export default function WalletScreen() {
               <Text style={styles.headerTitle}>ישראל ישראלי ���</Text>
             </View>
             <Image
-              source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
+              source={require("../../../assets/images/STAMPIX_LOGO.jpeg")}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -74,6 +94,37 @@ export default function WalletScreen() {
             >
               <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>סרוק QR להצטרפות</Text>
             </Pressable>
+            <Pressable
+              onPress={handleCreateDemo}
+              style={({ pressed }) => ({
+                marginTop: 10,
+                alignSelf: "flex-start",
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderWidth: 1,
+                borderColor: "#E3E9FF",
+                opacity: pressed || seedBusy ? 0.85 : 1,
+              })}
+            >
+              <Text style={{ color: "#1A2B4A", fontWeight: "900" }}>
+                {seedBusy ? "????..." : "??? ???????? ???"}
+              </Text>
+            </Pressable>
+            {seedStatus ? (
+              <Text
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  fontWeight: "700",
+                  textAlign: "right",
+                  color: seedStatus.type === "error" ? "#D92D20" : "#0B922A",
+                }}
+              >
+                {seedStatus.message}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -103,7 +154,7 @@ export default function WalletScreen() {
 
                       <View style={[styles.imagePlaceholder, { backgroundColor: "#E5EEFF" }]}>
                         <Image
-                          source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
+                          source={require("../../../assets/images/STAMPIX_LOGO.jpeg")}
                           style={styles.cardImage}
                           resizeMode="cover"
                         />

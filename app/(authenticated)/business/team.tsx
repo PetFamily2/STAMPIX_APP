@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/contexts/UserContext';
+import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { tw } from '@/lib/rtl';
@@ -25,6 +26,7 @@ const formatDate = (timestamp: number) =>
 
 export default function BusinessTeamScreen() {
   const router = useRouter();
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
   const isOwner = user?.role === 'merchant';
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
@@ -44,6 +46,13 @@ export default function BusinessTeamScreen() {
       return list[0].businessId;
     });
   }, [businesses]);
+
+  useEffect(() => {
+    if (isAppModeLoading) return;
+    if (appMode !== 'business') {
+      router.replace('/(authenticated)/(customer)/wallet');
+    }
+  }, [appMode, isAppModeLoading, router]);
 
   const staffListArgs =
     selectedBusinessId ? { businessId: selectedBusinessId } : 'skip';
@@ -236,4 +245,3 @@ export default function BusinessTeamScreen() {
     </SafeAreaView>
   );
 }
-

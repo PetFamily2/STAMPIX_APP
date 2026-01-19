@@ -14,7 +14,7 @@ export default function AuthRoutesLayout() {
   const router = useRouter();
   const redirectTriggeredRef = useRef(false);
 
-  const AUTH_REDIRECT_TARGET = '/wallet';
+  const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
   const segmentsKey = segmentStrings.join('/');
   const isPreviewMode = IS_DEV_MODE && preview === 'true';

@@ -9,6 +9,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { canAccessAdvancedFeatures, SUBSCRIPTION_PLAN_LABELS } from '@/lib/domain/subscriptions';
 import { tw } from '@/lib/rtl';
+import { useAppMode } from '@/contexts/AppModeContext';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -28,6 +29,7 @@ const formatWeekLabel = (timestamp: number) => {
 
 export default function BusinessAnalyticsScreen() {
   const router = useRouter();
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const showAnalytics = canAccessAdvancedFeatures(subscriptionPlan);
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
@@ -45,6 +47,13 @@ export default function BusinessAnalyticsScreen() {
       return list[0].businessId;
     });
   }, [businesses]);
+
+  useEffect(() => {
+    if (isAppModeLoading) return;
+    if (appMode !== 'business') {
+      router.replace('/(authenticated)/(customer)/wallet');
+    }
+  }, [appMode, isAppModeLoading, router]);
 
   const analyticsArgs =
     selectedBusinessId ? { businessId: selectedBusinessId } : 'skip';

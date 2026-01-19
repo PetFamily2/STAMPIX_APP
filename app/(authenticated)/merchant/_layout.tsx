@@ -10,7 +10,7 @@ export default function MerchantLayout() {
   }
 
   if (!user || !isAuthorized) {
-    return <Redirect href="/(authenticated)/wallet" />;
+    return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 
   return <Slot />;
