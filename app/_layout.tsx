@@ -9,6 +9,7 @@ import { View, Text } from 'react-native';
 import '../global.css';
 
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
+import { AppModeProvider } from '@/contexts/AppModeContext';
 import { getConvexUrl } from '@/utils/convexConfig';
 import * as UserCtx from '@/contexts/UserContext';
 
@@ -101,11 +102,13 @@ export default function RootLayout() {
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />
       <ConvexAuthProvider client={convex} storage={secureStorage}>
         <UserCtx.UserProvider>
-          <RevenueCatProvider>
-            <RootErrorBoundary>
-              <Slot />
-            </RootErrorBoundary>
-          </RevenueCatProvider>
+          <AppModeProvider>
+            <RevenueCatProvider>
+              <RootErrorBoundary>
+                <Slot />
+              </RootErrorBoundary>
+            </RevenueCatProvider>
+          </AppModeProvider>
         </UserCtx.UserProvider>
       </ConvexAuthProvider>
     </SafeAreaProvider>

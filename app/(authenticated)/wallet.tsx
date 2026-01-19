@@ -1,32 +1,16 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
 
   const memberships = useQuery(api.memberships.byCustomer);
-  const createDemoMembershipForMe = useMutation(api.debug.createDemoMembershipForMe);
-
-  const [creating, setCreating] = useState(false);
   const isLoading = memberships === undefined;
-
-  async function handleCreateDemo() {
-    if (creating) return;
-    try {
-      setCreating(true);
-      await createDemoMembershipForMe({});
-      // query הוא ריאקטיבי, אמור להתעדכן לבד
-    } catch (e: any) {
-      console.log("[WALLET] create demo failed", e?.message ?? e);
-    } finally {
-      setCreating(false);
-    }
-  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -42,7 +26,7 @@ export default function WalletScreen() {
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerLabel}>DIGITAL WALLET</Text>
-              <Text style={styles.headerTitle}>ישראל ישראלי ���</Text>
+              <Text style={styles.headerTitle}>ישראל ישראלי ���</Text>
             </View>
             <Image
               source={require("../../assets/images/STAMPIX_LOGO.jpeg")}
@@ -77,7 +61,7 @@ export default function WalletScreen() {
             </Text>
 
             <Pressable
-              onPress={handleCreateDemo}
+              onPress={() => router.push("/join")}
               style={({ pressed }) => ({
                 marginTop: 12,
                 alignSelf: "flex-start",
@@ -88,9 +72,7 @@ export default function WalletScreen() {
                 opacity: pressed ? 0.92 : 1,
               })}
             >
-              <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>
-                {creating ? "יוצר..." : "צור כרטיסיית דמו"}
-              </Text>
+              <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>סרוק QR להצטרפות</Text>
             </Pressable>
           </View>
         ) : null}
@@ -99,14 +81,15 @@ export default function WalletScreen() {
           {!isLoading
             ? memberships.map((m: any) => {
                 const current = Number(m.currentStamps ?? 0);
-                const goal = Number(m.maxStamps ?? 10);
+                const goal = Math.max(1, Number(m.maxStamps ?? 0) || 0);
+                const dots = Math.min(goal, 20);
                 const membershipId = String(m.membershipId);
 
                 return (
                   <Pressable
                     key={membershipId}
                     style={styles.cardContainer}
-                    onPress={() => router.push(`/(authenticated)/card/${membershipId}`)}
+                    onPress={() => router.push(`/card/${membershipId}`)}
                   >
                     <View style={styles.cardTopRow}>
                       <Text style={[styles.progressLabel, { color: "#2F6BFF" }]}>
@@ -128,7 +111,7 @@ export default function WalletScreen() {
                     </View>
 
                     <View style={styles.stampRow}>
-                      {Array.from({ length: goal }).map((_, index) => (
+                      {Array.from({ length: dots }).map((_, index) => (
                         <View
                           key={`${membershipId}-${index}`}
                           style={[
@@ -139,6 +122,11 @@ export default function WalletScreen() {
                           ]}
                         />
                       ))}
+                      {goal > 20 ? (
+                        <Text style={{ fontSize: 11, color: "#5B6475", fontWeight: "700" }}>
+                          +{goal - 20}
+                        </Text>
+                      ) : null}
                     </View>
                   </Pressable>
                 );

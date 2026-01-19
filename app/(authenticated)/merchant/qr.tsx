@@ -1,51 +1,124 @@
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "convex/react";
 
-import { Card, PrimaryButton, SectionHeader } from '@/components/ui';
-import { tw } from '@/lib/rtl';
-
-const QR_IMAGE = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=STAMPIX_MERCHANT_01';
+import { api } from "@/convex/_generated/api";
 
 export default function MerchantQRCodeScreen() {
+  const insets = useSafeAreaInsets();
+  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
+  const [businessIndex, setBusinessIndex] = useState(0);
+  const selectedBusiness = businesses[businessIndex] ?? businesses[0];
+
+  useEffect(() => {
+    if (businesses.length === 0) {
+      setBusinessIndex(0);
+      return;
+    }
+    if (businessIndex >= businesses.length) {
+      setBusinessIndex(0);
+    }
+  }, [businessIndex, businesses.length]);
+
+  const qrPayload = selectedBusiness
+    ? `businessExternalId:${selectedBusiness.externalId}`
+    : null;
+  const qrUri = qrPayload
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+        qrPayload
+      )}`
+    : null;
+
+  const handleShare = async () => {
+    if (!qrPayload) return;
+    await Share.share({ message: qrPayload });
+  };
+
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 48 }} className="flex-1 bg-slate-50">
-      <View className="px-5 pt-6 pb-8">
-        <SectionHeader title="הקוד של העסק שלי" description="הראה את זה ללקוחות כדי להצטרף ברגע" />
-
-        <Card className="mt-6 p-6 relative overflow-hidden">
-          <View className="absolute top-0 left-0 h-1 w-full bg-blue-600" />
-          <View className="items-center justify-center mb-4">
-            <Text className="text-2xl font-black text-text-main">STAMPIX</Text>
-            <Text className="text-xs font-bold text-gray-400 mt-1">
-              קוד העסק שלך בביטחון מלא
-            </Text>
-          </View>
-          <View className="bg-gray-100 rounded-3xl p-4 items-center justify-center">
-            <Image
-              source={{ uri: QR_IMAGE }}
-              className="h-60 w-60 rounded-3xl border border-dashed border-gray-300"
-              accessibilityLabel="QR code"
-            />
-          </View>
-          <Text className="text-center text-sm text-gray-400 mt-4">
-            שתפו עם לקוחות חדשים או הדפיסו לתצוגת קופה
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
+      <ScrollView
+        style={{ backgroundColor: "#E9F0FF" }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: (insets.top || 0) + 16,
+          paddingBottom: (insets.bottom || 0) + 24,
+          gap: 16,
+        }}
+      >
+        <View>
+          <Text style={{ fontSize: 22, fontWeight: "900", color: "#1A2B4A", textAlign: "right" }}>
+            QR לעסק
           </Text>
-        </Card>
-
-        <PrimaryButton title="שתף קישור להצטרפות" className="mt-6" />
-
-        <TouchableOpacity
-          className="mt-4 flex-row items-center justify-center gap-2 rounded-[28px] border border-gray-200 bg-white py-3 shadow-sm"
-        >
-          <Text className="text-blue-600 font-black text-sm">הדפס פוסטר לקופה</Text>
-        </TouchableOpacity>
-
-        <View className="mt-8">
-          <Text className="text-[10px] font-black text-gray-400 text-center uppercase tracking-[0.3em]">
-            STAMPIX BUSINESS ENGINE • v2.7.0
+          <Text style={{ marginTop: 6, fontSize: 13, color: "#2F6BFF", textAlign: "right", fontWeight: "600" }}>
+            הצג את הקוד כדי שלקוח יוכל להצטרף
           </Text>
         </View>
-      </View>
-    </ScrollView>
+
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: "#E3E9FF",
+            padding: 16,
+            shadowColor: "#000",
+            shadowOpacity: 0.03,
+            shadowRadius: 10,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+            כרטיס QR קבוע
+          </Text>
+          <Text style={{ marginTop: 6, fontSize: 12, fontWeight: "600", color: "#5B6475", textAlign: "right" }}>
+            {selectedBusiness ? selectedBusiness.name : "טוען עסק..."}
+          </Text>
+          {selectedBusiness ? (
+            <Text style={{ marginTop: 2, fontSize: 11, color: "#5B6475", textAlign: "right" }}>
+              {selectedBusiness.externalId}
+            </Text>
+          ) : null}
+
+          <View
+            style={{
+              marginTop: 12,
+              alignSelf: "center",
+              width: 240,
+              height: 240,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "#E3E9FF",
+              backgroundColor: "#FFFFFF",
+              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {qrUri ? (
+              <Image source={{ uri: qrUri }} style={{ width: "100%", height: "100%" }} resizeMode="contain" />
+            ) : (
+              <ActivityIndicator color="#2F6BFF" />
+            )}
+          </View>
+
+          <Pressable
+            onPress={handleShare}
+            disabled={!qrPayload}
+            style={({ pressed }) => ({
+              marginTop: 12,
+              alignSelf: "flex-start",
+              borderRadius: 14,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              backgroundColor: "#2F6BFF",
+              opacity: pressed || !qrPayload ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 12 }}>שתף/העתק</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-

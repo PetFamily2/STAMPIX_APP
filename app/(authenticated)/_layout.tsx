@@ -5,11 +5,13 @@ import { Tabs } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppMode } from "@/contexts/AppModeContext";
 
 export default function AuthenticatedLayout() {
   const insets = useSafeAreaInsets();
 
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const user = useQuery(api.users.getCurrentUser);
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
 
@@ -49,7 +51,7 @@ export default function AuthenticatedLayout() {
     }
   }, [isAuthenticated, isLoading, user, bootError, createOrUpdateUser]);
 
-  if (isLoading || booting || (isAuthenticated && user === undefined)) {
+  if (isLoading || booting || isAppModeLoading || (isAuthenticated && user === undefined)) {
     return (
       <View style={{ flex: 1, backgroundColor: "#E9F0FF", alignItems: "center", justifyContent: "center" }}>
         <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>טוען...</Text>
@@ -81,6 +83,8 @@ export default function AuthenticatedLayout() {
       </View>
     );
   }
+
+  const isCustomerMode = appMode === "customer";
 
   return (
     <Tabs
@@ -115,6 +119,7 @@ export default function AuthenticatedLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" size={size} color={color} />
           ),
+          ...(isCustomerMode ? {} : { href: null }),
         }}
       />
       <Tabs.Screen
@@ -124,6 +129,7 @@ export default function AuthenticatedLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="gift-outline" size={size} color={color} />
           ),
+          ...(isCustomerMode ? {} : { href: null }),
         }}
       />
       <Tabs.Screen
@@ -133,6 +139,28 @@ export default function AuthenticatedLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass-outline" size={size} color={color} />
           ),
+          ...(isCustomerMode ? {} : { href: null }),
+        }}
+      />
+      {/* Merchant tabs */}
+      <Tabs.Screen
+        name="business/dashboard"
+        options={{
+          title: "Dashboard",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart-outline" size={size} color={color} />
+          ),
+          ...(isCustomerMode ? { href: null } : {}),
+        }}
+      />
+      <Tabs.Screen
+        name="business/team"
+        options={{
+          title: "Team",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
+          ...(isCustomerMode ? { href: null } : {}),
         }}
       />
       <Tabs.Screen

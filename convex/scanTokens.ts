@@ -1,6 +1,3 @@
-import { hmac } from '@noble/hashes/hmac.js';
-import { sha256 } from '@noble/hashes/sha2.js';
-
 const SCAN_TOKEN_PREFIX = 'scanToken:';
 const SCAN_TOKEN_VALID_MS = 2 * 60 * 1000; // Tokens expire after two minutes.
 
@@ -19,32 +16,54 @@ export type ScanTokenPayload = {
 };
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
-function toHex(bytes: Uint8Array) {
-  return Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+function base64UrlEncode(bytes: Uint8Array) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function buildSignature(customerId: string, timestamp: number) {
+function base64UrlDecode(encoded: string) {
+  const padded = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(
+    Math.ceil(encoded.length / 4) * 4,
+    '='
+  );
+  const bin = atob(padded);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function buildSignature(customerId: string, timestamp: number) {
   const secret = getScanTokenSecret();
   const payload = `${customerId}:${timestamp}`;
-  const signature = hmac(sha256, encoder.encode(secret), encoder.encode(payload));
-  return toHex(signature);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  return base64UrlEncode(new Uint8Array(signature));
 }
 
 function formatPayload(payload: ScanTokenPayload) {
   const body = JSON.stringify(payload);
-  const encoded = Buffer.from(body).toString('base64');
+  const encoded = base64UrlEncode(encoder.encode(body));
   return `${SCAN_TOKEN_PREFIX}${encoded}`;
 }
 
-export function buildScanToken(customerId: string, timestamp = Date.now()) {
+export async function buildScanToken(customerId: string, timestamp = Date.now()) {
   const normalizedTimestamp = Math.floor(timestamp);
+  const signature = await buildSignature(customerId, normalizedTimestamp);
   const payload: ScanTokenPayload = {
     customerId,
     timestamp: normalizedTimestamp,
-    signature: buildSignature(customerId, normalizedTimestamp),
+    signature,
   };
   return {
     scanToken: formatPayload(payload),
@@ -59,7 +78,7 @@ export function parseScanToken(qrData: string): ScanTokenPayload {
   const encoded = qrData.slice(SCAN_TOKEN_PREFIX.length);
   let decoded: string;
   try {
-    decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    decoded = decoder.decode(base64UrlDecode(encoded));
   } catch (error) {
     throw new Error('INVALID_SCAN_TOKEN');
   }
@@ -82,8 +101,8 @@ export function parseScanToken(qrData: string): ScanTokenPayload {
     return { customerId, timestamp, signature };
   }
 
-export function assertScanTokenSignature(payload: ScanTokenPayload) {
-  const expected = buildSignature(payload.customerId, payload.timestamp);
+export async function assertScanTokenSignature(payload: ScanTokenPayload) {
+  const expected = await buildSignature(payload.customerId, payload.timestamp);
   if (expected !== payload.signature) {
     throw new Error('INVALID_SCAN_TOKEN');
   }
@@ -98,4 +117,3 @@ export function isScanTokenExpired(timestamp: number, now = Date.now()) {
   }
   return now - timestamp > SCAN_TOKEN_VALID_MS;
 }
-

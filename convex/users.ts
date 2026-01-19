@@ -151,6 +151,25 @@ export const updateSubscriptionPlan = mutation({
 });
 
 // מחיקת משתמש (פעולה למנהלים או למשתמש עצמו - כאן מיושם כמחיקה פיזית)
+export const setMyRole = mutation({
+  args: {
+    role: v.union(
+      v.literal('customer'),
+      v.literal('merchant'),
+      v.literal('staff'),
+      v.literal('admin')
+    ),
+  },
+  handler: async (ctx, { role }) => {
+    const user = await requireCurrentUser(ctx);
+    await ctx.db.patch(user._id, {
+      role,
+      updatedAt: Date.now(),
+    });
+    return user._id;
+  },
+});
+
 export const remove = mutation({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {

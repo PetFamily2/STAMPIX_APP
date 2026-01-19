@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -13,24 +13,48 @@ export default function JoinScreen() {
   const [manual, setManual] = useState("");
   const [busy, setBusy] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("[JOIN] Convex URL:", process.env.EXPO_PUBLIC_CONVEX_URL);
+    }
+  }, []);
+
+  const getFriendlyError = (error: unknown) => {
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "INVALID_QR":
+          return "הקוד אינו תקין. נסה שוב.";
+        case "BUSINESS_NOT_FOUND":
+          return "העסק לא נמצא. בדוק את הקוד.";
+        case "PROGRAM_NOT_FOUND":
+          return "אין תוכנית פעילה לעסק זה.";
+        default:
+          return "ההצטרפות נכשלה. נסה שוב.";
+      }
+    }
+    return "אירעה שגיאה לא צפויה. נסה שוב.";
+  };
 
   const handleJoin = useCallback(
     async (qrData: string) => {
       const data = (qrData ?? "").trim();
       if (!data) {
-        setStatusMessage("אנא הזן קוד עסק תקין.");
+        setFeedback({ type: "error", message: "אנא הזן קוד עסק תקין." });
         return;
       }
       if (busy) return;
-      setStatusMessage(null);
+      setFeedback(null);
       try {
         setBusy(true);
         await joinByBusinessQr({ qrData: data });
+        setManual("");
+        setScannerResetKey((prev) => prev + 1);
         router.replace("/wallet");
-      } catch (error: any) {
-        console.log("[JOIN] failed", error?.message ?? error);
-        setStatusMessage("ההצטרפות נכשלה. נסה שוב.");
+      } catch (error) {
+        console.log("[JOIN] failed", error);
+        setFeedback({ type: "error", message: getFriendlyError(error) });
         setScannerResetKey((prev) => prev + 1);
       } finally {
         setBusy(false);
@@ -40,7 +64,7 @@ export default function JoinScreen() {
   );
 
   const handleManual = useCallback(() => {
-    handleJoin(manual);
+    handleJoin(manual.trim());
   }, [handleJoin, manual]);
 
   const handleScan = useCallback(
@@ -52,7 +76,7 @@ export default function JoinScreen() {
 
   const handleRetryScan = () => {
     setScannerResetKey((prev) => prev + 1);
-    setStatusMessage(null);
+    setFeedback(null);
   };
 
   return (
@@ -71,9 +95,16 @@ export default function JoinScreen() {
           <Text style={{ marginTop: 6, fontSize: 13, fontWeight: "700", color: "#2F6BFF", textAlign: "right" }}>
             סרוק QR של העסק או הדבק קוד ייחודי
           </Text>
-          {statusMessage ? (
-            <Text style={{ marginTop: 10, fontSize: 13, color: "#D92D20", textAlign: "right" }}>
-              {statusMessage}
+          {feedback ? (
+            <Text
+              style={{
+                marginTop: 10,
+                fontSize: 13,
+                color: feedback.type === "error" ? "#D92D20" : "#0B922A",
+                textAlign: "right",
+              }}
+            >
+              {feedback.message}
             </Text>
           ) : null}
         </View>
@@ -102,24 +133,27 @@ export default function JoinScreen() {
           <Text style={{ textAlign: "right", fontWeight: "900", color: "#0B1220" }}>
             אין QR? הדבק קוד עסק
           </Text>
-          <TextInput
-            value={manual}
-            onChangeText={setManual}
-            placeholder="לדוגמה: businessExternalId:biz:demo-1"
-            placeholderTextColor="#9AA4B2"
-            style={{
-              height: 44,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: "#E3E9FF",
-              paddingHorizontal: 12,
-              textAlign: "right",
-              color: "#0B1220",
-              backgroundColor: "#F6F8FC",
-              fontWeight: "700",
-              marginTop: 10,
-            }}
-          />
+            <TextInput
+              value={manual}
+              onChangeText={setManual}
+              onSubmitEditing={handleManual}
+              returnKeyType="done"
+              keyboardType="default"
+              placeholder="לדוגמה: businessExternalId:biz:demo-1"
+              placeholderTextColor="#9AA4B2"
+              style={{
+                height: 44,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "#E3E9FF",
+                paddingHorizontal: 12,
+                textAlign: "right",
+                color: "#0B1220",
+                backgroundColor: "#F6F8FC",
+                fontWeight: "700",
+                marginTop: 10,
+              }}
+            />
 
           <Pressable
             onPress={handleManual}
@@ -135,6 +169,18 @@ export default function JoinScreen() {
           >
             <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>{busy ? "בודק..." : "הצטרף"}</Text>
           </Pressable>
+          {__DEV__ ? (
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: "#5B6475",
+                textAlign: "left",
+              }}
+            >
+              CTA_RENDERED
+            </Text>
+          ) : null}
 
           <Pressable
             onPress={handleRetryScan}

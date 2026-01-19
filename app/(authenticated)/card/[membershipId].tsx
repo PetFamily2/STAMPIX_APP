@@ -2,18 +2,18 @@ import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
-import { tw } from '@/lib/rtl';
 
 export default function CardDetailsScreen() {
   const { membershipId } = useLocalSearchParams<{ membershipId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, isLoading, isAuthorized } = useRoleGuard([CUSTOMER_ROLE]);
   const memberships = useQuery(api.memberships.byCustomer) as
     | CustomerMembershipView[]
@@ -25,6 +25,7 @@ export default function CardDetailsScreen() {
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
+  const [showPayload, setShowPayload] = useState(false);
 
   const membershipIdForToken = membership?.membershipId;
 
@@ -43,7 +44,7 @@ export default function CardDetailsScreen() {
       setScanTokenPayload(result.scanToken);
     } catch {
       setScanTokenPayload(null);
-      setTokenError('שגיאה ביצירת QR מאובטח');
+      setTokenError('לא הצלחנו ליצור QR.');
     } finally {
       setIsTokenLoading(false);
     }
@@ -67,9 +68,9 @@ export default function CardDetailsScreen() {
 
   if (!membershipId) {
     return (
-      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-sm text-zinc-400">הכרטיס לא זמין</Text>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <View style={styles.centerMessage}>
+          <Text style={styles.centerMessageText}>חסרים פרטי כרטיס.</Text>
         </View>
       </SafeAreaView>
     );
@@ -77,31 +78,21 @@ export default function CardDetailsScreen() {
 
   if (!membership) {
     return (
-      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-lg font-semibold text-white mb-2">כרטיס אינו זמין</Text>
-          <Text className="text-sm text-zinc-400 text-center">
-            עדיין לא נרשם ניקוב עבור כרטיס זה או שאינו שויך לחשבון הנוכחי.
+      <SafeAreaView style={styles.safeArea} edges={[]}>
+        <View style={styles.centerMessage}>
+          <Text style={styles.centerMessageTitle}>לא מצאנו את הכרטיס.</Text>
+          <Text style={styles.centerMessageText}>
+            נסה לחזור למסך הארנק ולבחור כרטיס מהרשימה.
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const progressPercent =
-    membership.maxStamps > 0
-      ? Math.min(Math.round((membership.currentStamps / membership.maxStamps) * 100), 100)
-      : 0;
-
-  const lastStamp = new Date(membership.lastStampAt);
-  const formattedDate = lastStamp.toLocaleDateString('he-IL', {
-    day: 'numeric',
-    month: 'short',
-  });
-  const formattedTime = lastStamp.toLocaleTimeString('he-IL', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const current = Number(membership.currentStamps ?? 0);
+  const goal = Math.max(1, Number(membership.maxStamps ?? 0) || 0);
+  const dots = Math.min(goal, 20);
+  const overflow = Math.max(0, goal - dots);
 
   const qrUri = scanTokenPayload
     ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
@@ -110,109 +101,304 @@ export default function CardDetailsScreen() {
     : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-      <ScrollView className="flex-1">
-        <View className="max-w-3xl w-full mx-auto px-6 py-6 space-y-6">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="w-12 rounded-full border border-zinc-800 bg-zinc-900/70 p-2"
-          >
-            <ChevronLeft size={20} color="#94a3b8" />
-          </TouchableOpacity>
-
-          <View className="space-y-2">
-            <Text className={`text-3xl font-bold text-white ${tw.textStart}`}>פרטי כרטיס</Text>
-            <Text className="text-sm text-zinc-400">
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <ScrollView
+        style={styles.scrollBackground}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { paddingTop: (insets.top || 0) + 16, paddingBottom: (insets.bottom || 0) + 24 },
+        ]}
+      >
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={18} color="#2F6BFF" />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>פרטי כרטיס</Text>
+            <Text style={styles.headerSubtitle}>
               {membership.businessName} · {membership.programTitle}
             </Text>
           </View>
+        </View>
 
-          <View className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 space-y-4">
-            <View className="flex-row items-center justify-between">
-              <View className="space-y-1">
-                <Text className="text-3xl font-black text-cyan-400">
-                  {membership.currentStamps} / {membership.maxStamps}
-                </Text>
-                <Text className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
-                  {membership.rewardName}
-                </Text>
-              </View>
-              <Text
-                className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                  membership.canRedeem
-                    ? 'bg-emerald-500/20 text-emerald-300'
-                    : 'bg-zinc-800 text-zinc-500'
-                }`}
-              >
-                {membership.canRedeem ? 'מוכן למימוש' : 'הטבה בתהליך'}
-              </Text>
-            </View>
-
-            <View className="h-2 w-full rounded-full bg-zinc-800">
+        <View style={styles.card}>
+          <Text style={styles.progressText}>
+            {current}/{goal}
+          </Text>
+          <Text style={styles.rewardText}>{membership.rewardName}</Text>
+          <View style={styles.stampRow}>
+            {Array.from({ length: dots }).map((_, index) => (
               <View
-                className="h-full rounded-full bg-cyan-500"
-                style={{ width: `${progressPercent}%` }}
+                key={`${membership.membershipId}-${index}`}
+                style={[
+                  styles.stampDot,
+                  index < current
+                    ? { backgroundColor: '#2F6BFF', borderColor: '#2F6BFF' }
+                    : styles.stampDotEmpty,
+                ]}
               />
-            </View>
-
-            <Text className="text-xs text-zinc-500">
-              ניקובים אחרונים: {formattedDate} · {formattedTime}
-            </Text>
-          </View>
-
-          <View className="rounded-3xl border border-dashed border-zinc-800 bg-zinc-900 p-5 space-y-3">
-            <Text className="text-sm font-semibold text-white">QR אישי</Text>
-            <Text className="text-xs text-zinc-500">
-              הראה/י את ה-QR הזה לצוות כדי לקבל ניקוב או מימוש. הנתונים המשותפים:
-            </Text>
-            <View className="h-64 w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-              {qrUri ? (
-                <Image
-                  source={{ uri: qrUri }}
-                  className="h-full w-full bg-zinc-950"
-                  resizeMode="contain"
-                />
-              ) : (
-                <View className="flex h-full w-full flex-col items-center justify-center gap-2">
-                  <ActivityIndicator color="#4fc3f7" />
-                  <Text className="text-[11px] text-zinc-500">
-                    {tokenError ? 'שגיאה ביצירת ה-QR' : 'יוצר QR מאובטח...'}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                void refreshScanToken();
-              }}
-              disabled={isTokenLoading || !membershipIdForToken}
-              className={`rounded-xl border px-4 py-3 text-center ${
-                isTokenLoading || !membershipIdForToken
-                  ? 'border-zinc-800 bg-zinc-800/80'
-                  : 'border-cyan-500 bg-cyan-500/10'
-              }`}
-            >
-              <Text
-                className={`font-bold ${
-                  isTokenLoading || !membershipIdForToken ? 'text-zinc-500' : 'text-cyan-300'
-                }`}
-              >
-                {isTokenLoading ? 'מרענן...' : 'רענן QR מאובטח'}
-              </Text>
-            </TouchableOpacity>
-            {tokenError && (
-              <Text className={`text-xs text-rose-400 ${tw.textStart}`}>{tokenError}</Text>
-            )}
-            <View className="rounded-2xl border border-zinc-800 bg-zinc-900 p-3">
-              <Text className="text-xs text-zinc-500">Payload</Text>
-              <Text className="break-all text-sm text-white">
-                {scanTokenPayload ?? 'טוען QR מאובטח...'}
-              </Text>
-            </View>
+            ))}
+            {overflow > 0 ? <Text style={styles.moreText}>+{overflow}</Text> : null}
           </View>
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>QR אישי</Text>
+          <Text style={styles.cardSubtitle}>הראה לצוות כדי לקבל ניקוב</Text>
+          <View style={styles.qrFrame}>
+            {qrUri ? (
+              <Image source={{ uri: qrUri }} style={styles.qrImage} resizeMode="contain" />
+            ) : (
+              <View style={styles.qrPlaceholder}>
+                {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
+                <Text style={styles.qrPlaceholderText}>
+                  {tokenError ? 'לא הצלחנו ליצור QR' : 'טוען QR...'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {tokenError ? (
+            <View style={styles.errorRow}>
+              <Text style={styles.errorText}>משהו השתבש. נסה שוב.</Text>
+              <Pressable onPress={() => void refreshScanToken()} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>נסה שוב</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => void refreshScanToken()}
+              disabled={isTokenLoading || !membershipIdForToken}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (pressed || isTokenLoading || !membershipIdForToken) && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isTokenLoading ? 'טוען...' : 'רענן QR'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {__DEV__ ? (
+          <View style={styles.devSection}>
+            <Pressable
+              onPress={() => setShowPayload((prev) => !prev)}
+              style={({ pressed }) => [styles.devToggle, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.devToggleText}>{showPayload ? 'הסתר Payload' : 'הצג Payload'}</Text>
+            </Pressable>
+            {showPayload ? (
+              <View style={styles.payloadBox}>
+                <Text style={styles.payloadText}>{scanTokenPayload ?? 'טוען QR...'}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E9F0FF',
+  },
+  scrollBackground: {
+    backgroundColor: '#E9F0FF',
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  header: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E3E9FF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A2B4A',
+    textAlign: 'right',
+  },
+  headerSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2F6BFF',
+    textAlign: 'right',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E3E9FF',
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  progressText: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#2F6BFF',
+    textAlign: 'right',
+  },
+  rewardText: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0B1220',
+    textAlign: 'right',
+  },
+  stampRow: {
+    marginTop: 12,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  stampDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+  },
+  stampDotEmpty: {
+    borderColor: '#E5EAF5',
+    backgroundColor: '#E9EEF9',
+  },
+  moreText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#5B6475',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
+  },
+  cardSubtitle: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'right',
+  },
+  qrFrame: {
+    marginTop: 12,
+    alignSelf: 'center',
+    width: 240,
+    height: 240,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E3E9FF',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  qrImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+  },
+  qrPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  qrPlaceholderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#5B6475',
+    textAlign: 'center',
+  },
+  primaryButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#2F6BFF',
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  errorRow: {
+    marginTop: 10,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D92D20',
+    textAlign: 'right',
+  },
+  devSection: {
+    gap: 8,
+  },
+  devToggle: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#D4EDFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  devToggleText: {
+    color: '#2F6BFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  payloadBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E3E9FF',
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  payloadText: {
+    fontSize: 11,
+    color: '#5B6475',
+  },
+  centerMessage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  centerMessageTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1A2B4A',
+    textAlign: 'center',
+  },
+  centerMessageText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'center',
+  },
+});

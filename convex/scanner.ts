@@ -70,7 +70,7 @@ export const createScanToken = mutation({
 
     await requireBusinessAndProgram(ctx, membership.businessId, membership.programId);
 
-    const { scanToken, payload } = buildScanToken(user._id);
+    const { scanToken, payload } = await buildScanToken(user._id);
     return {
       scanToken,
       customerId: payload.customerId,
@@ -113,7 +113,7 @@ export const resolveScan = mutation({
     }
 
     try {
-      assertScanTokenSignature(tokenPayload);
+      await assertScanTokenSignature(tokenPayload);
     } catch (error) {
       throw new Error('INVALID_QR');
     }

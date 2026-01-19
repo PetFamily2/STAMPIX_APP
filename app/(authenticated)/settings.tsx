@@ -1,7 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation } from "convex/react";
+import { router } from "expo-router";
+
+import { api } from "@/convex/_generated/api";
+import { useAppMode } from "@/contexts/AppModeContext";
 
 function Row({
   title,
@@ -71,6 +76,43 @@ function Row({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const setMyRole = useMutation(api.users.setMyRole);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
+  const [appModeBusy, setAppModeBusy] = useState(false);
+
+  const handleAppModeChange = async (nextMode: "customer" | "merchant") => {
+    if (isAppModeLoading || appModeBusy) return;
+    if (nextMode === appMode) return;
+    try {
+      setAppModeBusy(true);
+      await setAppMode(nextMode);
+      router.replace(nextMode === "customer" ? "/wallet" : "/business/scanner");
+    } finally {
+      setAppModeBusy(false);
+    }
+  };
+
+  const handleSwitchToBusiness = async () => {
+    if (roleBusy) return;
+    try {
+      setRoleBusy(true);
+      await setMyRole({ role: "merchant" });
+      router.push("/business/scanner");
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+  const handleSwitchToCustomer = async () => {
+    if (roleBusy) return;
+    try {
+      setRoleBusy(true);
+      await setMyRole({ role: "customer" });
+    } finally {
+      setRoleBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
@@ -82,6 +124,59 @@ export default function SettingsScreen() {
           gap: 12,
         }}
       >
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: "#E3E9FF",
+            padding: 6,
+            flexDirection: "row-reverse",
+            gap: 6,
+          }}
+        >
+          <Pressable
+            onPress={() => handleAppModeChange("customer")}
+            style={({ pressed }) => ({
+              flex: 1,
+              borderRadius: 14,
+              paddingVertical: 10,
+              backgroundColor: appMode === "customer" ? "#2F6BFF" : "transparent",
+              opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+              alignItems: "center",
+            })}
+          >
+            <Text
+              style={{
+                color: appMode === "customer" ? "#FFFFFF" : "#1A2B4A",
+                fontWeight: "900",
+              }}
+            >
+              לקוח
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleAppModeChange("merchant")}
+            style={({ pressed }) => ({
+              flex: 1,
+              borderRadius: 14,
+              paddingVertical: 10,
+              backgroundColor: appMode === "merchant" ? "#2F6BFF" : "transparent",
+              opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+              alignItems: "center",
+            })}
+          >
+            <Text
+              style={{
+                color: appMode === "merchant" ? "#FFFFFF" : "#1A2B4A",
+                fontWeight: "900",
+              }}
+            >
+              בעל עסק
+            </Text>
+          </Pressable>
+        </View>
+
         <View>
           <Text style={{ fontSize: 24, fontWeight: "800", color: "#1A2B4A", textAlign: "right" }}>
             פרופיל והגדרות
@@ -90,6 +185,26 @@ export default function SettingsScreen() {
             ניהול חשבון, תמיכה ומסמכים
           </Text>
         </View>
+
+        {__DEV__ ? (
+          <View style={{ gap: 10 }}>
+            <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
+              DEV
+            </Text>
+            <Row
+              title="מצב עסק"
+              subtitle="מעבר למסך סורק עסק"
+              icon="briefcase-outline"
+              onPress={handleSwitchToBusiness}
+            />
+            <Row
+              title="מצב לקוח"
+              subtitle="חזרה לפרופיל לקוח"
+              icon="person-outline"
+              onPress={handleSwitchToCustomer}
+            />
+          </View>
+        ) : null}
 
         <View style={{ gap: 10 }}>
           <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
