@@ -21,13 +21,23 @@ export function ListRow({
   className = '',
 }: ListRowProps) {
   return (
-    <View className={`bg-white rounded-[30px] border border-gray-100 p-4 flex-row items-center justify-between shadow-sm ${className}`}>
+    <View
+      className={`bg-white rounded-[30px] border border-gray-100 p-4 flex-row items-center justify-between shadow-sm ${className}`}
+    >
       <View className={`${tw.flexRow} items-center gap-3 flex-1`}>
         {leading}
         <View className="flex-1">
-          <Text className={`text-base font-bold text-text-main ${tw.textStart}`}>{title}</Text>
+          <Text
+            className={`text-base font-bold text-text-main ${tw.textStart}`}
+          >
+            {title}
+          </Text>
           {subtitle ? (
-            <Text className={`text-xs font-bold ${subtitleClassName} ${tw.textStart}`}>{subtitle}</Text>
+            <Text
+              className={`text-xs font-bold ${subtitleClassName} ${tw.textStart}`}
+            >
+              {subtitle}
+            </Text>
           ) : null}
         </View>
       </View>
@@ -35,7 +45,3 @@ export function ListRow({
     </View>
   );
 }
-
-
-
-

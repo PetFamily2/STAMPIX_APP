@@ -1,6 +1,6 @@
 import { Redirect, Slot } from 'expo-router';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { useRoleGuard, BUSINESS_ROLES } from '@/lib/hooks/useRoleGuard';
+import { BUSINESS_ROLES, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 
 export default function MerchantLayout() {
   const { user, isLoading, isAuthorized } = useRoleGuard(BUSINESS_ROLES);
@@ -15,7 +15,3 @@ export default function MerchantLayout() {
 
   return <Slot />;
 }
-
-
-
-

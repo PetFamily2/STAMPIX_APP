@@ -1,9 +1,9 @@
-import { api } from "@/convex/_generated/api";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Stack, useRouter, useSegments } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useAppMode } from "@/contexts/AppModeContext";
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { api } from '@/convex/_generated/api';
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -33,7 +33,9 @@ export default function AuthenticatedLayout() {
         try {
           await Promise.race([
             createOrUpdateUser({}),
-            new Promise((_, rej) => setTimeout(() => rej(new Error("bootstrap timeout")), 5000)),
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error('bootstrap timeout')), 5000)
+            ),
           ]);
           setBootError(null);
         } catch (e: any) {
@@ -51,20 +53,23 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (isAppModeLoading || isLoading || booting || bootError) return;
 
-    const currentSegments = (Array.isArray(segments) ? segments.filter(Boolean) : []) as string[];
-    if (currentSegments.includes("join") || currentSegments.includes("card")) return;
+    const currentSegments = (
+      Array.isArray(segments) ? segments.filter(Boolean) : []
+    ) as string[];
+    if (currentSegments.includes('join') || currentSegments.includes('card'))
+      return;
 
-    const currentPath = `/${currentSegments.join("/")}`;
+    const currentPath = `/${currentSegments.join('/')}`;
     const target =
-      appMode === "customer"
-        ? "/(authenticated)/(customer)/wallet"
-        : "/(authenticated)/(business)/business/dashboard";
+      appMode === 'customer'
+        ? '/(authenticated)/(customer)/wallet'
+        : '/(authenticated)/(business)/business/dashboard';
 
     if (currentPath === target) return;
     if (lastRedirectRef.current === target) return;
 
-    const inCustomerGroup = currentSegments.includes("(customer)");
-    const inBusinessGroup = currentSegments.includes("(business)");
+    const inCustomerGroup = currentSegments.includes('(customer)');
+    const inBusinessGroup = currentSegments.includes('(business)');
 
     if (!inCustomerGroup && !inBusinessGroup) {
       lastRedirectRef.current = target;
@@ -72,35 +77,69 @@ export default function AuthenticatedLayout() {
       return;
     }
 
-    if (appMode === "customer" && inBusinessGroup) {
-      const customerTarget = "/(authenticated)/(customer)/wallet";
+    if (appMode === 'customer' && inBusinessGroup) {
+      const customerTarget = '/(authenticated)/(customer)/wallet';
       if (lastRedirectRef.current === customerTarget) return;
       lastRedirectRef.current = customerTarget;
       router.replace(customerTarget);
       return;
     }
 
-    if (appMode === "business" && inCustomerGroup) {
-      const businessTarget = "/(authenticated)/(business)/business/dashboard";
+    if (appMode === 'business' && inCustomerGroup) {
+      const businessTarget = '/(authenticated)/(business)/business/dashboard';
       if (lastRedirectRef.current === businessTarget) return;
       lastRedirectRef.current = businessTarget;
       router.replace(businessTarget);
     }
-  }, [appMode, bootError, booting, isAppModeLoading, isLoading, router, segments]);
+  }, [
+    appMode,
+    bootError,
+    booting,
+    isAppModeLoading,
+    isLoading,
+    router,
+    segments,
+  ]);
 
-  if (isLoading || booting || isAppModeLoading || (isAuthenticated && user === undefined)) {
+  if (
+    isLoading ||
+    booting ||
+    isAppModeLoading ||
+    (isAuthenticated && user === undefined)
+  ) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#E9F0FF", alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>????...</Text>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#E9F0FF',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>????...</Text>
       </View>
     );
   }
 
   if (bootError) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#E9F0FF", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <Text style={{ fontWeight: "900", color: "#D92D20", textAlign: "center" }}>????? ?????? ?????</Text>
-        <Text style={{ marginTop: 8, color: "#5B6475", textAlign: "center" }}>{bootError}</Text>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#E9F0FF',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+        }}
+      >
+        <Text
+          style={{ fontWeight: '900', color: '#D92D20', textAlign: 'center' }}
+        >
+          ????? ?????? ?????
+        </Text>
+        <Text style={{ marginTop: 8, color: '#5B6475', textAlign: 'center' }}>
+          {bootError}
+        </Text>
         <Pressable
           onPress={() => {
             setBootError(null);
@@ -108,14 +147,14 @@ export default function AuthenticatedLayout() {
           }}
           style={({ pressed }) => ({
             marginTop: 14,
-            backgroundColor: "#2F6BFF",
+            backgroundColor: '#2F6BFF',
             borderRadius: 16,
             paddingVertical: 12,
             paddingHorizontal: 18,
             opacity: pressed ? 0.9 : 1,
           })}
         >
-          <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>Retry</Text>
+          <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Retry</Text>
         </Pressable>
       </View>
     );

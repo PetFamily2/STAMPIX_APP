@@ -5,9 +5,10 @@ import { mutation } from './_generated/server';
 
 async function createOrUpdateUserHandler(ctx: any, args: any) {
   const now = Date.now();
-  const identity = typeof ctx.auth?.getUserIdentity === 'function'
-    ? await ctx.auth.getUserIdentity()
-    : null;
+  const identity =
+    typeof ctx.auth?.getUserIdentity === 'function'
+      ? await ctx.auth.getUserIdentity()
+      : null;
   const subjectFromCtx = identity?.subject;
   const profile = (args as any)?.profile ?? {};
   const rawExternalId =

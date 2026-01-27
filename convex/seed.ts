@@ -43,7 +43,7 @@ export const seedMvp = mutation({
     const businessName = args.businessName ?? 'Demo Coffee';
     const { businessId } = await createBusinessForOwner(ctx, {
       ownerUserId,
-      externalId: "biz:demo-1",
+      externalId: 'biz:demo-1',
       name: businessName,
       logoUrl: undefined,
       colors: undefined,
@@ -101,8 +101,8 @@ export const seedMvp = mutation({
         businessIdPaste: String(businessId),
         programIdPaste: String(programId),
         qrData: `externalId:${demoExternalId}`,
-        businessExternalId: "biz:demo-1",
-        businessQrData: "businessExternalId:biz:demo-1",
+        businessExternalId: 'biz:demo-1',
+        businessQrData: 'businessExternalId:biz:demo-1',
       },
     };
   },
@@ -123,7 +123,9 @@ async function findOrCreateUserByExternalId(
     return existing._id;
   }
 
-  const email = identity?.email ? String(identity.email).toLowerCase() : undefined;
+  const email = identity?.email
+    ? String(identity.email).toLowerCase()
+    : undefined;
   const fullName = identity?.name || identity?.nickname || 'User';
 
   return await ctx.db.insert('users', {

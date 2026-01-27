@@ -26,28 +26,41 @@ export default function MerchantStoreSettingsScreen() {
   const stamps = Array.from({ length: maxStamps });
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 48 }} className="flex-1 bg-slate-50">
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 48 }}
+      className="flex-1 bg-slate-50"
+    >
       <View className="px-5 pt-6 pb-8">
         <SectionHeader
           title="הגדרות כרטיס העסק"
           description="צור כרטיסיה שמדויקת למותג ולאינטרקציות הנוכחיות"
         />
 
-        <Card className={`mt-6 p-5 border ${isLocked ? 'border-emerald-200' : 'border-gray-100'}`}>
+        <Card
+          className={`mt-6 p-5 border ${isLocked ? 'border-emerald-200' : 'border-gray-100'}`}
+        >
           <View className={`${tw.flexRow} items-center justify-between mb-4`}>
-            <Text className="text-base font-black text-text-main">תצוגה מקדימה ללקוח</Text>
+            <Text className="text-base font-black text-text-main">
+              תצוגה מקדימה ללקוח
+            </Text>
             <Text className="text-xs font-bold text-gray-400">
-              {isLocked ? 'כרטיס נעול' : 'אי אפשר לערוך פרטים' }
+              {isLocked ? 'כרטיס נעול' : 'אי אפשר לערוך פרטים'}
             </Text>
           </View>
           <View className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
             <View className={`h-1 rounded-full ${selectedColor.colorClass}`} />
             <View className={`${tw.flexRow} items-center justify-between mt-4`}>
               <View>
-                <Text className="text-lg font-black text-text-main">קפה ארומה</Text>
-                <Text className="text-xs text-gray-400 mt-1">צבור {maxStamps} ניקובים לקבלת קפה ומאפה חינם</Text>
+                <Text className="text-lg font-black text-text-main">
+                  קפה ארומה
+                </Text>
+                <Text className="text-xs text-gray-400 mt-1">
+                  צבור {maxStamps} ניקובים לקבלת קפה ומאפה חינם
+                </Text>
               </View>
-              <View className={`h-12 w-12 rounded-[20px] items-center justify-center ${selectedColor.colorClass}`}>
+              <View
+                className={`h-12 w-12 rounded-[20px] items-center justify-center ${selectedColor.colorClass}`}
+              >
                 <Text className="text-white font-black">☕️</Text>
               </View>
             </View>
@@ -73,31 +86,43 @@ export default function MerchantStoreSettingsScreen() {
                   <Text className="text-blue-600 text-xl">✏️</Text>
                 </View>
               }
-              trailing={<Text className="text-xs font-bold text-gray-400">{field.title === 'הטבה עיקרית' ? `${maxStamps} ניקובים` : '›'}</Text>}
+              trailing={
+                <Text className="text-xs font-bold text-gray-400">
+                  {field.title === 'הטבה עיקרית' ? `${maxStamps} ניקובים` : '›'}
+                </Text>
+              }
             />
           ))}
         </View>
 
         <View className="mt-6">
-          <Text className="text-sm font-black text-text-main mb-2">בחירת צבע מותג</Text>
+          <Text className="text-sm font-black text-text-main mb-2">
+            בחירת צבע מותג
+          </Text>
           <View className={`${tw.flexRow} flex-wrap gap-3`}>
             {BRAND_COLORS.map((color) => (
               <TouchableOpacity
                 key={color.id}
                 disabled={isLocked}
                 className={`h-16 w-16 rounded-[20px] items-center justify-center ${color.colorClass} ${
-                  selectedColor.id === color.id ? 'opacity-100 shadow-lg' : 'opacity-70'
+                  selectedColor.id === color.id
+                    ? 'opacity-100 shadow-lg'
+                    : 'opacity-70'
                 }`}
                 onPress={() => setSelectedColor(color)}
               >
-                <Text className="text-xs font-black text-white">{color.label}</Text>
+                <Text className="text-xs font-black text-white">
+                  {color.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         <View className={`${tw.flexRow} items-center justify-between mt-6`}>
-          <Text className="text-sm font-bold text-text-main">כמות ניקובים לכרטיס מלא</Text>
+          <Text className="text-sm font-bold text-text-main">
+            כמות ניקובים לכרטיס מלא
+          </Text>
           <View className={`${tw.flexRow} items-center gap-2`}>
             <TouchableOpacity
               disabled={isLocked || maxStamps <= 3}
@@ -106,7 +131,9 @@ export default function MerchantStoreSettingsScreen() {
             >
               <Text className="text-lg font-black text-text-main">-</Text>
             </TouchableOpacity>
-            <Text className="text-base font-black text-text-main">{maxStamps}</Text>
+            <Text className="text-base font-black text-text-main">
+              {maxStamps}
+            </Text>
             <TouchableOpacity
               disabled={isLocked || maxStamps >= 12}
               className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center"
@@ -135,4 +162,3 @@ export default function MerchantStoreSettingsScreen() {
     </ScrollView>
   );
 }
-

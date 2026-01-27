@@ -1,7 +1,7 @@
 import { Redirect, Slot } from 'expo-router';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { useUser } from '@/contexts/UserContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { useUser } from '@/contexts/UserContext';
 
 export default function MerchantOnboardingLayout() {
   const { user, isLoading } = useUser();
@@ -20,7 +20,3 @@ export default function MerchantOnboardingLayout() {
     </OnboardingProvider>
   );
 }
-
-
-
-

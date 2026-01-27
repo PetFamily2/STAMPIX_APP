@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import type { Id } from './_generated/dataModel';
+import { mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
-import { SubscriptionPlan } from '../lib/domain/subscriptions';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
   v.literal('free'),

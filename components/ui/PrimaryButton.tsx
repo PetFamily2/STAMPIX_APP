@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
 type PrimaryButtonProps = {
@@ -23,9 +22,8 @@ export function PrimaryButton({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : icon ?? null}
+      {loading ? <ActivityIndicator color="#fff" /> : (icon ?? null)}
       <Text className="text-white text-lg font-black">{title}</Text>
     </TouchableOpacity>
   );
 }
-

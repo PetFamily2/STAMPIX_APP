@@ -21,9 +21,9 @@ import { Alert } from 'react-native';
 import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import {
-  SubscriptionPlan,
-  planFromRevenueCatSubscriber,
   getPrimaryProductIdFromSubscriber,
+  planFromRevenueCatSubscriber,
+  type SubscriptionPlan,
 } from '@/lib/domain/subscriptions';
 import {
   getCurrentPlatformRevenueCatApiKey,
@@ -122,15 +122,19 @@ export function RevenueCatProvider({
   children: React.ReactNode;
 }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>('free');
+  const [subscriptionPlan, setSubscriptionPlan] =
+    useState<SubscriptionPlan>('free');
   const [packages, setPackages] = useState<PackageInfo[]>(PREVIEW_PACKAGES);
   const [isInitialized, setIsInitialized] = useState(false);
   const didInitializationRun = useRef(false);
 
   const isExpoGo = isRunningInExpoGo();
-  const isConfigured = isRevenueCatConfigured();  const user = null as any;
+  const isConfigured = isRevenueCatConfigured();
+  const user = null as any;
   const updateSubscriptionPlan = useMutation(api.users.updateSubscriptionPlan);
-  const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<string | null>(null);
+  const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
+    string | null
+  >(null);
 
   const syncSubscriptionPlan = useCallback(
     async (plan: SubscriptionPlan, productId?: string) => {

@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleProp,
+  type StyleProp,
   StyleSheet,
   Text,
   View,
-  ViewStyle,
-} from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+  type ViewStyle,
+} from 'react-native';
 
 type QrScannerProps = {
   onScan: (data: string) => Promise<void> | void;
@@ -52,7 +52,7 @@ export default function QrScanner({
       try {
         await onScan(String(data));
       } catch (error) {
-        console.log("[QrScanner] scan handler failed", error);
+        console.log('[QrScanner] scan handler failed', error);
         setScanned(false);
       } finally {
         setInternalBusy(false);
@@ -63,9 +63,9 @@ export default function QrScanner({
 
   const statusLabel = useMemo(() => {
     if (caption) return caption;
-    if (isBusy || internalBusy) return "מעדכן נתונים...";
-    if (scanned) return "הקוד נסרק";
-    return "סמן את ה-QR בתוך המסגרת";
+    if (isBusy || internalBusy) return 'מעדכן נתונים...';
+    if (scanned) return 'הקוד נסרק';
+    return 'סמן את ה-QR בתוך המסגרת';
   }, [caption, internalBusy, isBusy, scanned]);
 
   const renderPermissionFallback = () => {
@@ -83,7 +83,10 @@ export default function QrScanner({
         <View style={styles.permissionFallback}>
           <Text style={styles.permissionTitle}>אין הרשאת מצלמה</Text>
           <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק.</Text>
-          <Pressable onPress={requestPermission} style={styles.permissionButton}>
+          <Pressable
+            onPress={requestPermission}
+            style={styles.permissionButton}
+          >
             <Text style={styles.permissionButtonText}>תן הרשאה</Text>
           </Pressable>
         </View>
@@ -100,7 +103,7 @@ export default function QrScanner({
           <CameraView
             style={styles.cameraView}
             onBarcodeScanned={handleBarcode}
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           />
         ) : (
           renderPermissionFallback()
@@ -110,7 +113,11 @@ export default function QrScanner({
       <View style={styles.statusRow}>
         <Text style={styles.statusText}>{statusLabel}</Text>
         {(internalBusy || isBusy) && (
-          <ActivityIndicator size="small" color="#2F6BFF" style={{ marginLeft: 6 }} />
+          <ActivityIndicator
+            size="small"
+            color="#2F6BFF"
+            style={{ marginLeft: 6 }}
+          />
         )}
       </View>
     </View>
@@ -120,70 +127,70 @@ export default function QrScanner({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    width: "100%",
+    width: '100%',
   },
   cameraShell: {
     flex: 1,
     minHeight: 300,
     borderRadius: 28,
-    overflow: "hidden",
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: "#E3E9FF",
-    backgroundColor: "#000",
+    borderColor: '#E3E9FF',
+    backgroundColor: '#000',
   },
   cameraView: {
     flex: 1,
     minHeight: 300,
   },
   overlay: {
-    position: "absolute",
+    position: 'absolute',
     left: 20,
     right: 20,
     top: 30,
     bottom: 30,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: "rgba(47,107,255,0.85)",
+    borderColor: 'rgba(47,107,255,0.85)',
   },
   permissionFallback: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 20,
   },
   permissionTitle: {
     marginTop: 12,
     fontSize: 15,
-    fontWeight: "800",
-    color: "#0B1220",
-    textAlign: "center",
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'center',
   },
   permissionText: {
     marginTop: 6,
     fontSize: 13,
-    color: "#5B6475",
-    textAlign: "center",
+    color: '#5B6475',
+    textAlign: 'center',
   },
   permissionButton: {
     marginTop: 14,
-    backgroundColor: "#2F6BFF",
+    backgroundColor: '#2F6BFF',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   permissionButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
   statusRow: {
     marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusText: {
     fontSize: 13,
-    color: "#5B6475",
-    fontWeight: "700",
+    color: '#5B6475',
+    fontWeight: '700',
   },
 });

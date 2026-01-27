@@ -1,7 +1,13 @@
-import { ScrollView, Text, View } from 'react-native';
 import { useQuery } from 'convex/react';
+import { ScrollView, Text, View } from 'react-native';
 
-import { Card, ListRow, PrimaryButton, SectionHeader, StatCard } from '@/components/ui';
+import {
+  Card,
+  ListRow,
+  PrimaryButton,
+  SectionHeader,
+  StatCard,
+} from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import { tw } from '@/lib/rtl';
 
@@ -31,15 +37,17 @@ export default function MerchantDashboardScreen() {
   const businessId = businesses[0]?.businessId ?? null;
   const analytics = useQuery(
     api.analytics.getMerchantActivity,
-    businessId ? { businessId } : 'skip',
+    businessId ? { businessId } : 'skip'
   );
   const customerData = useQuery(
     api.events.getMerchantCustomers,
-    businessId ? { businessId } : 'skip',
+    businessId ? { businessId } : 'skip'
   );
   const recentActivity =
-    useQuery(api.events.getRecentActivity, businessId ? { businessId, limit: 5 } : 'skip') ??
-    [];
+    useQuery(
+      api.events.getRecentActivity,
+      businessId ? { businessId, limit: 5 } : 'skip'
+    ) ?? [];
 
   const todayStamps = analytics?.daily?.at(-1)?.stamps ?? 0;
   const weeklyRedemptions = analytics?.totals?.redemptions ?? 0;
@@ -76,12 +84,17 @@ export default function MerchantDashboardScreen() {
       : 'אין לקוחות בסיכון כרגע. המשך לשמור על קשר עם כולם.';
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 32 }} className="flex-1 bg-slate-50">
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 32 }}
+      className="flex-1 bg-slate-50"
+    >
       <View className="px-5 pt-6 pb-8">
         <SectionHeader
           title="שלום, קפה ארומה 👋"
           description="סקירה מהירה על הפעילות היומית בעסק"
-          action={<Text className="text-xs font-bold text-blue-600">אנליטיקה</Text>}
+          action={
+            <Text className="text-xs font-bold text-blue-600">אנליטיקה</Text>
+          }
         />
 
         <View className="mt-6">
@@ -124,36 +137,45 @@ export default function MerchantDashboardScreen() {
                   <Text className="text-blue-600 text-xl">{action.icon}</Text>
                 </View>
               }
-              trailing={<Text className="text-gray-300 font-bold text-xs">›</Text>}
+              trailing={
+                <Text className="text-gray-300 font-bold text-xs">›</Text>
+              }
             />
           ))}
         </View>
 
         <View className="mt-8">
-          <Text className="text-lg font-black text-text-main mb-4">פעילות אחרונה</Text>
-        <View className="space-y-3">
-          {recentActivity.map((activity) => (
-            <Card key={activity.id} className="px-4 py-3">
-              <View className={`${tw.flexRow} items-center justify-between`}>
-                <View className={`${tw.flexRow} items-center gap-3 flex-1`}>
-                  <View className="h-12 w-12 rounded-2xl bg-gray-100 items-center justify-center">
-                    <Text className="text-xl text-gray-400">
-                      {activity.type === 'punch' ? '🔵' : '🎉'}
-                    </Text>
+          <Text className="text-lg font-black text-text-main mb-4">
+            פעילות אחרונה
+          </Text>
+          <View className="space-y-3">
+            {recentActivity.map((activity) => (
+              <Card key={activity.id} className="px-4 py-3">
+                <View className={`${tw.flexRow} items-center justify-between`}>
+                  <View className={`${tw.flexRow} items-center gap-3 flex-1`}>
+                    <View className="h-12 w-12 rounded-2xl bg-gray-100 items-center justify-center">
+                      <Text className="text-xl text-gray-400">
+                        {activity.type === 'punch' ? '🔵' : '🎉'}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-text-main">
+                        {activity.customer}
+                      </Text>
+                      <Text className="text-xs font-bold text-gray-400">
+                        {activity.detail}
+                      </Text>
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-text-main">{activity.customer}</Text>
-                    <Text className="text-xs font-bold text-gray-400">{activity.detail}</Text>
-                  </View>
+                  <Text className="text-[11px] font-bold text-gray-300">
+                    {activity.time}
+                  </Text>
                 </View>
-                <Text className="text-[11px] font-bold text-gray-300">{activity.time}</Text>
-              </View>
-            </Card>
-          ))}
-        </View>
+              </Card>
+            ))}
+          </View>
         </View>
       </View>
     </ScrollView>
   );
 }
-

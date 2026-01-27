@@ -23,7 +23,10 @@ const MENU_ITEMS = [
 
 export default function MerchantProfileSettingsScreen() {
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 48 }} className="flex-1 bg-slate-50">
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 48 }}
+      className="flex-1 bg-slate-50"
+    >
       <View className="px-5 pt-6 pb-8">
         <SectionHeader
           title="הגדרות וחשבון"
@@ -36,8 +39,12 @@ export default function MerchantProfileSettingsScreen() {
               <Text className="text-4xl">א</Text>
             </View>
             <View>
-              <Text className="text-2xl font-black text-text-main">ארומה אספרסו בר</Text>
-              <Text className="text-xs text-gray-400 font-bold mt-1">ניהול חשבון ראשי</Text>
+              <Text className="text-2xl font-black text-text-main">
+                ארומה אספרסו בר
+              </Text>
+              <Text className="text-xs text-gray-400 font-bold mt-1">
+                ניהול חשבון ראשי
+              </Text>
             </View>
           </View>
         </Card>
@@ -53,19 +60,29 @@ export default function MerchantProfileSettingsScreen() {
                   <Text className="text-blue-600 text-xl">{item.icon}</Text>
                 </View>
               }
-              trailing={<Text className="text-gray-300 font-bold text-xs">›</Text>}
+              trailing={
+                <Text className="text-gray-300 font-bold text-xs">›</Text>
+              }
             />
           ))}
         </View>
 
         <View className="mt-8 space-y-3">
           <Card className="p-4 border border-gray-100">
-            <Text className="text-base font-black text-text-main">סטטוס מנוי: Pro</Text>
-            <Text className="text-xs text-gray-400 mt-1">חיוב הבאה: 12/02/2025</Text>
+            <Text className="text-base font-black text-text-main">
+              סטטוס מנוי: Pro
+            </Text>
+            <Text className="text-xs text-gray-400 mt-1">
+              חיוב הבאה: 12/02/2025
+            </Text>
           </Card>
           <Card className="p-4 border border-gray-100">
-            <Text className="text-base font-black text-text-main">גרסת STAMPIX OS</Text>
-            <Text className="text-xs text-gray-400 mt-1">v2.7.1 • Production</Text>
+            <Text className="text-base font-black text-text-main">
+              גרסת STAMPIX OS
+            </Text>
+            <Text className="text-xs text-gray-400 mt-1">
+              v2.7.1 • Production
+            </Text>
           </Card>
         </View>
 
@@ -74,7 +91,3 @@ export default function MerchantProfileSettingsScreen() {
     </ScrollView>
   );
 }
-
-
-
-

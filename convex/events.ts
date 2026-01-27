@@ -1,6 +1,6 @@
+import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { query } from './_generated/server';
-import { v } from 'convex/values';
 
 import { requireActorIsStaffForBusiness } from './guards';
 
@@ -74,7 +74,8 @@ export const getMerchantCustomers = query({
       customers.push({
         membershipId: membership._id,
         customerId: customer._id,
-        name: customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
+        name:
+          customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
         phone: customer.phone ?? null,
         currentStamps: membership.currentStamps,
         maxStamps: program.maxStamps,
@@ -123,7 +124,10 @@ export const getRecentActivity = query({
       .collect();
 
     const sorted = events
-      .filter((event) => event.type === 'STAMP_ADDED' || event.type === 'REWARD_REDEEMED')
+      .filter(
+        (event) =>
+          event.type === 'STAMP_ADDED' || event.type === 'REWARD_REDEEMED'
+      )
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, safeLimit);
 
@@ -138,7 +142,10 @@ export const getRecentActivity = query({
       const metadata = event.metadata as Record<string, unknown> | undefined;
       const nextPunchCount =
         typeof metadata?.next === 'number' ? metadata.next : undefined;
-      const redeemedFrom = typeof metadata?.redeemedFrom === 'number' ? metadata.redeemedFrom : undefined;
+      const redeemedFrom =
+        typeof metadata?.redeemedFrom === 'number'
+          ? metadata.redeemedFrom
+          : undefined;
       const detail =
         event.type === 'STAMP_ADDED'
           ? `קיבל ניקוב${nextPunchCount ? ` ${nextPunchCount}` : ''}`
@@ -154,7 +161,8 @@ export const getRecentActivity = query({
       activity.push({
         id: String(event._id),
         type: event.type === 'STAMP_ADDED' ? 'punch' : 'reward',
-        customer: customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
+        customer:
+          customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
         detail,
         time: timeLabel,
       });
@@ -163,4 +171,3 @@ export const getRecentActivity = query({
     return activity.slice(0, safeLimit);
   },
 });
-

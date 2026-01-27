@@ -10,20 +10,25 @@ type SectionHeaderProps = {
   className?: string;
 };
 
-export function SectionHeader({ title, description, action, className = '' }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  description,
+  action,
+  className = '',
+}: SectionHeaderProps) {
   return (
     <View className={`${tw.flexRow} items-center justify-between ${className}`}>
       <View>
-        <Text className={`text-lg font-black text-text-main ${tw.textStart}`}>{title}</Text>
+        <Text className={`text-lg font-black text-text-main ${tw.textStart}`}>
+          {title}
+        </Text>
         {description ? (
-          <Text className={`text-xs text-gray-400 ${tw.textStart}`}>{description}</Text>
+          <Text className={`text-xs text-gray-400 ${tw.textStart}`}>
+            {description}
+          </Text>
         ) : null}
       </View>
       {action}
     </View>
   );
 }
-
-
-
-

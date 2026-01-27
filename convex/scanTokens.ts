@@ -25,10 +25,10 @@ function base64UrlEncode(bytes: Uint8Array) {
 }
 
 function base64UrlDecode(encoded: string) {
-  const padded = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(
-    Math.ceil(encoded.length / 4) * 4,
-    '='
-  );
+  const padded = encoded
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(encoded.length / 4) * 4, '=');
   const bin = atob(padded);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) {
@@ -47,7 +47,11 @@ async function buildSignature(customerId: string, timestamp: number) {
     false,
     ['sign']
   );
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(payload)
+  );
   return base64UrlEncode(new Uint8Array(signature));
 }
 
@@ -57,7 +61,10 @@ function formatPayload(payload: ScanTokenPayload) {
   return `${SCAN_TOKEN_PREFIX}${encoded}`;
 }
 
-export async function buildScanToken(customerId: string, timestamp = Date.now()) {
+export async function buildScanToken(
+  customerId: string,
+  timestamp = Date.now()
+) {
   const normalizedTimestamp = Math.floor(timestamp);
   const signature = await buildSignature(customerId, normalizedTimestamp);
   const payload: ScanTokenPayload = {
@@ -83,23 +90,27 @@ export function parseScanToken(qrData: string): ScanTokenPayload {
     throw new Error('INVALID_SCAN_TOKEN');
   }
 
-    let obj: Record<string, unknown>;
-    try {
-      obj = JSON.parse(decoded) as Record<string, unknown>;
-    } catch (error) {
-      throw new Error('INVALID_SCAN_TOKEN');
-    }
-
-    const customerId = obj.customerId;
-    const timestamp = obj.timestamp;
-    const signature = obj.signature;
-
-    if (typeof customerId !== 'string' || typeof timestamp !== 'number' || typeof signature !== 'string') {
-      throw new Error('INVALID_SCAN_TOKEN');
-    }
-
-    return { customerId, timestamp, signature };
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(decoded) as Record<string, unknown>;
+  } catch (error) {
+    throw new Error('INVALID_SCAN_TOKEN');
   }
+
+  const customerId = obj.customerId;
+  const timestamp = obj.timestamp;
+  const signature = obj.signature;
+
+  if (
+    typeof customerId !== 'string' ||
+    typeof timestamp !== 'number' ||
+    typeof signature !== 'string'
+  ) {
+    throw new Error('INVALID_SCAN_TOKEN');
+  }
+
+  return { customerId, timestamp, signature };
+}
 
 export async function assertScanTokenSignature(payload: ScanTokenPayload) {
   const expected = await buildSignature(payload.customerId, payload.timestamp);

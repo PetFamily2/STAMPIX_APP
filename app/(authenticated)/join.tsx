@@ -1,47 +1,55 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import QrScanner from "@/components/QrScanner";
+﻿import { useMutation } from 'convex/react';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { BackButton } from '@/components/BackButton';
+import QrScanner from '@/components/QrScanner';
+import { api } from '@/convex/_generated/api';
+import { safeBack } from '@/lib/navigation';
 
 export default function JoinScreen() {
   const insets = useSafeAreaInsets();
   const joinByBusinessQr = useMutation(api.memberships.joinByBusinessQr);
 
-  const [manual, setManual] = useState("");
+  const [manual, setManual] = useState('');
   const [busy, setBusy] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
-  const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: 'error' | 'info';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (__DEV__) {
-      console.log("[JOIN] Convex URL:", process.env.EXPO_PUBLIC_CONVEX_URL);
+      console.log('[JOIN] Convex URL:', process.env.EXPO_PUBLIC_CONVEX_URL);
     }
   }, []);
 
   const getFriendlyError = (error: unknown) => {
     if (error instanceof Error) {
       switch (error.message) {
-        case "INVALID_QR":
-          return "הקוד אינו תקין. נסה שוב.";
-        case "BUSINESS_NOT_FOUND":
-          return "העסק לא נמצא. בדוק את הקוד.";
-        case "PROGRAM_NOT_FOUND":
-          return "אין תוכנית פעילה לעסק זה.";
+        case 'INVALID_QR':
+          return '׳”׳§׳•׳“ ׳׳™׳ ׳• ׳×׳§׳™׳. ׳ ׳¡׳” ׳©׳•׳‘.';
+        case 'BUSINESS_NOT_FOUND':
+          return '׳”׳¢׳¡׳§ ׳׳ ׳ ׳׳¦׳. ׳‘׳“׳•׳§ ׳׳× ׳”׳§׳•׳“.';
+        case 'PROGRAM_NOT_FOUND':
+          return '׳׳™׳ ׳×׳•׳›׳ ׳™׳× ׳₪׳¢׳™׳׳” ׳׳¢׳¡׳§ ׳–׳”.';
         default:
-          return "ההצטרפות נכשלה. נסה שוב.";
+          return '׳”׳”׳¦׳˜׳¨׳₪׳•׳× ׳ ׳›׳©׳׳”. ׳ ׳¡׳” ׳©׳•׳‘.';
       }
     }
-    return "אירעה שגיאה לא צפויה. נסה שוב.";
+    return '׳׳™׳¨׳¢׳” ׳©׳’׳™׳׳” ׳׳ ׳¦׳₪׳•׳™׳”. ׳ ׳¡׳” ׳©׳•׳‘.';
   };
 
   const handleJoin = useCallback(
     async (qrData: string) => {
-      const data = (qrData ?? "").trim();
+      const data = (qrData ?? '').trim();
       if (!data) {
-        setFeedback({ type: "error", message: "אנא הזן קוד עסק תקין." });
+        setFeedback({ type: 'error', message: '׳׳ ׳ ׳”׳–׳ ׳§׳•׳“ ׳¢׳¡׳§ ׳×׳§׳™׳.' });
         return;
       }
       if (busy) return;
@@ -49,12 +57,12 @@ export default function JoinScreen() {
       try {
         setBusy(true);
         await joinByBusinessQr({ qrData: data });
-        setManual("");
+        setManual('');
         setScannerResetKey((prev) => prev + 1);
-        router.replace("/(authenticated)/(customer)/wallet");
+        router.replace('/(authenticated)/(customer)/wallet');
       } catch (error) {
-        console.log("[JOIN] failed", error);
-        setFeedback({ type: "error", message: getFriendlyError(error) });
+        console.log('[JOIN] failed', error);
+        setFeedback({ type: 'error', message: getFriendlyError(error) });
         setScannerResetKey((prev) => prev + 1);
       } finally {
         setBusy(false);
@@ -80,7 +88,10 @@ export default function JoinScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: '#E9F0FF' }}
+      edges={['top']}
+    >
       <View style={{ flex: 1 }}>
         <View
           style={{
@@ -89,19 +100,39 @@ export default function JoinScreen() {
             paddingBottom: 8,
           }}
         >
-          <Text style={{ fontSize: 22, fontWeight: "900", color: "#1A2B4A", textAlign: "right" }}>
-            הצטרפות למועדון
+          <View style={{ alignItems: 'flex-end', marginBottom: 12 }}>
+            <BackButton
+              onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            />
+          </View>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: '900',
+              color: '#1A2B4A',
+              textAlign: 'right',
+            }}
+          >
+            ׳”׳¦׳˜׳¨׳₪׳•׳× ׳׳׳•׳¢׳“׳•׳
           </Text>
-          <Text style={{ marginTop: 6, fontSize: 13, fontWeight: "700", color: "#2F6BFF", textAlign: "right" }}>
-            סרוק QR של העסק או הדבק קוד ייחודי
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: '700',
+              color: '#2F6BFF',
+              textAlign: 'right',
+            }}
+          >
+            ׳¡׳¨׳•׳§ QR ׳©׳ ׳”׳¢׳¡׳§ ׳׳• ׳”׳“׳‘׳§ ׳§׳•׳“ ׳™׳™׳—׳•׳“׳™
           </Text>
           {feedback ? (
             <Text
               style={{
                 marginTop: 10,
                 fontSize: 13,
-                color: feedback.type === "error" ? "#D92D20" : "#0B922A",
-                textAlign: "right",
+                color: feedback.type === 'error' ? '#D92D20' : '#0B922A',
+                textAlign: 'right',
               }}
             >
               {feedback.message}
@@ -110,7 +141,11 @@ export default function JoinScreen() {
         </View>
 
         <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 12 }}>
-          <QrScanner onScan={handleScan} resetKey={scannerResetKey} isBusy={busy} />
+          <QrScanner
+            onScan={handleScan}
+            resetKey={scannerResetKey}
+            isBusy={busy}
+          />
         </View>
       </View>
 
@@ -123,59 +158,63 @@ export default function JoinScreen() {
       >
         <View
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: '#FFFFFF',
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: "#E3E9FF",
+            borderColor: '#E3E9FF',
             padding: 16,
           }}
         >
-          <Text style={{ textAlign: "right", fontWeight: "900", color: "#0B1220" }}>
-            אין QR? הדבק קוד עסק
+          <Text
+            style={{ textAlign: 'right', fontWeight: '900', color: '#0B1220' }}
+          >
+            ׳׳™׳ QR? ׳”׳“׳‘׳§ ׳§׳•׳“ ׳¢׳¡׳§
           </Text>
-            <TextInput
-              value={manual}
-              onChangeText={setManual}
-              onSubmitEditing={handleManual}
-              returnKeyType="done"
-              keyboardType="default"
-              placeholder="לדוגמה: businessExternalId:biz:demo-1"
-              placeholderTextColor="#9AA4B2"
-              style={{
-                height: 44,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: "#E3E9FF",
-                paddingHorizontal: 12,
-                textAlign: "right",
-                color: "#0B1220",
-                backgroundColor: "#F6F8FC",
-                fontWeight: "700",
-                marginTop: 10,
-              }}
-            />
+          <TextInput
+            value={manual}
+            onChangeText={setManual}
+            onSubmitEditing={handleManual}
+            returnKeyType="done"
+            keyboardType="default"
+            placeholder="׳׳“׳•׳’׳׳”: businessExternalId:biz:demo-1"
+            placeholderTextColor="#9AA4B2"
+            style={{
+              height: 44,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#E3E9FF',
+              paddingHorizontal: 12,
+              textAlign: 'right',
+              color: '#0B1220',
+              backgroundColor: '#F6F8FC',
+              fontWeight: '700',
+              marginTop: 10,
+            }}
+          />
 
           <Pressable
             onPress={handleManual}
             style={({ pressed }) => ({
-              alignSelf: "flex-start",
+              alignSelf: 'flex-start',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 11,
-              backgroundColor: "#2F6BFF",
+              backgroundColor: '#2F6BFF',
               opacity: pressed ? 0.85 : 1,
               marginTop: 12,
             })}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>{busy ? "בודק..." : "הצטרף"}</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+              {busy ? '׳‘׳•׳“׳§...' : '׳”׳¦׳˜׳¨׳£'}
+            </Text>
           </Pressable>
           {__DEV__ ? (
             <Text
               style={{
                 marginTop: 6,
                 fontSize: 11,
-                color: "#5B6475",
-                textAlign: "left",
+                color: '#5B6475',
+                textAlign: 'left',
               }}
             >
               CTA_RENDERED
@@ -185,36 +224,22 @@ export default function JoinScreen() {
           <Pressable
             onPress={handleRetryScan}
             style={({ pressed }) => ({
-              alignSelf: "flex-start",
+              alignSelf: 'flex-start',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 11,
-              backgroundColor: "#D4EDFF",
+              backgroundColor: '#D4EDFF',
               opacity: pressed ? 0.85 : 1,
               marginTop: 10,
             })}
           >
-            <Text style={{ color: "#2F6BFF", fontWeight: "900" }}>סרוק שוב</Text>
+            <Text style={{ color: '#2F6BFF', fontWeight: '900' }}>
+              ׳¡׳¨׳•׳§ ׳©׳•׳‘
+            </Text>
           </Pressable>
         </View>
-
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => ({
-            marginTop: 12,
-            alignSelf: "flex-start",
-            backgroundColor: "#FFFFFF",
-            borderRadius: 14,
-            paddingHorizontal: 14,
-            paddingVertical: 11,
-            borderWidth: 1,
-            borderColor: "#E3E9FF",
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <Text style={{ color: "#1A2B4A", fontWeight: "900" }}>חזרה</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
+

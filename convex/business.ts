@@ -60,7 +60,10 @@ export async function ensureBusinessOwnerStaff(
   return ensureBusinessStaffRecord(ctx, businessId, ownerUserId, 'owner', now);
 }
 
-export async function createBusinessForOwner(ctx: any, input: BusinessCreationInput) {
+export async function createBusinessForOwner(
+  ctx: any,
+  input: BusinessCreationInput
+) {
   const now = input.now ?? Date.now();
   const businessId = await ctx.db.insert('businesses', {
     ownerUserId: input.ownerUserId,
@@ -101,7 +104,9 @@ export const createBusiness = mutation({
 
     const existing = await ctx.db
       .query('businesses')
-      .withIndex('by_externalId', (q: any) => q.eq('externalId', normalizedExternalId))
+      .withIndex('by_externalId', (q: any) =>
+        q.eq('externalId', normalizedExternalId)
+      )
       .first();
 
     if (existing) {
@@ -156,7 +161,8 @@ export const listBusinessStaff = query({
         if (!user || user.isActive !== true) {
           return null;
         }
-        const displayName = user.fullName ?? user.email ?? user.externalId ?? 'עובד';
+        const displayName =
+          user.fullName ?? user.email ?? user.externalId ?? 'עובד';
         return {
           staffId: record._id,
           userId: record.userId,
@@ -192,7 +198,10 @@ export const inviteBusinessStaff = mutation({
       throw new Error('EMAIL_REQUIRED');
     }
 
-    const { actor, staffRole } = await requireActorIsStaffForBusiness(ctx, businessId);
+    const { actor, staffRole } = await requireActorIsStaffForBusiness(
+      ctx,
+      businessId
+    );
     if (staffRole !== 'owner') {
       throw new Error('NOT_AUTHORIZED');
     }
@@ -210,7 +219,12 @@ export const inviteBusinessStaff = mutation({
       throw new Error('CANNOT_INVITE_SELF');
     }
 
-    const staffId = await ensureBusinessStaffRecord(ctx, businessId, user._id, 'staff');
+    const staffId = await ensureBusinessStaffRecord(
+      ctx,
+      businessId,
+      user._id,
+      'staff'
+    );
 
     const desiredRole = user.role === 'merchant' ? 'merchant' : 'staff';
     if (user.role !== desiredRole) {
@@ -223,4 +237,3 @@ export const inviteBusinessStaff = mutation({
     return { staffId, userId: user._id };
   },
 });
-

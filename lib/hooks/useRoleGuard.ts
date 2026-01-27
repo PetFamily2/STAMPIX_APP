@@ -16,7 +16,3 @@ export function useRoleGuard(allowedRoles: AppRole[]) {
     isAuthorized,
   };
 }
-
-
-
-

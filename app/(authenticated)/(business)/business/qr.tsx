@@ -1,1 +1,1 @@
-export { default } from "../qr";
+export { default } from '../qr';

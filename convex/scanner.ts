@@ -11,7 +11,7 @@ import {
   buildScanToken,
   isScanTokenExpired,
   parseScanToken,
-  ScanTokenPayload,
+  type ScanTokenPayload,
 } from './scanTokens';
 
 type BusinessForStaff = {
@@ -34,7 +34,7 @@ export const myBusinesses = query({
       .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect();
 
-    const businesses = await Promise.all<(BusinessForStaff | null)>(
+    const businesses = await Promise.all<BusinessForStaff | null>(
       staffEntries.map(async (staff) => {
         const business = await ctx.db.get(staff.businessId);
         if (!business || business.isActive !== true) {
@@ -52,7 +52,7 @@ export const myBusinesses = query({
     );
 
     return businesses.filter(
-      ((business): business is BusinessForStaff => business !== null)
+      (business): business is BusinessForStaff => business !== null
     );
   },
 });
@@ -64,11 +64,19 @@ export const createScanToken = mutation({
   handler: async (ctx, { membershipId }) => {
     const user = await requireCurrentUser(ctx);
     const membership = await ctx.db.get(membershipId);
-    if (!membership || membership.userId !== user._id || membership.isActive !== true) {
+    if (
+      !membership ||
+      membership.userId !== user._id ||
+      membership.isActive !== true
+    ) {
       throw new Error('MEMBERSHIP_NOT_FOUND');
     }
 
-    await requireBusinessAndProgram(ctx, membership.businessId, membership.programId);
+    await requireBusinessAndProgram(
+      ctx,
+      membership.businessId,
+      membership.programId
+    );
 
     const { scanToken, payload } = await buildScanToken(user._id);
     return {
@@ -94,7 +102,10 @@ export const resolveScan = mutation({
     programId: v.id('loyaltyPrograms'),
   },
   handler: async (ctx, args) => {
-    const { actor } = await requireActorIsStaffForBusiness(ctx, args.businessId);
+    const { actor } = await requireActorIsStaffForBusiness(
+      ctx,
+      args.businessId
+    );
     const actorUserId = actor._id;
 
     // 1) Validate business + program are active and connected
@@ -124,7 +135,9 @@ export const resolveScan = mutation({
 
     const existingUsage = await ctx.db
       .query('scanTokenEvents')
-      .withIndex('by_signature', (q: any) => q.eq('signature', tokenPayload.signature))
+      .withIndex('by_signature', (q: any) =>
+        q.eq('signature', tokenPayload.signature)
+      )
       .first();
 
     if (existingUsage) {
@@ -186,7 +199,10 @@ export const addStamp = mutation({
     customerUserId: v.id('users'),
   },
   handler: async (ctx, args) => {
-    const { actor } = await requireActorIsStaffForBusiness(ctx, args.businessId);
+    const { actor } = await requireActorIsStaffForBusiness(
+      ctx,
+      args.businessId
+    );
     const actorUserId = actor._id;
     const { program } = await requireBusinessAndProgram(
       ctx,
@@ -259,7 +275,11 @@ export const addStamp = mutation({
       membershipId: existing._id,
       actorUserId,
       customerUserId: args.customerUserId,
-      metadata: { source: 'scanner', previous: existing.currentStamps, next: nextStamps },
+      metadata: {
+        source: 'scanner',
+        previous: existing.currentStamps,
+        next: nextStamps,
+      },
       createdAt: now,
     });
 
@@ -284,7 +304,10 @@ export const redeemReward = mutation({
     customerUserId: v.id('users'),
   },
   handler: async (ctx, args) => {
-    const { actor } = await requireActorIsStaffForBusiness(ctx, args.businessId);
+    const { actor } = await requireActorIsStaffForBusiness(
+      ctx,
+      args.businessId
+    );
     const actorUserId = actor._id;
     const { program } = await requireBusinessAndProgram(
       ctx,

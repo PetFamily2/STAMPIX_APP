@@ -1,29 +1,54 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, TextInput, Pressable } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-type Business = { id: string; name: string; subtitle: string; distanceKm: number };
+type Business = {
+  id: string;
+  name: string;
+  subtitle: string;
+  distanceKm: number;
+};
 
 const demoBusinesses: Business[] = [
-  { id: "l1", name: "קפה לואיז", subtitle: "הטבת הצטרפות: חותמת כפולה", distanceKm: 0.7 },
-  { id: "b1", name: "ברגריה", subtitle: "הטבת הצטרפות: תוספת חינם", distanceKm: 1.9 },
-  { id: "p1", name: "פיצה שכונתית", subtitle: "הטבת הצטרפות: שתייה חינם", distanceKm: 2.4 },
+  {
+    id: 'l1',
+    name: 'קפה לואיז',
+    subtitle: 'הטבת הצטרפות: חותמת כפולה',
+    distanceKm: 0.7,
+  },
+  {
+    id: 'b1',
+    name: 'ברגריה',
+    subtitle: 'הטבת הצטרפות: תוספת חינם',
+    distanceKm: 1.9,
+  },
+  {
+    id: 'p1',
+    name: 'פיצה שכונתית',
+    subtitle: 'הטבת הצטרפות: שתייה חינם',
+    distanceKm: 2.4,
+  },
 ];
 
 export default function DiscoveryScreen() {
   const insets = useSafeAreaInsets();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
     const s = q.trim();
     if (!s) return demoBusinesses;
-    return demoBusinesses.filter((b) => b.name.includes(s) || b.subtitle.includes(s));
+    return demoBusinesses.filter(
+      (b) => b.name.includes(s) || b.subtitle.includes(s)
+    );
   }, [q]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -32,31 +57,45 @@ export default function DiscoveryScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ fontSize: 24, fontWeight: "800", color: "#1A2B4A", textAlign: "right" }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: '800',
+            color: '#1A2B4A',
+            textAlign: 'right',
+          }}
+        >
           גילוי עסקים
         </Text>
         <Text
           style={{
             marginTop: 6,
             fontSize: 13,
-            color: "#2F6BFF",
-            textAlign: "right",
-            fontWeight: "600",
+            color: '#2F6BFF',
+            textAlign: 'right',
+            fontWeight: '600',
           }}
         >
           מצא מועדונים חדשים להצטרפות
         </Text>
 
-        <View style={{ marginTop: 14, flexDirection: "row-reverse", gap: 10, alignItems: "center" }}>
+        <View
+          style={{
+            marginTop: 14,
+            flexDirection: 'row-reverse',
+            gap: 10,
+            alignItems: 'center',
+          }}
+        >
           <View
             style={{
               flex: 1,
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              backgroundColor: "#FFFFFF",
+              flexDirection: 'row-reverse',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: "#E3E9FF",
+              borderColor: '#E3E9FF',
               paddingHorizontal: 12,
               height: 46,
             }}
@@ -69,25 +108,25 @@ export default function DiscoveryScreen() {
               placeholderTextColor="#9AA4B2"
               style={{
                 flex: 1,
-                textAlign: "right",
+                textAlign: 'right',
                 marginRight: 8,
-                color: "#0B1220",
+                color: '#0B1220',
                 fontSize: 14,
               }}
             />
           </View>
 
           <Pressable
-            onPress={() => router.push("/join")}
+            onPress={() => router.push('/join')}
             style={({ pressed }) => ({
               width: 46,
               height: 46,
               borderRadius: 14,
-              backgroundColor: "#FFFFFF",
+              backgroundColor: '#FFFFFF',
               borderWidth: 1,
-              borderColor: "#E3E9FF",
-              alignItems: "center",
-              justifyContent: "center",
+              borderColor: '#E3E9FF',
+              alignItems: 'center',
+              justifyContent: 'center',
               opacity: pressed ? 0.85 : 1,
             })}
           >
@@ -99,17 +138,31 @@ export default function DiscoveryScreen() {
           {filtered.length === 0 ? (
             <View
               style={{
-                backgroundColor: "#FFFFFF",
+                backgroundColor: '#FFFFFF',
                 borderRadius: 24,
                 padding: 16,
                 borderWidth: 1,
-                borderColor: "#E3E9FF",
+                borderColor: '#E3E9FF',
               }}
             >
-              <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '800',
+                  color: '#0B1220',
+                  textAlign: 'right',
+                }}
+              >
                 לא נמצאו עסקים
               </Text>
-              <Text style={{ marginTop: 6, fontSize: 13, color: "#5B6475", textAlign: "right" }}>
+              <Text
+                style={{
+                  marginTop: 6,
+                  fontSize: 13,
+                  color: '#5B6475',
+                  textAlign: 'right',
+                }}
+              >
                 נסה חיפוש אחר, או נקה את השדה.
               </Text>
             </View>
@@ -118,42 +171,77 @@ export default function DiscoveryScreen() {
               <View
                 key={b.id}
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: '#FFFFFF',
                   borderRadius: 24,
                   padding: 16,
                   borderWidth: 1,
-                  borderColor: "#E3E9FF",
+                  borderColor: '#E3E9FF',
                 }}
               >
-                <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View
+                  style={{
+                    flexDirection: 'row-reverse',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: '800',
+                        color: '#0B1220',
+                        textAlign: 'right',
+                      }}
+                    >
                       {b.name}
                     </Text>
-                    <Text style={{ marginTop: 6, fontSize: 13, color: "#5B6475", textAlign: "right" }}>
+                    <Text
+                      style={{
+                        marginTop: 6,
+                        fontSize: 13,
+                        color: '#5B6475',
+                        textAlign: 'right',
+                      }}
+                    >
                       {b.subtitle}
                     </Text>
                   </View>
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: "#D4EDFF" }}>
-                    <Text style={{ fontSize: 12, fontWeight: "800", color: "#2F6BFF" }}>
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 999,
+                      backgroundColor: '#D4EDFF',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '800',
+                        color: '#2F6BFF',
+                      }}
+                    >
                       {b.distanceKm.toFixed(1)} ק״מ
                     </Text>
                   </View>
                 </View>
 
                 <Pressable
-                  onPress={() => router.push("/join")}
+                  onPress={() => router.push('/join')}
                   style={({ pressed }) => ({
                     marginTop: 12,
-                    alignSelf: "flex-start",
+                    alignSelf: 'flex-start',
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     borderRadius: 14,
-                    backgroundColor: "#2F6BFF",
+                    backgroundColor: '#2F6BFF',
                     opacity: pressed ? 0.9 : 1,
                   })}
                 >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>הצטרף למועדון</Text>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+                    הצטרף למועדון
+                  </Text>
                 </Pressable>
               </View>
             ))

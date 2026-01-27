@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Check, ChevronLeft, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -14,6 +14,7 @@ import { WebViewModal } from '@/components/WebViewModal';
 import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { tw } from '@/lib/rtl';
+import { safeBack } from '@/lib/navigation';
 
 // ============================================================================
 // קונפיגורציית תכונות למסך התשלום
@@ -30,7 +31,6 @@ const FEATURES = [
 // ============================================================================
 
 export default function PaywallScreen() {
-  const router = useRouter();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
 
@@ -55,7 +55,7 @@ export default function PaywallScreen() {
   // ============================================================================
 
   const handleClose = () => {
-    router.back();
+    safeBack('/(auth)/sign-in');
   };
 
   const handleContinue = async () => {
@@ -77,7 +77,7 @@ export default function PaywallScreen() {
     try {
       const success = await purchasePackage(packageId);
       if (success) {
-        router.back();
+        safeBack('/(auth)/sign-in');
       }
     } finally {
       setIsPurchasing(false);
@@ -93,7 +93,7 @@ export default function PaywallScreen() {
     try {
       const success = await restorePurchases();
       if (success) {
-        router.back();
+        safeBack('/(auth)/sign-in');
       }
     } finally {
       setIsRestoring(false);

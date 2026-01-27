@@ -1,25 +1,35 @@
-import React from 'react';
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { ConvexReactClient } from 'convex/react';
 import { Slot, usePathname } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
+import React from 'react';
+import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, Text } from 'react-native';
 import '../global.css';
 
-import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import { AppModeProvider } from '@/contexts/AppModeContext';
-import { getConvexUrl } from '@/utils/convexConfig';
+import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
+import { getConvexUrl } from '@/utils/convexConfig';
 
 console.log('UserContext exports:', Object.keys(UserCtx));
-console.log('typeof UserCtx.UserProvider:', typeof (UserCtx as any).UserProvider);
+console.log(
+  'typeof UserCtx.UserProvider:',
+  typeof (UserCtx as any).UserProvider
+);
 
 function Boot() {
   console.log('BOOT COMPONENT RENDER');
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'yellow' }}>
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'yellow',
+      }}
+    >
       <Text style={{ fontSize: 40, color: 'black' }}>BOOT OK</Text>
     </View>
   );
@@ -82,7 +92,14 @@ class RootErrorBoundary extends React.Component<
   render() {
     if (this.state.error) {
       return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'black' }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'black',
+          }}
+        >
           <Text style={{ color: 'red', fontSize: 16 }}>
             {this.state.error?.message ?? 'Unknown error'}
           </Text>

@@ -1,6 +1,9 @@
-import React from "react";
-import { View, Text, ScrollView } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import React from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 export default function RewardsScreen() {
   const insets = useSafeAreaInsets();
@@ -9,7 +12,7 @@ export default function RewardsScreen() {
   const rewards: Array<{ id: string; title: string; subtitle: string }> = [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -17,10 +20,25 @@ export default function RewardsScreen() {
           paddingBottom: 120,
         }}
       >
-        <Text style={{ fontSize: 24, fontWeight: "800", color: "#1A2B4A", textAlign: "right" }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: '800',
+            color: '#1A2B4A',
+            textAlign: 'right',
+          }}
+        >
           הטבות
         </Text>
-        <Text style={{ marginTop: 6, fontSize: 13, color: "#2F6BFF", textAlign: "right", fontWeight: "600" }}>
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 13,
+            color: '#2F6BFF',
+            textAlign: 'right',
+            fontWeight: '600',
+          }}
+        >
           כאן תראה הטבות שזמינות למימוש
         </Text>
 
@@ -28,17 +46,31 @@ export default function RewardsScreen() {
           <View
             style={{
               marginTop: 18,
-              backgroundColor: "#FFFFFF",
+              backgroundColor: '#FFFFFF',
               borderRadius: 24,
               padding: 16,
               borderWidth: 1,
-              borderColor: "#E3E9FF",
+              borderColor: '#E3E9FF',
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "800", color: "#0B1220", textAlign: "right" }}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '800',
+                color: '#0B1220',
+                textAlign: 'right',
+              }}
+            >
               עדיין אין הטבות זמינות
             </Text>
-            <Text style={{ marginTop: 6, fontSize: 13, color: "#5B6475", textAlign: "right" }}>
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                color: '#5B6475',
+                textAlign: 'right',
+              }}
+            >
               כשתשלים כרטיסיה ותגיע ליעד, ההטבה תופיע כאן אוטומטית.
             </Text>
           </View>

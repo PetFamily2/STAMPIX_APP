@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { safeBack } from '@/lib/navigation';
 
 const REMEMBERED_EMAIL_KEY = 'remembered_email';
 
@@ -112,7 +113,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView className="flex-1 bg-black">
       {/* כפתור יציאה במצב תצוגה מקדימה */}
-      {isPreviewMode && <PreviewModeBanner onClose={() => router.back()} />}
+      {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       {/* KeyboardAvoidingView דואג שהמקלדת לא תסתיר את שדות הקלט */}
       <KeyboardAvoidingView

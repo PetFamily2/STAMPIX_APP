@@ -1,13 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
-
-import { api } from "@/convex/_generated/api";
-import QrScanner from "@/components/QrScanner";
-import { useAppMode } from "@/contexts/AppModeContext";
-import type { Id } from "@/convex/_generated/dataModel";
+import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import QrScanner from '@/components/QrScanner';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 type ResolvedScan = {
   customerUserId: string;
@@ -23,19 +32,19 @@ type ResolvedScan = {
 const mapScanError = (error: unknown) => {
   if (error instanceof Error) {
     switch (error.message) {
-      case "INVALID_QR":
-        return "קוד QR לא תקין.";
-      case "CUSTOMER_NOT_FOUND":
-        return "לקוח לא נמצא במערכת.";
-      case "MEMBERSHIP_NOT_FOUND":
-        return "לא נמצאה חברות למועדון.";
-      case "NOT_AUTHORIZED":
-        return "אין הרשאה לבצע פעולה זו.";
+      case 'INVALID_QR':
+        return 'קוד QR לא תקין.';
+      case 'CUSTOMER_NOT_FOUND':
+        return 'לקוח לא נמצא במערכת.';
+      case 'MEMBERSHIP_NOT_FOUND':
+        return 'לא נמצאה חברות למועדון.';
+      case 'NOT_AUTHORIZED':
+        return 'אין הרשאה לבצע פעולה זו.';
       default:
         return error.message;
     }
   }
-  return "משהו השתבש. נסה שוב.";
+  return 'משהו השתבש. נסה שוב.';
 };
 
 export default function ScannerScreen() {
@@ -58,14 +67,15 @@ export default function ScannerScreen() {
 
   useEffect(() => {
     if (isAppModeLoading) return;
-    if (appMode !== "business") {
-      router.replace("/(authenticated)/(customer)/wallet");
+    if (appMode !== 'business') {
+      router.replace('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, router]);
 
-  const programs = useQuery(api.loyaltyPrograms.listByBusiness, {
-    businessId: selectedBusiness?.businessId,
-  }) ?? [];
+  const programs =
+    useQuery(api.loyaltyPrograms.listByBusiness, {
+      businessId: selectedBusiness?.businessId,
+    }) ?? [];
   const [programIndex, setProgramIndex] = useState(0);
   const selectedProgram = programs[programIndex];
 
@@ -96,7 +106,7 @@ export default function ScannerScreen() {
     async (token: string, showErrors = true) => {
       if (!canScan) {
         if (showErrors) {
-          setScanError("בחר עסק ותוכנית לפני סריקה.");
+          setScanError('בחר עסק ותוכנית לפני סריקה.');
         }
         return null;
       }
@@ -126,12 +136,12 @@ export default function ScannerScreen() {
       if (isBusy) return;
       const data = rawData?.trim();
       if (!data) {
-        setScanError("קוד QR חסר.");
+        setScanError('קוד QR חסר.');
         setScannerResetKey((prev) => prev + 1);
         return;
       }
-      if (!data.startsWith("scanToken:")) {
-        setScanError("זה QR של לקוח בלבד");
+      if (!data.startsWith('scanToken:')) {
+        setScanError('זה QR של לקוח בלבד');
         setResolved(null);
         setScannerResetKey((prev) => prev + 1);
         return;
@@ -157,9 +167,9 @@ export default function ScannerScreen() {
       await addStamp({
         businessId: selectedBusiness.businessId,
         programId: selectedProgram.loyaltyProgramId,
-        customerUserId: resolved.customerUserId as Id<"users">,
+        customerUserId: resolved.customerUserId as Id<'users'>,
       });
-      setStatusMessage("ניקוב נוסף");
+      setStatusMessage('ניקוב נוסף');
       if (scanToken) {
         await resolveByToken(scanToken, false);
       }
@@ -168,7 +178,15 @@ export default function ScannerScreen() {
     } finally {
       setIsStamping(false);
     }
-  }, [addStamp, isBusy, resolved, scanToken, resolveByToken, selectedBusiness, selectedProgram]);
+  }, [
+    addStamp,
+    isBusy,
+    resolved,
+    scanToken,
+    resolveByToken,
+    selectedBusiness,
+    selectedProgram,
+  ]);
 
   const cycleBusiness = () => {
     if (businesses.length <= 1) return;
@@ -188,24 +206,38 @@ export default function ScannerScreen() {
 
   const stampState = useMemo(() => {
     const current = Number(resolved?.membership?.currentStamps ?? 0);
-    const goal = Math.max(1, Number(resolved?.membership?.maxStamps ?? selectedProgram?.maxStamps ?? 0) || 0);
+    const goal = Math.max(
+      1,
+      Number(
+        resolved?.membership?.maxStamps ?? selectedProgram?.maxStamps ?? 0
+      ) || 0
+    );
     const dots = Math.min(goal, 20);
     const overflow = Math.max(0, goal - dots);
     return { current, goal, dots, overflow };
-  }, [resolved?.membership?.currentStamps, resolved?.membership?.maxStamps, selectedProgram?.maxStamps]);
+  }, [
+    resolved?.membership?.currentStamps,
+    resolved?.membership?.maxStamps,
+    selectedProgram?.maxStamps,
+  ]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingTop: (insets.top || 0) + 16, paddingBottom: (insets.bottom || 0) + 24 },
+          {
+            paddingTop: (insets.top || 0) + 16,
+            paddingBottom: (insets.bottom || 0) + 24,
+          },
         ]}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>סריקת לקוח</Text>
-          <Text style={styles.headerSubtitle}>סרוק QR של לקוח כדי להוסיף ניקוב.</Text>
+          <Text style={styles.headerSubtitle}>
+            סרוק QR של לקוח כדי להוסיף ניקוב.
+          </Text>
         </View>
 
         <View style={styles.row}>
@@ -218,10 +250,12 @@ export default function ScannerScreen() {
             ]}
           >
             <Text style={styles.selectorTitle}>
-              {selectedBusiness ? selectedBusiness.name : "בחר עסק"}
+              {selectedBusiness ? selectedBusiness.name : 'בחר עסק'}
             </Text>
             <Text style={styles.selectorSubtitle}>
-              {businesses.length > 1 ? "לחץ להחלפה" : selectedBusiness?.externalId ?? ""}
+              {businesses.length > 1
+                ? 'לחץ להחלפה'
+                : (selectedBusiness?.externalId ?? '')}
             </Text>
           </Pressable>
 
@@ -234,16 +268,20 @@ export default function ScannerScreen() {
             ]}
           >
             <Text style={styles.selectorTitle}>
-              {selectedProgram ? selectedProgram.title : "בחר תוכנית"}
+              {selectedProgram ? selectedProgram.title : 'בחר תוכנית'}
             </Text>
             <Text style={styles.selectorSubtitle}>
-              {programs.length > 1 ? "לחץ להחלפה" : "בחר תוכנית כדי להתחיל"}
+              {programs.length > 1 ? 'לחץ להחלפה' : 'בחר תוכנית כדי להתחיל'}
             </Text>
           </Pressable>
         </View>
 
         <View style={styles.scannerBox}>
-          <QrScanner onScan={handleScan} resetKey={scannerResetKey} isBusy={isBusy} />
+          <QrScanner
+            onScan={handleScan}
+            resetKey={scannerResetKey}
+            isBusy={isBusy}
+          />
         </View>
 
         {scanError ? (
@@ -262,9 +300,11 @@ export default function ScannerScreen() {
           <Text style={styles.cardTitle}>סטטוס לקוח</Text>
           {resolved ? (
             <>
-              <Text style={styles.customerName}>{resolved.customerDisplayName}</Text>
+              <Text style={styles.customerName}>
+                {resolved.customerDisplayName}
+              </Text>
               <Text style={styles.cardSubtitle}>
-                {selectedBusiness?.name ?? ""} · {selectedProgram?.title ?? ""}
+                {selectedBusiness?.name ?? ''} · {selectedProgram?.title ?? ''}
               </Text>
               <Text style={styles.progressText}>
                 {stampState.current}/{stampState.goal}
@@ -276,7 +316,7 @@ export default function ScannerScreen() {
                     style={[
                       styles.stampDot,
                       index < stampState.current
-                        ? { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }
+                        ? { backgroundColor: '#2F6BFF', borderColor: '#2F6BFF' }
                         : styles.stampDotEmpty,
                     ]}
                   />
@@ -287,7 +327,9 @@ export default function ScannerScreen() {
               </View>
             </>
           ) : (
-            <Text style={styles.emptyStateText}>סרוק QR כדי לראות פרטי לקוח.</Text>
+            <Text style={styles.emptyStateText}>
+              סרוק QR כדי לראות פרטי לקוח.
+            </Text>
           )}
         </View>
 
@@ -302,11 +344,17 @@ export default function ScannerScreen() {
         >
           {isStamping ? <ActivityIndicator color="#FFFFFF" /> : null}
           <Text style={styles.primaryButtonText}>
-            {isStamping ? "מוסיף..." : "הוסף ניקוב"}
+            {isStamping ? 'מוסיף...' : 'הוסף ניקוב'}
           </Text>
         </Pressable>
 
-        <Pressable onPress={handleRetry} style={({ pressed }) => [styles.secondaryButton, pressed && { opacity: 0.85 }]}>
+        <Pressable
+          onPress={handleRetry}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            pressed && { opacity: 0.85 },
+          ]}
+        >
           <Text style={styles.secondaryButtonText}>סרוק מחדש</Text>
         </Pressable>
       </ScrollView>
@@ -317,10 +365,10 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#E9F0FF",
+    backgroundColor: '#E9F0FF',
   },
   scrollBackground: {
-    backgroundColor: "#E9F0FF",
+    backgroundColor: '#E9F0FF',
   },
   scrollContainer: {
     paddingHorizontal: 20,
@@ -331,90 +379,90 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: "900",
-    color: "#1A2B4A",
-    textAlign: "right",
+    fontWeight: '900',
+    color: '#1A2B4A',
+    textAlign: 'right',
   },
   headerSubtitle: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#2F6BFF",
-    textAlign: "right",
+    fontWeight: '700',
+    color: '#2F6BFF',
+    textAlign: 'right',
   },
   row: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 10,
   },
   selectorCard: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E3E9FF",
+    borderColor: '#E3E9FF',
     padding: 12,
   },
   selectorCardDisabled: {
-    backgroundColor: "#F0F4FF",
+    backgroundColor: '#F0F4FF',
   },
   selectorTitle: {
-    fontWeight: "900",
-    color: "#0B1220",
-    textAlign: "center",
+    fontWeight: '900',
+    color: '#0B1220',
+    textAlign: 'center',
   },
   selectorSubtitle: {
     marginTop: 4,
     fontSize: 11,
-    color: "#5B6475",
-    textAlign: "center",
+    color: '#5B6475',
+    textAlign: 'center',
   },
   scannerBox: {
     flex: 1,
     minHeight: 240,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#E3E9FF",
+    borderColor: '#E3E9FF',
     padding: 16,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 10,
     elevation: 2,
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: "800",
-    color: "#0B1220",
-    textAlign: "right",
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
   },
   cardSubtitle: {
     marginTop: 6,
     fontSize: 12,
-    fontWeight: "600",
-    color: "#5B6475",
-    textAlign: "right",
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'right',
   },
   customerName: {
     marginTop: 10,
     fontSize: 18,
-    fontWeight: "900",
-    color: "#1A2B4A",
-    textAlign: "right",
+    fontWeight: '900',
+    color: '#1A2B4A',
+    textAlign: 'right',
   },
   progressText: {
     marginTop: 10,
     fontSize: 24,
-    fontWeight: "900",
-    color: "#2F6BFF",
-    textAlign: "right",
+    fontWeight: '900',
+    color: '#2F6BFF',
+    textAlign: 'right',
   },
   stampRow: {
     marginTop: 12,
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
     gap: 8,
-    alignItems: "center",
+    alignItems: 'center',
   },
   stampDot: {
     width: 18,
@@ -423,65 +471,65 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   stampDotEmpty: {
-    borderColor: "#E5EAF5",
-    backgroundColor: "#E9EEF9",
+    borderColor: '#E5EAF5',
+    backgroundColor: '#E9EEF9',
   },
   moreText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#5B6475",
+    fontWeight: '700',
+    color: '#5B6475',
   },
   emptyStateText: {
     marginTop: 10,
     fontSize: 12,
-    fontWeight: "600",
-    color: "#5B6475",
-    textAlign: "right",
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'right',
   },
   messageCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#E3E9FF",
+    borderColor: '#E3E9FF',
     padding: 14,
   },
   statusText: {
-    color: "#1A2B4A",
-    fontWeight: "700",
-    textAlign: "right",
+    color: '#1A2B4A',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   errorText: {
-    color: "#D92D20",
-    fontWeight: "700",
-    textAlign: "right",
+    color: '#D92D20',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   primaryButton: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 14,
     paddingVertical: 12,
-    backgroundColor: "#2F6BFF",
+    backgroundColor: '#2F6BFF',
   },
   primaryButtonDisabled: {
-    backgroundColor: "#8FB3FF",
+    backgroundColor: '#8FB3FF',
   },
   primaryButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
   secondaryButton: {
     borderRadius: 14,
     paddingVertical: 12,
-    backgroundColor: "#D4EDFF",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#D4EDFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: "#8DC5FF",
+    borderColor: '#8DC5FF',
   },
   secondaryButtonText: {
-    color: "#2F6BFF",
-    fontWeight: "900",
+    color: '#2F6BFF',
+    fontWeight: '900',
   },
 });

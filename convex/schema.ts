@@ -20,7 +20,11 @@ export default defineSchema({
       v.union(v.literal('free'), v.literal('pro'), v.literal('unlimited'))
     ),
     subscriptionStatus: v.optional(
-      v.union(v.literal('active'), v.literal('inactive'), v.literal('cancelled'))
+      v.union(
+        v.literal('active'),
+        v.literal('inactive'),
+        v.literal('cancelled')
+      )
     ),
     subscriptionProductId: v.optional(v.string()),
     subscriptionUpdatedAt: v.optional(v.number()),
@@ -126,7 +130,11 @@ export default defineSchema({
   // -------------------------
   campaigns: defineTable({
     businessId: v.id('businesses'),
-    type: v.union(v.literal('birthday'), v.literal('winback'), v.literal('promo')),
+    type: v.union(
+      v.literal('birthday'),
+      v.literal('winback'),
+      v.literal('promo')
+    ),
     rules: v.optional(v.any()),
     channels: v.optional(v.array(v.string())),
     isActive: v.boolean(),

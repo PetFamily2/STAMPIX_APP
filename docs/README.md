@@ -1,128 +1,82 @@
-# תבנית אפליקציית מובייל (React Native & Convex)
+# STAMPIX Docs
 
-ברוכים הבאים לתבנית הפיתוח לאפליקציית React Native עם Expo ו-Convex. תבנית זו מותאמת מראש לעברית (RTL) וכוללת מערכת אימות מלאה, ניווט ועיצוב מודרני.
+## What this project is
+- Single Expo/React Native app for both customers and business staff.
+- RTL-first (Hebrew) UI with explicit RTL helpers.
+- Convex backend for auth, realtime data, and server-side rules.
+- QR-driven loyalty: customers join businesses via QR and show a customer QR to be stamped.
+- RevenueCat paywall is integrated but can run in preview mode.
 
-## 📚 תוכן עניינים
+## Core principles
+- One app, two roles: customer and business flows are isolated by routing groups and role guards.
+- Server-authoritative QR: scan tokens are signed and validated on the server.
+- RTL is a first-class constraint: layouts align right and do not rely on I18nManager.
+- Safe defaults: payment system disabled by default; demo seed data is available.
+- Minimal routing surprises: wrappers preserve legacy screen paths.
 
-1. [מבנה האפליקציה](#מבנה-האפליקציה)
-2. [צעדים ראשונים](#צעדים-ראשונים)
-3. [הגדרת מסד נתונים ואימות (Convex)](#הגדרת-מסד-נתונים-ואימות-convex)
-4. [התקנה והרצה](#התקנה-והרצה)
-5. [פיצ'רים מרכזיים](#פיצרים-מרכזיים)
+## MVP scope (current)
+Customer
+- Wallet with memberships (api.memberships.byCustomer) and demo seed (api.seed.seedMvp).
+- Join via business QR (app/(authenticated)/join.tsx).
+- Card details with customer scan token QR (app/(authenticated)/card/[membershipId].tsx).
+- Tabs: Wallet, Rewards, Discovery, Settings.
 
----
+Business
+- Dashboard with analytics summary (api.analytics.getBusinessActivity).
+- Scanner flow: resolve scan token + add stamp (api.scanner.resolveScan, api.scanner.addStamp).
+- Team management: list staff and invite by email (api.business.listBusinessStaff, inviteBusinessStaff).
+- Business QR for customer join (app/(authenticated)/merchant/qr.tsx).
+- Merchant onboarding: create business + program (app/(authenticated)/merchant/onboarding/*).
 
-## 🏗 מבנה האפליקציה
+Platform
+- Expo Router with typed routes and separate tab groups for customer and business.
+- Convex Auth (Password provider) and user bootstrap on first authenticated load.
 
-האפליקציה בנויה ממספר רכיבים מרכזיים:
+## Known gaps / placeholders
+- Settings items for support/legal/delete account are UI-only (onPress is empty).
+- Dashboard activity feed and some CTA tiles are static placeholders.
+- RevenueCat production purchases require keys and flags; preview packages are used in Expo Go or when not configured.
 
-- **Frontend (צד לקוח):**
-  - **Expo & React Native:** התשתית לפיתוח האפליקציה למובייל (iOS ו-Android).
-  - **Expo Router:** מערכת ניווט מבוססת קבצים (בתיקיית `app/`).
-  - **NativeWind:** ספריית עיצוב המאפשרת שימוש ב-Tailwind CSS בתוך React Native.
-  - **RTL Support:** תמיכה מובנית בשפות מימין-לשמאל (עברית), כולל פתרונות היברידיים ל-Expo Go ול-Production.
+## Quick start
+1. Install deps
+   - `bun install`
+2. Start Convex and create a project
+   - `bunx convex dev`
+   - Copy the URL in `.env` or `.env.local` to `EXPO_PUBLIC_CONVEX_URL` (see docs/setup.md)
+3. Run the app
+   - `bun dev`
+   - Optional: `bun run ios` or `bun run android`
 
-- **Backend (צד שרת):**
-  - **Convex:** פלטפורמת Backend-as-a-Service המספקת מסד נתונים בזמן אמת, פונקציות שרת (Server Functions) ואימות משתמשים.
-  - **Convex Auth:** מערכת אימות משתמשים מאובטחת המוטמעת ישירות ב-Convex.
+## Quality checks
+- `bun run check` (Biome format + lint)
+- `bun run type-check`
 
-### תיקיות חשובות:
-- `app/`: מכילה את מסכי האפליקציה והניווט.
-  - `(auth)/`: מסכי התחברות והרשמה (לפני אימות).
-    - `paywall/`: מסך Paywall (תשלום).
-  - `(authenticated)/`: מסכים הזמינים רק למשתמשים מחוברים (האפליקציה הראשית).
-- `convex/`: מכילה את לוגיקת השרת (Schema, פונקציות, הגדרות אימות).
-- `components/`: רכיבי UI לשימוש חוזר.
-- `config/`: קבצי קונפיגורציה מרכזיים.
-  - `appConfig.ts`: דגלי תכונות וקונפיגורציה כללית.
-- `contexts/`: קונטקסטים גלובליים.
-  - `RevenueCatContext.tsx`: ניהול מנויים ותשלומים.
-- `utils/`: כלי עזר.
-  - `revenueCatConfig.ts`: קונפיגורציית RevenueCat.
-- `lib/`: ספריות עזר (כגון `rtl.ts` לתמיכה בעברית).
+## Environment variables
+App (Expo, public)
+- `EXPO_PUBLIC_CONVEX_URL_DEV`
+- `EXPO_PUBLIC_CONVEX_URL_PROD`
+- `EXPO_PUBLIC_CONVEX_URL` (legacy fallback)
+- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
+- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
+- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` (legacy)
+- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
+- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
+- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY` (legacy)
+- `EXPO_PUBLIC_PRIVACY_POLICY_URL`
+- `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
 
----
+Backend (Convex)
+- `SCAN_TOKEN_SECRET` (HMAC secret used to sign scan tokens)
 
-## 🚀 צעדים ראשונים (עם קבלת התבנית)
+Config flags (code)
+- `config/appConfig.ts`: `PAYMENT_SYSTEM_ENABLED`, `MOCK_PAYMENTS`, `FORCE_PROD_MODE`, `APP_ENV`
 
-כאשר אתם מקבלים את התבנית הזו, בצעו את הפעולות הבאות:
-
-1. **התקנת חבילות:** התחילו בהתקנת התלויות: `bun install`.
-2. **הגדרת Convex:** צרו פרויקט וייצרו מפתחות אימות (Auth).
-3. **בדיקה ראשונית:** הריצו את האפליקציה וודאו שהכל עובד.
-4. **שמירה בענן:** שמרו את הקוד ב-GitHub.
-
-ראה **מדריך התקנה והגדרה** (`setup.md`) להוראות מפורטות.
-
----
-
-## 🗄 הגדרת מסד נתונים ואימות (Convex)
-
-כדי שהאפליקציה תעבוד, עליכם לקשר אותה לפרויקט Convex וליצור מפתחות אימות:
-
-1. **יצירת פרויקט:** הריצו `bunx convex dev`.
-   - **חשוב:** במובייל, העתיקו את `NEXT_PUBLIC_CONVEX_URL` ל-`EXPO_PUBLIC_CONVEX_URL` בקובץ `.env`.
-2. **יצירת מפתחות אימות:** הריצו `bunx @convex-dev/auth`.
-
----
-
-## 📦 התקנה והרצה
-
-### 1. התקנת חבילות
-התקינו את כל התלויות של הפרויקט באמצעות bun:
-```bash
-bun install
-```
-
-### 2. הרצת השרת (Convex)
-פתחו טרמינל נפרד והריצו את שרת הפיתוח של Convex (כדי לסנכרן שינויים ב-Backend בזמן אמת):
-```bash
-bunx convex dev
-```
-(השאירו את הטרמינל הזה פתוח ברקע).
-
-### 3. הרצת האפליקציה (Expo)
-בטרמינל נוסף, הריצו את האפליקציה:
-```bash
-bun dev
-```
-לאחר מכן:
-- לחצו `i` כדי לפתוח בסימולטור **iOS**.
-- לחצו `a` כדי לפתוח באמולטור **Android**.
-- או סרקו את ה-QR Code עם אפליקציית **Expo Go** במכשיר הפיזי שלכם. (חייבים להיות מחוברים לאותו שרת או Wi-Fi)
-
----
-
----
-
-## 🎯 פיצ'רים מרכזיים
-
-### מערכת תשלומים (RevenueCat)
-האפליקציה כוללת אינטגרציה מלאה עם [RevenueCat](https://www.revenuecat.com) למערכת תשלומים:
-- **Paywall Screen:** מסך תשלום בעברית עם תוכניות מנוי (חודשי, שנתי)
-- **RevenueCat Context:** ניהול מנויים, רכישות ושחזור רכישות
-- **Mock Payments:** מצב בדיקה שמאפשר לבדוק את ה-Paywall בלי תשלום אמיתי
-- **Webhook Integration:** סנכרון אוטומטי של סטטוס מנוי ל-Convex Database
-
-📖 **מדריך הגדרה:** ראה `docs/REVENUECAT_SETUP.md` להגדרה מפורטת ל-iOS ו-Android.
-
-### קונפיגורציה מרכזית (`appConfig.ts`)
-קובץ קונפיגורציה מרכזי לניהול דגלי תכונות:
-- `PAYMENT_SYSTEM_ENABLED`: הפעלה/כיבוי של מערכת התשלומים האמיתית
-- `MOCK_PAYMENTS`: מצב בדיקה לתשלומים מדומים
-- `IS_DEV_MODE`: זיהוי אוטומטי של מצב פיתוח
-- `FORCE_PROD_MODE`: כפיית מצב ייצור לבדיקות
-
-### מחיקת חשבון
-משתמשים יכולים למחוק את החשבון שלהם דרך מסך ההגדרות, עם אישור דו-שלבי.
-
----
-
-## 💡 טיפים נוספים
-
-- **עברית (RTL):** האפליקציה מוגדרת לעבוד מימין לשמאל. אם אתם מוסיפים מסכים חדשים, השתמשו בקבצי העזר ב-`lib/rtl.ts` כדי להבטיח התאמה מלאה.
-- **אבטחה:** מפתחות API סודיים לא נשמרים בקוד אלא במשתני סביבה. ודאו שקובץ `.env` לא עולה ל-Git (הוא כבר ב-.gitignore).
-- **בדיקות:** הריצו `bun run check` כדי לוודא שאין שגיאות קוד לפני ביצוע שינויים משמעותיים.
-- **תשלומים:** לפני פריסה לייצור, ודאו שמוגדרים כל משתני הסביבה הנדרשים (ראה `docs/REVENUECAT_SETUP.md`).
-
-בהצלחה בפיתוח! 🚀
+## Docs map
+- docs/architecture.md - system overview and data flows
+- docs/decisions.md - ADRs and rationale
+- docs/devlog.md - recent history and current status
+- docs/setup.md - first-time setup (Hebrew)
+- docs/usage.md - local usage tips (Hebrew)
+- docs/deployment.md - EAS/production notes
+- docs/REVENUECAT_SETUP.md - payment setup
+- docs/spec/* - deeper specs (roles, data model, screens, scanner contract)

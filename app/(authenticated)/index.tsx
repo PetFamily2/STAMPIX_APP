@@ -1,8 +1,8 @@
 import { useQuery } from 'convex/react'; // ייבוא Hook לביצוע שאילתות מול הדאטה בייס
-import type { Doc } from '@/convex/_generated/dataModel';
 import { ScrollView, Text, View } from 'react-native'; // רכיבי UI בסיסיים של React Native
 import { SafeAreaView } from 'react-native-safe-area-context'; // רכיב שדואג שהתוכן לא יוסתר על ידי ה-Notch או ה-Home Indicator
 import { api } from '@/convex/_generated/api'; // ה-API שנוצר אוטומטית על ידי Convex
+import type { Doc } from '@/convex/_generated/dataModel';
 import { tw } from '@/lib/rtl'; // ספריית עזר לתמיכה ב-RTL (ימין לשמאל)
 
 export default function HomePage() {

@@ -1,332 +1,121 @@
-import { useAuthActions } from '@convex-dev/auth/react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, Eye, EyeOff } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+﻿import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { Heart, TrendingUp } from 'lucide-react-native';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
-import { WebViewModal } from '@/components/WebViewModal';
-import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
-import { tw } from '@/lib/rtl';
-
-const REMEMBERED_EMAIL_KEY = 'remembered_email';
+import { IS_DEV_MODE } from '@/config/appConfig';
+import { safeBack } from '@/lib/navigation';
+import stampixLogo from '@/reference-ui/stampix---loyalty-made-simple/logo.png';
 
 export default function SignUpScreen() {
-  const { signIn } = useAuthActions(); // פעולת ההרשמה (משתמשת באותה פונקציה כמו התחברות)
-  const router = useRouter(); // ניווט
+  const router = useRouter();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // מצב טעינה
-  const [rememberMe, setRememberMe] = useState(false); // האם לזכור את האימייל
-  const [showPassword, setShowPassword] = useState(false); // הצגת/הסתרת סיסמה
-  const [consentAccepted, setConsentAccepted] = useState(false); // הסכמה לתנאי שימוש ופרטיות
-  const [termsModalVisible, setTermsModalVisible] = useState(false); // מודל תנאי שימוש
-  const [privacyModalVisible, setPrivacyModalVisible] = useState(false); // מודל מדיניות פרטיות
-
-  // טעינת האימייל השמור בעת טעינת המסך
-  useEffect(() => {
-    const loadRememberedEmail = async () => {
-      try {
-        const rememberedEmail =
-          await AsyncStorage.getItem(REMEMBERED_EMAIL_KEY);
-        if (rememberedEmail) {
-          setEmail(rememberedEmail);
-          setRememberMe(true);
-        }
-      } catch {
-        // התעלמות משגיאות אחסון
-      }
-    };
-    loadRememberedEmail();
-  }, []);
-
-  // פונקציית ההרשמה
-  const onSignUpPress = async () => {
-    // במצב תצוגה מקדימה - לא מבצעים הרשמה אמיתית
-    if (isPreviewMode) {
-      return;
-    }
-
-    if (!email || !password) {
-      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
-      return;
-    }
-
-    // בדיקה שהמשתמש אישר את תנאי השימוש ומדיניות הפרטיות
-    if (!consentAccepted) {
-      Alert.alert('שגיאה', 'אנא קרא ואשר קודם את תנאי השימוש ומדיניות הפרטיות');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('שגיאה', 'הסיסמה חייבת להכיל לפחות 6 תווים');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // יצירת משתמש חדש והתחברות (flow: 'signUp')
-      await signIn('password', {
-        email,
-        password,
-        flow: 'signUp',
-      });
-
-      // שמירה או מחיקה של האימייל מהזיכרון
-      if (rememberMe) {
-        await AsyncStorage.setItem(REMEMBERED_EMAIL_KEY, email);
-      } else {
-        await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
-      }
-
-      // מעבר לתהליך אונבורדינג לעסקים
-      router.replace('/merchant/onboarding/create-business');
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      const errorMessage = error.message || '';
-
-      // מיפוי שגיאות Convex Auth להודעות בעברית ידידותיות למשתמש
-      if (
-        errorMessage.includes('already exists') ||
-        errorMessage.includes('AccountAlreadyExists')
-      ) {
-        Alert.alert('שגיאה', 'כתובת האימייל כבר רשומה במערכת');
-      } else if (
-        errorMessage.includes('password') &&
-        errorMessage.includes('weak')
-      ) {
-        Alert.alert('שגיאה', 'הסיסמה חלשה מדי. אנא בחר סיסמה חזקה יותר');
-      } else if (errorMessage.includes('TooManyRequests')) {
-        Alert.alert('שגיאה', 'יותר מדי ניסיונות. אנא נסה שוב מאוחר יותר');
-      } else if (
-        errorMessage.includes('invalid') &&
-        errorMessage.includes('email')
-      ) {
-        Alert.alert('שגיאה', 'כתובת האימייל אינה תקינה');
-      } else {
-        Alert.alert('שגיאה', 'הרשמה נכשלה. אנא בדוק את הפרטים ונסה שוב');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTermsPress = () => {
-    setTermsModalVisible(true);
-  };
-
-  const handlePrivacyPress = () => {
-    setPrivacyModalVisible(true);
+  const handleGetStarted = () => {
+    // Navigate to actual sign up form or next step
+    router.push('/(auth)/onboarding-client-role');
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
+    <SafeAreaView className="flex-1 bg-white">
       {/* כפתור יציאה במצב תצוגה מקדימה */}
-      {isPreviewMode && <PreviewModeBanner onClose={() => router.back()} />}
+      {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
-      {/* מודלים לתנאי שימוש ומדיניות פרטיות */}
-      <WebViewModal
-        visible={termsModalVisible}
-        url={TERMS_URL}
-        title="תנאי השימוש"
-        onClose={() => setTermsModalVisible(false)}
-      />
-
-      <WebViewModal
-        visible={privacyModalVisible}
-        url={PRIVACY_URL}
-        title="מדיניות הפרטיות"
-        onClose={() => setPrivacyModalVisible(false)}
-      />
-
-      {/* KeyboardAvoidingView דואג שהמקלדת לא תסתיר את שדות הקלט */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        {/* באנר מצב תצוגה מקדימה */}
-        {isPreviewMode && (
-          <View className="p-3 bg-yellow-500/20 border-b border-yellow-500/50">
-            <Text className="text-yellow-400 text-center text-sm font-medium">
-              מצב תצוגה מקדימה - הרשמה מושבתת
-            </Text>
+      <View className="flex-1 px-6 py-8">
+        {/* Logo */}
+        <View className="items-center mb-10 mt-2">
+          <View className="relative items-center justify-center">
+            <View className="absolute w-24 h-24 rounded-full bg-blue-50" />
+            <View className="absolute w-32 h-32 rounded-full bg-blue-100/50" />
+            <Image
+              source={stampixLogo}
+              className="w-24 h-24"
+              resizeMode="contain"
+              accessibilityLabel="לוגו Stampix"
+            />
           </View>
-        )}
+        </View>
 
-        <View className="flex-1 justify-center px-6">
-          <View className="w-full">
-            <Text className="text-white text-[32px] font-bold mb-2 text-right">
-              צור חשבון חדש
-            </Text>
-            <Text className="text-zinc-400 text-base mb-8 text-right">
-              הירשם כדי להתחיל להשתמש באפליקציה
-            </Text>
+        {/* Main Title */}
+        <View className="mb-8">
+          <Text className="text-[34px] font-black text-gray-900 text-center mb-1">
+            העסק והלקוחות
+          </Text>
+          <Text className="text-[34px] font-black text-center mb-3">
+            <Text className="text-gray-900">נפגשים</Text>{' '}
+            <Text className="text-gray-900">ב</Text>
+            <Text className="text-blue-600">דיגיטל</Text>
+          </Text>
+          <Text className="text-base text-gray-500 text-center leading-6">
+            מצטרפים למהפכה הדיגיטלית.{"\n"}כל הכרטיסיות בכיס אחד, ב-QR.
+          </Text>
+        </View>
 
-            {/* שדה אימייל */}
-            <View className="mb-5">
-              <Text className="text-white text-sm font-medium mb-2 text-right">
-                כתובת אימייל
-              </Text>
-              <TextInput
-                className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4 text-white text-base text-right"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="example@gmail.com"
-                placeholderTextColor="#52525b"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textAlign="right"
-                editable={!loading}
-              />
-            </View>
-
-            {/* שדה סיסמה */}
-            <View className="mb-5">
-              <Text className="text-white text-sm font-medium mb-2 text-right">
-                סיסמה
-              </Text>
-              <View className="relative">
-                <TextInput
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4 pl-12 text-white text-base text-right"
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="לפחות 6 תווים"
-                  placeholderTextColor="#52525b"
-                  secureTextEntry={!showPassword}
-                  textAlign="right"
-                  editable={!loading}
-                />
-                {/* כפתור הצגת/הסתרת סיסמה */}
-                <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
-                  hitSlop={8}
-                >
-                  {showPassword ? (
-                    <EyeOff size={20} color="#71717a" />
-                  ) : (
-                    <Eye size={20} color="#71717a" />
-                  )}
-                </Pressable>
+        {/* Feature Cards */}
+        <View className="mb-auto">
+          {/* Feature 1 - Customer Engagement */}
+          <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
+            <View className="flex-row items-start gap-4">
+              <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
+                <Heart size={24} color="#2563eb" fill="#dbeafe" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-extrabold text-gray-900 mb-1 text-right">
+                  ללקוחות שאוהבים לקבל
+                </Text>
+                <Text className="text-sm text-gray-500 text-right leading-5">
+                  צוברים חתימות, עוקבים אחרי ההטבות ומקבלים מתנות מהעסקים.
+                </Text>
               </View>
             </View>
+          </View>
 
-            {/* תיבת סימון "זכור אותי" */}
-            <View className="flex-row justify-end mb-6">
-              <Pressable
-                onPress={() => setRememberMe(!rememberMe)}
-                className="flex-row items-center gap-2"
-                disabled={loading}
-              >
-                <Text className="text-zinc-300 text-sm">זכור אותי</Text>
-                <View
-                  className={`w-5 h-5 rounded border-2 items-center justify-center ${
-                    rememberMe
-                      ? 'bg-sky-400 border-sky-400'
-                      : 'border-zinc-600 bg-transparent'
-                  }`}
-                >
-                  {rememberMe && (
-                    <Text className="text-white text-xs font-bold">✓</Text>
-                  )}
-                </View>
-              </Pressable>
-            </View>
-
-            {/* תיבת סימון הסכמה לתנאי שימוש ומדיניות פרטיות */}
-            <View className="mb-6">
-              <TouchableOpacity
-                accessibilityLabel="אשר תנאי שימוש ומדיניות פרטיות"
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: consentAccepted }}
-                accessible={true}
-                className={`${tw.flexRow} items-center gap-2`}
-                onPress={() => setConsentAccepted(!consentAccepted)}
-                disabled={loading}
-              >
-                <View
-                  className={`h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 ${
-                    consentAccepted
-                      ? 'bg-sky-400 border-sky-400'
-                      : 'bg-transparent border-zinc-600'
-                  }`}
-                >
-                  {consentAccepted && <Check color="#0a0a0a" size={14} />}
-                </View>
-                <View className="flex-1">
-                  <Text className={`${tw.textStart} text-zinc-300 text-sm`}>
-                    אני מסכים ל
-                    <Text
-                      onPress={handleTermsPress}
-                      className="text-sky-400 font-semibold"
-                    >
-                      תנאי השימוש
-                    </Text>{' '}
-                    ול
-                    <Text
-                      onPress={handlePrivacyPress}
-                      className="text-sky-400 font-semibold"
-                    >
-                      מדיניות הפרטיות
-                    </Text>
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* כפתור הרשמה */}
-            <TouchableOpacity
-              className={`bg-sky-400 rounded-xl py-4 items-center ${loading || isPreviewMode || !consentAccepted ? 'opacity-60' : ''}`}
-              onPress={onSignUpPress}
-              disabled={loading || isPreviewMode || !consentAccepted}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="text-white text-lg font-bold">הירשם</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* קישור להתחברות */}
-            <View className="flex-row justify-center gap-2 mt-6">
-              {isPreviewMode ? (
-                <TouchableOpacity disabled={true}>
-                  <Text className="text-zinc-500 font-semibold text-base">
-                    התחבר כאן
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Link href="/(auth)/sign-in" asChild={true}>
-                  <TouchableOpacity>
-                    <Text className="text-sky-400 font-semibold text-base">
-                      התחבר כאן
-                    </Text>
-                  </TouchableOpacity>
-                </Link>
-              )}
-              <Text className="text-zinc-400 text-base">כבר יש לך חשבון?</Text>
+          {/* Feature 2 - Business Growth */}
+          <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
+            <View className="flex-row items-start gap-4">
+              <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
+                <TrendingUp size={24} color="#2563eb" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-extrabold text-gray-900 mb-1 text-right">
+                  לעסקים שרוצים לגדול
+                </Text>
+                <Text className="text-sm text-gray-500 text-right leading-5">
+                  מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי שיווק.
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+
+        {/* Bottom Section */}
+        <View className="mt-10">
+          {/* Get Started Button */}
+          <TouchableOpacity
+            className="bg-blue-600 rounded-full px-10 py-4 items-center mb-4 shadow-[0_10px_30px_rgba(37,99,235,0.25)]"
+            onPress={handleGetStarted}
+            activeOpacity={0.8}
+          >
+            <Text className="text-white text-lg font-bold">בואו נתחיל</Text>
+          </TouchableOpacity>
+
+          {/* Sign In Link */}
+          <View className="flex-row justify-center items-center gap-2">
+            <Link href="/(auth)/sign-in" asChild={true}>
+              <TouchableOpacity>
+                <Text className="text-blue-600 font-semibold text-base">
+                  התחברו כאן
+                </Text>
+              </TouchableOpacity>
+            </Link>
+            <Text className="text-gray-500 text-base">כבר יש לכם חשבון?</Text>
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
+
+

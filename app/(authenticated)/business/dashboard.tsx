@@ -1,17 +1,32 @@
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card, ListRow, PrimaryButton, SectionHeader, StatCard } from '@/components/ui';
+import {
+  Card,
+  ListRow,
+  PrimaryButton,
+  SectionHeader,
+  StatCard,
+} from '@/components/ui';
+import { useAppMode } from '@/contexts/AppModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { SUBSCRIPTION_PLAN_LABELS, canAccessAdvancedFeatures } from '@/lib/domain/subscriptions';
+import {
+  canAccessAdvancedFeatures,
+  SUBSCRIPTION_PLAN_LABELS,
+} from '@/lib/domain/subscriptions';
 import { tw } from '@/lib/rtl';
-import { useAppMode } from '@/contexts/AppModeContext';
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
@@ -55,7 +70,8 @@ export default function MerchantDashboardScreen() {
   const isOwner = user?.role === 'merchant';
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] = useState<Id<'businesses'> | null>(null);
+  const [selectedBusinessId, setSelectedBusinessId] =
+    useState<Id<'businesses'> | null>(null);
 
   useEffect(() => {
     setSelectedBusinessId((current) => {
@@ -77,8 +93,9 @@ export default function MerchantDashboardScreen() {
     }
   }, [appMode, isAppModeLoading, router]);
 
-  const analyticsArgs =
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip';
+  const analyticsArgs = selectedBusinessId
+    ? { businessId: selectedBusinessId }
+    : 'skip';
   const analytics = useQuery(api.analytics.getBusinessActivity, analyticsArgs);
   const today = analytics?.daily?.at(-1);
   const weeklyUnique = analytics?.totals?.uniqueCustomers ?? 0;
@@ -86,19 +103,42 @@ export default function MerchantDashboardScreen() {
   const isAnalyticsLoading = !!selectedBusinessId && analytics === undefined;
 
   const kpiCards = [
-    { id: 'punches', label: 'ניקובים היום', value: formatNumber(today?.stamps ?? 0), accent: 'bg-blue-50', icon: '✔️' },
-    { id: 'new-customers', label: 'לקוחות פעילים השבוע', value: formatNumber(weeklyUnique), accent: 'bg-emerald-50', icon: '➕' },
-    { id: 'redemptions', label: 'הטבות השבוע', value: formatNumber(weeklyRedemptions), accent: 'bg-orange-50', icon: '🎁' },
+    {
+      id: 'punches',
+      label: 'ניקובים היום',
+      value: formatNumber(today?.stamps ?? 0),
+      accent: 'bg-blue-50',
+      icon: '✔️',
+    },
+    {
+      id: 'new-customers',
+      label: 'לקוחות פעילים השבוע',
+      value: formatNumber(weeklyUnique),
+      accent: 'bg-emerald-50',
+      icon: '➕',
+    },
+    {
+      id: 'redemptions',
+      label: 'הטבות השבוע',
+      value: formatNumber(weeklyRedemptions),
+      accent: 'bg-orange-50',
+      icon: '🎁',
+    },
   ];
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} className="flex-1">
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 32 }}
+        className="flex-1"
+      >
         <View className="px-5 pt-4 pb-6 border-b border-gray-200">
           <View className={`flex-row items-center justify-between`}>
             <View className="flex-row items-center gap-3">
               <View className="h-12 w-12 rounded-full bg-gray-200" />
-              <Text className={`text-lg text-gray-500 ${tw.textStart}`}>שלום, קפה ארומה 👋</Text>
+              <Text className={`text-lg text-gray-500 ${tw.textStart}`}>
+                שלום, קפה ארומה 👋
+              </Text>
             </View>
             <View className="h-12 w-12 rounded-full bg-gray-100 items-center justify-center">
               <Text className="text-2xl text-gray-500">👤</Text>
@@ -112,7 +152,9 @@ export default function MerchantDashboardScreen() {
         <View className="px-5 mt-3 space-y-3">
           {businesses.length > 0 ? (
             <Card className="rounded-2xl border border-gray-200 bg-white/5 p-4 space-y-2">
-              <Text className={`text-[10px] uppercase tracking-[0.4em] text-zinc-500 ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.4em] text-zinc-500 ${tw.textStart}`}
+              >
                 עסק נבחר
               </Text>
               <View className="flex-row flex-wrap gap-2">
@@ -123,11 +165,17 @@ export default function MerchantDashboardScreen() {
                       key={business.businessId}
                       onPress={() => setSelectedBusinessId(business.businessId)}
                       className={`px-4 py-2 rounded-2xl border ${
-                        isActive ? 'border-cyan-500 bg-cyan-600/10' : 'border-zinc-200 bg-white'
+                        isActive
+                          ? 'border-cyan-500 bg-cyan-600/10'
+                          : 'border-zinc-200 bg-white'
                       }`}
                     >
-                      <Text className="text-sm font-semibold text-gray-800">{business.name}</Text>
-                      <Text className="text-[11px] text-zinc-500">{business.externalId}</Text>
+                      <Text className="text-sm font-semibold text-gray-800">
+                        {business.name}
+                      </Text>
+                      <Text className="text-[11px] text-zinc-500">
+                        {business.externalId}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -139,23 +187,31 @@ export default function MerchantDashboardScreen() {
                 onPress={() => router.push('/merchant/onboarding')}
                 className="mt-3 rounded-xl border border-blue-500 px-4 py-2 bg-blue-50 self-start"
               >
-                <Text className="text-sm font-semibold text-blue-600">???? ???</Text>
+                <Text className="text-sm font-semibold text-blue-600">
+                  ???? ???
+                </Text>
               </TouchableOpacity>
-              <Text className="text-xs text-zinc-500">אין עסקים פעילים כרגע.</Text>
+              <Text className="text-xs text-zinc-500">
+                אין עסקים פעילים כרגע.
+              </Text>
             </Card>
           )}
 
           <Card className="rounded-2xl border border-zinc-200 bg-white p-4 flex-row items-center justify-between">
             <View>
               <Text className="text-[11px] text-zinc-500">תוכנית נוכחית</Text>
-              <Text className="text-lg font-bold text-zinc-900">{planLabel}</Text>
+              <Text className="text-lg font-bold text-zinc-900">
+                {planLabel}
+              </Text>
             </View>
             {!hasAccess && (
               <TouchableOpacity
                 onPress={upgradeToPro}
                 className="rounded-full border border-blue-500 px-4 py-2 bg-blue-50"
               >
-                <Text className="text-sm font-semibold text-blue-600">שדרג ל-Pro</Text>
+                <Text className="text-sm font-semibold text-blue-600">
+                  שדרג ל-Pro
+                </Text>
               </TouchableOpacity>
             )}
           </Card>
@@ -167,7 +223,9 @@ export default function MerchantDashboardScreen() {
 
         <View className="px-5">
           <Card className="rounded-2xl border border-gray-200 bg-white/5 p-4 space-y-3">
-            <Text className={`text-[10px] uppercase tracking-[0.4em] text-zinc-500 ${tw.textStart}`}>
+            <Text
+              className={`text-[10px] uppercase tracking-[0.4em] text-zinc-500 ${tw.textStart}`}
+            >
               ?????? ???
             </Text>
             <View className="flex-row flex-wrap gap-2">
@@ -175,25 +233,35 @@ export default function MerchantDashboardScreen() {
                 onPress={() => router.push('/merchant/store-settings')}
                 className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
               >
-                <Text className="text-sm font-semibold text-gray-800">?????? ????</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  ?????? ????
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push('/merchant/profile-settings')}
                 className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
               >
-                <Text className="text-sm font-semibold text-gray-800">???? ??? ???</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  ???? ??? ???
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push('/merchant/qr')}
                 className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
               >
-                <Text className="text-sm font-semibold text-gray-800">QR ????</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  QR ????
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.push('/(authenticated)/(business)/business/qr')}
+                onPress={() =>
+                  router.push('/(authenticated)/(business)/business/qr')
+                }
                 className="px-4 py-2 rounded-2xl border border-zinc-200 bg-white"
               >
-                <Text className="text-sm font-semibold text-gray-800">QR ???????? ??????</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  QR ???????? ??????
+                </Text>
               </TouchableOpacity>
             </View>
           </Card>
@@ -217,34 +285,42 @@ export default function MerchantDashboardScreen() {
           <View className="px-5 mt-3">
             <View className="rounded-2xl border border-zinc-200 bg-white/5 px-4 py-3 flex-row items-center justify-center gap-2">
               <ActivityIndicator color="#4fc3f7" />
-              <Text className="text-xs text-zinc-500">טוען נתונים עדכניים...</Text>
+              <Text className="text-xs text-zinc-500">
+                טוען נתונים עדכניים...
+              </Text>
             </View>
           </View>
         )}
 
         <View className="px-5 mt-6 space-y-3">
-          {ACTION_CARDS.filter((action) => action.id !== 'team' || isOwner).map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              onPress={() => {
-                if (action.id === 'team') {
-                  router.push('/(authenticated)/(business)/business/team');
-                }
-              }}
-              className="bg-white rounded-[26px] border border-gray-100 px-5 py-5 flex-row items-center justify-between shadow-sm active:scale-[0.98]"
-            >
-              <View className="flex-row items-center gap-3">
-                <View className="h-12 w-12 rounded-2xl bg-blue-50 items-center justify-center">
-                  <Text className="text-2xl">{action.icon}</Text>
+          {ACTION_CARDS.filter((action) => action.id !== 'team' || isOwner).map(
+            (action) => (
+              <TouchableOpacity
+                key={action.id}
+                onPress={() => {
+                  if (action.id === 'team') {
+                    router.push('/(authenticated)/(business)/business/team');
+                  }
+                }}
+                className="bg-white rounded-[26px] border border-gray-100 px-5 py-5 flex-row items-center justify-between shadow-sm active:scale-[0.98]"
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="h-12 w-12 rounded-2xl bg-blue-50 items-center justify-center">
+                    <Text className="text-2xl">{action.icon}</Text>
+                  </View>
+                  <View>
+                    <Text className="text-base font-bold text-text-main">
+                      {action.title}
+                    </Text>
+                    <Text className="text-[10px] text-gray-400">
+                      {action.subtitle}
+                    </Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-base font-bold text-text-main">{action.title}</Text>
-                  <Text className="text-[10px] text-gray-400">{action.subtitle}</Text>
-                </View>
-              </View>
-              <Text className="text-blue-300 text-xl">›</Text>
-            </TouchableOpacity>
-          ))}
+                <Text className="text-blue-300 text-xl">›</Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
 
         <View className="px-5 mt-6">
@@ -253,19 +329,27 @@ export default function MerchantDashboardScreen() {
               <Text className="text-3xl text-blue-200">🎬</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-white font-bold text-lg">סרטון פרסומת ב-AI</Text>
-              <Text className="text-blue-100 text-xs mt-1">צור תוכן שיווקי לעסק שלך</Text>
+              <Text className="text-white font-bold text-lg">
+                סרטון פרסומת ב-AI
+              </Text>
+              <Text className="text-blue-100 text-xs mt-1">
+                צור תוכן שיווקי לעסק שלך
+              </Text>
             </View>
             {hasAccess ? (
               <View className="px-4 py-2.5 rounded-xl bg-blue-600">
-                <Text className="text-white font-bold text-sm">תכונה מתקדמת</Text>
+                <Text className="text-white font-bold text-sm">
+                  תכונה מתקדמת
+                </Text>
               </View>
             ) : (
               <TouchableOpacity
                 onPress={upgradeToPro}
                 className="px-4 py-2.5 rounded-xl border border-blue-500 bg-transparent"
               >
-                <Text className="text-blue-200 font-bold text-sm">שדרג ל-Pro</Text>
+                <Text className="text-blue-200 font-bold text-sm">
+                  שדרג ל-Pro
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -283,8 +367,12 @@ export default function MerchantDashboardScreen() {
               <ListRow
                 key={item.id}
                 title={item.customer}
-                subtitle={item.type === 'punch' ? 'קיבל/ה ניקוב 1' : 'מימש/ה הטבה 🎉'}
-                subtitleClassName={item.type === 'punch' ? 'text-gray-400' : 'text-blue-600'}
+                subtitle={
+                  item.type === 'punch' ? 'קיבל/ה ניקוב 1' : 'מימש/ה הטבה 🎉'
+                }
+                subtitleClassName={
+                  item.type === 'punch' ? 'text-gray-400' : 'text-blue-600'
+                }
                 leading={<View className="h-12 w-12 rounded-2xl bg-gray-100" />}
                 trailing={
                   <Text className="text-[11px] font-bold text-gray-300 bg-gray-50 px-2 py-1 rounded-lg">

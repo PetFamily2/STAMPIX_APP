@@ -1,10 +1,20 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, Image, StyleSheet } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { api } from '@/convex/_generated/api';
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
@@ -12,7 +22,10 @@ export default function WalletScreen() {
   const memberships = useQuery(api.memberships.byCustomer);
   const seedMvp = useMutation(api.seed.seedMvp);
   const isLoading = memberships === undefined;
-  const [seedStatus, setSeedStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [seedStatus, setSeedStatus] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [seedBusy, setSeedBusy] = useState(false);
 
   const handleCreateDemo = async () => {
@@ -21,11 +34,11 @@ export default function WalletScreen() {
       setSeedBusy(true);
       setSeedStatus(null);
       await seedMvp({});
-      setSeedStatus({ type: "success", message: "כרטיסיית דמו נוצרה בהצלחה." });
+      setSeedStatus({ type: 'success', message: 'כרטיסיית דמו נוצרה בהצלחה.' });
     } catch (error: any) {
       setSeedStatus({
-        type: "error",
-        message: error?.message ?? "לא הצלחנו ליצור כרטיסיית דמו.",
+        type: 'error',
+        message: error?.message ?? 'לא הצלחנו ליצור כרטיסיית דמו.',
       });
     } finally {
       setSeedBusy(false);
@@ -36,7 +49,10 @@ export default function WalletScreen() {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         style={styles.scrollBackground}
-        contentContainerStyle={[styles.scrollContainer, { paddingTop: (insets.top || 0) + 16 }]}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { paddingTop: (insets.top || 0) + 16 },
+        ]}
         alwaysBounceVertical={false}
       >
         <View style={styles.header}>
@@ -49,7 +65,7 @@ export default function WalletScreen() {
               <Text style={styles.headerTitle}>ישראל ישראלי ���</Text>
             </View>
             <Image
-              source={require("../../../assets/images/STAMPIX_LOGO.jpeg")}
+              source={require('../../../assets/images/STAMPIX_LOGO.jpeg')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -60,12 +76,18 @@ export default function WalletScreen() {
         </View>
 
         <Text style={styles.cardsTitle}>
-          הכרטיסיות שלי ({isLoading ? "..." : memberships.length})
+          הכרטיסיות שלי ({isLoading ? '...' : memberships.length})
         </Text>
 
         {isLoading ? (
           <View style={styles.cardContainer}>
-            <Text style={{ textAlign: "right", color: "#5B6475", fontWeight: "700" }}>
+            <Text
+              style={{
+                textAlign: 'right',
+                color: '#5B6475',
+                fontWeight: '700',
+              }}
+            >
               טוען כרטיסיות...
             </Text>
           </View>
@@ -73,43 +95,61 @@ export default function WalletScreen() {
 
         {!isLoading && memberships.length === 0 ? (
           <View style={styles.cardContainer}>
-            <Text style={{ textAlign: "right", color: "#0B1220", fontWeight: "800", fontSize: 16 }}>
+            <Text
+              style={{
+                textAlign: 'right',
+                color: '#0B1220',
+                fontWeight: '800',
+                fontSize: 16,
+              }}
+            >
               עדיין אין כרטיסיות
             </Text>
-            <Text style={{ marginTop: 6, textAlign: "right", color: "#5B6475", fontWeight: "600", fontSize: 13 }}>
-              בשלב הבא תהיה הצטרפות דרך QR של עסק. כרגע אפשר ליצור כרטיסיית דמו בלחיצה אחת.
+            <Text
+              style={{
+                marginTop: 6,
+                textAlign: 'right',
+                color: '#5B6475',
+                fontWeight: '600',
+                fontSize: 13,
+              }}
+            >
+              בשלב הבא תהיה הצטרפות דרך QR של עסק. כרגע אפשר ליצור כרטיסיית דמו
+              בלחיצה אחת.
             </Text>
 
             <Pressable
-              onPress={() => router.push("/join")}
+              onPress={() => router.push('/join')}
               style={({ pressed }) => ({
                 marginTop: 12,
-                alignSelf: "flex-start",
-                backgroundColor: "#2F6BFF",
+                alignSelf: 'flex-start',
+                backgroundColor: '#2F6BFF',
                 borderRadius: 16,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 opacity: pressed ? 0.92 : 1,
               })}
             >
-              <Text style={{ color: "#FFFFFF", fontWeight: "900" }}>סרוק QR להצטרפות</Text>
+              <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+                סרוק QR להצטרפות
+              </Text>
             </Pressable>
             <Pressable
               onPress={handleCreateDemo}
               style={({ pressed }) => ({
                 marginTop: 10,
-                alignSelf: "flex-start",
-                backgroundColor: "#FFFFFF",
+                alignSelf: 'flex-start',
+                backgroundColor: '#FFFFFF',
                 borderRadius: 16,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 borderWidth: 1,
-                borderColor: "#E3E9FF",
+                borderColor: '#E3E9FF',
                 opacity: pressed || seedBusy ? 0.85 : 1,
               })}
             >
-              <Text style={{ color: "#1A2B4A", fontWeight: "900" }}>
-                {seedBusy ? "????..." : "??? ???????? ???"}
+              <Text style={{ color: '#1A2B4A', fontWeight: '900' }}>
+                {seedBusy ? '????...' : '??? ???????? ???'}
               </Text>
             </Pressable>
             {seedStatus ? (
@@ -117,9 +157,9 @@ export default function WalletScreen() {
                 style={{
                   marginTop: 8,
                   fontSize: 12,
-                  fontWeight: "700",
-                  textAlign: "right",
-                  color: seedStatus.type === "error" ? "#D92D20" : "#0B922A",
+                  fontWeight: '700',
+                  textAlign: 'right',
+                  color: seedStatus.type === 'error' ? '#D92D20' : '#0B922A',
                 }}
               >
                 {seedStatus.message}
@@ -143,18 +183,29 @@ export default function WalletScreen() {
                     onPress={() => router.push(`/card/${membershipId}`)}
                   >
                     <View style={styles.cardTopRow}>
-                      <Text style={[styles.progressLabel, { color: "#2F6BFF" }]}>
+                      <Text
+                        style={[styles.progressLabel, { color: '#2F6BFF' }]}
+                      >
                         {current}/{goal}
                       </Text>
 
                       <View style={styles.cardTextColumn}>
-                        <Text style={styles.cardTitle}>{m.businessName ?? "עסק"}</Text>
-                        <Text style={styles.cardSubtitle}>הטבה: {m.rewardName ?? "הטבה"}</Text>
+                        <Text style={styles.cardTitle}>
+                          {m.businessName ?? 'עסק'}
+                        </Text>
+                        <Text style={styles.cardSubtitle}>
+                          הטבה: {m.rewardName ?? 'הטבה'}
+                        </Text>
                       </View>
 
-                      <View style={[styles.imagePlaceholder, { backgroundColor: "#E5EEFF" }]}>
+                      <View
+                        style={[
+                          styles.imagePlaceholder,
+                          { backgroundColor: '#E5EEFF' },
+                        ]}
+                      >
                         <Image
-                          source={require("../../../assets/images/STAMPIX_LOGO.jpeg")}
+                          source={require('../../../assets/images/STAMPIX_LOGO.jpeg')}
                           style={styles.cardImage}
                           resizeMode="cover"
                         />
@@ -168,13 +219,22 @@ export default function WalletScreen() {
                           style={[
                             styles.stampDot,
                             index < current
-                              ? { backgroundColor: "#2F6BFF", borderColor: "#2F6BFF" }
+                              ? {
+                                  backgroundColor: '#2F6BFF',
+                                  borderColor: '#2F6BFF',
+                                }
                               : styles.stampDotEmpty,
                           ]}
                         />
                       ))}
                       {goal > 20 ? (
-                        <Text style={{ fontSize: 11, color: "#5B6475", fontWeight: "700" }}>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: '#5B6475',
+                            fontWeight: '700',
+                          }}
+                        >
                           +{goal - 20}
                         </Text>
                       ) : null}
@@ -192,77 +252,77 @@ export default function WalletScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#E9F0FF",
+    backgroundColor: '#E9F0FF',
   },
   scrollContainer: {
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
   scrollBackground: {
-    backgroundColor: "#E9F0FF",
+    backgroundColor: '#E9F0FF',
   },
   header: {
     paddingVertical: 8,
     marginBottom: 20,
   },
   headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerLogo: {
     width: 60,
     height: 60,
     borderRadius: 30,
     borderWidth: 2,
-    borderColor: "#E3E9FF",
+    borderColor: '#E3E9FF',
   },
   walletBadge: {
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: "#2F6BFF",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#2F6BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerText: {
     flex: 1,
-    flexDirection: "column",
+    flexDirection: 'column',
     gap: 2,
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
     marginRight: 12,
   },
   headerLabel: {
     fontSize: 11,
-    textAlign: "right",
+    textAlign: 'right',
     letterSpacing: 1.5,
-    color: "#2F6BFF",
-    fontWeight: "600",
+    color: '#2F6BFF',
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: "800",
-    color: "#1A2B4A",
-    textAlign: "right",
+    fontWeight: '800',
+    color: '#1A2B4A',
+    textAlign: 'right',
   },
   ticker: {
     marginTop: 14,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#D4EDFF",
+    backgroundColor: '#D4EDFF',
   },
   tickerText: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#2F6BFF",
+    fontWeight: '700',
+    color: '#2F6BFF',
   },
   cardsTitle: {
     fontSize: 18,
-    fontWeight: "800",
-    color: "#1A2B4A",
-    textAlign: "right",
+    fontWeight: '800',
+    color: '#1A2B4A',
+    textAlign: 'right',
     marginBottom: 16,
   },
   cardList: {
@@ -270,62 +330,62 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E3E9FF",
-    shadowColor: "#000",
+    borderColor: '#E3E9FF',
+    shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 10,
     elevation: 2,
   },
   cardTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   cardTextColumn: {
     flex: 1,
-    flexDirection: "column",
+    flexDirection: 'column',
     gap: 2,
     marginHorizontal: 8,
   },
   progressLabel: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: "800",
-    color: "#0B1220",
+    fontWeight: '800',
+    color: '#0B1220',
     flex: 1,
-    textAlign: "right",
+    textAlign: 'right',
   },
   imagePlaceholder: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    overflow: "hidden",
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: "#E3E9FF",
+    borderColor: '#E3E9FF',
   },
   cardImage: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
   },
   cardSubtitle: {
     marginTop: 4,
     fontSize: 13,
-    color: "#5B6475",
-    textAlign: "right",
+    color: '#5B6475',
+    textAlign: 'right',
   },
   stampRow: {
     marginTop: 12,
-    flexDirection: "row-reverse",
+    flexDirection: 'row-reverse',
     gap: 8,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   },
   stampDot: {
     width: 18,
@@ -334,7 +394,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   stampDotEmpty: {
-    borderColor: "#E5EAF5",
-    backgroundColor: "#E9EEF9",
+    borderColor: '#E5EAF5',
+    backgroundColor: '#E9EEF9',
   },
 });

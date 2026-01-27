@@ -1,8 +1,20 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useQuery } from 'convex/react';
+import { useMemo, useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import { Card, ListRow, PrimaryButton, SectionHeader, StatCard } from '@/components/ui';
+import {
+  Card,
+  ListRow,
+  PrimaryButton,
+  SectionHeader,
+  StatCard,
+} from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import { tw } from '@/lib/rtl';
 
@@ -29,7 +41,8 @@ const formatRelativeDate = (timestamp: number | null) => {
   return `לפני ${monthsAgo} חודשים`;
 };
 
-const describeGrowth = (percent: number) => `${percent >= 0 ? '+' : ''}${percent}% בהשוואה לשבוע שעבר`;
+const describeGrowth = (percent: number) =>
+  `${percent >= 0 ? '+' : ''}${percent}% בהשוואה לשבוע שעבר`;
 
 type CustomerRow = {
   id: string;
@@ -44,39 +57,45 @@ type CustomerRow = {
 };
 
 export default function MerchantAnalyticsScreen() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'customers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers'>(
+    'overview'
+  );
   const [searchQuery, setSearchQuery] = useState('');
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const businessId = businesses[0]?.businessId ?? null;
   const analytics = useQuery(
     api.analytics.getMerchantActivity,
-    businessId ? { businessId } : 'skip',
+    businessId ? { businessId } : 'skip'
   );
   const customerData = useQuery(
     api.events.getMerchantCustomers,
-    businessId ? { businessId } : 'skip',
+    businessId ? { businessId } : 'skip'
   );
 
-  const customers: CustomerRow[] = (customerData?.customers ?? []).map((customer) => ({
-    id: String(customer.membershipId),
-    name: customer.name,
-    phone: customer.phone ?? '',
-    punches: customer.currentStamps,
-    max: customer.maxStamps,
-    lastVisitAt: customer.lastVisitAt,
-    lastVisit: formatRelativeDate(customer.lastVisitAt),
-    isRisk: customer.isRisk,
-    isVip: customer.isVip,
-  }));
+  const customers: CustomerRow[] = (customerData?.customers ?? []).map(
+    (customer) => ({
+      id: String(customer.membershipId),
+      name: customer.name,
+      phone: customer.phone ?? '',
+      punches: customer.currentStamps,
+      max: customer.maxStamps,
+      lastVisitAt: customer.lastVisitAt,
+      lastVisit: formatRelativeDate(customer.lastVisitAt),
+      isRisk: customer.isRisk,
+      isVip: customer.isVip,
+    })
+  );
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery) {
       return customers;
     }
     const normalizedQuery = searchQuery.trim();
-    return customers.filter((customer) =>
-      customer.name.includes(normalizedQuery) || customer.phone.includes(normalizedQuery),
+    return customers.filter(
+      (customer) =>
+        customer.name.includes(normalizedQuery) ||
+        customer.phone.includes(normalizedQuery)
     );
   }, [searchQuery, customers]);
 
@@ -126,19 +145,25 @@ export default function MerchantAnalyticsScreen() {
   ];
 
   const dailyActivity = analytics?.daily ?? [];
-  const graphData = DAYS.map((_, index) => dailyActivity[index] ?? {
-    start: 0,
-    stamps: 0,
-    redemptions: 0,
-    uniqueCustomers: 0,
-  });
+  const graphData = DAYS.map(
+    (_, index) =>
+      dailyActivity[index] ?? {
+        start: 0,
+        stamps: 0,
+        redemptions: 0,
+        uniqueCustomers: 0,
+      }
+  );
   const maxWeekly = Math.max(
     1,
-    ...graphData.map((period) => Math.max(period.stamps, period.redemptions)),
+    ...graphData.map((period) => Math.max(period.stamps, period.redemptions))
   );
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 48 }} className="flex-1 bg-slate-50">
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 48 }}
+      className="flex-1 bg-slate-50"
+    >
       <View className="px-5 pt-6 pb-8">
         <SectionHeader
           title="מרכז ניהול ואנליטיקה"
@@ -157,7 +182,9 @@ export default function MerchantAnalyticsScreen() {
               className={`flex-1 rounded-xl py-2.5 items-center ${activeTab === tab ? 'bg-blue-600 shadow-sm' : ''}`}
               onPress={() => setActiveTab(tab)}
             >
-              <Text className={`text-sm font-black ${activeTab === tab ? 'text-white' : 'text-gray-400'}`}>
+              <Text
+                className={`text-sm font-black ${activeTab === tab ? 'text-white' : 'text-gray-400'}`}
+              >
                 {tab === 'overview' ? 'סקירה כללית' : 'ניהול לקוחות'}
               </Text>
             </TouchableOpacity>
@@ -179,7 +206,9 @@ export default function MerchantAnalyticsScreen() {
             </View>
 
             <View className="bg-white rounded-[26px] border border-gray-100 p-4 shadow-sm">
-              <Text className="text-sm font-black text-text-main mb-2">ניקובים השבוע</Text>
+              <Text className="text-sm font-black text-text-main mb-2">
+                ניקובים השבוע
+              </Text>
               <View className={`mt-3 ${tw.flexRow} items-end gap-2 h-32`}>
                 {graphData.map((value, index) => {
                   const heightPercent = (value.stamps / maxWeekly) * 100;
@@ -189,7 +218,9 @@ export default function MerchantAnalyticsScreen() {
                         className={`w-full rounded-t-xl ${index === 4 ? 'bg-blue-600' : 'bg-blue-200'}`}
                         style={{ height: `${heightPercent}%` }}
                       />
-                      <Text className="text-[10px] font-black text-gray-400 mt-2">{DAYS[index]}</Text>
+                      <Text className="text-[10px] font-black text-gray-400 mt-2">
+                        {DAYS[index]}
+                      </Text>
                     </View>
                   );
                 })}
@@ -204,7 +235,9 @@ export default function MerchantAnalyticsScreen() {
                   subtitle={insight.subtitle}
                   leading={
                     <View className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center">
-                      <Text className="text-blue-600 text-xl">{insight.icon}</Text>
+                      <Text className="text-blue-600 text-xl">
+                        {insight.icon}
+                      </Text>
                     </View>
                   }
                 />
@@ -235,21 +268,36 @@ export default function MerchantAnalyticsScreen() {
                       key={customer.id}
                       className={`p-4 border ${customer.isRisk ? 'border-amber-100 bg-amber-50/50' : 'border-gray-100 bg-white'}`}
                     >
-                      <View className={`${tw.flexRow} items-center justify-between`}>
+                      <View
+                        className={`${tw.flexRow} items-center justify-between`}
+                      >
                         <View className={`${tw.flexRow} items-center gap-3`}>
-                          <View className={`h-12 w-12 rounded-2xl items-center justify-center ${customer.isRisk ? 'bg-amber-100 text-amber-500' : 'bg-blue-50'}`}>
-                            <Text className="text-xl font-black text-blue-600">👤</Text>
+                          <View
+                            className={`h-12 w-12 rounded-2xl items-center justify-center ${customer.isRisk ? 'bg-amber-100 text-amber-500' : 'bg-blue-50'}`}
+                          >
+                            <Text className="text-xl font-black text-blue-600">
+                              👤
+                            </Text>
                           </View>
                           <View>
-                            <Text className="text-base font-bold text-text-main">{customer.name}</Text>
-                            <Text className="text-[11px] font-bold text-gray-400">{customer.phone}</Text>
+                            <Text className="text-base font-bold text-text-main">
+                              {customer.name}
+                            </Text>
+                            <Text className="text-[11px] font-bold text-gray-400">
+                              {customer.phone}
+                            </Text>
                           </View>
                         </View>
-                        <Text className="text-[10px] font-bold text-gray-400">{customer.lastVisit}</Text>
+                        <Text className="text-[10px] font-bold text-gray-400">
+                          {customer.lastVisit}
+                        </Text>
                       </View>
                       <View className="mt-3">
                         <View className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-                          <View className="h-full bg-blue-600" style={{ width: `${progress * 100}%` }} />
+                          <View
+                            className="h-full bg-blue-600"
+                            style={{ width: `${progress * 100}%` }}
+                          />
                         </View>
                         <Text className="text-[10px] font-bold text-gray-400 mt-1">
                           {customer.punches} / {customer.max} ניקובים

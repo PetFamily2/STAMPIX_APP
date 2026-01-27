@@ -13,7 +13,3 @@ export type CustomerMembershipView = {
   lastStampAt: number;
   canRedeem: boolean;
 };
-
-
-
-

@@ -1,1 +1,1 @@
-export { default } from "../../business/dashboard";
+export { default } from '../../business/dashboard';

@@ -7,7 +7,3 @@ export function FullScreenLoading() {
     </View>
   );
 }
-
-
-
-

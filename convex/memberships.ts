@@ -40,12 +40,19 @@ export const byCustomer = query({
         if (!business || business.isActive !== true) {
           return null;
         }
-        if (!program || program.isActive !== true || program.businessId !== business._id) {
+        if (
+          !program ||
+          program.isActive !== true ||
+          program.businessId !== business._id
+        ) {
           return null;
         }
 
         const lastStampAt =
-          membership.lastStampAt ?? membership.updatedAt ?? membership.createdAt ?? Date.now();
+          membership.lastStampAt ??
+          membership.updatedAt ??
+          membership.createdAt ??
+          Date.now();
 
         return {
           membershipId: membership._id,
@@ -75,11 +82,6 @@ export const byCustomer = query({
   },
 });
 
-
-
-
-
-
 // Join a business (create membership) by scanning the BUSINESS QR (customer flow).
 // QR payload formats supported:
 // - "businessExternalId:<value>"
@@ -94,16 +96,21 @@ export const joinByBusinessQr = mutation({
     if (!raw) throw new Error('INVALID_QR');
 
     const prefix = 'businessExternalId:';
-    const businessExternalId = raw.startsWith(prefix) ? raw.slice(prefix.length).trim() : raw;
+    const businessExternalId = raw.startsWith(prefix)
+      ? raw.slice(prefix.length).trim()
+      : raw;
 
     if (!businessExternalId) throw new Error('INVALID_QR');
 
     const business = await ctx.db
       .query('businesses')
-      .withIndex('by_externalId', (q: any) => q.eq('externalId', businessExternalId))
+      .withIndex('by_externalId', (q: any) =>
+        q.eq('externalId', businessExternalId)
+      )
       .unique();
 
-    if (!business || business.isActive !== true) throw new Error('BUSINESS_NOT_FOUND');
+    if (!business || business.isActive !== true)
+      throw new Error('BUSINESS_NOT_FOUND');
 
     const program = await ctx.db
       .query('loyaltyPrograms')
@@ -116,7 +123,7 @@ export const joinByBusinessQr = mutation({
     const existing = await ctx.db
       .query('memberships')
       .withIndex('by_userId_programId', (q: any) =>
-        q.eq('userId', user._id).eq('programId', program._id),
+        q.eq('userId', user._id).eq('programId', program._id)
       )
       .first();
 

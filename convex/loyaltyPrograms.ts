@@ -1,5 +1,5 @@
-import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
+import { mutation, query } from './_generated/server';
 import { requireActorIsBusinessOwner } from './guards';
 
 export const listByBusiness = query({
@@ -37,7 +37,10 @@ export const createLoyaltyProgram = mutation({
     maxStamps: v.number(),
     stampIcon: v.string(),
   },
-  handler: async (ctx, { businessId, title, rewardName, maxStamps, stampIcon }) => {
+  handler: async (
+    ctx,
+    { businessId, title, rewardName, maxStamps, stampIcon }
+  ) => {
     await requireActorIsBusinessOwner(ctx, businessId);
 
     const normalizedTitle = title.trim();
@@ -72,4 +75,3 @@ export const createLoyaltyProgram = mutation({
     return { loyaltyProgramId };
   },
 });
-

@@ -1,5 +1,5 @@
-import { createContext, useContext, useMemo, useState } from 'react';
 import type React from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import type { Id } from '@/convex/_generated/dataModel';
 
 type BusinessDraft = {
@@ -40,13 +40,25 @@ const defaultProgramDraft: ProgramDraft = {
   stampIcon: 'star',
 };
 
-const OnboardingContext = createContext<OnboardingContextValue | undefined>(undefined);
+const OnboardingContext = createContext<OnboardingContextValue | undefined>(
+  undefined
+);
 
-export function OnboardingProvider({ children }: { children: React.ReactNode }) {
-  const [businessDraft, setBusinessDraft] = useState<BusinessDraft>(() => ({ ...defaultBusinessDraft }));
-  const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => ({ ...defaultProgramDraft }));
+export function OnboardingProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [businessDraft, setBusinessDraft] = useState<BusinessDraft>(() => ({
+    ...defaultBusinessDraft,
+  }));
+  const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => ({
+    ...defaultProgramDraft,
+  }));
   const [businessId, setBusinessId] = useState<Id<'businesses'> | null>(null);
-  const [programId, setProgramId] = useState<Id<'loyaltyPrograms'> | null>(null);
+  const [programId, setProgramId] = useState<Id<'loyaltyPrograms'> | null>(
+    null
+  );
 
   const value = useMemo(
     () => ({
@@ -68,7 +80,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     [businessDraft, programDraft, businessId, programId]
   );
 
-  return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
+  return (
+    <OnboardingContext.Provider value={value}>
+      {children}
+    </OnboardingContext.Provider>
+  );
 }
 
 export function useOnboarding() {
@@ -78,4 +94,3 @@ export function useOnboarding() {
   }
   return context;
 }
-

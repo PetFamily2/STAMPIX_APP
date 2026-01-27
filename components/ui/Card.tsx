@@ -6,9 +6,11 @@ type CardProps = PropsWithChildren<ViewProps & { className?: string }>;
 
 export function Card({ className = '', children, ...props }: CardProps) {
   return (
-    <View className={`rounded-[26px] border border-gray-100 bg-white ${className}`} {...props}>
+    <View
+      className={`rounded-[26px] border border-gray-100 bg-white ${className}`}
+      {...props}
+    >
       {children}
     </View>
   );
 }
-

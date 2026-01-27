@@ -1,1 +1,1 @@
-export { default } from "../business/scanner";
+export { default } from '../business/scanner';

@@ -1,12 +1,15 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useMutation } from "convex/react";
-import { router } from "expo-router";
-
-import { api } from "@/convex/_generated/api";
-import { useAppMode } from "@/contexts/AppModeContext";
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
+import { router } from 'expo-router';
+import { useAuthActions } from '@convex-dev/auth/react';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { api } from '@/convex/_generated/api';
 
 function Row({
   title,
@@ -25,44 +28,57 @@ function Row({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: "#FFFFFF",
+        backgroundColor: '#FFFFFF',
         borderRadius: 18,
         paddingVertical: 14,
         paddingHorizontal: 14,
         borderWidth: 1,
-        borderColor: "#E3E9FF",
+        borderColor: '#E3E9FF',
         opacity: pressed ? 0.92 : 1,
       })}
     >
-      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
+      <View
+        style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}
+      >
         <View
           style={{
             width: 40,
             height: 40,
             borderRadius: 14,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: danger ? "#FFE9E9" : "#F3F6FF",
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: danger ? '#FFE9E9' : '#F3F6FF',
             borderWidth: 1,
-            borderColor: danger ? "#FFD0D0" : "#E3E9FF",
+            borderColor: danger ? '#FFD0D0' : '#E3E9FF',
           }}
         >
-          <Ionicons name={icon} size={20} color={danger ? "#D92D20" : "#2F6BFF"} />
+          <Ionicons
+            name={icon}
+            size={20}
+            color={danger ? '#D92D20' : '#2F6BFF'}
+          />
         </View>
 
         <View style={{ flex: 1 }}>
           <Text
             style={{
               fontSize: 14,
-              fontWeight: "800",
-              textAlign: "right",
-              color: danger ? "#D92D20" : "#0B1220",
+              fontWeight: '800',
+              textAlign: 'right',
+              color: danger ? '#D92D20' : '#0B1220',
             }}
           >
             {title}
           </Text>
           {subtitle ? (
-            <Text style={{ marginTop: 4, fontSize: 12, textAlign: "right", color: "#5B6475" }}>
+            <Text
+              style={{
+                marginTop: 4,
+                fontSize: 12,
+                textAlign: 'right',
+                color: '#5B6475',
+              }}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -80,8 +96,9 @@ export default function SettingsScreen() {
   const [roleBusy, setRoleBusy] = useState(false);
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
   const [appModeBusy, setAppModeBusy] = useState(false);
+  const { signOut } = useAuthActions();
 
-  const handleAppModeChange = async (nextMode: "customer" | "business") => {
+  const handleAppModeChange = async (nextMode: 'customer' | 'business') => {
     if (isAppModeLoading || appModeBusy) return;
     if (nextMode === appMode) return;
     try {
@@ -96,8 +113,8 @@ export default function SettingsScreen() {
     if (roleBusy) return;
     try {
       setRoleBusy(true);
-      await setMyRole({ role: "merchant" });
-      router.push("/(authenticated)/(business)/business/dashboard");
+      await setMyRole({ role: 'merchant' });
+      router.push('/(authenticated)/(business)/business/dashboard');
     } finally {
       setRoleBusy(false);
     }
@@ -107,14 +124,25 @@ export default function SettingsScreen() {
     if (roleBusy) return;
     try {
       setRoleBusy(true);
-      await setMyRole({ role: "customer" });
+      await setMyRole({ role: 'customer' });
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (roleBusy) return;
+    try {
+      setRoleBusy(true);
+      await signOut();
+      router.replace('/(auth)/sign-up');
     } finally {
       setRoleBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#E9F0FF" }} edges={[]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -125,33 +153,45 @@ export default function SettingsScreen() {
       >
         <View
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: '#FFFFFF',
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: "#E3E9FF",
+            borderColor: '#E3E9FF',
             padding: 12,
           }}
         >
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+          <View
+            style={{
+              flexDirection: 'row-reverse',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <Pressable
-              onPress={() => handleAppModeChange("business")}
+              onPress={() => handleAppModeChange('business')}
               style={({ pressed }) => ({
                 paddingHorizontal: 8,
                 opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
               })}
             >
-              <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>בעל עסק</Text>
+              <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>
+                בעל עסק
+              </Text>
             </Pressable>
 
             <Pressable
-              onPress={() => handleAppModeChange(appMode === "customer" ? "business" : "customer")}
+              onPress={() =>
+                handleAppModeChange(
+                  appMode === 'customer' ? 'business' : 'customer'
+                )
+              }
               style={({ pressed }) => ({
                 width: 56,
                 height: 30,
                 borderRadius: 999,
-                backgroundColor: "#D9DEE7",
+                backgroundColor: '#D9DEE7',
                 padding: 3,
-                justifyContent: "center",
+                justifyContent: 'center',
                 opacity: pressed || isAppModeLoading || appModeBusy ? 0.8 : 1,
               })}
             >
@@ -160,9 +200,9 @@ export default function SettingsScreen() {
                   width: 24,
                   height: 24,
                   borderRadius: 12,
-                  backgroundColor: "#FFFFFF",
-                  alignSelf: appMode === "customer" ? "flex-end" : "flex-start",
-                  shadowColor: "#000",
+                  backgroundColor: '#FFFFFF',
+                  alignSelf: appMode === 'customer' ? 'flex-end' : 'flex-start',
+                  shadowColor: '#000',
                   shadowOpacity: 0.08,
                   shadowRadius: 4,
                   elevation: 2,
@@ -171,32 +211,61 @@ export default function SettingsScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => handleAppModeChange("customer")}
+              onPress={() => handleAppModeChange('customer')}
               style={({ pressed }) => ({
                 paddingHorizontal: 8,
                 opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
               })}
             >
-              <Text style={{ fontWeight: "800", color: "#1A2B4A" }}>לקוח</Text>
+              <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>לקוח</Text>
             </Pressable>
           </View>
-          <Text style={{ marginTop: 8, fontSize: 11, color: "#5B6475", textAlign: "right" }}>
+          <Text
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: '#5B6475',
+              textAlign: 'right',
+            }}
+          >
             מצב זה משנה את תפריט הטאבים
           </Text>
         </View>
 
         <View>
-          <Text style={{ fontSize: 24, fontWeight: "800", color: "#1A2B4A", textAlign: "right" }}>
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: '800',
+              color: '#1A2B4A',
+              textAlign: 'right',
+            }}
+          >
             פרופיל והגדרות
           </Text>
-          <Text style={{ marginTop: 6, fontSize: 13, color: "#2F6BFF", textAlign: "right", fontWeight: "600" }}>
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 13,
+              color: '#2F6BFF',
+              textAlign: 'right',
+              fontWeight: '600',
+            }}
+          >
             ניהול חשבון, תמיכה ומסמכים
           </Text>
         </View>
 
         {__DEV__ ? (
           <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '800',
+                color: '#5B6475',
+                textAlign: 'right',
+              }}
+            >
               DEV
             </Text>
             <Row
@@ -215,7 +284,14 @@ export default function SettingsScreen() {
         ) : null}
 
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '800',
+              color: '#5B6475',
+              textAlign: 'right',
+            }}
+          >
             כללי
           </Text>
           <Row
@@ -233,7 +309,14 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '800',
+              color: '#5B6475',
+              textAlign: 'right',
+            }}
+          >
             תמיכה ומסמכים
           </Text>
           <Row
@@ -257,27 +340,42 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 12, fontWeight: "800", color: "#5B6475", textAlign: "right" }}>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '800',
+              color: '#5B6475',
+              textAlign: 'right',
+            }}
+          >
             חשבון
           </Text>
           <Row
             title="מחיקת חשבון"
             subtitle="חובה ל-App Store: דרך ברורה למחיקה"
             icon="trash-outline"
-            danger
+            danger={true}
             onPress={() => {}}
           />
           <Row
             title="יציאה מהחשבון"
             subtitle="נתק את המשתמש במכשיר"
             icon="log-out-outline"
-            danger
-            onPress={() => {}}
+            danger={true}
+            onPress={handleLogout}
           />
         </View>
 
-        <Text style={{ marginTop: 6, textAlign: "right", color: "#8A94A6", fontSize: 11 }}>
-          דמו זמני: בשלב הבא נחבר פעולות אמיתיות (פתיחת מסמכים, תמיכה, יציאה ומחיקה) ל-Convex.
+        <Text
+          style={{
+            marginTop: 6,
+            textAlign: 'right',
+            color: '#8A94A6',
+            fontSize: 11,
+          }}
+        >
+          דמו זמני: בשלב הבא נחבר פעולות אמיתיות (פתיחת מסמכים, תמיכה, יציאה
+          ומחיקה) ל-Convex.
         </Text>
       </ScrollView>
     </SafeAreaView>

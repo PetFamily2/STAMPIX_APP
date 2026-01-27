@@ -1,1 +1,1 @@
-export { default } from "../business/team";
+export { default } from '../business/team';

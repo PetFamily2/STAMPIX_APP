@@ -1,4 +1,3 @@
-
 export type UserRole = 'customer' | 'merchant' | null;
 export type MerchantTier = 'starter' | 'pro' | 'unlimited' | null;
 

@@ -8,12 +8,20 @@ type StatCardProps = {
   className?: string;
 };
 
-export function StatCard({ value, label, icon, accent = 'bg-blue-50', className = '' }: StatCardProps) {
+export function StatCard({
+  value,
+  label,
+  icon,
+  accent = 'bg-blue-50',
+  className = '',
+}: StatCardProps) {
   return (
     <View
       className={`bg-white rounded-[26px] border border-gray-100 p-4 shadow-sm flex-1 min-w-[30%] ${className}`}
     >
-      <View className={`h-10 w-10 rounded-full items-center justify-center mb-3 ${accent}`}>
+      <View
+        className={`h-10 w-10 rounded-full items-center justify-center mb-3 ${accent}`}
+      >
         <Text className="text-xl">{icon}</Text>
       </View>
       <Text className="text-2xl font-black text-text-main">{value}</Text>
@@ -21,7 +29,3 @@ export function StatCard({ value, label, icon, accent = 'bg-blue-50', className 
     </View>
   );
 }
-
-
-
-

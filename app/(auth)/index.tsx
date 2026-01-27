@@ -1,7 +1,6 @@
 import { Redirect } from 'expo-router';
 
-// הפניה ברירת מחדל לדף התחברות
-// מונע מהאפליקציה להציג מסכים אחרים בקבוצת (auth)
+// הפניה ברירת מחדל לדף ברוכים הבאים
 export default function AuthIndex() {
-  return <Redirect href="/(auth)/sign-in" />;
+  return <Redirect href="/(auth)/sign-up" />;
 }

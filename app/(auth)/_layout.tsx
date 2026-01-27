@@ -1,5 +1,11 @@
 import { useConvexAuth } from 'convex/react';
-import { Slot, useLocalSearchParams, usePathname, useRouter, useSegments } from 'expo-router';
+import {
+  Slot,
+  useLocalSearchParams,
+  usePathname,
+  useRouter,
+  useSegments,
+} from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -14,14 +20,15 @@ export default function AuthRoutesLayout() {
   const router = useRouter();
   const redirectTriggeredRef = useRef(false);
 
-  const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
+  const AUTH_REDIRECT_TARGET = '/(authenticated)';
   const segmentStrings = segments as string[];
   const segmentsKey = segmentStrings.join('/');
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isAllowedForAuthenticated = isPaywallRoute || isPreviewMode;
   const alreadyInTarget =
-    pathname === AUTH_REDIRECT_TARGET || pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
+    pathname === AUTH_REDIRECT_TARGET ||
+    pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
   const shouldRedirectToAuthenticated =
     isAuthenticated && !isAllowedForAuthenticated && !alreadyInTarget;
 

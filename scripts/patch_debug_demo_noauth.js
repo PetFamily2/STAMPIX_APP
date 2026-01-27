@@ -1,16 +1,16 @@
-const fs = require("fs");
+const fs = require('fs');
 
-const p = "convex/debug.ts";
-let s = fs.readFileSync(p, "utf8");
+const p = 'convex/debug.ts';
+let s = fs.readFileSync(p, 'utf8');
 
-if (s.includes("export const createDemoMembershipForExternalId")) {
-  console.log("SKIP: already exists");
+if (s.includes('export const createDemoMembershipForExternalId')) {
+  console.log('SKIP: already exists');
   process.exit(0);
 }
 
-const insertAt = s.lastIndexOf("export const createDemoMembershipForMe");
+const insertAt = s.lastIndexOf('export const createDemoMembershipForMe');
 if (insertAt === -1) {
-  console.error("FAIL: createDemoMembershipForMe not found (anchor missing)");
+  console.error('FAIL: createDemoMembershipForMe not found (anchor missing)');
   process.exit(1);
 }
 
@@ -153,5 +153,5 @@ export const createDemoMembershipForExternalId = mutation({
 });
 `;
 
-fs.writeFileSync(p, s, "utf8");
-console.log("OK: appended createDemoMembershipForExternalId to", p);
+fs.writeFileSync(p, s, 'utf8');
+console.log('OK: appended createDemoMembershipForExternalId to', p);

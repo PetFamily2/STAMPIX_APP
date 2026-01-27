@@ -1,7 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import * as SecureStore from 'expo-secure-store';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
-export type AppMode = "customer" | "business";
+export type AppMode = 'customer' | 'business';
 
 type AppModeContextValue = {
   appMode: AppMode;
@@ -9,11 +16,13 @@ type AppModeContextValue = {
   isLoading: boolean;
 };
 
-const STORAGE_KEY = "stamprix.appMode";
-const AppModeContext = createContext<AppModeContextValue | undefined>(undefined);
+const STORAGE_KEY = 'stamprix.appMode';
+const AppModeContext = createContext<AppModeContextValue | undefined>(
+  undefined
+);
 
 export function AppModeProvider({ children }: { children: React.ReactNode }) {
-  const [appMode, setAppModeState] = useState<AppMode>("customer");
+  const [appMode, setAppModeState] = useState<AppMode>('customer');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -21,16 +30,16 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const stored = await SecureStore.getItemAsync(STORAGE_KEY);
-        if (stored === "customer" || stored === "business") {
+        if (stored === 'customer' || stored === 'business') {
           if (isMounted) {
             setAppModeState(stored);
           }
         }
-        if (stored === "merchant") {
+        if (stored === 'merchant') {
           if (isMounted) {
-            setAppModeState("business");
+            setAppModeState('business');
           }
-          await SecureStore.setItemAsync(STORAGE_KEY, "business");
+          await SecureStore.setItemAsync(STORAGE_KEY, 'business');
         }
       } finally {
         if (isMounted) {
@@ -62,13 +71,15 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     [appMode, setAppMode, isLoading]
   );
 
-  return <AppModeContext.Provider value={value}>{children}</AppModeContext.Provider>;
+  return (
+    <AppModeContext.Provider value={value}>{children}</AppModeContext.Provider>
+  );
 }
 
 export function useAppMode() {
   const context = useContext(AppModeContext);
   if (!context) {
-    throw new Error("useAppMode must be used within AppModeProvider");
+    throw new Error('useAppMode must be used within AppModeProvider');
   }
   return context;
 }

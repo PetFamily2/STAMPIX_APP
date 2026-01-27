@@ -21,7 +21,7 @@ export const linkMeAsOwner = mutation({
     const existing = await ctx.db
       .query('businessStaff')
       .withIndex('by_businessId_userId', (q) =>
-        q.eq('businessId', businessId).eq('userId', user._id),
+        q.eq('businessId', businessId).eq('userId', user._id)
       )
       .first();
 
@@ -33,7 +33,12 @@ export const linkMeAsOwner = mutation({
           updatedAt: now,
         });
       }
-      return { ok: true, businessId, staffId: existing._id, alreadyExisted: true };
+      return {
+        ok: true,
+        businessId,
+        staffId: existing._id,
+        alreadyExisted: true,
+      };
     }
 
     const staffId = await ctx.db.insert('businessStaff', {
@@ -64,7 +69,7 @@ export const linkEmailAsOwner = mutation({
     const existing = await ctx.db
       .query('businessStaff')
       .withIndex('by_businessId_userId', (q) =>
-        q.eq('businessId', businessId).eq('userId', user._id),
+        q.eq('businessId', businessId).eq('userId', user._id)
       )
       .first();
 
@@ -76,7 +81,12 @@ export const linkEmailAsOwner = mutation({
           updatedAt: now,
         });
       }
-      return { ok: true, businessId, staffId: existing._id, alreadyExisted: true };
+      return {
+        ok: true,
+        businessId,
+        staffId: existing._id,
+        alreadyExisted: true,
+      };
     }
 
     const staffId = await ctx.db.insert('businessStaff', {
@@ -183,7 +193,10 @@ export const setBusinessOwnerByEmail = mutation({
     const business = await ctx.db.get(businessId);
     if (!business) throw new Error('BUSINESS_NOT_FOUND');
 
-    await ctx.db.patch(businessId, { ownerUserId: user._id, updatedAt: Date.now() });
+    await ctx.db.patch(businessId, {
+      ownerUserId: user._id,
+      updatedAt: Date.now(),
+    });
 
     return { ok: true, businessId, ownerUserId: user._id, email };
   },
@@ -241,20 +254,30 @@ export const createDemoMembershipForMe = mutation({
     const existingMembership = await ctx.db
       .query('memberships')
       .withIndex('by_userId_programId', (q: any) =>
-        q.eq('userId', user._id).eq('programId', programId),
+        q.eq('userId', user._id).eq('programId', programId)
       )
       .first();
 
     const business = businessId ? await ctx.db.get(businessId) : null;
     const businessExternalId = business?.externalId ?? null;
-    const businessQrData = businessExternalId ? `businessExternalId:${businessExternalId}` : null;
+    const businessQrData = businessExternalId
+      ? `businessExternalId:${businessExternalId}`
+      : null;
 
     if (existingMembership) {
       await ctx.db.patch(existingMembership._id, {
         isActive: true,
         updatedAt: now,
       });
-      return { ok: true, membershipId: existingMembership._id, businessId, programId, alreadyExisted: true, businessExternalId, businessQrData };
+      return {
+        ok: true,
+        membershipId: existingMembership._id,
+        businessId,
+        programId,
+        alreadyExisted: true,
+        businessExternalId,
+        businessQrData,
+      };
     }
 
     const membershipId = await ctx.db.insert('memberships', {
@@ -268,10 +291,17 @@ export const createDemoMembershipForMe = mutation({
       updatedAt: now,
     });
 
-    return { ok: true, membershipId, businessId, programId, alreadyExisted: false, businessExternalId, businessQrData };
+    return {
+      ok: true,
+      membershipId,
+      businessId,
+      programId,
+      alreadyExisted: false,
+      businessExternalId,
+      businessQrData,
+    };
   },
 });
-
 
 /**
  * Creates demo business + program + membership for a given externalId.
@@ -290,7 +320,9 @@ export const createDemoMembershipForExternalId = mutation({
 
     let user = await ctx.db
       .query('users')
-      .withIndex('by_externalId', (q: any) => q.eq('externalId', targetExternalId))
+      .withIndex('by_externalId', (q: any) =>
+        q.eq('externalId', targetExternalId)
+      )
       .unique();
 
     if (!user) {
@@ -359,17 +391,22 @@ export const createDemoMembershipForExternalId = mutation({
 
     const business = businessId ? await ctx.db.get(businessId) : null;
     const businessExternalId = business?.externalId ?? null;
-    const businessQrData = businessExternalId ? `businessExternalId:${businessExternalId}` : null;
+    const businessQrData = businessExternalId
+      ? `businessExternalId:${businessExternalId}`
+      : null;
 
     const existingMembership = await ctx.db
       .query('memberships')
       .withIndex('by_userId_programId', (q: any) =>
-        q.eq('userId', user._id).eq('programId', programId),
+        q.eq('userId', user._id).eq('programId', programId)
       )
       .first();
 
     if (existingMembership) {
-      await ctx.db.patch(existingMembership._id, { isActive: true, updatedAt: now });
+      await ctx.db.patch(existingMembership._id, {
+        isActive: true,
+        updatedAt: now,
+      });
       return {
         ok: true,
         alreadyExisted: true,

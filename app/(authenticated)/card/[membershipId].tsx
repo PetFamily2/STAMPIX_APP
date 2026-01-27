@@ -1,26 +1,38 @@
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { BackButton } from '@/components/BackButton';
 import { api } from '@/convex/_generated/api';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
+import { safeBack } from '@/lib/navigation';
 
 export default function CardDetailsScreen() {
   const { membershipId } = useLocalSearchParams<{ membershipId: string }>();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isLoading, isAuthorized } = useRoleGuard([CUSTOMER_ROLE]);
   const memberships = useQuery(api.memberships.byCustomer) as
     | CustomerMembershipView[]
     | undefined;
 
-  const membership = memberships?.find((entry) => entry.membershipId === membershipId);
+  const membership = memberships?.find(
+    (entry) => entry.membershipId === membershipId
+  );
 
   const createScanToken = useMutation(api.scanner.createScanToken);
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
@@ -41,7 +53,9 @@ export default function CardDetailsScreen() {
     setIsTokenLoading(true);
     setTokenError(null);
     try {
-      const result = await createScanToken({ membershipId: membershipIdForToken as any });
+      const result = await createScanToken({
+        membershipId: membershipIdForToken as any,
+      });
       setScanTokenPayload(result.scanToken);
     } catch {
       setScanTokenPayload(null);
@@ -101,13 +115,16 @@ export default function CardDetailsScreen() {
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingTop: (insets.top || 0) + 16, paddingBottom: (insets.bottom || 0) + 24 },
+          {
+            paddingTop: (insets.top || 0) + 16,
+            paddingBottom: (insets.bottom || 0) + 24,
+          },
         ]}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ChevronLeft size={18} color="#2F6BFF" />
-          </Pressable>
+          <BackButton
+            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+          />
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>פרטי כרטיס</Text>
             <Text style={styles.headerSubtitle}>
@@ -133,7 +150,9 @@ export default function CardDetailsScreen() {
                 ]}
               />
             ))}
-            {overflow > 0 ? <Text style={styles.moreText}>+{overflow}</Text> : null}
+            {overflow > 0 ? (
+              <Text style={styles.moreText}>+{overflow}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -142,7 +161,12 @@ export default function CardDetailsScreen() {
           <Text style={styles.cardSubtitle}>הראה לצוות כדי לקבל ניקוב</Text>
           <View style={styles.qrFrame}>
             {scanTokenPayload ? (
-              <QRCode value={scanTokenPayload} size={200} color="#1A2B4A" backgroundColor="#FFFFFF" />
+              <QRCode
+                value={scanTokenPayload}
+                size={200}
+                color="#1A2B4A"
+                backgroundColor="#FFFFFF"
+              />
             ) : (
               <View style={styles.qrPlaceholder}>
                 {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
@@ -158,7 +182,10 @@ export default function CardDetailsScreen() {
           {tokenError ? (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>משהו השתבש. נסה שוב.</Text>
-              <Pressable onPress={() => void refreshScanToken()} style={styles.primaryButton}>
+              <Pressable
+                onPress={() => void refreshScanToken()}
+                style={styles.primaryButton}
+              >
                 <Text style={styles.primaryButtonText}>נסה שוב</Text>
               </Pressable>
             </View>
@@ -168,7 +195,9 @@ export default function CardDetailsScreen() {
               disabled={isTokenLoading || !membershipIdForToken}
               style={({ pressed }) => [
                 styles.primaryButton,
-                (pressed || isTokenLoading || !membershipIdForToken) && { opacity: 0.7 },
+                (pressed || isTokenLoading || !membershipIdForToken) && {
+                  opacity: 0.7,
+                },
               ]}
             >
               <Text style={styles.primaryButtonText}>
@@ -182,13 +211,20 @@ export default function CardDetailsScreen() {
           <View style={styles.devSection}>
             <Pressable
               onPress={() => setShowPayload((prev) => !prev)}
-              style={({ pressed }) => [styles.devToggle, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.devToggle,
+                pressed && { opacity: 0.85 },
+              ]}
             >
-              <Text style={styles.devToggleText}>{showPayload ? 'הסתר Payload' : 'הצג Payload'}</Text>
+              <Text style={styles.devToggleText}>
+                {showPayload ? 'הסתר Payload' : 'הצג Payload'}
+              </Text>
             </Pressable>
             {showPayload ? (
               <View style={styles.payloadBox}>
-                <Text style={styles.payloadText}>{scanTokenPayload ?? 'טוען QR...'}</Text>
+                <Text style={styles.payloadText}>
+                  {scanTokenPayload ?? 'טוען QR...'}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -207,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   scrollContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     gap: 16,
   },
   header: {
@@ -215,16 +251,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerText: {
     flex: 1,

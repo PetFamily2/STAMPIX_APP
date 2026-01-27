@@ -1,4 +1,4 @@
-import type { Id, Doc } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 
 export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
   const identity = await ctx.auth.getUserIdentity();
@@ -33,7 +33,11 @@ export async function requireBusinessAndProgram(
   }
 
   const program = await ctx.db.get(programId);
-  if (!program || program.isActive !== true || program.businessId !== businessId) {
+  if (
+    !program ||
+    program.isActive !== true ||
+    program.businessId !== businessId
+  ) {
     throw new Error('PROGRAM_NOT_FOUND');
   }
 
@@ -64,10 +68,12 @@ export async function requireActorIsBusinessOwner(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const { actor, staffRole } = await requireActorIsStaffForBusiness(ctx, businessId);
+  const { actor, staffRole } = await requireActorIsStaffForBusiness(
+    ctx,
+    businessId
+  );
   if (staffRole !== 'owner') {
     throw new Error('NOT_AUTHORIZED');
   }
   return actor;
 }
-
