@@ -23,7 +23,7 @@ export default function OnboardingClientFrequencyScreen() {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    router.push('/(auth)/sign-in');
+    router.push('/(auth)/onboarding-client-return-motivation');
   };
 
   return (
@@ -31,7 +31,7 @@ export default function OnboardingClientFrequencyScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton onPress={() => safeBack('/(auth)/onboarding-client-fit')} />
-          <OnboardingProgress total={7} current={7} />
+          <OnboardingProgress total={8} current={7} />
         </View>
 
         <View style={styles.titleContainer}>

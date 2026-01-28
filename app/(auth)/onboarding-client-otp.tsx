@@ -127,7 +127,7 @@ export default function OnboardingOtpScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton onPress={() => safeBack('/(auth)/onboarding-client-details')} />
-          <OnboardingProgress total={7} current={3} />
+          <OnboardingProgress total={8} current={3} />
         </View>
 
         <View style={styles.titleContainer}>

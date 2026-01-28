@@ -1,4 +1,8 @@
-﻿import { useMutation } from 'convex/react';
+﻿import { BackButton } from '@/components/BackButton';
+import QrScanner from '@/components/QrScanner';
+import { api } from '@/convex/_generated/api';
+import { safeBack } from '@/lib/navigation';
+import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -6,10 +10,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import QrScanner from '@/components/QrScanner';
-import { api } from '@/convex/_generated/api';
-import { safeBack } from '@/lib/navigation';
 
 export default function JoinScreen() {
   const insets = useSafeAreaInsets();

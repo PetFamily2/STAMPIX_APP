@@ -1,10 +1,9 @@
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+﻿import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack } from '@/lib/navigation';
+import { safeBack, safePush } from '@/lib/navigation';
 
 type FitOptionId =
   | 'self'
@@ -23,8 +22,7 @@ const FIT_OPTIONS: Array<{ id: FitOptionId; title: string }> = [
   { id: 'work', title: 'לעבודה (ליד העבודה / הפסקות)' },
 ];
 
-export default function OnboardingFitScreen() {
-  const router = useRouter();
+export default function OnboardingClientFitScreen() {
   const [selected, setSelected] = useState<FitOptionId[]>([]);
   const canContinue = selected.length > 0;
 
@@ -36,27 +34,25 @@ export default function OnboardingFitScreen() {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    router.push('/(auth)/onboarding-client-frequency');
+    safePush('/(auth)/onboarding-client-frequency');
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#FBFAF7]">
-      <View className="flex-1 px-6 pt-4 pb-8">
-        <View className="flex-row-reverse items-center justify-between">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.header}>
           <BackButton onPress={() => safeBack('/(auth)/onboarding-client-usage-area')} />
-          <OnboardingProgress total={7} current={6} />
+          <OnboardingProgress total={8} current={6} />
         </View>
 
-        <View className="mt-8 items-end">
-          <Text className="text-2xl font-black text-gray-900 text-right mb-2">
-            למי אתה רוצה שההטבות יתאימו?
-          </Text>
-          <Text className="text-sm font-semibold text-gray-500 text-right">
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>למי אתה רוצה שההטבות יתאימו?</Text>
+          <Text style={styles.subtitle}>
             אפשר לבחור כמה - זה עוזר לנו לדייק את ההמלצות
           </Text>
         </View>
 
-        <View className="mt-8 gap-3">
+        <View style={styles.optionsContainer}>
           {FIT_OPTIONS.map((option) => {
             const isSelected = selected.includes(option.id);
             return (
@@ -67,17 +63,17 @@ export default function OnboardingFitScreen() {
                 accessibilityState={{ selected: isSelected }}
               >
                 <View
-                  className={
+                  style={
                     isSelected
-                      ? 'bg-blue-600 rounded-2xl px-5 py-4 border border-blue-600 shadow-sm shadow-blue-200'
-                      : 'bg-white rounded-2xl px-5 py-4 border border-gray-200 shadow-sm shadow-gray-100'
+                      ? styles.optionSelected
+                      : styles.optionUnselected
                   }
                 >
                   <Text
-                    className={
+                    style={
                       isSelected
-                        ? 'text-base font-black text-white text-center'
-                        : 'text-base font-black text-gray-900 text-center'
+                        ? styles.optionTextSelected
+                        : styles.optionTextUnselected
                     }
                   >
                     {option.title}
@@ -88,27 +84,26 @@ export default function OnboardingFitScreen() {
           })}
         </View>
 
-        <View className="mt-auto">
+        <View style={styles.footer}>
           <Pressable
             onPress={handleContinue}
-            className={
-              canContinue
-                ? 'bg-blue-600 rounded-full px-10 py-4 items-center shadow-[0_10px_30px_rgba(37,99,235,0.25)]'
-                : 'bg-gray-200 rounded-full px-10 py-4 items-center'
-            }
             disabled={!canContinue}
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <Text
-              className={
-                canContinue
-                  ? 'text-white text-lg font-bold'
-                  : 'text-gray-500 text-lg font-bold'
+            <View
+              style={
+                canContinue ? styles.buttonActive : styles.buttonInactive
               }
             >
-              המשך
-            </Text>
+              <Text
+                style={
+                  canContinue ? styles.buttonTextActive : styles.buttonTextInactive
+                }
+              >
+                המשך
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -116,3 +111,112 @@ export default function OnboardingFitScreen() {
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FBFAF7',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  header: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleContainer: {
+    marginTop: 32,
+    alignItems: 'flex-end',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    textAlign: 'right',
+    lineHeight: 20,
+  },
+  optionsContainer: {
+    marginTop: 32,
+    gap: 12,
+  },
+  optionSelected: {
+    backgroundColor: '#2563eb',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    shadowColor: '#93c5fd',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  optionUnselected: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#9ca3af',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  optionTextSelected: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  optionTextUnselected: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  footer: {
+    marginTop: 'auto',
+  },
+  buttonActive: {
+    backgroundColor: '#2563eb',
+    borderRadius: 999,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 8,
+  },
+  buttonInactive: {
+    backgroundColor: '#e5e7eb',
+    borderRadius: 999,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonTextActive: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  buttonTextInactive: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#6b7280',
+  },
+});

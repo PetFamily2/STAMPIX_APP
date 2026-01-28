@@ -30,7 +30,7 @@ export default function OnboardingRoleScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton onPress={handleBack} />
-          <OnboardingProgress total={7} current={1} />
+          <OnboardingProgress total={8} current={1} />
         </View>
 
         <View style={styles.titleContainer}>

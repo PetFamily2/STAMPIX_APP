@@ -35,7 +35,7 @@ export default function OnboardingCustomerScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton onPress={() => safeBack('/(auth)/onboarding-client-role')} />
-          <OnboardingProgress total={7} current={2} />
+          <OnboardingProgress total={8} current={2} />
         </View>
 
         <View style={styles.titleContainer}>
