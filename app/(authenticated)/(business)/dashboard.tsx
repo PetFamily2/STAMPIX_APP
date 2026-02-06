@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
   SectionHeader,
   StatCard,
 } from '@/components/ui';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useUser } from '@/contexts/UserContext';
@@ -61,6 +62,8 @@ const ACTIVITY_FEED: Activity[] = [
 
 export default function MerchantDashboardScreen() {
   const router = useRouter();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const { user } = useUser();
@@ -87,13 +90,16 @@ export default function MerchantDashboardScreen() {
   }, [businesses]);
 
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
     if (isAppModeLoading) {
       return;
     }
     if (appMode !== 'business') {
       router.replace('/(authenticated)/(customer)/wallet');
     }
-  }, [appMode, isAppModeLoading, router]);
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const analyticsArgs = selectedBusinessId
     ? { businessId: selectedBusinessId }

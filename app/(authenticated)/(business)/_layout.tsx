@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useUser } from '@/contexts/UserContext';
 import type { AppRole } from '@/lib/domain/roles';
 import { BUSINESS_ROLES, CUSTOMER_ROLE } from '@/lib/hooks/useRoleGuard';
@@ -18,17 +19,19 @@ const TEXT = {
 export default function BusinessTabsLayout() {
   const insets = useSafeAreaInsets();
   const { user, isLoading } = useUser();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
 
   if (isLoading) {
     return <FullScreenLoading />;
   }
 
-  if (!user) {
+  if (!user && !isPreviewMode) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  const role = (user.role ?? CUSTOMER_ROLE) as AppRole;
-  if (!BUSINESS_ROLES.includes(role)) {
+  const role = (user?.role ?? CUSTOMER_ROLE) as AppRole;
+  if (!isPreviewMode && !BUSINESS_ROLES.includes(role)) {
     return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 

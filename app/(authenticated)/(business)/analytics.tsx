@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
@@ -43,6 +44,8 @@ const formatWeekLabel = (timestamp: number) => {
 
 export default function BusinessAnalyticsScreen() {
   const router = useRouter();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const showAnalytics = canAccessAdvancedFeatures(subscriptionPlan);
@@ -64,11 +67,12 @@ export default function BusinessAnalyticsScreen() {
   }, [businesses]);
 
   useEffect(() => {
+    if (isPreviewMode) return;
     if (isAppModeLoading) return;
     if (appMode !== 'business') {
       router.replace('/(authenticated)/(customer)/wallet');
     }
-  }, [appMode, isAppModeLoading, router]);
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const analyticsArgs = selectedBusinessId
     ? { businessId: selectedBusinessId }

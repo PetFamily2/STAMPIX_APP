@@ -1,10 +1,11 @@
-﻿import { Ionicons } from '@expo/vector-icons';
-import { Link, type SitemapType, useSitemap } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { type Href, Link, type SitemapType, useSitemap } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { tw } from '@/lib/rtl';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -467,7 +468,22 @@ function getExtraScreenIcon(href: string): IconName {
   return 'document-text-outline';
 }
 
+function resolveFlowLink(href: string): Href {
+  if (!IS_DEV_MODE || !href.startsWith('/(authenticated)')) {
+    return href as Href;
+  }
+
+  if (href.includes('preview=')) {
+    return href as Href;
+  }
+
+  return (
+    href.includes('?') ? `${href}&preview=true` : `${href}?preview=true`
+  ) as Href;
+}
+
 function FlowNode({ item, size = 'md' }: FlowNodeProps) {
+  const resolvedHref = resolveFlowLink(item.href);
   const tone = TONE_STYLES[item.tone ?? 'neutral'];
   const sizeClass =
     size === 'xs'
@@ -486,7 +502,7 @@ function FlowNode({ item, size = 'md' }: FlowNodeProps) {
   const iconSize = size === 'xs' ? 14 : size === 'sm' ? 16 : 18;
 
   return (
-    <Link href={item.href} asChild={true}>
+    <Link href={resolvedHref} asChild={true}>
       <TouchableOpacity
         activeOpacity={0.85}
         accessibilityRole="button"

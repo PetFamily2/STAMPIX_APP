@@ -17,6 +17,7 @@ import {
 
 import { BackButton } from '@/components/BackButton';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
@@ -49,7 +50,11 @@ const TEXT = {
 };
 
 export default function CardDetailsScreen() {
-  const { membershipId } = useLocalSearchParams<{ membershipId: string }>();
+  const { membershipId, preview } = useLocalSearchParams<{
+    membershipId: string;
+    preview?: string;
+  }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const insets = useSafeAreaInsets();
   const { user, isLoading, isAuthorized } = useRoleGuard([CUSTOMER_ROLE]);
   const memberships = useQuery(api.memberships.byCustomer) as
@@ -99,11 +104,11 @@ export default function CardDetailsScreen() {
     return <FullScreenLoading />;
   }
 
-  if (!user) {
+  if (!user && !isPreviewMode) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  if (!isAuthorized) {
+  if (!isAuthorized && !isPreviewMode) {
     return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 

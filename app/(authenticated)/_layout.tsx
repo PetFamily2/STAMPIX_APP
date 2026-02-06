@@ -1,5 +1,6 @@
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import {
+  type Href,
   Redirect,
   Stack,
   useLocalSearchParams,
@@ -31,10 +32,7 @@ export default function AuthenticatedLayout() {
   } = useAppMode();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
-  const user = useQuery(
-    api.users.getCurrentUser,
-    shouldLoadUser ? {} : 'skip'
-  );
+  const user = useQuery(api.users.getCurrentUser, shouldLoadUser ? {} : 'skip');
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
   const router = useRouter();
   const segments = useSegments();
@@ -126,7 +124,7 @@ export default function AuthenticatedLayout() {
         return;
       }
       lastRedirectRef.current = key;
-      router.replace(href);
+      router.replace(href as Href);
     };
 
     if (!hasSelectedMode) {

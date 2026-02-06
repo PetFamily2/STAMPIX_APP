@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import QrScanner from '@/components/QrScanner';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -50,6 +51,8 @@ const mapScanError = (error: unknown) => {
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [businessIndex, setBusinessIndex] = useState(0);
@@ -66,11 +69,12 @@ export default function ScannerScreen() {
   }, [businesses.length, businessIndex]);
 
   useEffect(() => {
+    if (isPreviewMode) return;
     if (isAppModeLoading) return;
     if (appMode !== 'business') {
       router.replace('/(authenticated)/(customer)/wallet');
     }
-  }, [appMode, isAppModeLoading, router]);
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const programs =
     useQuery(api.loyaltyPrograms.listByBusiness, {
@@ -220,6 +224,10 @@ export default function ScannerScreen() {
     resolved?.membership?.maxStamps,
     selectedProgram?.maxStamps,
   ]);
+  const dotIds = useMemo(
+    () => Array.from({ length: stampState.dots }, (_, index) => index + 1),
+    [stampState.dots]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -310,12 +318,12 @@ export default function ScannerScreen() {
                 {stampState.current}/{stampState.goal}
               </Text>
               <View style={styles.stampRow}>
-                {Array.from({ length: stampState.dots }).map((_, index) => (
+                {dotIds.map((dotId) => (
                   <View
-                    key={`dot-${index}`}
+                    key={`dot-${dotId}`}
                     style={[
                       styles.stampDot,
-                      index < stampState.current
+                      dotId <= stampState.current
                         ? { backgroundColor: '#2F6BFF', borderColor: '#2F6BFF' }
                         : styles.stampDotEmpty,
                     ]}

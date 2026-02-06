@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 
 export const safeBack = (fallback?: string) => {
   try {
@@ -10,10 +10,12 @@ export const safeBack = (fallback?: string) => {
     // No navigation context; fall through to fallback or no-op.
   }
 
-  if (!fallback) return;
+  if (!fallback) {
+    return;
+  }
 
   try {
-    router.replace(fallback);
+    router.replace(fallback as Href);
   } catch {
     // No navigation context; ignore to avoid crash.
   }
@@ -21,7 +23,7 @@ export const safeBack = (fallback?: string) => {
 
 export const safePush = (href: string) => {
   try {
-    router.push(href);
+    router.push(href as Href);
   } catch {
     // No navigation context; ignore to avoid crash.
   }

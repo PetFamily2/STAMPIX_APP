@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -26,6 +27,8 @@ const formatDate = (timestamp: number) =>
 
 export default function BusinessTeamScreen() {
   const router = useRouter();
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
   const isOwner = user?.role === 'merchant';
@@ -47,13 +50,16 @@ export default function BusinessTeamScreen() {
   }, [businesses]);
 
   useEffect(() => {
+    if (isPreviewMode) {
+      return;
+    }
     if (isAppModeLoading) {
       return;
     }
     if (appMode !== 'business') {
       router.replace('/(authenticated)/(customer)/wallet');
     }
-  }, [appMode, isAppModeLoading, router]);
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const staffListArgs = selectedBusinessId
     ? { businessId: selectedBusinessId }
