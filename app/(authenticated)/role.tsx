@@ -1,7 +1,13 @@
 import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -29,7 +35,7 @@ export default function RoleSelectionScreen() {
     router.replace(
       role === 'customer'
         ? '/(authenticated)/(customer)/wallet'
-        : '/(authenticated)/(business)/business/dashboard'
+        : '/(authenticated)/(business)/dashboard'
     );
   };
 
@@ -48,9 +54,16 @@ export default function RoleSelectionScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: busy !== null }}
           >
-            <View style={[styles.card, busy === 'customer' && styles.cardSelected]}>
+            <View
+              style={[styles.card, busy === 'customer' && styles.cardSelected]}
+            >
               <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, busy === 'customer' && styles.textWhite]}>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    busy === 'customer' && styles.textWhite,
+                  ]}
+                >
                   אני לקוח
                 </Text>
                 {busy === 'customer' ? (
@@ -74,9 +87,16 @@ export default function RoleSelectionScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: busy !== null }}
           >
-            <View style={[styles.card, busy === 'business' && styles.cardSelected]}>
+            <View
+              style={[styles.card, busy === 'business' && styles.cardSelected]}
+            >
               <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, busy === 'business' && styles.textWhite]}>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    busy === 'business' && styles.textWhite,
+                  ]}
+                >
                   אני בעל עסק
                 </Text>
                 {busy === 'business' ? (

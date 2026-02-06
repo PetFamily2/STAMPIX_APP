@@ -1,15 +1,40 @@
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import {
+  Redirect,
+  Stack,
+  useLocalSearchParams,
+  useRouter,
+  useSegments,
+} from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 
+const TEXT = {
+  loading: '\u05d8\u05d5\u05e2\u05df...',
+  bootErrorTitle:
+    '\u05d0\u05d9\u05e8\u05e2\u05d4 \u05ea\u05e7\u05dc\u05d4 \u05d1\u05d8\u05e2\u05d9\u05e0\u05ea \u05d4\u05de\u05e9\u05ea\u05de\u05e9',
+  retry: '\u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
+};
+
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { appMode, isLoading: isAppModeLoading, hasSelectedMode } =
-    useAppMode();
-  const user = useQuery(api.users.getCurrentUser);
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const {
+    appMode,
+    isLoading: isAppModeLoading,
+    hasSelectedMode,
+  } = useAppMode();
+
+  const shouldLoadUser = isAuthenticated || isPreviewMode;
+  const user = useQuery(
+    api.users.getCurrentUser,
+    shouldLoadUser ? {} : 'skip'
+  );
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
   const router = useRouter();
   const segments = useSegments();
@@ -20,10 +45,17 @@ export default function AuthenticatedLayout() {
   const [booting, setBooting] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    if (isLoading) return;
+    if (isPreviewMode) {
+      return;
+    }
 
-    if (user && !bootError) return;
+    if (!isAuthenticated || isLoading) {
+      return;
+    }
+
+    if (user && !bootError) {
+      return;
+    }
 
     if (user === null && !ran.current) {
       ran.current = true;
@@ -34,13 +66,13 @@ export default function AuthenticatedLayout() {
         try {
           await Promise.race([
             createOrUpdateUser({}),
-            new Promise((_, rej) =>
-              setTimeout(() => rej(new Error('bootstrap timeout')), 5000)
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('bootstrap timeout')), 5000)
             ),
           ]);
           setBootError(null);
-        } catch (e: any) {
-          setBootError(e?.message ?? String(e));
+        } catch (error: unknown) {
+          setBootError(error instanceof Error ? error.message : String(error));
           ran.current = false;
         } finally {
           setBooting(false);
@@ -49,58 +81,76 @@ export default function AuthenticatedLayout() {
 
       run();
     }
-  }, [isAuthenticated, isLoading, user, bootError, createOrUpdateUser]);
+  }, [
+    bootError,
+    createOrUpdateUser,
+    isAuthenticated,
+    isLoading,
+    isPreviewMode,
+    user,
+  ]);
 
   useEffect(() => {
-    if (isAppModeLoading || isLoading || booting || bootError) return;
+    if (isPreviewMode) {
+      return;
+    }
+
+    if (
+      !isAuthenticated ||
+      isAppModeLoading ||
+      isLoading ||
+      booting ||
+      bootError
+    ) {
+      return;
+    }
 
     const currentSegments = (
       Array.isArray(segments) ? segments.filter(Boolean) : []
     ) as string[];
-    if (currentSegments.includes('join') || currentSegments.includes('card'))
-      return;
+    const currentKey = `/${currentSegments.join('/')}`;
+
     const inRoleScreen = currentSegments.includes('role');
+    const inJoin = currentSegments.includes('join');
+    const inCard = currentSegments.includes('card');
+    const inMerchant = currentSegments.includes('merchant');
+    const inAdmin = currentSegments.includes('admin');
+    const inCustomerGroup = currentSegments.includes('(customer)');
+    const inBusinessGroup = currentSegments.includes('(business)');
+
+    const isFreeRoute = inJoin || inCard || inMerchant || inAdmin;
+
+    const safeReplace = (href: string) => {
+      const key = `${currentKey}=>${href}`;
+      if (lastRedirectRef.current === key) {
+        return;
+      }
+      lastRedirectRef.current = key;
+      router.replace(href);
+    };
 
     if (!hasSelectedMode) {
-      const roleTarget = '/(authenticated)/role';
-      if (!inRoleScreen && lastRedirectRef.current !== roleTarget) {
-        lastRedirectRef.current = roleTarget;
-        router.replace(roleTarget);
+      if (!inRoleScreen) {
+        safeReplace('/(authenticated)/role');
       }
       return;
     }
 
-    const currentPath = `/${currentSegments.join('/')}`;
-    const target =
-      appMode === 'customer'
-        ? '/(authenticated)/(customer)/wallet'
-        : '/(authenticated)/(business)/business/dashboard';
-
-    if (currentPath === target) return;
-    if (lastRedirectRef.current === target) return;
-
-    const inCustomerGroup = currentSegments.includes('(customer)');
-    const inBusinessGroup = currentSegments.includes('(business)');
-
-    if (!inCustomerGroup && !inBusinessGroup) {
-      lastRedirectRef.current = target;
-      router.replace(target);
-      return;
-    }
+    const customerTarget = '/(authenticated)/(customer)/wallet';
+    const businessTarget = '/(authenticated)/(business)/dashboard';
 
     if (appMode === 'customer' && inBusinessGroup) {
-      const customerTarget = '/(authenticated)/(customer)/wallet';
-      if (lastRedirectRef.current === customerTarget) return;
-      lastRedirectRef.current = customerTarget;
-      router.replace(customerTarget);
+      safeReplace(customerTarget);
       return;
     }
 
     if (appMode === 'business' && inCustomerGroup) {
-      const businessTarget = '/(authenticated)/(business)/business/dashboard';
-      if (lastRedirectRef.current === businessTarget) return;
-      lastRedirectRef.current = businessTarget;
-      router.replace(businessTarget);
+      safeReplace(businessTarget);
+      return;
+    }
+
+    if (!inCustomerGroup && !inBusinessGroup && !inRoleScreen && !isFreeRoute) {
+      safeReplace(appMode === 'customer' ? customerTarget : businessTarget);
     }
   }, [
     appMode,
@@ -108,16 +158,18 @@ export default function AuthenticatedLayout() {
     booting,
     hasSelectedMode,
     isAppModeLoading,
+    isAuthenticated,
     isLoading,
     router,
     segments,
+    isPreviewMode,
   ]);
 
   if (
     isLoading ||
     booting ||
-    isAppModeLoading ||
-    (isAuthenticated && user === undefined)
+    (!isPreviewMode && isAppModeLoading) ||
+    (shouldLoadUser && user === undefined)
   ) {
     return (
       <View
@@ -128,12 +180,18 @@ export default function AuthenticatedLayout() {
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>????...</Text>
+        <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>
+          {TEXT.loading}
+        </Text>
       </View>
     );
   }
 
-  if (bootError) {
+  if (!isAuthenticated && !isPreviewMode) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
+  if (bootError && !isPreviewMode) {
     return (
       <View
         style={{
@@ -147,7 +205,7 @@ export default function AuthenticatedLayout() {
         <Text
           style={{ fontWeight: '900', color: '#D92D20', textAlign: 'center' }}
         >
-          ????? ?????? ?????
+          {TEXT.bootErrorTitle}
         </Text>
         <Text style={{ marginTop: 8, color: '#5B6475', textAlign: 'center' }}>
           {bootError}
@@ -166,7 +224,9 @@ export default function AuthenticatedLayout() {
             opacity: pressed ? 0.9 : 1,
           })}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Retry</Text>
+          <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+            {TEXT.retry}
+          </Text>
         </Pressable>
       </View>
     );

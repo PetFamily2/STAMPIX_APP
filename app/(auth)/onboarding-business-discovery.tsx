@@ -40,7 +40,9 @@ export default function OnboardingBusinessDiscoveryScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-business-role')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-business-role')}
+          />
           <OnboardingProgress total={8} current={3} />
         </View>
 
@@ -61,7 +63,14 @@ export default function OnboardingBusinessDiscoveryScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >
-                <View style={[styles.option, isSelected ? styles.optionSelected : styles.optionUnselected]}>
+                <View
+                  style={[
+                    styles.option,
+                    isSelected
+                      ? styles.optionSelected
+                      : styles.optionUnselected,
+                  ]}
+                >
                   <View style={styles.optionContent}>
                     <View style={styles.iconContainer}>
                       <Ionicons
@@ -70,7 +79,14 @@ export default function OnboardingBusinessDiscoveryScreen() {
                         color={isSelected ? '#FFFFFF' : '#2563EB'}
                       />
                     </View>
-                    <Text style={[styles.optionText, isSelected ? styles.optionTextSelected : styles.optionTextUnselected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        isSelected
+                          ? styles.optionTextSelected
+                          : styles.optionTextUnselected,
+                      ]}
+                    >
                       {source.title}
                     </Text>
                   </View>
@@ -87,8 +103,20 @@ export default function OnboardingBusinessDiscoveryScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <View style={[styles.button, canContinue ? styles.buttonActive : styles.buttonInactive]}>
-              <Text style={[styles.buttonText, canContinue ? styles.buttonTextActive : styles.buttonTextInactive]}>
+            <View
+              style={[
+                styles.button,
+                canContinue ? styles.buttonActive : styles.buttonInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive,
+                ]}
+              >
                 המשך
               </Text>
             </View>

@@ -1,13 +1,15 @@
 import type { Doc, Id } from './_generated/dataModel';
 
-export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
+export async function getCurrentUserOrNull(
+  ctx: any
+): Promise<Doc<'users'> | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new Error('NOT_AUTHENTICATED');
+    return null;
   }
   const externalId = identity.subject ?? '';
   if (!externalId) {
-    throw new Error('NOT_AUTHENTICATED');
+    return null;
   }
 
   const user = await ctx.db
@@ -15,8 +17,13 @@ export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
     .withIndex('by_externalId', (q: any) => q.eq('externalId', externalId))
     .unique();
 
+  return user ?? null;
+}
+
+export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
+  const user = await getCurrentUserOrNull(ctx);
   if (!user) {
-    throw new Error('USER_NOT_FOUND');
+    throw new Error('NOT_AUTHENTICATED');
   }
 
   return user;

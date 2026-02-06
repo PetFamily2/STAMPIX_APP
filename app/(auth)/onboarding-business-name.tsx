@@ -22,15 +22,15 @@ export default function OnboardingBusinessNameScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-business-reason')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-business-reason')}
+          />
           <OnboardingProgress total={8} current={5} />
         </View>
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>איך קוראים לעסק שלך?</Text>
-          <Text style={styles.subtitle}>
-            ככה הלקוחות יראו אותך באפליקציה
-          </Text>
+          <Text style={styles.subtitle}>ככה הלקוחות יראו אותך באפליקציה</Text>
         </View>
 
         <View style={styles.inputContainer}>
@@ -55,8 +55,20 @@ export default function OnboardingBusinessNameScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <View style={[styles.button, canContinue ? styles.buttonActive : styles.buttonInactive]}>
-              <Text style={[styles.buttonText, canContinue ? styles.buttonTextActive : styles.buttonTextInactive]}>
+            <View
+              style={[
+                styles.button,
+                canContinue ? styles.buttonActive : styles.buttonInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive,
+                ]}
+              >
                 המשך
               </Text>
             </View>

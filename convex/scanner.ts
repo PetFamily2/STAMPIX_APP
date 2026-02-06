@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
+  getCurrentUserOrNull,
   requireActorIsStaffForBusiness,
   requireBusinessAndProgram,
   requireCurrentUser,
@@ -26,7 +27,10 @@ type BusinessForStaff = {
 export const myBusinesses = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await requireCurrentUser(ctx);
+    const actor = await getCurrentUserOrNull(ctx);
+    if (!actor) {
+      return [];
+    }
 
     const staffEntries = await ctx.db
       .query('businessStaff')
@@ -176,7 +180,10 @@ export const resolveScan = mutation({
     return {
       customerUserId: customer._id,
       customerDisplayName:
-        customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
+        customer.fullName ??
+        customer.email ??
+        customer.externalId ??
+        'Customer',
       membership: membership
         ? {
             membershipId: membership._id,

@@ -14,7 +14,9 @@ export default function OnboardingBusinessScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-role')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-role')}
+          />
           <OnboardingProgress total={8} current={2} />
         </View>
 

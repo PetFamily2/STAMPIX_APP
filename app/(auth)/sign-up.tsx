@@ -49,7 +49,7 @@ export default function SignUpScreen() {
             <Text className="text-blue-600">דיגיטל</Text>
           </Text>
           <Text className="text-base text-gray-500 text-center leading-6">
-            מצטרפים למהפכה הדיגיטלית.{"\n"}כל הכרטיסיות בכיס אחד, ב-QR.
+            מצטרפים למהפכה הדיגיטלית.{'\n'}כל הכרטיסיות בכיס אחד, ב-QR.
           </Text>
         </View>
 
@@ -83,7 +83,8 @@ export default function SignUpScreen() {
                   לעסקים שרוצים לגדול
                 </Text>
                 <Text className="text-sm text-gray-500 text-right leading-5">
-                  מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי שיווק.
+                  מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי
+                  שיווק.
                 </Text>
               </View>
             </View>
@@ -117,5 +118,3 @@ export default function SignUpScreen() {
     </SafeAreaView>
   );
 }
-
-

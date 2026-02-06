@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { requireCurrentUser } from './guards';
+import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 type CustomerMembershipRecord = {
   membershipId: Id<'memberships'>;
@@ -22,7 +22,10 @@ type CustomerMembershipRecord = {
 export const byCustomer = query({
   args: {},
   handler: async (ctx) => {
-    const user = await requireCurrentUser(ctx);
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) {
+      return [];
+    }
 
     const memberships = await ctx.db
       .query('memberships')

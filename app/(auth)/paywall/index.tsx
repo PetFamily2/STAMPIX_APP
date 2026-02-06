@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebViewModal } from '@/components/WebViewModal';
 import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
-import { tw } from '@/lib/rtl';
 import { safeBack } from '@/lib/navigation';
+import { tw } from '@/lib/rtl';
 
 // ============================================================================
 // קונפיגורציית תכונות למסך התשלום

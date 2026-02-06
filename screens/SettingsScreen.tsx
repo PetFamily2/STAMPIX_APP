@@ -1,7 +1,7 @@
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
-import { useAuthActions } from '@convex-dev/auth/react';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import {
@@ -114,7 +114,7 @@ export default function SettingsScreen() {
     try {
       setRoleBusy(true);
       await setMyRole({ role: 'merchant' });
-      router.push('/(authenticated)/(business)/business/dashboard');
+      router.push('/(authenticated)/(business)/dashboard');
     } finally {
       setRoleBusy(false);
     }

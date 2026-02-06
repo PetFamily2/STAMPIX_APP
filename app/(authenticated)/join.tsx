@@ -1,15 +1,57 @@
-﻿import { BackButton } from '@/components/BackButton';
-import QrScanner from '@/components/QrScanner';
-import { api } from '@/convex/_generated/api';
-import { safeBack } from '@/lib/navigation';
 import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
+import { BackButton } from '@/components/BackButton';
+import QrScanner from '@/components/QrScanner';
+import { api } from '@/convex/_generated/api';
+import { safeBack } from '@/lib/navigation';
+
+const TEXT = {
+  title:
+    '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
+  subtitle:
+    '\u05e1\u05e8\u05e7\u05d5 QR \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7 \u05d0\u05d5 \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9',
+  manualTitle:
+    '\u05d0\u05d9\u05df QR? \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05e2\u05e1\u05e7',
+  manualPlaceholder: 'businessExternalId:biz:demo-1',
+  join: '\u05d4\u05e6\u05d8\u05e8\u05e3',
+  checking: '\u05d1\u05d5\u05d3\u05e7...',
+  scanAgain: '\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1',
+  invalidCode:
+    '\u05d0\u05e0\u05d0 \u05d4\u05d6\u05df \u05e7\u05d5\u05d3 \u05e2\u05e1\u05e7 \u05ea\u05e7\u05d9\u05df.',
+  invalidQr:
+    '\u05d4\u05e7\u05d5\u05d3 \u05d0\u05d9\u05e0\u05d5 \u05ea\u05e7\u05d9\u05df. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
+  businessNotFound:
+    '\u05d4\u05e2\u05e1\u05e7 \u05dc\u05d0 \u05e0\u05de\u05e6\u05d0. \u05d1\u05d3\u05d5\u05e7 \u05d0\u05ea \u05d4\u05e7\u05d5\u05d3.',
+  programNotFound:
+    '\u05d0\u05d9\u05df \u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05e4\u05e2\u05d9\u05dc\u05d4 \u05dc\u05e2\u05e1\u05e7 \u05d4\u05d6\u05d4.',
+  joinFailed:
+    '\u05d4\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05e0\u05db\u05e9\u05dc\u05d4. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
+  unexpectedError:
+    '\u05d0\u05d9\u05e8\u05e2\u05d4 \u05e9\u05d2\u05d9\u05d0\u05d4 \u05dc\u05d0 \u05e6\u05e4\u05d5\u05d9\u05d4. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
+};
+
+function getFriendlyError(error: unknown) {
+  if (error instanceof Error) {
+    switch (error.message) {
+      case 'INVALID_QR':
+        return TEXT.invalidQr;
+      case 'BUSINESS_NOT_FOUND':
+        return TEXT.businessNotFound;
+      case 'PROGRAM_NOT_FOUND':
+        return TEXT.programNotFound;
+      default:
+        return TEXT.joinFailed;
+    }
+  }
+  return TEXT.unexpectedError;
+}
 
 export default function JoinScreen() {
   const insets = useSafeAreaInsets();
@@ -23,37 +65,20 @@ export default function JoinScreen() {
     message: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[JOIN] Convex URL:', process.env.EXPO_PUBLIC_CONVEX_URL);
-    }
-  }, []);
-
-  const getFriendlyError = (error: unknown) => {
-    if (error instanceof Error) {
-      switch (error.message) {
-        case 'INVALID_QR':
-          return '׳”׳§׳•׳“ ׳׳™׳ ׳• ׳×׳§׳™׳. ׳ ׳¡׳” ׳©׳•׳‘.';
-        case 'BUSINESS_NOT_FOUND':
-          return '׳”׳¢׳¡׳§ ׳׳ ׳ ׳׳¦׳. ׳‘׳“׳•׳§ ׳׳× ׳”׳§׳•׳“.';
-        case 'PROGRAM_NOT_FOUND':
-          return '׳׳™׳ ׳×׳•׳›׳ ׳™׳× ׳₪׳¢׳™׳׳” ׳׳¢׳¡׳§ ׳–׳”.';
-        default:
-          return '׳”׳”׳¦׳˜׳¨׳₪׳•׳× ׳ ׳›׳©׳׳”. ׳ ׳¡׳” ׳©׳•׳‘.';
-      }
-    }
-    return '׳׳™׳¨׳¢׳” ׳©׳’׳™׳׳” ׳׳ ׳¦׳₪׳•׳™׳”. ׳ ׳¡׳” ׳©׳•׳‘.';
-  };
-
   const handleJoin = useCallback(
     async (qrData: string) => {
       const data = (qrData ?? '').trim();
       if (!data) {
-        setFeedback({ type: 'error', message: '׳׳ ׳ ׳”׳–׳ ׳§׳•׳“ ׳¢׳¡׳§ ׳×׳§׳™׳.' });
+        setFeedback({ type: 'error', message: TEXT.invalidCode });
         return;
       }
-      if (busy) return;
+
+      if (busy) {
+        return;
+      }
+
       setFeedback(null);
+
       try {
         setBusy(true);
         await joinByBusinessQr({ qrData: data });
@@ -61,7 +86,6 @@ export default function JoinScreen() {
         setScannerResetKey((prev) => prev + 1);
         router.replace('/(authenticated)/(customer)/wallet');
       } catch (error) {
-        console.log('[JOIN] failed', error);
         setFeedback({ type: 'error', message: getFriendlyError(error) });
         setScannerResetKey((prev) => prev + 1);
       } finally {
@@ -113,7 +137,7 @@ export default function JoinScreen() {
               textAlign: 'right',
             }}
           >
-            ׳”׳¦׳˜׳¨׳₪׳•׳× ׳׳׳•׳¢׳“׳•׳
+            {TEXT.title}
           </Text>
           <Text
             style={{
@@ -124,7 +148,7 @@ export default function JoinScreen() {
               textAlign: 'right',
             }}
           >
-            ׳¡׳¨׳•׳§ QR ׳©׳ ׳”׳¢׳¡׳§ ׳׳• ׳”׳“׳‘׳§ ׳§׳•׳“ ׳™׳™׳—׳•׳“׳™
+            {TEXT.subtitle}
           </Text>
           {feedback ? (
             <Text
@@ -168,7 +192,7 @@ export default function JoinScreen() {
           <Text
             style={{ textAlign: 'right', fontWeight: '900', color: '#0B1220' }}
           >
-            ׳׳™׳ QR? ׳”׳“׳‘׳§ ׳§׳•׳“ ׳¢׳¡׳§
+            {TEXT.manualTitle}
           </Text>
           <TextInput
             value={manual}
@@ -176,7 +200,7 @@ export default function JoinScreen() {
             onSubmitEditing={handleManual}
             returnKeyType="done"
             keyboardType="default"
-            placeholder="׳׳“׳•׳’׳׳”: businessExternalId:biz:demo-1"
+            placeholder={TEXT.manualPlaceholder}
             placeholderTextColor="#9AA4B2"
             style={{
               height: 44,
@@ -205,21 +229,9 @@ export default function JoinScreen() {
             })}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
-              {busy ? '׳‘׳•׳“׳§...' : '׳”׳¦׳˜׳¨׳£'}
+              {busy ? TEXT.checking : TEXT.join}
             </Text>
           </Pressable>
-          {__DEV__ ? (
-            <Text
-              style={{
-                marginTop: 6,
-                fontSize: 11,
-                color: '#5B6475',
-                textAlign: 'left',
-              }}
-            >
-              CTA_RENDERED
-            </Text>
-          ) : null}
 
           <Pressable
             onPress={handleRetryScan}
@@ -234,7 +246,7 @@ export default function JoinScreen() {
             })}
           >
             <Text style={{ color: '#2F6BFF', fontWeight: '900' }}>
-              ׳¡׳¨׳•׳§ ׳©׳•׳‘
+              {TEXT.scanAgain}
             </Text>
           </Pressable>
         </View>
@@ -242,4 +254,3 @@ export default function JoinScreen() {
     </SafeAreaView>
   );
 }
-

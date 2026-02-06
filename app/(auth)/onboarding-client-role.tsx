@@ -40,22 +40,56 @@ export default function OnboardingRoleScreen() {
 
         <View style={styles.cardsContainer}>
           <Pressable onPress={() => setRole('customer')}>
-            <View style={[styles.card, role === 'customer' ? styles.cardSelected : styles.cardUnselected]}>
-              <Text style={[styles.cardTitle, role === 'customer' ? styles.textWhite : styles.textDark]}>
+            <View
+              style={[
+                styles.card,
+                role === 'customer'
+                  ? styles.cardSelected
+                  : styles.cardUnselected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cardTitle,
+                  role === 'customer' ? styles.textWhite : styles.textDark,
+                ]}
+              >
                 אני לקוח
               </Text>
-              <Text style={[styles.cardSubtitle, role === 'customer' ? styles.textLight : styles.textGray]}>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  role === 'customer' ? styles.textLight : styles.textGray,
+                ]}
+              >
                 רוצה לצבור חתימות ולקבל מתנות
               </Text>
             </View>
           </Pressable>
 
           <Pressable onPress={() => setRole('business')}>
-            <View style={[styles.card, role === 'business' ? styles.cardSelected : styles.cardUnselected]}>
-              <Text style={[styles.cardTitle, role === 'business' ? styles.textWhite : styles.textDark]}>
+            <View
+              style={[
+                styles.card,
+                role === 'business'
+                  ? styles.cardSelected
+                  : styles.cardUnselected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cardTitle,
+                  role === 'business' ? styles.textWhite : styles.textDark,
+                ]}
+              >
                 אני בעל עסק
               </Text>
-              <Text style={[styles.cardSubtitle, role === 'business' ? styles.textLight : styles.textGray]}>
+              <Text
+                style={[
+                  styles.cardSubtitle,
+                  role === 'business' ? styles.textLight : styles.textGray,
+                ]}
+              >
                 רוצה לנהל מועדון לקוחות חכם
               </Text>
             </View>
@@ -64,8 +98,18 @@ export default function OnboardingRoleScreen() {
 
         <View style={styles.footer}>
           <Pressable onPress={handleContinue} disabled={!role}>
-            <View style={[styles.button, role ? styles.buttonActive : styles.buttonInactive]}>
-              <Text style={[styles.buttonText, role ? styles.textWhite : styles.textGray]}>
+            <View
+              style={[
+                styles.button,
+                role ? styles.buttonActive : styles.buttonInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  role ? styles.textWhite : styles.textGray,
+                ]}
+              >
                 המשך
               </Text>
             </View>

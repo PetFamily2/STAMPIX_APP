@@ -1,7 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const TEXT = {
+  wallet: '\u05d0\u05e8\u05e0\u05e7',
+  rewards: '\u05d4\u05d8\u05d1\u05d5\u05ea',
+  discovery: '\u05d2\u05d9\u05dc\u05d5\u05d9',
+  settings: '\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc',
+};
 
 export default function CustomerTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -34,7 +40,7 @@ export default function CustomerTabsLayout() {
       <Tabs.Screen
         name="wallet"
         options={{
-          title: 'ארנק',
+          title: TEXT.wallet,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" size={size} color={color} />
           ),
@@ -43,7 +49,7 @@ export default function CustomerTabsLayout() {
       <Tabs.Screen
         name="rewards"
         options={{
-          title: 'הטבות',
+          title: TEXT.rewards,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="gift-outline" size={size} color={color} />
           ),
@@ -52,7 +58,7 @@ export default function CustomerTabsLayout() {
       <Tabs.Screen
         name="discovery"
         options={{
-          title: 'גילוי',
+          title: TEXT.discovery,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass-outline" size={size} color={color} />
           ),
@@ -61,7 +67,7 @@ export default function CustomerTabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'פרופיל',
+          title: TEXT.settings,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),

@@ -5,13 +5,7 @@ import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 
-type FitOptionId =
-  | 'self'
-  | 'couple'
-  | 'kids'
-  | 'pet'
-  | 'home'
-  | 'work';
+type FitOptionId = 'self' | 'couple' | 'kids' | 'pet' | 'home' | 'work';
 
 const FIT_OPTIONS: Array<{ id: FitOptionId; title: string }> = [
   { id: 'self', title: 'לעצמי' },
@@ -41,7 +35,9 @@ export default function OnboardingClientFitScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-usage-area')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-usage-area')}
+          />
           <OnboardingProgress total={8} current={6} />
         </View>
 
@@ -64,9 +60,7 @@ export default function OnboardingClientFitScreen() {
               >
                 <View
                   style={
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected
+                    isSelected ? styles.optionSelected : styles.optionUnselected
                   }
                 >
                   <Text
@@ -92,13 +86,13 @@ export default function OnboardingClientFitScreen() {
             accessibilityState={{ disabled: !canContinue }}
           >
             <View
-              style={
-                canContinue ? styles.buttonActive : styles.buttonInactive
-              }
+              style={canContinue ? styles.buttonActive : styles.buttonInactive}
             >
               <Text
                 style={
-                  canContinue ? styles.buttonTextActive : styles.buttonTextInactive
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive
                 }
               >
                 המשך

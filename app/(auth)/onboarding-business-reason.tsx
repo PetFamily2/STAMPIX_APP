@@ -35,7 +35,9 @@ export default function OnboardingBusinessReasonScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-business-discovery')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-business-discovery')}
+          />
           <OnboardingProgress total={8} current={4} />
         </View>
 
@@ -55,9 +57,7 @@ export default function OnboardingBusinessReasonScreen() {
               >
                 <View
                   style={
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected
+                    isSelected ? styles.optionSelected : styles.optionUnselected
                   }
                 >
                   <Text
@@ -83,13 +83,13 @@ export default function OnboardingBusinessReasonScreen() {
             accessibilityState={{ disabled: !canContinue }}
           >
             <View
-              style={
-                canContinue ? styles.buttonActive : styles.buttonInactive
-              }
+              style={canContinue ? styles.buttonActive : styles.buttonInactive}
             >
               <Text
                 style={
-                  canContinue ? styles.buttonTextActive : styles.buttonTextInactive
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive
                 }
               >
                 המשך

@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 type BackButtonProps = {
@@ -12,7 +11,7 @@ export function BackButton({ onPress }: BackButtonProps) {
       onPress={onPress}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       accessibilityRole="button"
-      accessibilityLabel="חזרה"
+      accessibilityLabel="\u05d7\u05d6\u05e8\u05d4"
     >
       <Ionicons name="arrow-forward" size={18} color="#111827" />
     </Pressable>

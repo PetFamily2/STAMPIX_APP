@@ -30,14 +30,14 @@ export default function OnboardingClientFrequencyScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-fit')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-fit')}
+          />
           <OnboardingProgress total={8} current={7} />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            באיזו תדירות אתה חוזר לאותם מקומות?
-          </Text>
+          <Text style={styles.title}>באיזו תדירות אתה חוזר לאותם מקומות?</Text>
           <Text style={styles.subtitle}>כדי להתאים מועדונים לקצב שלך</Text>
         </View>
 
@@ -53,9 +53,7 @@ export default function OnboardingClientFrequencyScreen() {
               >
                 <View
                   style={
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected
+                    isSelected ? styles.optionSelected : styles.optionUnselected
                   }
                 >
                   <Text
@@ -81,13 +79,13 @@ export default function OnboardingClientFrequencyScreen() {
             accessibilityState={{ disabled: !canContinue }}
           >
             <View
-              style={
-                canContinue ? styles.buttonActive : styles.buttonInactive
-              }
+              style={canContinue ? styles.buttonActive : styles.buttonInactive}
             >
               <Text
                 style={
-                  canContinue ? styles.buttonTextActive : styles.buttonTextInactive
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive
                 }
               >
                 המשך

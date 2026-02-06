@@ -1,15 +1,15 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  View,
-  type NativeSyntheticEvent,
   type TextInputKeyPressEventData,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
@@ -126,7 +126,9 @@ export default function OnboardingOtpScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-details')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-details')}
+          />
           <OnboardingProgress total={8} current={3} />
         </View>
 
@@ -155,18 +157,26 @@ export default function OnboardingOtpScreen() {
           ))}
         </View>
 
-        {error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.actionsContainer}>
           <Pressable onPress={handleResend} disabled={secondsLeft > 0}>
-            <Text style={[styles.resendText, secondsLeft > 0 ? styles.resendTextDisabled : styles.resendTextActive]}>
+            <Text
+              style={[
+                styles.resendText,
+                secondsLeft > 0
+                  ? styles.resendTextDisabled
+                  : styles.resendTextActive,
+              ]}
+            >
               {resendLabel}
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => safeBack('/(auth)/onboarding-client-details')} style={styles.editButton}>
+          <Pressable
+            onPress={() => safeBack('/(auth)/onboarding-client-details')}
+            style={styles.editButton}
+          >
             <Text style={styles.editText}>ערוך פרטים</Text>
           </Pressable>
         </View>
@@ -178,8 +188,20 @@ export default function OnboardingOtpScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !isComplete }}
           >
-            <View style={[styles.button, isComplete ? styles.buttonActive : styles.buttonInactive]}>
-              <Text style={[styles.buttonText, isComplete ? styles.buttonTextActive : styles.buttonTextInactive]}>
+            <View
+              style={[
+                styles.button,
+                isComplete ? styles.buttonActive : styles.buttonInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  isComplete
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive,
+                ]}
+              >
                 המשך
               </Text>
             </View>

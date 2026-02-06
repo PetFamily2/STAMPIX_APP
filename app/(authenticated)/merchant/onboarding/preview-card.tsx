@@ -47,7 +47,7 @@ export default function PreviewCardScreen() {
 
   const handleOpenScanner = () => {
     reset();
-    router.replace('/(authenticated)/(business)/business/scanner');
+    router.replace('/(authenticated)/(business)/scanner');
   };
 
   return (

@@ -53,7 +53,9 @@ export default function OnboardingInterestsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-otp')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-otp')}
+          />
           <OnboardingProgress total={8} current={4} />
         </View>
 
@@ -76,7 +78,14 @@ export default function OnboardingInterestsScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >
-                <View style={[styles.option, isSelected ? styles.optionSelected : styles.optionUnselected]}>
+                <View
+                  style={[
+                    styles.option,
+                    isSelected
+                      ? styles.optionSelected
+                      : styles.optionUnselected,
+                  ]}
+                >
                   <View style={styles.optionContent}>
                     <View style={styles.iconContainer}>
                       <Ionicons
@@ -85,7 +94,14 @@ export default function OnboardingInterestsScreen() {
                         color={isSelected ? '#FFFFFF' : '#2563EB'}
                       />
                     </View>
-                    <Text style={[styles.optionText, isSelected ? styles.optionTextSelected : styles.optionTextUnselected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        isSelected
+                          ? styles.optionTextSelected
+                          : styles.optionTextUnselected,
+                      ]}
+                    >
                       {type.title}
                     </Text>
                   </View>
@@ -102,8 +118,20 @@ export default function OnboardingInterestsScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <View style={[styles.button, canContinue ? styles.buttonActive : styles.buttonInactive]}>
-              <Text style={[styles.buttonText, canContinue ? styles.buttonTextActive : styles.buttonTextInactive]}>
+            <View
+              style={[
+                styles.button,
+                canContinue ? styles.buttonActive : styles.buttonInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.buttonText,
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive,
+                ]}
+              >
                 המשך
               </Text>
             </View>

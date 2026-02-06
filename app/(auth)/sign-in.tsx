@@ -9,39 +9,65 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 
 const REMEMBERED_EMAIL_KEY = 'remembered_email';
+const TEXT = {
+  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
+  fillAllFields:
+    '\u05d0\u05e0\u05d0 \u05de\u05dc\u05d0 \u05d0\u05ea \u05db\u05dc \u05d4\u05e9\u05d3\u05d5\u05ea',
+  invalidPassword:
+    '\u05d4\u05e1\u05d9\u05e1\u05de\u05d4 \u05e9\u05d4\u05d5\u05d6\u05e0\u05d4 \u05e9\u05d2\u05d5\u05d9\u05d4',
+  accountNotFound:
+    '\u05dc\u05d0 \u05e0\u05de\u05e6\u05d0 \u05d7\u05e9\u05d1\u05d5\u05df \u05e2\u05dd \u05db\u05ea\u05d5\u05d1\u05ea \u05d4\u05d0\u05d9\u05de\u05d9\u05d9\u05dc \u05d4\u05d6\u05d5',
+  tooManyRequests:
+    '\u05d9\u05d5\u05ea\u05e8 \u05de\u05d3\u05d9 \u05e0\u05d9\u05e1\u05d9\u05d5\u05e0\u05d5\u05ea \u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1 \u05de\u05d0\u05d5\u05d7\u05e8 \u05d9\u05d5\u05ea\u05e8.',
+  signInFailed:
+    '\u05d4\u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea \u05e0\u05db\u05e9\u05dc\u05d4. \u05d1\u05d3\u05e7\u05d5 \u05d0\u05ea \u05d4\u05e4\u05e8\u05d8\u05d9\u05dd \u05d5\u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  previewMode:
+    '\u05de\u05e6\u05d1 \u05ea\u05e6\u05d5\u05d2\u05d4 \u05de\u05e7\u05d3\u05d9\u05de\u05d4 - \u05d4\u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea \u05de\u05d5\u05e9\u05d1\u05ea\u05ea',
+  title: '\u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea',
+  subtitle:
+    '\u05e9\u05de\u05d7\u05d9\u05dd \u05dc\u05e8\u05d0\u05d5\u05ea \u05d0\u05d5\u05ea\u05da \u05e9\u05d5\u05d1. \u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d7\u05e9\u05d1\u05d5\u05df \u05db\u05d3\u05d9 \u05dc\u05d4\u05de\u05e9\u05d9\u05da.',
+  emailLabel:
+    '\u05db\u05ea\u05d5\u05d1\u05ea \u05d0\u05d9\u05de\u05d9\u05d9\u05dc',
+  emailA11y: '\u05e9\u05d3\u05d4 \u05d0\u05d9\u05de\u05d9\u05d9\u05dc',
+  passwordLabel: '\u05e1\u05d9\u05e1\u05de\u05d4',
+  passwordPlaceholder: '\u05d4\u05d6\u05df \u05e1\u05d9\u05e1\u05de\u05d4',
+  passwordA11y: '\u05e9\u05d3\u05d4 \u05e1\u05d9\u05e1\u05de\u05d4',
+  rememberMe: '\u05d6\u05db\u05d5\u05e8 \u05d0\u05d5\u05ea\u05d9',
+  signIn: '\u05d4\u05ea\u05d7\u05d1\u05e8',
+  noAccount: '\u05d0\u05d9\u05df \u05dc\u05da \u05d7\u05e9\u05d1\u05d5\u05df?',
+  signUpHere: '\u05d4\u05d9\u05e8\u05e9\u05dd \u05db\u05d0\u05df',
+};
 
 export default function SignInScreen() {
-  const { signIn } = useAuthActions(); // פעולת ההתחברות מ-Convex Auth
-  const router = useRouter(); // ניווט
+  const { signIn } = useAuthActions();
+  const router = useRouter();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
 
-  // #region agent log
   useEffect(() => {
     // biome-ignore format: debug log
     fetch('http://127.0.0.1:7243/ingest/1ea5e66d-d528-4bae-a881-fff31ff26db7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/(auth)/sign-in.tsx:render',message:'Sign-in screen rendered',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,E'})}).catch(()=>{});
   }, []);
-  // #endregion
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false); // מצב טעינה
-  const [rememberMe, setRememberMe] = useState(false); // האם לזכור את האימייל
-  const [showPassword, setShowPassword] = useState(false); // הצגת/הסתרת סיסמה
+  const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // טעינת האימייל השמור בעת טעינת המסך
   useEffect(() => {
     const loadRememberedEmail = async () => {
       try {
@@ -52,198 +78,184 @@ export default function SignInScreen() {
           setRememberMe(true);
         }
       } catch {
-        // התעלמות משגיאות אחסון
+        // Ignore storage errors.
       }
     };
     loadRememberedEmail();
   }, []);
 
-  // פונקציית ההתחברות
   const onSignInPress = async () => {
-    // במצב תצוגה מקדימה - לא מבצעים התחברות אמיתית
     if (isPreviewMode) {
       return;
     }
 
     if (!email || !password) {
-      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
+      Alert.alert(TEXT.errorTitle, TEXT.fillAllFields);
       return;
     }
 
     setLoading(true);
 
     try {
-      // ניסיון התחברות מול השרת
       await signIn('password', { email, password, flow: 'signIn' });
 
-      // שמירה או מחיקה של האימייל מהזיכרון בהתאם לתיבת הסימון
       if (rememberMe) {
         await AsyncStorage.setItem(REMEMBERED_EMAIL_KEY, email);
       } else {
         await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
 
-      // מעבר לאזור המאומת (Authenticated)
       router.replace('/(authenticated)');
     } catch (err: unknown) {
       const error = err as { message?: string };
       const errorMessage = error.message || '';
 
-      // מיפוי שגיאות Convex Auth להודעות בעברית ידידותיות למשתמש
       if (errorMessage.includes('InvalidSecret')) {
-        Alert.alert('שגיאה', 'הסיסמה שהוזנה שגויה');
+        Alert.alert(TEXT.errorTitle, TEXT.invalidPassword);
       } else if (
         errorMessage.includes('InvalidAccountId') ||
         errorMessage.includes('Could not find')
       ) {
-        Alert.alert('שגיאה', 'לא נמצא חשבון עם כתובת האימייל הזו');
+        Alert.alert(TEXT.errorTitle, TEXT.accountNotFound);
       } else if (errorMessage.includes('TooManyRequests')) {
-        Alert.alert(
-          'שגיאה',
-          'יותר מדי ניסיונות התחברות. אנא נסה שוב מאוחר יותר'
-        );
+        Alert.alert(TEXT.errorTitle, TEXT.tooManyRequests);
       } else {
-        Alert.alert('שגיאה', 'התחברות נכשלה. אנא בדוק את הפרטים ונסה שוב');
+        Alert.alert(TEXT.errorTitle, TEXT.signInFailed);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleBack = () => {
+    safeBack('/(auth)/sign-up');
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      {/* כפתור יציאה במצב תצוגה מקדימה */}
+    <SafeAreaView style={styles.container}>
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
-      {/* KeyboardAvoidingView דואג שהמקלדת לא תסתיר את שדות הקלט */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        style={styles.keyboardContainer}
       >
-        {/* באנר מצב תצוגה מקדימה */}
         {isPreviewMode && (
-          <View className="p-3 bg-yellow-500/20 border-b border-yellow-500/50">
-            <Text className="text-yellow-400 text-center text-sm font-medium">
-              מצב תצוגה מקדימה - התחברות מושבתת
-            </Text>
+          <View style={styles.previewBanner}>
+            <Text style={styles.previewText}>{TEXT.previewMode}</Text>
           </View>
         )}
 
-        <View className="flex-1 justify-center px-6">
-          <View className="w-full">
-            <Text className="text-white text-[32px] font-bold mb-2 text-right">
-              התחבר לחשבון
-            </Text>
-            <Text className="text-zinc-400 text-base mb-8 text-right">
-              ברוך שובך! אנא התחבר כדי להמשיך
-            </Text>
+        <View style={styles.content}>
+          <View style={styles.headerRow}>
+            <BackButton onPress={handleBack} />
+            <View style={styles.headerSpacer} />
+          </View>
 
-            {/* שדה אימייל */}
-            <View className="mb-5">
-              <Text className="text-white text-sm font-medium mb-2 text-right">
-                כתובת אימייל
-              </Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>{TEXT.title}</Text>
+            <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
+          </View>
+
+          <View style={styles.form}>
+            <View>
+              <Text style={styles.label}>{TEXT.emailLabel}</Text>
               <TextInput
-                className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4 text-white text-base text-right"
+                style={[styles.input, styles.inputLtr]}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="example@gmail.com"
-                placeholderTextColor="#52525b"
+                placeholder="name@example.com"
+                placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 textAlign="right"
                 editable={!loading}
+                accessibilityLabel={TEXT.emailA11y}
               />
             </View>
 
-            {/* שדה סיסמה */}
-            <View className="mb-5">
-              <Text className="text-white text-sm font-medium mb-2 text-right">
-                סיסמה
-              </Text>
-              <View className="relative">
+            <View>
+              <Text style={styles.label}>{TEXT.passwordLabel}</Text>
+              <View style={styles.passwordWrapper}>
                 <TextInput
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4 pl-12 text-white text-base text-right"
+                  style={[styles.input, styles.inputLtr, styles.inputWithIcon]}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="הזן סיסמה"
-                  placeholderTextColor="#52525b"
+                  placeholder={TEXT.passwordPlaceholder}
+                  placeholderTextColor="#9ca3af"
                   secureTextEntry={!showPassword}
                   textAlign="right"
                   editable={!loading}
+                  accessibilityLabel={TEXT.passwordA11y}
                 />
-                {/* כפתור הצגת/הסתרת סיסמה */}
                 <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.eyeButton}
                   hitSlop={8}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} color="#71717a" />
+                    <EyeOff size={18} color="#6b7280" />
                   ) : (
-                    <Eye size={20} color="#71717a" />
+                    <Eye size={18} color="#6b7280" />
                   )}
                 </Pressable>
               </View>
             </View>
 
-            {/* תיבת סימון "זכור אותי" */}
-            <View className="flex-row justify-end mb-6">
+            <View style={styles.rememberRow}>
               <Pressable
-                onPress={() => setRememberMe(!rememberMe)}
-                className="flex-row items-center gap-2"
+                onPress={() => setRememberMe((prev) => !prev)}
+                style={styles.rememberButton}
                 disabled={loading}
               >
-                <Text className="text-zinc-300 text-sm">זכור אותי</Text>
                 <View
-                  className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                  style={[
+                    styles.checkbox,
                     rememberMe
-                      ? 'bg-sky-400 border-sky-400'
-                      : 'border-zinc-600 bg-transparent'
-                  }`}
+                      ? styles.checkboxActive
+                      : styles.checkboxInactive,
+                  ]}
                 >
                   {rememberMe && (
-                    <Text className="text-white text-xs font-bold">✓</Text>
+                    <Text style={styles.checkboxText}>{'\u2713'}</Text>
                   )}
                 </View>
+                <Text style={styles.rememberText}>{TEXT.rememberMe}</Text>
               </Pressable>
             </View>
+          </View>
 
-            {/* כפתור התחברות */}
-            <TouchableOpacity
-              className={`bg-sky-400 rounded-xl py-4 items-center ${loading || isPreviewMode ? 'opacity-60' : ''}`}
+          <View style={styles.footer}>
+            <Pressable
               onPress={onSignInPress}
               disabled={loading || isPreviewMode}
-              activeOpacity={0.8}
+              accessibilityRole="button"
             >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="text-white text-lg font-bold">התחבר</Text>
-              )}
-            </TouchableOpacity>
+              <View
+                style={[
+                  styles.button,
+                  (loading || isPreviewMode) && styles.buttonDisabled,
+                ]}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.buttonText}>{TEXT.signIn}</Text>
+                )}
+              </View>
+            </Pressable>
 
-            {/* קישור להרשמה */}
-            <View className="flex-row justify-center gap-2 mt-6">
+            <View style={styles.linkRow}>
+              <Text style={styles.linkMuted}>{TEXT.noAccount}</Text>
               {isPreviewMode ? (
-                <TouchableOpacity disabled={true}>
-                  <Text className="text-zinc-500 font-semibold text-base">
-                    הירשם כאן
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.linkDisabled}>{TEXT.signUpHere}</Text>
               ) : (
                 <Link href="/(auth)/sign-up" asChild={true}>
-                  <TouchableOpacity>
-                    <Text className="text-sky-400 font-semibold text-base">
-                      הירשם כאן
-                    </Text>
-                  </TouchableOpacity>
+                  <Pressable>
+                    <Text style={styles.link}>{TEXT.signUpHere}</Text>
+                  </Pressable>
                 </Link>
               )}
-              <Text className="text-zinc-400 text-base">
-                עדיין אין לך חשבון?
-              </Text>
             </View>
           </View>
         </View>
@@ -251,3 +263,173 @@ export default function SignInScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FBFAF7',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  previewBanner: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
+  },
+  previewText: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  headerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerSpacer: {
+    width: 44,
+    height: 44,
+  },
+  titleContainer: {
+    marginTop: 48,
+    alignItems: 'flex-end',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    textAlign: 'right',
+    lineHeight: 20,
+  },
+  form: {
+    marginTop: 32,
+    gap: 16,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  input: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+    textAlign: 'right',
+  },
+  inputLtr: {
+    writingDirection: 'ltr',
+  },
+  inputWithIcon: {
+    paddingLeft: 44,
+  },
+  passwordWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  eyeButton: {
+    position: 'absolute',
+    left: 14,
+  },
+  rememberRow: {
+    alignItems: 'flex-end',
+  },
+  rememberButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rememberText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  checkboxActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  checkboxInactive: {
+    backgroundColor: '#ffffff',
+    borderColor: '#CBD5F5',
+  },
+  checkboxText: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  footer: {
+    marginTop: 'auto',
+    gap: 16,
+  },
+  button: {
+    borderRadius: 999,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  linkRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  link: {
+    color: '#2563eb',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  linkDisabled: {
+    color: '#9ca3af',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  linkMuted: {
+    color: '#6b7280',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+});

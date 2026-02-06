@@ -30,7 +30,9 @@ export default function OnboardingUsageAreaScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-interests')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-interests')}
+          />
           <OnboardingProgress total={8} current={5} />
         </View>
 
@@ -52,7 +54,9 @@ export default function OnboardingUsageAreaScreen() {
                 <View
                   style={[
                     styles.option,
-                    isSelected ? styles.optionSelected : styles.optionUnselected,
+                    isSelected
+                      ? styles.optionSelected
+                      : styles.optionUnselected,
                   ]}
                 >
                   <Text
@@ -85,7 +89,9 @@ export default function OnboardingUsageAreaScreen() {
             >
               <Text
                 style={
-                  canContinue ? styles.buttonTextActive : styles.buttonTextInactive
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive
                 }
               >
                 המשך

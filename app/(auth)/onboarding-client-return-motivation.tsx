@@ -35,7 +35,9 @@ export default function OnboardingReturnMotivationScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/onboarding-client-frequency')} />
+          <BackButton
+            onPress={() => safeBack('/(auth)/onboarding-client-frequency')}
+          />
           <OnboardingProgress total={8} current={8} />
         </View>
 
@@ -57,10 +59,16 @@ export default function OnboardingReturnMotivationScreen() {
                 accessibilityState={{ selected: isSelected }}
               >
                 <View
-                  style={isSelected ? styles.optionSelected : styles.optionUnselected}
+                  style={
+                    isSelected ? styles.optionSelected : styles.optionUnselected
+                  }
                 >
                   <Text
-                    style={isSelected ? styles.optionTextSelected : styles.optionTextUnselected}
+                    style={
+                      isSelected
+                        ? styles.optionTextSelected
+                        : styles.optionTextUnselected
+                    }
                   >
                     {item.title}
                   </Text>
@@ -77,8 +85,16 @@ export default function OnboardingReturnMotivationScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <View style={canContinue ? styles.buttonActive : styles.buttonInactive}>
-              <Text style={canContinue ? styles.buttonTextActive : styles.buttonTextInactive}>
+            <View
+              style={canContinue ? styles.buttonActive : styles.buttonInactive}
+            >
+              <Text
+                style={
+                  canContinue
+                    ? styles.buttonTextActive
+                    : styles.buttonTextInactive
+                }
+              >
                 המשך
               </Text>
             </View>

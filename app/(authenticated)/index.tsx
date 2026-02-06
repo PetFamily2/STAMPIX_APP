@@ -1,39 +1,44 @@
-import { api } from '@/convex/_generated/api'; // ה-API שנוצר אוטומטית על ידי Convex
+import { useQuery } from 'convex/react';
+import { ScrollView, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
-import { tw } from '@/lib/rtl'; // ספריית עזר לתמיכה ב-RTL (ימין לשמאל)
-import { useQuery } from 'convex/react'; // ייבוא Hook לביצוע שאילתות מול הדאטה בייס
-import { ScrollView, Text, View } from 'react-native'; // רכיבי UI בסיסיים של React Native
-import { SafeAreaView } from 'react-native-safe-area-context'; // רכיב שדואג שהתוכן לא יוסתר על ידי ה-Notch או ה-Home Indicator
+import { tw } from '@/lib/rtl';
+
+const TEXT = {
+  title: '\u05d1\u05e8\u05d5\u05db\u05d9\u05dd \u05d4\u05d1\u05d0\u05d9\u05dd',
+  hello: '\u05e9\u05dc\u05d5\u05dd',
+  fallbackUser: '\u05de\u05e9\u05ea\u05de\u05e9',
+  description:
+    '\u05d4\u05de\u05e2\u05e8\u05db\u05ea \u05de\u05d5\u05db\u05e0\u05d4 \u05dc\u05d4\u05de\u05e9\u05da \u05e2\u05d1\u05d5\u05d3\u05d4. \u05d1\u05d7\u05e8\u05d5 \u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05d4\u05ea\u05e4\u05e8\u05d9\u05d8 \u05db\u05d3\u05d9 \u05dc\u05e0\u05d4\u05dc \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea, \u05d4\u05d8\u05d1\u05d5\u05ea \u05d5\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd.',
+};
 
 export default function HomePage() {
-  const user = useQuery(api.users.getCurrentUser) as Doc<'users'> | null; // שליפת המשתמש הנוכחי מהשרת
-
-  // תצוגת שם המשתמש (שם מלא או החלק הראשון של האימייל)
-  const displayName = user?.fullName || user?.email?.split('@')[0] || 'משתמש';
+  const user = useQuery(api.users.getCurrentUser) as Doc<'users'> | null;
+  const displayName =
+    user?.fullName || user?.email?.split('@')[0] || TEXT.fallbackUser;
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView className="flex-1">
         <View className="max-w-3xl w-full mx-auto px-8 pb-12 pt-8">
           <Text
-            className={`text-[#ededed] text-4xl font-bold mb-3 ${tw.textStart}`}
+            className={`text-[#1A2B4A] text-4xl font-bold mb-3 ${tw.textStart}`}
           >
-            ברוכים הבאים
+            {TEXT.title}
           </Text>
-          {user && (
+          {user ? (
             <Text
-              className={`text-[#4fc3f7] text-lg font-medium mb-5 ${tw.textStart}`}
+              className={`text-[#2F6BFF] text-lg font-medium mb-5 ${tw.textStart}`}
             >
-              שלום, {displayName}!
+              {TEXT.hello}, {displayName}!
             </Text>
-          )}
+          ) : null}
           <Text
-            className={`text-[#ededed] text-base leading-7 ${tw.textStart}`}
+            className={`text-[#1A2B4A] text-base leading-7 ${tw.textStart}`}
           >
-            זהו תבנית אפליקציית React Native עם תמיכה מלאה בעברית מימין לשמאל.
-            האפליקציה מכילה מערכת ניווט עם שלושה עמודים נוספים, ומספקת נקודת
-            התחלה מצוינת לפיתוח יישומים בעברית. הממשק מותאם לכיוון כתיבה מימין
-            לשמאל, והטקסט מוצג בצורה נכונה ונוחה לקריאה.
+            {TEXT.description}
           </Text>
         </View>
       </ScrollView>

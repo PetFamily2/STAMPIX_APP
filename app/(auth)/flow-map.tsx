@@ -60,13 +60,13 @@ const TONE_STYLES: Record<
 
 const ENTRY_FLOW: FlowItem[] = [
   {
-    title: '\u05de\u05e1\u05da \u05e8\u05d0\u05e9\u05d9',
-    nameEn: 'Home',
+    title: '\u05d3\u05e3 \u05db\u05e0\u05d9\u05e1\u05d4',
+    nameEn: 'Auth Index',
     subtitle:
-      '\u05d1\u05d9\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-    href: '/(authenticated)',
-    icon: 'home-outline',
-    tone: 'primary',
+      '\u05de\u05e2\u05d1\u05d9\u05e8 \u05dc\u05de\u05e4\u05ea \u05d4\u05de\u05e1\u05db\u05d9\u05dd',
+    href: '/(auth)',
+    icon: 'map-outline',
+    tone: 'neutral',
   },
   {
     title:
@@ -85,6 +85,33 @@ const ENTRY_FLOW: FlowItem[] = [
     href: '/(auth)/sign-in',
     icon: 'log-in-outline',
     tone: 'neutral',
+  },
+  {
+    title: '\u05d1\u05d7\u05d9\u05e8\u05ea \u05ea\u05e4\u05e7\u05d9\u05d3',
+    nameEn: 'Role Selection',
+    subtitle:
+      '\u05e9\u05d9\u05d5\u05da \u05dc\u05e2\u05e0\u05e3 \u05d4\u05e8\u05dc\u05d5\u05d5\u05e0\u05d8\u05d9',
+    href: '/(authenticated)/role',
+    icon: 'person-circle-outline',
+    tone: 'neutral',
+  },
+  {
+    title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea',
+    nameEn: 'Join',
+    subtitle:
+      '\u05e7\u05d1\u05dc\u05ea \u05d4\u05d6\u05de\u05e0\u05d4 \u05d0\u05d5 \u05d7\u05d9\u05d1\u05d5\u05e8 \u05dc\u05e2\u05e1\u05e7',
+    href: '/(authenticated)/join',
+    icon: 'people-outline',
+    tone: 'neutral',
+  },
+  {
+    title: '\u05de\u05e1\u05da \u05e8\u05d0\u05e9\u05d9',
+    nameEn: 'Home',
+    subtitle:
+      '\u05d1\u05d9\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
+    href: '/(authenticated)',
+    icon: 'home-outline',
+    tone: 'primary',
   },
 ];
 
@@ -157,7 +184,8 @@ const BUSINESS_ONBOARDING: FlowItem[] = [
     tone: 'success',
   },
   {
-    title: '\u05d0\u05d9\u05e4\u05d4 \u05e9\u05de\u05e2\u05ea \u05e2\u05dc\u05d9\u05e0\u05d5',
+    title:
+      '\u05d0\u05d9\u05e4\u05d4 \u05e9\u05de\u05e2\u05ea \u05e2\u05dc\u05d9\u05e0\u05d5',
     nameEn: 'How Did You Hear About Us',
     href: '/(auth)/onboarding-business-discovery',
     icon: 'compass-outline',
@@ -216,6 +244,20 @@ const CUSTOMER_MAIN: FlowItem[] = [
     tone: 'info',
   },
   {
+    title: '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd',
+    nameEn: 'Cards',
+    href: '/(authenticated)/card',
+    icon: 'card-outline',
+    tone: 'info',
+  },
+  {
+    title: '\u05e4\u05e8\u05d8\u05d9 \u05db\u05e8\u05d8\u05d9\u05e1',
+    nameEn: 'Membership Card',
+    href: '/(authenticated)/card/[membershipId]',
+    icon: 'card-outline',
+    tone: 'info',
+  },
+  {
     title: '\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
     nameEn: 'Settings',
     href: '/(authenticated)/(customer)/settings',
@@ -228,35 +270,35 @@ const BUSINESS_MAIN: FlowItem[] = [
   {
     title: '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
     nameEn: 'Dashboard',
-    href: '/(authenticated)/(business)/business/dashboard',
+    href: '/(authenticated)/(business)/dashboard',
     icon: 'stats-chart-outline',
     tone: 'success',
   },
   {
     title: '\u05d0\u05e0\u05dc\u05d9\u05d8\u05d9\u05e7\u05e1',
     nameEn: 'Analytics',
-    href: '/(authenticated)/(business)/business/analytics',
+    href: '/(authenticated)/(business)/analytics',
     icon: 'stats-chart-outline',
     tone: 'success',
   },
   {
     title: '\u05e1\u05d5\u05e8\u05e7',
     nameEn: 'Scanner',
-    href: '/(authenticated)/(business)/business/scanner',
+    href: '/(authenticated)/(business)/scanner',
     icon: 'qr-code-outline',
     tone: 'success',
   },
   {
     title: 'QR',
     nameEn: 'Business QR',
-    href: '/(authenticated)/(business)/business/qr',
+    href: '/(authenticated)/(business)/qr',
     icon: 'qr-code-outline',
     tone: 'success',
   },
   {
     title: '\u05e6\u05d5\u05d5\u05ea',
     nameEn: 'Team',
-    href: '/(authenticated)/(business)/business/team',
+    href: '/(authenticated)/(business)/team',
     icon: 'people-outline',
     tone: 'success',
   },
@@ -308,6 +350,39 @@ const ADMIN_MAIN: FlowItem[] = [
   },
 ];
 
+const ADMIN_ONBOARDING: FlowItem[] = [
+  {
+    title:
+      '\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2 \u05d0\u05d3\u05de\u05d9\u05df',
+    nameEn: 'Merchant Onboarding',
+    href: '/(authenticated)/merchant/onboarding',
+    icon: 'sparkles-outline',
+    tone: 'accent',
+  },
+  {
+    title: '\u05d9\u05e6\u05d9\u05e8\u05ea \u05e2\u05e1\u05e7',
+    nameEn: 'Create Business',
+    href: '/(authenticated)/merchant/onboarding/create-business',
+    icon: 'storefront-outline',
+    tone: 'accent',
+  },
+  {
+    title:
+      '\u05d9\u05e6\u05d9\u05e8\u05ea \u05ea\u05d5\u05db\u05e0\u05d9\u05ea',
+    nameEn: 'Create Program',
+    href: '/(authenticated)/merchant/onboarding/create-program',
+    icon: 'albums-outline',
+    tone: 'accent',
+  },
+  {
+    title: '\u05ea\u05e6\u05d5\u05d2\u05ea \u05db\u05e8\u05d8\u05d9\u05e1',
+    nameEn: 'Preview Card',
+    href: '/(authenticated)/merchant/onboarding/preview-card',
+    icon: 'card-outline',
+    tone: 'accent',
+  },
+];
+
 const MAPPED_FLOW_HREFS = new Set(
   [
     ...ENTRY_FLOW,
@@ -315,6 +390,7 @@ const MAPPED_FLOW_HREFS = new Set(
     ...BUSINESS_ONBOARDING,
     ...CUSTOMER_MAIN,
     ...BUSINESS_MAIN,
+    ...ADMIN_ONBOARDING,
     ...ADMIN_MAIN,
   ].map((item) => item.href)
 );
@@ -467,12 +543,18 @@ function FlowArrow({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function FlowStack({ items }: { items: FlowItem[] }) {
+function FlowStack({
+  items,
+  size = 'md',
+}: {
+  items: FlowItem[];
+  size?: FlowSize;
+}) {
   return (
     <View className="items-center">
       {items.map((item, index) => (
         <View key={item.href} className="items-center">
-          <FlowNode item={item} />
+          <FlowNode item={item} size={size} />
           {index < items.length - 1 && <FlowArrow />}
         </View>
       ))}
@@ -617,6 +699,24 @@ export default function FlowMapScreen() {
     return items.sort((a, b) => a.href.localeCompare(b.href));
   }, [sitemap]);
 
+  const additionalByAudience = useMemo(() => {
+    const customer: FlowItem[] = [];
+    const business: FlowItem[] = [];
+    const general: FlowItem[] = [];
+
+    for (const item of additionalScreens) {
+      if (item.href.includes('/(customer)')) {
+        customer.push(item);
+      } else if (item.href.includes('/(business)')) {
+        business.push(item);
+      } else {
+        general.push(item);
+      }
+    }
+
+    return { customer, business, general };
+  }, [additionalScreens]);
+
   return (
     <SafeAreaView className="flex-1 bg-[#F6F8FC]">
       <ScrollView
@@ -707,6 +807,19 @@ export default function FlowMapScreen() {
             </View>
 
             <View className="mt-3">
+              <Text
+                className={`text-xs font-bold text-slate-700 ${tw.textStart}`}
+              >
+                {
+                  '\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2 \u05d0\u05d3\u05de\u05d9\u05df'
+                }
+              </Text>
+              <View className="mt-2 items-center">
+                <FlowStack items={ADMIN_ONBOARDING} size="sm" />
+              </View>
+              <View className="items-center mt-2">
+                <FlowArrow compact={true} />
+              </View>
               <FlowGroup
                 title={'\u05d0\u05d3\u05de\u05d9\u05df'}
                 items={ADMIN_MAIN}
@@ -725,13 +838,29 @@ export default function FlowMapScreen() {
                   </Text>
                 </View>
                 <View className="mt-3">
-                  <FlowGroup
-                    title={
-                      '\u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5 \u05d1\u05e2\u05e0\u05e4\u05d9\u05dd'
-                    }
-                    items={additionalScreens}
-                    fullWidth={true}
-                  />
+                  <View className="space-y-3">
+                    <FlowGroup
+                      title={
+                        '\u05dc\u05e7\u05d5\u05d7 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
+                      }
+                      items={additionalByAudience.customer}
+                      fullWidth={true}
+                    />
+                    <FlowGroup
+                      title={
+                        '\u05e2\u05e1\u05e7 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
+                      }
+                      items={additionalByAudience.business}
+                      fullWidth={true}
+                    />
+                    <FlowGroup
+                      title={
+                        '\u05db\u05dc\u05dc\u05d9 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
+                      }
+                      items={additionalByAudience.general}
+                      fullWidth={true}
+                    />
+                  </View>
                 </View>
               </>
             ) : null}

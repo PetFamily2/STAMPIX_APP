@@ -15,8 +15,8 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { tw } from '@/lib/rtl';
 import { safeBack } from '@/lib/navigation';
+import { tw } from '@/lib/rtl';
 
 const formatDate = (timestamp: number) =>
   new Date(timestamp).toLocaleDateString('he-IL', {
@@ -89,7 +89,9 @@ export default function BusinessTeamScreen() {
       setInviteSuccess('׳”׳”׳–׳׳ ׳” ׳ ׳©׳׳—׳” ׳‘׳”׳¦׳׳—׳”!');
       setInviteEmail('');
     } catch (error: unknown) {
-      setInviteError((error as Error).message ?? '׳׳™׳¨׳¢׳” ׳©׳’׳™׳׳” ׳‘׳”׳–׳׳ ׳”');
+      setInviteError(
+        (error as Error).message ?? '׳׳™׳¨׳¢׳” ׳©׳’׳™׳׳” ׳‘׳”׳–׳׳ ׳”'
+      );
     } finally {
       setIsInviting(false);
     }
@@ -114,7 +116,8 @@ export default function BusinessTeamScreen() {
           </View>
 
           <Text className={`text-zinc-400 text-xs ${tw.textStart}`}>
-            ׳”׳•׳¡׳£ ׳—׳‘׳¨׳™ ׳¦׳•׳•׳× ׳¢׳ ׳”׳¨׳©׳׳•׳× ׳¡׳¨׳™׳§׳” ׳•׳¨׳©׳/׳™ ׳”׳™׳¡׳˜׳•׳¨׳™׳™׳× ׳₪׳¢׳™׳׳•׳×.
+            ׳”׳•׳¡׳£ ׳—׳‘׳¨׳™ ׳¦׳•׳•׳× ׳¢׳ ׳”׳¨׳©׳׳•׳× ׳¡׳¨׳™׳§׳” ׳•׳¨׳©׳/׳™
+            ׳”׳™׳¡׳˜׳•׳¨׳™׳™׳× ׳₪׳¢׳™׳׳•׳×.
           </Text>
 
           <View className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 space-y-3">
@@ -260,4 +263,3 @@ export default function BusinessTeamScreen() {
     </SafeAreaView>
   );
 }
-
