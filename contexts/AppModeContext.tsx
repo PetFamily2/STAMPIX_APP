@@ -14,6 +14,7 @@ type AppModeContextValue = {
   appMode: AppMode;
   setAppMode: (mode: AppMode) => Promise<void>;
   isLoading: boolean;
+  hasSelectedMode: boolean;
 };
 
 const STORAGE_KEY = 'stamprix.appMode';
@@ -24,6 +25,7 @@ const AppModeContext = createContext<AppModeContextValue | undefined>(
 export function AppModeProvider({ children }: { children: React.ReactNode }) {
   const [appMode, setAppModeState] = useState<AppMode>('customer');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSelectedMode, setHasSelectedMode] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,13 +35,18 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
         if (stored === 'customer' || stored === 'business') {
           if (isMounted) {
             setAppModeState(stored);
+            setHasSelectedMode(true);
           }
         }
         if (stored === 'merchant') {
           if (isMounted) {
             setAppModeState('business');
+            setHasSelectedMode(true);
           }
           await SecureStore.setItemAsync(STORAGE_KEY, 'business');
+        }
+        if (!stored && isMounted) {
+          setHasSelectedMode(false);
         }
       } finally {
         if (isMounted) {
@@ -55,6 +62,7 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
 
   const setAppMode = useCallback(async (mode: AppMode) => {
     setAppModeState(mode);
+    setHasSelectedMode(true);
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, mode);
     } catch {
@@ -67,8 +75,9 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
       appMode,
       setAppMode,
       isLoading,
+      hasSelectedMode,
     }),
-    [appMode, setAppMode, isLoading]
+    [appMode, setAppMode, isLoading, hasSelectedMode]
   );
 
   return (

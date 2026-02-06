@@ -7,7 +7,8 @@ import { api } from '@/convex/_generated/api';
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const { appMode, isLoading: isAppModeLoading, hasSelectedMode } =
+    useAppMode();
   const user = useQuery(api.users.getCurrentUser);
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
   const router = useRouter();
@@ -58,6 +59,16 @@ export default function AuthenticatedLayout() {
     ) as string[];
     if (currentSegments.includes('join') || currentSegments.includes('card'))
       return;
+    const inRoleScreen = currentSegments.includes('role');
+
+    if (!hasSelectedMode) {
+      const roleTarget = '/(authenticated)/role';
+      if (!inRoleScreen && lastRedirectRef.current !== roleTarget) {
+        lastRedirectRef.current = roleTarget;
+        router.replace(roleTarget);
+      }
+      return;
+    }
 
     const currentPath = `/${currentSegments.join('/')}`;
     const target =
@@ -95,6 +106,7 @@ export default function AuthenticatedLayout() {
     appMode,
     bootError,
     booting,
+    hasSelectedMode,
     isAppModeLoading,
     isLoading,
     router,
@@ -164,6 +176,7 @@ export default function AuthenticatedLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(business)" />
+      <Stack.Screen name="role" />
       <Stack.Screen name="join" />
       <Stack.Screen name="card/index" />
       <Stack.Screen name="card/[membershipId]" />

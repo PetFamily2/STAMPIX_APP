@@ -1,100 +1,77 @@
-﻿import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 
-type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
+type DiscoverySourceId =
+  | 'referral'
+  | 'search'
+  | 'social'
+  | 'tiktok'
+  | 'appStore'
+  | 'other';
 
-const USAGE_AREAS: Array<{
-  id: UsageAreaId;
+const DISCOVERY_SOURCES: Array<{
+  id: DiscoverySourceId;
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
-  { id: 'nearby', title: 'באזור העסק שלי', icon: 'location-outline' },
-  { id: 'citywide', title: 'ברחבי העיר', icon: 'navigate-outline' },
-  { id: 'online', title: 'באונליין בלבד', icon: 'phone-portrait-outline' },
-  { id: 'multiple', title: 'בכמה סניפים', icon: 'business-outline' },
+  { id: 'referral', title: 'חבר או בעל עסק אחר', icon: 'people-outline' },
+  { id: 'search', title: 'חיפוש בגוגל', icon: 'search-outline' },
+  { id: 'social', title: 'פייסבוק / אינסטגרם', icon: 'share-social-outline' },
+  { id: 'tiktok', title: 'טיקטוק', icon: 'logo-tiktok' },
+  { id: 'appStore', title: 'חנות האפליקציות', icon: 'apps-outline' },
+  { id: 'other', title: 'אחר', icon: 'ellipsis-horizontal' },
 ];
 
-export default function OnboardingUsageAreaScreen() {
-  const [selected, setSelected] = useState<UsageAreaId[]>([]);
-  const canContinue = selected.length > 0;
+export default function OnboardingBusinessDiscoveryScreen() {
+  const [selected, setSelected] = useState<DiscoverySourceId | null>(null);
+  const canContinue = Boolean(selected);
 
-  const toggleArea = (id: UsageAreaId) => {
-    setSelected((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((item) => item !== id);
-      }
-      if (prev.length >= 3) {
-        return prev;
-      }
-      return [...prev, id];
-    });
-  };
   const handleContinue = () => {
-    if (!canContinue) {
-      return;
-    }
-    safePush('/(auth)/paywall');
+    if (!canContinue) return;
+    safePush('/(auth)/onboarding-business-reason');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-business-name')}
-          />
-          <OnboardingProgress total={8} current={6} />
+          <BackButton onPress={() => safeBack('/(auth)/onboarding-business-role')} />
+          <OnboardingProgress total={8} current={3} />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            באילו אזורים העסק פעיל היום?{'\n'}בוחרים עד 3 אפשרויות
-          </Text>
+          <Text style={styles.title}>איך הגעת אלינו?</Text>
           <Text style={styles.subtitle}>
-            זה עוזר לנו להתאים את החוויה לעסק שלך.
+            נשמח לדעת כדי להתאים לך התחלה חלקה יותר
           </Text>
         </View>
 
         <View style={styles.optionsContainer}>
-          {USAGE_AREAS.map((area) => {
-            const isSelected = selected.includes(area.id);
+          {DISCOVERY_SOURCES.map((source) => {
+            const isSelected = selected === source.id;
             return (
               <Pressable
-                key={area.id}
-                onPress={() => toggleArea(area.id)}
+                key={source.id}
+                onPress={() => setSelected(source.id)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >
-                <View
-                  style={[
-                    styles.option,
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected,
-                  ]}
-                >
+                <View style={[styles.option, isSelected ? styles.optionSelected : styles.optionUnselected]}>
                   <View style={styles.optionContent}>
                     <View style={styles.iconContainer}>
                       <Ionicons
-                        name={area.icon}
+                        name={source.icon}
                         size={20}
                         color={isSelected ? '#FFFFFF' : '#2563EB'}
                       />
                     </View>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        isSelected
-                          ? styles.optionTextSelected
-                          : styles.optionTextUnselected,
-                      ]}
-                    >
-                      {area.title}
+                    <Text style={[styles.optionText, isSelected ? styles.optionTextSelected : styles.optionTextUnselected]}>
+                      {source.title}
                     </Text>
                   </View>
                 </View>
@@ -110,20 +87,8 @@ export default function OnboardingUsageAreaScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canContinue }}
           >
-            <View
-              style={[
-                styles.button,
-                canContinue ? styles.buttonActive : styles.buttonInactive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  canContinue
-                    ? styles.buttonTextActive
-                    : styles.buttonTextInactive,
-                ]}
-              >
+            <View style={[styles.button, canContinue ? styles.buttonActive : styles.buttonInactive]}>
+              <Text style={[styles.buttonText, canContinue ? styles.buttonTextActive : styles.buttonTextInactive]}>
                 המשך
               </Text>
             </View>
@@ -168,7 +133,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionsContainer: {
-    marginTop: 32,
+    marginTop: 28,
     gap: 12,
   },
   option: {

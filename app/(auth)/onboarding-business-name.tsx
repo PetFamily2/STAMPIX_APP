@@ -1,0 +1,155 @@
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackButton } from '@/components/BackButton';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { safeBack, safePush } from '@/lib/navigation';
+
+export default function OnboardingBusinessNameScreen() {
+  const [businessName, setBusinessName] = useState('');
+
+  const canContinue = useMemo(
+    () => businessName.trim().length > 0,
+    [businessName]
+  );
+
+  const handleContinue = () => {
+    if (!canContinue) return;
+    safePush('/(auth)/onboarding-business-usage-area');
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <BackButton onPress={() => safeBack('/(auth)/onboarding-business-reason')} />
+          <OnboardingProgress total={8} current={5} />
+        </View>
+
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>איך קוראים לעסק שלך?</Text>
+          <Text style={styles.subtitle}>
+            ככה הלקוחות יראו אותך באפליקציה
+          </Text>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>שם העסק</Text>
+          <TextInput
+            value={businessName}
+            onChangeText={setBusinessName}
+            placeholder="קפה המרפסת"
+            placeholderTextColor="#9CA3AF"
+            returnKeyType="done"
+            autoCapitalize="words"
+            style={styles.input}
+            accessibilityLabel="שם העסק"
+            onSubmitEditing={handleContinue}
+          />
+        </View>
+
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleContinue}
+            disabled={!canContinue}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canContinue }}
+          >
+            <View style={[styles.button, canContinue ? styles.buttonActive : styles.buttonInactive]}>
+              <Text style={[styles.buttonText, canContinue ? styles.buttonTextActive : styles.buttonTextInactive]}>
+                המשך
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FBFAF7',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  header: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleContainer: {
+    marginTop: 32,
+    alignItems: 'flex-end',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    textAlign: 'right',
+  },
+  inputContainer: {
+    marginTop: 24,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'right',
+  },
+  footer: {
+    marginTop: 'auto',
+  },
+  button: {
+    borderRadius: 999,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonActive: {
+    backgroundColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 8,
+  },
+  buttonInactive: {
+    backgroundColor: '#e5e7eb',
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  buttonTextActive: {
+    color: '#ffffff',
+  },
+  buttonTextInactive: {
+    color: '#6b7280',
+  },
+});
