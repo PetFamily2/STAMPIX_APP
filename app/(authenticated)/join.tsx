@@ -1,6 +1,6 @@
 import { useMutation } from 'convex/react';
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import {
   SafeAreaView,
@@ -9,17 +9,23 @@ import {
 
 import { BackButton } from '@/components/BackButton';
 import QrScanner from '@/components/QrScanner';
+import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { track } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  clearPendingJoin,
+  consumePendingJoin,
+} from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
-  title:
-    '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
+  title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
   subtitle:
     '\u05e1\u05e8\u05e7\u05d5 QR \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7 \u05d0\u05d5 \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9',
   manualTitle:
     '\u05d0\u05d9\u05df QR? \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05e2\u05e1\u05e7',
-  manualPlaceholder: 'businessExternalId:biz:demo-1',
+  manualPlaceholder: '\u05e7\u05d5\u05d3 \u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea',
   join: '\u05d4\u05e6\u05d8\u05e8\u05e3',
   checking: '\u05d1\u05d5\u05d3\u05e7...',
   scanAgain: '\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1',
@@ -35,6 +41,8 @@ const TEXT = {
     '\u05d4\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05e0\u05db\u05e9\u05dc\u05d4. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
   unexpectedError:
     '\u05d0\u05d9\u05e8\u05e2\u05d4 \u05e9\u05d2\u05d9\u05d0\u05d4 \u05dc\u05d0 \u05e6\u05e4\u05d5\u05d9\u05d4. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
+  alreadyMember:
+    '\u05d0\u05ea\u05d4 \u05db\u05d1\u05e8 \u05d7\u05d1\u05e8 \u05d1\u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05d4\u05d6\u05d4. \u05e0\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d4.',
 };
 
 function getFriendlyError(error: unknown) {
@@ -56,6 +64,14 @@ function getFriendlyError(error: unknown) {
 export default function JoinScreen() {
   const insets = useSafeAreaInsets();
   const joinByBusinessQr = useMutation(api.memberships.joinByBusinessQr);
+  const { user } = useUser();
+
+  // Deep link query params
+  const { biz, src, camp } = useLocalSearchParams<{
+    biz?: string;
+    src?: string;
+    camp?: string;
+  }>();
 
   const [manual, setManual] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,27 +81,66 @@ export default function JoinScreen() {
     message: string;
   } | null>(null);
 
-  const handleJoin = useCallback(
-    async (qrData: string) => {
+  const deepLinkProcessedRef = useRef(false);
+
+  const doJoin = useCallback(
+    async (
+      qrData: string,
+      source?: string | undefined,
+      campaign?: string | undefined
+    ) => {
       const data = (qrData ?? '').trim();
       if (!data) {
         setFeedback({ type: 'error', message: TEXT.invalidCode });
         return;
       }
 
-      if (busy) {
-        return;
-      }
+      if (busy) return;
 
       setFeedback(null);
 
       try {
         setBusy(true);
-        await joinByBusinessQr({ qrData: data });
+        const result = await joinByBusinessQr({
+          qrData: data,
+          source: source || undefined,
+          campaign: campaign || undefined,
+        });
+
+        await clearPendingJoin();
         setManual('');
         setScannerResetKey((prev) => prev + 1);
-        router.replace('/(authenticated)/(customer)/wallet');
+
+        if (result.alreadyExisted) {
+          track(ANALYTICS_EVENTS.joinAlreadyMember, {
+            businessId: result.businessId,
+            src: source,
+            camp: campaign,
+          });
+          setFeedback({ type: 'info', message: TEXT.alreadyMember });
+        } else {
+          track(ANALYTICS_EVENTS.joinCompleted, {
+            businessId: result.businessId,
+            membershipId: result.membershipId,
+            src: source,
+            camp: campaign,
+          });
+        }
+
+        // Navigate to card in wallet
+        if (result.membershipId) {
+          router.replace(
+            `/(authenticated)/card/${result.membershipId}` as any
+          );
+        } else {
+          router.replace('/(authenticated)/(customer)/wallet');
+        }
       } catch (error) {
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code:
+            error instanceof Error ? error.message : 'UNKNOWN',
+          context: 'joinByBusinessQr',
+        });
         setFeedback({ type: 'error', message: getFriendlyError(error) });
         setScannerResetKey((prev) => prev + 1);
       } finally {
@@ -95,16 +150,71 @@ export default function JoinScreen() {
     [busy, joinByBusinessQr]
   );
 
-  const handleManual = useCallback(() => {
-    handleJoin(manual.trim());
-  }, [handleJoin, manual]);
+  // Auto-join from deep link URL params or deferred join
+  useEffect(() => {
+    if (deepLinkProcessedRef.current) return;
+    if (!user) return; // wait for auth
+
+    // Deep link params from URL
+    if (biz) {
+      deepLinkProcessedRef.current = true;
+      track(ANALYTICS_EVENTS.joinOpenedInApp, {
+        businessPublicId: biz,
+        src,
+        camp,
+        trigger: 'deeplink',
+      });
+      void doJoin(biz, src, camp);
+      return;
+    }
+
+    // Check for deferred join (saved before auth redirect)
+    void (async () => {
+      const pending = await consumePendingJoin();
+      if (pending) {
+        deepLinkProcessedRef.current = true;
+        track(ANALYTICS_EVENTS.joinOpenedInApp, {
+          businessPublicId: pending.biz,
+          src: pending.src,
+          camp: pending.camp,
+          trigger: 'deferred',
+        });
+        void doJoin(pending.biz, pending.src, pending.camp);
+      }
+    })();
+  }, [biz, src, camp, user, doJoin]);
 
   const handleScan = useCallback(
-    async (data: string) => {
-      await handleJoin(data);
+    async (rawData: string) => {
+      const data = rawData?.trim();
+      if (!data) {
+        setFeedback({ type: 'error', message: TEXT.invalidCode });
+        setScannerResetKey((prev) => prev + 1);
+        return;
+      }
+
+      track(ANALYTICS_EVENTS.qrScannedBusinessJoin, {
+        raw_length: data.length,
+        is_url: data.startsWith('http'),
+      });
+
+      await doJoin(data);
     },
-    [handleJoin]
+    [doJoin]
   );
+
+  const handleManual = useCallback(() => {
+    const code = manual.trim();
+    if (!code) return;
+
+    track(ANALYTICS_EVENTS.qrScannedBusinessJoin, {
+      raw_length: code.length,
+      is_url: false,
+      trigger: 'manual',
+    });
+
+    doJoin(code);
+  }, [doJoin, manual]);
 
   const handleRetryScan = () => {
     setScannerResetKey((prev) => prev + 1);
@@ -200,6 +310,7 @@ export default function JoinScreen() {
             onSubmitEditing={handleManual}
             returnKeyType="done"
             keyboardType="default"
+            autoCapitalize="characters"
             placeholder={TEXT.manualPlaceholder}
             placeholderTextColor="#9AA4B2"
             style={{

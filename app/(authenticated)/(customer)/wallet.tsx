@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -16,6 +15,10 @@ import {
 } from 'react-native-safe-area-context';
 
 import { api } from '@/convex/_generated/api';
+import {
+  consumePendingJoin,
+  savePendingJoin,
+} from '@/lib/deeplink/pendingJoin';
 
 const TEXT = {
   title: '\u05d4\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05d9',
@@ -27,7 +30,6 @@ const TEXT = {
     '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
   noCardsHint:
     '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5.',
-  joinByQr: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05d3\u05e8\u05da QR',
   createDemo:
     '\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
   creating: '\u05d9\u05d5\u05e6\u05e8...',
@@ -51,6 +53,21 @@ type WalletMembership = {
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useConvexAuth();
+  const pendingJoinChecked = useRef(false);
+
+  // Check for deferred deep link join after authentication
+  useEffect(() => {
+    if (!isAuthenticated || pendingJoinChecked.current) return;
+    pendingJoinChecked.current = true;
+    void (async () => {
+      const pending = await consumePendingJoin();
+      if (pending?.biz) {
+        // Re-save so join screen can consume it
+        await savePendingJoin(pending);
+        router.push('/(authenticated)/join' as any);
+      }
+    })();
+  }, [isAuthenticated]);
 
   const membershipsQuery = useQuery(
     api.memberships.byCustomer,
@@ -102,9 +119,6 @@ export default function WalletScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View style={styles.walletBadge}>
-              <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
-            </View>
             <View style={styles.headerText}>
               <Text style={styles.headerLabel}>STAMPIX</Text>
               <Text style={styles.headerTitle}>{TEXT.title}</Text>
@@ -129,16 +143,6 @@ export default function WalletScreen() {
           <View style={styles.cardContainer}>
             <Text style={styles.emptyTitle}>{TEXT.noCards}</Text>
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
-
-            <Pressable
-              onPress={() => router.push('/join')}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>{TEXT.joinByQr}</Text>
-            </Pressable>
 
             <Pressable
               onPress={handleCreateDemo}
@@ -267,14 +271,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E3E9FF',
   },
-  walletBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#2F6BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   headerText: {
     flex: 1,
     alignItems: 'flex-end',
@@ -327,18 +323,6 @@ const styles = StyleSheet.create({
     color: '#5B6475',
     textAlign: 'right',
     fontWeight: '600',
-  },
-  primaryButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    backgroundColor: '#2F6BFF',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
   },
   secondaryButton: {
     marginTop: 10,

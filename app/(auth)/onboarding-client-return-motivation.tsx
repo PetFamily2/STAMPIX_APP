@@ -5,6 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack } from '@/lib/navigation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { clearOnboardingSessionId } from '@/lib/onboarding/session';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type ReturnMotivationId =
   | 'freebie'
@@ -25,9 +28,18 @@ export default function OnboardingReturnMotivationScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<ReturnMotivationId | null>(null);
   const canContinue = Boolean(selected);
+  const { completeStep, trackChoice, trackContinue, trackEvent } =
+    useOnboardingTracking({
+      screen: 'onboarding_client_return_motivation',
+      role: 'client',
+    });
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({ return_motivation: selected });
+    trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
+    void clearOnboardingSessionId();
     router.push('/(auth)/sign-in');
   };
 
@@ -54,7 +66,10 @@ export default function OnboardingReturnMotivationScreen() {
             return (
               <Pressable
                 key={item.id}
-                onPress={() => setSelected(item.id)}
+                onPress={() => {
+                  setSelected(item.id);
+                  trackChoice('return_motivation', item.id);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >

@@ -4,14 +4,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type RoleOption = 'customer' | 'business';
 
 export default function OnboardingRoleScreen() {
   const [role, setRole] = useState<RoleOption | null>(null);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_client_role',
+  });
+
+  const mapRole = (value: RoleOption) =>
+    value === 'customer' ? 'client' : 'business';
+
+  const handleSelectRole = (value: RoleOption) => {
+    setRole(value);
+    const mappedRole = mapRole(value);
+    trackChoice('role', mappedRole, { role: mappedRole });
+  };
 
   const handleContinue = () => {
     if (!role) return;
+    const mappedRole = mapRole(role);
+    trackContinue({ role: mappedRole });
+    completeStep({ role: mappedRole });
     if (role === 'customer') {
       safePush('/(auth)/onboarding-client-details');
       return;
@@ -39,7 +55,7 @@ export default function OnboardingRoleScreen() {
         </View>
 
         <View style={styles.cardsContainer}>
-          <Pressable onPress={() => setRole('customer')}>
+          <Pressable onPress={() => handleSelectRole('customer')}>
             <View
               style={[
                 styles.card,
@@ -67,7 +83,7 @@ export default function OnboardingRoleScreen() {
             </View>
           </Pressable>
 
-          <Pressable onPress={() => setRole('business')}>
+          <Pressable onPress={() => handleSelectRole('business')}>
             <View
               style={[
                 styles.card,

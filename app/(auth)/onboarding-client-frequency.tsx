@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type FrequencyId = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'rare';
 
@@ -20,9 +21,17 @@ export default function OnboardingClientFrequencyScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<FrequencyId | null>(null);
   const canContinue = Boolean(selected);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_client_frequency',
+    role: 'client',
+  });
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({
+      frequency_selected: selected,
+    });
     router.push('/(auth)/onboarding-client-return-motivation');
   };
 
@@ -47,7 +56,10 @@ export default function OnboardingClientFrequencyScreen() {
             return (
               <Pressable
                 key={item.id}
-                onPress={() => setSelected(item.id)}
+                onPress={() => {
+                  setSelected(item.id);
+                  trackChoice('frequency', item.id);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >

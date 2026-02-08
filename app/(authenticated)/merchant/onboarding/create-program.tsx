@@ -11,13 +11,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { trackActivationEvent } from '@/lib/analytics/activation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { tw } from '@/lib/rtl';
 
 export default function CreateProgramScreen() {
   const router = useRouter();
   const { businessId, programDraft, setProgramDraft, setProgramId } =
     useOnboarding();
+  const { user } = useUser();
   const createProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,6 +58,10 @@ export default function CreateProgramScreen() {
         stampIcon: programDraft.stampIcon,
       });
       setProgramId(loyaltyProgramId);
+      void trackActivationEvent(ANALYTICS_EVENTS.loyaltyCardCreated, {
+        role: 'business',
+        userId: user?._id,
+      });
       router.push('/merchant/onboarding/preview-card');
     } catch (err: unknown) {
       setError((err as Error).message ?? 'שגיאה ביצירת תוכנית');

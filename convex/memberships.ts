@@ -3,6 +3,53 @@ import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
+// ---------------------------------------------------------------------------
+// Public resolve queries (no auth required -- used by landing page & join flow)
+// ---------------------------------------------------------------------------
+
+export const resolveBusinessByPublicId = query({
+  args: { businessPublicId: v.string() },
+  handler: async (ctx, { businessPublicId }) => {
+    const business = await ctx.db
+      .query('businesses')
+      .withIndex('by_businessPublicId', (q: any) =>
+        q.eq('businessPublicId', businessPublicId)
+      )
+      .first();
+
+    if (!business || business.isActive !== true) return null;
+
+    return {
+      businessId: business._id,
+      name: business.name,
+      logoUrl: business.logoUrl ?? null,
+      joinCode: business.joinCode ?? null,
+    };
+  },
+});
+
+export const resolveBusinessByJoinCode = query({
+  args: { joinCode: v.string() },
+  handler: async (ctx, { joinCode }) => {
+    const normalized = joinCode.trim().toUpperCase();
+    if (!normalized) return null;
+
+    const business = await ctx.db
+      .query('businesses')
+      .withIndex('by_joinCode', (q: any) => q.eq('joinCode', normalized))
+      .first();
+
+    if (!business || business.isActive !== true) return null;
+
+    return {
+      businessId: business._id,
+      name: business.name,
+      logoUrl: business.logoUrl ?? null,
+      businessPublicId: business.businessPublicId ?? null,
+    };
+  },
+});
+
 type CustomerMembershipRecord = {
   membershipId: Id<'memberships'>;
   userId: Id<'users'>;
@@ -85,32 +132,127 @@ export const byCustomer = query({
   },
 });
 
+/**
+ * Parse QR data / input into a business lookup key.
+ *
+ * Supported formats:
+ *   a) "businessExternalId:<value>"              (legacy)
+ *   b) "https://stampix.app/join?biz=<id>&..."   (deep link URL)
+ *   c) raw businessPublicId / externalId string
+ *   d) joinCode (short uppercase alphanumeric)
+ *
+ * Returns { bizId, source, campaign, mode } where mode indicates which
+ * index to query.
+ */
+function parseJoinInput(raw: string): {
+  bizId: string;
+  source: string | undefined;
+  campaign: string | undefined;
+  mode: 'externalId' | 'publicId' | 'joinCode';
+} {
+  // (a) Legacy prefix
+  const legacyPrefix = 'businessExternalId:';
+  if (raw.startsWith(legacyPrefix)) {
+    return {
+      bizId: raw.slice(legacyPrefix.length).trim(),
+      source: undefined,
+      campaign: undefined,
+      mode: 'externalId',
+    };
+  }
+
+  // (b) URL format
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      const url = new URL(raw);
+      const biz = url.searchParams.get('biz') ?? '';
+      const src = url.searchParams.get('src') || undefined;
+      const camp = url.searchParams.get('camp') || undefined;
+      if (biz) {
+        return { bizId: biz, source: src, campaign: camp, mode: 'publicId' };
+      }
+    } catch {
+      // not a valid URL -- fall through
+    }
+  }
+
+  // (d) joinCode pattern: 4-10 uppercase alphanumeric without I/O/1/0
+  const joinCodePattern = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4,10}$/;
+  if (joinCodePattern.test(raw.toUpperCase())) {
+    return {
+      bizId: raw.toUpperCase(),
+      source: undefined,
+      campaign: undefined,
+      mode: 'joinCode',
+    };
+  }
+
+  // (c) raw businessPublicId or externalId -- try publicId first
+  return {
+    bizId: raw,
+    source: undefined,
+    campaign: undefined,
+    mode: 'publicId',
+  };
+}
+
 // Join a business (create membership) by scanning the BUSINESS QR (customer flow).
-// QR payload formats supported:
-// - "businessExternalId:<value>"
-// - "<value>" (raw externalId)
+// Supports: legacy externalId prefix, deep link URL, publicId, and joinCode.
 export const joinByBusinessQr = mutation({
-  args: { qrData: v.string() },
-  handler: async (ctx, { qrData }) => {
+  args: {
+    qrData: v.string(),
+    source: v.optional(v.string()),
+    campaign: v.optional(v.string()),
+  },
+  handler: async (ctx, { qrData, source: argSource, campaign: argCampaign }) => {
     const user = await requireCurrentUser(ctx);
     const now = Date.now();
 
     const raw = (qrData ?? '').trim();
     if (!raw) throw new Error('INVALID_QR');
 
-    const prefix = 'businessExternalId:';
-    const businessExternalId = raw.startsWith(prefix)
-      ? raw.slice(prefix.length).trim()
-      : raw;
+    const parsed = parseJoinInput(raw);
+    if (!parsed.bizId) throw new Error('INVALID_QR');
 
-    if (!businessExternalId) throw new Error('INVALID_QR');
+    // Merge source/campaign: URL params take priority, then explicit args
+    const source = parsed.source ?? argSource;
+    const campaign = parsed.campaign ?? argCampaign;
 
-    const business = await ctx.db
-      .query('businesses')
-      .withIndex('by_externalId', (q: any) =>
-        q.eq('externalId', businessExternalId)
-      )
-      .unique();
+    // Resolve business
+    let business: any = null;
+
+    if (parsed.mode === 'externalId') {
+      business = await ctx.db
+        .query('businesses')
+        .withIndex('by_externalId', (q: any) =>
+          q.eq('externalId', parsed.bizId)
+        )
+        .first();
+    } else if (parsed.mode === 'publicId') {
+      // Try businessPublicId first
+      business = await ctx.db
+        .query('businesses')
+        .withIndex('by_businessPublicId', (q: any) =>
+          q.eq('businessPublicId', parsed.bizId)
+        )
+        .first();
+      // Fallback: try externalId
+      if (!business) {
+        business = await ctx.db
+          .query('businesses')
+          .withIndex('by_externalId', (q: any) =>
+            q.eq('externalId', parsed.bizId)
+          )
+          .first();
+      }
+    } else if (parsed.mode === 'joinCode') {
+      business = await ctx.db
+        .query('businesses')
+        .withIndex('by_joinCode', (q: any) =>
+          q.eq('joinCode', parsed.bizId)
+        )
+        .first();
+    }
 
     if (!business || business.isActive !== true)
       throw new Error('BUSINESS_NOT_FOUND');
@@ -149,6 +291,8 @@ export const joinByBusinessQr = mutation({
       programId: program._id,
       currentStamps: 0,
       lastStampAt: undefined,
+      joinSource: source,
+      joinCampaign: campaign,
       isActive: true,
       createdAt: now,
       updatedAt: now,

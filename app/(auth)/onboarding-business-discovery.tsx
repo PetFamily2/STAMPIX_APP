@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type DiscoverySourceId =
   | 'referral'
@@ -30,9 +31,15 @@ const DISCOVERY_SOURCES: Array<{
 export default function OnboardingBusinessDiscoveryScreen() {
   const [selected, setSelected] = useState<DiscoverySourceId | null>(null);
   const canContinue = Boolean(selected);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_business_discovery',
+    role: 'business',
+  });
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({ discovery_source: selected });
     safePush('/(auth)/onboarding-business-reason');
   };
 
@@ -59,7 +66,10 @@ export default function OnboardingBusinessDiscoveryScreen() {
             return (
               <Pressable
                 key={source.id}
-                onPress={() => setSelected(source.id)}
+                onPress={() => {
+                  setSelected(source.id);
+                  trackChoice('discovery_source', source.id);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >

@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,6 +20,8 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { track } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { safeBack } from '@/lib/navigation';
@@ -99,6 +101,15 @@ export default function CardDetailsScreen() {
   useEffect(() => {
     void refreshScanToken();
   }, [refreshScanToken]);
+
+  // Track QR presented event when scan token is ready
+  useEffect(() => {
+    if (scanTokenPayload && membershipId) {
+      track(ANALYTICS_EVENTS.qrPresentedCustomer, {
+        membershipId,
+      });
+    }
+  }, [scanTokenPayload, membershipId]);
 
   if (isLoading || memberships === undefined) {
     return <FullScreenLoading />;

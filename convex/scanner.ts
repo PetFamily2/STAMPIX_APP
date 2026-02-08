@@ -19,6 +19,8 @@ type BusinessForStaff = {
   businessId: Id<'businesses'>;
   name: string;
   externalId: string;
+  businessPublicId: string | null;
+  joinCode: string | null;
   logoUrl: string | null;
   colors: unknown | null;
   staffRole: 'owner' | 'staff';
@@ -48,6 +50,8 @@ export const myBusinesses = query({
           businessId: business._id,
           name: business.name,
           externalId: business.externalId,
+          businessPublicId: business.businessPublicId ?? null,
+          joinCode: business.joinCode ?? null,
           logoUrl: business.logoUrl ?? null,
           colors: business.colors ?? null,
           staffRole: staff.staffRole,
@@ -134,7 +138,7 @@ export const resolveScan = mutation({
     }
 
     if (isScanTokenExpired(tokenPayload.timestamp)) {
-      throw new Error('INVALID_QR');
+      throw new Error('EXPIRED_TOKEN');
     }
 
     const existingUsage = await ctx.db
@@ -145,7 +149,7 @@ export const resolveScan = mutation({
       .first();
 
     if (existingUsage) {
-      throw new Error('INVALID_QR');
+      throw new Error('TOKEN_ALREADY_USED');
     }
 
     const customerUserId = tokenPayload.customerId as Id<'users'>;
@@ -196,8 +200,16 @@ export const resolveScan = mutation({
   },
 });
 
+/** Minimum interval between consecutive stamps for the same customer+business. */
+const STAMP_RATE_LIMIT_MS = 30_000; // 30 seconds
+
 /**
  * Step 2: Add stamp (MVP)
+ *
+ * Guards:
+ * - Actor must be staff for the business.
+ * - Anti-self-stamp: actor cannot stamp their own card.
+ * - Rate limit: no two stamps within 30s for the same membership.
  */
 export const addStamp = mutation({
   args: {
@@ -217,6 +229,11 @@ export const addStamp = mutation({
       args.programId
     );
 
+    // Anti-self-stamp: operator cannot stamp their own card
+    if (String(actorUserId) === String(args.customerUserId)) {
+      throw new Error('SELF_STAMP');
+    }
+
     const customer = await ctx.db.get(args.customerUserId);
     if (!customer || customer.isActive !== true) {
       throw new Error('CUSTOMER_NOT_FOUND');
@@ -232,6 +249,14 @@ export const addStamp = mutation({
         q.eq('userId', customerUserId).eq('programId', args.programId)
       )
       .first();
+
+    // Rate limit: check lastStampAt on existing membership
+    if (existing && existing.lastStampAt) {
+      const elapsed = now - existing.lastStampAt;
+      if (elapsed < STAMP_RATE_LIMIT_MS) {
+        throw new Error('RATE_LIMITED');
+      }
+    }
 
     // Decide MVP rule: cap at maxStamps (prevents overflow)
     if (!existing) {

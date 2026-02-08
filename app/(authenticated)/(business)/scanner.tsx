@@ -16,8 +16,15 @@ import {
 import QrScanner from '@/components/QrScanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
+import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { track } from '@/lib/analytics';
+import {
+  trackActivationEvent,
+  trackActivationOnce,
+} from '@/lib/analytics/activation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 type ResolvedScan = {
   customerUserId: string;
@@ -30,22 +37,31 @@ type ResolvedScan = {
   } | null;
 };
 
-const mapScanError = (error: unknown) => {
+const mapScanError = (error: unknown): { message: string; code: string } => {
   if (error instanceof Error) {
-    switch (error.message) {
+    const code = error.message;
+    switch (code) {
       case 'INVALID_QR':
-        return 'קוד QR לא תקין.';
+        return { message: 'קוד QR לא תקין.', code };
+      case 'EXPIRED_TOKEN':
+        return { message: 'ה-QR פג תוקף. בקשו מהלקוח לרענן.', code };
+      case 'TOKEN_ALREADY_USED':
+        return { message: 'ה-QR כבר נסרק. בקשו מהלקוח לרענן.', code };
+      case 'SELF_STAMP':
+        return { message: 'לא ניתן להוסיף ניקוב לעצמך.', code };
+      case 'RATE_LIMITED':
+        return { message: 'המתן 30 שניות בין ניקובים לאותו לקוח.', code };
       case 'CUSTOMER_NOT_FOUND':
-        return 'לקוח לא נמצא במערכת.';
+        return { message: 'לקוח לא נמצא במערכת.', code };
       case 'MEMBERSHIP_NOT_FOUND':
-        return 'לא נמצאה חברות למועדון.';
+        return { message: 'לא נמצאה חברות למועדון.', code };
       case 'NOT_AUTHORIZED':
-        return 'אין הרשאה לבצע פעולה זו.';
+        return { message: 'אין הרשאה לבצע פעולה זו.', code };
       default:
-        return error.message;
+        return { message: code, code };
     }
   }
-  return 'משהו השתבש. נסה שוב.';
+  return { message: 'משהו השתבש. נסה שוב.', code: 'UNKNOWN' };
 };
 
 export default function ScannerScreen() {
@@ -54,6 +70,7 @@ export default function ScannerScreen() {
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const { user } = useUser();
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [businessIndex, setBusinessIndex] = useState(0);
   const selectedBusiness = businesses[businessIndex] ?? businesses[0];
@@ -127,7 +144,12 @@ export default function ScannerScreen() {
       } catch (error) {
         if (showErrors) {
           setResolved(null);
-          setScanError(mapScanError(error));
+          const mapped = mapScanError(error);
+          setScanError(mapped.message);
+          track(ANALYTICS_EVENTS.stampFailed, {
+            error_code: mapped.code,
+            context: 'resolveScan',
+          });
         }
         return null;
       }
@@ -154,6 +176,9 @@ export default function ScannerScreen() {
       setIsResolving(true);
       setStatusMessage(null);
       setScanError(null);
+      track(ANALYTICS_EVENTS.qrScannedCustomer, {
+        businessId: selectedBusiness?.businessId,
+      });
       await resolveByToken(data);
       setIsResolving(false);
       setScannerResetKey((prev) => prev + 1);
@@ -164,6 +189,7 @@ export default function ScannerScreen() {
   const handleAddStamp = useCallback(async () => {
     if (!resolved || !selectedBusiness || !selectedProgram) return;
     if (isBusy) return;
+    const isFirstStampForCustomer = !resolved.membership;
     setIsStamping(true);
     setStatusMessage(null);
     setScanError(null);
@@ -174,11 +200,33 @@ export default function ScannerScreen() {
         customerUserId: resolved.customerUserId as Id<'users'>,
       });
       setStatusMessage('ניקוב נוסף');
+      track(ANALYTICS_EVENTS.stampSuccess, {
+        businessId: selectedBusiness?.businessId,
+        customerUserId: resolved.customerUserId,
+      });
+      if (user?._id) {
+        void trackActivationOnce(
+          ANALYTICS_EVENTS.firstScanCompleted,
+          user._id,
+          { role: 'business', userId: user._id }
+        );
+      }
+      if (isFirstStampForCustomer) {
+        void trackActivationEvent(ANALYTICS_EVENTS.customerFirstStampReceived, {
+          role: 'client',
+          userId: resolved.customerUserId,
+        });
+      }
       if (scanToken) {
         await resolveByToken(scanToken, false);
       }
     } catch (error) {
-      setScanError(mapScanError(error));
+      const mapped = mapScanError(error);
+      setScanError(mapped.message);
+      track(ANALYTICS_EVENTS.stampFailed, {
+        error_code: mapped.code,
+        context: 'addStamp',
+      });
     } finally {
       setIsStamping(false);
     }
@@ -190,6 +238,7 @@ export default function ScannerScreen() {
     resolveByToken,
     selectedBusiness,
     selectedProgram,
+    user?._id,
   ]);
 
   const cycleBusiness = () => {

@@ -96,24 +96,6 @@ const ENTRY_FLOW: FlowItem[] = [
     icon: 'person-circle-outline',
     tone: 'neutral',
   },
-  {
-    title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea',
-    nameEn: 'Join',
-    subtitle:
-      '\u05e7\u05d1\u05dc\u05ea \u05d4\u05d6\u05de\u05e0\u05d4 \u05d0\u05d5 \u05d7\u05d9\u05d1\u05d5\u05e8 \u05dc\u05e2\u05e1\u05e7',
-    href: '/(authenticated)/join',
-    icon: 'people-outline',
-    tone: 'neutral',
-  },
-  {
-    title: '\u05de\u05e1\u05da \u05e8\u05d0\u05e9\u05d9',
-    nameEn: 'Home',
-    subtitle:
-      '\u05d1\u05d9\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-    href: '/(authenticated)',
-    icon: 'home-outline',
-    tone: 'primary',
-  },
 ];
 
 const CLIENT_ONBOARDING: FlowItem[] = [
@@ -242,6 +224,13 @@ const CUSTOMER_MAIN: FlowItem[] = [
     nameEn: 'Wallet',
     href: '/(authenticated)/(customer)/wallet',
     icon: 'wallet-outline',
+    tone: 'info',
+  },
+  {
+    title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05e2\u05e1\u05e7',
+    nameEn: 'Join Business',
+    href: '/(authenticated)/join',
+    icon: 'qr-code-outline',
     tone: 'info',
   },
   {
@@ -459,7 +448,7 @@ function getExtraScreenIcon(href: string): IconName {
   if (href.includes('card')) {
     return 'card-outline';
   }
-  if (href.includes('team') || href.includes('join')) {
+  if (href.includes('team')) {
     return 'people-outline';
   }
   if (href.includes('paywall')) {

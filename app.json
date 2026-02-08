@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile-template",
-    "slug": "mobile-template",
+    "name": "STAMPIX",
+    "slug": "stampix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile-template",
+    "scheme": "stampix",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -15,6 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.stampix.app",
+      "associatedDomains": [
+        "applinks:stampix.app"
+      ],
       "infoPlist": {
         "ExpoLocalization_supportsRTL": true,
         "ExpoLocalization_forcesRTL": true
@@ -26,8 +30,22 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": false,
-      "permissions": ["android.permission.CAMERA", "android.permission.CAMERA"],
-      "package": "com.anonymous.mobiletemplate"
+      "permissions": ["android.permission.CAMERA"],
+      "package": "com.stampix.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "stampix.app",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "androidStatusBar": {
       "translucent": false,

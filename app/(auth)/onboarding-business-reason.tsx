@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type ReasonId =
   | 'repeat'
@@ -25,9 +26,15 @@ const REASONS: Array<{ id: ReasonId; title: string }> = [
 export default function OnboardingBusinessReasonScreen() {
   const [selected, setSelected] = useState<ReasonId | null>(null);
   const canContinue = Boolean(selected);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_business_reason',
+    role: 'business',
+  });
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({ reason: selected });
     safePush('/(auth)/onboarding-business-name');
   };
 
@@ -51,7 +58,10 @@ export default function OnboardingBusinessReasonScreen() {
             return (
               <Pressable
                 key={reason.id}
-                onPress={() => setSelected(reason.id)}
+                onPress={() => {
+                  setSelected(reason.id);
+                  trackChoice('reason', reason.id);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >

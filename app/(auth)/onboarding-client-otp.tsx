@@ -1,5 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type NativeSyntheticEvent,
   Pressable,
@@ -10,11 +11,23 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const CODE_LENGTH = 6;
+
+const TEXT = {
+  title: 'מה הקוד שקיבלת?',
+  noContactSubtitle: 'שלחנו קוד לאימות הפרטים שלך',
+  resend: 'שלח שוב',
+  incompleteCode: 'אנא הזן את כל הקוד שקיבלת.',
+  editDetails: 'ערוך פרטים',
+  continue: 'המשך',
+};
 
 export default function OnboardingOtpScreen() {
   const { contact } = useLocalSearchParams<{ contact?: string | string[] }>();
@@ -24,21 +37,51 @@ export default function OnboardingOtpScreen() {
   const [secondsLeft, setSecondsLeft] = useState(59);
   const [error, setError] = useState('');
   const inputsRef = useRef<Array<TextInput | null>>([]);
+  const otpSentRef = useRef(false);
+  const digitIndexes = useMemo(
+    () => Array.from({ length: CODE_LENGTH }, (_, index) => index),
+    []
+  );
+  const { completeStep, trackContinue, trackError, trackEvent } =
+    useOnboardingTracking({
+      screen: 'onboarding_client_otp',
+      role: 'client',
+    });
 
   const contactValue = useMemo(() => {
-    if (Array.isArray(contact)) return contact[0] ?? '';
+    if (Array.isArray(contact)) {
+      return contact[0] ?? '';
+    }
     return contact ?? '';
   }, [contact]);
 
   const headerSubtitle = useMemo(() => {
-    if (!contactValue) return 'שלחנו קוד לאימות הפרטים שלך';
+    if (!contactValue) {
+      return TEXT.noContactSubtitle;
+    }
     return `שלחנו קוד ל-${contactValue}`;
   }, [contactValue]);
+
+  const otpChannel = contactValue.includes('@') ? 'email' : 'sms';
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!otpSentRef.current) {
+        otpSentRef.current = true;
+        trackEvent(ANALYTICS_EVENTS.otpSent, { channel: otpChannel });
+      }
+
+      return () => {
+        otpSentRef.current = false;
+      };
+    }, [otpChannel, trackEvent])
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
+
     return () => clearInterval(timer);
   }, []);
 
@@ -49,7 +92,11 @@ export default function OnboardingOtpScreen() {
 
   const handleChange = (index: number, value: string) => {
     const sanitized = value.replace(/\D/g, '');
-    if (error) setError('');
+
+    if (error) {
+      setError('');
+    }
+
     if (sanitized.length === 0) {
       setDigits((prev) => {
         const next = [...prev];
@@ -65,6 +112,7 @@ export default function OnboardingOtpScreen() {
         next[index] = sanitized;
         return next;
       });
+
       if (index < CODE_LENGTH - 1) {
         inputsRef.current[index + 1]?.focus();
       }
@@ -87,9 +135,18 @@ export default function OnboardingOtpScreen() {
     index: number,
     event: NativeSyntheticEvent<TextInputKeyPressEventData>
   ) => {
-    if (event.nativeEvent.key !== 'Backspace') return;
-    if (digits[index]) return;
-    if (index === 0) return;
+    if (event.nativeEvent.key !== 'Backspace') {
+      return;
+    }
+
+    if (digits[index]) {
+      return;
+    }
+
+    if (index === 0) {
+      return;
+    }
+
     inputsRef.current[index - 1]?.focus();
   };
 
@@ -102,23 +159,35 @@ export default function OnboardingOtpScreen() {
   }, [secondsLeft]);
 
   const resendLabel = useMemo(() => {
-    if (secondsLeft === 0) return 'שלח שוב';
-    return `שלח שוב (${formattedTimer})`;
+    if (secondsLeft === 0) {
+      return TEXT.resend;
+    }
+    return `${TEXT.resend} (${formattedTimer})`;
   }, [formattedTimer, secondsLeft]);
 
   const handleResend = () => {
-    if (secondsLeft > 0) return;
+    if (secondsLeft > 0) {
+      return;
+    }
+
     setSecondsLeft(59);
     setDigits(Array.from({ length: CODE_LENGTH }, () => ''));
     setError('');
     inputsRef.current[0]?.focus();
+    trackEvent(ANALYTICS_EVENTS.otpResent, { channel: otpChannel });
   };
 
   const handleContinue = () => {
     if (!isComplete) {
-      setError('אנא הזן את כל הקוד שקיבלת.');
+      setError(TEXT.incompleteCode);
+      trackError('otp', 'incomplete');
+      trackEvent(ANALYTICS_EVENTS.otpFailed, { error_code: 'invalid' });
       return;
     }
+
+    trackContinue();
+    trackEvent(ANALYTICS_EVENTS.otpVerified);
+    completeStep();
     safePush('/(auth)/onboarding-client-interests');
   };
 
@@ -133,26 +202,26 @@ export default function OnboardingOtpScreen() {
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>מה הקוד שקיבלת?</Text>
+          <Text style={styles.title}>{TEXT.title}</Text>
           <Text style={styles.subtitle}>{headerSubtitle}</Text>
         </View>
 
         <View style={styles.digitsContainer}>
-          {digits.map((digit, index) => (
+          {digitIndexes.map((digitIndex) => (
             <TextInput
-              key={`digit-${index}`}
+              key={`digit-${digitIndex}`}
               ref={(ref) => {
-                inputsRef.current[index] = ref;
+                inputsRef.current[digitIndex] = ref;
               }}
-              value={digit}
-              onChangeText={(value) => handleChange(index, value)}
-              onKeyPress={(event) => handleKeyPress(index, event)}
+              value={digits[digitIndex]}
+              onChangeText={(value) => handleChange(digitIndex, value)}
+              onKeyPress={(event) => handleKeyPress(digitIndex, event)}
               keyboardType="number-pad"
               returnKeyType="done"
               textContentType="oneTimeCode"
               maxLength={CODE_LENGTH}
-              style={[styles.digitInput, { textAlign: 'center' }]}
-              accessibilityLabel={`ספרה ${index + 1} בקוד`}
+              style={styles.digitInput}
+              accessibilityLabel={`ספרה ${digitIndex + 1} בקוד`}
             />
           ))}
         </View>
@@ -177,7 +246,7 @@ export default function OnboardingOtpScreen() {
             onPress={() => safeBack('/(auth)/onboarding-client-details')}
             style={styles.editButton}
           >
-            <Text style={styles.editText}>ערוך פרטים</Text>
+            <Text style={styles.editText}>{TEXT.editDetails}</Text>
           </Pressable>
         </View>
 
@@ -202,7 +271,7 @@ export default function OnboardingOtpScreen() {
                     : styles.buttonTextInactive,
                 ]}
               >
-                המשך
+                {TEXT.continue}
               </Text>
             </View>
           </Pressable>
@@ -247,7 +316,8 @@ const styles = StyleSheet.create({
   },
   digitsContainer: {
     marginTop: 40,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
+    direction: 'ltr',
     justifyContent: 'space-between',
   },
   digitInput: {
@@ -260,6 +330,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
+    textAlign: 'center',
+    writingDirection: 'ltr',
   },
   errorText: {
     marginTop: 16,
@@ -324,3 +396,11 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
 });
+
+
+
+
+
+
+
+

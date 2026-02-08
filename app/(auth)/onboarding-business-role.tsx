@@ -4,9 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 export default function OnboardingBusinessScreen() {
+  const { completeStep, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_business_role',
+    role: 'business',
+  });
+
   const handleContinue = () => {
+    trackContinue();
+    completeStep();
     safePush('/(auth)/onboarding-business-discovery');
   };
 

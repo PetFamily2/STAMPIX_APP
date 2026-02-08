@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireActorIsStaffForBusiness, requireCurrentUser } from './guards';
+import { generateJoinCode, generatePublicId } from './lib/ids';
 
 export interface BusinessCreationInput {
   ownerUserId: Id<'users'>;
@@ -60,14 +61,52 @@ export async function ensureBusinessOwnerStaff(
   return ensureBusinessStaffRecord(ctx, businessId, ownerUserId, 'owner', now);
 }
 
+/**
+ * Generate a unique businessPublicId with retry on collision.
+ */
+async function generateUniquePublicId(ctx: any, maxRetries = 5): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const candidate = generatePublicId(12);
+    const existing = await ctx.db
+      .query('businesses')
+      .withIndex('by_businessPublicId', (q: any) =>
+        q.eq('businessPublicId', candidate)
+      )
+      .first();
+    if (!existing) return candidate;
+  }
+  throw new Error('FAILED_TO_GENERATE_PUBLIC_ID');
+}
+
+/**
+ * Generate a unique joinCode with retry on collision.
+ */
+async function generateUniqueJoinCode(ctx: any, maxRetries = 5): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const candidate = generateJoinCode(8);
+    const existing = await ctx.db
+      .query('businesses')
+      .withIndex('by_joinCode', (q: any) => q.eq('joinCode', candidate))
+      .first();
+    if (!existing) return candidate;
+  }
+  throw new Error('FAILED_TO_GENERATE_JOIN_CODE');
+}
+
 export async function createBusinessForOwner(
   ctx: any,
   input: BusinessCreationInput
 ) {
   const now = input.now ?? Date.now();
+
+  const businessPublicId = await generateUniquePublicId(ctx);
+  const joinCode = await generateUniqueJoinCode(ctx);
+
   const businessId = await ctx.db.insert('businesses', {
     ownerUserId: input.ownerUserId,
     externalId: input.externalId,
+    businessPublicId,
+    joinCode,
     name: input.name,
     logoUrl: input.logoUrl,
     colors: input.colors,
@@ -81,7 +120,7 @@ export async function createBusinessForOwner(
     role: 'merchant',
     updatedAt: now,
   });
-  return { businessId };
+  return { businessId, businessPublicId, joinCode };
 }
 
 export const createBusiness = mutation({

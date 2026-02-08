@@ -3,18 +3,29 @@ import { Heart, TrendingUp } from 'lucide-react-native';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import stampixLogo from '@/reference-ui/stampix---loyalty-made-simple/logo.png';
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { completeStep, trackContinue } = useOnboardingTracking({
+    screen: 'sign_up',
+  });
+
+  const handleBack = () => {
+    safeBack('/(auth)/flow-map');
+  };
 
   const handleGetStarted = () => {
     // Navigate to actual sign up form or next step
+    trackContinue();
+    completeStep();
     router.push('/(auth)/onboarding-client-role');
   };
 
@@ -24,6 +35,10 @@ export default function SignUpScreen() {
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       <View className="flex-1 px-6 py-8">
+        <View className="flex-row-reverse items-center justify-between">
+          <BackButton onPress={handleBack} />
+          <View className="w-11 h-11" />
+        </View>
         {/* Logo */}
         <View className="items-center mb-10 mt-2">
           <View className="relative items-center justify-center">

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type FitOptionId = 'self' | 'couple' | 'kids' | 'pet' | 'home' | 'work';
 
@@ -19,15 +20,29 @@ const FIT_OPTIONS: Array<{ id: FitOptionId; title: string }> = [
 export default function OnboardingClientFitScreen() {
   const [selected, setSelected] = useState<FitOptionId[]>([]);
   const canContinue = selected.length > 0;
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_client_fit',
+    role: 'client',
+  });
 
   const toggleOption = (id: FitOptionId) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    setSelected((prev) => {
+      if (prev.includes(id)) {
+        trackChoice('fit_option', id, { selected: false });
+        return prev.filter((item) => item !== id);
+      }
+      trackChoice('fit_option', id, { selected: true });
+      return [...prev, id];
+    });
   };
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({
+      fit_count: selected.length,
+      fit_values: selected,
+    });
     safePush('/(auth)/onboarding-client-frequency');
   };
 

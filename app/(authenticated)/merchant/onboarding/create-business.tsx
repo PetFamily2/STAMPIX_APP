@@ -11,12 +11,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { trackActivationEvent } from '@/lib/analytics/activation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { tw } from '@/lib/rtl';
 
 export default function CreateBusinessScreen() {
   const router = useRouter();
   const { businessDraft, setBusinessDraft, setBusinessId } = useOnboarding();
+  const { user } = useUser();
   const createBusiness = useMutation(api.business.createBusiness);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +50,10 @@ export default function CreateBusinessScreen() {
         colors: businessDraft.colors,
       });
       setBusinessId(businessId);
+      void trackActivationEvent(ANALYTICS_EVENTS.businessCreated, {
+        role: 'business',
+        userId: user?._id,
+      });
       router.push('/merchant/onboarding/create-program');
     } catch (err: unknown) {
       setError((err as Error).message ?? 'שגיאה ביצירת העסק');

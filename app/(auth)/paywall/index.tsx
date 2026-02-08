@@ -1,6 +1,7 @@
-import { useLocalSearchParams } from 'expo-router';
+﻿import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Check, ChevronLeft, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,33 +16,47 @@ import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { safeBack } from '@/lib/navigation';
 import { tw } from '@/lib/rtl';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { clearOnboardingSessionId } from '@/lib/onboarding/session';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 // ============================================================================
-// קונפיגורציית תכונות למסך התשלום
+// ׳§׳•׳ ׳₪׳™׳’׳•׳¨׳¦׳™׳™׳× ׳×׳›׳•׳ ׳•׳× ׳׳׳¡׳ ׳”׳×׳©׳׳•׳
 // ============================================================================
 
 const FEATURES = [
-  'תכונה #1 - תיאור התכונה',
-  'תכונה #2 - תיאור התכונה',
-  'תכונה #3 - תיאור התכונה',
+  '׳×׳›׳•׳ ׳” #1 - ׳×׳™׳׳•׳¨ ׳”׳×׳›׳•׳ ׳”',
+  '׳×׳›׳•׳ ׳” #2 - ׳×׳™׳׳•׳¨ ׳”׳×׳›׳•׳ ׳”',
+  '׳×׳›׳•׳ ׳” #3 - ׳×׳™׳׳•׳¨ ׳”׳×׳›׳•׳ ׳”',
 ];
 
 // ============================================================================
-// מסך התשלום (Paywall)
+// ׳׳¡׳ ׳”׳×׳©׳׳•׳ (Paywall)
 // ============================================================================
 
 export default function PaywallScreen() {
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
 
-  const { packages, isLoading, purchasePackage, restorePurchases, isExpoGo } =
-    useRevenueCat();
+  const {
+    packages,
+    isLoading,
+    purchasePackage,
+    restorePurchases,
+    isExpoGo,
+    isConfigured,
+  } = useRevenueCat();
+  const { completeStep, trackContinue, trackEvent } = useOnboardingTracking({
+    screen: 'paywall',
+    role: 'business',
+  });
+  const completionRef = useRef(false);
 
-  // מציאת החבילות החודשית והשנתית
+  // ׳׳¦׳™׳׳× ׳”׳—׳‘׳™׳׳•׳× ׳”׳—׳•׳“׳©׳™׳× ׳•׳”׳©׳ ׳×׳™׳×
   const monthlyPackage = packages.find((p) => p.packageType === 'monthly');
   const annualPackage = packages.find((p) => p.packageType === 'annual');
 
-  // בחירת תוכנית - ברירת מחדל: שנתית
+  // ׳‘׳—׳™׳¨׳× ׳×׳•׳›׳ ׳™׳× - ׳‘׳¨׳™׳¨׳× ׳׳—׳“׳: ׳©׳ ׳×׳™׳×
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>(
     'annual'
   );
@@ -50,17 +65,34 @@ export default function PaywallScreen() {
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
+  useFocusEffect(
+    useCallback(() => {
+      trackEvent(ANALYTICS_EVENTS.paywallViewed);
+    }, [trackEvent])
+  );
+
+  const finishOnboarding = useCallback(() => {
+    if (completionRef.current) {
+      return;
+    }
+    completionRef.current = true;
+    trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'business' });
+    void clearOnboardingSessionId();
+  }, [trackEvent]);
+
   // ============================================================================
-  // פעולות
+  // ׳₪׳¢׳•׳׳•׳×
   // ============================================================================
 
   const handleClose = () => {
+    completeStep();
+    finishOnboarding();
     safeBack('/(auth)/sign-in');
   };
 
   const handleContinue = async () => {
     if (isPreviewMode) {
-      // במצב תצוגה מקדימה - לא מבצעים רכישה אמיתית
+      // ׳‘׳׳¦׳‘ ׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” - ׳׳ ׳׳‘׳¦׳¢׳™׳ ׳¨׳›׳™׳©׳” ׳׳׳™׳×׳™׳×
       return;
     }
 
@@ -74,10 +106,24 @@ export default function PaywallScreen() {
     }
 
     setIsPurchasing(true);
+    trackContinue();
+    trackEvent(ANALYTICS_EVENTS.checkoutStarted, { plan_id: packageId });
     try {
       const success = await purchasePackage(packageId);
       if (success) {
+        trackEvent(ANALYTICS_EVENTS.purchaseCompleted, { plan_id: packageId });
+        completeStep();
+        finishOnboarding();
         safeBack('/(auth)/sign-in');
+      } else {
+        trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
+          plan_id: packageId,
+          error_code: isExpoGo
+            ? 'expo_go'
+            : isConfigured
+              ? 'cancelled_or_failed'
+              : 'not_configured',
+        });
       }
     } finally {
       setIsPurchasing(false);
@@ -93,6 +139,8 @@ export default function PaywallScreen() {
     try {
       const success = await restorePurchases();
       if (success) {
+        completeStep();
+        finishOnboarding();
         safeBack('/(auth)/sign-in');
       }
     } finally {
@@ -109,7 +157,7 @@ export default function PaywallScreen() {
   };
 
   // ============================================================================
-  // רינדור
+  // ׳¨׳™׳ ׳“׳•׳¨
   // ============================================================================
 
   if (isLoading) {
@@ -122,18 +170,18 @@ export default function PaywallScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top', 'bottom']}>
-      {/* מודלים לתנאי שימוש ומדיניות פרטיות */}
+      {/* ׳׳•׳“׳׳™׳ ׳׳×׳ ׳׳™ ׳©׳™׳׳•׳© ׳•׳׳“׳™׳ ׳™׳•׳× ׳₪׳¨׳˜׳™׳•׳× */}
       <WebViewModal
         visible={termsModalVisible}
         url={TERMS_URL}
-        title="תנאי השימוש"
+        title="׳×׳ ׳׳™ ׳”׳©׳™׳׳•׳©"
         onClose={() => setTermsModalVisible(false)}
       />
 
       <WebViewModal
         visible={privacyModalVisible}
         url={PRIVACY_URL}
-        title="מדיניות הפרטיות"
+        title="׳׳“׳™׳ ׳™׳•׳× ׳”׳₪׳¨׳˜׳™׳•׳×"
         onClose={() => setPrivacyModalVisible(false)}
       />
 
@@ -142,7 +190,7 @@ export default function PaywallScreen() {
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* כפתור סגירה */}
+        {/* ׳›׳₪׳×׳•׳¨ ׳¡׳’׳™׳¨׳” */}
         <View className={`${tw.flexRow} ${tw.justifyEnd} px-4 pt-4`}>
           <TouchableOpacity
             onPress={handleClose}
@@ -153,35 +201,35 @@ export default function PaywallScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* באנר מצב תצוגה מקדימה */}
+        {/* ׳‘׳׳ ׳¨ ׳׳¦׳‘ ׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” */}
         {isPreviewMode && (
           <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/50">
             <Text className="text-yellow-400 text-center text-sm font-medium">
-              מצב תצוגה מקדימה - רכישות מושבתות
+              ׳׳¦׳‘ ׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” - ׳¨׳›׳™׳©׳•׳× ׳׳•׳©׳‘׳×׳•׳×
             </Text>
           </View>
         )}
 
-        {/* באנר Expo Go */}
+        {/* ׳‘׳׳ ׳¨ Expo Go */}
         {isExpoGo && !isPreviewMode && (
           <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-blue-500/20 border border-blue-500/50">
             <Text className="text-blue-400 text-center text-sm font-medium">
-              Expo Go - רכישות לא זמינות
+              Expo Go - ׳¨׳›׳™׳©׳•׳× ׳׳ ׳–׳׳™׳ ׳•׳×
             </Text>
           </View>
         )}
 
-        {/* כותרת */}
+        {/* ׳›׳•׳×׳¨׳× */}
         <View className="px-6 pt-4 pb-6">
           <Text className="text-white text-3xl font-bold text-center mb-2">
-            כותרת מסך התשלום
+            ׳›׳•׳×׳¨׳× ׳׳¡׳ ׳”׳×׳©׳׳•׳
           </Text>
           <Text className="text-zinc-400 text-base text-center">
-            כותרת משנה למסך התשלום
+            ׳›׳•׳×׳¨׳× ׳׳©׳ ׳” ׳׳׳¡׳ ׳”׳×׳©׳׳•׳
           </Text>
         </View>
 
-        {/* רשימת תכונות */}
+        {/* ׳¨׳©׳™׳׳× ׳×׳›׳•׳ ׳•׳× */}
         <View className="px-6 pb-6">
           {FEATURES.map((feature) => (
             <View
@@ -198,19 +246,25 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {/* כותרת תמחור */}
+        {/* ׳›׳•׳×׳¨׳× ׳×׳׳—׳•׳¨ */}
         <View className="bg-white py-3 px-6">
           <Text className="text-zinc-900 text-center font-semibold text-base">
-            הצטרף היום במחיר הטוב ביותר
+            ׳”׳¦׳˜׳¨׳£ ׳”׳™׳•׳ ׳‘׳׳—׳™׳¨ ׳”׳˜׳•׳‘ ׳‘׳™׳•׳×׳¨
           </Text>
         </View>
 
-        {/* כרטיסי תוכניות */}
+        {/* ׳›׳¨׳˜׳™׳¡׳™ ׳×׳•׳›׳ ׳™׳•׳× */}
         <View className="px-4 py-6 gap-3">
-          {/* תוכנית חודשית */}
+          {/* ׳×׳•׳›׳ ׳™׳× ׳—׳•׳“׳©׳™׳× */}
           {monthlyPackage && (
             <TouchableOpacity
-              onPress={() => setSelectedPlan('monthly')}
+              onPress={() => {
+                setSelectedPlan('monthly');
+                trackEvent(ANALYTICS_EVENTS.planSelected, {
+                  plan_id: monthlyPackage.identifier,
+                  billing_period: 'monthly',
+                });
+              }}
               className={`rounded-xl p-4 border-2 ${
                 selectedPlan === 'monthly'
                   ? 'border-[#4fc3f7] bg-zinc-900'
@@ -223,7 +277,7 @@ export default function PaywallScreen() {
                 </Text>
                 <View className={`${tw.flexRow} items-center gap-3`}>
                   <Text className="text-white text-lg font-semibold">
-                    חודשי
+                    ׳—׳•׳“׳©׳™
                   </Text>
                   <View
                     className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
@@ -241,10 +295,16 @@ export default function PaywallScreen() {
             </TouchableOpacity>
           )}
 
-          {/* תוכנית שנתית */}
+          {/* ׳×׳•׳›׳ ׳™׳× ׳©׳ ׳×׳™׳× */}
           {annualPackage && (
             <TouchableOpacity
-              onPress={() => setSelectedPlan('annual')}
+              onPress={() => {
+                setSelectedPlan('annual');
+                trackEvent(ANALYTICS_EVENTS.planSelected, {
+                  plan_id: annualPackage.identifier,
+                  billing_period: 'yearly',
+                });
+              }}
               className={`rounded-xl p-4 border-2 ${
                 selectedPlan === 'annual'
                   ? 'border-[#4fc3f7] bg-zinc-900'
@@ -256,7 +316,7 @@ export default function PaywallScreen() {
                   {annualPackage.priceString}
                 </Text>
                 <View className={`${tw.flexRow} items-center gap-3`}>
-                  <Text className="text-white text-lg font-semibold">שנתי</Text>
+                  <Text className="text-white text-lg font-semibold">׳©׳ ׳×׳™</Text>
                   <View
                     className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
                       selectedPlan === 'annual'
@@ -274,12 +334,12 @@ export default function PaywallScreen() {
           )}
         </View>
 
-        {/* טקסט מידע */}
+        {/* ׳˜׳§׳¡׳˜ ׳׳™׳“׳¢ */}
         <Text className="text-zinc-500 text-center text-sm px-6 mb-4">
-          הצטרף היום, בטל בכל עת.
+          ׳”׳¦׳˜׳¨׳£ ׳”׳™׳•׳, ׳‘׳˜׳ ׳‘׳›׳ ׳¢׳×.
         </Text>
 
-        {/* כפתור המשך */}
+        {/* ׳›׳₪׳×׳•׳¨ ׳”׳׳©׳ */}
         <View className="px-6 mb-6">
           <TouchableOpacity
             onPress={handleContinue}
@@ -291,12 +351,12 @@ export default function PaywallScreen() {
             {isPurchasing ? (
               <ActivityIndicator color="#0a0a0a" />
             ) : (
-              <Text className="text-[#0a0a0a] text-lg font-bold">המשך</Text>
+              <Text className="text-[#0a0a0a] text-lg font-bold">׳”׳׳©׳</Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* קישורים תחתונים */}
+        {/* ׳§׳™׳©׳•׳¨׳™׳ ׳×׳—׳×׳•׳ ׳™׳ */}
         <View className={`${tw.flexRow} justify-center gap-8 pb-6`}>
           <TouchableOpacity
             onPress={handleRestore}
@@ -305,19 +365,20 @@ export default function PaywallScreen() {
             {isRestoring ? (
               <ActivityIndicator size="small" color="#a1a1aa" />
             ) : (
-              <Text className="text-zinc-500 text-sm">שחזור</Text>
+              <Text className="text-zinc-500 text-sm">׳©׳—׳–׳•׳¨</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleTerms}>
-            <Text className="text-zinc-500 text-sm">תנאי שימוש</Text>
+            <Text className="text-zinc-500 text-sm">׳×׳ ׳׳™ ׳©׳™׳׳•׳©</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handlePrivacy}>
-            <Text className="text-zinc-500 text-sm">פרטיות</Text>
+            <Text className="text-zinc-500 text-sm">׳₪׳¨׳˜׳™׳•׳×</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+

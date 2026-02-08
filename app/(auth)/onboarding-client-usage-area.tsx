@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type AreaId = 'center' | 'sharon' | 'north' | 'south' | 'jerusalem';
 
@@ -20,9 +21,18 @@ export default function OnboardingUsageAreaScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<AreaId | null>(null);
   const canContinue = Boolean(selected);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_client_usage_area',
+    role: 'client',
+  });
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({
+      areas_count: selected ? 1 : 0,
+      areas_values: selected ? [selected] : [],
+    });
     router.push('/(auth)/onboarding-client-fit');
   };
 
@@ -47,7 +57,10 @@ export default function OnboardingUsageAreaScreen() {
             return (
               <Pressable
                 key={area.id}
-                onPress={() => setSelected(area.id)}
+                onPress={() => {
+                  setSelected(area.id);
+                  trackChoice('usage_area', area.id);
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
               >

@@ -1,12 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 export default function OnboardingBusinessNameScreen() {
   const [businessName, setBusinessName] = useState('');
+  const { completeStep, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_business_name',
+    role: 'business',
+  });
 
   const canContinue = useMemo(
     () => businessName.trim().length > 0,
@@ -15,6 +27,8 @@ export default function OnboardingBusinessNameScreen() {
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({ name_length: businessName.trim().length });
     safePush('/(auth)/onboarding-business-usage-area');
   };
 
@@ -40,11 +54,12 @@ export default function OnboardingBusinessNameScreen() {
             onChangeText={setBusinessName}
             placeholder="קפה המרפסת"
             placeholderTextColor="#9CA3AF"
-            returnKeyType="done"
+            returnKeyType="next"
             autoCapitalize="words"
             style={styles.input}
             accessibilityLabel="שם העסק"
-            onSubmitEditing={handleContinue}
+            blurOnSubmit
+            onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 

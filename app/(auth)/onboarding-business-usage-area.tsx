@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
 
@@ -22,15 +23,21 @@ const USAGE_AREAS: Array<{
 export default function OnboardingUsageAreaScreen() {
   const [selected, setSelected] = useState<UsageAreaId[]>([]);
   const canContinue = selected.length > 0;
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_business_usage_area',
+    role: 'business',
+  });
 
   const toggleArea = (id: UsageAreaId) => {
     setSelected((prev) => {
       if (prev.includes(id)) {
+        trackChoice('usage_area', id, { selected: false });
         return prev.filter((item) => item !== id);
       }
       if (prev.length >= 3) {
         return prev;
       }
+      trackChoice('usage_area', id, { selected: true });
       return [...prev, id];
     });
   };
@@ -38,6 +45,11 @@ export default function OnboardingUsageAreaScreen() {
     if (!canContinue) {
       return;
     }
+    trackContinue();
+    completeStep({
+      areas_count: selected.length,
+      areas_values: selected,
+    });
     safePush('/(auth)/paywall');
   };
 

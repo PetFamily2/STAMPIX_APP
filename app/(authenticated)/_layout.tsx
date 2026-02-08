@@ -13,6 +13,7 @@ import { Pressable, Text, View } from 'react-native';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
+import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 
 const TEXT = {
   loading: '\u05d8\u05d5\u05e2\u05df...',
@@ -23,7 +24,12 @@ const TEXT = {
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const { preview, biz, src, camp } = useLocalSearchParams<{
+    preview?: string;
+    biz?: string;
+    src?: string;
+    camp?: string;
+  }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
   const {
     appMode,
@@ -41,6 +47,7 @@ export default function AuthenticatedLayout() {
   const lastRedirectRef = useRef<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [booting, setBooting] = useState(false);
+  const pendingJoinSaved = useRef(false);
 
   useEffect(() => {
     if (isPreviewMode) {
@@ -109,14 +116,14 @@ export default function AuthenticatedLayout() {
     const currentKey = `/${currentSegments.join('/')}`;
 
     const inRoleScreen = currentSegments.includes('role');
-    const inJoin = currentSegments.includes('join');
     const inCard = currentSegments.includes('card');
     const inMerchant = currentSegments.includes('merchant');
     const inAdmin = currentSegments.includes('admin');
+    const inJoin = currentSegments.includes('join');
     const inCustomerGroup = currentSegments.includes('(customer)');
     const inBusinessGroup = currentSegments.includes('(business)');
 
-    const isFreeRoute = inJoin || inCard || inMerchant || inAdmin;
+    const isFreeRoute = inCard || inMerchant || inAdmin || inJoin;
 
     const safeReplace = (href: string) => {
       const key = `${currentKey}=>${href}`;
@@ -148,7 +155,11 @@ export default function AuthenticatedLayout() {
     }
 
     if (!inCustomerGroup && !inBusinessGroup && !inRoleScreen && !isFreeRoute) {
-      safeReplace(appMode === 'customer' ? customerTarget : businessTarget);
+      if (appMode === 'customer') {
+        safeReplace(customerTarget);
+      } else {
+        safeReplace(businessTarget);
+      }
     }
   }, [
     appMode,
@@ -162,6 +173,15 @@ export default function AuthenticatedLayout() {
     segments,
     isPreviewMode,
   ]);
+
+  // Save deep link join params before auth redirect so we can complete the
+  // join after sign-in / sign-up.
+  useEffect(() => {
+    if (!isAuthenticated && !isPreviewMode && biz && !pendingJoinSaved.current) {
+      pendingJoinSaved.current = true;
+      void savePendingJoin({ biz, src, camp });
+    }
+  }, [isAuthenticated, isPreviewMode, biz, src, camp]);
 
   if (
     isLoading ||

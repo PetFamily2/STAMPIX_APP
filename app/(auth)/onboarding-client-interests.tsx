@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type BusinessTypeId =
   | 'coffee'
@@ -29,23 +30,34 @@ const BUSINESS_TYPES: Array<{
 
 export default function OnboardingInterestsScreen() {
   const [selected, setSelected] = useState<BusinessTypeId[]>([]);
+  const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
+    screen: 'onboarding_client_interests',
+    role: 'client',
+  });
 
   const canContinue = selected.length > 0;
 
   const toggleType = (id: BusinessTypeId) => {
     setSelected((prev) => {
       if (prev.includes(id)) {
+        trackChoice('interest', id, { selected: false });
         return prev.filter((item) => item !== id);
       }
       if (prev.length >= 3) {
         return prev;
       }
+      trackChoice('interest', id, { selected: true });
       return [...prev, id];
     });
   };
 
   const handleContinue = () => {
     if (!canContinue) return;
+    trackContinue();
+    completeStep({
+      interests_count: selected.length,
+      interests_values: selected,
+    });
     safePush('/(auth)/onboarding-client-usage-area');
   };
 

@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -116,9 +115,8 @@ export default function DiscoveryScreen() {
             />
           </View>
 
-          <Pressable
-            onPress={() => router.push('/join')}
-            style={({ pressed }) => ({
+          <View
+            style={{
               width: 46,
               height: 46,
               borderRadius: 14,
@@ -127,11 +125,10 @@ export default function DiscoveryScreen() {
               borderColor: '#E3E9FF',
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.85 : 1,
-            })}
+            }}
           >
             <Ionicons name="options-outline" size={20} color="#2F6BFF" />
-          </Pressable>
+          </View>
         </View>
 
         <View style={{ marginTop: 14, gap: 12 }}>
@@ -227,22 +224,20 @@ export default function DiscoveryScreen() {
                   </View>
                 </View>
 
-                <Pressable
-                  onPress={() => router.push('/join')}
-                  style={({ pressed }) => ({
+                <View
+                  style={{
                     marginTop: 12,
                     alignSelf: 'flex-start',
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     borderRadius: 14,
-                    backgroundColor: '#2F6BFF',
-                    opacity: pressed ? 0.9 : 1,
-                  })}
+                    backgroundColor: '#E3E9FF',
+                  }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+                  <Text style={{ color: '#2F6BFF', fontWeight: '900' }}>
                     הצטרף למועדון
                   </Text>
-                </Pressable>
+                </View>
               </View>
             ))
           )}
@@ -251,3 +246,4 @@ export default function DiscoveryScreen() {
     </SafeAreaView>
   );
 }
+

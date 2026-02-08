@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { useAppMode } from '@/contexts/AppModeContext';
 import { safeBack } from '@/lib/navigation';
 
 const REMEMBERED_EMAIL_KEY = 'remembered_email';
@@ -53,6 +54,7 @@ const TEXT = {
 
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
+  const { setAppMode } = useAppMode();
   const router = useRouter();
   const { preview } = useLocalSearchParams<{ preview?: string }>();
   const isPreviewMode = IS_DEV_MODE && preview === 'true';
@@ -105,7 +107,8 @@ export default function SignInScreen() {
         await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
 
-      router.replace('/(authenticated)');
+      await setAppMode('customer');
+      router.replace('/(authenticated)/(customer)/wallet');
     } catch (err: unknown) {
       const error = err as { message?: string };
       const errorMessage = error.message || '';

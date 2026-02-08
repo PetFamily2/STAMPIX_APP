@@ -48,6 +48,8 @@ export default defineSchema({
   businesses: defineTable({
     ownerUserId: v.id('users'),
     externalId: v.string(),
+    businessPublicId: v.optional(v.string()), // opaque nanoid(12) for QR links
+    joinCode: v.optional(v.string()), // short alphanumeric code for manual entry
     name: v.string(),
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
@@ -57,6 +59,8 @@ export default defineSchema({
   })
     .index('by_ownerUserId', ['ownerUserId'])
     .index('by_externalId', ['externalId'])
+    .index('by_businessPublicId', ['businessPublicId'])
+    .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive']),
 
   businessStaff: defineTable({
@@ -90,6 +94,8 @@ export default defineSchema({
     programId: v.id('loyaltyPrograms'),
     currentStamps: v.number(),
     lastStampAt: v.optional(v.number()),
+    joinSource: v.optional(v.string()), // src param from join QR link
+    joinCampaign: v.optional(v.string()), // camp param from join QR link
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
