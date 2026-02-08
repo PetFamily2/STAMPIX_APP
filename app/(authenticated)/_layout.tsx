@@ -115,7 +115,6 @@ export default function AuthenticatedLayout() {
     ) as string[];
     const currentKey = `/${currentSegments.join('/')}`;
 
-    const inRoleScreen = currentSegments.includes('role');
     const inCard = currentSegments.includes('card');
     const inMerchant = currentSegments.includes('merchant');
     const inAdmin = currentSegments.includes('admin');
@@ -134,15 +133,13 @@ export default function AuthenticatedLayout() {
       router.replace(href as Href);
     };
 
-    if (!hasSelectedMode) {
-      if (!inRoleScreen) {
-        safeReplace('/(authenticated)/role');
-      }
-      return;
-    }
-
     const customerTarget = '/(authenticated)/(customer)/wallet';
     const businessTarget = '/(authenticated)/(business)/dashboard';
+
+    if (!hasSelectedMode) {
+      safeReplace(customerTarget);
+      return;
+    }
 
     if (appMode === 'customer' && inBusinessGroup) {
       safeReplace(customerTarget);
@@ -154,7 +151,7 @@ export default function AuthenticatedLayout() {
       return;
     }
 
-    if (!inCustomerGroup && !inBusinessGroup && !inRoleScreen && !isFreeRoute) {
+    if (!inCustomerGroup && !inBusinessGroup && !isFreeRoute) {
       if (appMode === 'customer') {
         safeReplace(customerTarget);
       } else {
@@ -254,7 +251,6 @@ export default function AuthenticatedLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(business)" />
-      <Stack.Screen name="role" />
       <Stack.Screen name="join" />
       <Stack.Screen name="card/index" />
       <Stack.Screen name="card/[membershipId]" />

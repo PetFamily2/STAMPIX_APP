@@ -74,8 +74,17 @@ const ENTRY_FLOW: FlowItem[] = [
       '\u05d1\u05e8\u05d5\u05db\u05d9\u05dd \u05d4\u05d1\u05d0\u05d9\u05dd',
     nameEn: 'Welcome',
     subtitle: '\u05de\u05e1\u05da \u05e0\u05d7\u05d9\u05ea\u05d4',
-    href: '/(auth)/sign-up',
+    href: '/(auth)/welcome',
     icon: 'sparkles-outline',
+    tone: 'info',
+  },
+  {
+    title: '\u05d4\u05e8\u05e9\u05de\u05d4',
+    nameEn: 'Sign Up',
+    subtitle:
+      '\u05d1\u05d7\u05d9\u05e8\u05ea \u05e9\u05d9\u05d8\u05ea \u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea',
+    href: '/(auth)/sign-up',
+    icon: 'person-add-outline',
     tone: 'info',
   },
   {
@@ -89,23 +98,16 @@ const ENTRY_FLOW: FlowItem[] = [
   },
   {
     title: '\u05d1\u05d7\u05d9\u05e8\u05ea \u05ea\u05e4\u05e7\u05d9\u05d3',
-    nameEn: 'Role Selection',
+    nameEn: 'Onboarding Role',
     subtitle:
       '\u05e9\u05d9\u05d5\u05da \u05dc\u05e2\u05e0\u05e3 \u05d4\u05e8\u05dc\u05d5\u05d5\u05e0\u05d8\u05d9',
-    href: '/(authenticated)/role',
+    href: '/(auth)/onboarding-client-role',
     icon: 'person-circle-outline',
     tone: 'neutral',
   },
 ];
 
 const CLIENT_ONBOARDING: FlowItem[] = [
-  {
-    title: '\u05d1\u05d7\u05d9\u05e8\u05ea \u05ea\u05e4\u05e7\u05d9\u05d3',
-    nameEn: 'Client Role',
-    href: '/(auth)/onboarding-client-role',
-    icon: 'person-outline',
-    tone: 'info',
-  },
   {
     title: '\u05d0\u05d6\u05d5\u05e8 \u05e9\u05d9\u05de\u05d5\u05e9',
     nameEn: 'Client Usage Area',
