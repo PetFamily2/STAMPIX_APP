@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
+import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -251,30 +252,10 @@ export default function OnboardingOtpScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Pressable
+          <ContinueButton
             onPress={handleContinue}
             disabled={!isComplete}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !isComplete }}
-          >
-            <View
-              style={[
-                styles.button,
-                isComplete ? styles.buttonActive : styles.buttonInactive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  isComplete
-                    ? styles.buttonTextActive
-                    : styles.buttonTextInactive,
-                ]}
-              >
-                {TEXT.continue}
-              </Text>
-            </View>
-          </Pressable>
+          />
         </View>
       </View>
     </SafeAreaView>

@@ -19,8 +19,12 @@ const TEXT = {
 export default function BusinessTabsLayout() {
   const insets = useSafeAreaInsets();
   const { user, isLoading } = useUser();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
 
   if (isLoading) {
     return <FullScreenLoading />;

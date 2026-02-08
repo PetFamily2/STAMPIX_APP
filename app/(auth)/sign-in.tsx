@@ -56,8 +56,12 @@ export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { setAppMode } = useAppMode();
   const router = useRouter();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
 
   useEffect(() => {
     // biome-ignore format: debug log

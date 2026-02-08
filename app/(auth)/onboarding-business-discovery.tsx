@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
+import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -107,30 +108,10 @@ export default function OnboardingBusinessDiscoveryScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Pressable
+          <ContinueButton
             onPress={handleContinue}
             disabled={!canContinue}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canContinue }}
-          >
-            <View
-              style={[
-                styles.button,
-                canContinue ? styles.buttonActive : styles.buttonInactive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  canContinue
-                    ? styles.buttonTextActive
-                    : styles.buttonTextInactive,
-                ]}
-              >
-                המשך
-              </Text>
-            </View>
-          </Pressable>
+          />
         </View>
       </View>
     </SafeAreaView>

@@ -460,17 +460,22 @@ function getExtraScreenIcon(href: string): IconName {
 }
 
 function resolveFlowLink(href: string): Href {
-  if (!IS_DEV_MODE || !href.startsWith('/(authenticated)')) {
+  const params: string[] = [];
+  const shouldAddPreview = IS_DEV_MODE && href.startsWith('/(authenticated)');
+
+  if (shouldAddPreview && !href.includes('preview=')) {
+    params.push('preview=true');
+  }
+
+  if (!href.includes('map=')) {
+    params.push('map=true');
+  }
+
+  if (params.length === 0) {
     return href as Href;
   }
 
-  if (href.includes('preview=')) {
-    return href as Href;
-  }
-
-  return (
-    href.includes('?') ? `${href}&preview=true` : `${href}?preview=true`
-  ) as Href;
+  return `${href}${href.includes('?') ? '&' : '?'}${params.join('&')}` as Href;
 }
 
 function FlowNode({ item, size = 'md' }: FlowNodeProps) {

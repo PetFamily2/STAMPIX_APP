@@ -12,8 +12,12 @@ import stampixLogo from '@/reference-ui/stampix---loyalty-made-simple/logo.png';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { completeStep, trackContinue } = useOnboardingTracking({
     screen: 'welcome',
   });

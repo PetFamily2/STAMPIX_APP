@@ -67,8 +67,12 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];

@@ -5,8 +5,12 @@ import { BUSINESS_ROLES, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 
 export default function MerchantLayout() {
   const { user, isLoading, isAuthorized } = useRoleGuard(BUSINESS_ROLES);
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
 
   if (isLoading) {
     return <FullScreenLoading />;

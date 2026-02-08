@@ -15,7 +15,10 @@ let didRedirectToAuthenticated = false;
 export default function AuthRoutesLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const segments = useSegments();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
   const pathname = usePathname();
   const router = useRouter();
   const redirectTriggeredRef = useRef(false);
@@ -23,7 +26,8 @@ export default function AuthRoutesLayout() {
   const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
   const segmentsKey = segmentStrings.join('/');
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isAllowedForAuthenticated = isPaywallRoute || isPreviewMode;
   const alreadyInTarget =

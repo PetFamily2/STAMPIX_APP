@@ -1,24 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { BackButton } from '@/components/BackButton';
+import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { WebViewModal } from '@/components/WebViewModal';
+import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const TEXT = {
-  title: 'באיזו דרך תרצו להתחבר?',
-  subtitle: 'בחרו את דרך ההתחברות המתאימה לכם להתחלה',
+  title: 'איך תרצו להתחבר?',
+  subtitle: 'בחרו את הדרך הנוחה לכם להתחיל',
   apple: 'המשך עם Apple',
   google: 'המשך עם Google',
   email: 'המשך עם אימייל',
   extra: 'אפשרויות נוספות',
-  terms: 'בלחיצה על המשך, אתם מסכימים לתנאי השימוש ולמדיניות הפרטיות',
+  termsIntro: 'בלחיצה על המשך, אתם מסכימים ל',
+  termsLink: 'תנאי השימוש',
+  privacyLink: 'מדיניות הפרטיות',
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';
@@ -53,12 +57,18 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'sign_up',
   });
   const [selectedMethod, setSelectedMethod] = useState<AuthMethod | null>(null);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
   const handleBack = () => {
     safeBack('/(auth)/welcome');
@@ -77,46 +87,58 @@ export default function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8F7F4]">
+    <SafeAreaView style={styles.container}>
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
-      <View className="flex-1 px-6 pt-5 pb-8">
-        <View className="items-end">
+      <WebViewModal
+        visible={termsModalVisible}
+        url={TERMS_URL}
+        title={TEXT.termsLink}
+        onClose={() => setTermsModalVisible(false)}
+      />
+
+      <WebViewModal
+        visible={privacyModalVisible}
+        url={PRIVACY_URL}
+        title={TEXT.privacyLink}
+        onClose={() => setPrivacyModalVisible(false)}
+      />
+
+      <View style={styles.content}>
+        <View style={styles.header}>
           <BackButton onPress={handleBack} />
         </View>
 
-        <View className="mt-10 items-end">
-          <Text className="text-[22px] font-black text-slate-900 text-right">
-            {TEXT.title}
-          </Text>
-          <Text className="mt-2 text-[13px] font-semibold text-slate-500 text-right">
-            {TEXT.subtitle}
-          </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
-        <View className="mt-10">
+        <View style={styles.optionsContainer}>
           <Pressable
             onPress={() => handleSelect('apple')}
             accessibilityRole="button"
             accessibilityLabel={TEXT.apple}
             accessibilityState={{ selected: selectedMethod === 'apple' }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-            className={`rounded-2xl px-6 py-4 border shadow-[0_12px_24px_rgba(15,23,42,0.06)] ${
-              selectedMethod === 'apple'
-                ? 'border-blue-300 bg-blue-50'
-                : 'border-slate-200 bg-white'
-            }`}
           >
-            <View className="flex-row-reverse items-center justify-center gap-3">
+            <View
+              style={
+                selectedMethod === 'apple'
+                  ? styles.optionSelected
+                  : styles.optionUnselected
+              }
+            >
               <Ionicons
                 name="logo-apple"
                 size={18}
                 color={selectedMethod === 'apple' ? '#2563eb' : '#111827'}
               />
               <Text
-                className={`text-base font-bold ${
-                  selectedMethod === 'apple' ? 'text-blue-600' : 'text-slate-900'
-                }`}
+                style={
+                  selectedMethod === 'apple'
+                    ? styles.optionTextSelected
+                    : styles.optionTextUnselected
+                }
               >
                 {TEXT.apple}
               </Text>
@@ -128,33 +150,31 @@ export default function SignUpScreen() {
             accessibilityRole="button"
             accessibilityLabel={TEXT.google}
             accessibilityState={{ selected: selectedMethod === 'google' }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-            className={`mt-4 rounded-2xl px-6 py-4 border shadow-[0_12px_24px_rgba(15,23,42,0.06)] ${
-              selectedMethod === 'google'
-                ? 'border-blue-300 bg-blue-50'
-                : 'border-slate-200 bg-white'
-            }`}
           >
-            <View className="flex-row-reverse items-center justify-center gap-3">
+            <View
+              style={
+                selectedMethod === 'google'
+                  ? styles.optionSelected
+                  : styles.optionUnselected
+              }
+            >
               <GoogleLogo size={20} />
               <Text
-                className={`text-base font-bold ${
+                style={
                   selectedMethod === 'google'
-                    ? 'text-blue-600'
-                    : 'text-slate-900'
-                }`}
+                    ? styles.optionTextSelected
+                    : styles.optionTextUnselected
+                }
               >
                 {TEXT.google}
               </Text>
             </View>
           </Pressable>
 
-          <View className="flex-row items-center gap-3 my-6">
-            <View className="flex-1 h-px bg-slate-200" />
-            <Text className="text-[11px] font-bold text-slate-300">
-              {TEXT.extra}
-            </Text>
-            <View className="flex-1 h-px bg-slate-200" />
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{TEXT.extra}</Text>
+            <View style={styles.dividerLine} />
           </View>
 
           <Pressable
@@ -162,25 +182,25 @@ export default function SignUpScreen() {
             accessibilityRole="button"
             accessibilityLabel={TEXT.email}
             accessibilityState={{ selected: selectedMethod === 'email' }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-            className={`rounded-2xl px-6 py-4 border ${
-              selectedMethod === 'email'
-                ? 'border-blue-300 bg-blue-50'
-                : 'border-slate-200 bg-white'
-            }`}
           >
-            <View className="flex-row-reverse items-center justify-center gap-3">
+            <View
+              style={
+                selectedMethod === 'email'
+                  ? styles.optionSelected
+                  : styles.optionUnselected
+              }
+            >
               <Ionicons
                 name="mail-outline"
                 size={20}
                 color={selectedMethod === 'email' ? '#2563eb' : '#111827'}
               />
               <Text
-                className={`text-base font-bold ${
+                style={
                   selectedMethod === 'email'
-                    ? 'text-blue-600'
-                    : 'text-slate-900'
-                }`}
+                    ? styles.optionTextSelected
+                    : styles.optionTextUnselected
+                }
               >
                 {TEXT.email}
               </Text>
@@ -188,33 +208,144 @@ export default function SignUpScreen() {
           </Pressable>
         </View>
 
-        <View className="mt-auto pt-8">
-          <Pressable
-            onPress={handleContinue}
-            disabled={!selectedMethod}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !selectedMethod }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-            className={`rounded-2xl px-6 py-4 items-center ${
-              selectedMethod
-                ? 'bg-blue-600 shadow-[0_14px_26px_rgba(37,99,235,0.25)]'
-                : 'bg-slate-200'
-            }`}
-          >
-            <Text
-              className={`text-base font-bold ${
-                selectedMethod ? 'text-white' : 'text-slate-500'
-              }`}
-            >
-              המשך
-            </Text>
-          </Pressable>
+        <View style={styles.footer}>
+          <ContinueButton onPress={handleContinue} disabled={!selectedMethod} />
 
-          <Text className="mt-4 text-[10px] text-slate-300 text-center">
-            {TEXT.terms}
+          <Text style={styles.terms}>
+            {TEXT.termsIntro}
+            {' '}
+            <Text
+              style={styles.termsLink}
+              accessibilityRole="link"
+              onPress={() => setTermsModalVisible(true)}
+            >
+              {TEXT.termsLink}
+            </Text>
+            {' '}ו{' '}
+            <Text
+              style={styles.termsLink}
+              accessibilityRole="link"
+              onPress={() => setPrivacyModalVisible(true)}
+            >
+              {TEXT.privacyLink}
+            </Text>
           </Text>
         </View>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F7F4',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  header: {
+    alignItems: 'flex-end',
+  },
+  titleContainer: {
+    marginTop: 40,
+    alignItems: 'flex-end',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'right',
+  },
+  subtitle: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    textAlign: 'right',
+  },
+  optionsContainer: {
+    marginTop: 40,
+    gap: 16,
+  },
+  optionSelected: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#eff6ff',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    shadowColor: '#93c5fd',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  optionUnselected: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#9ca3af',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  optionTextSelected: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#2563eb',
+    textAlign: 'center',
+  },
+  optionTextUnselected: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#cbd5f2',
+    textAlign: 'center',
+  },
+  footer: {
+    marginTop: 'auto',
+  },
+  terms: {
+    marginTop: 16,
+    fontSize: 10,
+    color: '#cbd5f2',
+    textAlign: 'center',
+  },
+  termsLink: {
+    color: '#2563eb',
+    textDecorationLine: 'underline',
+    fontWeight: '700',
+  },
+});

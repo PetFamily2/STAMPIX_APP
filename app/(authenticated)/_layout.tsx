@@ -24,13 +24,15 @@ const TEXT = {
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { preview, biz, src, camp } = useLocalSearchParams<{
+  const { preview, map, biz, src, camp } = useLocalSearchParams<{
     preview?: string;
+    map?: string;
     biz?: string;
     src?: string;
     camp?: string;
   }>();
-  const isPreviewMode = IS_DEV_MODE && preview === 'true';
+  const isPreviewMode =
+    (IS_DEV_MODE && preview === 'true') || map === 'true';
   const {
     appMode,
     isLoading: isAppModeLoading,
