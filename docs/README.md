@@ -78,5 +78,6 @@ Config flags (code)
 - docs/setup.md - first-time setup (Hebrew)
 - docs/usage.md - local usage tips (Hebrew)
 - docs/deployment.md - EAS/production notes
+- docs/EAS_INFRASTRUCTURE.md - ready-to-run Android/iOS EAS build and submit flow
 - docs/REVENUECAT_SETUP.md - payment setup
 - docs/spec/* - deeper specs (roles, data model, screens, scanner contract)

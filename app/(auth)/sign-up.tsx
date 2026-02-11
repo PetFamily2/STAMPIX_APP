@@ -8,21 +8,19 @@ import Svg, { Path } from 'react-native-svg';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
-import { WebViewModal } from '@/components/WebViewModal';
-import { IS_DEV_MODE, PRIVACY_URL, TERMS_URL } from '@/config/appConfig';
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const TEXT = {
   title: 'איך תרצו להתחבר?',
   subtitle: 'בחרו את הדרך הנוחה לכם להתחיל',
-  apple: 'המשך עם Apple',
-  google: 'המשך עם Google',
-  email: 'המשך עם אימייל',
+  apple: 'Apple',
+  google: 'Google',
+  email: 'אימייל',
   extra: 'אפשרויות נוספות',
-  termsIntro: 'בלחיצה על המשך, אתם מסכימים ל',
-  termsLink: 'תנאי השימוש',
-  privacyLink: 'מדיניות הפרטיות',
+  termsIntro: 'בלחיצה על המשך, אתם מסכימים למסמך המשפטי המרוכז',
+  legalLink: 'מסמך משפטי',
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';
@@ -57,21 +55,19 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, role } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    role?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'sign_up',
   });
   const [selectedMethod, setSelectedMethod] = useState<AuthMethod | null>(null);
-  const [termsModalVisible, setTermsModalVisible] = useState(false);
-  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
   const handleBack = () => {
-    safeBack('/(auth)/welcome');
+    safeBack('/(auth)/onboarding-client-role');
   };
 
   const handleSelect = (method: AuthMethod) => {
@@ -79,10 +75,34 @@ export default function SignUpScreen() {
     trackChoice('auth_method', method, { method });
   };
 
+  const handleEmailOptionPress = () => {
+    trackChoice('auth_method', 'email', { method: 'email' });
+    const query = role ? `?role=${encodeURIComponent(role)}` : '';
+    router.push(`/(auth)/sign-up-email${query}` as any);
+  };
+
   const handleContinue = () => {
-    if (!selectedMethod) return;
+    if (!selectedMethod) {
+      return;
+    }
+    const selectedRole =
+      role === 'business'
+        ? 'business'
+        : role === 'customer'
+          ? 'customer'
+          : null;
     trackContinue({ method: selectedMethod });
-    completeStep({ method: selectedMethod });
+    completeStep({ method: selectedMethod, role: selectedRole ?? undefined });
+
+    if (selectedRole === 'customer') {
+      router.push('/(auth)/onboarding-client-details');
+      return;
+    }
+    if (selectedRole === 'business') {
+      router.push('/(auth)/onboarding-business-role');
+      return;
+    }
+
     router.push('/(auth)/onboarding-client-role');
   };
 
@@ -90,27 +110,15 @@ export default function SignUpScreen() {
     <SafeAreaView style={styles.container}>
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
-      <WebViewModal
-        visible={termsModalVisible}
-        url={TERMS_URL}
-        title={TEXT.termsLink}
-        onClose={() => setTermsModalVisible(false)}
-      />
-
-      <WebViewModal
-        visible={privacyModalVisible}
-        url={PRIVACY_URL}
-        title={TEXT.privacyLink}
-        onClose={() => setPrivacyModalVisible(false)}
-      />
-
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton onPress={handleBack} />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {TEXT.title}
+          </Text>
           <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
@@ -178,10 +186,9 @@ export default function SignUpScreen() {
           </View>
 
           <Pressable
-            onPress={() => handleSelect('email')}
+            onPress={handleEmailOptionPress}
             accessibilityRole="button"
             accessibilityLabel={TEXT.email}
-            accessibilityState={{ selected: selectedMethod === 'email' }}
           >
             <View
               style={
@@ -212,22 +219,13 @@ export default function SignUpScreen() {
           <ContinueButton onPress={handleContinue} disabled={!selectedMethod} />
 
           <Text style={styles.terms}>
-            {TEXT.termsIntro}
-            {' '}
+            {TEXT.termsIntro}{' '}
             <Text
               style={styles.termsLink}
               accessibilityRole="link"
-              onPress={() => setTermsModalVisible(true)}
+              onPress={() => router.push('/(auth)/legal')}
             >
-              {TEXT.termsLink}
-            </Text>
-            {' '}ו{' '}
-            <Text
-              style={styles.termsLink}
-              accessibilityRole="link"
-              onPress={() => setPrivacyModalVisible(true)}
-            >
-              {TEXT.privacyLink}
+              {TEXT.legalLink}
             </Text>
           </Text>
         </View>
@@ -252,13 +250,17 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 40,
-    alignItems: 'flex-end',
+    width: '100%',
+    alignItems: 'stretch',
   },
   title: {
     fontSize: 22,
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
+    lineHeight: 30,
+    includeFontPadding: false,
   },
   subtitle: {
     marginTop: 8,
@@ -266,6 +268,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6b7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   optionsContainer: {
     marginTop: 40,

@@ -8,7 +8,7 @@ import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import stampixLogo from '@/reference-ui/stampix---loyalty-made-simple/logo.png';
+import stampixLogo from '@/assets/images/STAMPIX_LOGO.jpeg';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -16,8 +16,7 @@ export default function WelcomeScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { completeStep, trackContinue } = useOnboardingTracking({
     screen: 'welcome',
   });
@@ -29,7 +28,7 @@ export default function WelcomeScreen() {
   const handleGetStarted = () => {
     trackContinue();
     completeStep();
-    router.push('/(auth)/sign-up');
+    router.push('/(auth)/onboarding-client-role');
   };
 
   return (

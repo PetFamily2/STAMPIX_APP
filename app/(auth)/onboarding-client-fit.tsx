@@ -95,10 +95,7 @@ export default function OnboardingClientFitScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-            disabled={!canContinue}
-          />
+          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
         </View>
       </View>
     </SafeAreaView>

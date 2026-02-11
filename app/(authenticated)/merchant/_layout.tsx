@@ -9,8 +9,7 @@ export default function MerchantLayout() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
 
   if (isLoading) {
     return <FullScreenLoading />;

@@ -204,7 +204,10 @@ export const joinByBusinessQr = mutation({
     source: v.optional(v.string()),
     campaign: v.optional(v.string()),
   },
-  handler: async (ctx, { qrData, source: argSource, campaign: argCampaign }) => {
+  handler: async (
+    ctx,
+    { qrData, source: argSource, campaign: argCampaign }
+  ) => {
     const user = await requireCurrentUser(ctx);
     const now = Date.now();
 
@@ -248,9 +251,7 @@ export const joinByBusinessQr = mutation({
     } else if (parsed.mode === 'joinCode') {
       business = await ctx.db
         .query('businesses')
-        .withIndex('by_joinCode', (q: any) =>
-          q.eq('joinCode', parsed.bizId)
-        )
+        .withIndex('by_joinCode', (q: any) => q.eq('joinCode', parsed.bizId))
         .first();
     }
 

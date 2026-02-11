@@ -1,12 +1,6 @@
 import { useQuery } from 'convex/react';
 import React, { useMemo, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {
   SafeAreaView,
@@ -74,9 +68,7 @@ export default function BusinessJoinQrScreen() {
               </Text>
             )}
           </View>
-          {qrValue ? (
-            <Text style={styles.qrText}>{qrValue}</Text>
-          ) : null}
+          {qrValue ? <Text style={styles.qrText}>{qrValue}</Text> : null}
         </View>
 
         {joinCode ? (

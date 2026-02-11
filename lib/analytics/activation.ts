@@ -1,6 +1,9 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { track } from '@/lib/analytics';
-import type { AnalyticsEventName, OnboardingRole } from '@/lib/analytics/events';
+import type {
+  AnalyticsEventName,
+  OnboardingRole,
+} from '@/lib/analytics/events';
 import { getOnboardingSessionId } from '@/lib/onboarding/session';
 
 type ActivationContext = {

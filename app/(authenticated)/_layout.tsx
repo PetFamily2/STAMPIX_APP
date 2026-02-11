@@ -31,8 +31,7 @@ export default function AuthenticatedLayout() {
     src?: string;
     camp?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const {
     appMode,
     isLoading: isAppModeLoading,
@@ -176,7 +175,12 @@ export default function AuthenticatedLayout() {
   // Save deep link join params before auth redirect so we can complete the
   // join after sign-in / sign-up.
   useEffect(() => {
-    if (!isAuthenticated && !isPreviewMode && biz && !pendingJoinSaved.current) {
+    if (
+      !isAuthenticated &&
+      !isPreviewMode &&
+      biz &&
+      !pendingJoinSaved.current
+    ) {
       pendingJoinSaved.current = true;
       void savePendingJoin({ biz, src, camp });
     }

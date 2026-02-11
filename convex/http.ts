@@ -109,12 +109,16 @@ http.route({
       <a href="https://apps.apple.com/app/stampix/id000000000" target="_blank">App Store</a>
       <a href="https://play.google.com/store/apps/details?id=com.stampix.app" target="_blank">Google Play</a>
     </div>
-    ${joinCode ? `
+    ${
+      joinCode
+        ? `
     <div class="code-box">
       <div class="code-label">או הזינו קוד הצטרפות באפליקציה:</div>
       <div class="code-value">${escapeHtml(joinCode)}</div>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
   </div>
 </body>
 </html>`;

@@ -1,11 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Keyboard,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
@@ -58,16 +52,13 @@ export default function OnboardingBusinessNameScreen() {
             autoCapitalize="words"
             style={styles.input}
             accessibilityLabel="שם העסק"
-            blurOnSubmit
+            blurOnSubmit={true}
             onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-            disabled={!canContinue}
-          />
+          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
         </View>
       </View>
     </SafeAreaView>

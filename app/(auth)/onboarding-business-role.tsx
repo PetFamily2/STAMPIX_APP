@@ -37,9 +37,7 @@ export default function OnboardingBusinessScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-          />
+          <ContinueButton onPress={handleContinue} />
         </View>
       </View>
     </SafeAreaView>

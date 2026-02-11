@@ -60,8 +60,7 @@ export default function SignInScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
 
   useEffect(() => {
     // biome-ignore format: debug log

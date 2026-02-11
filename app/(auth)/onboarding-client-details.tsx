@@ -245,10 +245,7 @@ export default function OnboardingCustomerScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-            disabled={!canContinue}
-          />
+          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

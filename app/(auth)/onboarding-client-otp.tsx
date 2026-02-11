@@ -1,5 +1,6 @@
-﻿import { useLocalSearchParams } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+﻿import { useFocusEffect } from '@react-navigation/native';
+import { useAction, useMutation } from 'convex/react';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type NativeSyntheticEvent,
@@ -15,8 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack, safePush } from '@/lib/navigation';
+import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const CODE_LENGTH = 6;
@@ -25,18 +27,34 @@ const TEXT = {
   title: 'מה הקוד שקיבלת?',
   noContactSubtitle: 'שלחנו קוד לאימות הפרטים שלך',
   resend: 'שלח שוב',
+  resendSending: 'שולח...',
   incompleteCode: 'אנא הזן את כל הקוד שקיבלת.',
   editDetails: 'ערוך פרטים',
   continue: 'המשך',
+  invalidCode: 'הקוד לא תקין. נסו שוב.',
+  expiredCode: 'לא נמצא קוד פעיל. בקשו קוד חדש.',
+  maxAttempts: 'חרגת ממספר הניסיונות. בקשו קוד חדש.',
+  sendFailed: 'שליחת הקוד נכשלה. נסו שוב.',
+  rateLimited: 'אפשר לבקש קוד חדש כל 30 שניות.',
+  missingConfig:
+    'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
 };
 
 export default function OnboardingOtpScreen() {
-  const { contact } = useLocalSearchParams<{ contact?: string | string[] }>();
+  const { contact, role } = useLocalSearchParams<{
+    contact?: string | string[];
+    role?: string | string[];
+  }>();
+  const sendEmailOtp = useAction(api.otp.sendEmailOtp);
+  const verifyEmailOtp = useMutation(api.otp.verifyEmailOtp);
+
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => '')
   );
   const [secondsLeft, setSecondsLeft] = useState(59);
   const [error, setError] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const inputsRef = useRef<Array<TextInput | null>>([]);
   const otpSentRef = useRef(false);
   const digitIndexes = useMemo(
@@ -56,6 +74,18 @@ export default function OnboardingOtpScreen() {
     return contact ?? '';
   }, [contact]);
 
+  const roleValue = useMemo(() => {
+    if (Array.isArray(role)) {
+      return role[0] ?? '';
+    }
+    return role ?? '';
+  }, [role]);
+
+  const isEmailContact = useMemo(
+    () => contactValue.includes('@'),
+    [contactValue]
+  );
+
   const headerSubtitle = useMemo(() => {
     if (!contactValue) {
       return TEXT.noContactSubtitle;
@@ -63,19 +93,67 @@ export default function OnboardingOtpScreen() {
     return `שלחנו קוד ל-${contactValue}`;
   }, [contactValue]);
 
-  const otpChannel = contactValue.includes('@') ? 'email' : 'sms';
+  const otpChannel = isEmailContact ? 'email' : 'sms';
+
+  const mapOtpError = (value: unknown) => {
+    if (!(value instanceof Error)) {
+      return TEXT.sendFailed;
+    }
+    if (value.message === 'OTP_INVALID') {
+      return TEXT.invalidCode;
+    }
+    if (value.message === 'OTP_NOT_FOUND') {
+      return TEXT.expiredCode;
+    }
+    if (value.message === 'OTP_MAX_ATTEMPTS') {
+      return TEXT.maxAttempts;
+    }
+    if (value.message === 'RATE_LIMITED') {
+      return TEXT.rateLimited;
+    }
+    if (value.message === 'OTP_NOT_CONFIGURED') {
+      return TEXT.missingConfig;
+    }
+    return TEXT.sendFailed;
+  };
+
+  const sendCode = useCallback(
+    async (resetFields: boolean) => {
+      if (!isEmailContact || !contactValue || isSending) {
+        return;
+      }
+
+      setIsSending(true);
+      setError('');
+
+      try {
+        await sendEmailOtp({ email: contactValue.trim().toLowerCase() });
+        if (resetFields) {
+          setDigits(Array.from({ length: CODE_LENGTH }, () => ''));
+          inputsRef.current[0]?.focus();
+        }
+        setSecondsLeft(59);
+      } catch (err: unknown) {
+        setError(mapOtpError(err));
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [contactValue, isEmailContact, isSending, sendEmailOtp]
+  );
 
   useFocusEffect(
     useCallback(() => {
       if (!otpSentRef.current) {
         otpSentRef.current = true;
         trackEvent(ANALYTICS_EVENTS.otpSent, { channel: otpChannel });
+        void sendCode(false);
       }
 
       return () => {
         otpSentRef.current = false;
       };
-    }, [otpChannel, trackEvent])
+    }, [otpChannel, sendCode, trackEvent])
   );
 
   useEffect(() => {
@@ -160,36 +238,67 @@ export default function OnboardingOtpScreen() {
   }, [secondsLeft]);
 
   const resendLabel = useMemo(() => {
+    if (isSending) {
+      return TEXT.resendSending;
+    }
     if (secondsLeft === 0) {
       return TEXT.resend;
     }
     return `${TEXT.resend} (${formattedTimer})`;
-  }, [formattedTimer, secondsLeft]);
+  }, [formattedTimer, isSending, secondsLeft]);
 
   const handleResend = () => {
-    if (secondsLeft > 0) {
+    if (secondsLeft > 0 || isSending) {
       return;
     }
 
-    setSecondsLeft(59);
-    setDigits(Array.from({ length: CODE_LENGTH }, () => ''));
-    setError('');
-    inputsRef.current[0]?.focus();
     trackEvent(ANALYTICS_EVENTS.otpResent, { channel: otpChannel });
+    void sendCode(true);
   };
 
-  const handleContinue = () => {
-    if (!isComplete) {
-      setError(TEXT.incompleteCode);
-      trackError('otp', 'incomplete');
-      trackEvent(ANALYTICS_EVENTS.otpFailed, { error_code: 'invalid' });
+  const nextRoute =
+    roleValue === 'business'
+      ? '/(auth)/onboarding-business-role'
+      : '/(auth)/onboarding-client-interests';
+  const backRoute = roleValue
+    ? `/(auth)/sign-up-email?role=${encodeURIComponent(roleValue)}`
+    : '/(auth)/onboarding-client-details';
+
+  const handleContinue = async () => {
+    if (!isComplete || isVerifying) {
+      if (!isComplete) {
+        setError(TEXT.incompleteCode);
+        trackError('otp', 'incomplete');
+        trackEvent(ANALYTICS_EVENTS.otpFailed, { error_code: 'invalid' });
+      }
       return;
     }
 
-    trackContinue();
-    trackEvent(ANALYTICS_EVENTS.otpVerified);
-    completeStep();
-    safePush('/(auth)/onboarding-client-interests');
+    setIsVerifying(true);
+    setError('');
+
+    try {
+      if (isEmailContact && contactValue) {
+        await verifyEmailOtp({
+          email: contactValue.trim().toLowerCase(),
+          code: digits.join(''),
+        });
+      }
+
+      trackContinue();
+      trackEvent(ANALYTICS_EVENTS.otpVerified);
+      completeStep();
+      safePush(nextRoute);
+    } catch (err: unknown) {
+      const mapped = mapOtpError(err);
+      setError(mapped);
+      trackError('otp', 'verification_failed');
+      trackEvent(ANALYTICS_EVENTS.otpFailed, {
+        error_code: err instanceof Error ? err.message : 'UNKNOWN',
+      });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -197,7 +306,7 @@ export default function OnboardingOtpScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-client-details')}
+            onPress={() => safeBack(backRoute)}
           />
           <OnboardingProgress total={8} current={3} />
         </View>
@@ -230,11 +339,14 @@ export default function OnboardingOtpScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.actionsContainer}>
-          <Pressable onPress={handleResend} disabled={secondsLeft > 0}>
+          <Pressable
+            onPress={handleResend}
+            disabled={secondsLeft > 0 || isSending}
+          >
             <Text
               style={[
                 styles.resendText,
-                secondsLeft > 0
+                secondsLeft > 0 || isSending
                   ? styles.resendTextDisabled
                   : styles.resendTextActive,
               ]}
@@ -244,7 +356,7 @@ export default function OnboardingOtpScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => safeBack('/(auth)/onboarding-client-details')}
+            onPress={() => safeBack(backRoute)}
             style={styles.editButton}
           >
             <Text style={styles.editText}>{TEXT.editDetails}</Text>
@@ -253,8 +365,10 @@ export default function OnboardingOtpScreen() {
 
         <View style={styles.footer}>
           <ContinueButton
-            onPress={handleContinue}
-            disabled={!isComplete}
+            onPress={() => {
+              void handleContinue();
+            }}
+            disabled={!isComplete || isVerifying || isSending}
           />
         </View>
       </View>
@@ -377,11 +491,4 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
 });
-
-
-
-
-
-
-
 

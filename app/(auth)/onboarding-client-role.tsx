@@ -29,17 +29,11 @@ export default function OnboardingRoleScreen() {
     const mappedRole = mapRole(role);
     trackContinue({ role: mappedRole });
     completeStep({ role: mappedRole });
-    if (role === 'customer') {
-      safePush('/(auth)/onboarding-client-details');
-      return;
-    }
-    if (role === 'business') {
-      safePush('/(auth)/onboarding-business-role');
-    }
+    safePush(`/(auth)/sign-up?role=${role}`);
   };
 
   const handleBack = () => {
-    safeBack('/(auth)/sign-up');
+    safeBack('/(auth)/welcome');
   };
 
   return (
@@ -114,10 +108,7 @@ export default function OnboardingRoleScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-            disabled={!role}
-          />
+          <ContinueButton onPress={handleContinue} disabled={!role} />
         </View>
       </View>
     </SafeAreaView>

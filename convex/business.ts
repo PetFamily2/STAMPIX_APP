@@ -64,7 +64,10 @@ export async function ensureBusinessOwnerStaff(
 /**
  * Generate a unique businessPublicId with retry on collision.
  */
-async function generateUniquePublicId(ctx: any, maxRetries = 5): Promise<string> {
+async function generateUniquePublicId(
+  ctx: any,
+  maxRetries = 5
+): Promise<string> {
   for (let i = 0; i < maxRetries; i++) {
     const candidate = generatePublicId(12);
     const existing = await ctx.db
@@ -81,7 +84,10 @@ async function generateUniquePublicId(ctx: any, maxRetries = 5): Promise<string>
 /**
  * Generate a unique joinCode with retry on collision.
  */
-async function generateUniqueJoinCode(ctx: any, maxRetries = 5): Promise<string> {
+async function generateUniqueJoinCode(
+  ctx: any,
+  maxRetries = 5
+): Promise<string> {
   for (let i = 0; i < maxRetries; i++) {
     const candidate = generateJoinCode(8);
     const existing = await ctx.db

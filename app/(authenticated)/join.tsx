@@ -20,12 +20,14 @@ import {
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
-  title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
+  title:
+    '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
   subtitle:
     '\u05e1\u05e8\u05e7\u05d5 QR \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7 \u05d0\u05d5 \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9',
   manualTitle:
     '\u05d0\u05d9\u05df QR? \u05d4\u05d3\u05d1\u05d9\u05e7\u05d5 \u05e7\u05d5\u05d3 \u05e2\u05e1\u05e7',
-  manualPlaceholder: '\u05e7\u05d5\u05d3 \u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea',
+  manualPlaceholder:
+    '\u05e7\u05d5\u05d3 \u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea',
   join: '\u05d4\u05e6\u05d8\u05e8\u05e3',
   checking: '\u05d1\u05d5\u05d3\u05e7...',
   scanAgain: '\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1',
@@ -129,16 +131,13 @@ export default function JoinScreen() {
 
         // Navigate to card in wallet
         if (result.membershipId) {
-          router.replace(
-            `/(authenticated)/card/${result.membershipId}` as any
-          );
+          router.replace(`/(authenticated)/card/${result.membershipId}` as any);
         } else {
           router.replace('/(authenticated)/(customer)/wallet');
         }
       } catch (error) {
         track(ANALYTICS_EVENTS.stampFailed, {
-          error_code:
-            error instanceof Error ? error.message : 'UNKNOWN',
+          error_code: error instanceof Error ? error.message : 'UNKNOWN',
           context: 'joinByBusinessQr',
         });
         setFeedback({ type: 'error', message: getFriendlyError(error) });

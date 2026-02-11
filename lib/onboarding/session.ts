@@ -1,7 +1,7 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'onboarding_session_id';
-let cachedSessionId: string | null | undefined = undefined;
+let cachedSessionId: string | null | undefined;
 
 function generateUuid(): string {
   if (globalThis.crypto?.randomUUID) {

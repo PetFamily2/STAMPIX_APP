@@ -19,6 +19,7 @@ import type * as lib_ids from "../lib/ids.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
+import type * as otp from "../otp.js";
 import type * as scanTokens from "../scanTokens.js";
 import type * as scanner from "../scanner.js";
 import type * as seed from "../seed.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   loyaltyPrograms: typeof loyaltyPrograms;
   memberships: typeof memberships;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
+  otp: typeof otp;
   scanTokens: typeof scanTokens;
   scanner: typeof scanner;
   seed: typeof seed;

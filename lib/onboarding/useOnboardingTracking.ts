@@ -30,7 +30,9 @@ export function useOnboardingTracking({
   role,
 }: OnboardingTrackingOptions): OnboardingTracking {
   const pathname = usePathname();
-  const [onboardingSessionId, setOnboardingSessionId] = useState<string | null>(null);
+  const [onboardingSessionId, setOnboardingSessionId] = useState<string | null>(
+    null
+  );
   const sessionIdRef = useRef<string | null>(null);
   const roleRef = useRef<OnboardingRole | undefined>(role);
   const startRef = useRef<number | null>(null);

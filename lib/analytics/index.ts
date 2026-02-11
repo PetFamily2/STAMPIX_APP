@@ -5,16 +5,28 @@ import type { AnalyticsEventName, BaseAnalyticsProps } from './events';
 
 export type AnalyticsProvider = {
   init?: () => void | Promise<void>;
-  track: (eventName: AnalyticsEventName | string, props: BaseAnalyticsProps & Record<string, unknown>) => void;
-  identify?: (userId: string, traits?: BaseAnalyticsProps & Record<string, unknown>) => void;
+  track: (
+    eventName: AnalyticsEventName | string,
+    props: BaseAnalyticsProps & Record<string, unknown>
+  ) => void;
+  identify?: (
+    userId: string,
+    traits?: BaseAnalyticsProps & Record<string, unknown>
+  ) => void;
 };
 
 const ConsoleProvider: AnalyticsProvider = {
   track: (eventName, props) => {
-    console.log('[analytics]', JSON.stringify({ event: eventName, props }, null, 2));
+    console.log(
+      '[analytics]',
+      JSON.stringify({ event: eventName, props }, null, 2)
+    );
   },
   identify: (userId, traits) => {
-    console.log('[analytics:identify]', JSON.stringify({ userId, traits }, null, 2));
+    console.log(
+      '[analytics:identify]',
+      JSON.stringify({ userId, traits }, null, 2)
+    );
   },
 };
 
@@ -52,7 +64,8 @@ const UnknownProvider: AnalyticsProvider = {
 };
 
 function resolveProvider(): AnalyticsProvider {
-  const name = process.env.EXPO_PUBLIC_ANALYTICS_PROVIDER?.toLowerCase() ?? 'console';
+  const name =
+    process.env.EXPO_PUBLIC_ANALYTICS_PROVIDER?.toLowerCase() ?? 'console';
 
   switch (name) {
     case 'console':
@@ -62,7 +75,9 @@ function resolveProvider(): AnalyticsProvider {
     case 'firebase':
       return FirebaseProvider;
     default:
-      console.warn(`[analytics] Unknown provider "${name}", falling back to console.`);
+      console.warn(
+        `[analytics] Unknown provider "${name}", falling back to console.`
+      );
       return UnknownProvider;
   }
 }
@@ -81,9 +96,10 @@ function getBaseProps(): BaseAnalyticsProps {
     (Localization as { locale?: string }).locale ??
     null;
 
-  const platform = Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
-    ? Platform.OS
-    : 'unknown';
+  const platform =
+    Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
+      ? Platform.OS
+      : 'unknown';
 
   return {
     app_version: appVersion,

@@ -31,8 +31,7 @@ export default function BusinessTeamScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
   const isOwner = user?.role === 'merchant';

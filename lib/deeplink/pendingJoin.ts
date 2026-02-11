@@ -22,7 +22,9 @@ const MAX_AGE_MS = 60 * 60 * 1000;
 /**
  * Save join params for later (e.g. before auth redirect).
  */
-export async function savePendingJoin(params: Omit<PendingJoinParams, 'savedAt'>): Promise<void> {
+export async function savePendingJoin(
+  params: Omit<PendingJoinParams, 'savedAt'>
+): Promise<void> {
   if (!params.biz) return;
   const data: PendingJoinParams = { ...params, savedAt: Date.now() };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));

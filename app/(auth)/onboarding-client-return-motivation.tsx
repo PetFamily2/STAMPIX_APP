@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack } from '@/lib/navigation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { safeBack } from '@/lib/navigation';
 import { clearOnboardingSessionId } from '@/lib/onboarding/session';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
@@ -95,10 +95,7 @@ export default function OnboardingReturnMotivationScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton
-            onPress={handleContinue}
-            disabled={!canContinue}
-          />
+          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
         </View>
       </View>
     </SafeAreaView>

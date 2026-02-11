@@ -1,391 +1,1248 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, Link, type SitemapType, useSitemap } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { useMemo } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  type NativeSyntheticEvent,
+  type NativeTouchEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { G, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
-import { tw } from '@/lib/rtl';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
+type FlowTone = 'info' | 'success' | 'accent' | 'neutral';
+type EdgeKind = 'primary' | 'secondary' | 'back' | 'system';
+type Anchor = 'left' | 'right' | 'top' | 'bottom';
 
-type FlowTone = 'primary' | 'info' | 'success' | 'accent' | 'neutral';
+type PreviewKind =
+  | 'entry'
+  | 'welcome'
+  | 'sign-up'
+  | 'sign-in'
+  | 'role'
+  | 'form'
+  | 'otp'
+  | 'selection'
+  | 'paywall'
+  | 'legal'
+  | 'main'
+  | 'generic'
+  | 'settings'
+  | 'join'
+  | 'card-detail'
+  | 'dashboard'
+  | 'scanner'
+  | 'team'
+  | 'analytics'
+  | 'merchant-onboarding'
+  | 'qr';
 
 type FlowItem = {
   title: string;
   nameEn: string;
-  subtitle?: string;
   href: string;
   icon: IconName;
-  tone?: FlowTone;
+  tone: FlowTone;
 };
 
-type FlowSize = 'md' | 'sm' | 'xs';
-
-type FlowNodeProps = {
+type DiagramNode = {
+  id: string;
+  col: number;
+  row: number;
+  preview: PreviewKind;
   item: FlowItem;
-  size?: FlowSize;
 };
+
+type DiagramEdge = {
+  from: string;
+  to: string;
+  label: string;
+  kind: EdgeKind;
+  fromAnchor?: Anchor;
+  toAnchor?: Anchor;
+};
+
+const NODE_WIDTH = 134;
+const NODE_HEIGHT = 104;
+const COL_GAP = 48;
+const ROW_GAP = 44;
+const DIAGRAM_PADDING = 28;
+const ROUTE_LABEL_MAX = 20;
 
 const TONE_STYLES: Record<
   FlowTone,
-  { bg: string; border: string; icon: string }
+  { icon: string; border: string; bg: string }
 > = {
-  primary: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-100',
-    icon: '#2563eb',
-  },
-  info: {
-    bg: 'bg-sky-50',
-    border: 'border-sky-100',
-    icon: '#0284c7',
-  },
-  success: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-100',
-    icon: '#059669',
-  },
-  accent: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-100',
-    icon: '#b45309',
-  },
-  neutral: {
-    bg: 'bg-slate-100',
-    border: 'border-slate-200',
-    icon: '#475569',
-  },
+  info: { icon: '#1d4ed8', border: '#bfdbfe', bg: '#eff6ff' },
+  success: { icon: '#047857', border: '#a7f3d0', bg: '#ecfdf5' },
+  accent: { icon: '#b45309', border: '#fde68a', bg: '#fffbeb' },
+  neutral: { icon: '#475569', border: '#e2e8f0', bg: '#f8fafc' },
 };
 
-const ENTRY_FLOW: FlowItem[] = [
+const EDGE_STYLES: Record<
+  EdgeKind,
+  { stroke: string; dash?: string; labelText: string; labelBg: string }
+> = {
+  primary: { stroke: '#0ea5e9', labelText: '#075985', labelBg: '#e0f2fe' },
+  secondary: {
+    stroke: '#0284c7',
+    dash: '5 4',
+    labelText: '#155e75',
+    labelBg: '#ecfeff',
+  },
+  back: {
+    stroke: '#64748b',
+    dash: '2 5',
+    labelText: '#334155',
+    labelBg: '#f1f5f9',
+  },
+  system: {
+    stroke: '#94a3b8',
+    dash: '1 5',
+    labelText: '#475569',
+    labelBg: '#f8fafc',
+  },
+};
+const DIAGRAM_NODES: DiagramNode[] = [
   {
-    title: '\u05d3\u05e3 \u05db\u05e0\u05d9\u05e1\u05d4',
-    nameEn: 'Auth Index',
-    subtitle:
-      '\u05de\u05e2\u05d1\u05d9\u05e8 \u05dc\u05de\u05e4\u05ea \u05d4\u05de\u05e1\u05db\u05d9\u05dd',
-    href: '/(auth)',
-    icon: 'map-outline',
-    tone: 'neutral',
+    id: 'auth-index',
+    col: 0,
+    row: 0,
+    preview: 'entry',
+    item: {
+      title: '׳³ג€׳³ֲ£ ׳³ג€÷׳³ֲ ׳³ג„¢׳³ֲ¡׳³ג€',
+      nameEn: 'Auth Index',
+      href: '/(auth)',
+      icon: 'map-outline',
+      tone: 'neutral',
+    },
   },
   {
-    title:
-      '\u05d1\u05e8\u05d5\u05db\u05d9\u05dd \u05d4\u05d1\u05d0\u05d9\u05dd',
-    nameEn: 'Welcome',
-    subtitle: '\u05de\u05e1\u05da \u05e0\u05d7\u05d9\u05ea\u05d4',
-    href: '/(auth)/welcome',
-    icon: 'sparkles-outline',
-    tone: 'info',
+    id: 'welcome',
+    col: 1,
+    row: 0,
+    preview: 'welcome',
+    item: {
+      title: 'WELCOME',
+      nameEn: 'Welcome',
+      href: '/(auth)/welcome',
+      icon: 'sparkles-outline',
+      tone: 'info',
+    },
   },
   {
-    title: '\u05d4\u05e8\u05e9\u05de\u05d4',
-    nameEn: 'Sign Up',
-    subtitle:
-      '\u05d1\u05d7\u05d9\u05e8\u05ea \u05e9\u05d9\u05d8\u05ea \u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea',
-    href: '/(auth)/sign-up',
-    icon: 'person-add-outline',
-    tone: 'info',
+    id: 'sign-up',
+    col: 2,
+    row: 0,
+    preview: 'sign-up',
+    item: {
+      title: 'SIGN UP',
+      nameEn: 'Sign Up',
+      href: '/(auth)/sign-up',
+      icon: 'person-add-outline',
+      tone: 'info',
+    },
   },
   {
-    title: '\u05d4\u05ea\u05d7\u05d1\u05e8\u05d5\u05ea',
-    nameEn: 'Sign In',
-    subtitle:
-      '\u05db\u05e0\u05d9\u05e1\u05d4 \u05dc\u05d7\u05e9\u05d1\u05d5\u05df',
-    href: '/(auth)/sign-in',
-    icon: 'log-in-outline',
-    tone: 'neutral',
+    id: 'legal',
+    col: 2,
+    row: 1,
+    preview: 'legal',
+    item: {
+      title: '׳³ֲ׳³ֲ¡׳³ֲ׳³ֲ ׳³ֲ׳³ֲ©׳³ג‚×׳³ֻ׳³ג„¢',
+      nameEn: 'Legal',
+      href: '/(auth)/legal',
+      icon: 'document-text-outline',
+      tone: 'neutral',
+    },
   },
   {
-    title: '\u05d1\u05d7\u05d9\u05e8\u05ea \u05ea\u05e4\u05e7\u05d9\u05d3',
-    nameEn: 'Onboarding Role',
-    subtitle:
-      '\u05e9\u05d9\u05d5\u05da \u05dc\u05e2\u05e0\u05e3 \u05d4\u05e8\u05dc\u05d5\u05d5\u05e0\u05d8\u05d9',
-    href: '/(auth)/onboarding-client-role',
-    icon: 'person-circle-outline',
-    tone: 'neutral',
+    id: 'role',
+    col: 3,
+    row: 0,
+    preview: 'role',
+    item: {
+      title: '׳³ג€˜׳³ג€”׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֳ—׳³ג‚×׳³ֲ§׳³ג„¢׳³ג€',
+      nameEn: 'Onboarding Role',
+      href: '/(auth)/onboarding-client-role',
+      icon: 'people-outline',
+      tone: 'neutral',
+    },
+  },
+  {
+    id: 'client-details',
+    col: 4,
+    row: 0,
+    preview: 'form',
+    item: {
+      title: '׳³ג‚×׳³ֲ¨׳³ֻ׳³ג„¢ ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”',
+      nameEn: 'Client Details',
+      href: '/(auth)/onboarding-client-details',
+      icon: 'person-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-otp',
+    col: 5,
+    row: 0,
+    preview: 'otp',
+    item: {
+      title: '׳³ֲ׳³ג„¢׳³ֲ׳³ג€¢׳³ֳ— OTP',
+      nameEn: 'Client OTP',
+      href: '/(auth)/onboarding-client-otp',
+      icon: 'key-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-interests',
+    col: 6,
+    row: 0,
+    preview: 'selection',
+    item: {
+      title: '׳³ֳ—׳³ג€”׳³ג€¢׳³ֲ׳³ג„¢ ׳³ֲ¢׳³ֲ ׳³ג„¢׳³ג„¢׳³ֲ',
+      nameEn: 'Client Interests',
+      href: '/(auth)/onboarding-client-interests',
+      icon: 'heart-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-usage',
+    col: 7,
+    row: 0,
+    preview: 'selection',
+    item: {
+      title: '׳³ֲ׳³ג€“׳³ג€¢׳³ֲ¨ ׳³ֲ©׳³ג„¢׳³ֲ׳³ג€¢׳³ֲ© ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”',
+      nameEn: 'Client Usage Area',
+      href: '/(auth)/onboarding-client-usage-area',
+      icon: 'map-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-fit',
+    col: 8,
+    row: 0,
+    preview: 'selection',
+    item: {
+      title: '׳³ג€׳³ֳ—׳³ֲ׳³ֲ׳³ג€',
+      nameEn: 'Client Fit',
+      href: '/(auth)/onboarding-client-fit',
+      icon: 'checkmark-circle-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-frequency',
+    col: 9,
+    row: 0,
+    preview: 'selection',
+    item: {
+      title: '׳³ֳ—׳³ג€׳³ג„¢׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג€˜׳³ג„¢׳³ֲ§׳³ג€¢׳³ֲ¨',
+      nameEn: 'Client Frequency',
+      href: '/(auth)/onboarding-client-frequency',
+      icon: 'time-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'client-return',
+    col: 10,
+    row: 0,
+    preview: 'selection',
+    item: {
+      title: '׳³ֲ¡׳³ג„¢׳³ג€˜׳³ֳ— ׳³ג€”׳³ג€“׳³ֲ¨׳³ג€',
+      nameEn: 'Client Return Motivation',
+      href: '/(auth)/onboarding-client-return-motivation',
+      icon: 'repeat-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'sign-in',
+    col: 11,
+    row: 0,
+    preview: 'sign-in',
+    item: {
+      title: 'SIGN IN',
+      nameEn: 'Sign In',
+      href: '/(auth)/sign-in',
+      icon: 'log-in-outline',
+      tone: 'neutral',
+    },
+  },
+  {
+    id: 'customer-wallet',
+    col: 12,
+    row: 0,
+    preview: 'main',
+    item: {
+      title: '׳³ֲ׳³ֲ¨׳³ֲ ׳³ֲ§ ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”',
+      nameEn: 'Customer Wallet',
+      href: '/(authenticated)/(customer)/wallet',
+      icon: 'wallet-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'customer-discovery',
+    col: 13,
+    row: 0,
+    preview: 'main',
+    item: {
+      title: '׳³ג€™׳³ג„¢׳³ֲ׳³ג€¢׳³ג„¢',
+      nameEn: 'Customer Discovery',
+      href: '/(authenticated)/(customer)/discovery',
+      icon: 'compass-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'customer-rewards',
+    col: 14,
+    row: 0,
+    preview: 'main',
+    item: {
+      title: '׳³ג€׳³ֻ׳³ג€˜׳³ג€¢׳³ֳ—',
+      nameEn: 'Customer Rewards',
+      href: '/(authenticated)/(customer)/rewards',
+      icon: 'gift-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'business-role',
+    col: 4,
+    row: 2,
+    preview: 'selection',
+    item: {
+      title: '׳³ֳ—׳³ג‚×׳³ֲ§׳³ג„¢׳³ג€ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Role',
+      href: '/(auth)/onboarding-business-role',
+      icon: 'briefcase-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-discovery',
+    col: 5,
+    row: 2,
+    preview: 'selection',
+    item: {
+      title: '׳³ג€™׳³ג„¢׳³ֲ׳³ג€¢׳³ג„¢ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Discovery',
+      href: '/(auth)/onboarding-business-discovery',
+      icon: 'compass-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-reason',
+    col: 6,
+    row: 2,
+    preview: 'selection',
+    item: {
+      title: '׳³ֲ¡׳³ג„¢׳³ג€˜׳³ג€ ׳³ֲ׳³ֲ¨׳³ג€÷׳³ג€“׳³ג„¢׳³ֳ—',
+      nameEn: 'Business Reason',
+      href: '/(auth)/onboarding-business-reason',
+      icon: 'help-circle-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-name',
+    col: 7,
+    row: 2,
+    preview: 'form',
+    item: {
+      title: '׳³ֲ©׳³ֲ ׳³ג€׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Name',
+      href: '/(auth)/onboarding-business-name',
+      icon: 'document-text-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-usage',
+    col: 8,
+    row: 2,
+    preview: 'selection',
+    item: {
+      title: '׳³ֲ׳³ג€“׳³ג€¢׳³ֲ¨ ׳³ג‚×׳³ֲ¢׳³ג„¢׳³ֲ׳³ג€¢׳³ֳ— ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Usage Area',
+      href: '/(auth)/onboarding-business-usage-area',
+      icon: 'map-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'paywall',
+    col: 9,
+    row: 2,
+    preview: 'paywall',
+    item: {
+      title: 'PAYWALL',
+      nameEn: 'Paywall',
+      href: '/(auth)/paywall',
+      icon: 'card-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-dashboard',
+    col: 12,
+    row: 2,
+    preview: 'dashboard',
+    item: {
+      title: '׳³ג€׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ¨׳³ג€ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Dashboard',
+      href: '/(authenticated)/(business)/dashboard',
+      icon: 'stats-chart-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-scanner',
+    col: 13,
+    row: 2,
+    preview: 'scanner',
+    item: {
+      title: '׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Scanner',
+      href: '/(authenticated)/(business)/scanner',
+      icon: 'qr-code-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-analytics',
+    col: 14,
+    row: 2,
+    preview: 'analytics',
+    item: {
+      title: '׳³ֲ׳³ֲ ׳³ֲ׳³ג„¢׳³ֻ׳³ג„¢׳³ֲ§׳³ֲ¡ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Analytics',
+      href: '/(authenticated)/(business)/analytics',
+      icon: 'analytics-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'admin-dashboard',
+    col: 12,
+    row: 3,
+    preview: 'main',
+    item: {
+      title: '׳³ג€׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ¨׳³ג€ ׳³ֲ׳³ג€׳³ֲ׳³ג„¢׳³ֲ',
+      nameEn: 'Admin Dashboard',
+      href: '/(authenticated)/merchant',
+      icon: 'shield-checkmark-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'admin-analytics',
+    col: 13,
+    row: 3,
+    preview: 'main',
+    item: {
+      title: '׳³ֲ׳³ֲ ׳³ֲ׳³ג„¢׳³ֻ׳³ג„¢׳³ֲ§׳³ֲ¡ ׳³ֲ׳³ג€׳³ֲ׳³ג„¢׳³ֲ',
+      nameEn: 'Admin Analytics',
+      href: '/(authenticated)/merchant/analytics',
+      icon: 'bar-chart-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'admin-store',
+    col: 14,
+    row: 3,
+    preview: 'main',
+    item: {
+      title: '׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג€”׳³ֲ ׳³ג€¢׳³ֳ—',
+      nameEn: 'Admin Store Settings',
+      href: '/(authenticated)/merchant/store-settings',
+      icon: 'storefront-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'customer-settings',
+    col: 15,
+    row: 0,
+    preview: 'settings',
+    item: {
+      title: '׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”',
+      nameEn: 'Customer Settings',
+      href: '/(authenticated)/(customer)/settings',
+      icon: 'settings-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'join',
+    col: 16,
+    row: 0,
+    preview: 'join',
+    item: {
+      title: '׳³ג€׳³ֲ¦׳³ֻ׳³ֲ¨׳³ג‚×׳³ג€¢׳³ֳ—',
+      nameEn: 'Join',
+      href: '/(authenticated)/join',
+      icon: 'person-add-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'card-detail',
+    col: 17,
+    row: 0,
+    preview: 'card-detail',
+    item: {
+      title: '׳³ג€÷׳³ֲ¨׳³ֻ׳³ג„¢׳³ֲ¡ ׳³ֲ ׳³ֲ׳³ֲ׳³ֲ ׳³ג€¢׳³ֳ—',
+      nameEn: 'Card Detail',
+      href: '/(authenticated)/card/map-preview',
+      icon: 'card-outline',
+      tone: 'info',
+    },
+  },
+  {
+    id: 'business-team',
+    col: 15,
+    row: 2,
+    preview: 'team',
+    item: {
+      title: '׳³ֲ¦׳³ג€¢׳³ג€¢׳³ֳ— ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Team',
+      href: '/(authenticated)/(business)/team',
+      icon: 'people-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-settings',
+    col: 16,
+    row: 2,
+    preview: 'settings',
+    item: {
+      title: '׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Business Settings',
+      href: '/(authenticated)/(business)/settings',
+      icon: 'settings-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'business-qr',
+    col: 17,
+    row: 2,
+    preview: 'qr',
+    item: {
+      title: 'QR ׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§ ׳³ֲ¢׳³ג€¢׳³ג€˜׳³ג€׳³ג„¢׳³ֲ',
+      nameEn: 'Business QR',
+      href: '/(authenticated)/(business)/qr',
+      icon: 'qr-code-outline',
+      tone: 'success',
+    },
+  },
+  {
+    id: 'merchant-profile-settings',
+    col: 15,
+    row: 3,
+    preview: 'settings',
+    item: {
+      title: '׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג‚×׳³ֲ¨׳³ג€¢׳³ג‚×׳³ג„¢׳³ֲ',
+      nameEn: 'Merchant Profile',
+      href: '/(authenticated)/merchant/profile-settings',
+      icon: 'person-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'merchant-qr',
+    col: 16,
+    row: 3,
+    preview: 'qr',
+    item: {
+      title: 'QR ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Merchant QR',
+      href: '/(authenticated)/merchant/qr',
+      icon: 'qr-code-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'merchant-create-business',
+    col: 12,
+    row: 4,
+    preview: 'merchant-onboarding',
+    item: {
+      title: '׳³ג„¢׳³ֲ¦׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+      nameEn: 'Create Business',
+      href: '/(authenticated)/merchant/onboarding/create-business',
+      icon: 'business-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'merchant-create-program',
+    col: 13,
+    row: 4,
+    preview: 'merchant-onboarding',
+    item: {
+      title: '׳³ג„¢׳³ֲ¦׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֳ—׳³ג€÷׳³ֲ ׳³ג„¢׳³ֳ—',
+      nameEn: 'Create Program',
+      href: '/(authenticated)/merchant/onboarding/create-program',
+      icon: 'list-outline',
+      tone: 'accent',
+    },
+  },
+  {
+    id: 'merchant-preview-card',
+    col: 14,
+    row: 4,
+    preview: 'card-detail',
+    item: {
+      title: '׳³ֳ—׳³ֲ¦׳³ג€¢׳³ג€™׳³ג€ ׳³ֲ׳³ֲ§׳³ג€׳³ג„¢׳³ֲ׳³ג€',
+      nameEn: 'Preview Card',
+      href: '/(authenticated)/merchant/onboarding/preview-card',
+      icon: 'eye-outline',
+      tone: 'accent',
+    },
   },
 ];
 
-const CLIENT_ONBOARDING: FlowItem[] = [
+const DIAGRAM_EDGES: DiagramEdge[] = [
+  { from: 'auth-index', to: 'welcome', label: 'redirect', kind: 'system' },
   {
-    title: '\u05d0\u05d6\u05d5\u05e8 \u05e9\u05d9\u05de\u05d5\u05e9',
-    nameEn: 'Client Usage Area',
-    href: '/(auth)/onboarding-client-usage-area',
-    icon: 'map-outline',
-    tone: 'info',
+    from: 'welcome',
+    to: 'sign-up',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ "׳³ג€˜׳³ג€¢׳³ֲ׳³ג€¢ ׳³ֲ ׳³ֳ—׳³ג€”׳³ג„¢׳³ֲ"',
+    kind: 'primary',
   },
   {
-    title: '\u05ea\u05d7\u05d5\u05de\u05d9 \u05e2\u05e0\u05d9\u05d9\u05df',
-    nameEn: 'Client Interests',
-    href: '/(auth)/onboarding-client-interests',
-    icon: 'heart-outline',
-    tone: 'info',
+    from: 'welcome',
+    to: 'sign-in',
+    label: '"׳³ג€׳³ֳ—׳³ג€”׳³ג€˜׳³ֲ¨׳³ג€¢ ׳³ג€÷׳³ֲ׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
   },
   {
-    title:
-      '\u05ea\u05d3\u05d9\u05e8\u05d5\u05ea \u05d1\u05d9\u05e7\u05d5\u05e8',
-    nameEn: 'Visit Frequency',
-    href: '/(auth)/onboarding-client-frequency',
-    icon: 'time-outline',
-    tone: 'info',
+    from: 'sign-up',
+    to: 'welcome',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
   },
   {
-    title: '\u05e1\u05d9\u05d1\u05ea \u05d7\u05d6\u05e8\u05d4',
-    nameEn: 'Return Motivation',
-    href: '/(auth)/onboarding-client-return-motivation',
-    icon: 'repeat-outline',
-    tone: 'info',
+    from: 'sign-up',
+    to: 'role',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
   },
   {
-    title: '\u05e4\u05e8\u05d8\u05d9 \u05dc\u05e7\u05d5\u05d7',
-    nameEn: 'Client Details',
-    href: '/(auth)/onboarding-client-details',
-    icon: 'document-text-outline',
-    tone: 'info',
+    from: 'sign-up',
+    to: 'legal',
+    label: '"׳³ֲ׳³ֲ¡׳³ֲ׳³ֲ ׳³ֲ׳³ֲ©׳³ג‚×׳³ֻ׳³ג„¢"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
   },
   {
-    title: '\u05d0\u05d9\u05de\u05d5\u05ea OTP',
-    nameEn: 'Client OTP',
-    href: '/(auth)/onboarding-client-otp',
-    icon: 'key-outline',
-    tone: 'info',
+    from: 'legal',
+    to: 'sign-up',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'top',
+    toAnchor: 'bottom',
   },
   {
-    title: '\u05d4\u05ea\u05d0\u05de\u05d4',
-    nameEn: 'Client Fit',
-    href: '/(auth)/onboarding-client-fit',
-    icon: 'checkmark-done-outline',
-    tone: 'info',
+    from: 'role',
+    to: 'sign-up',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'role',
+    to: 'client-details',
+    label: '׳³ג€˜׳³ג€”׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€” + ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'role',
+    to: 'business-role',
+    label: '׳³ג€˜׳³ג€”׳³ג„¢׳³ֲ¨׳³ֳ— ׳³ֲ¢׳³ֲ¡׳³ֲ§ + ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'client-details',
+    to: 'role',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-details',
+    to: 'client-otp',
+    label: '"׳³ג€׳³ֲ׳³ֲ©׳³ֲ ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€ ׳³ֲ׳³ג„¢׳³ֲ׳³ג€¢׳³ֳ—"',
+    kind: 'primary',
+  },
+  {
+    from: 'client-otp',
+    to: 'client-details',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-otp',
+    to: 'client-details',
+    label: '"׳³ֲ¢׳³ֲ¨׳³ג€¢׳³ֲ ׳³ג‚×׳³ֲ¨׳³ֻ׳³ג„¢׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'client-otp',
+    to: 'client-interests',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'client-interests',
+    to: 'client-otp',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-interests',
+    to: 'client-usage',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'client-usage',
+    to: 'client-interests',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-usage',
+    to: 'client-fit',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'client-fit',
+    to: 'client-usage',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-fit',
+    to: 'client-frequency',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'client-frequency',
+    to: 'client-fit',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-frequency',
+    to: 'client-return',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'client-return',
+    to: 'client-frequency',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'client-return',
+    to: 'sign-in',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
+  },
+  {
+    from: 'business-role',
+    to: 'role',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'top',
+    toAnchor: 'bottom',
+  },
+  {
+    from: 'business-role',
+    to: 'business-discovery',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'business-discovery',
+    to: 'business-role',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'business-discovery',
+    to: 'business-reason',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'business-reason',
+    to: 'business-discovery',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'business-reason',
+    to: 'business-name',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'business-name',
+    to: 'business-reason',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'business-name',
+    to: 'business-usage',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'business-usage',
+    to: 'business-name',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+  },
+  {
+    from: 'business-usage',
+    to: 'paywall',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ',
+    kind: 'primary',
+  },
+  {
+    from: 'paywall',
+    to: 'sign-in',
+    label: '׳³ֲ¡׳³ג€™׳³ג„¢׳³ֲ¨׳³ג€ (X)',
+    kind: 'back',
+    fromAnchor: 'top',
+    toAnchor: 'bottom',
+  },
+  {
+    from: 'paywall',
+    to: 'sign-in',
+    label: '׳³ֲ¨׳³ג€÷׳³ג„¢׳³ֲ©׳³ג€ ׳³ג€׳³ֲ¦׳³ֲ׳³ג„¢׳³ג€”׳³ג€',
+    kind: 'primary',
+    fromAnchor: 'right',
+    toAnchor: 'bottom',
+  },
+  {
+    from: 'paywall',
+    to: 'sign-in',
+    label: '"׳³ֲ©׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨"',
+    kind: 'secondary',
+    fromAnchor: 'top',
+    toAnchor: 'bottom',
+  },
+  {
+    from: 'paywall',
+    to: 'legal',
+    label: '"׳³ֲ׳³ֲ¡׳³ֲ׳³ֲ ׳³ֲ׳³ֲ©׳³ג‚×׳³ֻ׳³ג„¢"',
+    kind: 'secondary',
+    fromAnchor: 'top',
+    toAnchor: 'right',
+  },
+  {
+    from: 'sign-in',
+    to: 'sign-up',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'sign-in',
+    to: 'sign-up',
+    label: '׳³ֲ§׳³ג„¢׳³ֲ©׳³ג€¢׳³ֲ¨ "׳³ג€׳³ג„¢׳³ֲ¨׳³ֲ©׳³ֲ ׳³ג€÷׳³ֲ׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'top',
+    toAnchor: 'bottom',
+  },
+  {
+    from: 'sign-in',
+    to: 'customer-wallet',
+    label: '׳³ג€׳³ֳ—׳³ג€”׳³ג€˜׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג€׳³ֲ¦׳³ֲ׳³ג„¢׳³ג€”׳³ג€',
+    kind: 'primary',
+  },
+  {
+    from: 'sign-in',
+    to: 'business-dashboard',
+    label: '׳³ֲ׳³ֲ ׳³ֲ׳³ֲ¦׳³ג€˜ ׳³ֲ¢׳³ֲ¡׳³ֲ§',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'left',
+  },
+  {
+    from: 'sign-in',
+    to: 'admin-dashboard',
+    label: '׳³ֲ׳³ֲ ׳³ֲ׳³ֲ¦׳³ג€˜ ׳³ֲ׳³ג€׳³ֲ׳³ג„¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'left',
+  },
+  {
+    from: 'customer-wallet',
+    to: 'customer-discovery',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'customer-wallet',
+    to: 'customer-rewards',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'business-scanner',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'business-analytics',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'admin-dashboard',
+    to: 'admin-analytics',
+    label: '׳³ֲ ׳³ג„¢׳³ג€¢׳³ג€¢׳³ֻ ׳³ג‚×׳³ֲ ׳³ג„¢׳³ֲ׳³ג„¢',
+    kind: 'secondary',
+  },
+  {
+    from: 'admin-dashboard',
+    to: 'admin-store',
+    label: '׳³ֲ ׳³ג„¢׳³ג€¢׳³ג€¢׳³ֻ ׳³ג‚×׳³ֲ ׳³ג„¢׳³ֲ׳³ג„¢',
+    kind: 'secondary',
+  },
+  {
+    from: 'customer-wallet',
+    to: 'join',
+    label: '׳³ֲ§׳³ג„¢׳³ֲ©׳³ג€¢׳³ֲ¨ ׳³ֲ¢׳³ֲ׳³ג€¢׳³ֲ§',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'customer-wallet',
+    to: 'card-detail',
+    label: '׳³ֲ׳³ג€”׳³ג„¢׳³ֲ¦׳³ג€ ׳³ֲ¢׳³ֲ ׳³ג€÷׳³ֲ¨׳³ֻ׳³ג„¢׳³ֲ¡',
+    kind: 'primary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
+  },
+  {
+    from: 'join',
+    to: 'card-detail',
+    label: '׳³ג€׳³ֲ¦׳³ֻ׳³ֲ¨׳³ג‚×׳³ג€¢׳³ֳ— + membershipId',
+    kind: 'primary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
+  },
+  {
+    from: 'join',
+    to: 'customer-wallet',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'card-detail',
+    to: 'customer-wallet',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'customer-wallet',
+    to: 'customer-settings',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'customer-discovery',
+    to: 'customer-wallet',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'customer-discovery',
+    to: 'customer-rewards',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'customer-rewards',
+    to: 'customer-discovery',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
+  },
+  {
+    from: 'customer-rewards',
+    to: 'customer-wallet',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'customer-settings',
+    to: 'customer-wallet',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'customer-settings',
+    to: 'sign-up',
+    label: '"׳³ג„¢׳³ֲ¦׳³ג„¢׳³ֲ׳³ג€ ׳³ֲ׳³ג€׳³ג€”׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'customer-settings',
+    to: 'business-dashboard',
+    label: '"׳³ֲ׳³ֲ¦׳³ג€˜ ׳³ֲ¢׳³ֲ¡׳³ֲ§" (DEV)',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'merchant-create-business',
+    label: '"׳³ג‚×׳³ֳ—׳³ג€” ׳³ֲ׳³ג€¢׳³ֲ ׳³ג€˜׳³ג€¢׳³ֲ¨׳³ג€׳³ג„¢׳³ֲ ׳³ג€™"',
+    kind: 'primary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'paywall',
+    label: '"׳³ֲ©׳³ג€׳³ֲ¨׳³ג€™ ׳³ֲ-Pro"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'admin-store',
+    label: '"׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג€”׳³ֲ ׳³ג€¢׳³ֳ—"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'merchant-profile-settings',
+    label: '"׳³ג€׳³ג€™׳³ג€׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ג‚×׳³ֲ¨׳³ג€¢׳³ג‚×׳³ג„¢׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'merchant-qr',
+    label: '"QR ׳³ֲ¢׳³ֲ¡׳³ֲ§"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'business-qr',
+    label: '"QR ׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§ ׳³ֲ¢׳³ג€¢׳³ג€˜׳³ג€׳³ג„¢׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'business-team',
+    label: '"׳³ֲ ׳³ג„¢׳³ג€׳³ג€¢׳³ֲ ׳³ֲ¦׳³ג€¢׳³ג€¢׳³ֳ— ׳³ֲ¢׳³ג€¢׳³ג€˜׳³ג€׳³ג„¢׳³ֲ"',
+    kind: 'secondary',
+  },
+  {
+    from: 'business-scanner',
+    to: 'business-dashboard',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'business-team',
+    to: 'business-dashboard',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'business-analytics',
+    to: 'business-dashboard',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'business-dashboard',
+    to: 'business-settings',
+    label: '׳³ֻ׳³ֲ׳³ג€˜ ׳³ֳ—׳³ג€”׳³ֳ—׳³ג€¢׳³ֲ',
+    kind: 'secondary',
+  },
+  {
+    from: 'business-settings',
+    to: 'business-dashboard',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'business-settings',
+    to: 'sign-up',
+    label: '"׳³ג„¢׳³ֲ¦׳³ג„¢׳³ֲ׳³ג€ ׳³ֲ׳³ג€׳³ג€”׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-settings',
+    to: 'customer-wallet',
+    label: '"׳³ֲ׳³ֲ¦׳³ג€˜ ׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”"',
+    kind: 'secondary',
+    fromAnchor: 'bottom',
+    toAnchor: 'top',
+  },
+  {
+    from: 'business-qr',
+    to: 'business-dashboard',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-profile-settings',
+    to: 'business-dashboard',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-qr',
+    to: 'business-dashboard',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-create-business',
+    to: 'business-dashboard',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-create-business',
+    to: 'merchant-create-program',
+    label: '"׳³ֲ©׳³ֲ׳³ג€¢׳³ֲ¨ ׳³ג€¢׳³ֲ¢׳³ג€˜׳³ג€¢׳³ֲ¨ ׳³ֲ׳³ֲ©׳³ֲ׳³ג€˜ ׳³ג€׳³ג€˜׳³ֲ"',
+    kind: 'primary',
+  },
+  {
+    from: 'merchant-create-program',
+    to: 'merchant-create-business',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-create-program',
+    to: 'merchant-preview-card',
+    label: '"׳³ֲ©׳³ֲ׳³ג€¢׳³ֲ¨ ׳³ֳ—׳³ג€÷׳³ֲ ׳³ג„¢׳³ֳ— ׳³ג€¢׳³ג€׳³ֲ׳³ֲ©׳³ֲ"',
+    kind: 'primary',
+  },
+  {
+    from: 'merchant-preview-card',
+    to: 'merchant-create-program',
+    label: '׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨',
+    kind: 'back',
+    fromAnchor: 'left',
+    toAnchor: 'right',
+  },
+  {
+    from: 'merchant-preview-card',
+    to: 'business-scanner',
+    label: '"׳³ג‚×׳³ֳ—׳³ג€” ׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§"',
+    kind: 'primary',
+    fromAnchor: 'right',
+    toAnchor: 'left',
   },
 ];
 
-const BUSINESS_ONBOARDING: FlowItem[] = [
-  {
-    title: '\u05d1\u05d7\u05d9\u05e8\u05ea \u05ea\u05e4\u05e7\u05d9\u05d3',
-    nameEn: 'Business Role',
-    href: '/(auth)/onboarding-business-role',
-    icon: 'briefcase-outline',
-    tone: 'success',
-  },
-  {
-    title:
-      '\u05d0\u05d9\u05e4\u05d4 \u05e9\u05de\u05e2\u05ea \u05e2\u05dc\u05d9\u05e0\u05d5',
-    nameEn: 'How Did You Hear About Us',
-    href: '/(auth)/onboarding-business-discovery',
-    icon: 'compass-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05e1\u05d9\u05d1\u05d4 \u05de\u05e8\u05db\u05d6\u05d9\u05ea',
-    nameEn: 'Primary Reason',
-    href: '/(auth)/onboarding-business-reason',
-    icon: 'help-circle-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05e9\u05dd \u05d4\u05e2\u05e1\u05e7',
-    nameEn: 'Business Name',
-    href: '/(auth)/onboarding-business-name',
-    icon: 'document-text-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05d0\u05d6\u05d5\u05e8 \u05e4\u05e2\u05d9\u05dc\u05d5\u05ea',
-    nameEn: 'Business Usage Area',
-    href: '/(auth)/onboarding-business-usage-area',
-    icon: 'map-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05de\u05e1\u05da \u05ea\u05e9\u05dc\u05d5\u05dd',
-    nameEn: 'Paywall',
-    href: '/(auth)/paywall',
-    icon: 'card-outline',
-    tone: 'success',
-  },
-];
+const KNOWN_HREFS = new Set(DIAGRAM_NODES.map((node) => node.item.href));
 
-const CUSTOMER_MAIN: FlowItem[] = [
-  {
-    title: '\u05d2\u05d9\u05dc\u05d5\u05d9',
-    nameEn: 'Discovery',
-    href: '/(authenticated)/(customer)/discovery',
-    icon: 'compass-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05d4\u05d8\u05d1\u05d5\u05ea',
-    nameEn: 'Rewards',
-    href: '/(authenticated)/(customer)/rewards',
-    icon: 'gift-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05d0\u05e8\u05e0\u05e7',
-    nameEn: 'Wallet',
-    href: '/(authenticated)/(customer)/wallet',
-    icon: 'wallet-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05e2\u05e1\u05e7',
-    nameEn: 'Join Business',
-    href: '/(authenticated)/join',
-    icon: 'qr-code-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd',
-    nameEn: 'Cards',
-    href: '/(authenticated)/card',
-    icon: 'card-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05e4\u05e8\u05d8\u05d9 \u05db\u05e8\u05d8\u05d9\u05e1',
-    nameEn: 'Membership Card',
-    href: '/(authenticated)/card/[membershipId]',
-    icon: 'card-outline',
-    tone: 'info',
-  },
-  {
-    title: '\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
-    nameEn: 'Settings',
-    href: '/(authenticated)/(customer)/settings',
-    icon: 'settings-outline',
-    tone: 'info',
-  },
-];
+function resolveFlowLink(href: string): Href {
+  const params: string[] = [];
+  const shouldAddPreview = IS_DEV_MODE && href.startsWith('/(authenticated)');
 
-const BUSINESS_MAIN: FlowItem[] = [
-  {
-    title: '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
-    nameEn: 'Dashboard',
-    href: '/(authenticated)/(business)/dashboard',
-    icon: 'stats-chart-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05d0\u05e0\u05dc\u05d9\u05d8\u05d9\u05e7\u05e1',
-    nameEn: 'Analytics',
-    href: '/(authenticated)/(business)/analytics',
-    icon: 'stats-chart-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05e1\u05d5\u05e8\u05e7',
-    nameEn: 'Scanner',
-    href: '/(authenticated)/(business)/scanner',
-    icon: 'qr-code-outline',
-    tone: 'success',
-  },
-  {
-    title: 'QR',
-    nameEn: 'Business QR',
-    href: '/(authenticated)/(business)/qr',
-    icon: 'qr-code-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05e6\u05d5\u05d5\u05ea',
-    nameEn: 'Team',
-    href: '/(authenticated)/(business)/team',
-    icon: 'people-outline',
-    tone: 'success',
-  },
-  {
-    title: '\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
-    nameEn: 'Settings',
-    href: '/(authenticated)/(business)/settings',
-    icon: 'settings-outline',
-    tone: 'success',
-  },
-];
+  if (shouldAddPreview && !href.includes('preview=')) {
+    params.push('preview=true');
+  }
+  if (!href.includes('map=')) {
+    params.push('map=true');
+  }
 
-const ADMIN_MAIN: FlowItem[] = [
-  {
-    title:
-      '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3 \u05d0\u05d3\u05de\u05d9\u05df',
-    nameEn: 'Admin Dashboard',
-    href: '/(authenticated)/merchant',
-    icon: 'shield-checkmark-outline',
-    tone: 'accent',
-  },
-  {
-    title: '\u05d0\u05e0\u05dc\u05d9\u05d8\u05d9\u05e7\u05e1',
-    nameEn: 'Merchant Analytics',
-    href: '/(authenticated)/merchant/analytics',
-    icon: 'stats-chart-outline',
-    tone: 'accent',
-  },
-  {
-    title: '\u05d7\u05e0\u05d5\u05ea',
-    nameEn: 'Store Settings',
-    href: '/(authenticated)/merchant/store-settings',
-    icon: 'storefront-outline',
-    tone: 'accent',
-  },
-  {
-    title: '\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc',
-    nameEn: 'Profile Settings',
-    href: '/(authenticated)/merchant/profile-settings',
-    icon: 'person-circle-outline',
-    tone: 'accent',
-  },
-  {
-    title: 'QR',
-    nameEn: 'Merchant QR',
-    href: '/(authenticated)/merchant/qr',
-    icon: 'qr-code-outline',
-    tone: 'accent',
-  },
-];
+  if (params.length === 0) {
+    return href as Href;
+  }
 
-const ADMIN_ONBOARDING: FlowItem[] = [
-  {
-    title:
-      '\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2 \u05d0\u05d3\u05de\u05d9\u05df',
-    nameEn: 'Merchant Onboarding',
-    href: '/(authenticated)/merchant/onboarding',
-    icon: 'sparkles-outline',
-    tone: 'accent',
-  },
-  {
-    title: '\u05d9\u05e6\u05d9\u05e8\u05ea \u05e2\u05e1\u05e7',
-    nameEn: 'Create Business',
-    href: '/(authenticated)/merchant/onboarding/create-business',
-    icon: 'storefront-outline',
-    tone: 'accent',
-  },
-  {
-    title:
-      '\u05d9\u05e6\u05d9\u05e8\u05ea \u05ea\u05d5\u05db\u05e0\u05d9\u05ea',
-    nameEn: 'Create Program',
-    href: '/(authenticated)/merchant/onboarding/create-program',
-    icon: 'albums-outline',
-    tone: 'accent',
-  },
-  {
-    title: '\u05ea\u05e6\u05d5\u05d2\u05ea \u05db\u05e8\u05d8\u05d9\u05e1',
-    nameEn: 'Preview Card',
-    href: '/(authenticated)/merchant/onboarding/preview-card',
-    icon: 'card-outline',
-    tone: 'accent',
-  },
-];
-
-const MAPPED_FLOW_HREFS = new Set(
-  [
-    ...ENTRY_FLOW,
-    ...CLIENT_ONBOARDING,
-    ...BUSINESS_ONBOARDING,
-    ...CUSTOMER_MAIN,
-    ...BUSINESS_MAIN,
-    ...ADMIN_ONBOARDING,
-    ...ADMIN_MAIN,
-  ].map((item) => item.href)
-);
+  return `${href}${href.includes('?') ? '&' : '?'}${params.join('&')}` as Href;
+}
 
 function flattenSitemap(node: SitemapType | null): SitemapType[] {
   if (!node) {
@@ -393,18 +1250,18 @@ function flattenSitemap(node: SitemapType | null): SitemapType[] {
   }
 
   const queue: SitemapType[] = [node];
-  const items: SitemapType[] = [];
+  const out: SitemapType[] = [];
 
-  while (queue.length) {
+  while (queue.length > 0) {
     const current = queue.shift();
     if (!current) {
       continue;
     }
-    items.push(current);
+    out.push(current);
     queue.push(...current.children);
   }
 
-  return items;
+  return out;
 }
 
 function getExtraScreenName(href: string): string {
@@ -423,7 +1280,6 @@ function getExtraScreenName(href: string): string {
     .replace(']', '')
     .replaceAll('-', ' ')
     .trim();
-
   if (!cleaned) {
     return 'Additional Screen';
   }
@@ -444,95 +1300,449 @@ function getExtraScreenIcon(href: string): IconName {
   if (href.includes('settings')) {
     return 'settings-outline';
   }
-  if (href.includes('onboarding')) {
-    return 'sparkles-outline';
-  }
   if (href.includes('card')) {
     return 'card-outline';
+  }
+  if (href.includes('onboarding')) {
+    return 'sparkles-outline';
   }
   if (href.includes('team')) {
     return 'people-outline';
   }
-  if (href.includes('paywall')) {
-    return 'card-outline';
-  }
   return 'document-text-outline';
 }
 
-function resolveFlowLink(href: string): Href {
-  const params: string[] = [];
-  const shouldAddPreview = IS_DEV_MODE && href.startsWith('/(authenticated)');
-
-  if (shouldAddPreview && !href.includes('preview=')) {
-    params.push('preview=true');
+function getNodePosition(node: DiagramNode) {
+  return {
+    x: DIAGRAM_PADDING + node.col * (NODE_WIDTH + COL_GAP),
+    y: DIAGRAM_PADDING + node.row * (NODE_HEIGHT + ROW_GAP),
+  };
+}
+function getAnchorVector(anchor: Anchor) {
+  if (anchor === 'left') {
+    return { x: -1, y: 0 };
   }
-
-  if (!href.includes('map=')) {
-    params.push('map=true');
+  if (anchor === 'right') {
+    return { x: 1, y: 0 };
   }
-
-  if (params.length === 0) {
-    return href as Href;
+  if (anchor === 'top') {
+    return { x: 0, y: -1 };
   }
-
-  return `${href}${href.includes('?') ? '&' : '?'}${params.join('&')}` as Href;
+  return { x: 0, y: 1 };
 }
 
-function FlowNode({ item, size = 'md' }: FlowNodeProps) {
-  const resolvedHref = resolveFlowLink(item.href);
-  const tone = TONE_STYLES[item.tone ?? 'neutral'];
-  const sizeClass =
-    size === 'xs'
-      ? 'w-full px-2.5 py-2.5'
-      : size === 'sm'
-        ? 'w-36 px-3 py-3'
-        : 'w-44 px-4 py-4';
-  const titleClass =
-    size === 'xs' ? 'text-[10px]' : size === 'sm' ? 'text-[11px]' : 'text-sm';
-  const subtitleClass =
-    size === 'xs'
-      ? 'text-[9px]'
-      : size === 'sm'
-        ? 'text-[10px]'
-        : 'text-[11px]';
-  const iconSize = size === 'xs' ? 14 : size === 'sm' ? 16 : 18;
+function getAnchorPoint(position: { x: number; y: number }, anchor: Anchor) {
+  if (anchor === 'left') {
+    return { x: position.x, y: position.y + NODE_HEIGHT / 2 };
+  }
+  if (anchor === 'right') {
+    return { x: position.x + NODE_WIDTH, y: position.y + NODE_HEIGHT / 2 };
+  }
+  if (anchor === 'top') {
+    return { x: position.x + NODE_WIDTH / 2, y: position.y };
+  }
+  return { x: position.x + NODE_WIDTH / 2, y: position.y + NODE_HEIGHT };
+}
+
+function shiftPoint(
+  point: { x: number; y: number },
+  anchor: Anchor,
+  distance: number
+) {
+  const v = getAnchorVector(anchor);
+  return { x: point.x + v.x * distance, y: point.y + v.y * distance };
+}
+
+function getArrowPath(end: { x: number; y: number }, toAnchor: Anchor) {
+  const size = 6;
+  if (toAnchor === 'left') {
+    return `M${end.x} ${end.y} L${end.x - size} ${end.y - 4} L${end.x - size} ${end.y + 4} Z`;
+  }
+  if (toAnchor === 'right') {
+    return `M${end.x} ${end.y} L${end.x + size} ${end.y - 4} L${end.x + size} ${end.y + 4} Z`;
+  }
+  if (toAnchor === 'top') {
+    return `M${end.x} ${end.y} L${end.x - 4} ${end.y - size} L${end.x + 4} ${end.y - size} Z`;
+  }
+  return `M${end.x} ${end.y} L${end.x - 4} ${end.y + size} L${end.x + 4} ${end.y + size} Z`;
+}
+
+function getConnectorData(
+  fromPos: { x: number; y: number },
+  toPos: { x: number; y: number },
+  fromAnchor: Anchor,
+  toAnchor: Anchor
+) {
+  const start = getAnchorPoint(fromPos, fromAnchor);
+  const end = getAnchorPoint(toPos, toAnchor);
+  const startOut = shiftPoint(start, fromAnchor, 18);
+  const endOut = shiftPoint(end, toAnchor, 18);
+
+  const points: Array<{ x: number; y: number }> = [start, startOut];
+
+  if (Math.abs(startOut.x - endOut.x) >= Math.abs(startOut.y - endOut.y)) {
+    const midX = (startOut.x + endOut.x) / 2;
+    points.push({ x: midX, y: startOut.y }, { x: midX, y: endOut.y });
+  } else {
+    const midY = (startOut.y + endOut.y) / 2;
+    points.push({ x: startOut.x, y: midY }, { x: endOut.x, y: midY });
+  }
+
+  points.push(endOut, end);
+
+  const path = points
+    .map(
+      (point, index) =>
+        `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+    )
+    .join(' ');
+
+  return {
+    path,
+    arrowPath: getArrowPath(end, toAnchor),
+    labelX: (startOut.x + endOut.x) / 2,
+    labelY: (startOut.y + endOut.y) / 2 - 7,
+  };
+}
+
+function getDefaultAnchors(kind: EdgeKind): { from: Anchor; to: Anchor } {
+  if (kind === 'back') {
+    return { from: 'left', to: 'right' };
+  }
+  if (kind === 'primary') {
+    return { from: 'right', to: 'left' };
+  }
+  if (kind === 'secondary') {
+    return { from: 'bottom', to: 'top' };
+  }
+  return { from: 'right', to: 'left' };
+}
+
+function DiagramNodeCard({
+  node,
+  position,
+}: {
+  node: DiagramNode;
+  position: { x: number; y: number };
+}) {
+  const tone = TONE_STYLES[node.item.tone];
+  const href = resolveFlowLink(node.item.href);
+  const routeLabel =
+    node.item.href.length > ROUTE_LABEL_MAX
+      ? `${node.item.href.slice(0, ROUTE_LABEL_MAX)}...`
+      : node.item.href;
 
   return (
-    <Link href={resolvedHref} asChild={true}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={`\u05de\u05e2\u05d1\u05e8 \u05dc\u05de\u05e1\u05da ${item.title}`}
-        className={`rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 items-center ${sizeClass}`}
+    <View style={[styles.nodeContainer, { left: position.x, top: position.y }]}>
+      <Link href={href} asChild={true}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[
+            styles.flowCard,
+            { borderColor: tone.border, backgroundColor: tone.bg },
+          ]}
+          accessibilityRole="button"
+        >
+          <View style={styles.flowCardHeader}>
+            <View
+              style={[
+                styles.nodeIconWrap,
+                { borderColor: tone.border, backgroundColor: '#ffffff' },
+              ]}
+            >
+              <Ionicons name={node.item.icon} size={12} color={tone.icon} />
+            </View>
+            <Text style={styles.nodeTitle} numberOfLines={1}>
+              {node.item.title}
+            </Text>
+          </View>
+          <Text style={styles.flowCardName} numberOfLines={1}>
+            {node.item.nameEn}
+          </Text>
+          <Text style={styles.nodeRoute} numberOfLines={1}>
+            {routeLabel}
+          </Text>
+        </TouchableOpacity>
+      </Link>
+    </View>
+  );
+}
+
+function DiagramLegend() {
+  return (
+    <View style={styles.legendRow}>
+      <View style={styles.legendItem}>
+        <View
+          style={[
+            styles.legendLine,
+            { backgroundColor: EDGE_STYLES.primary.stroke },
+          ]}
+        />
+        <Text style={styles.legendText}>
+          ׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ / ׳³ג‚×׳³ֲ¢׳³ג€¢׳³ֲ׳³ג€
+          ׳³ֲ¨׳³ֲ׳³ֲ©׳³ג„¢׳³ֳ—
+        </Text>
+      </View>
+      <View style={styles.legendItem}>
+        <View
+          style={[
+            styles.legendLine,
+            {
+              backgroundColor: EDGE_STYLES.secondary.stroke,
+              borderWidth: 1,
+              borderColor: EDGE_STYLES.secondary.stroke,
+              borderStyle: 'dashed',
+            },
+          ]}
+        />
+        <Text style={styles.legendText}>
+          ׳³ֲ§׳³ג„¢׳³ֲ©׳³ג€¢׳³ֲ¨ ׳³ֲ׳³ֲ©׳³ֲ ׳³ג„¢ / ׳³ג€׳³ג„¢׳³ֲ׳³ג€¢׳³ג€™
+          ׳³ֲ©׳³ֲ׳³ג€˜׳³ג„¢׳³ֲ
+        </Text>
+      </View>
+      <View style={styles.legendItem}>
+        <View
+          style={[
+            styles.legendLine,
+            {
+              backgroundColor: EDGE_STYLES.back.stroke,
+              borderWidth: 1,
+              borderColor: EDGE_STYLES.back.stroke,
+              borderStyle: 'dashed',
+            },
+          ]}
+        />
+        <Text style={styles.legendText}>
+          ׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const PINCH_ZOOM_MIN = 0.55;
+const PINCH_ZOOM_MAX = 2.4;
+
+function getPinchDistance(
+  a: NativeTouchEvent['touches'][number],
+  b: NativeTouchEvent['touches'][number]
+) {
+  const dx = a.pageX - b.pageX;
+  const dy = a.pageY - b.pageY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function clampZoom(value: number) {
+  return Math.max(PINCH_ZOOM_MIN, Math.min(PINCH_ZOOM_MAX, value));
+}
+
+function FlowDiagram() {
+  const [zoom, setZoom] = useState(1);
+  const [isPinching, setIsPinching] = useState(false);
+  const pinchStartDistanceRef = useRef(0);
+  const pinchStartZoomRef = useRef(1);
+
+  const { width, height, positions } = useMemo(() => {
+    const positionsMap: Record<string, { x: number; y: number }> = {};
+    DIAGRAM_NODES.forEach((node) => {
+      positionsMap[node.id] = getNodePosition(node);
+    });
+
+    const maxCol = Math.max(...DIAGRAM_NODES.map((node) => node.col));
+    const maxRow = Math.max(...DIAGRAM_NODES.map((node) => node.row));
+
+    const computedWidth =
+      DIAGRAM_PADDING * 2 + (maxCol + 1) * NODE_WIDTH + maxCol * COL_GAP;
+    const computedHeight =
+      DIAGRAM_PADDING * 2 + (maxRow + 1) * NODE_HEIGHT + maxRow * ROW_GAP;
+
+    return {
+      width: computedWidth,
+      height: computedHeight,
+      positions: positionsMap,
+    };
+  }, []);
+
+  const handleTouchStart = useCallback(
+    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
+      const touches = event.nativeEvent.touches;
+      if (touches.length < 2) {
+        return;
+      }
+
+      const distance = getPinchDistance(touches[0], touches[1]);
+      if (distance <= 0) {
+        return;
+      }
+
+      pinchStartDistanceRef.current = distance;
+      pinchStartZoomRef.current = zoom;
+      setIsPinching(true);
+    },
+    [zoom]
+  );
+
+  const handleTouchMove = useCallback(
+    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
+      const touches = event.nativeEvent.touches;
+      if (touches.length < 2 || pinchStartDistanceRef.current <= 0) {
+        return;
+      }
+
+      const distance = getPinchDistance(touches[0], touches[1]);
+      if (distance <= 0) {
+        return;
+      }
+
+      const ratio = distance / pinchStartDistanceRef.current;
+      const nextZoom = clampZoom(pinchStartZoomRef.current * ratio);
+      setZoom(nextZoom);
+    },
+    []
+  );
+
+  const handleTouchEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
+      if (event.nativeEvent.touches.length >= 2) {
+        return;
+      }
+
+      pinchStartDistanceRef.current = 0;
+      pinchStartZoomRef.current = zoom;
+      setIsPinching(false);
+    },
+    [zoom]
+  );
+
+  const translatedX = ((zoom - 1) * width) / 2;
+  const translatedY = ((zoom - 1) * height) / 2;
+
+  return (
+    <View>
+      <View style={styles.zoomMetaRow}>
+        <Text style={styles.zoomMetaText}>
+          Pinch ׳³ֲ¢׳³ֲ ׳³ֲ©׳³ֳ—׳³ג„¢ ׳³ֲ׳³ֲ¦׳³ג€˜׳³ֲ¢׳³ג€¢׳³ֳ—
+          ׳³ֲ׳³ג€׳³ג€™׳³ג€׳³ֲ׳³ג€/׳³ג€׳³ֲ§׳³ֻ׳³ֲ ׳³ג€
+        </Text>
+        <Text style={styles.zoomMetaValue}>{`${Math.round(zoom * 100)}%`}</Text>
+      </View>
+
+      <ScrollView
+        horizontal={true}
+        showsHorizontalScrollIndicator={true}
+        scrollEnabled={!isPinching}
+        contentContainerStyle={styles.diagramScrollContent}
       >
         <View
-          className={`h-9 w-9 rounded-xl items-center justify-center border ${tone.bg} ${tone.border}`}
+          style={{ width: width * zoom, height: height * zoom }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
-          <Ionicons name={item.icon} size={iconSize} color={tone.icon} />
+          <View
+            style={{
+              width,
+              height,
+              transform: [
+                { scale: zoom },
+                { translateX: translatedX },
+                { translateY: translatedY },
+              ],
+            }}
+          >
+            <Svg
+              width={width}
+              height={height}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            >
+              {DIAGRAM_EDGES.map((edge) => {
+                const fromPos = positions[edge.from];
+                const toPos = positions[edge.to];
+                if (!fromPos || !toPos) {
+                  return null;
+                }
+
+                const defaults = getDefaultAnchors(edge.kind);
+                const fromAnchor = edge.fromAnchor ?? defaults.from;
+                const toAnchor = edge.toAnchor ?? defaults.to;
+                const connector = getConnectorData(
+                  fromPos,
+                  toPos,
+                  fromAnchor,
+                  toAnchor
+                );
+                const style = EDGE_STYLES[edge.kind];
+                const labelWidth = Math.max(58, edge.label.length * 6.4);
+
+                return (
+                  <G key={`${edge.from}-${edge.to}-${edge.label}-${edge.kind}`}>
+                    <Path
+                      d={connector.path}
+                      stroke={style.stroke}
+                      strokeWidth={2}
+                      strokeDasharray={style.dash}
+                      fill="none"
+                    />
+                    <Path d={connector.arrowPath} fill={style.stroke} />
+                    <Rect
+                      x={connector.labelX - labelWidth / 2}
+                      y={connector.labelY - 11}
+                      width={labelWidth}
+                      height={15}
+                      rx={6}
+                      fill={style.labelBg}
+                      opacity={0.95}
+                    />
+                    <SvgText
+                      x={connector.labelX}
+                      y={connector.labelY}
+                      fill={style.labelText}
+                      fontSize="8"
+                      fontWeight="700"
+                      textAnchor="middle"
+                    >
+                      {edge.label}
+                    </SvgText>
+                  </G>
+                );
+              })}
+            </Svg>
+
+            {DIAGRAM_NODES.map((node) => (
+              <DiagramNodeCard
+                key={node.id}
+                node={node}
+                position={positions[node.id]}
+              />
+            ))}
+          </View>
         </View>
-        <Text
-          className={`mt-2 font-bold text-slate-900 ${titleClass} ${tw.textStart}`}
+      </ScrollView>
+    </View>
+  );
+}
+
+function AdditionalScreenCard({ item }: { item: FlowItem }) {
+  const href = resolveFlowLink(item.href);
+  const tone = TONE_STYLES[item.tone];
+  return (
+    <Link href={href} asChild={true}>
+      <TouchableOpacity activeOpacity={0.85} style={styles.additionalCard}>
+        <View
+          style={[
+            styles.additionalIconWrap,
+            { borderColor: tone.border, backgroundColor: tone.bg },
+          ]}
         >
-          {item.title}
-        </Text>
-        <Text
-          style={{ writingDirection: 'ltr' }}
-          className={`mt-1 text-slate-700 font-semibold text-center ${subtitleClass}`}
-        >
-          {item.nameEn}
-        </Text>
-        {item.subtitle ? (
-          <Text
-            className={`mt-1 text-slate-500 ${subtitleClass} ${tw.textStart}`}
-          >
-            {item.subtitle}
+          <Ionicons name={item.icon} size={16} color={tone.icon} />
+        </View>
+        <View style={styles.additionalTextWrap}>
+          <Text style={styles.additionalTitle} numberOfLines={1}>
+            {item.nameEn}
           </Text>
-        ) : null}
-        <View className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-          <Text
-            style={{ writingDirection: 'ltr' }}
-            className="text-[9px] leading-3 text-slate-600 text-center font-mono"
-          >
+          <Text style={styles.additionalRoute} numberOfLines={1}>
             {item.href}
           </Text>
         </View>
@@ -541,131 +1751,23 @@ function FlowNode({ item, size = 'md' }: FlowNodeProps) {
   );
 }
 
-function FlowArrow({ compact = false }: { compact?: boolean }) {
-  const lineClass = compact ? 'h-2' : 'h-3';
-  const marginClass = compact ? 'my-1' : 'my-2';
-  const iconSize = compact ? 12 : 14;
-
-  return (
-    <View className={`items-center ${marginClass}`}>
-      <View className={`w-0.5 ${lineClass} bg-slate-300`} />
-      <Ionicons name="arrow-down-outline" size={iconSize} color="#94a3b8" />
-      <View className={`w-0.5 ${lineClass} bg-slate-300`} />
-    </View>
-  );
-}
-
-function FlowStack({
-  items,
-  size = 'md',
-}: {
-  items: FlowItem[];
-  size?: FlowSize;
-}) {
-  return (
-    <View className="items-center">
-      {items.map((item, index) => (
-        <View key={item.href} className="items-center">
-          <FlowNode item={item} size={size} />
-          {index < items.length - 1 && <FlowArrow />}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function BranchLane({
-  title,
-  subtitle,
-  onboardingItems,
-  mainItems,
-  tone,
-}: {
-  title: string;
-  subtitle: string;
-  onboardingItems: FlowItem[];
-  mainItems: FlowItem[];
-  tone: 'info' | 'success';
-}) {
-  const laneToneClass =
-    tone === 'success'
-      ? 'border-emerald-100 bg-emerald-50/50'
-      : 'border-sky-100 bg-sky-50/50';
-  const labelToneClass =
-    tone === 'success'
-      ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-      : 'border-sky-200 bg-sky-100 text-sky-800';
-
-  return (
-    <View className={`flex-1 rounded-2xl border p-3 ${laneToneClass}`}>
-      <Text className={`text-sm font-extrabold text-slate-900 ${tw.textStart}`}>
-        {title}
-      </Text>
-      <Text className={`text-[11px] text-slate-600 mt-1 ${tw.textStart}`}>
-        {subtitle}
-      </Text>
-
-      <View
-        className={`mt-3 self-start rounded-full border px-2 py-1 ${labelToneClass}`}
-      >
-        <Text className="text-[10px] font-bold">
-          {'\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2'}
-        </Text>
-      </View>
-      <View className="mt-2 items-center">
-        {onboardingItems.map((item, index) => (
-          <View key={item.href} className="w-full items-center">
-            <FlowNode item={item} size="xs" />
-            {index < onboardingItems.length - 1 && <FlowArrow compact={true} />}
-          </View>
-        ))}
-      </View>
-
-      <View className="items-center mt-2">
-        <FlowArrow compact={true} />
-      </View>
-
-      <View
-        className={`self-start rounded-full border px-2 py-1 ${labelToneClass}`}
-      >
-        <Text className="text-[10px] font-bold">
-          {
-            '\u05de\u05e1\u05db\u05d9\u05dd \u05e8\u05d0\u05e9\u05d9\u05d9\u05dd'
-          }
-        </Text>
-      </View>
-      <View className="mt-2 items-center">
-        {mainItems.map((item, index) => (
-          <View key={item.href} className="w-full items-center">
-            <FlowNode item={item} size="xs" />
-            {index < mainItems.length - 1 && <FlowArrow compact={true} />}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function FlowGroup({
+function AdditionalGroup({
   title,
   items,
-  fullWidth = false,
 }: {
   title: string;
   items: FlowItem[];
-  fullWidth?: boolean;
 }) {
-  const widthClass = fullWidth ? 'w-full' : 'min-w-[220px] flex-1';
+  if (items.length === 0) {
+    return null;
+  }
+
   return (
-    <View
-      className={`${widthClass} rounded-2xl border border-slate-200 bg-white/90 p-3`}
-    >
-      <Text className={`text-sm font-bold text-slate-800 ${tw.textStart}`}>
-        {title}
-      </Text>
-      <View className={`mt-3 ${tw.flexRow} flex-wrap justify-center gap-3`}>
+    <View style={styles.additionalGroup}>
+      <Text style={styles.additionalGroupTitle}>{title}</Text>
+      <View style={styles.additionalGrid}>
         {items.map((item) => (
-          <FlowNode key={item.href} item={item} size="sm" />
+          <AdditionalScreenCard key={item.href} item={item} />
         ))}
       </View>
     </View>
@@ -674,9 +1776,10 @@ function FlowGroup({
 
 export default function FlowMapScreen() {
   const sitemap = useSitemap();
+
   const additionalScreens = useMemo(() => {
-    const items: FlowItem[] = [];
     const seen = new Set<string>();
+    const extras: FlowItem[] = [];
 
     for (const node of flattenSitemap(sitemap)) {
       if (
@@ -694,13 +1797,13 @@ export default function FlowMapScreen() {
       if (href === '/(auth)/flow-map') {
         continue;
       }
-      if (MAPPED_FLOW_HREFS.has(href) || seen.has(href)) {
+      if (KNOWN_HREFS.has(href) || seen.has(href)) {
         continue;
       }
 
       seen.add(href);
-      items.push({
-        title: '\u05de\u05e1\u05da \u05e0\u05d5\u05e1\u05e3',
+      extras.push({
+        title: '׳³ֲ׳³ֲ¡׳³ֲ ׳³ֲ ׳³ג€¢׳³ֲ¡׳³ֲ£',
         nameEn: getExtraScreenName(href),
         href,
         icon: getExtraScreenIcon(href),
@@ -708,7 +1811,7 @@ export default function FlowMapScreen() {
       });
     }
 
-    return items.sort((a, b) => a.href.localeCompare(b.href));
+    return extras.sort((a, b) => a.href.localeCompare(b.href));
   }, [sitemap]);
 
   const additionalByAudience = useMemo(() => {
@@ -716,169 +1819,561 @@ export default function FlowMapScreen() {
     const business: FlowItem[] = [];
     const general: FlowItem[] = [];
 
-    for (const item of additionalScreens) {
+    additionalScreens.forEach((item) => {
       if (item.href.includes('/(customer)')) {
         customer.push(item);
-      } else if (item.href.includes('/(business)')) {
-        business.push(item);
-      } else {
-        general.push(item);
+        return;
       }
-    }
+      if (item.href.includes('/(business)')) {
+        business.push(item);
+        return;
+      }
+      general.push(item);
+    });
 
     return { customer, business, general };
   }, [additionalScreens]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F8FC]">
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 28 }}
-        className="flex-1"
-      >
-        <View className="px-5 pt-5 pb-3">
-          <Text
-            className={`text-2xl font-black text-slate-900 ${tw.textStart}`}
-          >
-            {
-              '\u05de\u05e4\u05ea \u05d6\u05e8\u05d9\u05de\u05ea \u05de\u05e1\u05db\u05d9\u05dd'
-            }
-          </Text>
-          <Text className={`text-sm text-slate-500 mt-1 ${tw.textStart}`}>
-            {
-              '\u05dc\u05d7\u05e6\u05d5 \u05e2\u05dc \u05db\u05dc \u05d0\u05d9\u05d9\u05e7\u05d5\u05df \u05db\u05d3\u05d9 \u05dc\u05e2\u05d1\u05d5\u05e8 \u05dc\u05de\u05e1\u05da \u05d4\u05e8\u05dc\u05d5\u05d5\u05e0\u05d8\u05d9.'
-            }
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.headerBlock}>
+          <Text style={styles.headerTitle}>Flow Map (Lite)</Text>
+          <Text style={styles.headerSubtitle}>
+            Lightweight flowchart view: each node is a simple screen box and all
+            navigation links remain connected.
           </Text>
         </View>
 
-        <View className="px-4">
-          <View className="relative rounded-[26px] border border-slate-200 bg-white px-4 py-5 overflow-hidden">
-            <View className="absolute -top-16 -left-16 h-32 w-32 rounded-full bg-blue-100/60" />
-            <View className="absolute top-24 -right-16 h-32 w-32 rounded-full bg-amber-100/50" />
+        <View style={styles.diagramPanel}>
+          <DiagramLegend />
+          <FlowDiagram />
+        </View>
 
-            <View className="items-center">
-              <FlowStack items={ENTRY_FLOW} />
-            </View>
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>
+            Tip: tap a node to open that route directly with `map=true` (and
+            authenticated routes also get `preview=true`).
+          </Text>
+        </View>
 
-            <View className="items-center mt-3">
-              <FlowArrow />
-              <Text className="text-xs font-semibold text-slate-600">
-                {
-                  '\u05e4\u05d9\u05e6\u05d5\u05dc \u05dc\u05e9\u05e0\u05d9 \u05e2\u05e0\u05e4\u05d9\u05dd'
-                }
-              </Text>
-            </View>
-
-            <View className="mt-2 px-6">
-              <View className="h-0.5 rounded-full bg-slate-300" />
-              <View className={`${tw.flexRow} -mt-0.5 justify-between px-8`}>
-                <View className="items-center">
-                  <View className="h-3 w-0.5 bg-slate-300" />
-                  <Ionicons
-                    name="arrow-down-outline"
-                    size={12}
-                    color="#94a3b8"
-                  />
-                </View>
-                <View className="items-center">
-                  <View className="h-3 w-0.5 bg-slate-300" />
-                  <Ionicons
-                    name="arrow-down-outline"
-                    size={12}
-                    color="#94a3b8"
-                  />
-                </View>
-              </View>
-            </View>
-
-            <View className={`mt-2 ${tw.flexRow} gap-3`}>
-              <BranchLane
-                title={'\u05e2\u05e0\u05e3 \u05e2\u05e1\u05e7'}
-                subtitle={
-                  '\u05de\u05e1\u05dc\u05d5\u05dc \u05dc\u05d1\u05e2\u05dc\u05d9 \u05e2\u05e1\u05e7\u05d9\u05dd'
-                }
-                onboardingItems={BUSINESS_ONBOARDING}
-                mainItems={BUSINESS_MAIN}
-                tone="success"
-              />
-              <BranchLane
-                title={'\u05e2\u05e0\u05e3 \u05dc\u05e7\u05d5\u05d7'}
-                subtitle={
-                  '\u05de\u05e1\u05dc\u05d5\u05dc \u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea'
-                }
-                onboardingItems={CLIENT_ONBOARDING}
-                mainItems={CUSTOMER_MAIN}
-                tone="info"
-              />
-            </View>
-
-            <View className="items-center mt-5">
-              <FlowArrow />
-              <Text className="text-xs font-semibold text-slate-600">
-                {'\u05e2\u05e0\u05e3 \u05d0\u05d3\u05de\u05d9\u05df'}
-              </Text>
-            </View>
-
-            <View className="mt-3">
-              <Text
-                className={`text-xs font-bold text-slate-700 ${tw.textStart}`}
-              >
-                {
-                  '\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2 \u05d0\u05d3\u05de\u05d9\u05df'
-                }
-              </Text>
-              <View className="mt-2 items-center">
-                <FlowStack items={ADMIN_ONBOARDING} size="sm" />
-              </View>
-              <View className="items-center mt-2">
-                <FlowArrow compact={true} />
-              </View>
-              <FlowGroup
-                title={'\u05d0\u05d3\u05de\u05d9\u05df'}
-                items={ADMIN_MAIN}
-                fullWidth={true}
-              />
-            </View>
-
-            {additionalScreens.length > 0 ? (
-              <>
-                <View className="items-center mt-5">
-                  <FlowArrow />
-                  <Text className="text-xs font-semibold text-slate-600">
-                    {
-                      '\u05de\u05e1\u05db\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd \u05e9\u05d6\u05d5\u05d4\u05d5 \u05d1\u05e4\u05e8\u05d5\u05d9\u05e7\u05d8'
-                    }
-                  </Text>
-                </View>
-                <View className="mt-3">
-                  <View className="space-y-3">
-                    <FlowGroup
-                      title={
-                        '\u05dc\u05e7\u05d5\u05d7 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
-                      }
-                      items={additionalByAudience.customer}
-                      fullWidth={true}
-                    />
-                    <FlowGroup
-                      title={
-                        '\u05e2\u05e1\u05e7 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
-                      }
-                      items={additionalByAudience.business}
-                      fullWidth={true}
-                    />
-                    <FlowGroup
-                      title={
-                        '\u05db\u05dc\u05dc\u05d9 - \u05de\u05e1\u05db\u05d9\u05dd \u05e9\u05dc\u05d0 \u05e9\u05d5\u05d1\u05e6\u05d5'
-                      }
-                      items={additionalByAudience.general}
-                      fullWidth={true}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : null}
+        {additionalScreens.length > 0 ? (
+          <View style={styles.additionalPanel}>
+            <Text style={styles.additionalPanelTitle}>
+              ׳³ֲ׳³ֲ¡׳³ג€÷׳³ג„¢׳³ֲ ׳³ֲ ׳³ג€¢׳³ֲ¡׳³ג‚×׳³ג„¢׳³ֲ ׳³ֲ©׳³ֲ׳³ֲ
+              ׳³ֲ©׳³ג€¢׳³ג€˜׳³ֲ¦׳³ג€¢ ׳³ג€˜׳³ֳ—׳³ֲ¨׳³ֲ©׳³ג„¢׳³ֲ ׳³ג€׳³ֲ¨׳³ֲ׳³ֲ©׳³ג„¢
+            </Text>
+            <AdditionalGroup
+              title="׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”"
+              items={additionalByAudience.customer}
+            />
+            <AdditionalGroup
+              title="׳³ֲ¢׳³ֲ¡׳³ֲ§"
+              items={additionalByAudience.business}
+            />
+            <AdditionalGroup
+              title="׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢"
+              items={additionalByAudience.general}
+            />
           </View>
-        </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f5f7fb',
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  headerBlock: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'right',
+  },
+  headerSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#64748b',
+    textAlign: 'right',
+  },
+  diagramPanel: {
+    marginHorizontal: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#dbe4f0',
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    overflow: 'hidden',
+  },
+  diagramScrollContent: {
+    paddingBottom: 8,
+  },
+  zoomMetaRow: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  zoomMetaText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textAlign: 'right',
+  },
+  zoomMetaValue: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'right',
+  },
+  legendRow: {
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    gap: 8,
+  },
+  legendItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendLine: {
+    width: 34,
+    height: 3,
+    borderRadius: 2,
+  },
+  legendText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'right',
+  },
+  nodeContainer: {
+    position: 'absolute',
+    width: NODE_WIDTH,
+  },
+  flowCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    minHeight: NODE_HEIGHT - 8,
+    justifyContent: 'space-between',
+  },
+  flowCardHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  flowCardName: {
+    marginTop: 6,
+    fontSize: 10,
+    color: '#334155',
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  nodeTitleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+    minHeight: 18,
+  },
+  nodeIconWrap: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nodeTitle: {
+    flex: 1,
+    fontSize: 11,
+    color: '#1e293b',
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  phoneFrame: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  phoneNotch: {
+    alignSelf: 'center',
+    width: 32,
+    height: 4,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    marginBottom: 6,
+  },
+  phoneScreen: {
+    height: 178,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  nodeName: {
+    marginTop: 6,
+    fontSize: 9,
+    color: '#334155',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  nodeRoute: {
+    marginTop: 2,
+    fontSize: 8,
+    color: '#64748b',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  previewTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  previewSubtext: {
+    fontSize: 8,
+    lineHeight: 11,
+    color: '#64748b',
+    textAlign: 'right',
+  },
+  previewAction: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dbe3ee',
+    backgroundColor: '#ffffff',
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    marginBottom: 5,
+  },
+  previewActionActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#93c5fd',
+  },
+  previewActionText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  previewActionTextActive: {
+    color: '#1d4ed8',
+  },
+  previewDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 2,
+  },
+  previewLink: {
+    marginTop: 1,
+    fontSize: 8,
+    color: '#2563eb',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  previewLinkMuted: {
+    marginTop: 2,
+    fontSize: 8,
+    color: '#94a3b8',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  previewInput: {
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#dbe3ee',
+    backgroundColor: '#ffffff',
+    height: 16,
+    marginBottom: 5,
+  },
+  previewRememberRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 5,
+  },
+  previewRememberBox: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    backgroundColor: '#ffffff',
+  },
+  previewRememberText: {
+    fontSize: 7,
+    color: '#64748b',
+    fontWeight: '700',
+  },
+  previewTextLine: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#dbe3ee',
+    marginBottom: 5,
+  },
+  previewOtpRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  previewOtpCell: {
+    width: 14,
+    height: 14,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  previewMainCard: {
+    borderRadius: 8,
+    height: 22,
+    backgroundColor: '#e2e8f0',
+    marginBottom: 5,
+  },
+  previewHeaderBar: {
+    borderRadius: 8,
+    height: 10,
+    backgroundColor: '#cbd5e1',
+    marginBottom: 7,
+  },
+  previewTabBar: {
+    marginTop: 'auto',
+    borderTopWidth: 1,
+    borderTopColor: '#dbe3ee',
+    paddingTop: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  previewTabDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#94a3b8',
+  },
+  previewCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  previewSpacer: {
+    flex: 1,
+    minHeight: 2,
+  },
+  previewHeroCircleOuter: {
+    alignSelf: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  previewHeroCircleInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#60a5fa',
+  },
+  paywallPreview: {
+    flex: 1,
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+    padding: 8,
+  },
+  paywallHeader: {
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: '#1e293b',
+    marginBottom: 7,
+  },
+  paywallOption: {
+    height: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#111827',
+    marginBottom: 5,
+  },
+  paywallSpacer: {
+    flex: 1,
+  },
+  paywallButton: {
+    borderRadius: 8,
+    backgroundColor: '#4fc3f7',
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paywallButtonText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#0a0a0a',
+  },
+  paywallLinksRow: {
+    marginTop: 6,
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+  },
+  paywallLinkText: {
+    fontSize: 7,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
+  previewQrFrame: {
+    alignSelf: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#94a3b8',
+    borderStyle: 'dashed',
+    marginBottom: 4,
+  },
+  previewCardDetailHeader: {
+    borderRadius: 8,
+    height: 28,
+    backgroundColor: '#e2e8f0',
+    marginBottom: 6,
+  },
+  previewStampRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 4,
+  },
+  previewStamp: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  previewScannerFrame: {
+    alignSelf: 'center',
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#94a3b8',
+    backgroundColor: '#1e293b',
+    marginBottom: 4,
+  },
+  previewChartBar: {
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: '#cbd5e1',
+    marginBottom: 4,
+  },
+  previewQrCode: {
+    alignSelf: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    backgroundColor: '#0f172a',
+    marginBottom: 6,
+  },
+  noteBox: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dbe4f0',
+    backgroundColor: '#ffffff',
+  },
+  noteText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#334155',
+    textAlign: 'right',
+  },
+  additionalPanel: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#dbe4f0',
+    backgroundColor: '#ffffff',
+    padding: 12,
+    gap: 12,
+  },
+  additionalPanelTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'right',
+  },
+  additionalGroup: {
+    gap: 8,
+  },
+  additionalGroupTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
+    textAlign: 'right',
+  },
+  additionalGrid: {
+    gap: 8,
+  },
+  additionalCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  additionalIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  additionalTextWrap: {
+    flex: 1,
+  },
+  additionalTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0f172a',
+    textAlign: 'right',
+  },
+  additionalRoute: {
+    marginTop: 2,
+    fontSize: 10,
+    color: '#64748b',
+    textAlign: 'right',
+  },
+});

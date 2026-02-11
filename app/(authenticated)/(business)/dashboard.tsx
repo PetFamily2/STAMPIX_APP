@@ -66,8 +66,7 @@ export default function MerchantDashboardScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const { user } = useUser();

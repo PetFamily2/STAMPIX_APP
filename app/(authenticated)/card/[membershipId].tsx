@@ -57,8 +57,7 @@ export default function CardDetailsScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const insets = useSafeAreaInsets();
   const { user, isLoading, isAuthorized } = useRoleGuard([CUSTOMER_ROLE]);
   const memberships = useQuery(api.memberships.byCustomer) as

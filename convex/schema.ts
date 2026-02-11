@@ -131,6 +131,28 @@ export default defineSchema({
     .index('by_businessProgram', ['businessId', 'programId'])
     .index('by_customerId', ['customerId']),
 
+  emailOtps: defineTable({
+    email: v.string(),
+    code: v.string(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('consumed'),
+      v.literal('invalidated')
+    ),
+    attempts: v.number(),
+    maxAttempts: v.number(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+    consumedAt: v.optional(v.number()),
+    failureReason: v.optional(v.string()),
+  })
+    .index('by_email', ['email'])
+    .index('by_expiresAt', ['expiresAt'])
+    .index('by_status', ['status']),
+
   // -------------------------
   // Future scaffolds (no MVP UI)
   // -------------------------

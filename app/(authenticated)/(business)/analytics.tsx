@@ -48,8 +48,7 @@ export default function BusinessAnalyticsScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
   const showAnalytics = canAccessAdvancedFeatures(subscriptionPlan);

@@ -26,8 +26,7 @@ export default function AuthRoutesLayout() {
   const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
   const segmentsKey = segmentStrings.join('/');
-  const isPreviewMode =
-    (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isAllowedForAuthenticated = isPaywallRoute || isPreviewMode;
   const alreadyInTarget =

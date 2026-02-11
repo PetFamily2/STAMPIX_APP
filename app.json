@@ -20,6 +20,7 @@
         "applinks:stampix.app"
       ],
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "ExpoLocalization_supportsRTL": true,
         "ExpoLocalization_forcesRTL": true
       }
@@ -30,7 +31,9 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": false,
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "package": "com.stampix.app",
       "intentFilters": [
         {
@@ -43,7 +46,10 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -67,11 +73,17 @@
           "supportsRTL": true,
           "forcesRTL": true
         }
-      ],
-      "expo-barcode-scanner"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "74e10cc1-aece-4da6-8049-e62cc8adf17d"
+      }
+    },
+    "owner": "petfamily2"
   }
 }

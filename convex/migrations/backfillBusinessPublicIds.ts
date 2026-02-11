@@ -44,9 +44,7 @@ export default mutation({
           const candidate = generateJoinCode(8);
           const clash = await ctx.db
             .query('businesses')
-            .withIndex('by_joinCode', (q: any) =>
-              q.eq('joinCode', candidate)
-            )
+            .withIndex('by_joinCode', (q: any) => q.eq('joinCode', candidate))
             .first();
           if (!clash) {
             code = candidate;
