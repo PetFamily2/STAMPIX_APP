@@ -14,11 +14,9 @@ import * as UserCtx from '@/contexts/UserContext';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 // אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
-// 1. תוסף expo-localization (app.json) - מגדיר RTL ברמת ה-Native (עובד ב-Dev Builds ו-Production)
-// 2. עיצוב RTL מפורש (lib/rtl.ts) - עובד בכל מקום כולל Expo Go
-// 3. סידור ידני של טאבים - מטפל ב-Tab Bar בכל הסביבות
-//
-// הגישה ההיברידית מבטיחה תמיכה עקבית בעברית/RTL בכל הסביבות.
+// 1. RTL ידני ומפורש (lib/rtl.ts + styles במסכים)
+// 2. ללא RTL אוטומטי ברמת Native, כדי למנוע היפוך כפול (double inversion)
+// 3. סידור ידני של טאב-בר ואייקונים לפי הצורך במסכים עצמם
 
 // שימוש בפונקציית הקונפיגורציה לבחירת כתובת Convex לפי הסביבה
 const convexUrl = getConvexUrl();
