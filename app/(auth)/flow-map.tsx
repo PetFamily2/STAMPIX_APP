@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, Link, type SitemapType, useSitemap } from 'expo-router';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   type NativeSyntheticEvent,
@@ -69,12 +69,22 @@ type DiagramEdge = {
   toAnchor?: Anchor;
 };
 
-const NODE_WIDTH = 134;
-const NODE_HEIGHT = 104;
+const NODE_WIDTH = 152;
+const NODE_HEIGHT = 262;
 const COL_GAP = 48;
 const ROW_GAP = 44;
 const DIAGRAM_PADDING = 28;
-const ROUTE_LABEL_MAX = 20;
+const ROUTE_LABEL_MAX = 18;
+const PREVIEW_OTP_KEYS = ['otp-1', 'otp-2', 'otp-3', 'otp-4'] as const;
+const PREVIEW_TAB_KEYS = ['tab-1', 'tab-2', 'tab-3', 'tab-4'] as const;
+const PREVIEW_STAMP_KEYS = [
+  'stamp-1',
+  'stamp-2',
+  'stamp-3',
+  'stamp-4',
+  'stamp-5',
+] as const;
+const PREVIEW_DASH_KEYS = ['dash-1', 'dash-2', 'dash-3'] as const;
 
 const TONE_STYLES: Record<
   FlowTone,
@@ -1225,6 +1235,31 @@ const DIAGRAM_EDGES: DiagramEdge[] = [
 ];
 
 const KNOWN_HREFS = new Set(DIAGRAM_NODES.map((node) => node.item.href));
+const GIBBERISH_PATTERN = /׳³|ג€|ײ²|ײ³|ײ»|ֲ/;
+
+function cleanMapText(value: string): string | null {
+  const normalized = value.trim().replace(/^"+|"+$/g, '');
+  if (!normalized) {
+    return null;
+  }
+  if (GIBBERISH_PATTERN.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function getFallbackEdgeLabel(kind: EdgeKind): string {
+  if (kind === 'primary') {
+    return 'Continue';
+  }
+  if (kind === 'secondary') {
+    return 'Alternate path';
+  }
+  if (kind === 'back') {
+    return 'Back';
+  }
+  return 'Redirect';
+}
 
 function resolveFlowLink(href: string): Href {
   const params: string[] = [];
@@ -1417,6 +1452,271 @@ function getDefaultAnchors(kind: EdgeKind): { from: Anchor; to: Anchor } {
   }
   return { from: 'right', to: 'left' };
 }
+function PreviewAction({
+  label,
+  active = false,
+}: {
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <View style={[styles.previewAction, active && styles.previewActionActive]}>
+      <Text
+        style={[
+          styles.previewActionText,
+          active && styles.previewActionTextActive,
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function renderPreview(kind: PreviewKind): ReactNode {
+  switch (kind) {
+    case 'entry':
+      return (
+        <View style={styles.previewCenter}>
+          <View style={styles.previewHeroCircleOuter}>
+            <View style={styles.previewHeroCircleInner} />
+          </View>
+          <Text style={styles.previewSubtext}>Auth redirect hub</Text>
+        </View>
+      );
+    case 'welcome':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Welcome</Text>
+          <View style={styles.previewHeroCircleOuter}>
+            <View style={styles.previewHeroCircleInner} />
+          </View>
+          <PreviewAction label="Create Account" active={true} />
+          <PreviewAction label="Sign In" />
+          <Text style={styles.previewLink}>Terms / Privacy</Text>
+        </>
+      );
+    case 'sign-up':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Sign Up</Text>
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <PreviewAction label="Continue" active={true} />
+          <Text style={styles.previewLink}>Already have an account?</Text>
+        </>
+      );
+    case 'sign-in':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Sign In</Text>
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <View style={styles.previewRememberRow}>
+            <View style={styles.previewRememberBox} />
+            <Text style={styles.previewRememberText}>Remember me</Text>
+          </View>
+          <PreviewAction label="Log In" active={true} />
+          <Text style={styles.previewLinkMuted}>Forgot password?</Text>
+        </>
+      );
+    case 'role':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Choose Role</Text>
+          <PreviewAction label="Customer" active={true} />
+          <PreviewAction label="Business" />
+          <View style={styles.previewSpacer} />
+          <Text style={styles.previewSubtext}>Role based onboarding</Text>
+        </>
+      );
+    case 'form':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Details Form</Text>
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <PreviewAction label="Save & Next" active={true} />
+        </>
+      );
+    case 'otp':
+      return (
+        <>
+          <Text style={styles.previewTitle}>OTP Verification</Text>
+          <View style={styles.previewOtpRow}>
+            {PREVIEW_OTP_KEYS.map((key) => (
+              <View key={key} style={styles.previewOtpCell} />
+            ))}
+          </View>
+          <PreviewAction label="Verify" active={true} />
+          <Text style={styles.previewLinkMuted}>Resend code</Text>
+        </>
+      );
+    case 'selection':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Selection</Text>
+          <PreviewAction label="Option A" active={true} />
+          <PreviewAction label="Option B" />
+          <PreviewAction label="Option C" />
+        </>
+      );
+    case 'paywall':
+      return (
+        <View style={styles.paywallPreview}>
+          <View style={styles.paywallHeader} />
+          <View style={styles.paywallOption} />
+          <View style={[styles.paywallOption, { borderColor: '#38bdf8' }]} />
+          <View style={styles.paywallOption} />
+          <View style={styles.paywallSpacer} />
+          <View style={styles.paywallButton}>
+            <Text style={styles.paywallButtonText}>Continue</Text>
+          </View>
+          <View style={styles.paywallLinksRow}>
+            <Text style={styles.paywallLinkText}>Restore</Text>
+            <Text style={styles.paywallLinkText}>Terms</Text>
+          </View>
+        </View>
+      );
+    case 'legal':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Legal</Text>
+          <View style={styles.previewTextLine} />
+          <View style={styles.previewTextLine} />
+          <View style={styles.previewTextLine} />
+          <PreviewAction label="Accept" active={true} />
+        </>
+      );
+    case 'main':
+      return (
+        <>
+          <View style={styles.previewHeaderBar} />
+          <View style={styles.previewMainCard} />
+          <View style={styles.previewMainCard} />
+          <View style={styles.previewTabBar}>
+            {PREVIEW_TAB_KEYS.map((key) => (
+              <View key={key} style={styles.previewTabDot} />
+            ))}
+          </View>
+        </>
+      );
+    case 'settings':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Settings</Text>
+          <PreviewAction label="Profile" />
+          <PreviewAction label="Notifications" />
+          <PreviewAction label="Security" />
+          <PreviewAction label="Sign Out" />
+        </>
+      );
+    case 'join':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Join Business</Text>
+          <View style={styles.previewQrFrame} />
+          <PreviewAction label="Scan / Paste code" active={true} />
+          <Text style={styles.previewLinkMuted}>Paste invite link</Text>
+        </>
+      );
+    case 'card-detail':
+      return (
+        <>
+          <View style={styles.previewCardDetailHeader} />
+          <View style={styles.previewStampRow}>
+            {PREVIEW_STAMP_KEYS.map((key) => (
+              <View key={key} style={styles.previewStamp} />
+            ))}
+          </View>
+          <View style={styles.previewQrFrame} />
+          <Text style={styles.previewLinkMuted}>Customer card preview</Text>
+        </>
+      );
+    case 'dashboard':
+      return (
+        <>
+          <View style={styles.previewHeaderBar} />
+          <View style={styles.previewMainCard} />
+          <View style={styles.previewChartBar} />
+          <View style={styles.previewChartBar} />
+          <View style={styles.previewTabBar}>
+            {PREVIEW_DASH_KEYS.map((key) => (
+              <View key={key} style={styles.previewTabDot} />
+            ))}
+          </View>
+        </>
+      );
+    case 'scanner':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Scanner</Text>
+          <View style={styles.previewScannerFrame} />
+          <PreviewAction label="Scan QR" active={true} />
+          <Text style={styles.previewLinkMuted}>Ready for camera</Text>
+        </>
+      );
+    case 'team':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Team</Text>
+          <PreviewAction label="Invite member" active={true} />
+          <PreviewAction label="Permissions" />
+          <PreviewAction label="Activity" />
+        </>
+      );
+    case 'analytics':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Analytics</Text>
+          <View style={styles.previewChartBar} />
+          <View style={styles.previewChartBar} />
+          <View style={styles.previewChartBar} />
+          <View style={styles.previewMainCard} />
+        </>
+      );
+    case 'merchant-onboarding':
+      return (
+        <>
+          <Text style={styles.previewTitle}>Merchant Setup</Text>
+          <View style={styles.previewInput} />
+          <View style={styles.previewInput} />
+          <PreviewAction label="Save step" active={true} />
+          <Text style={styles.previewLinkMuted}>Step by step flow</Text>
+        </>
+      );
+    case 'qr':
+      return (
+        <>
+          <Text style={styles.previewTitle}>QR Screen</Text>
+          <View style={styles.previewQrCode} />
+          <Text style={styles.previewLink}>Share / Scan</Text>
+          <View style={styles.previewSpacer} />
+        </>
+      );
+    default:
+      return (
+        <>
+          <Text style={styles.previewTitle}>Screen</Text>
+          <View style={styles.previewTextLine} />
+          <View style={styles.previewTextLine} />
+          <View style={styles.previewTextLine} />
+        </>
+      );
+  }
+}
+
+function DiagramPhonePreview({ kind }: { kind: PreviewKind }) {
+  return (
+    <View style={styles.phoneFrame}>
+      <View style={styles.phoneNotch} />
+      <View style={styles.phoneScreen}>{renderPreview(kind)}</View>
+    </View>
+  );
+}
 
 function DiagramNodeCard({
   node,
@@ -1427,6 +1727,7 @@ function DiagramNodeCard({
 }) {
   const tone = TONE_STYLES[node.item.tone];
   const href = resolveFlowLink(node.item.href);
+  const safeTitle = cleanMapText(node.item.title) ?? node.item.nameEn;
   const routeLabel =
     node.item.href.length > ROUTE_LABEL_MAX
       ? `${node.item.href.slice(0, ROUTE_LABEL_MAX)}...`
@@ -1453,9 +1754,10 @@ function DiagramNodeCard({
               <Ionicons name={node.item.icon} size={12} color={tone.icon} />
             </View>
             <Text style={styles.nodeTitle} numberOfLines={1}>
-              {node.item.title}
+              {safeTitle}
             </Text>
           </View>
+          <DiagramPhonePreview kind={node.preview} />
           <Text style={styles.flowCardName} numberOfLines={1}>
             {node.item.nameEn}
           </Text>
@@ -1478,10 +1780,7 @@ function DiagramLegend() {
             { backgroundColor: EDGE_STYLES.primary.stroke },
           ]}
         />
-        <Text style={styles.legendText}>
-          ׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ©׳³ֲ / ׳³ג‚×׳³ֲ¢׳³ג€¢׳³ֲ׳³ג€
-          ׳³ֲ¨׳³ֲ׳³ֲ©׳³ג„¢׳³ֳ—
-        </Text>
+        <Text style={styles.legendText}>Primary flow (next step)</Text>
       </View>
       <View style={styles.legendItem}>
         <View
@@ -1495,10 +1794,7 @@ function DiagramLegend() {
             },
           ]}
         />
-        <Text style={styles.legendText}>
-          ׳³ֲ§׳³ג„¢׳³ֲ©׳³ג€¢׳³ֲ¨ ׳³ֲ׳³ֲ©׳³ֲ ׳³ג„¢ / ׳³ג€׳³ג„¢׳³ֲ׳³ג€¢׳³ג€™
-          ׳³ֲ©׳³ֲ׳³ג€˜׳³ג„¢׳³ֲ
-        </Text>
+        <Text style={styles.legendText}>Secondary flow (optional path)</Text>
       </View>
       <View style={styles.legendItem}>
         <View
@@ -1512,9 +1808,7 @@ function DiagramLegend() {
             },
           ]}
         />
-        <Text style={styles.legendText}>
-          ׳³ג€÷׳³ג‚×׳³ֳ—׳³ג€¢׳³ֲ¨ ׳³ג€”׳³ג€“׳³ג€¢׳³ֲ¨
-        </Text>
+        <Text style={styles.legendText}>Back navigation</Text>
       </View>
     </View>
   );
@@ -1621,8 +1915,7 @@ function FlowDiagram() {
     <View>
       <View style={styles.zoomMetaRow}>
         <Text style={styles.zoomMetaText}>
-          Pinch ׳³ֲ¢׳³ֲ ׳³ֲ©׳³ֳ—׳³ג„¢ ׳³ֲ׳³ֲ¦׳³ג€˜׳³ֲ¢׳³ג€¢׳³ֳ—
-          ׳³ֲ׳³ג€׳³ג€™׳³ג€׳³ֲ׳³ג€/׳³ג€׳³ֲ§׳³ֻ׳³ֲ ׳³ג€
+          Pinch with two fingers to zoom in or out
         </Text>
         <Text style={styles.zoomMetaValue}>{`${Math.round(zoom * 100)}%`}</Text>
       </View>
@@ -1674,7 +1967,9 @@ function FlowDiagram() {
                   toAnchor
                 );
                 const style = EDGE_STYLES[edge.kind];
-                const labelWidth = Math.max(58, edge.label.length * 6.4);
+                const edgeLabel =
+                  cleanMapText(edge.label) ?? getFallbackEdgeLabel(edge.kind);
+                const labelWidth = Math.max(58, edgeLabel.length * 6.4);
 
                 return (
                   <G key={`${edge.from}-${edge.to}-${edge.label}-${edge.kind}`}>
@@ -1703,7 +1998,7 @@ function FlowDiagram() {
                       fontWeight="700"
                       textAnchor="middle"
                     >
-                      {edge.label}
+                      {edgeLabel}
                     </SvgText>
                   </G>
                 );
@@ -1803,7 +2098,7 @@ export default function FlowMapScreen() {
 
       seen.add(href);
       extras.push({
-        title: '׳³ֲ׳³ֲ¡׳³ֲ ׳³ֲ ׳³ג€¢׳³ֲ¡׳³ֲ£',
+        title: 'Additional Screen',
         nameEn: getExtraScreenName(href),
         href,
         icon: getExtraScreenIcon(href),
@@ -1860,19 +2155,18 @@ export default function FlowMapScreen() {
         {additionalScreens.length > 0 ? (
           <View style={styles.additionalPanel}>
             <Text style={styles.additionalPanelTitle}>
-              ׳³ֲ׳³ֲ¡׳³ג€÷׳³ג„¢׳³ֲ ׳³ֲ ׳³ג€¢׳³ֲ¡׳³ג‚×׳³ג„¢׳³ֲ ׳³ֲ©׳³ֲ׳³ֲ
-              ׳³ֲ©׳³ג€¢׳³ג€˜׳³ֲ¦׳³ג€¢ ׳³ג€˜׳³ֳ—׳³ֲ¨׳³ֲ©׳³ג„¢׳³ֲ ׳³ג€׳³ֲ¨׳³ֲ׳³ֲ©׳³ג„¢
+              Additional routes found in sitemap (not shown on main map)
             </Text>
             <AdditionalGroup
-              title="׳³ֲ׳³ֲ§׳³ג€¢׳³ג€”"
+              title="Customer"
               items={additionalByAudience.customer}
             />
             <AdditionalGroup
-              title="׳³ֲ¢׳³ֲ¡׳³ֲ§"
+              title="Business"
               items={additionalByAudience.business}
             />
             <AdditionalGroup
-              title="׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢"
+              title="General"
               items={additionalByAudience.general}
             />
           </View>
@@ -1968,7 +2262,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 8,
-    minHeight: NODE_HEIGHT - 8,
+    height: NODE_HEIGHT,
     justifyContent: 'space-between',
   },
   flowCardHeader: {
@@ -1977,8 +2271,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   flowCardName: {
-    marginTop: 6,
-    fontSize: 10,
+    marginTop: 4,
+    fontSize: 9,
     color: '#334155',
     fontWeight: '700',
     textAlign: 'right',
@@ -2006,13 +2300,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   phoneFrame: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingHorizontal: 7,
+    paddingTop: 6,
     paddingBottom: 6,
+    marginTop: 6,
   },
   phoneNotch: {
     alignSelf: 'center',
@@ -2023,7 +2318,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   phoneScreen: {
-    height: 178,
+    height: 146,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -2040,11 +2335,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nodeRoute: {
-    marginTop: 2,
+    marginTop: 1,
     fontSize: 8,
     color: '#64748b',
     fontWeight: '600',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   previewTitle: {
     fontSize: 10,

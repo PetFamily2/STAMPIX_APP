@@ -38,12 +38,14 @@ Preview builds:
 
 - `bun run eas:build:android:preview`
 - `bun run eas:build:ios:preview`
+- `bun run eas:build:ios:preview:interactive` (first iOS setup only)
 - `bun run eas:build:all:preview`
 
 Production builds:
 
 - `bun run eas:build:android:production`
 - `bun run eas:build:ios:production`
+- `bun run eas:build:ios:production:interactive` (if iOS credentials are not ready yet)
 - `bun run eas:build:all:production`
 
 iOS simulator:
@@ -60,8 +62,11 @@ iOS simulator:
 1. `bun run eas:whoami`
 2. `bun run eas:secrets:list`
 3. `bunx convex deploy`
-4. Run preview build for each platform
-5. Run production build and submit
+4. One-time iOS credentials setup:
+   - `bun run eas:credentials:ios:preview`
+   - `bun run eas:credentials:ios:production`
+5. Run preview build for each platform
+6. Run production build and submit
 
 ## Troubleshooting
 
@@ -69,5 +74,6 @@ iOS simulator:
   - run `npm install --legacy-peer-deps`
   - then run the EAS command again
 - If iOS preview build fails with missing credentials in non-interactive mode:
-  - run `eas credentials --platform ios` in interactive mode once
+  - run `bun run eas:credentials:ios:preview` (interactive)
+  - if needed, also run `bun run eas:credentials:ios:production` (interactive)
   - then re-run `bun run eas:build:ios:preview`

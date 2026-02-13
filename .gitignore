@@ -23,6 +23,7 @@ expo-env.d.ts
 .tools/
 .tmp-node22*
 _tmp/log-*.txt
+_tmp/ios-build-*.txt
 
 # debug
 npm-debug.*

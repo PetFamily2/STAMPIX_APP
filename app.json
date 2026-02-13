@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stampix.app",
+      "bundleIdentifier": "com.stampix.stampix",
       "associatedDomains": [
         "applinks:stampix.app"
       ],
@@ -34,7 +34,7 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "package": "com.stampix.app",
+      "package": "com.stampix.stampix",
       "intentFilters": [
         {
           "action": "VIEW",

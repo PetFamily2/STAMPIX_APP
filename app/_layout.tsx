@@ -1,6 +1,6 @@
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { ConvexReactClient } from 'convex/react';
-import { Slot, usePathname } from 'expo-router';
+import { Slot } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
@@ -12,28 +12,6 @@ import { AppModeProvider } from '@/contexts/AppModeContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { getConvexUrl } from '@/utils/convexConfig';
-
-console.log('UserContext exports:', Object.keys(UserCtx));
-console.log(
-  'typeof UserCtx.UserProvider:',
-  typeof (UserCtx as any).UserProvider
-);
-
-function Boot() {
-  console.log('BOOT COMPONENT RENDER');
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'yellow',
-      }}
-    >
-      <Text style={{ fontSize: 40, color: 'black' }}>BOOT OK</Text>
-    </View>
-  );
-}
 
 // אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
 // 1. תוסף expo-localization (app.json) - מגדיר RTL ברמת ה-Native (עובד ב-Dev Builds ו-Production)
@@ -85,8 +63,8 @@ class RootErrorBoundary extends React.Component<
     return { error };
   }
 
-  componentDidCatch(error: Error, info: any) {
-    console.log('RootErrorBoundary caught', { error: error?.message, info });
+  componentDidCatch(_error: Error, _info: unknown) {
+    // Error already shown in render
   }
 
   render() {
@@ -111,9 +89,6 @@ class RootErrorBoundary extends React.Component<
 }
 
 export default function RootLayout() {
-  console.log('RootLayout render');
-  const pathname = usePathname();
-  console.log('[ROOT] pathname:', pathname);
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />

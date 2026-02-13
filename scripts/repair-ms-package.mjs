@@ -15,6 +15,8 @@ if (!fs.existsSync(nodeModulesRoot)) {
 }
 
 let repairedCount = 0;
+let patchedReactNativeFiles = 0;
+let repairedReactRefresh = 0;
 
 function maybeRepairMsPackage(msDirPath) {
   const targetPackagePath = path.join(msDirPath, 'package.json');
@@ -62,4 +64,107 @@ walkNodeModules(nodeModulesRoot);
 
 if (repairedCount > 0) {
   console.log(`Repaired ${repairedCount} nested ms package(s) for Metro tooling.`);
+}
+
+function hasReactRefreshRuntimeFiles(reactRefreshDirPath) {
+  const requiredPaths = ['babel.js', 'runtime.js', path.join('cjs', 'react-refresh-runtime.development.js')];
+  return requiredPaths.every((relativePath) =>
+    fs.existsSync(path.join(reactRefreshDirPath, relativePath))
+  );
+}
+
+function repairRootReactRefreshPackage() {
+  const rootReactRefreshPath = path.join(nodeModulesRoot, 'react-refresh');
+  const rootPackagePath = path.join(rootReactRefreshPath, 'package.json');
+
+  if (!fs.existsSync(rootPackagePath) || hasReactRefreshRuntimeFiles(rootReactRefreshPath)) {
+    return;
+  }
+
+  const candidateSourcePaths = [
+    path.join(nodeModulesRoot, 'react-native', 'node_modules', 'react-refresh'),
+    path.join(nodeModulesRoot, '@react-native', 'babel-preset', 'node_modules', 'react-refresh'),
+    path.join(nodeModulesRoot, 'expo', 'node_modules', 'react-refresh'),
+  ];
+
+  const validSourcePath = candidateSourcePaths.find(
+    (candidatePath) =>
+      fs.existsSync(path.join(candidatePath, 'package.json')) &&
+      hasReactRefreshRuntimeFiles(candidatePath)
+  );
+
+  if (!validSourcePath) {
+    console.warn(
+      'Unable to repair root react-refresh package (no valid source copy with runtime files found).'
+    );
+    return;
+  }
+
+  fs.cpSync(validSourcePath, rootReactRefreshPath, { recursive: true, force: true });
+  repairedReactRefresh += 1;
+}
+
+repairRootReactRefreshPackage();
+
+if (repairedReactRefresh > 0) {
+  console.log('Repaired root react-refresh package files required by babel-preset-expo.');
+}
+
+function patchReactNativeTurboModule() {
+  const turboModulePath = path.join(
+    nodeModulesRoot,
+    'react-native',
+    'ReactCommon',
+    'react',
+    'nativemodule',
+    'core',
+    'platform',
+    'ios',
+    'ReactCommon',
+    'RCTTurboModule.mm'
+  );
+
+  if (!fs.existsSync(turboModulePath)) {
+    return;
+  }
+
+  const source = fs.readFileSync(turboModulePath, 'utf8');
+  const alreadyPatchedPattern =
+    /@catch \(NSException \*exception\) \{\r?\n\s*if \(shouldVoidMethodsExecuteSync_\) \{/m;
+
+  if (alreadyPatchedPattern.test(source)) {
+    return;
+  }
+
+  const originalPattern =
+    /@catch \(NSException \*exception\) \{\r?\n\s*throw convertNSExceptionToJSError\(runtime, exception, std::string\{moduleName\}, methodNameStr\);\r?\n\s*\} @finally \{/m;
+
+  const replacement = [
+    '@catch (NSException *exception) {',
+    '      if (shouldVoidMethodsExecuteSync_) {',
+    '        throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);',
+    '      } else {',
+    '        @throw exception;',
+    '      }',
+    '    } @finally {',
+  ].join('\n');
+
+  if (!originalPattern.test(source)) {
+    console.warn(
+      'Unable to patch RCTTurboModule.mm automatically (expected pattern not found).'
+    );
+    return;
+  }
+
+  const patched = source.replace(originalPattern, replacement);
+  fs.writeFileSync(turboModulePath, patched, 'utf8');
+  patchedReactNativeFiles += 1;
+}
+
+patchReactNativeTurboModule();
+
+if (patchedReactNativeFiles > 0) {
+  console.log(
+    `Patched ${patchedReactNativeFiles} React Native TurboModule file(s) for iOS async NSException handling.`
+  );
 }
