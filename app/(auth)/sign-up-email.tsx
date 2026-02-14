@@ -29,8 +29,7 @@ const TEXT = {
   sendFailed: 'לא הצלחנו לשלוח קוד. נסו שוב.',
   invalidEmail: 'כתובת האימייל לא תקינה.',
   rateLimited: 'אפשר לבקש קוד חדש כל 30 שניות.',
-  missingConfig:
-    'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
+  missingConfig: 'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
 };
 
 function isValidEmail(value: string) {
@@ -86,7 +85,7 @@ export default function SignUpEmailScreen() {
       await sendEmailOtp({ email: normalizedEmail });
       const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
       router.push(
-        `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}${roleQuery}`
+        `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}&sent=1${roleQuery}`
       );
     } catch (err: unknown) {
       setError(mapSendError(err));
@@ -138,7 +137,9 @@ export default function SignUpEmailScreen() {
             <View
               style={[
                 styles.button,
-                canSubmit && !busy ? styles.buttonActive : styles.buttonInactive,
+                canSubmit && !busy
+                  ? styles.buttonActive
+                  : styles.buttonInactive,
               ]}
             >
               <Text
@@ -264,4 +265,3 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
 });
-

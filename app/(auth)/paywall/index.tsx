@@ -10,8 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';

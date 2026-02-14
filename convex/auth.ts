@@ -1,7 +1,46 @@
+import Google from '@auth/core/providers/google';
 import { Password } from '@convex-dev/auth/providers/Password';
 import { convexAuth } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
 import { mutation } from './_generated/server';
+
+const AUTH_REDIRECT_APP_PREFIXES = [
+  'stampix://',
+  'exp://',
+  'exps://',
+  'https://auth.expo.io/',
+] as const;
+
+function resolveAuthRedirectUrl(redirectTo: string): string {
+  const siteUrl = process.env.CONVEX_SITE_URL;
+  if (!siteUrl) {
+    throw new Error('CONVEX_SITE_URL is not configured');
+  }
+
+  if (redirectTo.startsWith('?') || redirectTo.startsWith('/')) {
+    return `${siteUrl}${redirectTo}`;
+  }
+
+  if (redirectTo.startsWith(siteUrl)) {
+    const charAfterBase = redirectTo[siteUrl.length];
+    if (!charAfterBase || charAfterBase === '/' || charAfterBase === '?') {
+      return redirectTo;
+    }
+  }
+
+  const allowedPrefixes =
+    process.env.NODE_ENV === 'production'
+      ? AUTH_REDIRECT_APP_PREFIXES.slice(0, 1)
+      : AUTH_REDIRECT_APP_PREFIXES;
+
+  if (allowedPrefixes.some((prefix) => redirectTo.startsWith(prefix))) {
+    return redirectTo;
+  }
+
+  throw new Error(
+    `Invalid redirectTo URL: ${redirectTo}. Must be relative, on CONVEX_SITE_URL, or app deep link.`
+  );
+}
 
 async function createOrUpdateUserHandler(ctx: any, args: any) {
   const now = Date.now();
@@ -32,7 +71,9 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
   const basePatch = {
     externalId,
     email: email ?? undefined,
-    emailVerified: profile.emailVerified ?? false,
+    emailVerified: Boolean(
+      profile.emailVerified ?? profile.email_verified ?? false
+    ),
     fullName: profile.name || 'User',
     userType: 'free' as const,
     subscriptionPlan: 'free' as const,
@@ -75,11 +116,19 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Password],
+  providers: [
+    Password,
+    Google({
+      allowDangerousEmailAccountLinking: true,
+    }),
+  ],
   session: {
     totalDurationMs: 30 * 24 * 60 * 60 * 1000,
   },
   callbacks: {
+    async redirect({ redirectTo }) {
+      return resolveAuthRedirectUrl(redirectTo);
+    },
     async createOrUpdateUser(ctx, args) {
       return await createOrUpdateUserHandler(ctx, args);
     },

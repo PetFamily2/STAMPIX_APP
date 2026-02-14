@@ -51,7 +51,10 @@ function walkNodeModules(dirPath) {
       continue;
     }
 
-    if (entry.name === 'ms' && path.basename(path.dirname(entryPath)) === 'node_modules') {
+    if (
+      entry.name === 'ms' &&
+      path.basename(path.dirname(entryPath)) === 'node_modules'
+    ) {
       maybeRepairMsPackage(entryPath);
       continue;
     }
@@ -63,11 +66,17 @@ function walkNodeModules(dirPath) {
 walkNodeModules(nodeModulesRoot);
 
 if (repairedCount > 0) {
-  console.log(`Repaired ${repairedCount} nested ms package(s) for Metro tooling.`);
+  console.log(
+    `Repaired ${repairedCount} nested ms package(s) for Metro tooling.`
+  );
 }
 
 function hasReactRefreshRuntimeFiles(reactRefreshDirPath) {
-  const requiredPaths = ['babel.js', 'runtime.js', path.join('cjs', 'react-refresh-runtime.development.js')];
+  const requiredPaths = [
+    'babel.js',
+    'runtime.js',
+    path.join('cjs', 'react-refresh-runtime.development.js'),
+  ];
   return requiredPaths.every((relativePath) =>
     fs.existsSync(path.join(reactRefreshDirPath, relativePath))
   );
@@ -77,13 +86,22 @@ function repairRootReactRefreshPackage() {
   const rootReactRefreshPath = path.join(nodeModulesRoot, 'react-refresh');
   const rootPackagePath = path.join(rootReactRefreshPath, 'package.json');
 
-  if (!fs.existsSync(rootPackagePath) || hasReactRefreshRuntimeFiles(rootReactRefreshPath)) {
+  if (
+    !fs.existsSync(rootPackagePath) ||
+    hasReactRefreshRuntimeFiles(rootReactRefreshPath)
+  ) {
     return;
   }
 
   const candidateSourcePaths = [
     path.join(nodeModulesRoot, 'react-native', 'node_modules', 'react-refresh'),
-    path.join(nodeModulesRoot, '@react-native', 'babel-preset', 'node_modules', 'react-refresh'),
+    path.join(
+      nodeModulesRoot,
+      '@react-native',
+      'babel-preset',
+      'node_modules',
+      'react-refresh'
+    ),
     path.join(nodeModulesRoot, 'expo', 'node_modules', 'react-refresh'),
   ];
 
@@ -100,14 +118,19 @@ function repairRootReactRefreshPackage() {
     return;
   }
 
-  fs.cpSync(validSourcePath, rootReactRefreshPath, { recursive: true, force: true });
+  fs.cpSync(validSourcePath, rootReactRefreshPath, {
+    recursive: true,
+    force: true,
+  });
   repairedReactRefresh += 1;
 }
 
 repairRootReactRefreshPackage();
 
 if (repairedReactRefresh > 0) {
-  console.log('Repaired root react-refresh package files required by babel-preset-expo.');
+  console.log(
+    'Repaired root react-refresh package files required by babel-preset-expo.'
+  );
 }
 
 function patchReactNativeTurboModule() {

@@ -1,7 +1,8 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+﻿import { useAuthActions } from '@convex-dev/auth/react';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -9,6 +10,8 @@ import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
@@ -21,6 +24,12 @@ const TEXT = {
   extra: 'אפשרויות נוספות',
   termsIntro: 'בלחיצה על המשך, אתם מסכימים למסמך המשפטי המרוכז',
   legalLink: 'מסמך משפטי',
+  continue: 'המשך',
+  connectingToGoogle: 'מתחברים ל-Google...',
+  authErrorTitle: 'שגיאה',
+  googleNotConfigured:
+    'התחברות עם Google לא מוגדרת עדיין. הגדירו AUTH_GOOGLE_ID ו-AUTH_GOOGLE_SECRET ב-Convex.',
+  googleFailed: 'ההתחברות עם Google נכשלה. נסו שוב.',
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';
@@ -54,6 +63,8 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 }
 
 export default function SignUpScreen() {
+  const { signIn } = useAuthActions();
+  const { setAppMode } = useAppMode();
   const router = useRouter();
   const { preview, map, role } = useLocalSearchParams<{
     preview?: string;
@@ -65,6 +76,7 @@ export default function SignUpScreen() {
     screen: 'sign_up',
   });
   const [selectedMethod, setSelectedMethod] = useState<AuthMethod | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleBack = () => {
     safeBack('/(auth)/onboarding-client-role');
@@ -77,8 +89,61 @@ export default function SignUpScreen() {
 
   const handleEmailOptionPress = () => {
     trackChoice('auth_method', 'email', { method: 'email' });
-    const query = role ? `?role=${encodeURIComponent(role)}` : '';
-    router.push(`/(auth)/sign-up-email${query}` as any);
+    if (role) {
+      router.push({
+        pathname: '/(auth)/sign-up-email',
+        params: { role },
+      });
+      return;
+    }
+    router.push('/(auth)/sign-up-email');
+  };
+
+  const mapGoogleError = (value: unknown) => {
+    if (!(value instanceof Error)) {
+      return TEXT.googleFailed;
+    }
+
+    if (
+      value.message.includes('configured providers') ||
+      value.message.includes('AUTH_GOOGLE_ID') ||
+      value.message.includes('AUTH_GOOGLE_SECRET')
+    ) {
+      return TEXT.googleNotConfigured;
+    }
+
+    return TEXT.googleFailed;
+  };
+
+  const handleGoogleAuth = async (
+    selectedRole: 'business' | 'customer' | null
+  ) => {
+    if (isPreviewMode || googleLoading) {
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithGoogle(signIn);
+      if (result !== 'success') {
+        return;
+      }
+      trackContinue({ method: 'google' });
+      completeStep({ method: 'google', role: selectedRole ?? undefined });
+
+      if (selectedRole === 'business') {
+        await setAppMode('business');
+        router.replace('/(authenticated)/(business)/dashboard');
+        return;
+      }
+
+      await setAppMode('customer');
+      router.replace('/(authenticated)/(customer)/wallet');
+    } catch (error: unknown) {
+      Alert.alert(TEXT.authErrorTitle, mapGoogleError(error));
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleContinue = () => {
@@ -91,6 +156,11 @@ export default function SignUpScreen() {
         : role === 'customer'
           ? 'customer'
           : null;
+
+    if (selectedMethod === 'google') {
+      void handleGoogleAuth(selectedRole);
+      return;
+    }
     trackContinue({ method: selectedMethod });
     completeStep({ method: selectedMethod, role: selectedRole ?? undefined });
 
@@ -216,7 +286,11 @@ export default function SignUpScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton onPress={handleContinue} disabled={!selectedMethod} />
+          <ContinueButton
+            onPress={handleContinue}
+            disabled={!selectedMethod || googleLoading}
+            label={googleLoading ? TEXT.connectingToGoogle : TEXT.continue}
+          />
 
           <Text style={styles.terms}>
             {TEXT.termsIntro}{' '}

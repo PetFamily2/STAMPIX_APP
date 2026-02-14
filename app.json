@@ -16,9 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stampix.stampix",
-      "associatedDomains": [
-        "applinks:stampix.app"
-      ],
+      "associatedDomains": ["applinks:stampix.app"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "ExpoLocalization_supportsRTL": true,
@@ -31,9 +29,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": false,
-      "permissions": [
-        "android.permission.CAMERA"
-      ],
+      "permissions": ["android.permission.CAMERA"],
       "package": "com.stampix.stampix",
       "intentFilters": [
         {
@@ -46,10 +42,7 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },

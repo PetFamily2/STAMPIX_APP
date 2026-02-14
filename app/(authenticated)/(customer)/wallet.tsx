@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
+import stampixLogo from '@/assets/images/stampix-logo-clean.png';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -124,12 +124,14 @@ export default function WalletScreen() {
               <Text style={styles.headerTitle}>{TEXT.title}</Text>
               <Text style={styles.headerSubtitle}>{TEXT.subtitle}</Text>
             </View>
-            <Image
-              source={require('../../../assets/images/STAMPIX_LOGO.jpeg')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-              accessibilityLabel="Stampix logo"
-            />
+            <View style={styles.headerLogoShell}>
+              <Image
+                source={stampixLogo}
+                style={styles.headerLogo}
+                resizeMode="contain"
+                accessibilityLabel="Stampix logo"
+              />
+            </View>
           </View>
         </View>
 
@@ -209,9 +211,9 @@ export default function WalletScreen() {
 
                       <View style={styles.imagePlaceholder}>
                         <Image
-                          source={require('../../../assets/images/STAMPIX_LOGO.jpeg')}
+                          source={stampixLogo}
                           style={styles.cardImage}
-                          resizeMode="cover"
+                          resizeMode="contain"
                           accessibilityLabel="Business logo"
                         />
                       </View>
@@ -264,12 +266,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerLogoShell: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D7E3FF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#184399',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   headerLogo: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#E3E9FF',
+    width: 46,
+    height: 46,
   },
   headerText: {
     flex: 1,
@@ -379,14 +392,19 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 16,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E3E9FF',
-    backgroundColor: '#E5EEFF',
+    borderColor: '#D7E3FF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#184399',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardImage: {
-    width: '100%',
-    height: '100%',
+    width: 36,
+    height: 36,
   },
   cardSubtitle: {
     marginTop: 4,

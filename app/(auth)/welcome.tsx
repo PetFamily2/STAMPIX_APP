@@ -2,13 +2,12 @@
 import { Heart, TrendingUp } from 'lucide-react-native';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import stampixLogo from '@/assets/images/stampix-logo-circle.png';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import stampixLogo from '@/assets/images/STAMPIX_LOGO.jpeg';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -42,13 +41,11 @@ export default function WelcomeScreen() {
           <View className="w-11 h-11" />
         </View>
         {/* Logo */}
-        <View className="items-center mb-10 mt-2">
-          <View className="relative items-center justify-center">
-            <View className="absolute w-24 h-24 rounded-full bg-blue-50" />
-            <View className="absolute w-32 h-32 rounded-full bg-blue-100/50" />
+        <View className="items-center mb-6 -mt-2">
+          <View className="items-center justify-center">
             <Image
               source={stampixLogo}
-              className="w-24 h-24"
+              className="w-48 h-48"
               resizeMode="contain"
               accessibilityLabel="לוגו Stampix"
             />
@@ -66,7 +63,7 @@ export default function WelcomeScreen() {
             <Text className="text-blue-600">דיגיטל</Text>
           </Text>
           <Text className="text-base text-gray-500 text-center leading-6">
-            מצטרפים למהפכה הדיגיטלית.{'\n'}כל הכרטיסיות בכיס אחד, ב-QR.
+            מצטרפים למהפכה הדיגיטלית{'\n'}כל הכרטיסיות בכיס אחד, ב-QR
           </Text>
         </View>
 
@@ -83,7 +80,7 @@ export default function WelcomeScreen() {
                   ללקוחות שאוהבים לקבל
                 </Text>
                 <Text className="text-sm text-gray-500 text-right leading-5">
-                  צוברים חתימות, עוקבים אחרי ההטבות ומקבלים מתנות מהעסקים.
+                  צוברים חתימות, עוקבים אחרי ההטבות ומקבלים מתנות מהעסקים
                 </Text>
               </View>
             </View>
@@ -101,7 +98,7 @@ export default function WelcomeScreen() {
                 </Text>
                 <Text className="text-sm text-gray-500 text-right leading-5">
                   מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי
-                  שיווק.
+                  שיווק
                 </Text>
               </View>
             </View>

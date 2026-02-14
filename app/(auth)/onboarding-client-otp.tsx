@@ -1,4 +1,3 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
 import { useAction, useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,14 +35,14 @@ const TEXT = {
   maxAttempts: 'חרגת ממספר הניסיונות. בקשו קוד חדש.',
   sendFailed: 'שליחת הקוד נכשלה. נסו שוב.',
   rateLimited: 'אפשר לבקש קוד חדש כל 30 שניות.',
-  missingConfig:
-    'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
+  missingConfig: 'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
 };
 
 export default function OnboardingOtpScreen() {
-  const { contact, role } = useLocalSearchParams<{
+  const { contact, role, sent } = useLocalSearchParams<{
     contact?: string | string[];
     role?: string | string[];
+    sent?: string | string[];
   }>();
   const sendEmailOtp = useAction(api.otp.sendEmailOtp);
   const verifyEmailOtp = useMutation(api.otp.verifyEmailOtp);
@@ -56,6 +55,7 @@ export default function OnboardingOtpScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const inputsRef = useRef<Array<TextInput | null>>([]);
+  const isSendingRef = useRef(false);
   const otpSentRef = useRef(false);
   const digitIndexes = useMemo(
     () => Array.from({ length: CODE_LENGTH }, (_, index) => index),
@@ -80,6 +80,18 @@ export default function OnboardingOtpScreen() {
     }
     return role ?? '';
   }, [role]);
+
+  const sentValue = useMemo(() => {
+    if (Array.isArray(sent)) {
+      return sent[0] ?? '';
+    }
+    return sent ?? '';
+  }, [sent]);
+
+  const shouldSkipInitialSend = useMemo(
+    () => sentValue === '1' || sentValue.toLowerCase() === 'true',
+    [sentValue]
+  );
 
   const isEmailContact = useMemo(
     () => contactValue.includes('@'),
@@ -119,10 +131,11 @@ export default function OnboardingOtpScreen() {
 
   const sendCode = useCallback(
     async (resetFields: boolean) => {
-      if (!isEmailContact || !contactValue || isSending) {
+      if (!isEmailContact || !contactValue || isSendingRef.current) {
         return;
       }
 
+      isSendingRef.current = true;
       setIsSending(true);
       setError('');
 
@@ -136,25 +149,34 @@ export default function OnboardingOtpScreen() {
       } catch (err: unknown) {
         setError(mapOtpError(err));
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
-    [contactValue, isEmailContact, isSending, sendEmailOtp]
+    [contactValue, isEmailContact, sendEmailOtp]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!otpSentRef.current) {
-        otpSentRef.current = true;
-        trackEvent(ANALYTICS_EVENTS.otpSent, { channel: otpChannel });
-        void sendCode(false);
-      }
+  useEffect(() => {
+    if (otpSentRef.current || !isEmailContact || !contactValue) {
+      return;
+    }
 
-      return () => {
-        otpSentRef.current = false;
-      };
-    }, [otpChannel, sendCode, trackEvent])
-  );
+    otpSentRef.current = true;
+
+    if (shouldSkipInitialSend) {
+      return;
+    }
+
+    trackEvent(ANALYTICS_EVENTS.otpSent, { channel: otpChannel });
+    void sendCode(false);
+  }, [
+    contactValue,
+    isEmailContact,
+    otpChannel,
+    sendCode,
+    shouldSkipInitialSend,
+    trackEvent,
+  ]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -305,9 +327,7 @@ export default function OnboardingOtpScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <BackButton
-            onPress={() => safeBack(backRoute)}
-          />
+          <BackButton onPress={() => safeBack(backRoute)} />
           <OnboardingProgress total={8} current={3} />
         </View>
 
@@ -491,4 +511,3 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
 });
-

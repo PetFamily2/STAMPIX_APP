@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
-import { action, internalMutation, internalQuery, mutation } from './_generated/server';
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from './_generated/server';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -13,9 +18,8 @@ function normalizeEmail(value: string) {
 }
 
 function generateOtpCode() {
-  return Array.from(
-    { length: OTP_LENGTH },
-    () => Math.floor(Math.random() * 10).toString()
+  return Array.from({ length: OTP_LENGTH }, () =>
+    Math.floor(Math.random() * 10).toString()
   ).join('');
 }
 
@@ -34,10 +38,7 @@ export const storeEmailOtp = internalMutation({
 
     await Promise.all(
       existing
-        .filter(
-          (item) =>
-            item.status === 'pending' || item.status === 'sent'
-        )
+        .filter((item) => item.status === 'pending' || item.status === 'sent')
         .map((item) =>
           ctx.db.patch(item._id, {
             status: 'invalidated',
@@ -203,10 +204,7 @@ export const verifyEmailOtp = mutation({
 
     const active = rows
       .filter(
-        (row) =>
-          row.status === 'sent' &&
-          !row.consumedAt &&
-          row.expiresAt > now
+        (row) => row.status === 'sent' && !row.consumedAt && row.expiresAt > now
       )
       .sort((a, b) => b.createdAt - a.createdAt)[0];
 
@@ -228,7 +226,9 @@ export const verifyEmailOtp = mutation({
         attempts: nextAttempts,
         status: nextAttempts >= active.maxAttempts ? 'failed' : active.status,
         failureReason:
-          nextAttempts >= active.maxAttempts ? 'MAX_ATTEMPTS_REACHED' : undefined,
+          nextAttempts >= active.maxAttempts
+            ? 'MAX_ATTEMPTS_REACHED'
+            : undefined,
       });
       throw new Error('OTP_INVALID');
     }
