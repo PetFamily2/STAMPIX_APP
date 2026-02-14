@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, Link, type SitemapType, useSitemap } from 'expo-router';
+import { type Href, Link, type SitemapType } from 'expo-router';
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import {
-  type NativeSyntheticEvent,
-  type NativeTouchEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -69,10 +67,12 @@ type DiagramEdge = {
   toAnchor?: Anchor;
 };
 
-const NODE_WIDTH = 152;
-const NODE_HEIGHT = 262;
-const COL_GAP = 48;
-const ROW_GAP = 44;
+type NodeShape = 'process' | 'decision' | 'terminator';
+
+const NODE_WIDTH = 148;
+const NODE_HEIGHT = 92;
+const COL_GAP = 32;
+const ROW_GAP = 24;
 const DIAGRAM_PADDING = 28;
 const ROUTE_LABEL_MAX = 18;
 const PREVIEW_OTP_KEYS = ['otp-1', 'otp-2', 'otp-3', 'otp-4'] as const;
@@ -1286,14 +1286,23 @@ function flattenSitemap(node: SitemapType | null): SitemapType[] {
 
   const queue: SitemapType[] = [node];
   const out: SitemapType[] = [];
+  const seen = new Set<SitemapType>();
 
   while (queue.length > 0) {
     const current = queue.shift();
     if (!current) {
       continue;
     }
+    if (seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
     out.push(current);
-    queue.push(...current.children);
+    const maybeChildren = (current as { children?: SitemapType[] }).children;
+    const children: SitemapType[] = Array.isArray(maybeChildren)
+      ? maybeChildren
+      : [];
+    queue.push(...children);
   }
 
   return out;
@@ -1721,9 +1730,11 @@ function DiagramPhonePreview({ kind }: { kind: PreviewKind }) {
 function DiagramNodeCard({
   node,
   position,
+  shape,
 }: {
   node: DiagramNode;
   position: { x: number; y: number };
+  shape: NodeShape;
 }) {
   const tone = TONE_STYLES[node.item.tone];
   const href = resolveFlowLink(node.item.href);
@@ -1740,30 +1751,53 @@ function DiagramNodeCard({
           activeOpacity={0.85}
           style={[
             styles.flowCard,
+            shape === 'decision' && styles.flowCardDecision,
+            shape === 'terminator' && styles.flowCardTerminator,
             { borderColor: tone.border, backgroundColor: tone.bg },
           ]}
           accessibilityRole="button"
         >
-          <View style={styles.flowCardHeader}>
-            <View
-              style={[
-                styles.nodeIconWrap,
-                { borderColor: tone.border, backgroundColor: '#ffffff' },
-              ]}
-            >
-              <Ionicons name={node.item.icon} size={12} color={tone.icon} />
+          {shape === 'decision' ? (
+            <View style={styles.decisionWrap}>
+              <View
+                style={[
+                  styles.decisionDiamond,
+                  { borderColor: tone.border, backgroundColor: '#ffffff' },
+                ]}
+              >
+                <Text style={styles.decisionText} numberOfLines={2}>
+                  {safeTitle}
+                </Text>
+              </View>
+              <Text style={styles.nodeRoute} numberOfLines={1}>
+                {routeLabel}
+              </Text>
             </View>
-            <Text style={styles.nodeTitle} numberOfLines={1}>
-              {safeTitle}
-            </Text>
-          </View>
-          <DiagramPhonePreview kind={node.preview} />
-          <Text style={styles.flowCardName} numberOfLines={1}>
-            {node.item.nameEn}
-          </Text>
-          <Text style={styles.nodeRoute} numberOfLines={1}>
-            {routeLabel}
-          </Text>
+          ) : (
+            <>
+              <View style={styles.flowCardHeader}>
+                <View
+                  style={[
+                    styles.nodeIconWrap,
+                    { borderColor: tone.border, backgroundColor: '#ffffff' },
+                  ]}
+                >
+                  <Ionicons name={node.item.icon} size={11} color={tone.icon} />
+                </View>
+                <Text style={styles.nodeTitle} numberOfLines={1}>
+                  {safeTitle}
+                </Text>
+              </View>
+              <View style={styles.nodeMeta}>
+                <Text style={styles.flowCardName} numberOfLines={1}>
+                  {node.item.nameEn}
+                </Text>
+                <Text style={styles.nodeRoute} numberOfLines={1}>
+                  {routeLabel}
+                </Text>
+              </View>
+            </>
+          )}
         </TouchableOpacity>
       </Link>
     </View>
@@ -1814,29 +1848,36 @@ function DiagramLegend() {
   );
 }
 
-const PINCH_ZOOM_MIN = 0.55;
-const PINCH_ZOOM_MAX = 2.4;
+function getNodeShapeMap(): Record<string, NodeShape> {
+  const incomingCount: Record<string, number> = {};
+  const outgoingCount: Record<string, number> = {};
 
-function getPinchDistance(
-  a: NativeTouchEvent['touches'][number],
-  b: NativeTouchEvent['touches'][number]
-) {
-  const dx = a.pageX - b.pageX;
-  const dy = a.pageY - b.pageY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
+  for (const edge of DIAGRAM_EDGES) {
+    outgoingCount[edge.from] = (outgoingCount[edge.from] ?? 0) + 1;
+    incomingCount[edge.to] = (incomingCount[edge.to] ?? 0) + 1;
+  }
 
-function clampZoom(value: number) {
-  return Math.max(PINCH_ZOOM_MIN, Math.min(PINCH_ZOOM_MAX, value));
+  const shapeMap: Record<string, NodeShape> = {};
+  for (const node of DIAGRAM_NODES) {
+    const incoming = incomingCount[node.id] ?? 0;
+    const outgoing = outgoingCount[node.id] ?? 0;
+
+    if (incoming === 0 || outgoing === 0) {
+      shapeMap[node.id] = 'terminator';
+      continue;
+    }
+    if (outgoing >= 2) {
+      shapeMap[node.id] = 'decision';
+      continue;
+    }
+    shapeMap[node.id] = 'process';
+  }
+
+  return shapeMap;
 }
 
 function FlowDiagram() {
-  const [zoom, setZoom] = useState(1);
-  const [isPinching, setIsPinching] = useState(false);
-  const pinchStartDistanceRef = useRef(0);
-  const pinchStartZoomRef = useRef(1);
-
-  const { width, height, positions } = useMemo(() => {
+  const { width, height, positions, nodeShapeMap } = useMemo(() => {
     const positionsMap: Record<string, { x: number; y: number }> = {};
     DIAGRAM_NODES.forEach((node) => {
       positionsMap[node.id] = getNodePosition(node);
@@ -1854,168 +1895,88 @@ function FlowDiagram() {
       width: computedWidth,
       height: computedHeight,
       positions: positionsMap,
+      nodeShapeMap: getNodeShapeMap(),
     };
   }, []);
 
-  const handleTouchStart = useCallback(
-    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
-      const touches = event.nativeEvent.touches;
-      if (touches.length < 2) {
-        return;
-      }
-
-      const distance = getPinchDistance(touches[0], touches[1]);
-      if (distance <= 0) {
-        return;
-      }
-
-      pinchStartDistanceRef.current = distance;
-      pinchStartZoomRef.current = zoom;
-      setIsPinching(true);
-    },
-    [zoom]
-  );
-
-  const handleTouchMove = useCallback(
-    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
-      const touches = event.nativeEvent.touches;
-      if (touches.length < 2 || pinchStartDistanceRef.current <= 0) {
-        return;
-      }
-
-      const distance = getPinchDistance(touches[0], touches[1]);
-      if (distance <= 0) {
-        return;
-      }
-
-      const ratio = distance / pinchStartDistanceRef.current;
-      const nextZoom = clampZoom(pinchStartZoomRef.current * ratio);
-      setZoom(nextZoom);
-    },
-    []
-  );
-
-  const handleTouchEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeTouchEvent>) => {
-      if (event.nativeEvent.touches.length >= 2) {
-        return;
-      }
-
-      pinchStartDistanceRef.current = 0;
-      pinchStartZoomRef.current = zoom;
-      setIsPinching(false);
-    },
-    [zoom]
-  );
-
-  const translatedX = ((zoom - 1) * width) / 2;
-  const translatedY = ((zoom - 1) * height) / 2;
-
   return (
-    <View>
-      <View style={styles.zoomMetaRow}>
-        <Text style={styles.zoomMetaText}>
-          Pinch with two fingers to zoom in or out
-        </Text>
-        <Text style={styles.zoomMetaValue}>{`${Math.round(zoom * 100)}%`}</Text>
-      </View>
-
-      <ScrollView
-        horizontal={true}
-        showsHorizontalScrollIndicator={true}
-        scrollEnabled={!isPinching}
-        contentContainerStyle={styles.diagramScrollContent}
-      >
-        <View
-          style={{ width: width * zoom, height: height * zoom }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
+    <ScrollView
+      horizontal={true}
+      showsHorizontalScrollIndicator={true}
+      contentContainerStyle={styles.diagramScrollContent}
+    >
+      <View style={{ width, height }}>
+        <Svg
+          width={width}
+          height={height}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
         >
-          <View
-            style={{
-              width,
-              height,
-              transform: [
-                { scale: zoom },
-                { translateX: translatedX },
-                { translateY: translatedY },
-              ],
-            }}
-          >
-            <Svg
-              width={width}
-              height={height}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            >
-              {DIAGRAM_EDGES.map((edge) => {
-                const fromPos = positions[edge.from];
-                const toPos = positions[edge.to];
-                if (!fromPos || !toPos) {
-                  return null;
-                }
+          {DIAGRAM_EDGES.map((edge) => {
+            const fromPos = positions[edge.from];
+            const toPos = positions[edge.to];
+            if (!fromPos || !toPos) {
+              return null;
+            }
 
-                const defaults = getDefaultAnchors(edge.kind);
-                const fromAnchor = edge.fromAnchor ?? defaults.from;
-                const toAnchor = edge.toAnchor ?? defaults.to;
-                const connector = getConnectorData(
-                  fromPos,
-                  toPos,
-                  fromAnchor,
-                  toAnchor
-                );
-                const style = EDGE_STYLES[edge.kind];
-                const edgeLabel =
-                  cleanMapText(edge.label) ?? getFallbackEdgeLabel(edge.kind);
-                const labelWidth = Math.max(58, edgeLabel.length * 6.4);
+            const defaults = getDefaultAnchors(edge.kind);
+            const fromAnchor = edge.fromAnchor ?? defaults.from;
+            const toAnchor = edge.toAnchor ?? defaults.to;
+            const connector = getConnectorData(
+              fromPos,
+              toPos,
+              fromAnchor,
+              toAnchor
+            );
+            const style = EDGE_STYLES[edge.kind];
+            const edgeLabel =
+              cleanMapText(edge.label) ?? getFallbackEdgeLabel(edge.kind);
+            const labelWidth = Math.max(44, edgeLabel.length * 5.2);
 
-                return (
-                  <G key={`${edge.from}-${edge.to}-${edge.label}-${edge.kind}`}>
-                    <Path
-                      d={connector.path}
-                      stroke={style.stroke}
-                      strokeWidth={2}
-                      strokeDasharray={style.dash}
-                      fill="none"
-                    />
-                    <Path d={connector.arrowPath} fill={style.stroke} />
-                    <Rect
-                      x={connector.labelX - labelWidth / 2}
-                      y={connector.labelY - 11}
-                      width={labelWidth}
-                      height={15}
-                      rx={6}
-                      fill={style.labelBg}
-                      opacity={0.95}
-                    />
-                    <SvgText
-                      x={connector.labelX}
-                      y={connector.labelY}
-                      fill={style.labelText}
-                      fontSize="8"
-                      fontWeight="700"
-                      textAnchor="middle"
-                    >
-                      {edgeLabel}
-                    </SvgText>
-                  </G>
-                );
-              })}
-            </Svg>
+            return (
+              <G key={`${edge.from}-${edge.to}-${edge.label}-${edge.kind}`}>
+                <Path
+                  d={connector.path}
+                  stroke={style.stroke}
+                  strokeWidth={1.6}
+                  strokeDasharray={style.dash}
+                  fill="none"
+                />
+                <Path d={connector.arrowPath} fill={style.stroke} />
+                <Rect
+                  x={connector.labelX - labelWidth / 2}
+                  y={connector.labelY - 10}
+                  width={labelWidth}
+                  height={13}
+                  rx={5}
+                  fill={style.labelBg}
+                  opacity={0.92}
+                />
+                <SvgText
+                  x={connector.labelX}
+                  y={connector.labelY - 0.5}
+                  fill={style.labelText}
+                  fontSize="7"
+                  fontWeight="700"
+                  textAnchor="middle"
+                >
+                  {edgeLabel}
+                </SvgText>
+              </G>
+            );
+          })}
+        </Svg>
 
-            {DIAGRAM_NODES.map((node) => (
-              <DiagramNodeCard
-                key={node.id}
-                node={node}
-                position={positions[node.id]}
-              />
-            ))}
-          </View>
-        </View>
-      </ScrollView>
-    </View>
+        {DIAGRAM_NODES.map((node) => (
+          <DiagramNodeCard
+            key={node.id}
+            node={node}
+            position={positions[node.id]}
+            shape={nodeShapeMap[node.id] ?? 'process'}
+          />
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -2070,73 +2031,13 @@ function AdditionalGroup({
 }
 
 export default function FlowMapScreen() {
-  const sitemap = useSitemap();
-
-  const additionalScreens = useMemo(() => {
-    const seen = new Set<string>();
-    const extras: FlowItem[] = [];
-
-    for (const node of flattenSitemap(sitemap)) {
-      if (
-        node.isInternal ||
-        node.isGenerated ||
-        typeof node.href !== 'string'
-      ) {
-        continue;
-      }
-
-      const href = node.href;
-      if (!href.startsWith('/(auth)') && !href.startsWith('/(authenticated)')) {
-        continue;
-      }
-      if (href === '/(auth)/flow-map') {
-        continue;
-      }
-      if (KNOWN_HREFS.has(href) || seen.has(href)) {
-        continue;
-      }
-
-      seen.add(href);
-      extras.push({
-        title: 'Additional Screen',
-        nameEn: getExtraScreenName(href),
-        href,
-        icon: getExtraScreenIcon(href),
-        tone: 'neutral',
-      });
-    }
-
-    return extras.sort((a, b) => a.href.localeCompare(b.href));
-  }, [sitemap]);
-
-  const additionalByAudience = useMemo(() => {
-    const customer: FlowItem[] = [];
-    const business: FlowItem[] = [];
-    const general: FlowItem[] = [];
-
-    additionalScreens.forEach((item) => {
-      if (item.href.includes('/(customer)')) {
-        customer.push(item);
-        return;
-      }
-      if (item.href.includes('/(business)')) {
-        business.push(item);
-        return;
-      }
-      general.push(item);
-    });
-
-    return { customer, business, general };
-  }, [additionalScreens]);
-
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerBlock}>
-          <Text style={styles.headerTitle}>Flow Map (Lite)</Text>
+          <Text style={styles.headerTitle}>Simple Flow Map</Text>
           <Text style={styles.headerSubtitle}>
-            Lightweight flowchart view: each node is a simple screen box and all
-            navigation links remain connected.
+            תרשים זרימה קל עם קוביות קטנות, קווים והתפצלויות.
           </Text>
         </View>
 
@@ -2147,30 +2048,9 @@ export default function FlowMapScreen() {
 
         <View style={styles.noteBox}>
           <Text style={styles.noteText}>
-            Tip: tap a node to open that route directly with `map=true` (and
-            authenticated routes also get `preview=true`).
+            לחיצה על קובייה פותחת את המסך המתאים עם `map=true`.
           </Text>
         </View>
-
-        {additionalScreens.length > 0 ? (
-          <View style={styles.additionalPanel}>
-            <Text style={styles.additionalPanelTitle}>
-              Additional routes found in sitemap (not shown on main map)
-            </Text>
-            <AdditionalGroup
-              title="Customer"
-              items={additionalByAudience.customer}
-            />
-            <AdditionalGroup
-              title="Business"
-              items={additionalByAudience.business}
-            />
-            <AdditionalGroup
-              title="General"
-              items={additionalByAudience.general}
-            />
-          </View>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -2258,12 +2138,21 @@ const styles = StyleSheet.create({
     width: NODE_WIDTH,
   },
   flowCard: {
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 7,
     height: NODE_HEIGHT,
     justifyContent: 'space-between',
+  },
+  flowCardDecision: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  flowCardTerminator: {
+    borderRadius: 999,
+    borderWidth: 1.2,
   },
   flowCardHeader: {
     flexDirection: 'row-reverse',
@@ -2271,11 +2160,36 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   flowCardName: {
-    marginTop: 4,
-    fontSize: 9,
+    fontSize: 10,
     color: '#334155',
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'right',
+  },
+  nodeMeta: {
+    gap: 2,
+  },
+  decisionWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  decisionDiamond: {
+    width: 56,
+    height: 56,
+    borderWidth: 1.2,
+    borderRadius: 7,
+    transform: [{ rotate: '45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  decisionText: {
+    width: 74,
+    transform: [{ rotate: '-45deg' }],
+    fontSize: 8,
+    color: '#0f172a',
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 10,
   },
   nodeTitleRow: {
     flexDirection: 'row-reverse',
@@ -2285,16 +2199,16 @@ const styles = StyleSheet.create({
     minHeight: 18,
   },
   nodeIconWrap: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nodeTitle: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 10,
     color: '#1e293b',
     fontWeight: '800',
     textAlign: 'right',
@@ -2335,10 +2249,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nodeRoute: {
-    marginTop: 1,
     fontSize: 8,
     color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'right',
   },
   previewTitle: {

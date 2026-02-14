@@ -28,12 +28,9 @@ function resolveAuthRedirectUrl(redirectTo: string): string {
     }
   }
 
-  const allowedPrefixes =
-    process.env.NODE_ENV === 'production'
-      ? AUTH_REDIRECT_APP_PREFIXES.slice(0, 1)
-      : AUTH_REDIRECT_APP_PREFIXES;
-
-  if (allowedPrefixes.some((prefix) => redirectTo.startsWith(prefix))) {
+  if (
+    AUTH_REDIRECT_APP_PREFIXES.some((prefix) => redirectTo.startsWith(prefix))
+  ) {
     return redirectTo;
   }
 
@@ -120,6 +117,25 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     Password,
     Google({
       allowDangerousEmailAccountLinking: true,
+      profile(rawProfile) {
+        const profile = rawProfile as Record<string, unknown>;
+        const subject =
+          typeof profile.sub === 'string' ? profile.sub : undefined;
+
+        if (!subject) {
+          throw new Error('Google profile is missing subject');
+        }
+
+        return {
+          id: subject,
+          subject,
+          email: typeof profile.email === 'string' ? profile.email : undefined,
+          name: typeof profile.name === 'string' ? profile.name : undefined,
+          image:
+            typeof profile.picture === 'string' ? profile.picture : undefined,
+          emailVerified: profile.email_verified === true,
+        };
+      },
     }),
   ],
   session: {

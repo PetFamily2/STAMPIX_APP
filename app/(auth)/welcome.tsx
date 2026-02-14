@@ -1,6 +1,8 @@
-﻿import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+﻿import { useFocusEffect } from '@react-navigation/native';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, TrendingUp } from 'lucide-react-native';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback } from 'react';
+import { BackHandler, Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import stampixLogo from '@/assets/images/stampix-logo-circle.png';
 import { BackButton } from '@/components/BackButton';
@@ -19,10 +21,25 @@ export default function WelcomeScreen() {
   const { completeStep, trackContinue } = useOnboardingTracking({
     screen: 'welcome',
   });
+  const FLOW_MAP_ROUTE = '/(auth)/flow-map?map=true';
 
-  const handleBack = () => {
-    safeBack('/(auth)/flow-map');
-  };
+  const handleBack = useCallback(() => {
+    router.replace(FLOW_MAP_ROUTE);
+  }, [router, FLOW_MAP_ROUTE]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          handleBack();
+          return true;
+        }
+      );
+
+      return () => subscription.remove();
+    }, [handleBack])
+  );
 
   const handleGetStarted = () => {
     trackContinue();
@@ -132,3 +149,4 @@ export default function WelcomeScreen() {
     </SafeAreaView>
   );
 }
+

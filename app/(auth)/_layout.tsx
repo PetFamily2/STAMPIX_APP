@@ -28,7 +28,12 @@ export default function AuthRoutesLayout() {
   const segmentsKey = segmentStrings.join('/');
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
-  const isAllowedForAuthenticated = isPaywallRoute || isPreviewMode;
+  const isFlowMapRoute =
+    segmentStrings.includes('flow-map') ||
+    pathname === '/flow-map' ||
+    pathname.endsWith('/flow-map');
+  const isAllowedForAuthenticated =
+    isPaywallRoute || isPreviewMode || isFlowMapRoute;
   const alreadyInTarget =
     pathname === AUTH_REDIRECT_TARGET ||
     pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
