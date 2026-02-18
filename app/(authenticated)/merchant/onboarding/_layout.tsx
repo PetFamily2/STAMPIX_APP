@@ -17,7 +17,7 @@ export default function MerchantOnboardingLayout() {
   }
 
   if (!user && !isPreviewMode) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return <Redirect href="/(auth)/sign-up" />;
   }
 
   return (

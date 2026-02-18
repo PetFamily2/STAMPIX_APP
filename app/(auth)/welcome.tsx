@@ -11,6 +11,8 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
+const FLOW_MAP_ROUTE = '/(auth)/flow-map?map=true';
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
@@ -21,11 +23,10 @@ export default function WelcomeScreen() {
   const { completeStep, trackContinue } = useOnboardingTracking({
     screen: 'welcome',
   });
-  const FLOW_MAP_ROUTE = '/(auth)/flow-map?map=true';
 
   const handleBack = useCallback(() => {
     router.replace(FLOW_MAP_ROUTE);
-  }, [router, FLOW_MAP_ROUTE]);
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -133,20 +134,19 @@ export default function WelcomeScreen() {
             <Text className="text-white text-lg font-bold">בואו נתחיל</Text>
           </TouchableOpacity>
 
-          {/* Sign In Link */}
+          {/* Existing Account Link */}
           <View className="flex-row justify-center items-center gap-2">
-            <Link href="/(auth)/sign-in" asChild={true}>
+            <Link href="/(auth)/sign-up" asChild={true}>
               <TouchableOpacity>
                 <Text className="text-blue-600 font-semibold text-base">
-                  התחברו כאן
+                  יש לי חשבון
                 </Text>
               </TouchableOpacity>
             </Link>
-            <Text className="text-gray-500 text-base">כבר יש לכם חשבון?</Text>
+            <Text className="text-gray-500 text-base">כבר רשומים?</Text>
           </View>
         </View>
       </View>
     </SafeAreaView>
   );
 }
-

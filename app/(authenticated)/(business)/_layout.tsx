@@ -30,7 +30,7 @@ export default function BusinessTabsLayout() {
   }
 
   if (!user && !isPreviewMode) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return <Redirect href="/(auth)/sign-up" />;
   }
 
   const role = (user?.role ?? CUSTOMER_ROLE) as AppRole;

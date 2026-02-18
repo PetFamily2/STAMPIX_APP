@@ -90,7 +90,7 @@ export default function PaywallScreen() {
   const handleClose = () => {
     completeStep();
     finishOnboarding();
-    safeBack('/(auth)/sign-in');
+    safeBack('/(auth)/sign-up');
   };
 
   const handleContinue = async () => {
@@ -117,7 +117,7 @@ export default function PaywallScreen() {
         trackEvent(ANALYTICS_EVENTS.purchaseCompleted, { plan_id: packageId });
         completeStep();
         finishOnboarding();
-        safeBack('/(auth)/sign-in');
+        safeBack('/(auth)/sign-up');
       } else {
         trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
           plan_id: packageId,
@@ -156,7 +156,7 @@ export default function PaywallScreen() {
       ) {
         completeStep();
         finishOnboarding();
-        safeBack('/(auth)/sign-in');
+        safeBack('/(auth)/sign-up');
       }
     } catch {
       Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall. נסו שוב.');
@@ -193,7 +193,7 @@ export default function PaywallScreen() {
       if (success) {
         completeStep();
         finishOnboarding();
-        safeBack('/(auth)/sign-in');
+        safeBack('/(auth)/sign-up');
       }
     } finally {
       setIsRestoring(false);

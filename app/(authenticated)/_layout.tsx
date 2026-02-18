@@ -1,4 +1,4 @@
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import {
   type Href,
   Redirect,
@@ -8,19 +8,28 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
+import type { AppRole } from '@/lib/domain/roles';
 
 const TEXT = {
-  loading: '\u05d8\u05d5\u05e2\u05df...',
-  bootErrorTitle:
-    '\u05d0\u05d9\u05e8\u05e2\u05d4 \u05ea\u05e7\u05dc\u05d4 \u05d1\u05d8\u05e2\u05d9\u05e0\u05ea \u05d4\u05de\u05e9\u05ea\u05de\u05e9',
-  retry: '\u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
+  loadingTitle:
+    '\u05d1\u05d5\u05e0\u05d4 \u05dc\u05da \u05d7\u05d5\u05d5\u05d9\u05d4 \u05de\u05d5\u05ea\u05d0\u05de\u05ea',
+  loadingSubtitle:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
 };
+
+function hasCapturedName(user: { firstName?: string; lastName?: string }) {
+  return Boolean(user.firstName?.trim().length && user.lastName?.trim().length);
+}
+
+function isBusinessRole(role: AppRole) {
+  return role === 'merchant' || role === 'staff' || role === 'admin';
+}
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -32,68 +41,76 @@ export default function AuthenticatedLayout() {
     camp?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-  const {
-    appMode,
-    isLoading: isAppModeLoading,
-    hasSelectedMode,
-  } = useAppMode();
+  const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
   const user = useQuery(api.users.getCurrentUser, shouldLoadUser ? {} : 'skip');
-  const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
   const router = useRouter();
   const segments = useSegments();
 
-  const ran = useRef(false);
   const lastRedirectRef = useRef<string | null>(null);
-  const [bootError, setBootError] = useState<string | null>(null);
-  const [booting, setBooting] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isLoadingPhaseDone, setIsLoadingPhaseDone] = useState(false);
   const pendingJoinSaved = useRef(false);
+  const loadingPhaseStarted = useRef(false);
+
+  const isBootstrapDataReady =
+    !isLoading &&
+    (isPreviewMode || !isAppModeLoading) &&
+    (shouldLoadUser ? user !== undefined : true);
 
   useEffect(() => {
-    if (isPreviewMode) {
+    if (isPreviewMode || !isAuthenticated || isLoadingPhaseDone) {
       return;
     }
 
-    if (!isAuthenticated || isLoading) {
-      return;
+    if (!loadingPhaseStarted.current) {
+      loadingPhaseStarted.current = true;
+      setLoadingProgress(0);
     }
 
-    if (user && !bootError) {
-      return;
-    }
-
-    if (user === null && !ran.current) {
-      ran.current = true;
-      setBooting(true);
-      setBootError(null);
-
-      const run = async () => {
-        try {
-          await Promise.race([
-            createOrUpdateUser({}),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('bootstrap timeout')), 5000)
-            ),
-          ]);
-          setBootError(null);
-        } catch (error: unknown) {
-          setBootError(error instanceof Error ? error.message : String(error));
-          ran.current = false;
-        } finally {
-          setBooting(false);
+    const target = isBootstrapDataReady ? 100 : 92;
+    const timer = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= target) {
+          return prev;
         }
-      };
+        const remaining = target - prev;
+        const step = remaining > 30 ? 4 : remaining > 15 ? 3 : 2;
+        return Math.min(target, prev + step);
+      });
+    }, 55);
 
-      run();
-    }
+    return () => clearInterval(timer);
   }, [
-    bootError,
-    createOrUpdateUser,
     isAuthenticated,
-    isLoading,
+    isBootstrapDataReady,
+    isLoadingPhaseDone,
     isPreviewMode,
-    user,
+  ]);
+
+  useEffect(() => {
+    if (
+      isPreviewMode ||
+      !isAuthenticated ||
+      !isBootstrapDataReady ||
+      loadingProgress < 100 ||
+      isLoadingPhaseDone
+    ) {
+      return;
+    }
+
+    const doneTimer = setTimeout(() => {
+      setIsLoadingPhaseDone(true);
+    }, 180);
+
+    return () => clearTimeout(doneTimer);
+  }, [
+    isAuthenticated,
+    isBootstrapDataReady,
+    isLoadingPhaseDone,
+    isPreviewMode,
+    loadingProgress,
   ]);
 
   useEffect(() => {
@@ -105,8 +122,7 @@ export default function AuthenticatedLayout() {
       !isAuthenticated ||
       isAppModeLoading ||
       isLoading ||
-      booting ||
-      bootError
+      !isLoadingPhaseDone
     ) {
       return;
     }
@@ -136,44 +152,54 @@ export default function AuthenticatedLayout() {
 
     const customerTarget = '/(authenticated)/(customer)/wallet';
     const businessTarget = '/(authenticated)/(business)/dashboard';
+    const nameCaptureTarget = '/(auth)/name-capture';
+    const role = (user?.role ?? 'customer') as AppRole;
+    const shouldUseBusinessDashboard = isBusinessRole(role);
+    const preferredMode = shouldUseBusinessDashboard ? 'business' : 'customer';
+    const shouldSyncMode = user?.postAuthOnboardingRequired !== true;
 
-    if (!hasSelectedMode) {
+    if (shouldSyncMode && appMode !== preferredMode) {
+      void setAppMode(preferredMode);
+    }
+
+    if (user) {
+      const needsNameCapture =
+        user.postAuthOnboardingRequired === true &&
+        (user.needsNameCapture === true || !hasCapturedName(user));
+      if (needsNameCapture) {
+        safeReplace(nameCaptureTarget);
+        return;
+      }
+    }
+
+    if (!shouldUseBusinessDashboard && inBusinessGroup) {
       safeReplace(customerTarget);
       return;
     }
 
-    if (appMode === 'customer' && inBusinessGroup) {
-      safeReplace(customerTarget);
-      return;
-    }
-
-    if (appMode === 'business' && inCustomerGroup) {
+    if (shouldUseBusinessDashboard && inCustomerGroup) {
       safeReplace(businessTarget);
       return;
     }
 
     if (!inCustomerGroup && !inBusinessGroup && !isFreeRoute) {
-      if (appMode === 'customer') {
-        safeReplace(customerTarget);
-      } else {
-        safeReplace(businessTarget);
-      }
+      safeReplace(shouldUseBusinessDashboard ? businessTarget : customerTarget);
     }
   }, [
     appMode,
-    bootError,
-    booting,
-    hasSelectedMode,
     isAppModeLoading,
     isAuthenticated,
     isLoading,
+    isLoadingPhaseDone,
     router,
+    setAppMode,
     segments,
     isPreviewMode,
+    user,
   ]);
 
   // Save deep link join params before auth redirect so we can complete the
-  // join after sign-in / sign-up.
+  // join after auth.
   useEffect(() => {
     if (
       !isAuthenticated &&
@@ -186,69 +212,25 @@ export default function AuthenticatedLayout() {
     }
   }, [isAuthenticated, isPreviewMode, biz, src, camp]);
 
-  if (
-    isLoading ||
-    booting ||
-    (!isPreviewMode && isAppModeLoading) ||
-    (shouldLoadUser && user === undefined)
-  ) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#E9F0FF',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>
-          {TEXT.loading}
-        </Text>
-      </View>
-    );
+  if (!isAuthenticated && !isPreviewMode && !isLoading) {
+    return <Redirect href="/(auth)/sign-up" />;
   }
 
-  if (!isAuthenticated && !isPreviewMode) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
+  const shouldShowLoadingScreen =
+    !isPreviewMode &&
+    (isLoading ||
+      isAppModeLoading ||
+      (shouldLoadUser && user === undefined) ||
+      (isAuthenticated && !isLoadingPhaseDone));
 
-  if (bootError && !isPreviewMode) {
+  if (shouldShowLoadingScreen) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#E9F0FF',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 20,
-        }}
-      >
-        <Text
-          style={{ fontWeight: '900', color: '#D92D20', textAlign: 'center' }}
-        >
-          {TEXT.bootErrorTitle}
+      <View style={styles.loadingScreen}>
+        <Text style={styles.loadingPercent}>
+          {Math.min(100, loadingProgress)}%
         </Text>
-        <Text style={{ marginTop: 8, color: '#5B6475', textAlign: 'center' }}>
-          {bootError}
-        </Text>
-        <Pressable
-          onPress={() => {
-            setBootError(null);
-            ran.current = false;
-          }}
-          style={({ pressed }) => ({
-            marginTop: 14,
-            backgroundColor: '#2F6BFF',
-            borderRadius: 16,
-            paddingVertical: 12,
-            paddingHorizontal: 18,
-            opacity: pressed ? 0.9 : 1,
-          })}
-        >
-          <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
-            {TEXT.retry}
-          </Text>
-        </Pressable>
+        <Text style={styles.loadingTitle}>{TEXT.loadingTitle}</Text>
+        <Text style={styles.loadingSubtitle}>{TEXT.loadingSubtitle}</Text>
       </View>
     );
   }
@@ -263,3 +245,37 @@ export default function AuthenticatedLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: '#ECECEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingPercent: {
+    fontSize: 84,
+    fontWeight: '900',
+    color: '#2F6BFF',
+    lineHeight: 92,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  loadingTitle: {
+    marginTop: 8,
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#0F2A4D',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  loadingSubtitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#5C6779',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+});

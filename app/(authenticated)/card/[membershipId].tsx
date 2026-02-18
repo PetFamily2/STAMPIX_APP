@@ -117,7 +117,7 @@ export default function CardDetailsScreen() {
   }
 
   if (!user && !isPreviewMode) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return <Redirect href="/(auth)/sign-up" />;
   }
 
   if (!isAuthorized && !isPreviewMode) {

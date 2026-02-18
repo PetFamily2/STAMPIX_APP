@@ -1,21 +1,14 @@
+import { getAuthUserId } from '@convex-dev/auth/server';
 import type { Doc, Id } from './_generated/dataModel';
 
 export async function getCurrentUserOrNull(
   ctx: any
 ): Promise<Doc<'users'> | null> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
+  const authUserId = await getAuthUserId(ctx);
+  if (!authUserId) {
     return null;
   }
-  const externalId = identity.subject ?? '';
-  if (!externalId) {
-    return null;
-  }
-
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_externalId', (q: any) => q.eq('externalId', externalId))
-    .unique();
+  const user = await ctx.db.get(authUserId);
 
   return user ?? null;
 }

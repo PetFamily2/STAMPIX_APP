@@ -1,68 +1,75 @@
-# STAMPIX - Architecture (MVP + Future-Ready)
+﻿# STAMPIX - Architecture Spec
+
+Last synced: 2026-02-18
 
 ## Goal
-Build an MVP fast, but keep foundations for:
-- multi-business, multi-staff
-- auditability (events)
-- API integrations for large companies (clients/keys, external IDs)
-- future messaging/campaigns without changing core tables
+Ship a reliable mobile MVP while keeping room for growth in:
+- multi-provider auth
+- role-aware routing
+- business staffing
+- subscription/paywall control
+- audit-friendly scanner flows
 
----
+## Layering
+1. UI layer (Expo Router screens in `app/*`)
+2. App service layer (contexts + hooks orchestration)
+3. Backend domain rules (Convex functions in `convex/*`)
+4. Data schema layer (`convex/schema.ts`)
 
-## Layers
-1) UI (Expo Router screens)
-2) Application Services (orchestrate use-cases)
-3) Domain (entities + rules, no IO)
-4) Data (Convex queries/mutations, adapters)
+## Runtime boundaries
+- Client decides view/state transitions.
+- Convex enforces permissions, role rules, and write integrity.
+- Sensitive decisions (scanner authorization, token validation, account linking) stay server-side.
 
----
+## Routing architecture
+- `app/(auth)/_layout.tsx` handles pre-auth redirects with explicit allow-list exceptions.
+- `app/(authenticated)/_layout.tsx` is the authenticated gate:
+  - auth check
+  - user bootstrap/read
+  - onboarding/name capture guard
+  - role/appMode-aware destination routing
+- Tab trees are split:
+  - `app/(authenticated)/(customer)`
+  - `app/(authenticated)/(business)`
 
-## Identity strategy (important for enterprise/API)
-We separate:
-- internal ids: Convex `_id` values (Id<'table'>)
-- external ids: stable strings for integrations (e.g. `externalId`, `qrCodeData`)
+## Auth architecture
+- Convex Auth providers:
+  - Email OTP
+  - Password
+  - Google
+  - Apple
+- Identity linking strategy:
+  - provider+providerUserId match first,
+  - verified-email match second,
+  - create new user otherwise.
+- Mapping table: `userIdentities`.
 
-Rules:
-- every Business has `externalId`
-- every User has `externalId` (optional in MVP, but scaffold)
-- integrations should reference externalId, not Convex _id
+## Scanner architecture
+- Customer card generates signed scan token.
+- Business scanner resolves token server-side.
+- Server checks:
+  - signature
+  - expiry
+  - replay prevention
+  - business staff authorization
+- Mutations write audit events into `events` and usage records into `scanTokenEvents`.
 
----
+## Payments architecture
+- `RevenueCatContext` is the single integration point for package fetch, purchase, restore, and sync.
+- Fail-safe behavior:
+  - preview in Expo Go
+  - preview when keys missing
+  - production flow only when explicitly enabled via flags and keys.
 
-## Core concepts (MVP)
-- User (customer / business_owner / business_staff / admin_support)
-- Business
-- LoyaltyProgram (a business can have many; MVP UI exposes 1)
-- Membership (user wallet per business/program)
-- Event log (audit): every stamp/redeem writes an event
+## Persistence
+- SecureStore:
+  - auth token storage (Convex auth provider)
+  - appMode persistence
+- AsyncStorage:
+  - pending join deep-link payload
+  - onboarding/activation helper state
 
----
-
-## Future concepts (scaffold only)
-- Campaigns (birthday, winback, promotions)
-- MessageLog (track deliveries, channels)
-- API Clients + API Keys (B2B integrations)
-- POS integration mapping tables
-
----
-
-## Permissions & role gating
-Role gating happens in router layer and in Convex functions:
-- customer: wallet, profile
-- business_owner: scanner, program settings
-- business_staff: scanner only
-- admin_support: cross-business support + analytics (future)
-
-
----
-
-## Scanner Permissions (MVP decision)
-- Scanner actions (add stamp, redeem) זמינות ל:
-  - business_owner
-  - business_staff
-- אין הבחנה בהרשאות סריקה בין owner ל-staff.
-- האכיפה מתבצעת בצד השרת (Convex) לפי קיום businessStaff פעיל.
-- כל פעולה נרשמת בטבלת events עם actorUserId לצורכי audit ותמיכה.
-
-הערה:
-הפרדה עתידית (למשל staff בלי redeem) תתבצע רק אם תהיה דרישה עסקית אמיתית, ולא ב-MVP.
+## Non-goals in current MVP
+- Dedicated admin route tree/UI
+- Full campaign orchestration UI
+- Full enterprise API management UI

@@ -1,95 +1,72 @@
-# מדריך התקנה והגדרה - Mobile Template
+﻿# Setup Guide
 
-## דרישות מקדימות
+Last synced: 2026-02-18
 
-1. **Node.js** ו-**Bun**:
-   - התקנה: `npm install -g bun`
-2. **אפליקציית Expo Go**:
-   - הורידו לטלפון שלכם מחנות האפליקציות.
-   - מאפשרת להריץ את האפליקציה על המכשיר בזמן פיתוח.
-3. **חשבון Convex**: ב-[convex.dev](https://convex.dev).
-4. **Git ו-GitHub**: לניהול גרסאות ושמירה בענן.
+## Prerequisites
+- Node.js (LTS)
+- Bun
+- Expo Go (or native simulator/emulator)
+- Convex account
 
----
-
-## 1. התקנת חבילות
-
-פתחו את התיקייה ב-Cursor, פתחו טרמינל והריצו:
-
+## 1) Install dependencies
 ```bash
 bun install
 ```
 
----
+## 2) Start Convex and create/connect project
+```bash
+bunx convex dev
+```
 
-## 2. הגדרת Convex (Backend & Auth)
+## 3) Configure environment variables
+Create `.env.local` (or `.env`) with one of these Convex options:
 
-אתחול בסיס הנתונים והאימות:
+Recommended (env-separated):
+```env
+EXPO_PUBLIC_CONVEX_URL_DEV="https://your-dev.convex.cloud"
+EXPO_PUBLIC_CONVEX_URL_PROD="https://your-prod.convex.cloud"
+```
 
-1. **חיבור ויצירת פרויקט:**
-   הריצו:
-   ```bash
-   bunx convex dev
-   ```
-   - לחצו **Enter** לפתיחת הדפדפן.
-   - התחברו ובחרו **"Create a new project"**.
-   - תנו שם לפרויקט.
-   - הקובץ `.env` ייווצר/יתעדכן אוטומטית.
+Legacy fallback (single URL):
+```env
+EXPO_PUBLIC_CONVEX_URL="https://your-convex.convex.cloud"
+```
 
-   > **שים לב:** האפליקציה משתמשת אך ורק במשתנה `EXPO_PUBLIC_CONVEX_URL`.
-   > עליך לפתוח את קובץ ה-`.env` ולהעתיק את הכתובת שנוצרה (תחת `NEXT_PUBLIC_CONVEX_URL`) למשתנה חדש בשם `EXPO_PUBLIC_CONVEX_URL`.
+Optional RevenueCat keys:
+```env
+EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV="appl_..."
+EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD="appl_..."
+EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV="goog_..."
+EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD="goog_..."
+```
 
-2. **יצירת מפתחות אימות (Auth):**
-   פתחו טרמינל **נוסף** (השאירו את הקודם רץ) והריצו:
-   ```bash
-   bunx @convex-dev/auth
-   ```
-   פקודה זו תיצור מפתחות הצפנה (JWKS ו-Private Key) ותשמור אותם אוטומטית ב-Convex Dashboard שלכם. זה קריטי כדי שההתחברות תעבוד.
+## 4) Auth provider setup (if needed)
+- For Email OTP in Convex:
+  - `RESEND_API_KEY`
+  - `RESEND_FROM_EMAIL`
+- For Google/Apple OAuth in Convex auth config:
+  - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
+  - `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET`
+- Required for safe OAuth redirect resolution:
+  - `CONVEX_SITE_URL`
 
----
+## 5) Run app
+```bash
+bun dev
+```
 
-## 3. הרצת האפליקציה (בדיקה ראשונית)
+Optional native runs:
+```bash
+bun run ios
+bun run android
+```
 
-בואו נראה שהכל עובד לפני שנשמור את הקוד.
+## 6) Checks
+```bash
+bun run check
+bun run type-check
+```
 
-1. הריצו בטרמינל נפרד:
-   ```bash
-   bun dev
-   ```
-2. סרקו את ה-QR Code עם אפליקציית Expo Go בטלפון שלכם.
-3. ודאו שהאפליקציה נטענת ועובדת ונסו להירשם/להתחבר.
-
----
-
-## 4. שמירת הקוד בענן (GitHub)
-
-האפליקציה עובדת? מצוין. בואו נשמור את הקוד בגיבוי בענן.
-
-1. **אתחול Git מקומי:**
-   בטרמינל חדש, הריצו:
-
-   ```bash
-   git init
-   git add .
-   git commit -m "First commit"
-   ```
-
-2. **יצירת Repository ב-GitHub:**
-   - גשו ל-[GitHub](https://github.com/new).
-   - צרו Repository חדש (הגדירו כ-**Private**).
-   - העתיקו את הכתובת.
-
-3. **העלאה לענן:**
-   הריצו את הפקודות לקישור והעלאה (החליפו בכתובת שלכם):
-
-   ```bash
-   git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/my-mobile-app.git
-   git push -u origin main
-   ```
-
----
-
-## סיימנו!
-
-עברו ל**מדריך שימוש ופיתוח** להמשך עבודה.
+## Notes
+- `/(auth)/index` redirects to `/(auth)/welcome`.
+- `/(auth)/sign-in` is a legacy alias redirect to `/(auth)/sign-up`.

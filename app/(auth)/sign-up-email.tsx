@@ -1,4 +1,4 @@
-﻿import { useAction } from 'convex/react';
+﻿import { useAuthActions } from '@convex-dev/auth/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
-import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -28,7 +27,7 @@ const TEXT = {
   back: 'חזרה',
   sendFailed: 'לא הצלחנו לשלוח קוד. נסו שוב.',
   invalidEmail: 'כתובת האימייל לא תקינה.',
-  rateLimited: 'אפשר לבקש קוד חדש כל 30 שניות.',
+  rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות.',
   missingConfig: 'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
 };
 
@@ -38,7 +37,7 @@ function isValidEmail(value: string) {
 
 export default function SignUpEmailScreen() {
   const router = useRouter();
-  const sendEmailOtp = useAction(api.otp.sendEmailOtp);
+  const { signIn } = useAuthActions();
   const { preview, map, role } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -66,8 +65,14 @@ export default function SignUpEmailScreen() {
     if (value.message === 'RATE_LIMITED') {
       return TEXT.rateLimited;
     }
+    if (value.message.includes('TooManyRequests')) {
+      return TEXT.rateLimited;
+    }
     if (value.message === 'OTP_NOT_CONFIGURED') {
       return TEXT.missingConfig;
+    }
+    if (value.message.includes('EMAIL_SEND_FAILED')) {
+      return TEXT.sendFailed;
     }
     return TEXT.sendFailed;
   };
@@ -82,7 +87,9 @@ export default function SignUpEmailScreen() {
     setBusy(true);
 
     try {
-      await sendEmailOtp({ email: normalizedEmail });
+      await signIn('email', {
+        email: normalizedEmail,
+      });
       const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
       router.push(
         `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}&sent=1${roleQuery}`

@@ -1,8 +1,9 @@
+import { getAuthUserId } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { requireCurrentUser } from './guards';
+import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
   v.literal('free'),
@@ -23,6 +24,19 @@ const DEFAULT_PLAN_STATUS: Record<SubscriptionPlan, SubscriptionPlanStatus> = {
   pro: 'active',
   unlimited: 'active',
 };
+
+const NAME_MAX_LENGTH = 60;
+
+function normalizeNamePart(value: string, field: 'FIRST_NAME' | 'LAST_NAME') {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (normalized.length === 0) {
+    throw new Error(`${field}_REQUIRED`);
+  }
+  if (normalized.length > NAME_MAX_LENGTH) {
+    throw new Error(`${field}_TOO_LONG`);
+  }
+  return normalized;
+}
 
 async function patchSubscriptionPlan(
   ctx: any,
@@ -53,6 +67,321 @@ async function findUserByExternalId(ctx: any, externalId: string) {
     .unique();
 }
 
+const DELETE_BATCH_SIZE = 100;
+
+type DeleteStats = {
+  users: number;
+  userIdentities: number;
+  businesses: number;
+  businessStaff: number;
+  loyaltyPrograms: number;
+  memberships: number;
+  events: number;
+  scanTokenEvents: number;
+  campaigns: number;
+  messageLog: number;
+  apiClients: number;
+  apiKeys: number;
+  authAccounts: number;
+  authSessions: number;
+  authRefreshTokens: number;
+  authVerificationCodes: number;
+  authVerifiers: number;
+  emailOtps: number;
+};
+
+type DeleteMyAccountHardErrorCode =
+  | 'NOT_AUTHENTICATED'
+  | 'MISSING_IDENTITY_SUBJECT'
+  | 'USER_NOT_FOUND';
+
+type DeleteMyAccountHardSuccess = {
+  success: true;
+  message: string;
+  deletedUserId: Id<'users'>;
+  deletedBusinessIds: Id<'businesses'>[];
+  deleted: DeleteStats;
+};
+
+type DeleteMyAccountHardError = {
+  success: false;
+  errorCode: DeleteMyAccountHardErrorCode;
+  message: string;
+};
+
+export type DeleteMyAccountHardResult =
+  | DeleteMyAccountHardSuccess
+  | DeleteMyAccountHardError;
+
+function emptyDeleteStats(): DeleteStats {
+  return {
+    users: 0,
+    userIdentities: 0,
+    businesses: 0,
+    businessStaff: 0,
+    loyaltyPrograms: 0,
+    memberships: 0,
+    events: 0,
+    scanTokenEvents: 0,
+    campaigns: 0,
+    messageLog: 0,
+    apiClients: 0,
+    apiKeys: 0,
+    authAccounts: 0,
+    authSessions: 0,
+    authRefreshTokens: 0,
+    authVerificationCodes: 0,
+    authVerifiers: 0,
+    emailOtps: 0,
+  };
+}
+
+async function deleteByIndexInBatches(
+  ctx: any,
+  tableName: string,
+  indexName: string,
+  fieldName: string,
+  value: unknown,
+  batchSize = DELETE_BATCH_SIZE
+) {
+  let deletedCount = 0;
+  while (true) {
+    const docs = await ctx.db
+      .query(tableName)
+      .withIndex(indexName, (q: any) => q.eq(fieldName, value))
+      .take(batchSize);
+
+    if (docs.length === 0) {
+      break;
+    }
+
+    for (const doc of docs) {
+      await ctx.db.delete(doc._id);
+      deletedCount += 1;
+    }
+  }
+  return deletedCount;
+}
+
+async function deleteApiClientsAndKeysForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  deleted: DeleteStats
+) {
+  while (true) {
+    const clients = await ctx.db
+      .query('apiClients')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .take(DELETE_BATCH_SIZE);
+
+    if (clients.length === 0) {
+      break;
+    }
+
+    for (const client of clients) {
+      deleted.apiKeys += await deleteByIndexInBatches(
+        ctx,
+        'apiKeys',
+        'by_clientId',
+        'clientId',
+        client._id
+      );
+      await ctx.db.delete(client._id);
+      deleted.apiClients += 1;
+    }
+  }
+}
+
+async function deleteBusinessGraph(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  deleted: DeleteStats
+) {
+  // TODO: If media metadata / file storage tables are added, delete files here.
+  await deleteApiClientsAndKeysForBusiness(ctx, businessId, deleted);
+
+  deleted.messageLog += await deleteByIndexInBatches(
+    ctx,
+    'messageLog',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.campaigns += await deleteByIndexInBatches(
+    ctx,
+    'campaigns',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.scanTokenEvents += await deleteByIndexInBatches(
+    ctx,
+    'scanTokenEvents',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.events += await deleteByIndexInBatches(
+    ctx,
+    'events',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.memberships += await deleteByIndexInBatches(
+    ctx,
+    'memberships',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.loyaltyPrograms += await deleteByIndexInBatches(
+    ctx,
+    'loyaltyPrograms',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.businessStaff += await deleteByIndexInBatches(
+    ctx,
+    'businessStaff',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+
+  await ctx.db.delete(businessId);
+  deleted.businesses += 1;
+}
+
+async function deleteOwnedBusinesses(
+  ctx: any,
+  userId: Id<'users'>,
+  deleted: DeleteStats
+) {
+  const deletedBusinessIds: Id<'businesses'>[] = [];
+
+  while (true) {
+    const ownedBusiness = await ctx.db
+      .query('businesses')
+      .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', userId))
+      .first();
+
+    if (!ownedBusiness) {
+      break;
+    }
+
+    deletedBusinessIds.push(ownedBusiness._id);
+    await deleteBusinessGraph(ctx, ownedBusiness._id, deleted);
+  }
+
+  return deletedBusinessIds;
+}
+
+async function deleteUserScopedBusinessData(
+  ctx: any,
+  userId: Id<'users'>,
+  deleted: DeleteStats
+) {
+  deleted.memberships += await deleteByIndexInBatches(
+    ctx,
+    'memberships',
+    'by_userId',
+    'userId',
+    userId
+  );
+  deleted.scanTokenEvents += await deleteByIndexInBatches(
+    ctx,
+    'scanTokenEvents',
+    'by_customerId',
+    'customerId',
+    userId
+  );
+  deleted.events += await deleteByIndexInBatches(
+    ctx,
+    'events',
+    'by_customerUserId',
+    'customerUserId',
+    userId
+  );
+  deleted.events += await deleteByIndexInBatches(
+    ctx,
+    'events',
+    'by_actorUserId',
+    'actorUserId',
+    userId
+  );
+  deleted.messageLog += await deleteByIndexInBatches(
+    ctx,
+    'messageLog',
+    'by_toUserId',
+    'toUserId',
+    userId
+  );
+  deleted.businessStaff += await deleteByIndexInBatches(
+    ctx,
+    'businessStaff',
+    'by_userId',
+    'userId',
+    userId
+  );
+}
+
+async function deleteAuthMappingsForUser(
+  ctx: any,
+  userId: Id<'users'>,
+  deleted: DeleteStats
+) {
+  while (true) {
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('userIdAndProvider', (q: any) => q.eq('userId', userId))
+      .first();
+
+    if (!account) {
+      break;
+    }
+
+    deleted.authVerificationCodes += await deleteByIndexInBatches(
+      ctx,
+      'authVerificationCodes',
+      'accountId',
+      'accountId',
+      account._id
+    );
+    await ctx.db.delete(account._id);
+    deleted.authAccounts += 1;
+  }
+
+  while (true) {
+    const session = await ctx.db
+      .query('authSessions')
+      .withIndex('userId', (q: any) => q.eq('userId', userId))
+      .first();
+
+    if (!session) {
+      break;
+    }
+
+    deleted.authRefreshTokens += await deleteByIndexInBatches(
+      ctx,
+      'authRefreshTokens',
+      'sessionId',
+      'sessionId',
+      session._id
+    );
+    deleted.authVerifiers += await deleteByIndexInBatches(
+      ctx,
+      'authVerifiers',
+      'by_sessionId',
+      'sessionId',
+      session._id
+    );
+    await ctx.db.delete(session._id);
+    deleted.authSessions += 1;
+  }
+}
+
 export async function updateSubscriptionPlanByExternalId(
   ctx: any,
   externalId: string,
@@ -74,26 +403,20 @@ export async function updateSubscriptionPlanByExternalId(
   return user._id;
 }
 
-// שליפת המשתמש הנוכחי המחובר
-// מחזיר null אם המשתמש לא מחובר
+// ׳©׳׳™׳₪׳× ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™ ׳”׳׳—׳•׳‘׳¨
+// ׳׳—׳–׳™׳¨ null ׳׳ ׳”׳׳©׳×׳׳© ׳׳ ׳׳—׳•׳‘׳¨
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    const subject = identity.subject;
-    if (!subject) return null;
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) return null;
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_externalId', (q) => q.eq('externalId', subject))
-      .unique();
-
+    const user = await ctx.db.get(authUserId);
     return user ?? null;
   },
 });
 
-// שליפת משתמש לפי מזהה (ID)
+// ׳©׳׳™׳₪׳× ׳׳©׳×׳׳© ׳׳₪׳™ ׳׳–׳”׳” (ID)
 export const getById = query({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
@@ -101,7 +424,7 @@ export const getById = query({
   },
 });
 
-// שליפת רשימת כל המשתמשים הפעילים
+// ׳©׳׳™׳₪׳× ׳¨׳©׳™׳׳× ׳›׳ ׳”׳׳©׳×׳׳©׳™׳ ׳”׳₪׳¢׳™׳׳™׳
 export const listActive = query({
   args: {},
   handler: async (ctx) => {
@@ -112,7 +435,7 @@ export const listActive = query({
   },
 });
 
-// עדכון פרופיל המשתמש (למשל, שינוי שם)
+// ׳¢׳“׳›׳•׳ ׳₪׳¨׳•׳₪׳™׳ ׳”׳׳©׳×׳׳© (׳׳׳©׳, ׳©׳™׳ ׳•׳™ ׳©׳)
 export const updateProfile = mutation({
   args: {
     userId: v.id('users'),
@@ -133,7 +456,36 @@ export const updateProfile = mutation({
   },
 });
 
-// עדכון תוכנית מנוי עבור המשתמש הנוכחי
+export const setMyName = mutation({
+  args: {
+    firstName: v.string(),
+    lastName: v.string(),
+  },
+  handler: async (ctx, { firstName, lastName }) => {
+    const user = await requireCurrentUser(ctx);
+
+    const normalizedFirstName = normalizeNamePart(firstName, 'FIRST_NAME');
+    const normalizedLastName = normalizeNamePart(lastName, 'LAST_NAME');
+    const now = Date.now();
+
+    await ctx.db.patch(user._id, {
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      fullName: `${normalizedFirstName} ${normalizedLastName}`,
+      needsNameCapture: false,
+      postAuthOnboardingRequired: false,
+      updatedAt: now,
+    });
+
+    const updatedUser = await ctx.db.get(user._id);
+    if (!updatedUser) {
+      throw new Error('USER_NOT_FOUND');
+    }
+    return updatedUser;
+  },
+});
+
+// ׳¢׳“׳›׳•׳ ׳×׳•׳›׳ ׳™׳× ׳׳ ׳•׳™ ׳¢׳‘׳•׳¨ ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™
 export const updateSubscriptionPlan = mutation({
   args: {
     plan: SUBSCRIPTION_PLAN_UNION,
@@ -150,7 +502,7 @@ export const updateSubscriptionPlan = mutation({
   },
 });
 
-// מחיקת משתמש (פעולה למנהלים או למשתמש עצמו - כאן מיושם כמחיקה פיזית)
+// ׳׳—׳™׳§׳× ׳׳©׳×׳׳© (׳₪׳¢׳•׳׳” ׳׳׳ ׳”׳׳™׳ ׳׳• ׳׳׳©׳×׳׳© ׳¢׳¦׳׳• - ׳›׳׳ ׳׳™׳•׳©׳ ׳›׳׳—׳™׳§׳” ׳₪׳™׳–׳™׳×)
 export const setMyRole = mutation({
   args: {
     role: v.union(
@@ -182,38 +534,72 @@ export const remove = mutation({
   },
 });
 
-// מחיקת חשבון המשתמש הנוכחי וכל הנתונים המשויכים אליו
-// ⚠️ אזהרה: פעולה זו בלתי הפיכה ותמחק את כל הנתונים לצמיתות!
+// ׳׳—׳™׳§׳× ׳—׳©׳‘׳•׳ ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™ ׳•׳›׳ ׳”׳ ׳×׳•׳ ׳™׳ ׳”׳׳©׳•׳™׳›׳™׳ ׳׳׳™׳•
+// ג ן¸ ׳׳–׳”׳¨׳”: ׳₪׳¢׳•׳׳” ׳–׳• ׳‘׳׳×׳™ ׳”׳₪׳™׳›׳” ׳•׳×׳׳—׳§ ׳׳× ׳›׳ ׳”׳ ׳×׳•׳ ׳™׳ ׳׳¦׳׳™׳×׳•׳×!
+export async function deleteMyAccountHardImpl(
+  ctx: any
+): Promise<DeleteMyAccountHardResult> {
+  const user = await getCurrentUserOrNull(ctx);
+  if (!user) {
+    return {
+      success: false,
+      errorCode: 'NOT_AUTHENTICATED',
+      message: 'לא נמצא משתמש מחובר. התחברו מחדש ונסו שוב.',
+    };
+  }
+
+  // TODO: Add external cancellation/sync for RevenueCat/Stripe subscriptions.
+  const deleted = emptyDeleteStats();
+  const deletedBusinessIds = await deleteOwnedBusinesses(
+    ctx,
+    user._id,
+    deleted
+  );
+
+  await deleteUserScopedBusinessData(ctx, user._id, deleted);
+  deleted.userIdentities += await deleteByIndexInBatches(
+    ctx,
+    'userIdentities',
+    'by_userId',
+    'userId',
+    user._id
+  );
+  await deleteAuthMappingsForUser(ctx, user._id, deleted);
+
+  if (user.email) {
+    deleted.emailOtps += await deleteByIndexInBatches(
+      ctx,
+      'emailOtps',
+      'by_email',
+      'email',
+      String(user.email).toLowerCase()
+    );
+  }
+
+  await ctx.db.delete(user._id);
+  deleted.users += 1;
+
+  return {
+    success: true,
+    message: 'החשבון נמחק לצמיתות.',
+    deletedUserId: user._id,
+    deletedBusinessIds,
+    deleted,
+  };
+}
+
+export const deleteMyAccountHard = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await deleteMyAccountHardImpl(ctx);
+  },
+});
+
+// Backward-compatible alias.
 export const deleteMyAccount = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('לא מחובר למערכת');
-    }
-
-    const externalId = identity.subject ?? '';
-    if (!externalId) {
-      throw new Error('זהות המשתמש חסרה');
-    }
-
-    const user = await findUserByExternalId(ctx, externalId);
-
-    if (!user) {
-      return {
-        success: true,
-        message: `לא נמצאה רשומת משתמש עבור ${externalId}`,
-        deletedCount: 0,
-      };
-    }
-
-    await ctx.db.delete(user._id);
-
-    return {
-      success: true,
-      message: `נמחקה רשומת משתמש עבור ${externalId}`,
-      deletedCount: 1,
-    };
+    return await deleteMyAccountHardImpl(ctx);
   },
 });
 

@@ -1,26 +1,36 @@
-# MVP vs Future (Foundations)
+﻿# MVP vs Future (Current)
+
+Last synced: 2026-02-18
 
 ## MVP includes
 Customer:
-- Auth
-- Wallet (memberships list)
-- My QR
-- Membership details (progress + history)
+- Auth and onboarding gates
+- Wallet tab flow
+- Rewards/discovery tabs
+- Join business via QR/deep link
+- Membership card with signed customer QR
 
 Business:
-- Scanner (add stamp / redeem)
-- Program basics (rewardName, maxStamps, icon)
+- Dashboard tab
+- Scanner flow (resolve, stamp, redeem)
+- Team tab and invite flow
+- Analytics tab
+- Settings tab
+- Merchant onboarding flow
 
-Admin/Support:
-- Not in MVP UI (only scaffold folders + docs)
+Platform:
+- Multi-provider auth (Email OTP, Password, Google, Apple)
+- Role-aware routing and appMode persistence
+- RevenueCat integration with safe preview fallback
 
-## Future (not MVP, but foundations must support)
-- Staff management (add/remove staff, roles, plan limits)
-- Multiple programs per business
-- Campaigns & messages (birthday, winback, promos)
-- Marketplace / discovery of businesses
-- Enterprise integrations: API clients/keys + externalId mapping
+## Future (not fully shipped)
+- Fully dynamic dashboard feed/cards
+- Rich campaign management UI
+- Full admin/support route tree
+- Expanded enterprise integrations UX over existing `apiClients/apiKeys`
 
-## Foundations we build now (no UI yet)
-- Data model supports multi-staff, multi-program, memberships, event log
-- External IDs strategy for API integrations
+## Foundations already in place
+- Schema supports campaigns/messages/api clients/keys.
+- Identity linking model supports provider growth.
+- Scanner contract is server-authoritative and replay-safe.
+- RevenueCat sync path already writes subscription state to users.

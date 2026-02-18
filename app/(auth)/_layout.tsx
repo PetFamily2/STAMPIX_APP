@@ -6,7 +6,7 @@ import {
   useRouter,
   useSegments,
 } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
 
@@ -21,34 +21,25 @@ export default function AuthRoutesLayout() {
   }>();
   const pathname = usePathname();
   const router = useRouter();
-  const redirectTriggeredRef = useRef(false);
 
   const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
-  const segmentsKey = segmentStrings.join('/');
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isFlowMapRoute =
     segmentStrings.includes('flow-map') ||
     pathname === '/flow-map' ||
     pathname.endsWith('/flow-map');
+  const isOnboardingRoute =
+    segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
+    segmentStrings.includes('name-capture');
   const isAllowedForAuthenticated =
-    isPaywallRoute || isPreviewMode || isFlowMapRoute;
+    isPaywallRoute || isPreviewMode || isFlowMapRoute || isOnboardingRoute;
   const alreadyInTarget =
     pathname === AUTH_REDIRECT_TARGET ||
     pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
   const shouldRedirectToAuthenticated =
     isAuthenticated && !isAllowedForAuthenticated && !alreadyInTarget;
-
-  useEffect(() => {
-    console.log('[AUTH]', {
-      isAuthenticated,
-      isLoading,
-      pathname,
-      segmentsKey,
-      preview,
-    });
-  }, [isAuthenticated, isLoading, pathname, segmentsKey, preview]);
 
   useEffect(() => {
     if (
@@ -60,32 +51,10 @@ export default function AuthRoutesLayout() {
       return;
     }
     didRedirectToAuthenticated = true;
-    console.log('[AUTH] attempting replace ->', AUTH_REDIRECT_TARGET, {
-      pathname,
-      segmentsKey,
-    });
-    console.log('[AUTH] redirect ->', AUTH_REDIRECT_TARGET, {
-      pathname,
-      segmentsKey,
-      preview,
-    });
-    redirectTriggeredRef.current = true;
     setTimeout(() => {
       router.replace(AUTH_REDIRECT_TARGET);
-      console.log('[AUTH] post-redirect tick', {
-        pathnameNow: pathname,
-        segmentsKeyNow: segmentsKey,
-      });
     }, 0);
-  }, [
-    isLoading,
-    shouldRedirectToAuthenticated,
-    alreadyInTarget,
-    router,
-    pathname,
-    segmentsKey,
-    preview,
-  ]);
+  }, [isLoading, shouldRedirectToAuthenticated, alreadyInTarget, router]);
 
   return <Slot />;
 }

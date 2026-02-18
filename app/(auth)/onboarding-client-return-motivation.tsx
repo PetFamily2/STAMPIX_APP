@@ -1,5 +1,6 @@
+import { useConvexAuth } from 'convex/react';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
@@ -27,6 +28,7 @@ const RETURN_MOTIVATIONS: Array<{ id: ReturnMotivationId; title: string }> = [
 
 export default function OnboardingReturnMotivationScreen() {
   const router = useRouter();
+  const { isAuthenticated } = useConvexAuth();
   const [selected, setSelected] = useState<ReturnMotivationId | null>(null);
   const canContinue = Boolean(selected);
   const { completeStep, trackChoice, trackContinue, trackEvent } =
@@ -36,12 +38,18 @@ export default function OnboardingReturnMotivationScreen() {
     });
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue) {
+      return;
+    }
     trackContinue();
     completeStep({ return_motivation: selected });
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
     void clearOnboardingSessionId();
-    router.push('/(auth)/sign-in');
+    if (isAuthenticated) {
+      router.replace('/(authenticated)/(customer)/wallet');
+      return;
+    }
+    router.push('/(auth)/sign-up');
   };
 
   return (

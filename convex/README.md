@@ -1,90 +1,51 @@
-# Welcome to your Convex functions directory!
+﻿# Convex Backend Notes
 
-Write your Convex functions here.
-See https://docs.convex.dev/functions for more.
+Last synced: 2026-02-18
 
-A query function that takes two arguments looks like:
+This folder contains the backend schema and server functions for STAMPIX.
 
-```ts
-// convex/myFunctions.ts
-import { query } from "./_generated/server";
-import { v } from "convex/values";
+## Main files
+- `schema.ts` - full data model
+- `auth.ts` - Convex Auth providers + identity linking
+- `users.ts` - profile/name/subscription/account actions
+- `business.ts` - business creation, staff listing, invite flow
+- `memberships.ts` - join and membership operations
+- `scanner.ts` - scan resolve/stamp/redeem flow
+- `guards.ts` - auth and role/business permission guards
 
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
+## Auth model
+Providers configured in `auth.ts`:
+- Email OTP
+- Password
+- Google
+- Apple
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
+Identity linking table:
+- `userIdentities`
 
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
+Linking order:
+1. provider + providerUserId
+2. verified email match
+3. create new user
 
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
+## Scanner/security model
+- Customer QR is a signed scan token.
+- `resolveScan` validates signature, expiry, and replay.
+- `addStamp` and `redeemReward` require active staff membership.
+
+## Required environment variables (Convex side)
+- `SCAN_TOKEN_SECRET`
+- `CONVEX_SITE_URL`
+- `RESEND_API_KEY` (for email OTP)
+- `RESEND_FROM_EMAIL` (for email OTP)
+
+## Local workflow
+From project root:
+```bash
+bunx convex dev
 ```
 
-Using this query function in a React component looks like:
-
-```ts
-const data = useQuery(api.myFunctions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
+Deploy backend functions/schema:
+```bash
+bunx convex deploy
 ```
-
-A mutation function looks like:
-
-```ts
-// convex/myFunctions.ts
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
-
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
-
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get(id);
-  },
-});
-```
-
-Using this mutation function in a React component looks like:
-
-```ts
-const mutation = useMutation(api.myFunctions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) =>
-    console.log(result),
-  );
-}
-```
-
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.

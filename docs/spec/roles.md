@@ -1,61 +1,40 @@
-# Roles & Permissions (MVP + Future-Ready)
+﻿# Roles & Permissions (Current)
 
-עיקרון:
-אין "role" יחיד על user.
-למשתמש יכולים להיות כמה תפקידים במקביל, שנגזרים מהקשרים שלו בנתונים.
+Last synced: 2026-02-18
 
----
+## Role sources
+There are two related signals:
+1. `users.role` (app-level role hint used for routing/tab access)
+2. `businessStaff` membership (business-specific authorization)
 
-## Role Signals (איך מזהים תפקיד)
-### Customer (לקוח)
-- יש לו לפחות Membership פעיל אחד ב-`memberships`
-- או שהוא נכנס לאפליקציה כמשתמש רגיל ומציג "My QR" גם בלי memberships (MVP מאפשר)
+## `users.role` values
+- `customer`
+- `merchant`
+- `staff`
+- `admin`
 
-### Business Owner / Staff (עסק)
-- קיים רשומה ב-`businessStaff` עבור (userId, businessId)
-- staffRole:
-  - owner: בעלים
-  - staff: עובד
+## Effective permissions
+### Customer routes
+- Accessible when role resolves to customer mode.
+- Core screens: wallet, rewards, discovery, settings.
 
-### Admin Support (עתידי)
-- לא נקבע מטבלת users.
-- ייקבע בעתיד דרך מנגנון נפרד (למשל allowlist / claim ב-auth / טבלת adminUsers).
+### Business routes
+- Business tab tree allows roles in `BUSINESS_ROLES` (`merchant`, `staff`, `admin`).
+- Users outside these roles are redirected to customer wallet.
 
----
+### Scanner/server mutations
+- Server requires active `businessStaff` relation for target business.
+- Being `merchant/staff/admin` in `users.role` alone is not enough for scanner writes.
 
-## Permissions (MVP)
-### Customer
-- Wallet: לראות memberships
-- My QR: להציג QR אישי
-- Membership Details: היסטוריה/התקדמות
+### Team management
+- Listing team: any active staff for the business.
+- Inviting staff: owner-only (`staffRole === 'owner'`).
 
-### Business Staff (staff)
-- Scanner: add stamp
-- Scanner: redeem reward (מאושר)
-- לראות "תוצאה" וסטטוס פעולה
+## Onboarding implications
+- New users default to customer role.
+- Merchant onboarding can promote role to `merchant`.
+- Invited staff can be set/promoted to `staff`.
 
-### Business Owner (owner)
-- כל מה שיש ל-staff
-- Program settings בסיסיים (rewardName, maxStamps, icon)
-
----
-
-## Plan Limits (עתידי, אבל ביסודות)
-- Starter: עד 2 עובדים (businessStaff)
-- Pro: יותר עובדים
-אכיפה מתבצעת בצד השרת (Convex) ולא רק ב-UI.
-
----
-
-## UI Gating (איך האפליקציה מחליטה מה להציג)
-בכניסה ל-(authenticated):
-1) טוענים "contexts":
-   - myBusinesses: כל businesses שהמשתמש משויך אליהם דרך businessStaff
-   - myMemberships: כל memberships של המשתמש
-2) אם יש myBusinesses:
-   - מאפשרים Business Tabs/Routes (Scanner, Program)
-3) אם יש myMemberships (או תמיד):
-   - מאפשרים Customer Tabs/Routes (Wallet, My QR, Settings)
-
-מסקנה:
-משתמש אחד יכול לראות גם "Wallet" וגם "Scanner" בהתאם לשיוכים.
+## Security notes
+- Permission checks are enforced in Convex guards and business/scanner mutations.
+- UI role checks improve UX but are not the security boundary.

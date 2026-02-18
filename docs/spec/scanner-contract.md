@@ -1,94 +1,91 @@
-# Scanner Contract (UI <-> Convex) - MVP + Future-Ready
+﻿# Scanner Contract (UI <-> Convex)
+
+Last synced: 2026-02-18
 
 ## Purpose
-Define a strict contract for scanner flows so:
-- UI stays simple and predictable
-- Server enforces permissions and business rules
-- Future API integrations can reuse the same primitives
+Define the runtime contract for scanner operations.
 
----
+## Mutations
+### 1) Resolve scan
+Function: `api.scanner.resolveScan`
 
-## Entities involved
-- businessId
-- programId
-- customerUserId
-- membershipId (optional input, always resolvable server-side)
-- actorUserId (derived from auth on server)
+Input:
+- `qrData: string`
+- `businessId: Id<'businesses'>`
+- `programId: Id<'loyaltyPrograms'>`
 
----
+Server checks:
+- actor is staff for business
+- business and program are active/linked
+- QR payload parse + signature validation
+- token expiration check
+- replay prevention (`scanTokenEvents` by signature)
 
-## Step 1 - Resolve scan payload
-### Input (from UI)
-- qrData: string  (raw scanned content)
+Output:
+- `customerUserId`
+- `customerDisplayName`
+- `membership` (nullable)
+  - `membershipId`
+  - `currentStamps`
+  - `maxStamps`
+  - `canRedeemNow`
 
-### Server responsibility
-- Validate qrData format
-- Map to customerUserId (via users.externalId or another stable mapping)
-- Return customer profile summary + membership summary for this business/program
+### 2) Add stamp
+Function: `api.scanner.addStamp`
 
-### Output (to UI)
-- customerUserId
-- customerDisplayName
-- membership:
-  - membershipId
-  - currentStamps
-  - maxStamps
-  - canRedeemNow (boolean)
+Input:
+- `businessId`
+- `programId`
+- `customerUserId`
 
----
+Server checks:
+- actor is staff for business
+- anti-self-stamp
+- customer exists and active
+- membership lookup/create
+- stamp rate limit
 
-## Step 2 - Add stamp
-### Input (from UI)
-- businessId: Id<'businesses'>
-- programId: Id<'loyaltyPrograms'>
-- customerUserId: Id<'users'>
+Output:
+- `membershipId`
+- `currentStamps`
+- `maxStamps`
+- `canRedeemNow`
 
-### Server rules
-- actor must be businessStaff for businessId (owner or staff)
-- create membership if missing (MVP: auto-create)
-- currentStamps += 1 (but never exceed maxStamps if you decide to cap)
-- write events: STAMP_ADDED
+### 3) Redeem reward
+Function: `api.scanner.redeemReward`
 
-### Output (to UI)
-- membershipId
-- currentStamps
-- canRedeemNow
+Input:
+- `businessId`
+- `programId`
+- `customerUserId`
 
----
+Server checks:
+- actor is staff for business
+- customer exists and active
+- membership exists and active
+- enough stamps to redeem
 
-## Step 3 - Redeem reward
-### Input (from UI)
-- businessId
-- programId
-- customerUserId
+Output:
+- `membershipId`
+- `currentStamps`
+- `maxStamps`
+- `canRedeemNow` (false after redeem)
+- `redeemedAt`
 
-### Server rules
-- actor must be businessStaff for businessId
-- must have membership
-- must have currentStamps >= maxStamps (or your redeem rule)
-- set currentStamps back to 0 (or subtract maxStamps - choose later)
-- write events: REWARD_REDEEMED
+## Common error codes
+- `NOT_AUTHENTICATED`
+- `NOT_AUTHORIZED`
+- `BUSINESS_INACTIVE`
+- `PROGRAM_NOT_FOUND`
+- `INVALID_QR`
+- `EXPIRED_TOKEN`
+- `TOKEN_ALREADY_USED`
+- `CUSTOMER_NOT_FOUND`
+- `MEMBERSHIP_NOT_FOUND`
+- `NOT_ENOUGH_STAMPS`
+- `SELF_STAMP`
+- `RATE_LIMITED`
 
-### Output (to UI)
-- membershipId
-- currentStamps
-- redeemedAt (timestamp)
-
----
-
-## Error codes (normalized)
-UI never shows raw errors. Server returns typed errors:
-- NOT_AUTHENTICATED
-- NOT_AUTHORIZED
-- INVALID_QR
-- CUSTOMER_NOT_FOUND
-- PROGRAM_NOT_FOUND
-- MEMBERSHIP_NOT_FOUND
-- NOT_ENOUGH_STAMPS
-- BUSINESS_INACTIVE
-
----
-
-## Future-ready notes
-- qrData mapping must support enterprise external IDs
-- all mutations should accept externalId variants later without breaking UI
+## Notes
+- UI should map errors to user-friendly localized messages.
+- Server remains source of truth for scanner permissions and state mutation.

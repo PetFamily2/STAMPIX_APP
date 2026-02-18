@@ -1,4 +1,4 @@
-import { useAction, useMutation } from 'convex/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,12 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const CODE_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 3 * 60;
 
 const TEXT = {
   title: 'מה הקוד שקיבלת?',
@@ -34,7 +34,7 @@ const TEXT = {
   expiredCode: 'לא נמצא קוד פעיל. בקשו קוד חדש.',
   maxAttempts: 'חרגת ממספר הניסיונות. בקשו קוד חדש.',
   sendFailed: 'שליחת הקוד נכשלה. נסו שוב.',
-  rateLimited: 'אפשר לבקש קוד חדש כל 30 שניות.',
+  rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות.',
   missingConfig: 'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
 };
 
@@ -44,13 +44,12 @@ export default function OnboardingOtpScreen() {
     role?: string | string[];
     sent?: string | string[];
   }>();
-  const sendEmailOtp = useAction(api.otp.sendEmailOtp);
-  const verifyEmailOtp = useMutation(api.otp.verifyEmailOtp);
+  const { signIn } = useAuthActions();
 
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => '')
   );
-  const [secondsLeft, setSecondsLeft] = useState(59);
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -107,27 +106,43 @@ export default function OnboardingOtpScreen() {
 
   const otpChannel = isEmailContact ? 'email' : 'sms';
 
-  const mapOtpError = (value: unknown) => {
+  const mapOtpError = useCallback((value: unknown) => {
     if (!(value instanceof Error)) {
       return TEXT.sendFailed;
     }
     if (value.message === 'OTP_INVALID') {
       return TEXT.invalidCode;
     }
+    if (
+      value.message.includes('Invalid verification code') ||
+      value.message.includes('Could not verify code') ||
+      value.message.includes('Invalid code')
+    ) {
+      return TEXT.invalidCode;
+    }
     if (value.message === 'OTP_NOT_FOUND') {
+      return TEXT.expiredCode;
+    }
+    if (value.message.includes('Expired verification code')) {
       return TEXT.expiredCode;
     }
     if (value.message === 'OTP_MAX_ATTEMPTS') {
       return TEXT.maxAttempts;
     }
+    if (value.message.includes('Too many failed attempts')) {
+      return TEXT.maxAttempts;
+    }
     if (value.message === 'RATE_LIMITED') {
+      return TEXT.rateLimited;
+    }
+    if (value.message.includes('TooManyRequests')) {
       return TEXT.rateLimited;
     }
     if (value.message === 'OTP_NOT_CONFIGURED') {
       return TEXT.missingConfig;
     }
     return TEXT.sendFailed;
-  };
+  }, []);
 
   const sendCode = useCallback(
     async (resetFields: boolean) => {
@@ -140,12 +155,14 @@ export default function OnboardingOtpScreen() {
       setError('');
 
       try {
-        await sendEmailOtp({ email: contactValue.trim().toLowerCase() });
+        await signIn('email', {
+          email: contactValue.trim().toLowerCase(),
+        });
         if (resetFields) {
           setDigits(Array.from({ length: CODE_LENGTH }, () => ''));
           inputsRef.current[0]?.focus();
         }
-        setSecondsLeft(59);
+        setSecondsLeft(RESEND_COOLDOWN_SECONDS);
       } catch (err: unknown) {
         setError(mapOtpError(err));
       } finally {
@@ -153,7 +170,7 @@ export default function OnboardingOtpScreen() {
         setIsSending(false);
       }
     },
-    [contactValue, isEmailContact, sendEmailOtp]
+    [contactValue, isEmailContact, signIn, mapOtpError]
   );
 
   useEffect(() => {
@@ -278,10 +295,7 @@ export default function OnboardingOtpScreen() {
     void sendCode(true);
   };
 
-  const nextRoute =
-    roleValue === 'business'
-      ? '/(auth)/onboarding-business-role'
-      : '/(auth)/onboarding-client-interests';
+  const nextRoute = '/(authenticated)/(customer)/wallet';
   const backRoute = roleValue
     ? `/(auth)/sign-up-email?role=${encodeURIComponent(roleValue)}`
     : '/(auth)/onboarding-client-details';
@@ -301,10 +315,13 @@ export default function OnboardingOtpScreen() {
 
     try {
       if (isEmailContact && contactValue) {
-        await verifyEmailOtp({
+        const result = await signIn('email', {
           email: contactValue.trim().toLowerCase(),
           code: digits.join(''),
         });
+        if (!result.signingIn) {
+          throw new Error('OTP_INVALID');
+        }
       }
 
       trackContinue();

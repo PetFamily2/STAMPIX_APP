@@ -9,7 +9,7 @@ import {
 } from './_generated/server';
 
 const OTP_LENGTH = 6;
-const OTP_TTL_MS = 10 * 60 * 1000;
+const OTP_TTL_MS = 3 * 60 * 1000;
 const OTP_COOLDOWN_MS = 30 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 
@@ -139,7 +139,7 @@ export const sendEmailOtp = action({
         html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>הקוד שלך הוא:</p>
 <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${code}</p>
-<p>תוקף הקוד: 10 דקות.</p>
+<p>תוקף הקוד: 3 דקות.</p>
 </div>`,
       }),
     });

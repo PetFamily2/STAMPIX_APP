@@ -1,83 +1,85 @@
-# STAMPIX Docs
+﻿# STAMPIX Docs
+
+Last synced: 2026-02-18
 
 ## What this project is
-- Single Expo/React Native app for both customers and business staff.
-- RTL-first (Hebrew) UI with explicit RTL helpers.
-- Convex backend for auth, realtime data, and server-side rules.
-- QR-driven loyalty: customers join businesses via QR and show a customer QR to be stamped.
-- RevenueCat paywall is integrated but can run in preview mode.
+- Single Expo/React Native app for both customer and business experiences.
+- RTL-first UI (Hebrew focused) with explicit RTL helpers.
+- Convex backend for auth, realtime data, and server-side permissions.
+- QR-based loyalty: customer join via business QR and stamp flow via signed customer QR.
+- RevenueCat integration with preview-safe behavior when keys are missing.
 
-## Core principles
-- One app, two roles: customer and business flows are isolated by routing groups and role guards.
-- Server-authoritative QR: scan tokens are signed and validated on the server.
-- RTL is a first-class constraint: layouts align right and do not rely on I18nManager.
-- Safe defaults: payment system disabled by default; demo seed data is available.
-- Minimal routing surprises: wrappers preserve legacy screen paths.
+## Current routing model (source of truth)
+- Canonical route trees:
+  - `app/(auth)/*`
+  - `app/(authenticated)/(customer)/*`
+  - `app/(authenticated)/(business)/*`
+  - `app/(authenticated)/join`
+  - `app/(authenticated)/card/*`
+  - `app/(authenticated)/merchant/*`
+- `/(auth)/sign-in` is a legacy alias and currently redirects to `/(auth)/sign-up`.
+- No legacy wrapper route tree under `app/(authenticated)/business/*` or `app/(authenticated)/(business)/business/*`.
 
-## MVP scope (current)
-Customer
-- Wallet with memberships (api.memberships.byCustomer) and demo seed (api.seed.seedMvp).
-- Join via business QR (app/(authenticated)/join.tsx).
-- Card details with customer scan token QR (app/(authenticated)/card/[membershipId].tsx).
-- Tabs: Wallet, Rewards, Discovery, Settings.
-
-Business
-- Dashboard with analytics summary (api.analytics.getBusinessActivity).
-- Scanner flow: resolve scan token + add stamp (api.scanner.resolveScan, api.scanner.addStamp).
-- Team management: list staff and invite by email (api.business.listBusinessStaff, inviteBusinessStaff).
-- Business QR for customer join (app/(authenticated)/merchant/qr.tsx).
-- Merchant onboarding: create business + program (app/(authenticated)/merchant/onboarding/*).
-
-Platform
-- Expo Router with typed routes and separate tab groups for customer and business.
-- Convex Auth (Password provider) and user bootstrap on first authenticated load.
-
-## Known gaps / placeholders
-- Settings items for support/legal/delete account are UI-only (onPress is empty).
-- Dashboard activity feed and some CTA tiles are static placeholders.
-- RevenueCat production purchases require keys and flags; preview packages are used in Expo Go or when not configured.
-
-## Quick start
-1. Install deps
-   - `bun install`
-2. Start Convex and create a project
-   - `bunx convex dev`
-   - Copy the URL in `.env` or `.env.local` to `EXPO_PUBLIC_CONVEX_URL` (see docs/setup.md)
-3. Run the app
-   - `bun dev`
-   - Optional: `bun run ios` or `bun run android`
-
-## Quality checks
-- `bun run check` (Biome format + lint)
-- `bun run type-check`
+## Core product scope (current)
+- Customer:
+  - Wallet, rewards, discovery, settings tabs.
+  - Join business by QR/deep link.
+  - Membership card with signed scan-token QR.
+- Business:
+  - Dashboard, scanner, team, analytics, settings tabs.
+  - Business QR screen.
+  - Merchant onboarding (create business + create program + preview card).
+- Platform:
+  - Convex Auth (Email OTP, Password, Google, Apple).
+  - Identity linking via provider IDs and verified email.
+  - Role-aware routing and name-capture onboarding gate.
 
 ## Environment variables
-App (Expo, public)
-- `EXPO_PUBLIC_CONVEX_URL_DEV`
-- `EXPO_PUBLIC_CONVEX_URL_PROD`
-- `EXPO_PUBLIC_CONVEX_URL` (legacy fallback)
-- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
-- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
-- `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` (legacy)
-- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
-- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
-- `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY` (legacy)
-- `EXPO_PUBLIC_PRIVACY_POLICY_URL`
-- `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
+Public app vars (Expo):
+- Convex:
+  - `EXPO_PUBLIC_CONVEX_URL_DEV`
+  - `EXPO_PUBLIC_CONVEX_URL_PROD`
+  - `EXPO_PUBLIC_CONVEX_URL` (legacy fallback)
+- RevenueCat:
+  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
+  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
+  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` (legacy fallback)
+  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
+  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
+  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY` (legacy fallback)
+- Legal URLs:
+  - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
+  - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
 
-Backend (Convex)
-- `SCAN_TOKEN_SECRET` (HMAC secret used to sign scan tokens)
+Convex server vars:
+- `SCAN_TOKEN_SECRET`
+- `RESEND_API_KEY` (for email OTP)
+- `RESEND_FROM_EMAIL` (for email OTP)
+- `CONVEX_SITE_URL` (auth redirect safety)
 
-Config flags (code)
-- `config/appConfig.ts`: `PAYMENT_SYSTEM_ENABLED`, `MOCK_PAYMENTS`, `FORCE_PROD_MODE`, `APP_ENV`
+## Quick start
+1. Install dependencies:
+   - `bun install`
+2. Start Convex local dev:
+   - `bunx convex dev`
+3. Run app:
+   - `bun dev`
+4. Optional native runs:
+   - `bun run ios`
+   - `bun run android`
+
+## Quality checks
+- `bun run check`
+- `bun run type-check`
 
 ## Docs map
-- docs/architecture.md - system overview and data flows
-- docs/decisions.md - ADRs and rationale
-- docs/devlog.md - recent history and current status
-- docs/setup.md - first-time setup (Hebrew)
-- docs/usage.md - local usage tips (Hebrew)
-- docs/deployment.md - EAS/production notes
-- docs/EAS_INFRASTRUCTURE.md - ready-to-run Android/iOS EAS build and submit flow
-- docs/REVENUECAT_SETUP.md - payment setup
-- docs/spec/* - deeper specs (roles, data model, screens, scanner contract)
+- `docs/architecture.md` - runtime architecture and routing behavior
+- `docs/decisions.md` - architectural decisions (ADRs)
+- `docs/devlog.md` - delivery history
+- `docs/setup.md` - local setup
+- `docs/usage.md` - daily usage workflow
+- `docs/deployment.md` - deployment flow
+- `docs/EAS_INFRASTRUCTURE.md` - EAS commands and environment
+- `docs/REVENUECAT_SETUP.md` - RevenueCat setup details
+- `docs/AUTH_LINKING_QA_CHECKLIST.md` - auth-linking QA scenarios
+- `docs/spec/*` - functional specs

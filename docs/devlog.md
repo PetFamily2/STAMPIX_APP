@@ -1,70 +1,78 @@
-# Devlog (aligned with MVP roadmap)
+﻿# Devlog (aligned with MVP roadmap)
+
+Last synced: 2026-02-18
 
 ## How to use this devlog
-- After each session, append a section with a date and milestone name.
-- Keep entries brief and focused on product, architecture, or data changes.
-- Track why a change happened and what remains.
+- Append one dated section per milestone/session.
+- Keep entries focused on shipped behavior and open work.
+- Prefer links to exact files touched.
 
 ## Milestone 0 - Base template and specs (2025-12-29)
 - Status: Done
 - What changed:
-  - Initial Expo + Convex scaffold, RTL utilities, and RevenueCat context.
-  - Added specs in docs/spec and reference-ui assets.
-- Why: Establish the baseline for an RTL-first mobile template with payments and backend.
-- Remaining: None for baseline; future work builds on this foundation.
-- Links: docs/README.md, docs/spec/*
+  - Initial Expo + Convex scaffold, RTL helpers, RevenueCat context.
+  - Added docs/spec and reference UI assets.
+- Links: `docs/README.md`, `docs/spec/*`
 
 ## Milestone 1 - Scanner scaffold and schema updates (2025-12-30)
 - Status: Done
 - What changed:
-  - Added scan token generation/validation and scanner mutations.
-  - Expanded schema to include scanTokenEvents and supporting specs.
-- Why: Enable QR-based stamping with replay protection.
-- Remaining: Hook scanner UI to the new pipeline (completed later).
-- Links: convex/scanTokens.ts, convex/scanner.ts, docs/spec/scanner-contract.md
+  - Signed scan token flow and scanner mutations.
+  - Added `scanTokenEvents` and related schema support.
+- Links: `convex/scanTokens.ts`, `convex/scanner.ts`
 
 ## Milestone 2 - Auth source of truth and scanner authorization (2026-01-05)
 - Status: Done
 - What changed:
-  - Fixed auth flow to rely on Convex Auth identity.
-  - Added role guard utility and enforced scanner authorization.
-  - Added card route entry and improved wallet flow handling.
-- Why: Prevent unauthorized scanner actions and stabilize auth.
-- Remaining: Continue hardening routing and role-based UX.
-- Links: convex/auth.ts, lib/hooks/useRoleGuard.ts
+  - Auth flow aligned to Convex auth identity.
+  - Added role guard utility and scanner authorization checks.
+- Links: `convex/auth.ts`, `convex/guards.ts`, `lib/hooks/useRoleGuard.ts`
 
 ## Milestone 3 - Business dashboards and onboarding UX (2026-01-14)
 - Status: Done
 - What changed:
-  - Expanded business dashboards, analytics query, and onboarding screens.
-  - Improved UI components and customer membership domain logic.
-- Why: Support business-side operations and metrics.
-- Remaining: Replace any mocked dashboard content and finalize UX copy.
-- Links: app/(authenticated)/business/*, convex/analytics.ts
+  - Expanded business dashboard and analytics coverage.
+  - Added onboarding screens for business and customer paths.
+- Links: `app/(authenticated)/(business)/*`, `convex/analytics.ts`
 
 ## Milestone 4 - Join flow and QR UX improvements (2026-01-17 to 2026-01-18)
 - Status: Done
 - What changed:
-  - Added join screen, QR scanner component, and seed helpers.
-  - Improved scanner and card flows to support scan tokens and QR rendering.
-- Why: Enable the core customer join and scan experience.
-- Remaining: None for the flow; polish and error handling are ongoing.
-- Links: app/(authenticated)/join.tsx, components/QrScanner.tsx, convex/seed.ts
+  - Added join flow with QR/deep-link handling.
+  - Improved card QR + scanner interoperability.
+- Links: `app/(authenticated)/join.tsx`, `components/QrScanner.tsx`, `convex/seed.ts`
 
 ## Milestone 5 - Customer/business routing split (2026-01-19 to 2026-01-20)
 - Status: Done
 - What changed:
-  - Introduced AppModeContext and persisted appMode.
-  - Split customer and business stacks into separate tab groups.
-  - Added wrapper routes for legacy business screens.
-- Why: Eliminate tab conflicts and routing loops across personas.
-- Remaining: Keep wrappers in sync as new business routes are added.
-- Links: app/(authenticated)/_layout.tsx, contexts/AppModeContext.tsx
+  - Introduced `AppModeContext` with persistence.
+  - Split customer and business tabs into dedicated route groups.
+- Links: `app/(authenticated)/_layout.tsx`, `contexts/AppModeContext.tsx`
 
-## Current status (as of 2026-01-27)
-- Working: Auth, customer wallet + join + card QR, business scanner, analytics summaries, team invites, business onboarding.
-- In progress: Replace static dashboard activity feed with real data.
+## Milestone 6 - Multi-provider auth + identity linking (2026-02-06 to 2026-02-18)
+- Status: Done
+- What changed:
+  - Added Google and Apple auth providers.
+  - Added `userIdentities` linking and safer account merge logic.
+  - Added `name-capture` onboarding gate with required first/last name.
+  - Added auth-linking QA checklist.
+- Links: `convex/auth.ts`, `convex/schema.ts`, `app/(auth)/name-capture.tsx`, `docs/AUTH_LINKING_QA_CHECKLIST.md`
+
+## Milestone 7 - Documentation sync to runtime behavior (2026-02-18)
+- Status: Done
+- What changed:
+  - Removed stale docs references to wrapper route trees.
+  - Updated route map and architecture docs to current canonical navigation.
+  - Updated setup/deployment/RevenueCat docs to current env layering.
+- Links: `docs/README.md`, `docs/architecture.md`, `docs/decisions.md`, `ROUTES_REPORT.md`
+
+## Current status (as of 2026-02-18)
+- Working:
+  - Auth (Email OTP + Google + Apple + Password)
+  - Customer wallet/join/card QR
+  - Business dashboard/scanner/team/analytics
+  - Name-capture onboarding gate
 - Remaining:
-  - Wire Settings actions for support, terms, privacy, and delete account.
-  - Connect RevenueCat production keys and enable PAYMENT_SYSTEM_ENABLED when ready.
-  - Remove debug logs/temporary UI once flows stabilize.
+  - Replace static dashboard placeholder blocks with fully live data.
+  - Finalize production RevenueCat + payment flags before store release.
+  - Keep docs synced whenever route/auth behavior changes.

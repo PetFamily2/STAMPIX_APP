@@ -1,58 +1,71 @@
 import type { ConvexAuthActionsContext } from '@convex-dev/auth/react';
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-const GOOGLE_PROVIDER_ID = 'google';
-const GOOGLE_CALLBACK_PATH = '/sign-in';
+import { getConvexUrl } from '@/utils/convexConfig';
+
+const SAFE_AUTH_REDIRECT_PATH = '/';
+
+type OAuthProvider = 'google' | 'apple';
 
 WebBrowser.maybeCompleteAuthSession();
 
 function extractCodeFromCallbackUrl(callbackUrl: string): string | null {
-  const parsed = Linking.parse(callbackUrl);
-  const maybeCode = parsed.queryParams?.code;
-
-  if (typeof maybeCode === 'string' && maybeCode.length > 0) {
-    return maybeCode;
-  }
-  if (Array.isArray(maybeCode) && typeof maybeCode[0] === 'string') {
-    return maybeCode[0];
-  }
-
-  return null;
+  const parsed = new URL(callbackUrl);
+  const code = parsed.searchParams.get('code');
+  return code && code.length > 0 ? code : null;
 }
 
-export type GoogleOAuthSignInResult = 'success' | 'cancelled';
+function getSafeRedirectUrl() {
+  return new URL(SAFE_AUTH_REDIRECT_PATH, getConvexUrl()).toString();
+}
 
-export async function signInWithGoogle(
-  signIn: ConvexAuthActionsContext['signIn']
-): Promise<GoogleOAuthSignInResult> {
-  const redirectTo = Linking.createURL(GOOGLE_CALLBACK_PATH);
+export type OAuthSignInResult = 'success' | 'cancelled';
 
-  const started = await signIn(GOOGLE_PROVIDER_ID, { redirectTo });
+async function signInWithOAuthProvider(
+  signIn: ConvexAuthActionsContext['signIn'],
+  provider: OAuthProvider
+): Promise<OAuthSignInResult> {
+  const started = await signIn(provider, {
+    redirectTo: SAFE_AUTH_REDIRECT_PATH,
+  });
   if (!started.redirect) {
     if (started.signingIn) {
       return 'success';
     }
-    throw new Error('GOOGLE_REDIRECT_MISSING');
+    throw new Error(`${provider.toUpperCase()}_REDIRECT_MISSING`);
   }
 
+  const callbackUrl = getSafeRedirectUrl();
   const session = await WebBrowser.openAuthSessionAsync(
     started.redirect.toString(),
-    redirectTo
+    callbackUrl
   );
+
   if (session.type !== 'success') {
     return 'cancelled';
   }
 
   const code = extractCodeFromCallbackUrl(session.url);
   if (!code) {
-    throw new Error('GOOGLE_CODE_MISSING');
+    throw new Error(`${provider.toUpperCase()}_CODE_MISSING`);
   }
 
-  const finished = await signIn(GOOGLE_PROVIDER_ID, { code });
+  const finished = await signIn(provider, { code });
   if (!finished.signingIn) {
-    throw new Error('GOOGLE_SIGN_IN_FAILED');
+    throw new Error(`${provider.toUpperCase()}_SIGN_IN_FAILED`);
   }
 
   return 'success';
+}
+
+export function signInWithGoogle(
+  signIn: ConvexAuthActionsContext['signIn']
+): Promise<OAuthSignInResult> {
+  return signInWithOAuthProvider(signIn, 'google');
+}
+
+export function signInWithApple(
+  signIn: ConvexAuthActionsContext['signIn']
+): Promise<OAuthSignInResult> {
+  return signInWithOAuthProvider(signIn, 'apple');
 }

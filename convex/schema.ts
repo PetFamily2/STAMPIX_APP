@@ -5,6 +5,13 @@ import { v } from 'convex/values';
 export default defineSchema({
   ...authTables,
 
+  authVerifiers: defineTable({
+    sessionId: v.optional(v.id('authSessions')),
+    signature: v.optional(v.string()),
+  })
+    .index('signature', ['signature'])
+    .index('by_sessionId', ['sessionId']),
+
   // -------------------------
   // Core (MVP + future-ready)
   // -------------------------
@@ -13,7 +20,11 @@ export default defineSchema({
     email: v.optional(v.string()),
     emailVerified: v.optional(v.boolean()),
     phone: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
     fullName: v.optional(v.string()),
+    needsNameCapture: v.optional(v.boolean()),
+    postAuthOnboardingRequired: v.optional(v.boolean()),
     avatarUrl: v.optional(v.string()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
     subscriptionPlan: v.optional(
@@ -44,6 +55,22 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_isActive', ['isActive'])
     .index('by_userType', ['userType']),
+
+  userIdentities: defineTable({
+    userId: v.id('users'),
+    provider: v.union(
+      v.literal('google'),
+      v.literal('apple'),
+      v.literal('email')
+    ),
+    providerUserId: v.string(),
+    email: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_provider_providerUserId', ['provider', 'providerUserId'])
+    .index('by_userId', ['userId'])
+    .index('by_email', ['email']),
 
   businesses: defineTable({
     ownerUserId: v.id('users'),
@@ -116,6 +143,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_actorUserId', ['actorUserId'])
     .index('by_customerUserId', ['customerUserId'])
     .index('by_createdAt', ['createdAt']),
 
@@ -128,6 +156,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_signature', ['signature'])
+    .index('by_businessId', ['businessId'])
     .index('by_businessProgram', ['businessId', 'programId'])
     .index('by_customerId', ['customerId']),
 

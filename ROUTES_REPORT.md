@@ -1,12 +1,14 @@
-# ROUTES_REPORT
+﻿# ROUTES_REPORT
 
-Generated: 2026-02-06 18:57
+Generated: 2026-02-18
 
-## 1) All Route Files (current)
+## 1) All route files (current)
 
 - `app/(auth)/_layout.tsx`
 - `app/(auth)/flow-map.tsx`
 - `app/(auth)/index.tsx`
+- `app/(auth)/legal.tsx`
+- `app/(auth)/name-capture.tsx`
 - `app/(auth)/onboarding-business-discovery.tsx`
 - `app/(auth)/onboarding-business-name.tsx`
 - `app/(auth)/onboarding-business-reason.tsx`
@@ -23,13 +25,10 @@ Generated: 2026-02-06 18:57
 - `app/(auth)/paywall/index.tsx`
 - `app/(auth)/sign-in.tsx`
 - `app/(auth)/sign-up.tsx`
+- `app/(auth)/sign-up-email.tsx`
+- `app/(auth)/welcome.tsx`
 - `app/(authenticated)/(business)/_layout.tsx`
 - `app/(authenticated)/(business)/analytics.tsx`
-- `app/(authenticated)/(business)/business/analytics.tsx`
-- `app/(authenticated)/(business)/business/dashboard.tsx`
-- `app/(authenticated)/(business)/business/qr.tsx`
-- `app/(authenticated)/(business)/business/scanner.tsx`
-- `app/(authenticated)/(business)/business/team.tsx`
 - `app/(authenticated)/(business)/dashboard.tsx`
 - `app/(authenticated)/(business)/qr.tsx`
 - `app/(authenticated)/(business)/scanner.tsx`
@@ -41,14 +40,8 @@ Generated: 2026-02-06 18:57
 - `app/(authenticated)/(customer)/settings.tsx`
 - `app/(authenticated)/(customer)/wallet.tsx`
 - `app/(authenticated)/_layout.tsx`
-- `app/(authenticated)/business/_layout.tsx`
-- `app/(authenticated)/business/analytics.tsx`
-- `app/(authenticated)/business/dashboard.tsx`
-- `app/(authenticated)/business/scanner.tsx`
-- `app/(authenticated)/business/team.tsx`
 - `app/(authenticated)/card/[membershipId].tsx`
 - `app/(authenticated)/card/index.tsx`
-- `app/(authenticated)/index.tsx`
 - `app/(authenticated)/join.tsx`
 - `app/(authenticated)/merchant/_layout.tsx`
 - `app/(authenticated)/merchant/analytics.tsx`
@@ -61,72 +54,25 @@ Generated: 2026-02-06 18:57
 - `app/(authenticated)/merchant/profile-settings.tsx`
 - `app/(authenticated)/merchant/qr.tsx`
 - `app/(authenticated)/merchant/store-settings.tsx`
-- `app/(authenticated)/role.tsx`
-- `app/(authenticated)/SettingsScreen.tsx`
 - `app/_layout.tsx`
-- `app/+not-found.tsx`
 
-## 2) Duplicate Public Paths (group segments removed)
+## 2) Duplicate public paths (group segments removed)
 
-- **/_layout.**
+- `/_layout`
   - `app/(auth)/_layout.tsx`
   - `app/(authenticated)/(business)/_layout.tsx`
   - `app/(authenticated)/(customer)/_layout.tsx`
   - `app/(authenticated)/_layout.tsx`
   - `app/_layout.tsx`
-- **/business/analytics.**
-  - `app/(authenticated)/(business)/business/analytics.tsx`
-  - `app/(authenticated)/business/analytics.tsx`
-- **/business/dashboard.**
-  - `app/(authenticated)/(business)/business/dashboard.tsx`
-  - `app/(authenticated)/business/dashboard.tsx`
-- **/business/scanner.**
-  - `app/(authenticated)/(business)/business/scanner.tsx`
-  - `app/(authenticated)/business/scanner.tsx`
-- **/business/team.**
-  - `app/(authenticated)/(business)/business/team.tsx`
-  - `app/(authenticated)/business/team.tsx`
-- **/index.**
-  - `app/(auth)/index.tsx`
-  - `app/(authenticated)/index.tsx`
-- **/settings.**
+- `/settings`
   - `app/(authenticated)/(business)/settings.tsx`
   - `app/(authenticated)/(customer)/settings.tsx`
 
-## 3) Canonical vs Legacy Decisions
+## 3) Canonical path notes
 
-- **/business/analytics**  
-  - Canonical route (stays active): `app/(authenticated)/(business)/analytics.tsx` (public path `/analytics`)  
-  - Move to `_legacy` (deactivate public `/business/analytics` path):  
-    - `app/(authenticated)/(business)/business/analytics.tsx`  
-    - `app/(authenticated)/business/analytics.tsx`
-- **/business/dashboard**  
-  - Canonical route (stays active): `app/(authenticated)/(business)/dashboard.tsx` (public path `/dashboard`)  
-  - Move to `_legacy`:  
-    - `app/(authenticated)/(business)/business/dashboard.tsx`  
-    - `app/(authenticated)/business/dashboard.tsx`
-- **/business/scanner**  
-  - Canonical route (stays active): `app/(authenticated)/(business)/scanner.tsx` (public path `/scanner`)  
-  - Move to `_legacy`:  
-    - `app/(authenticated)/(business)/business/scanner.tsx`  
-    - `app/(authenticated)/business/scanner.tsx`
-- **/business/team**  
-  - Canonical route (stays active): `app/(authenticated)/(business)/team.tsx` (public path `/team`)  
-  - Move to `_legacy`:  
-    - `app/(authenticated)/(business)/business/team.tsx`  
-    - `app/(authenticated)/business/team.tsx`
-- **/settings**  
-  - Intentional duplicate (customer vs business). Both stay active as separate tab trees:  
-    - `app/(authenticated)/(customer)/settings.tsx`  
-    - `app/(authenticated)/(business)/settings.tsx`
-- **/index**  
-  - Intentional duplicate (auth vs authenticated). Both stay active:  
-    - `app/(auth)/index.tsx`  
-    - `app/(authenticated)/index.tsx`
-- **/_layout**  
-  - Expected duplicates (layout files across groups). All stay active.
-
-Additional non-canonical routes (not duplicates) to remove from route map without deletion:
-- `app/(authenticated)/SettingsScreen.tsx` → move to `screens/SettingsScreen.tsx` (not a route).
-- Entire `app/(authenticated)/business/` folder → move to `_legacy` (canonical business routes live under `app/(authenticated)/(business)`).
-- Entire `app/(authenticated)/(business)/business/` folder → move to `_legacy`.
+- `/(auth)/index` is a redirect entrypoint to `/(auth)/welcome`.
+- `/(auth)/sign-in` is a legacy alias redirect to `/(auth)/sign-up`.
+- `/settings` duplication is intentional (separate customer and business tab trees).
+- No legacy wrapper route trees are present under:
+  - `app/(authenticated)/business/*`
+  - `app/(authenticated)/(business)/business/*`

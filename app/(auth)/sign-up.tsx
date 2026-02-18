@@ -11,7 +11,7 @@ import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
-import { signInWithGoogle } from '@/lib/auth/googleOAuth';
+import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
@@ -26,10 +26,14 @@ const TEXT = {
   legalLink: 'מסמך משפטי',
   continue: 'המשך',
   connectingToGoogle: 'מתחברים ל-Google...',
+  connectingToApple: 'מתחברים ל-Apple...',
   authErrorTitle: 'שגיאה',
   googleNotConfigured:
     'התחברות עם Google לא מוגדרת עדיין. הגדירו AUTH_GOOGLE_ID ו-AUTH_GOOGLE_SECRET ב-Convex.',
+  appleNotConfigured:
+    'התחברות עם Apple לא מוגדרת עדיין. הגדירו AUTH_APPLE_ID ו-AUTH_APPLE_SECRET ב-Convex.',
   googleFailed: 'ההתחברות עם Google נכשלה. נסו שוב.',
+  appleFailed: 'ההתחברות עם Apple נכשלה. נסו שוב.',
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';
@@ -76,7 +80,9 @@ export default function SignUpScreen() {
     screen: 'sign_up',
   });
   const [selectedMethod, setSelectedMethod] = useState<AuthMethod | null>(null);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [oauthLoadingMethod, setOauthLoadingMethod] = useState<
+    'google' | 'apple' | null
+  >(null);
 
   const handleBack = () => {
     safeBack('/(auth)/onboarding-client-role');
@@ -87,8 +93,14 @@ export default function SignUpScreen() {
     trackChoice('auth_method', method, { method });
   };
 
-  const handleEmailOptionPress = () => {
+  const handleEmailOptionPress = async () => {
     trackChoice('auth_method', 'email', { method: 'email' });
+    if (role === 'business') {
+      await setAppMode('business');
+    } else if (role === 'customer') {
+      await setAppMode('customer');
+    }
+
     if (role) {
       router.push({
         pathname: '/(auth)/sign-up-email',
@@ -99,50 +111,66 @@ export default function SignUpScreen() {
     router.push('/(auth)/sign-up-email');
   };
 
-  const mapGoogleError = (value: unknown) => {
+  const mapOAuthError = (provider: 'google' | 'apple', value: unknown) => {
+    const failedText =
+      provider === 'google' ? TEXT.googleFailed : TEXT.appleFailed;
     if (!(value instanceof Error)) {
-      return TEXT.googleFailed;
+      return failedText;
     }
 
     if (
       value.message.includes('configured providers') ||
-      value.message.includes('AUTH_GOOGLE_ID') ||
-      value.message.includes('AUTH_GOOGLE_SECRET')
+      value.message.includes(
+        provider === 'google' ? 'AUTH_GOOGLE_ID' : 'AUTH_APPLE_ID'
+      ) ||
+      value.message.includes(
+        provider === 'google' ? 'AUTH_GOOGLE_SECRET' : 'AUTH_APPLE_SECRET'
+      )
     ) {
-      return TEXT.googleNotConfigured;
+      return provider === 'google'
+        ? TEXT.googleNotConfigured
+        : TEXT.appleNotConfigured;
     }
 
-    return TEXT.googleFailed;
+    return failedText;
   };
 
-  const handleGoogleAuth = async (
+  const handleOAuthAuth = async (
+    provider: 'google' | 'apple',
     selectedRole: 'business' | 'customer' | null
   ) => {
-    if (isPreviewMode || googleLoading) {
+    if (isPreviewMode || oauthLoadingMethod) {
       return;
     }
 
-    setGoogleLoading(true);
+    if (selectedRole === 'business') {
+      await setAppMode('business');
+    } else if (selectedRole === 'customer') {
+      await setAppMode('customer');
+    }
+
+    setOauthLoadingMethod(provider);
     try {
-      const result = await signInWithGoogle(signIn);
+      const result =
+        provider === 'google'
+          ? await signInWithGoogle(signIn)
+          : await signInWithApple(signIn);
       if (result !== 'success') {
         return;
       }
-      trackContinue({ method: 'google' });
-      completeStep({ method: 'google', role: selectedRole ?? undefined });
+      trackContinue({ method: provider });
+      completeStep({ method: provider, role: selectedRole ?? undefined });
 
       if (selectedRole === 'business') {
-        await setAppMode('business');
         router.replace('/(authenticated)/(business)/dashboard');
         return;
       }
 
-      await setAppMode('customer');
       router.replace('/(authenticated)/(customer)/wallet');
     } catch (error: unknown) {
-      Alert.alert(TEXT.authErrorTitle, mapGoogleError(error));
+      Alert.alert(TEXT.authErrorTitle, mapOAuthError(provider, error));
     } finally {
-      setGoogleLoading(false);
+      setOauthLoadingMethod(null);
     }
   };
 
@@ -157,23 +185,29 @@ export default function SignUpScreen() {
           ? 'customer'
           : null;
 
-    if (selectedMethod === 'google') {
-      void handleGoogleAuth(selectedRole);
+    if (selectedMethod === 'google' || selectedMethod === 'apple') {
+      void handleOAuthAuth(selectedMethod, selectedRole);
       return;
     }
+
     trackContinue({ method: selectedMethod });
     completeStep({ method: selectedMethod, role: selectedRole ?? undefined });
 
-    if (selectedRole === 'customer') {
-      router.push('/(auth)/onboarding-client-details');
-      return;
-    }
     if (selectedRole === 'business') {
-      router.push('/(auth)/onboarding-business-role');
+      void setAppMode('business');
+    } else if (selectedRole === 'customer') {
+      void setAppMode('customer');
+    }
+
+    if (selectedRole) {
+      router.push({
+        pathname: '/(auth)/sign-up-email',
+        params: { role: selectedRole },
+      });
       return;
     }
 
-    router.push('/(auth)/onboarding-client-role');
+    router.push('/(auth)/sign-up-email');
   };
 
   return (
@@ -256,7 +290,9 @@ export default function SignUpScreen() {
           </View>
 
           <Pressable
-            onPress={handleEmailOptionPress}
+            onPress={() => {
+              void handleEmailOptionPress();
+            }}
             accessibilityRole="button"
             accessibilityLabel={TEXT.email}
           >
@@ -288,8 +324,14 @@ export default function SignUpScreen() {
         <View style={styles.footer}>
           <ContinueButton
             onPress={handleContinue}
-            disabled={!selectedMethod || googleLoading}
-            label={googleLoading ? TEXT.connectingToGoogle : TEXT.continue}
+            disabled={!selectedMethod || oauthLoadingMethod !== null}
+            label={
+              oauthLoadingMethod === 'google'
+                ? TEXT.connectingToGoogle
+                : oauthLoadingMethod === 'apple'
+                  ? TEXT.connectingToApple
+                  : TEXT.continue
+            }
           />
 
           <Text style={styles.terms}>
