@@ -153,20 +153,20 @@ export default function SignUpScreen() {
     try {
       const result =
         provider === 'google'
-          ? await signInWithGoogle(signIn)
-          : await signInWithApple(signIn);
+          ? await signInWithGoogle(signIn, selectedRole)
+          : await signInWithApple(signIn, selectedRole);
       if (result !== 'success') {
         return;
       }
       trackContinue({ method: provider });
       completeStep({ method: provider, role: selectedRole ?? undefined });
-
-      if (selectedRole === 'business') {
-        router.replace('/(authenticated)/(business)/dashboard');
-        return;
-      }
-
-      router.replace('/(authenticated)/(customer)/wallet');
+      router.replace({
+        pathname: '/(auth)/oauth-callback',
+        params: {
+          provider,
+          role: selectedRole ?? undefined,
+        },
+      });
     } catch (error: unknown) {
       Alert.alert(TEXT.authErrorTitle, mapOAuthError(provider, error));
     } finally {

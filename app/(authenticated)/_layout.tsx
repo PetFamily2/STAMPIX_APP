@@ -14,7 +14,6 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
-import type { AppRole } from '@/lib/domain/roles';
 
 const TEXT = {
   loadingTitle:
@@ -27,10 +26,6 @@ function hasCapturedName(user: { firstName?: string; lastName?: string }) {
   return Boolean(user.firstName?.trim().length && user.lastName?.trim().length);
 }
 
-function isBusinessRole(role: AppRole) {
-  return role === 'merchant' || role === 'staff' || role === 'admin';
-}
-
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { preview, map, biz, src, camp } = useLocalSearchParams<{
@@ -41,10 +36,19 @@ export default function AuthenticatedLayout() {
     camp?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-  const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
+  const {
+    appMode,
+    setAppMode,
+    hasSelectedMode,
+    isLoading: isAppModeLoading,
+  } = useAppMode();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
   const user = useQuery(api.users.getCurrentUser, shouldLoadUser ? {} : 'skip');
+  const sessionContext = useQuery(
+    api.users.getSessionContext,
+    shouldLoadUser ? {} : 'skip'
+  );
   const router = useRouter();
   const segments = useSegments();
 
@@ -138,6 +142,7 @@ export default function AuthenticatedLayout() {
     const inJoin = currentSegments.includes('join');
     const inCustomerGroup = currentSegments.includes('(customer)');
     const inBusinessGroup = currentSegments.includes('(business)');
+    const inStaffGroup = currentSegments.includes('(staff)');
 
     const isFreeRoute = inCard || inMerchant || inAdmin || inJoin;
 
@@ -152,14 +157,17 @@ export default function AuthenticatedLayout() {
 
     const customerTarget = '/(authenticated)/(customer)/wallet';
     const businessTarget = '/(authenticated)/(business)/dashboard';
+    const staffTarget = '/(authenticated)/(staff)/scanner';
     const nameCaptureTarget = '/(auth)/name-capture';
-    const role = (user?.role ?? 'customer') as AppRole;
-    const shouldUseBusinessDashboard = isBusinessRole(role);
-    const preferredMode = shouldUseBusinessDashboard ? 'business' : 'customer';
-    const shouldSyncMode = user?.postAuthOnboardingRequired !== true;
 
-    if (shouldSyncMode && appMode !== preferredMode) {
-      void setAppMode(preferredMode);
+    const bizList = sessionContext?.businesses ?? [];
+    const hasOwnerOrManager = bizList.some(
+      (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+    );
+    const hasAnyBizAccess = bizList.length > 0;
+
+    if (!hasSelectedMode && sessionContext?.defaultMode) {
+      void setAppMode(sessionContext.defaultMode);
     }
 
     if (user) {
@@ -172,21 +180,50 @@ export default function AuthenticatedLayout() {
       }
     }
 
-    if (!shouldUseBusinessDashboard && inBusinessGroup) {
-      safeReplace(customerTarget);
-      return;
-    }
-
-    if (shouldUseBusinessDashboard && inCustomerGroup) {
+    if (appMode === 'business' && inCustomerGroup && hasOwnerOrManager) {
       safeReplace(businessTarget);
       return;
     }
-
-    if (!inCustomerGroup && !inBusinessGroup && !isFreeRoute) {
-      safeReplace(shouldUseBusinessDashboard ? businessTarget : customerTarget);
+    if (appMode === 'business' && !hasOwnerOrManager) {
+      if (hasAnyBizAccess) {
+        void setAppMode('staff');
+        safeReplace(staffTarget);
+      } else {
+        void setAppMode('customer');
+        safeReplace(customerTarget);
+      }
+      return;
+    }
+    if (appMode === 'staff' && inCustomerGroup && hasAnyBizAccess) {
+      safeReplace(staffTarget);
+      return;
+    }
+    if (appMode === 'staff' && !hasAnyBizAccess) {
+      void setAppMode('customer');
+      safeReplace(customerTarget);
+      return;
+    }
+    if (appMode === 'customer' && inBusinessGroup) {
+      safeReplace(customerTarget);
+      return;
+    }
+    if (appMode === 'customer' && inStaffGroup) {
+      safeReplace(customerTarget);
+      return;
+    }
+    if (!inCustomerGroup && !inBusinessGroup && !inStaffGroup && !isFreeRoute) {
+      const target =
+        appMode === 'business' && hasOwnerOrManager
+          ? businessTarget
+          : appMode === 'staff' && hasAnyBizAccess
+            ? staffTarget
+            : customerTarget;
+      safeReplace(target);
     }
   }, [
     appMode,
+    hasSelectedMode,
+    sessionContext,
     isAppModeLoading,
     isAuthenticated,
     isLoading,
@@ -239,7 +276,9 @@ export default function AuthenticatedLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(business)" />
+      <Stack.Screen name="(staff)" />
       <Stack.Screen name="join" />
+      <Stack.Screen name="accept-invite" />
       <Stack.Screen name="card/index" />
       <Stack.Screen name="card/[membershipId]" />
     </Stack>

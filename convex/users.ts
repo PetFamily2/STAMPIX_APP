@@ -88,6 +88,7 @@ type DeleteStats = {
   authVerificationCodes: number;
   authVerifiers: number;
   emailOtps: number;
+  staffInvites: number;
 };
 
 type DeleteMyAccountHardErrorCode =
@@ -133,6 +134,7 @@ function emptyDeleteStats(): DeleteStats {
     authVerificationCodes: 0,
     authVerifiers: 0,
     emailOtps: 0,
+    staffInvites: 0,
   };
 }
 
@@ -249,6 +251,13 @@ async function deleteBusinessGraph(
     'businessId',
     businessId
   );
+  deleted.staffInvites += await deleteByIndexInBatches(
+    ctx,
+    'staffInvites',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
 
   await ctx.db.delete(businessId);
   deleted.businesses += 1;
@@ -323,6 +332,13 @@ async function deleteUserScopedBusinessData(
     'businessStaff',
     'by_userId',
     'userId',
+    userId
+  );
+  deleted.staffInvites += await deleteByIndexInBatches(
+    ctx,
+    'staffInvites',
+    'by_invitedByUserId',
+    'invitedByUserId',
     userId
   );
 }
@@ -417,6 +433,143 @@ export const getCurrentUser = query({
 });
 
 // ׳©׳׳™׳₪׳× ׳׳©׳×׳׳© ׳׳₪׳™ ׳׳–׳”׳” (ID)
+type AppMode = 'customer' | 'business' | 'staff';
+
+function computeDefaultMode(
+  businesses: Array<{ staffRole: 'owner' | 'manager' | 'staff' }>,
+  preferredMode: AppMode | undefined
+): AppMode {
+  if (preferredMode) {
+    if (preferredMode === 'customer') return 'customer';
+    if (preferredMode === 'business') {
+      const canBusiness = businesses.some(
+        (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+      );
+      if (canBusiness) return 'business';
+    }
+    if (preferredMode === 'staff') {
+      if (businesses.length > 0) return 'staff';
+    }
+  }
+
+  const hasOwnerOrManager = businesses.some(
+    (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+  );
+  const hasAnyStaff = businesses.length > 0;
+
+  if (hasOwnerOrManager) return 'business';
+  if (hasAnyStaff) return 'staff';
+  return 'customer';
+}
+
+export const getSessionContext = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) return null;
+
+    const staffEntries = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_userId', (q: any) => q.eq('userId', user._id))
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .collect();
+
+    const businesses = (
+      await Promise.all(
+        staffEntries.map(async (staff) => {
+          const biz = await ctx.db.get(staff.businessId);
+          if (!biz || !biz.isActive) return null;
+          return {
+            id: biz._id,
+            name: biz.name,
+            staffRole: staff.staffRole,
+          };
+        })
+      )
+    ).filter((b): b is NonNullable<typeof b> => b !== null);
+
+    const pendingInvites = user.email
+      ? (
+          await Promise.all(
+            (
+              await ctx.db
+                .query('staffInvites')
+                .withIndex('by_invitedEmail', (q: any) =>
+                  q.eq('invitedEmail', user.email!)
+                )
+                .filter((q: any) => q.eq(q.field('status'), 'pending'))
+                .collect()
+            ).map(async (invite) => {
+              if (invite.expiresAt < Date.now()) return null;
+              const biz = await ctx.db.get(invite.businessId);
+              if (!biz || !biz.isActive) return null;
+              return {
+                inviteId: invite._id,
+                businessId: biz._id,
+                businessName: biz.name,
+                inviteCode: invite.inviteCode,
+              };
+            })
+          )
+        ).filter((i): i is NonNullable<typeof i> => i !== null)
+      : [];
+
+    const roles = {
+      owner: businesses.some((b) => b.staffRole === 'owner'),
+      manager: businesses.some((b) => b.staffRole === 'manager'),
+      staff: businesses.length > 0,
+      customer: true,
+    };
+
+    const defaultMode = computeDefaultMode(
+      businesses,
+      user.preferredMode as AppMode | undefined
+    );
+
+    return {
+      user: {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+        preferredMode: user.preferredMode as AppMode | undefined,
+        userType: user.userType,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionStatus: user.subscriptionStatus,
+        needsNameCapture: user.needsNameCapture,
+        postAuthOnboardingRequired: user.postAuthOnboardingRequired,
+        isActive: user.isActive,
+      },
+      isAdmin: user.isAdmin === true,
+      roles,
+      businesses,
+      pendingInvites,
+      defaultMode,
+      preferredMode: (user.preferredMode as AppMode) ?? null,
+    };
+  },
+});
+
+export const setPreferredMode = mutation({
+  args: {
+    mode: v.union(
+      v.literal('customer'),
+      v.literal('business'),
+      v.literal('staff')
+    ),
+  },
+  handler: async (ctx, { mode }) => {
+    const user = await requireCurrentUser(ctx);
+    await ctx.db.patch(user._id, {
+      preferredMode: mode,
+      updatedAt: Date.now(),
+    });
+    return user._id;
+  },
+});
+
 export const getById = query({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
@@ -503,25 +656,6 @@ export const updateSubscriptionPlan = mutation({
 });
 
 // ׳׳—׳™׳§׳× ׳׳©׳×׳׳© (׳₪׳¢׳•׳׳” ׳׳׳ ׳”׳׳™׳ ׳׳• ׳׳׳©׳×׳׳© ׳¢׳¦׳׳• - ׳›׳׳ ׳׳™׳•׳©׳ ׳›׳׳—׳™׳§׳” ׳₪׳™׳–׳™׳×)
-export const setMyRole = mutation({
-  args: {
-    role: v.union(
-      v.literal('customer'),
-      v.literal('merchant'),
-      v.literal('staff'),
-      v.literal('admin')
-    ),
-  },
-  handler: async (ctx, { role }) => {
-    const user = await requireCurrentUser(ctx);
-    await ctx.db.patch(user._id, {
-      role,
-      updatedAt: Date.now(),
-    });
-    return user._id;
-  },
-});
-
 export const remove = mutation({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {

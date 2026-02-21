@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-export type AppMode = 'customer' | 'business';
+export type AppMode = 'customer' | 'business' | 'staff';
 
 type AppModeContextValue = {
   appMode: AppMode;
@@ -32,7 +32,11 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const stored = await SecureStore.getItemAsync(STORAGE_KEY);
-        if (stored === 'customer' || stored === 'business') {
+        if (
+          stored === 'customer' ||
+          stored === 'business' ||
+          stored === 'staff'
+        ) {
           if (isMounted) {
             setAppModeState(stored);
             setHasSelectedMode(true);

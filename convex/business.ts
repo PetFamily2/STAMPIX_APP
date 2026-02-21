@@ -1,8 +1,16 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { requireActorIsStaffForBusiness, requireCurrentUser } from './guards';
-import { generateJoinCode, generatePublicId } from './lib/ids';
+import {
+  requireActorIsBusinessOwner,
+  requireActorIsStaffForBusiness,
+  requireCurrentUser,
+} from './guards';
+import {
+  generateInviteCode,
+  generateJoinCode,
+  generatePublicId,
+} from './lib/ids';
 
 export interface BusinessCreationInput {
   ownerUserId: Id<'users'>;
@@ -17,7 +25,7 @@ async function ensureBusinessStaffRecord(
   ctx: any,
   businessId: Id<'businesses'>,
   userId: Id<'users'>,
-  staffRole: 'owner' | 'staff',
+  staffRole: 'owner' | 'manager' | 'staff',
   now?: number
 ) {
   const timestamp = now ?? Date.now();
@@ -122,10 +130,6 @@ export async function createBusinessForOwner(
   });
 
   await ensureBusinessOwnerStaff(ctx, businessId, input.ownerUserId, now);
-  await ctx.db.patch(input.ownerUserId, {
-    role: 'merchant',
-    updatedAt: now,
-  });
   return { businessId, businessPublicId, joinCode };
 }
 
@@ -174,7 +178,7 @@ export const createBusiness = mutation({
 type BusinessStaffView = {
   staffId: Id<'businessStaff'>;
   userId: Id<'users'>;
-  staffRole: 'owner' | 'staff';
+  staffRole: 'owner' | 'manager' | 'staff';
   isActive: boolean;
   createdAt: number;
   updatedAt: number | null;
@@ -200,8 +204,8 @@ export const listBusinessStaff = query({
       .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect();
 
-    const populated = await Promise.all(
-      staffRecords.map(async (record) => {
+    const populated: Array<BusinessStaffView | null> = await Promise.all(
+      staffRecords.map(async (record): Promise<BusinessStaffView | null> => {
         const user = await ctx.db.get(record.userId);
         if (!user || user.isActive !== true) {
           return null;
@@ -217,7 +221,10 @@ export const listBusinessStaff = query({
           updatedAt: record.updatedAt ?? null,
           displayName,
           email: user.email ?? null,
-          role: user.role ?? null,
+          role:
+            record.staffRole === 'owner' || record.staffRole === 'manager'
+              ? 'merchant'
+              : 'staff',
         };
       })
     );
@@ -232,53 +239,146 @@ export const listBusinessStaff = query({
   },
 });
 
+/**
+ * Generate a unique invite code with retry on collision.
+ */
+async function generateUniqueInviteCode(
+  ctx: any,
+  maxRetries = 5
+): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const candidate = generateInviteCode(8);
+    const existing = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_inviteCode', (q: any) => q.eq('inviteCode', candidate))
+      .first();
+    if (!existing) return candidate;
+  }
+  throw new Error('FAILED_TO_GENERATE_INVITE_CODE');
+}
+
 export const inviteBusinessStaff = mutation({
   args: {
     businessId: v.id('businesses'),
     email: v.string(),
   },
   handler: async (ctx, { businessId, email }) => {
+    const actor = await requireActorIsBusinessOwner(ctx, businessId);
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
       throw new Error('EMAIL_REQUIRED');
     }
 
-    const { actor, staffRole } = await requireActorIsStaffForBusiness(
-      ctx,
-      businessId
-    );
-    if (staffRole !== 'owner') {
-      throw new Error('NOT_AUTHORIZED');
+    const existing = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_invitedEmail', (q: any) =>
+        q.eq('invitedEmail', normalizedEmail)
+      )
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('businessId'), businessId),
+          q.eq(q.field('status'), 'pending')
+        )
+      )
+      .first();
+
+    if (existing && existing.expiresAt >= Date.now()) {
+      return { inviteCode: existing.inviteCode, alreadyPending: true };
     }
 
-    const user = await ctx.db
+    const targetUser = await ctx.db
       .query('users')
       .withIndex('by_email', (q: any) => q.eq('email', normalizedEmail))
-      .unique();
+      .first();
 
-    if (!user || user.isActive !== true) {
-      throw new Error('USER_NOT_FOUND');
+    if (targetUser && String(targetUser._id) === String(actor._id)) {
+      throw new Error('CANNOT_INVITE_SELF');
     }
 
-    if (String(user._id) === String(actor._id)) {
-      throw new Error('CANNOT_INVITE_SELF');
+    if (targetUser && targetUser.isActive) {
+      const alreadyStaff = await ctx.db
+        .query('businessStaff')
+        .withIndex('by_businessId_userId', (q: any) =>
+          q.eq('businessId', businessId).eq('userId', targetUser._id)
+        )
+        .first();
+      if (alreadyStaff?.isActive) {
+        throw new Error('ALREADY_STAFF');
+      }
+    }
+
+    const inviteCode = await generateUniqueInviteCode(ctx);
+    const now = Date.now();
+
+    await ctx.db.insert('staffInvites', {
+      businessId,
+      invitedEmail: normalizedEmail,
+      invitedUserId: targetUser?._id,
+      invitedByUserId: actor._id,
+      inviteCode,
+      status: 'pending',
+      expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+      createdAt: now,
+    });
+
+    return { inviteCode, alreadyPending: false };
+  },
+});
+
+export const acceptStaffInvite = mutation({
+  args: {
+    inviteCode: v.string(),
+  },
+  handler: async (ctx, { inviteCode }) => {
+    const user = await requireCurrentUser(ctx);
+    const now = Date.now();
+
+    const invite = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_inviteCode', (q: any) =>
+        q.eq('inviteCode', inviteCode.trim())
+      )
+      .first();
+
+    if (!invite) throw new Error('INVITE_NOT_FOUND');
+    if (invite.status !== 'pending') throw new Error('INVITE_NOT_PENDING');
+    if (invite.expiresAt < now) {
+      await ctx.db.patch(invite._id, { status: 'expired' });
+      throw new Error('INVITE_EXPIRED');
+    }
+
+    if (
+      invite.invitedEmail &&
+      user.email?.toLowerCase() !== invite.invitedEmail.toLowerCase()
+    ) {
+      throw new Error('EMAIL_MISMATCH');
     }
 
     const staffId = await ensureBusinessStaffRecord(
       ctx,
-      businessId,
+      invite.businessId,
       user._id,
-      'staff'
+      'staff',
+      now
     );
 
-    const desiredRole = user.role === 'merchant' ? 'merchant' : 'staff';
-    if (user.role !== desiredRole) {
+    await ctx.db.patch(invite._id, {
+      status: 'accepted',
+      invitedUserId: user._id,
+      acceptedAt: now,
+    });
+
+    const currentUser = await ctx.db.get(user._id);
+    if (
+      currentUser &&
+      (!currentUser.preferredMode || currentUser.preferredMode === 'customer')
+    ) {
       await ctx.db.patch(user._id, {
-        role: desiredRole,
-        updatedAt: Date.now(),
+        preferredMode: 'staff',
+        updatedAt: now,
       });
     }
 
-    return { staffId, userId: user._id };
+    return { staffId, businessId: invite.businessId };
   },
 });

@@ -6,7 +6,7 @@ export default {
     {
       // כתובת האתר של Convex (נלקחת ממשתני הסביבה)
       // משמשת לאימות דומיין וקישור ל-Backend
-      domain: process.env.CONVEX_SITE_URL,
+      domain: process.env.CONVEX_SITE_URL ?? process.env.SITE_URL,
       applicationID: 'convex',
     },
   ],

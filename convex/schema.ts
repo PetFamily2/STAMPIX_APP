@@ -47,6 +47,10 @@ export default defineSchema({
         v.literal('admin')
       )
     ),
+    preferredMode: v.optional(
+      v.union(v.literal('customer'), v.literal('business'), v.literal('staff'))
+    ),
+    isAdmin: v.optional(v.boolean()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -93,7 +97,11 @@ export default defineSchema({
   businessStaff: defineTable({
     businessId: v.id('businesses'),
     userId: v.id('users'),
-    staffRole: v.union(v.literal('owner'), v.literal('staff')),
+    staffRole: v.union(
+      v.literal('owner'),
+      v.literal('manager'),
+      v.literal('staff')
+    ),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
@@ -226,4 +234,27 @@ export default defineSchema({
     lastUsedAt: v.optional(v.number()),
     createdAt: v.number(),
   }).index('by_clientId', ['clientId']),
+
+  staffInvites: defineTable({
+    businessId: v.id('businesses'),
+    invitedEmail: v.string(),
+    invitedUserId: v.optional(v.id('users')),
+    invitedByUserId: v.id('users'),
+    inviteCode: v.string(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('accepted'),
+      v.literal('expired'),
+      v.literal('cancelled')
+    ),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+  })
+    .index('by_inviteCode', ['inviteCode'])
+    .index('by_businessId', ['businessId'])
+    .index('by_invitedEmail', ['invitedEmail'])
+    .index('by_invitedUserId', ['invitedUserId'])
+    .index('by_invitedByUserId', ['invitedByUserId'])
+    .index('by_status', ['status']),
 });

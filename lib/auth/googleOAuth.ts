@@ -1,11 +1,11 @@
 import type { ConvexAuthActionsContext } from '@convex-dev/auth/react';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import { getConvexUrl } from '@/utils/convexConfig';
-
-const SAFE_AUTH_REDIRECT_PATH = '/';
+const SAFE_AUTH_REDIRECT_PATH = '/oauth-callback';
 
 type OAuthProvider = 'google' | 'apple';
+export type OAuthPreferredRole = 'business' | 'customer';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,18 +15,28 @@ function extractCodeFromCallbackUrl(callbackUrl: string): string | null {
   return code && code.length > 0 ? code : null;
 }
 
-function getSafeRedirectUrl() {
-  return new URL(SAFE_AUTH_REDIRECT_PATH, getConvexUrl()).toString();
+function getSafeRedirectUrl(
+  provider: OAuthProvider,
+  role?: OAuthPreferredRole | null
+) {
+  return Linking.createURL(SAFE_AUTH_REDIRECT_PATH, {
+    queryParams: {
+      provider,
+      role: role ?? undefined,
+    },
+  });
 }
 
 export type OAuthSignInResult = 'success' | 'cancelled';
 
 async function signInWithOAuthProvider(
   signIn: ConvexAuthActionsContext['signIn'],
-  provider: OAuthProvider
+  provider: OAuthProvider,
+  role?: OAuthPreferredRole | null
 ): Promise<OAuthSignInResult> {
+  const callbackUrl = getSafeRedirectUrl(provider, role);
   const started = await signIn(provider, {
-    redirectTo: SAFE_AUTH_REDIRECT_PATH,
+    redirectTo: callbackUrl,
   });
   if (!started.redirect) {
     if (started.signingIn) {
@@ -35,7 +45,6 @@ async function signInWithOAuthProvider(
     throw new Error(`${provider.toUpperCase()}_REDIRECT_MISSING`);
   }
 
-  const callbackUrl = getSafeRedirectUrl();
   const session = await WebBrowser.openAuthSessionAsync(
     started.redirect.toString(),
     callbackUrl
@@ -59,13 +68,15 @@ async function signInWithOAuthProvider(
 }
 
 export function signInWithGoogle(
-  signIn: ConvexAuthActionsContext['signIn']
+  signIn: ConvexAuthActionsContext['signIn'],
+  role?: OAuthPreferredRole | null
 ): Promise<OAuthSignInResult> {
-  return signInWithOAuthProvider(signIn, 'google');
+  return signInWithOAuthProvider(signIn, 'google', role);
 }
 
 export function signInWithApple(
-  signIn: ConvexAuthActionsContext['signIn']
+  signIn: ConvexAuthActionsContext['signIn'],
+  role?: OAuthPreferredRole | null
 ): Promise<OAuthSignInResult> {
-  return signInWithOAuthProvider(signIn, 'apple');
+  return signInWithOAuthProvider(signIn, 'apple', role);
 }

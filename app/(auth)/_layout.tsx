@@ -33,8 +33,13 @@ export default function AuthRoutesLayout() {
   const isOnboardingRoute =
     segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
     segmentStrings.includes('name-capture');
+  const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
   const isAllowedForAuthenticated =
-    isPaywallRoute || isPreviewMode || isFlowMapRoute || isOnboardingRoute;
+    isPaywallRoute ||
+    isPreviewMode ||
+    isFlowMapRoute ||
+    isOnboardingRoute ||
+    isOAuthCallbackRoute;
   const alreadyInTarget =
     pathname === AUTH_REDIRECT_TARGET ||
     pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);

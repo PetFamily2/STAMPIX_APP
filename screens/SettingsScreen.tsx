@@ -20,6 +20,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { useAppMode } from '@/contexts/AppModeContext';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { clearOnboardingSessionId } from '@/lib/onboarding/session';
@@ -27,14 +28,10 @@ import { clearOnboardingSessionId } from '@/lib/onboarding/session';
 const TEXT = {
   roleBusiness: 'בעל עסק',
   roleCustomer: 'לקוח',
+  roleStaff: 'עובד',
   roleHint: 'מצב זה משנה את תפריט ההטבות',
   title: 'פרופיל והגדרות',
   subtitle: 'ניהול חשבון, תמיכה ומסמכים',
-  dev: 'DEV',
-  devBusinessTitle: 'מצב עסק',
-  devBusinessSubtitle: 'מעבר למסך סורק עסק',
-  devCustomerTitle: 'מצב לקוח',
-  devCustomerSubtitle: 'חזרה לפרופיל לקוח',
   sectionGeneral: 'כללי',
   notificationsTitle: 'התראות',
   notificationsSubtitle: 'ניהול הרשאות והתראות מהעסקים',
@@ -150,61 +147,46 @@ function Row({
   );
 }
 
+type AppModeOption = 'customer' | 'business' | 'staff';
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const setMyRole = useMutation(api.users.setMyRole);
   const deleteMyAccountHard = useMutation(api.users.deleteMyAccountHard);
-  const [roleBusy, setRoleBusy] = useState(false);
+  const setPreferredMode = useMutation(api.users.setPreferredMode);
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
+  const sessionContext = useSessionContext();
   const [appModeBusy, setAppModeBusy] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const { signOut } = useAuthActions();
-  const isActionBusy = roleBusy || deleteBusy;
+  const isActionBusy = appModeBusy || deleteBusy;
   const isDeleteConfirmationValid =
     deleteConfirmationText.trim().toUpperCase() === 'DELETE';
   const isDeleteFinalDisabled = deleteBusy || !isDeleteConfirmationValid;
-  const isDevBuild = process.env.NODE_ENV !== 'production';
 
-  const handleAppModeChange = async (nextMode: 'customer' | 'business') => {
+  const bizList = sessionContext?.businesses ?? [];
+  const hasOwnerOrManager = bizList.some(
+    (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+  );
+  const hasAnyBizAccess = bizList.length > 0;
+
+  const handleAppModeChange = async (nextMode: AppModeOption) => {
     if (isAppModeLoading || appModeBusy || isActionBusy) {
       return;
     }
     if (nextMode === appMode) {
       return;
     }
+    if (nextMode === 'business' && !hasOwnerOrManager) return;
+    if (nextMode === 'staff' && !hasAnyBizAccess) return;
     try {
       setAppModeBusy(true);
       await setAppMode(nextMode);
+      await setPreferredMode({ mode: nextMode });
     } finally {
       setAppModeBusy(false);
-    }
-  };
-
-  const handleSwitchToBusiness = async () => {
-    if (isActionBusy) {
-      return;
-    }
-    try {
-      setRoleBusy(true);
-      await setMyRole({ role: 'merchant' });
-      router.push('/(authenticated)/(business)/dashboard');
-    } finally {
-      setRoleBusy(false);
-    }
-  };
-
-  const handleSwitchToCustomer = async () => {
-    if (isActionBusy) {
-      return;
-    }
-    try {
-      setRoleBusy(true);
-      await setMyRole({ role: 'customer' });
-    } finally {
-      setRoleBusy(false);
     }
   };
 
@@ -213,11 +195,10 @@ export default function SettingsScreen() {
       return;
     }
     try {
-      setRoleBusy(true);
       await signOut();
       router.replace('/(auth)/sign-in');
     } finally {
-      setRoleBusy(false);
+      /* logout complete */
     }
   };
 
@@ -305,59 +286,70 @@ export default function SettingsScreen() {
               flexDirection: 'row-reverse',
               alignItems: 'center',
               justifyContent: 'space-between',
+              gap: 8,
             }}
           >
-            <Pressable
-              onPress={() => handleAppModeChange('business')}
-              style={({ pressed }) => ({
-                paddingHorizontal: 8,
-                opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-              })}
-            >
-              <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>
-                {TEXT.roleBusiness}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() =>
-                handleAppModeChange(
-                  appMode === 'customer' ? 'business' : 'customer'
-                )
-              }
-              style={({ pressed }) => ({
-                width: 56,
-                height: 30,
-                borderRadius: 999,
-                backgroundColor: '#D9DEE7',
-                padding: 3,
-                justifyContent: 'center',
-                opacity: pressed || isAppModeLoading || appModeBusy ? 0.8 : 1,
-              })}
-            >
-              <View
-                style={{
-                  width: 24,
-                  height: 24,
+            {hasOwnerOrManager && (
+              <Pressable
+                onPress={() => handleAppModeChange('business')}
+                style={({ pressed }) => ({
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
                   borderRadius: 12,
-                  backgroundColor: '#FFFFFF',
-                  alignSelf: appMode === 'customer' ? 'flex-end' : 'flex-start',
-                  shadowColor: '#000',
-                  shadowOpacity: 0.08,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-              />
-            </Pressable>
-
+                  backgroundColor:
+                    appMode === 'business' ? '#E3E9FF' : 'transparent',
+                  opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontWeight: appMode === 'business' ? '800' : '600',
+                    color: appMode === 'business' ? '#1A2B4A' : '#5B6475',
+                  }}
+                >
+                  {TEXT.roleBusiness}
+                </Text>
+              </Pressable>
+            )}
+            {hasAnyBizAccess && (
+              <Pressable
+                onPress={() => handleAppModeChange('staff')}
+                style={({ pressed }) => ({
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  backgroundColor:
+                    appMode === 'staff' ? '#E3E9FF' : 'transparent',
+                  opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontWeight: appMode === 'staff' ? '800' : '600',
+                    color: appMode === 'staff' ? '#1A2B4A' : '#5B6475',
+                  }}
+                >
+                  {TEXT.roleStaff}
+                </Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={() => handleAppModeChange('customer')}
               style={({ pressed }) => ({
-                paddingHorizontal: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 12,
+                backgroundColor:
+                  appMode === 'customer' ? '#E3E9FF' : 'transparent',
                 opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
               })}
             >
-              <Text style={{ fontWeight: '800', color: '#1A2B4A' }}>
+              <Text
+                style={{
+                  fontWeight: appMode === 'customer' ? '800' : '600',
+                  color: appMode === 'customer' ? '#1A2B4A' : '#5B6475',
+                }}
+              >
                 {TEXT.roleCustomer}
               </Text>
             </Pressable>
@@ -397,35 +389,6 @@ export default function SettingsScreen() {
             {TEXT.subtitle}
           </Text>
         </View>
-
-        {isDevBuild ? (
-          <View style={{ gap: 10 }}>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: '800',
-                color: '#5B6475',
-                textAlign: 'right',
-              }}
-            >
-              {TEXT.dev}
-            </Text>
-            <Row
-              title={TEXT.devBusinessTitle}
-              subtitle={TEXT.devBusinessSubtitle}
-              icon="briefcase-outline"
-              disabled={isActionBusy}
-              onPress={handleSwitchToBusiness}
-            />
-            <Row
-              title={TEXT.devCustomerTitle}
-              subtitle={TEXT.devCustomerSubtitle}
-              icon="person-outline"
-              disabled={isActionBusy}
-              onPress={handleSwitchToCustomer}
-            />
-          </View>
-        ) : null}
 
         <View style={{ gap: 10 }}>
           <Text

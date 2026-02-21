@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
-import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { safeBack } from '@/lib/navigation';
@@ -33,11 +32,13 @@ export default function BusinessTeamScreen() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-  const { user } = useUser();
-  const isOwner = user?.role === 'merchant';
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [selectedBusinessId, setSelectedBusinessId] =
     useState<Id<'businesses'> | null>(null);
+  const selectedBiz = businesses.find(
+    (b) => b.businessId === selectedBusinessId
+  );
+  const isOwner = selectedBiz?.staffRole === 'owner';
 
   useEffect(() => {
     setSelectedBusinessId((current) => {
@@ -93,11 +94,15 @@ export default function BusinessTeamScreen() {
     setInviteSuccess(null);
     setIsInviting(true);
     try {
-      await inviteStaff({
+      const result = await inviteStaff({
         businessId: selectedBusinessId,
         email: inviteEmail.trim(),
       });
-      setInviteSuccess('ההזמנה נשלחה בהצלחה!');
+      const msg =
+        result.alreadyPending === true
+          ? `הזמנה ממתינה כבר. קוד: ${result.inviteCode}`
+          : `ההזמנה נוצרה! שתף את הקוד עם העובד: ${result.inviteCode}`;
+      setInviteSuccess(msg);
       setInviteEmail('');
     } catch (error: unknown) {
       setInviteError((error as Error).message ?? 'אירעה שגיאה בהזמנה');

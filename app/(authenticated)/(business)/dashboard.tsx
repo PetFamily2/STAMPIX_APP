@@ -20,7 +20,6 @@ import {
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
-import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import {
@@ -69,15 +68,17 @@ export default function MerchantDashboardScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { subscriptionPlan } = useRevenueCat();
-  const { user } = useUser();
   const hasAccess = canAccessAdvancedFeatures(subscriptionPlan);
   const planLabel = SUBSCRIPTION_PLAN_LABELS[subscriptionPlan];
   const upgradeToPro = () => router.push('/(auth)/paywall');
-  const isOwner = user?.role === 'merchant';
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [selectedBusinessId, setSelectedBusinessId] =
     useState<Id<'businesses'> | null>(null);
+  const selectedBiz = businesses.find(
+    (b) => b.businessId === selectedBusinessId
+  );
+  const isOwner = selectedBiz?.staffRole === 'owner';
 
   useEffect(() => {
     setSelectedBusinessId((current) => {

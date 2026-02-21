@@ -384,6 +384,7 @@ async function linkIdentityToUser(
     subscriptionProductId: undefined,
     subscriptionUpdatedAt: input.now,
     role: defaultRole,
+    preferredMode: 'customer',
     isActive: true,
     createdAt: input.now,
     updatedAt: input.now,
@@ -394,30 +395,48 @@ async function linkIdentityToUser(
 }
 
 function resolveAuthRedirectUrl(redirectTo: string): string {
-  const siteUrl = process.env.CONVEX_SITE_URL;
-  if (!siteUrl) {
-    throw new Error('CONVEX_SITE_URL is not configured');
+  const isAppDeepLink = AUTH_REDIRECT_APP_PREFIXES.some((prefix) =>
+    redirectTo.startsWith(prefix)
+  );
+  if (isAppDeepLink) {
+    return redirectTo;
   }
+
+  const siteUrl = process.env.CONVEX_SITE_URL ?? process.env.SITE_URL;
+  if (!siteUrl) {
+    throw new Error(
+      'Missing auth site URL. Set CONVEX_SITE_URL (recommended) or SITE_URL.'
+    );
+  }
+
+  const normalizedSiteUrl = siteUrl.trim();
+  const normalizedSiteUrlNoSlash = normalizedSiteUrl.endsWith('://')
+    ? normalizedSiteUrl
+    : normalizedSiteUrl.replace(/\/+$/, '');
 
   if (redirectTo.startsWith('?') || redirectTo.startsWith('/')) {
-    return `${siteUrl}${redirectTo}`;
+    if (redirectTo.startsWith('?')) {
+      return `${normalizedSiteUrlNoSlash}/${redirectTo}`;
+    }
+    return `${normalizedSiteUrlNoSlash}${redirectTo}`;
   }
 
-  if (redirectTo.startsWith(siteUrl)) {
-    const charAfterBase = redirectTo[siteUrl.length];
+  if (redirectTo.startsWith(normalizedSiteUrl)) {
+    const charAfterBase = redirectTo[normalizedSiteUrl.length];
     if (!charAfterBase || charAfterBase === '/' || charAfterBase === '?') {
       return redirectTo;
     }
   }
 
-  if (
-    AUTH_REDIRECT_APP_PREFIXES.some((prefix) => redirectTo.startsWith(prefix))
-  ) {
-    return redirectTo;
+  if (redirectTo.startsWith(normalizedSiteUrlNoSlash)) {
+    const charAfterBase = redirectTo[normalizedSiteUrlNoSlash.length];
+    if (!charAfterBase || charAfterBase === '/' || charAfterBase === '?') {
+      return redirectTo;
+    }
   }
 
   throw new Error(
-    `Invalid redirectTo URL: ${redirectTo}. Must be relative, on CONVEX_SITE_URL, or app deep link.`
+    `Invalid redirectTo URL: ${redirectTo}. Must be relative, on CONVEX_SITE_URL/SITE_URL, or app deep link.`
   );
 }
 

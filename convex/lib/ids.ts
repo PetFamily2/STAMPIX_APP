@@ -37,3 +37,11 @@ export function generatePublicId(size = 12): string {
 export function generateJoinCode(size = 8): string {
   return generate(JOIN_CODE_ALPHABET, size);
 }
+
+/**
+ * Generate an invite code (default 8 chars, uppercase, no ambiguous chars).
+ * Used for staff invite flow.
+ */
+export function generateInviteCode(size = 8): string {
+  return generate(JOIN_CODE_ALPHABET, size);
+}

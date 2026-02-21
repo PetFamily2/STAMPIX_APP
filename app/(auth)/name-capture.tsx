@@ -144,11 +144,6 @@ export default function NameCaptureScreen() {
   );
 
   const navigateHome = () => {
-    const role = user?.role ?? 'customer';
-    if (role === 'merchant' || role === 'staff' || role === 'admin') {
-      router.replace('/(authenticated)/(business)/dashboard');
-      return;
-    }
     router.replace('/(authenticated)/(customer)/wallet');
   };
 

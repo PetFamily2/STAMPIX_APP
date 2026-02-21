@@ -23,7 +23,7 @@ type BusinessForStaff = {
   joinCode: string | null;
   logoUrl: string | null;
   colors: unknown | null;
-  staffRole: 'owner' | 'staff';
+  staffRole: 'owner' | 'manager' | 'staff';
 };
 
 export const myBusinesses = query({
@@ -40,8 +40,8 @@ export const myBusinesses = query({
       .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect();
 
-    const businesses = await Promise.all<BusinessForStaff | null>(
-      staffEntries.map(async (staff) => {
+    const businesses: Array<BusinessForStaff | null> = await Promise.all(
+      staffEntries.map(async (staff): Promise<BusinessForStaff | null> => {
         const business = await ctx.db.get(staff.businessId);
         if (!business || business.isActive !== true) {
           return null;

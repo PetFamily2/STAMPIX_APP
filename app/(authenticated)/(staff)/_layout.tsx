@@ -7,23 +7,22 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 
 const TEXT = {
-  dashboard: '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
   scanner: '\u05e1\u05d5\u05e8\u05e7',
-  team: '\u05e6\u05d5\u05d5\u05ea',
-  analytics: '\u05d0\u05e0\u05dc\u05d9\u05d8\u05d9\u05e7\u05d4',
   settings: '\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
 };
 
-export default function BusinessTabsLayout() {
+export default function StaffTabsLayout() {
   const insets = useSafeAreaInsets();
-  const sessionContext = useQuery(api.users.getSessionContext);
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const sessionContext = useQuery(api.users.getSessionContext);
+  const isLoading = sessionContext === undefined;
+  const hasBizAccess = (sessionContext?.businesses?.length ?? 0) > 0;
 
-  if (sessionContext === undefined) {
+  if (isLoading) {
     return <FullScreenLoading />;
   }
 
@@ -31,16 +30,7 @@ export default function BusinessTabsLayout() {
     return <Redirect href="/(auth)/sign-up" />;
   }
 
-  const bizList = sessionContext?.businesses ?? [];
-  const hasOwnerOrManager = bizList.some(
-    (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
-  );
-  const hasAnyBizAccess = bizList.length > 0;
-
-  if (!isPreviewMode && !hasOwnerOrManager) {
-    if (hasAnyBizAccess) {
-      return <Redirect href="/(authenticated)/(staff)/scanner" />;
-    }
+  if (!isPreviewMode && !hasBizAccess) {
     return <Redirect href="/(authenticated)/(customer)/wallet" />;
   }
 
@@ -70,38 +60,11 @@ export default function BusinessTabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: TEXT.dashboard,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="scanner"
         options={{
           title: TEXT.scanner,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="qr-code-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="team"
-        options={{
-          title: TEXT.team,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: TEXT.analytics,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
           ),
         }}
       />
