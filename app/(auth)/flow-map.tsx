@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type FlowTone = 'entry' | 'client' | 'business' | 'admin' | 'neutral';
@@ -85,12 +86,6 @@ const START_CORE_FLOW: FlowItem[] = [
     tone: 'entry',
   },
   {
-    title: 'Role Selection',
-    href: '/(auth)/onboarding-client-role',
-    icon: 'git-branch-outline',
-    tone: 'entry',
-  },
-  {
     title: 'Sign Up',
     href: '/(auth)/sign-up',
     icon: 'person-add-outline',
@@ -114,12 +109,6 @@ const EMAIL_ENTRY_FLOW: FlowItem[] = [
 ];
 
 const EMAIL_LEGACY_FLOW: FlowItem[] = [
-  {
-    title: 'Client Details',
-    href: '/(auth)/onboarding-client-details',
-    icon: 'person-outline',
-    tone: 'neutral',
-  },
   {
     title: 'Client OTP',
     href: '/(auth)/onboarding-client-otp',
@@ -175,45 +164,51 @@ const CUSTOMER_SIGNUP_FLOW: FlowItem[] = [
 
 const BUSINESS_SIGNUP_FLOW: FlowItem[] = [
   {
-    title: 'Business Role',
-    href: '/(auth)/onboarding-business-role',
+    title: 'Business Intro',
+    href: BUSINESS_ONBOARDING_ROUTES.role,
     icon: 'briefcase-outline',
     tone: 'business',
   },
   {
     title: 'Business Discovery',
-    href: '/(auth)/onboarding-business-discovery',
+    href: BUSINESS_ONBOARDING_ROUTES.discovery,
     icon: 'search-outline',
     tone: 'business',
   },
   {
     title: 'Primary Reason',
-    href: '/(auth)/onboarding-business-reason',
+    href: BUSINESS_ONBOARDING_ROUTES.reason,
     icon: 'help-circle-outline',
     tone: 'business',
   },
   {
     title: 'Business Name',
-    href: '/(auth)/onboarding-business-name',
+    href: BUSINESS_ONBOARDING_ROUTES.name,
     icon: 'storefront-outline',
     tone: 'business',
   },
   {
-    title: 'Business Usage Area',
-    href: '/(auth)/onboarding-business-usage-area',
+    title: 'Usage Area',
+    href: BUSINESS_ONBOARDING_ROUTES.usageArea,
     icon: 'map-outline',
     tone: 'business',
   },
   {
-    title: 'Paywall',
-    href: '/(auth)/paywall',
-    icon: 'card-outline',
+    title: 'Create Business',
+    href: BUSINESS_ONBOARDING_ROUTES.createBusiness,
+    icon: 'business-outline',
     tone: 'business',
   },
   {
-    title: 'Auth Method',
-    href: '/(auth)/sign-up',
-    icon: 'log-in-outline',
+    title: 'Create Program',
+    href: BUSINESS_ONBOARDING_ROUTES.createProgram,
+    icon: 'construct-outline',
+    tone: 'business',
+  },
+  {
+    title: 'Preview Card',
+    href: BUSINESS_ONBOARDING_ROUTES.previewCard,
+    icon: 'eye-outline',
     tone: 'business',
   },
   {
@@ -359,19 +354,19 @@ const MAIN_ADMIN_FLOW: FlowItem[] = [
   },
   {
     title: 'Create Business',
-    href: '/(authenticated)/merchant/onboarding/create-business',
+    href: BUSINESS_ONBOARDING_ROUTES.createBusiness,
     icon: 'business-outline',
     tone: 'admin',
   },
   {
     title: 'Create Program',
-    href: '/(authenticated)/merchant/onboarding/create-program',
+    href: BUSINESS_ONBOARDING_ROUTES.createProgram,
     icon: 'construct-outline',
     tone: 'admin',
   },
   {
     title: 'Preview Card',
-    href: '/(authenticated)/merchant/onboarding/preview-card',
+    href: BUSINESS_ONBOARDING_ROUTES.previewCard,
     icon: 'eye-outline',
     tone: 'admin',
   },
@@ -414,13 +409,11 @@ const KNOWN_APP_ROUTE_HINTS = [
   '/(auth)/onboarding-business-reason',
   '/(auth)/onboarding-business-role',
   '/(auth)/onboarding-business-usage-area',
-  '/(auth)/onboarding-client-details',
   '/(auth)/onboarding-client-fit',
   '/(auth)/onboarding-client-frequency',
   '/(auth)/onboarding-client-interests',
   '/(auth)/onboarding-client-otp',
   '/(auth)/onboarding-client-return-motivation',
-  '/(auth)/onboarding-client-role',
   '/(auth)/onboarding-client-usage-area',
   '/(auth)/sign-up',
   '/(auth)/sign-up-email',
@@ -449,9 +442,9 @@ const KNOWN_APP_ROUTE_HINTS = [
   '/(authenticated)/merchant/store-settings',
   '/(authenticated)/merchant/onboarding',
   '/(authenticated)/merchant/onboarding/index',
-  '/(authenticated)/merchant/onboarding/create-business',
-  '/(authenticated)/merchant/onboarding/create-program',
-  '/(authenticated)/merchant/onboarding/preview-card',
+  BUSINESS_ONBOARDING_ROUTES.createBusiness,
+  BUSINESS_ONBOARDING_ROUTES.createProgram,
+  BUSINESS_ONBOARDING_ROUTES.previewCard,
 ];
 
 const MAPPED_FLOW_HREFS = new Set(

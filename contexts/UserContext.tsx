@@ -13,12 +13,12 @@ export type SessionContext = {
     lastName?: string;
     fullName?: string;
     avatarUrl?: string;
-    preferredMode?: 'customer' | 'business' | 'staff';
+    customerOnboardedAt?: number;
+    businessOnboardedAt?: number;
+    activeMode?: 'customer' | 'business';
     userType?: 'free' | 'paid';
     subscriptionPlan?: 'free' | 'pro' | 'unlimited';
     subscriptionStatus?: 'active' | 'inactive' | 'cancelled';
-    needsNameCapture?: boolean;
-    postAuthOnboardingRequired?: boolean;
     isActive: boolean;
   };
   isAdmin: boolean;
@@ -39,8 +39,7 @@ export type SessionContext = {
     businessName: string;
     inviteCode: string;
   }>;
-  defaultMode: 'customer' | 'business' | 'staff';
-  preferredMode: 'customer' | 'business' | 'staff' | null;
+  activeMode: 'customer' | 'business';
 };
 
 type UserContextValue = {

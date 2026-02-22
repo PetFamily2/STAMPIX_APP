@@ -1,4 +1,4 @@
-﻿import { useAuthActions } from '@convex-dev/auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -38,10 +38,9 @@ function isValidEmail(value: string) {
 export default function SignUpEmailScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
-  const { preview, map, role } = useLocalSearchParams<{
+  const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
-    role?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const [email, setEmail] = useState('');
@@ -51,8 +50,7 @@ export default function SignUpEmailScreen() {
   const canSubmit = useMemo(() => isValidEmail(email), [email]);
 
   const handleBack = () => {
-    const query = role ? `?role=${encodeURIComponent(role)}` : '';
-    safeBack(`/(auth)/sign-up${query}`);
+    safeBack('/(auth)/sign-up');
   };
 
   const mapSendError = (value: unknown) => {
@@ -90,9 +88,8 @@ export default function SignUpEmailScreen() {
       await signIn('email', {
         email: normalizedEmail,
       });
-      const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
       router.push(
-        `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}&sent=1${roleQuery}`
+        `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}&sent=1`
       );
     } catch (err: unknown) {
       setError(mapSendError(err));

@@ -91,7 +91,7 @@ export default function ScannerScreen() {
   useEffect(() => {
     if (isPreviewMode) return;
     if (isAppModeLoading) return;
-    if (appMode !== 'business' && appMode !== 'staff') {
+    if (appMode !== 'business') {
       router.replace('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);

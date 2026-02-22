@@ -1,10 +1,9 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { track } from '@/lib/analytics';
 import type {
   AnalyticsEventName,
   OnboardingRole,
 } from '@/lib/analytics/events';
-import { getOnboardingSessionId } from '@/lib/onboarding/session';
 
 type ActivationContext = {
   role: OnboardingRole;
@@ -18,13 +17,9 @@ export async function trackActivationEvent(
   context: ActivationContext,
   props: ActivationProps = {}
 ) {
-  const sessionId = await getOnboardingSessionId();
-  const baseProps = sessionId
-    ? { onboardingSessionId: sessionId, role: context.role }
-    : { userId: context.userId, role: context.role };
-
   track(eventName, {
-    ...baseProps,
+    userId: context.userId,
+    role: context.role,
     ...props,
   });
 }

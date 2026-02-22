@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
@@ -54,7 +54,7 @@ export default function OnboardingClientFitScreen() {
           <BackButton
             onPress={() => safeBack('/(auth)/onboarding-client-usage-area')}
           />
-          <OnboardingProgress total={8} current={6} />
+          <OnboardingProgress total={7} current={3} />
         </View>
 
         <View style={styles.titleContainer}>

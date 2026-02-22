@@ -14,6 +14,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
+import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
   loadingTitle:
@@ -21,10 +22,6 @@ const TEXT = {
   loadingSubtitle:
     '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
 };
-
-function hasCapturedName(user: { firstName?: string; lastName?: string }) {
-  return Boolean(user.firstName?.trim().length && user.lastName?.trim().length);
-}
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -36,12 +33,7 @@ export default function AuthenticatedLayout() {
     camp?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-  const {
-    appMode,
-    setAppMode,
-    hasSelectedMode,
-    isLoading: isAppModeLoading,
-  } = useAppMode();
+  const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
   const user = useQuery(api.users.getCurrentUser, shouldLoadUser ? {} : 'skip');
@@ -61,7 +53,9 @@ export default function AuthenticatedLayout() {
   const isBootstrapDataReady =
     !isLoading &&
     (isPreviewMode || !isAppModeLoading) &&
-    (shouldLoadUser ? user !== undefined : true);
+    (shouldLoadUser
+      ? user !== undefined && sessionContext !== undefined
+      : true);
 
   useEffect(() => {
     if (isPreviewMode || !isAuthenticated || isLoadingPhaseDone) {
@@ -126,7 +120,9 @@ export default function AuthenticatedLayout() {
       !isAuthenticated ||
       isAppModeLoading ||
       isLoading ||
-      !isLoadingPhaseDone
+      !isLoadingPhaseDone ||
+      user === undefined ||
+      sessionContext === undefined
     ) {
       return;
     }
@@ -158,85 +154,76 @@ export default function AuthenticatedLayout() {
     const customerTarget = '/(authenticated)/(customer)/wallet';
     const businessTarget = '/(authenticated)/(business)/dashboard';
     const staffTarget = '/(authenticated)/(staff)/scanner';
+    const merchantOnboardingTarget = BUSINESS_ONBOARDING_ROUTES.role;
     const nameCaptureTarget = '/(auth)/name-capture';
 
+    const customerOnboarded = user?.customerOnboardedAt != null;
+    const businessOnboarded = user?.businessOnboardedAt != null;
+    const activeMode = sessionContext?.activeMode ?? 'customer';
+    const shouldForceBusinessOnboarding =
+      appMode === 'business' && !businessOnboarded;
     const bizList = sessionContext?.businesses ?? [];
     const hasOwnerOrManager = bizList.some(
       (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
     );
     const hasAnyBizAccess = bizList.length > 0;
 
-    if (!hasSelectedMode && sessionContext?.defaultMode) {
-      void setAppMode(sessionContext.defaultMode);
+    void setAppMode(activeMode);
+
+    if (!customerOnboarded) {
+      safeReplace(nameCaptureTarget);
+      return;
     }
 
-    if (user) {
-      const needsNameCapture =
-        user.postAuthOnboardingRequired === true &&
-        (user.needsNameCapture === true || !hasCapturedName(user));
-      if (needsNameCapture) {
-        safeReplace(nameCaptureTarget);
+    if (shouldForceBusinessOnboarding && !inMerchant) {
+      safeReplace(merchantOnboardingTarget);
+      return;
+    }
+
+    if (activeMode === 'business') {
+      if (!hasOwnerOrManager) {
+        if (hasAnyBizAccess) {
+          safeReplace(staffTarget);
+        } else if (!inMerchant) {
+          safeReplace(merchantOnboardingTarget);
+        }
+        return;
+      }
+      if (!businessOnboarded && !inMerchant) {
+        safeReplace(merchantOnboardingTarget);
+        return;
+      }
+      if (inCustomerGroup) {
+        safeReplace(businessTarget);
+        return;
+      }
+      return;
+    }
+
+    if (activeMode === 'customer') {
+      if (inBusinessGroup || inStaffGroup) {
+        safeReplace(customerTarget);
         return;
       }
     }
 
-    if (appMode === 'business' && inCustomerGroup && hasOwnerOrManager) {
-      safeReplace(businessTarget);
-      return;
-    }
-    if (appMode === 'business' && !hasOwnerOrManager) {
-      if (hasAnyBizAccess) {
-        void setAppMode('staff');
-        safeReplace(staffTarget);
-      } else {
-        void setAppMode('customer');
-        safeReplace(customerTarget);
-      }
-      return;
-    }
-    if (appMode === 'staff' && inCustomerGroup && hasAnyBizAccess) {
-      safeReplace(staffTarget);
-      return;
-    }
-    if (appMode === 'staff' && !hasAnyBizAccess) {
-      void setAppMode('customer');
-      safeReplace(customerTarget);
-      return;
-    }
-    if (appMode === 'customer' && inBusinessGroup) {
-      safeReplace(customerTarget);
-      return;
-    }
-    if (appMode === 'customer' && inStaffGroup) {
-      safeReplace(customerTarget);
-      return;
-    }
     if (!inCustomerGroup && !inBusinessGroup && !inStaffGroup && !isFreeRoute) {
-      const target =
-        appMode === 'business' && hasOwnerOrManager
-          ? businessTarget
-          : appMode === 'staff' && hasAnyBizAccess
-            ? staffTarget
-            : customerTarget;
-      safeReplace(target);
+      safeReplace(customerTarget);
     }
   }, [
-    appMode,
-    hasSelectedMode,
-    sessionContext,
-    isAppModeLoading,
     isAuthenticated,
+    isAppModeLoading,
     isLoading,
     isLoadingPhaseDone,
     router,
-    setAppMode,
     segments,
-    isPreviewMode,
+    sessionContext,
     user,
+    appMode,
+    isPreviewMode,
+    setAppMode,
   ]);
 
-  // Save deep link join params before auth redirect so we can complete the
-  // join after auth.
   useEffect(() => {
     if (
       !isAuthenticated &&
@@ -257,7 +244,8 @@ export default function AuthenticatedLayout() {
     !isPreviewMode &&
     (isLoading ||
       isAppModeLoading ||
-      (shouldLoadUser && user === undefined) ||
+      (shouldLoadUser &&
+        (user === undefined || sessionContext === undefined)) ||
       (isAuthenticated && !isLoadingPhaseDone));
 
   if (shouldShowLoadingScreen) {

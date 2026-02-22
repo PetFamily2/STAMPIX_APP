@@ -1,4 +1,4 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, TrendingUp } from 'lucide-react-native';
 import { useCallback } from 'react';
@@ -45,7 +45,7 @@ export default function WelcomeScreen() {
   const handleGetStarted = () => {
     trackContinue();
     completeStep();
-    router.push('/(auth)/onboarding-client-role');
+    router.push('/(auth)/sign-up');
   };
 
   return (

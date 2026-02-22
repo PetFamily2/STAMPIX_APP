@@ -193,7 +193,7 @@ describe('deleteMyAccountHardImpl', () => {
       ],
     };
 
-    const ctx = buildCtx(tables, 'ext_customer');
+    const ctx = buildCtx(tables, 'u_customer');
     const result = await deleteMyAccountHardImpl(ctx);
 
     expect(result.success).toBe(true);
@@ -369,7 +369,7 @@ describe('deleteMyAccountHardImpl', () => {
       emailOtps: [{ _id: 'otp_owner', email: 'owner@example.com' }],
     };
 
-    const ctx = buildCtx(tables, 'ext_owner');
+    const ctx = buildCtx(tables, 'u_owner');
     const result = await deleteMyAccountHardImpl(ctx);
 
     expect(result.success).toBe(true);

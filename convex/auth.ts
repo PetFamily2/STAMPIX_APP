@@ -126,15 +126,6 @@ function joinNameParts(
   return parts.join(' ');
 }
 
-function hasSavedNames(user: any): boolean {
-  return Boolean(
-    typeof user?.firstName === 'string' &&
-      user.firstName.trim().length > 0 &&
-      typeof user?.lastName === 'string' &&
-      user.lastName.trim().length > 0
-  );
-}
-
 function normalizeProviderId(rawProviderId: unknown): IdentityProvider | null {
   if (rawProviderId === 'google') {
     return 'google';
@@ -211,14 +202,7 @@ function resolveAvatarUrl(
   return undefined;
 }
 
-function buildUserMetadataPatch(
-  user: any,
-  input: NormalizedIdentityInput,
-  options: {
-    needsNameCapture: boolean;
-    postAuthOnboardingRequired: boolean;
-  }
-) {
+function buildUserMetadataPatch(user: any, input: NormalizedIdentityInput) {
   const patch: Record<string, unknown> = {};
 
   if (input.email && !normalizeEmail(user?.email)) {
@@ -255,8 +239,6 @@ function buildUserMetadataPatch(
     patch.avatarUrl = input.avatarUrl;
   }
 
-  patch.needsNameCapture = options.needsNameCapture;
-  patch.postAuthOnboardingRequired = options.postAuthOnboardingRequired;
   patch.updatedAt = input.now;
 
   return patch;
@@ -329,13 +311,9 @@ async function linkIdentityToUser(
   if (directIdentity) {
     const linkedUser = await ctx.db.get(directIdentity.userId);
     if (linkedUser) {
-      const userHadNames = hasSavedNames(linkedUser);
       await ctx.db.patch(
         linkedUser._id,
-        buildUserMetadataPatch(linkedUser, input, {
-          needsNameCapture: !userHadNames,
-          postAuthOnboardingRequired: false,
-        })
+        buildUserMetadataPatch(linkedUser, input)
       );
       await upsertIdentityRecord(ctx, input, linkedUser._id);
       return linkedUser._id;
@@ -349,20 +327,15 @@ async function linkIdentityToUser(
     );
 
     if (existingByVerifiedEmail) {
-      const userHadNames = hasSavedNames(existingByVerifiedEmail);
       await upsertIdentityRecord(ctx, input, existingByVerifiedEmail._id);
       await ctx.db.patch(
         existingByVerifiedEmail._id,
-        buildUserMetadataPatch(existingByVerifiedEmail, input, {
-          needsNameCapture: !userHadNames,
-          postAuthOnboardingRequired: false,
-        })
+        buildUserMetadataPatch(existingByVerifiedEmail, input)
       );
       return existingByVerifiedEmail._id;
     }
   }
 
-  const defaultRole = 'customer' as const;
   const firstName = input.firstName;
   const lastName = input.lastName;
   const fullName =
@@ -375,16 +348,15 @@ async function linkIdentityToUser(
     firstName,
     lastName,
     fullName,
-    needsNameCapture: true,
-    postAuthOnboardingRequired: true,
+    customerOnboardedAt: undefined,
+    businessOnboardedAt: undefined,
+    activeMode: 'customer',
     avatarUrl: input.avatarUrl,
     userType: 'free',
     subscriptionPlan: 'free',
     subscriptionStatus: 'inactive',
     subscriptionProductId: undefined,
     subscriptionUpdatedAt: input.now,
-    role: defaultRole,
-    preferredMode: 'customer',
     isActive: true,
     createdAt: input.now,
     updatedAt: input.now,
@@ -485,7 +457,6 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
   if (args.existingUserId) {
     const existingUser = await ctx.db.get(args.existingUserId);
     if (existingUser) {
-      const userHadNames = hasSavedNames(existingUser);
       await upsertIdentityRecord(
         ctx,
         normalizedIdentityInput,
@@ -493,10 +464,7 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
       );
       await ctx.db.patch(
         existingUser._id,
-        buildUserMetadataPatch(existingUser, normalizedIdentityInput, {
-          needsNameCapture: !userHadNames,
-          postAuthOnboardingRequired: false,
-        })
+        buildUserMetadataPatch(existingUser, normalizedIdentityInput)
       );
       return existingUser._id;
     }

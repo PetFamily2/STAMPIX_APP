@@ -11,6 +11,7 @@ import '../global.css';
 import { AppModeProvider } from '@/contexts/AppModeContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
+import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 // אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
@@ -90,7 +91,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />
-      <ConvexAuthProvider client={convex} storage={secureStorage}>
+      <ConvexAuthProvider
+        client={convex}
+        storage={secureStorage}
+        storageNamespace={CONVEX_AUTH_STORAGE_NAMESPACE}
+      >
         <UserCtx.UserProvider>
           <AppModeProvider>
             <RevenueCatProvider>

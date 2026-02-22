@@ -69,7 +69,7 @@ export default function OnboardingInterestsScreen() {
           <BackButton
             onPress={() => safeBack('/(auth)/onboarding-client-otp')}
           />
-          <OnboardingProgress total={8} current={4} />
+          <OnboardingProgress total={7} current={1} />
         </View>
 
         <View style={styles.titleContainer}>

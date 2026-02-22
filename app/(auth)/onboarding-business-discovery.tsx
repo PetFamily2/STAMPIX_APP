@@ -1,11 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import {
+  BUSINESS_ONBOARDING_PROGRESS,
+  BUSINESS_ONBOARDING_ROUTES,
+  BUSINESS_ONBOARDING_TOTAL_STEPS,
+} from '@/lib/onboarding/businessOnboardingFlow';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type DiscoverySourceId =
@@ -13,20 +19,50 @@ type DiscoverySourceId =
   | 'search'
   | 'social'
   | 'tiktok'
-  | 'appStore'
+  | 'app_store'
   | 'other';
+
+const TEXT = {
+  title:
+    '\u05d0\u05d9\u05da \u05d4\u05d2\u05e2\u05ea\u05dd \u05d0\u05dc\u05d9\u05e0\u05d5?',
+  subtitle:
+    '\u05db\u05d3\u05d9 \u05e9\u05e0\u05e9\u05e4\u05e8 \u05d0\u05ea \u05d7\u05d5\u05d5\u05d9\u05d9\u05ea \u05d4\u05d4\u05ea\u05d7\u05dc\u05d4 \u05e9\u05dc\u05db\u05dd.',
+};
 
 const DISCOVERY_SOURCES: Array<{
   id: DiscoverySourceId;
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
-  { id: 'referral', title: 'חבר או בעל עסק אחר', icon: 'people-outline' },
-  { id: 'search', title: 'חיפוש בגוגל', icon: 'search-outline' },
-  { id: 'social', title: 'פייסבוק / אינסטגרם', icon: 'share-social-outline' },
-  { id: 'tiktok', title: 'טיקטוק', icon: 'logo-tiktok' },
-  { id: 'appStore', title: 'חנות האפליקציות', icon: 'apps-outline' },
-  { id: 'other', title: 'אחר', icon: 'ellipsis-horizontal' },
+  {
+    id: 'referral',
+    title:
+      '\u05d4\u05de\u05dc\u05e6\u05d4 \u05de\u05d7\u05d1\u05e8 \u05d0\u05d5 \u05de\u05d1\u05e2\u05dc \u05e2\u05e1\u05e7',
+    icon: 'people-outline',
+  },
+  {
+    id: 'search',
+    title: '\u05d7\u05d9\u05e4\u05d5\u05e9 \u05d1\u05d2\u05d5\u05d2\u05dc',
+    icon: 'search-outline',
+  },
+  {
+    id: 'social',
+    title:
+      '\u05e8\u05e9\u05ea\u05d5\u05ea \u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea',
+    icon: 'share-social-outline',
+  },
+  {
+    id: 'tiktok',
+    title: '\u05d8\u05d9\u05e7\u05d8\u05d5\u05e7',
+    icon: 'logo-tiktok',
+  },
+  {
+    id: 'app_store',
+    title:
+      '\u05d7\u05e0\u05d5\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d5\u05ea',
+    icon: 'apps-outline',
+  },
+  { id: 'other', title: '\u05d0\u05d7\u05e8', icon: 'ellipsis-horizontal' },
 ];
 
 export default function OnboardingBusinessDiscoveryScreen() {
@@ -38,10 +74,13 @@ export default function OnboardingBusinessDiscoveryScreen() {
   });
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue) {
+      return;
+    }
+
     trackContinue();
     completeStep({ discovery_source: selected });
-    safePush('/(auth)/onboarding-business-reason');
+    safePush(BUSINESS_ONBOARDING_ROUTES.reason);
   };
 
   return (
@@ -49,16 +88,17 @@ export default function OnboardingBusinessDiscoveryScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-business-role')}
+            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.role)}
           />
-          <OnboardingProgress total={8} current={3} />
+          <OnboardingProgress
+            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
+            current={BUSINESS_ONBOARDING_PROGRESS.discovery}
+          />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>איך הגעת אלינו?</Text>
-          <Text style={styles.subtitle}>
-            נשמח לדעת כדי להתאים לך התחלה חלקה יותר
-          </Text>
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
         <View style={styles.optionsContainer}>
@@ -145,7 +185,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'right',
   },
   optionsContainer: {
@@ -163,14 +203,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+    shadowColor: '#93C5FD',
   },
   optionUnselected: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+    shadowColor: '#9CA3AF',
   },
   optionContent: {
     flexDirection: 'row-reverse',
@@ -190,39 +230,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionTextSelected: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   optionTextUnselected: {
     color: '#111827',
   },
   footer: {
     marginTop: 'auto',
-  },
-  button: {
-    borderRadius: 999,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonActive: {
-    backgroundColor: '#2563eb',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 8,
-  },
-  buttonInactive: {
-    backgroundColor: '#e5e7eb',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  buttonTextActive: {
-    color: '#ffffff',
-  },
-  buttonTextInactive: {
-    color: '#6b7280',
   },
 });

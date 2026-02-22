@@ -1,4 +1,4 @@
-﻿import { useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -44,7 +44,7 @@ export default function OnboardingUsageAreaScreen() {
           <BackButton
             onPress={() => safeBack('/(auth)/onboarding-client-interests')}
           />
-          <OnboardingProgress total={8} current={5} />
+          <OnboardingProgress total={7} current={2} />
         </View>
 
         <View style={styles.titleContainer}>

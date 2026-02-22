@@ -17,11 +17,10 @@ const TEXT = {
   waitingUser: 'מקבלים נתוני משתמש...',
 };
 
-function hasCapturedName(user: {
-  firstName?: string | null;
-  lastName?: string | null;
+function needsCustomerOnboarding(user: {
+  customerOnboardedAt?: number | null;
 }) {
-  return Boolean(user.firstName?.trim().length && user.lastName?.trim().length);
+  return user.customerOnboardedAt == null;
 }
 
 export default function OAuthCallbackScreen() {
@@ -45,9 +44,7 @@ export default function OAuthCallbackScreen() {
       return TEXT.waitingUser;
     }
 
-    return user.postAuthOnboardingRequired === true
-      ? TEXT.newAccount
-      : TEXT.linked;
+    return needsCustomerOnboarding(user) ? TEXT.newAccount : TEXT.linked;
   }, [isAuthenticated, isLoading, user]);
 
   useEffect(() => {
@@ -67,11 +64,7 @@ export default function OAuthCallbackScreen() {
     }
 
     const timer = setTimeout(() => {
-      const needsNameCapture =
-        user.postAuthOnboardingRequired === true &&
-        (user.needsNameCapture === true || !hasCapturedName(user));
-
-      if (needsNameCapture) {
+      if (needsCustomerOnboarding(user)) {
         router.replace('/(auth)/name-capture');
         return;
       }

@@ -43,7 +43,7 @@ export default function OnboardingClientFrequencyScreen() {
           <BackButton
             onPress={() => safeBack('/(auth)/onboarding-client-fit')}
           />
-          <OnboardingProgress total={8} current={7} />
+          <OnboardingProgress total={7} current={4} />
         </View>
 
         <View style={styles.titleContainer}>

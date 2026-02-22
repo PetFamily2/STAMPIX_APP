@@ -1,27 +1,60 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import {
+  BUSINESS_ONBOARDING_PROGRESS,
+  BUSINESS_ONBOARDING_ROUTES,
+  BUSINESS_ONBOARDING_TOTAL_STEPS,
+} from '@/lib/onboarding/businessOnboardingFlow';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
+
+const TEXT = {
+  title:
+    '\u05d1\u05d0\u05d9\u05dc\u05d5 \u05d0\u05d6\u05d5\u05e8\u05d9\u05dd \u05d4\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05d4\u05d9\u05d5\u05dd?\n\u05d1\u05d5\u05d7\u05e8\u05d9\u05dd \u05e2\u05d3 3 \u05d0\u05e4\u05e9\u05e8\u05d5\u05d9\u05d5\u05ea',
+  subtitle:
+    '\u05d6\u05d4 \u05e2\u05d5\u05d6\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05d0\u05ea \u05d4\u05d7\u05d5\u05d5\u05d9\u05d4 \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da.',
+};
 
 const USAGE_AREAS: Array<{
   id: UsageAreaId;
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
-  { id: 'nearby', title: 'באזור העסק שלי', icon: 'location-outline' },
-  { id: 'citywide', title: 'ברחבי העיר', icon: 'navigate-outline' },
-  { id: 'online', title: 'באונליין בלבד', icon: 'phone-portrait-outline' },
-  { id: 'multiple', title: 'בכמה סניפים', icon: 'business-outline' },
+  {
+    id: 'nearby',
+    title:
+      '\u05d1\u05d0\u05d6\u05d5\u05e8 \u05d4\u05e2\u05e1\u05e7 \u05e9\u05dc\u05d9',
+    icon: 'location-outline',
+  },
+  {
+    id: 'citywide',
+    title: '\u05d1\u05e8\u05d7\u05d1\u05d9 \u05d4\u05e2\u05d9\u05e8',
+    icon: 'navigate-outline',
+  },
+  {
+    id: 'online',
+    title:
+      '\u05d1\u05d0\u05d5\u05e0\u05dc\u05d9\u05d9\u05df \u05d1\u05dc\u05d1\u05d3',
+    icon: 'phone-portrait-outline',
+  },
+  {
+    id: 'multiple',
+    title: '\u05d1\u05db\u05de\u05d4 \u05e1\u05e0\u05d9\u05e4\u05d9\u05dd',
+    icon: 'business-outline',
+  },
 ];
 
-export default function OnboardingUsageAreaScreen() {
+export default function OnboardingBusinessUsageAreaScreen() {
+  const { businessName } = useLocalSearchParams<{ businessName?: string }>();
   const [selected, setSelected] = useState<UsageAreaId[]>([]);
   const canContinue = selected.length > 0;
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
@@ -42,6 +75,7 @@ export default function OnboardingUsageAreaScreen() {
       return [...prev, id];
     });
   };
+
   const handleContinue = () => {
     if (!canContinue) {
       return;
@@ -51,7 +85,16 @@ export default function OnboardingUsageAreaScreen() {
       areas_count: selected.length,
       areas_values: selected,
     });
-    safePush('/(auth)/paywall');
+
+    const encodedName =
+      typeof businessName === 'string' && businessName.trim().length > 0
+        ? encodeURIComponent(businessName.trim())
+        : '';
+    const nextHref = encodedName
+      ? `${BUSINESS_ONBOARDING_ROUTES.createBusiness}?businessName=${encodedName}`
+      : BUSINESS_ONBOARDING_ROUTES.createBusiness;
+
+    safePush(nextHref);
   };
 
   return (
@@ -59,18 +102,17 @@ export default function OnboardingUsageAreaScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-business-name')}
+            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.name)}
           />
-          <OnboardingProgress total={8} current={6} />
+          <OnboardingProgress
+            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
+            current={BUSINESS_ONBOARDING_PROGRESS.usageArea}
+          />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            באילו אזורים העסק פעיל היום?{'\n'}בוחרים עד 3 אפשרויות
-          </Text>
-          <Text style={styles.subtitle}>
-            זה עוזר לנו להתאים את החוויה לעסק שלך.
-          </Text>
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
         <View style={styles.optionsContainer}>
@@ -154,8 +196,9 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'right',
+    lineHeight: 20,
   },
   optionsContainer: {
     marginTop: 32,
@@ -172,14 +215,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+    shadowColor: '#93C5FD',
   },
   optionUnselected: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+    shadowColor: '#9CA3AF',
   },
   optionContent: {
     flexDirection: 'row-reverse',
@@ -199,39 +242,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionTextSelected: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   optionTextUnselected: {
     color: '#111827',
   },
   footer: {
     marginTop: 'auto',
-  },
-  button: {
-    borderRadius: 999,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonActive: {
-    backgroundColor: '#2563eb',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 8,
-  },
-  buttonInactive: {
-    backgroundColor: '#e5e7eb',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  buttonTextActive: {
-    color: '#ffffff',
-  },
-  buttonTextInactive: {
-    color: '#6b7280',
   },
 });

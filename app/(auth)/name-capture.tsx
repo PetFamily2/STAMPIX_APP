@@ -14,22 +14,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
-import { useAppMode } from '@/contexts/AppModeContext';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
-  title: 'איך לקרוא לך?',
-  subtitle: 'תוכלו לשנות את השם לפני שממשיכים',
+  title: 'ברוכים הבאים! איך לקרוא לך?',
+  subtitle: '',
   firstNameLabel: 'שם פרטי',
-  firstNamePlaceholder: 'למשל דני',
+  firstNamePlaceholder: 'ישראל',
   lastNameLabel: 'שם משפחה',
-  lastNamePlaceholder: 'למשל כהן',
+  lastNamePlaceholder: 'ישראלי',
   firstNameA11y: 'שדה שם פרטי',
   lastNameA11y: 'שדה שם משפחה',
   continue: 'המשך',
   saving: 'שומרים...',
-  loading: 'טוען...',
+  loading: 'טוענים...',
 };
 
 const AUTH_REDIRECT_DELAY_MS = 1800;
@@ -57,9 +57,33 @@ function splitFullName(fullName?: string | null) {
   };
 }
 
+function normalizeSuggestedName(value?: string | null) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.toLowerCase() === 'user') {
+    return '';
+  }
+
+  return normalized;
+}
+
+function shouldAutofillFromOAuthProvider(externalId?: string | null) {
+  if (!externalId) {
+    return false;
+  }
+
+  return externalId.startsWith('google:') || externalId.startsWith('apple:');
+}
+
 export default function NameCaptureScreen() {
   const router = useRouter();
-  const { appMode, hasSelectedMode } = useAppMode();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const user = useQuery(api.users.getCurrentUser);
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
@@ -72,6 +96,10 @@ export default function NameCaptureScreen() {
   const [allowUnauthRedirect, setAllowUnauthRedirect] = useState(false);
   const didPrefillRef = useRef(false);
   const bootstrapAttemptedRef = useRef(false);
+  const canAutofillFromOAuth = useMemo(
+    () => shouldAutofillFromOAuthProvider(user?.externalId),
+    [user?.externalId]
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -128,38 +156,33 @@ export default function NameCaptureScreen() {
       return;
     }
 
+    if (!canAutofillFromOAuth) {
+      didPrefillRef.current = true;
+      return;
+    }
+
     const fallbackFromFullName = splitFullName(user.fullName);
     const nextFirstName =
-      user.firstName?.trim() || fallbackFromFullName.firstName;
-    const nextLastName = user.lastName?.trim() || fallbackFromFullName.lastName;
+      normalizeSuggestedName(user.firstName) ||
+      normalizeSuggestedName(fallbackFromFullName.firstName);
+    const nextLastName =
+      normalizeSuggestedName(user.lastName) ||
+      normalizeSuggestedName(fallbackFromFullName.lastName);
 
-    setFirstName(nextFirstName);
-    setLastName(nextLastName);
+    if (nextFirstName) {
+      setFirstName(nextFirstName);
+    }
+    if (nextLastName) {
+      setLastName(nextLastName);
+    }
+
     didPrefillRef.current = true;
-  }, [user]);
+  }, [user, canAutofillFromOAuth]);
 
   const canContinue = useMemo(
     () => firstName.trim().length > 0 && lastName.trim().length > 0,
     [firstName, lastName]
   );
-
-  const navigateHome = () => {
-    router.replace('/(authenticated)/(customer)/wallet');
-  };
-
-  const navigateToNextOnboardingStep = () => {
-    if (!hasSelectedMode) {
-      router.replace('/(auth)/onboarding-client-role');
-      return;
-    }
-
-    if (appMode === 'business') {
-      router.replace('/(auth)/onboarding-business-role');
-      return;
-    }
-
-    router.replace('/(auth)/onboarding-client-interests');
-  };
 
   const handleContinue = async () => {
     if (!canContinue || isSubmitting) {
@@ -172,13 +195,7 @@ export default function NameCaptureScreen() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });
-
-      if (user?.postAuthOnboardingRequired === true) {
-        navigateToNextOnboardingStep();
-        return;
-      }
-
-      navigateHome();
+      router.replace('/(auth)/onboarding-client-interests');
     } finally {
       setIsSubmitting(false);
     }
@@ -214,11 +231,14 @@ export default function NameCaptureScreen() {
       >
         <View style={styles.header}>
           <BackButton onPress={() => safeBack('/(auth)/sign-up')} />
+          <OnboardingProgress total={8} current={3} />
         </View>
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
+          {TEXT.subtitle ? (
+            <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
+          ) : null}
         </View>
 
         <View style={styles.form}>
@@ -279,7 +299,9 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    alignItems: 'flex-end',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   loadingContainer: {
     flex: 1,
@@ -293,6 +315,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748b',
     textAlign: 'center',
+    writingDirection: 'rtl',
   },
   titleContainer: {
     alignItems: 'flex-end',
@@ -304,6 +327,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
     marginBottom: 8,
     lineHeight: 32,
     maxWidth: '100%',
@@ -314,6 +338,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6b7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
     lineHeight: 20,
     maxWidth: '100%',
   },
@@ -329,6 +354,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#9CA3AF',
     textAlign: 'right',
+    writingDirection: 'rtl',
     marginBottom: 8,
   },
   input: {

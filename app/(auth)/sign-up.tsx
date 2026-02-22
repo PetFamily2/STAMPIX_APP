@@ -1,4 +1,4 @@
-﻿import { useAuthActions } from '@convex-dev/auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,7 +10,6 @@ import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
-import { useAppMode } from '@/contexts/AppModeContext';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -68,12 +67,10 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function SignUpScreen() {
   const { signIn } = useAuthActions();
-  const { setAppMode } = useAppMode();
   const router = useRouter();
-  const { preview, map, role } = useLocalSearchParams<{
+  const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
-    role?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
@@ -85,7 +82,7 @@ export default function SignUpScreen() {
   >(null);
 
   const handleBack = () => {
-    safeBack('/(auth)/onboarding-client-role');
+    safeBack('/(auth)/welcome');
   };
 
   const handleSelect = (method: AuthMethod) => {
@@ -95,19 +92,6 @@ export default function SignUpScreen() {
 
   const handleEmailOptionPress = async () => {
     trackChoice('auth_method', 'email', { method: 'email' });
-    if (role === 'business') {
-      await setAppMode('business');
-    } else if (role === 'customer') {
-      await setAppMode('customer');
-    }
-
-    if (role) {
-      router.push({
-        pathname: '/(auth)/sign-up-email',
-        params: { role },
-      });
-      return;
-    }
     router.push('/(auth)/sign-up-email');
   };
 
@@ -135,38 +119,23 @@ export default function SignUpScreen() {
     return failedText;
   };
 
-  const handleOAuthAuth = async (
-    provider: 'google' | 'apple',
-    selectedRole: 'business' | 'customer' | null
-  ) => {
+  const handleOAuthAuth = async (provider: 'google' | 'apple') => {
     if (isPreviewMode || oauthLoadingMethod) {
       return;
-    }
-
-    if (selectedRole === 'business') {
-      await setAppMode('business');
-    } else if (selectedRole === 'customer') {
-      await setAppMode('customer');
     }
 
     setOauthLoadingMethod(provider);
     try {
       const result =
         provider === 'google'
-          ? await signInWithGoogle(signIn, selectedRole)
-          : await signInWithApple(signIn, selectedRole);
+          ? await signInWithGoogle(signIn, null)
+          : await signInWithApple(signIn, null);
       if (result !== 'success') {
         return;
       }
       trackContinue({ method: provider });
-      completeStep({ method: provider, role: selectedRole ?? undefined });
-      router.replace({
-        pathname: '/(auth)/oauth-callback',
-        params: {
-          provider,
-          role: selectedRole ?? undefined,
-        },
-      });
+      completeStep({ method: provider });
+      router.replace('/(auth)/oauth-callback');
     } catch (error: unknown) {
       Alert.alert(TEXT.authErrorTitle, mapOAuthError(provider, error));
     } finally {
@@ -178,35 +147,14 @@ export default function SignUpScreen() {
     if (!selectedMethod) {
       return;
     }
-    const selectedRole =
-      role === 'business'
-        ? 'business'
-        : role === 'customer'
-          ? 'customer'
-          : null;
 
     if (selectedMethod === 'google' || selectedMethod === 'apple') {
-      void handleOAuthAuth(selectedMethod, selectedRole);
+      void handleOAuthAuth(selectedMethod);
       return;
     }
 
     trackContinue({ method: selectedMethod });
-    completeStep({ method: selectedMethod, role: selectedRole ?? undefined });
-
-    if (selectedRole === 'business') {
-      void setAppMode('business');
-    } else if (selectedRole === 'customer') {
-      void setAppMode('customer');
-    }
-
-    if (selectedRole) {
-      router.push({
-        pathname: '/(auth)/sign-up-email',
-        params: { role: selectedRole },
-      });
-      return;
-    }
-
+    completeStep({ method: selectedMethod });
     router.push('/(auth)/sign-up-email');
   };
 

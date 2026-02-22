@@ -68,6 +68,39 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 }
 
 const DELETE_BATCH_SIZE = 100;
+const WIPE_ALL_TABLE_ORDER = [
+  'apiKeys',
+  'apiClients',
+  'messageLog',
+  'campaigns',
+  'scanTokenEvents',
+  'events',
+  'memberships',
+  'loyaltyPrograms',
+  'staffInvites',
+  'businessStaff',
+  'businesses',
+  'userIdentities',
+  'emailOtps',
+  'authVerificationCodes',
+  'authRefreshTokens',
+  'authVerifiers',
+  'authSessions',
+  'authAccounts',
+  'authRateLimits',
+  'users',
+] as const;
+
+type WipeAllTableName = (typeof WIPE_ALL_TABLE_ORDER)[number];
+type WipeAllDataHardCounts = Record<WipeAllTableName, number>;
+
+export type WipeAllDataHardResult = {
+  success: true;
+  message: string;
+  requestedByUserId: Id<'users'>;
+  timestamp: number;
+  counts: WipeAllDataHardCounts;
+};
 
 type DeleteStats = {
   users: number;
@@ -136,6 +169,53 @@ function emptyDeleteStats(): DeleteStats {
     emailOtps: 0,
     staffInvites: 0,
   };
+}
+
+function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
+  return {
+    apiKeys: 0,
+    apiClients: 0,
+    messageLog: 0,
+    campaigns: 0,
+    scanTokenEvents: 0,
+    events: 0,
+    memberships: 0,
+    loyaltyPrograms: 0,
+    staffInvites: 0,
+    businessStaff: 0,
+    businesses: 0,
+    userIdentities: 0,
+    emailOtps: 0,
+    authVerificationCodes: 0,
+    authRefreshTokens: 0,
+    authVerifiers: 0,
+    authSessions: 0,
+    authAccounts: 0,
+    authRateLimits: 0,
+    users: 0,
+  };
+}
+
+async function deleteTableInBatches(
+  ctx: any,
+  tableName: string,
+  batchSize = DELETE_BATCH_SIZE
+) {
+  let deletedCount = 0;
+
+  while (true) {
+    const docs = await ctx.db.query(tableName).take(batchSize);
+    if (docs.length === 0) {
+      break;
+    }
+
+    for (const doc of docs) {
+      await ctx.db.delete(doc._id);
+      deletedCount += 1;
+    }
+  }
+
+  return deletedCount;
 }
 
 async function deleteByIndexInBatches(
@@ -433,34 +513,7 @@ export const getCurrentUser = query({
 });
 
 // ׳©׳׳™׳₪׳× ׳׳©׳×׳׳© ׳׳₪׳™ ׳׳–׳”׳” (ID)
-type AppMode = 'customer' | 'business' | 'staff';
-
-function computeDefaultMode(
-  businesses: Array<{ staffRole: 'owner' | 'manager' | 'staff' }>,
-  preferredMode: AppMode | undefined
-): AppMode {
-  if (preferredMode) {
-    if (preferredMode === 'customer') return 'customer';
-    if (preferredMode === 'business') {
-      const canBusiness = businesses.some(
-        (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
-      );
-      if (canBusiness) return 'business';
-    }
-    if (preferredMode === 'staff') {
-      if (businesses.length > 0) return 'staff';
-    }
-  }
-
-  const hasOwnerOrManager = businesses.some(
-    (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
-  );
-  const hasAnyStaff = businesses.length > 0;
-
-  if (hasOwnerOrManager) return 'business';
-  if (hasAnyStaff) return 'staff';
-  return 'customer';
-}
+type ActiveMode = 'customer' | 'business';
 
 export const getSessionContext = query({
   args: {},
@@ -521,10 +574,13 @@ export const getSessionContext = query({
       customer: true,
     };
 
-    const defaultMode = computeDefaultMode(
-      businesses,
-      user.preferredMode as AppMode | undefined
-    );
+    const activeMode: ActiveMode =
+      user.activeMode === 'business' &&
+      businesses.some(
+        (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+      )
+        ? 'business'
+        : 'customer';
 
     return {
       user: {
@@ -534,24 +590,38 @@ export const getSessionContext = query({
         lastName: user.lastName,
         fullName: user.fullName,
         avatarUrl: user.avatarUrl,
-        preferredMode: user.preferredMode as AppMode | undefined,
+        customerOnboardedAt: user.customerOnboardedAt,
+        businessOnboardedAt: user.businessOnboardedAt,
+        activeMode: user.activeMode as ActiveMode | undefined,
         userType: user.userType,
         subscriptionPlan: user.subscriptionPlan,
         subscriptionStatus: user.subscriptionStatus,
-        needsNameCapture: user.needsNameCapture,
-        postAuthOnboardingRequired: user.postAuthOnboardingRequired,
         isActive: user.isActive,
       },
       isAdmin: user.isAdmin === true,
       roles,
       businesses,
       pendingInvites,
-      defaultMode,
-      preferredMode: (user.preferredMode as AppMode) ?? null,
+      activeMode,
     };
   },
 });
 
+export const setActiveMode = mutation({
+  args: {
+    mode: v.union(v.literal('customer'), v.literal('business')),
+  },
+  handler: async (ctx, { mode }) => {
+    const user = await requireCurrentUser(ctx);
+    await ctx.db.patch(user._id, {
+      activeMode: mode,
+      updatedAt: Date.now(),
+    });
+    return user._id;
+  },
+});
+
+/** @deprecated Use setActiveMode. Kept for backward compatibility during migration. */
 export const setPreferredMode = mutation({
   args: {
     mode: v.union(
@@ -562,11 +632,34 @@ export const setPreferredMode = mutation({
   },
   handler: async (ctx, { mode }) => {
     const user = await requireCurrentUser(ctx);
+    const activeMode = mode === 'staff' ? 'customer' : mode;
     await ctx.db.patch(user._id, {
-      preferredMode: mode,
+      activeMode,
       updatedAt: Date.now(),
     });
     return user._id;
+  },
+});
+
+export const completeCustomerOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    await ctx.db.patch(user._id, {
+      customerOnboardedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const completeBusinessOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    await ctx.db.patch(user._id, {
+      businessOnboardedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
   },
 });
 
@@ -625,8 +718,6 @@ export const setMyName = mutation({
       firstName: normalizedFirstName,
       lastName: normalizedLastName,
       fullName: `${normalizedFirstName} ${normalizedLastName}`,
-      needsNameCapture: false,
-      postAuthOnboardingRequired: false,
       updatedAt: now,
     });
 
@@ -726,6 +817,32 @@ export const deleteMyAccountHard = mutation({
   args: {},
   handler: async (ctx) => {
     return await deleteMyAccountHardImpl(ctx);
+  },
+});
+
+export async function wipeAllDataHardImpl(
+  ctx: any
+): Promise<WipeAllDataHardResult> {
+  const requester = await requireCurrentUser(ctx);
+  const counts = emptyWipeAllDataHardCounts();
+
+  for (const tableName of WIPE_ALL_TABLE_ORDER) {
+    counts[tableName] = await deleteTableInBatches(ctx, tableName);
+  }
+
+  return {
+    success: true,
+    message: 'All project data was permanently deleted.',
+    requestedByUserId: requester._id,
+    timestamp: Date.now(),
+    counts,
+  };
+}
+
+export const wipeAllDataHard = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await wipeAllDataHardImpl(ctx);
   },
 });
 

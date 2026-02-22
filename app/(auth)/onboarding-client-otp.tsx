@@ -39,9 +39,8 @@ const TEXT = {
 };
 
 export default function OnboardingOtpScreen() {
-  const { contact, role, sent } = useLocalSearchParams<{
+  const { contact, sent } = useLocalSearchParams<{
     contact?: string | string[];
-    role?: string | string[];
     sent?: string | string[];
   }>();
   const { signIn } = useAuthActions();
@@ -72,13 +71,6 @@ export default function OnboardingOtpScreen() {
     }
     return contact ?? '';
   }, [contact]);
-
-  const roleValue = useMemo(() => {
-    if (Array.isArray(role)) {
-      return role[0] ?? '';
-    }
-    return role ?? '';
-  }, [role]);
 
   const sentValue = useMemo(() => {
     if (Array.isArray(sent)) {
@@ -295,10 +287,8 @@ export default function OnboardingOtpScreen() {
     void sendCode(true);
   };
 
-  const nextRoute = '/(authenticated)/(customer)/wallet';
-  const backRoute = roleValue
-    ? `/(auth)/sign-up-email?role=${encodeURIComponent(roleValue)}`
-    : '/(auth)/onboarding-client-details';
+  const postAuthResolutionRoute = '/(auth)/oauth-callback';
+  const backRoute = '/(auth)/sign-up-email';
 
   const handleContinue = async () => {
     if (!isComplete || isVerifying) {
@@ -327,7 +317,7 @@ export default function OnboardingOtpScreen() {
       trackContinue();
       trackEvent(ANALYTICS_EVENTS.otpVerified);
       completeStep();
-      safePush(nextRoute);
+      safePush(postAuthResolutionRoute);
     } catch (err: unknown) {
       const mapped = mapOtpError(err);
       setError(mapped);
@@ -345,7 +335,7 @@ export default function OnboardingOtpScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton onPress={() => safeBack(backRoute)} />
-          <OnboardingProgress total={8} current={3} />
+          <OnboardingProgress total={7} current={2} />
         </View>
 
         <View style={styles.titleContainer}>

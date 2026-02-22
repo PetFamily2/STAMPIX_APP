@@ -1,4 +1,4 @@
-import { useConvexAuth } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,9 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
-import { clearOnboardingSessionId } from '@/lib/onboarding/session';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type ReturnMotivationId =
@@ -28,8 +28,11 @@ const RETURN_MOTIVATIONS: Array<{ id: ReturnMotivationId; title: string }> = [
 
 export default function OnboardingReturnMotivationScreen() {
   const router = useRouter();
-  const { isAuthenticated } = useConvexAuth();
+  const completeCustomerOnboarding = useMutation(
+    api.users.completeCustomerOnboarding
+  );
   const [selected, setSelected] = useState<ReturnMotivationId | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const canContinue = Boolean(selected);
   const { completeStep, trackChoice, trackContinue, trackEvent } =
     useOnboardingTracking({
@@ -37,19 +40,20 @@ export default function OnboardingReturnMotivationScreen() {
       role: 'client',
     });
 
-  const handleContinue = () => {
-    if (!canContinue) {
+  const handleContinue = async () => {
+    if (!canContinue || isSubmitting) {
       return;
     }
     trackContinue();
     completeStep({ return_motivation: selected });
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
-    void clearOnboardingSessionId();
-    if (isAuthenticated) {
+    setIsSubmitting(true);
+    try {
+      await completeCustomerOnboarding({});
       router.replace('/(authenticated)/(customer)/wallet');
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push('/(auth)/sign-up');
   };
 
   return (
@@ -59,7 +63,7 @@ export default function OnboardingReturnMotivationScreen() {
           <BackButton
             onPress={() => safeBack('/(auth)/onboarding-client-frequency')}
           />
-          <OnboardingProgress total={8} current={8} />
+          <OnboardingProgress total={7} current={5} />
         </View>
 
         <View style={styles.titleContainer}>
@@ -103,7 +107,10 @@ export default function OnboardingReturnMotivationScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
+          <ContinueButton
+            onPress={() => void handleContinue()}
+            disabled={!canContinue || isSubmitting}
+          />
         </View>
       </View>
     </SafeAreaView>

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
+import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
   dashboard: '\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
@@ -41,7 +42,7 @@ export default function BusinessTabsLayout() {
     if (hasAnyBizAccess) {
       return <Redirect href="/(authenticated)/(staff)/scanner" />;
     }
-    return <Redirect href="/(authenticated)/(customer)/wallet" />;
+    return <Redirect href={BUSINESS_ONBOARDING_ROUTES.role} />;
   }
 
   return (

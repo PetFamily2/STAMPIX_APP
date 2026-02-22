@@ -1,4 +1,4 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, ChevronLeft, X } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
@@ -17,7 +17,6 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
-import { clearOnboardingSessionId } from '@/lib/onboarding/session';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { tw } from '@/lib/rtl';
 
@@ -80,7 +79,6 @@ export default function PaywallScreen() {
     }
     completionRef.current = true;
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'business' });
-    void clearOnboardingSessionId();
   }, [trackEvent]);
 
   // ============================================================================

@@ -23,8 +23,13 @@ export default defineSchema({
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
     fullName: v.optional(v.string()),
-    needsNameCapture: v.optional(v.boolean()),
-    postAuthOnboardingRequired: v.optional(v.boolean()),
+    needsNameCapture: v.optional(v.boolean()), // deprecated: use customerOnboardedAt
+    postAuthOnboardingRequired: v.optional(v.boolean()), // deprecated: use customerOnboardedAt
+    customerOnboardedAt: v.optional(v.number()),
+    businessOnboardedAt: v.optional(v.number()),
+    activeMode: v.optional(
+      v.union(v.literal('customer'), v.literal('business'))
+    ),
     avatarUrl: v.optional(v.string()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
     subscriptionPlan: v.optional(
@@ -46,10 +51,10 @@ export default defineSchema({
         v.literal('staff'),
         v.literal('admin')
       )
-    ),
+    ), // deprecated: business access via businessStaff
     preferredMode: v.optional(
       v.union(v.literal('customer'), v.literal('business'), v.literal('staff'))
-    ),
+    ), // deprecated: use activeMode
     isAdmin: v.optional(v.boolean()),
     isActive: v.boolean(),
     createdAt: v.number(),

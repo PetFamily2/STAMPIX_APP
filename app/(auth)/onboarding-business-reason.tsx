@@ -1,27 +1,60 @@
-﻿import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
+import {
+  BUSINESS_ONBOARDING_PROGRESS,
+  BUSINESS_ONBOARDING_ROUTES,
+  BUSINESS_ONBOARDING_TOTAL_STEPS,
+} from '@/lib/onboarding/businessOnboardingFlow';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type ReasonId =
   | 'repeat'
-  | 'replacePaper'
+  | 'replace_paper'
   | 'insights'
   | 'basket'
   | 'offers'
   | 'other';
 
+const TEXT = {
+  title:
+    '\u05de\u05d4 \u05d4\u05de\u05d8\u05e8\u05d4 \u05d4\u05e2\u05d9\u05e7\u05e8\u05d9\u05ea \u05e9\u05dc\u05db\u05dd?',
+  subtitle:
+    '\u05d1\u05d7\u05d9\u05e8\u05d4 \u05d6\u05d5 \u05ea\u05e2\u05d6\u05d5\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05dc\u05db\u05dd \u05d4\u05de\u05dc\u05e6\u05d5\u05ea \u05d4\u05de\u05e9\u05da.',
+};
+
 const REASONS: Array<{ id: ReasonId; title: string }> = [
-  { id: 'repeat', title: 'להגדיל חזרה של לקוחות' },
-  { id: 'replacePaper', title: 'להחליף כרטיסיות נייר' },
-  { id: 'insights', title: 'לאסוף נתונים על לקוחות' },
-  { id: 'basket', title: 'להגדיל סל קניה' },
-  { id: 'offers', title: 'מבצעים ללקוחות קיימים' },
-  { id: 'other', title: 'אחר' },
+  {
+    id: 'repeat',
+    title:
+      '\u05dc\u05d4\u05d2\u05d3\u05d9\u05dc \u05d7\u05d6\u05e8\u05d4 \u05e9\u05dc \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  },
+  {
+    id: 'replace_paper',
+    title:
+      '\u05dc\u05d4\u05d7\u05dc\u05d9\u05e3 \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e0\u05d9\u05d9\u05e8',
+  },
+  {
+    id: 'insights',
+    title:
+      '\u05dc\u05d0\u05e1\u05d5\u05e3 \u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05e2\u05dc \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  },
+  {
+    id: 'basket',
+    title:
+      '\u05dc\u05d4\u05d2\u05d3\u05d9\u05dc \u05e1\u05dc \u05e7\u05e0\u05d9\u05d4',
+  },
+  {
+    id: 'offers',
+    title:
+      '\u05dc\u05d4\u05e4\u05e2\u05d9\u05dc \u05de\u05d1\u05e6\u05e2\u05d9\u05dd \u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e7\u05d9\u05d9\u05de\u05d9\u05dd',
+  },
+  { id: 'other', title: '\u05d0\u05d7\u05e8' },
 ];
 
 export default function OnboardingBusinessReasonScreen() {
@@ -33,10 +66,13 @@ export default function OnboardingBusinessReasonScreen() {
   });
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue) {
+      return;
+    }
+
     trackContinue();
     completeStep({ reason: selected });
-    safePush('/(auth)/onboarding-business-name');
+    safePush(BUSINESS_ONBOARDING_ROUTES.name);
   };
 
   return (
@@ -44,13 +80,17 @@ export default function OnboardingBusinessReasonScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-business-discovery')}
+            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.discovery)}
           />
-          <OnboardingProgress total={8} current={4} />
+          <OnboardingProgress
+            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
+            current={BUSINESS_ONBOARDING_PROGRESS.reason}
+          />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>מה הסיבה המרכזית שבגללה אתה כאן?</Text>
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
         <View style={styles.optionsContainer}>
@@ -119,32 +159,39 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'right',
   },
   optionsContainer: {
     marginTop: 28,
     gap: 12,
   },
   optionSelected: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
+    borderColor: '#2563EB',
+    shadowColor: '#93C5FD',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   optionUnselected: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
+    borderColor: '#E5E7EB',
+    shadowColor: '#9CA3AF',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -153,7 +200,7 @@ const styles = StyleSheet.create({
   optionTextSelected: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#ffffff',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   optionTextUnselected: {
@@ -164,34 +211,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-  },
-  buttonActive: {
-    backgroundColor: '#2563eb',
-    borderRadius: 999,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 8,
-  },
-  buttonInactive: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 999,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonTextActive: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  buttonTextInactive: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#9ca3af',
   },
 });

@@ -371,10 +371,10 @@ export const acceptStaffInvite = mutation({
     const currentUser = await ctx.db.get(user._id);
     if (
       currentUser &&
-      (!currentUser.preferredMode || currentUser.preferredMode === 'customer')
+      (!currentUser.activeMode || currentUser.activeMode === 'customer')
     ) {
       await ctx.db.patch(user._id, {
-        preferredMode: 'staff',
+        activeMode: 'business',
         updatedAt: now,
       });
     }

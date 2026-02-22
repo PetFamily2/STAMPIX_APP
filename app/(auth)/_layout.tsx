@@ -1,4 +1,4 @@
-import { useConvexAuth } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import {
   Slot,
   useLocalSearchParams,
@@ -7,13 +7,17 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect } from 'react';
-
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { api } from '@/convex/_generated/api';
 
 let didRedirectToAuthenticated = false;
 
 export default function AuthRoutesLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const user = useQuery(
+    api.users.getCurrentUser,
+    isAuthenticated ? {} : 'skip'
+  );
   const segments = useSegments();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -34,21 +38,27 @@ export default function AuthRoutesLayout() {
     segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
     segmentStrings.includes('name-capture');
   const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
+  const customerOnboarded = user?.customerOnboardedAt != null;
   const isAllowedForAuthenticated =
     isPaywallRoute ||
     isPreviewMode ||
     isFlowMapRoute ||
     isOnboardingRoute ||
-    isOAuthCallbackRoute;
+    isOAuthCallbackRoute ||
+    !customerOnboarded;
   const alreadyInTarget =
     pathname === AUTH_REDIRECT_TARGET ||
     pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
   const shouldRedirectToAuthenticated =
-    isAuthenticated && !isAllowedForAuthenticated && !alreadyInTarget;
+    isAuthenticated &&
+    customerOnboarded &&
+    !isAllowedForAuthenticated &&
+    !alreadyInTarget;
 
   useEffect(() => {
     if (
       isLoading ||
+      user === undefined ||
       !shouldRedirectToAuthenticated ||
       alreadyInTarget ||
       didRedirectToAuthenticated
@@ -59,7 +69,7 @@ export default function AuthRoutesLayout() {
     setTimeout(() => {
       router.replace(AUTH_REDIRECT_TARGET);
     }, 0);
-  }, [isLoading, shouldRedirectToAuthenticated, alreadyInTarget, router]);
+  }, [isLoading, user, shouldRedirectToAuthenticated, alreadyInTarget, router]);
 
   return <Slot />;
 }

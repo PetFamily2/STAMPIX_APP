@@ -1,15 +1,17 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -19,174 +21,351 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { getConvexAuthSecureStoreKeysForHardReset } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
-import { clearOnboardingSessionId } from '@/lib/onboarding/session';
+import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+
+const APP_MODE_STORAGE_KEY = 'stamprix.appMode';
+const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const TEXT = {
-  roleBusiness: 'בעל עסק',
-  roleCustomer: 'לקוח',
-  roleStaff: 'עובד',
-  roleHint: 'מצב זה משנה את תפריט ההטבות',
-  title: 'פרופיל והגדרות',
-  subtitle: 'ניהול חשבון, תמיכה ומסמכים',
-  sectionGeneral: 'כללי',
-  notificationsTitle: 'התראות',
-  notificationsSubtitle: 'ניהול הרשאות והתראות מהעסקים',
-  languageTitle: 'שפה ותצוגה',
-  languageSubtitle: 'עברית, RTL ותצוגה כללית',
-  sectionSupport: 'תמיכה ומסמכים',
-  supportTitle: 'תמיכה',
-  supportSubtitle: 'צרו קשר או דווחו על בעיה',
-  termsTitle: 'תנאי שימוש',
-  termsSubtitle: 'מסמך חובה לחנויות',
-  privacyTitle: 'מדיניות פרטיות',
-  privacySubtitle: 'מסמך חובה לחנויות',
-  sectionAccount: 'חשבון',
-  deleteTitle: 'מחיקת חשבון',
-  deleteSubtitle: 'חובה ל-App Store: דרך ברורה למחיקה',
-  logoutTitle: 'יציאה מהחשבון',
-  logoutSubtitle: 'נתק את המשתמש במכשיר',
-  demoNote:
-    'דמו זמני: בשלב הבא נחבר פעולות אמיתיות (פתיחת מסמכים, תמיכה, יציאה ומחיקה) ל-Convex.',
-  deleteModalTitle: 'מחיקת חשבון',
-  deleteModalWarning: 'המחיקה היא לצמיתות. פעולה זו אינה הפיכה.',
-  deleteModalConfirmHint: 'כדי לאשר מחיקה לצמיתות, הקלידו DELETE.',
-  deleteModalBusy: 'מוחקים חשבון...',
-  cancel: 'ביטול',
-  confirmDelete: 'אישור מחיקה',
-  deletePermanent: 'מחיקה לצמיתות',
-  deleteAlertTitle: 'אישור מחיקה',
-  deleteAlertMessage: 'יש להקליד DELETE כדי לאשר מחיקה.',
-  deleteFailedTitle: 'מחיקת חשבון',
-  deleteUnknownError: 'מחיקת החשבון נכשלה. נסו שוב.',
-  errorTitle: 'שגיאה',
+  title: '\u05d4\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc\u05d9',
+  profileFallbackName: '\u05d7\u05d1\u05e8 STAMPIX',
+  profileFallbackSubtitle:
+    '\u05d7\u05e9\u05d1\u05d5\u05df \u05dc\u05e7\u05d5\u05d7',
+  statCards:
+    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd',
+  statBusinesses:
+    '\u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
+  statInvites:
+    '\u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05e4\u05ea\u05d5\u05d7\u05d5\u05ea',
+  quickWalletTitle: '\u05d4\u05d0\u05e8\u05e0\u05e7',
+  quickWalletSubtitle:
+    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d5\u05e0\u05e7\u05d5\u05d3\u05d5\u05ea',
+  quickRewardsTitle: '\u05d4\u05d8\u05d1\u05d5\u05ea',
+  quickRewardsSubtitle:
+    '\u05e7\u05d5\u05e4\u05d5\u05e0\u05d9\u05dd \u05d5\u05de\u05d9\u05de\u05d5\u05e9\u05d9\u05dd',
+  quickNew: '\u05d7\u05d3\u05e9',
+  hostTitle:
+    '\u05e8\u05d5\u05e6\u05d9\u05dd \u05dc\u05e4\u05ea\u05d5\u05d7 \u05e2\u05e1\u05e7?',
+  hostSubtitle:
+    '\u05d4\u05e4\u05e2\u05d9\u05dc\u05d5 \u05db\u05e8\u05d8\u05d9\u05e1 \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9 \u05d5\u05d4\u05ea\u05d7\u05d9\u05dc\u05d5 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd.',
+  hostButton: '\u05dc\u05d4\u05ea\u05d7\u05d9\u05dc \u05dc\u05d0\u05e8\u05d7',
+  switchToCustomerTitle:
+    '\u05d7\u05d6\u05e8\u05d4 \u05dc\u05de\u05e6\u05d1 \u05dc\u05e7\u05d5\u05d7',
+  switchToCustomerSubtitle:
+    '\u05de\u05e2\u05d1\u05e8 \u05de\u05d4\u05d9\u05e8 \u05dc\u05d0\u05e8\u05e0\u05e7 \u05d5\u05dc\u05d4\u05d8\u05d1\u05d5\u05ea \u05d4\u05d0\u05d9\u05e9\u05d9\u05d5\u05ea \u05e9\u05dc\u05db\u05dd.',
+  switchToCustomerButton:
+    '\u05de\u05e2\u05d1\u05e8 \u05dc\u05dc\u05e7\u05d5\u05d7',
+  sectionPreferences: '\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea',
+  accountSettingsTitle:
+    '\u05e4\u05e8\u05d8\u05d9 \u05d7\u05e9\u05d1\u05d5\u05df',
+  accountSettingsSubtitle:
+    '\u05e9\u05dd, \u05d0\u05d9\u05de\u05d9\u05d9\u05dc \u05d5\u05d0\u05d1\u05d8\u05d7\u05d4',
+  notificationsTitle: '\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea',
+  notificationsSubtitle:
+    '\u05e2\u05d3\u05db\u05d5\u05e0\u05d9\u05dd \u05de\u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4 \u05d5\u05de\u05d4\u05e2\u05e1\u05e7\u05d9\u05dd',
+  sectionSupport:
+    '\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05de\u05e1\u05de\u05db\u05d9\u05dd',
+  helpTitle: '\u05e2\u05d6\u05e8\u05d4 \u05d5\u05ea\u05de\u05d9\u05db\u05d4',
+  helpSubtitle:
+    '\u05e9\u05d0\u05dc\u05d5\u05ea \u05e0\u05e4\u05d5\u05e6\u05d5\u05ea \u05d5\u05d9\u05e6\u05d9\u05e8\u05ea \u05e7\u05e9\u05e8',
+  termsTitle: '\u05ea\u05e0\u05d0\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9',
+  termsSubtitle:
+    '\u05d4\u05de\u05e1\u05de\u05da \u05d4\u05de\u05e9\u05e4\u05d8\u05d9 \u05e9\u05dc STAMPIX',
+  privacyTitle:
+    '\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05e4\u05e8\u05d8\u05d9\u05d5\u05ea',
+  privacySubtitle:
+    '\u05d0\u05d9\u05da \u05d0\u05e0\u05d7\u05e0\u05d5 \u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05dc \u05d4\u05de\u05d9\u05d3\u05e2 \u05e9\u05dc\u05db\u05dd',
+  sectionAccount:
+    '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d7\u05e9\u05d1\u05d5\u05df',
+  logoutTitle:
+    '\u05d9\u05e6\u05d9\u05d0\u05d4 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
+  logoutSubtitle:
+    '\u05d4\u05ea\u05e0\u05ea\u05e7\u05d5\u05ea \u05de\u05d4\u05de\u05db\u05e9\u05d9\u05e8 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
+  deleteTitle: '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
+  deleteSubtitle:
+    '\u05de\u05d7\u05d9\u05e7\u05d4 \u05de\u05dc\u05d0\u05d4 \u05e9\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d5\u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd',
+  devResetTitle: 'Reset Local (DEV)',
+  devResetSubtitle: 'Clear local auth/cache for new-user simulation',
+  footerNote:
+    'STAMPIX - \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9\u05ea \u05e4\u05e9\u05d5\u05d8\u05d4 \u05dc\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea.',
+  comingSoon:
+    '\u05d4\u05de\u05e1\u05da \u05d9\u05d4\u05d9\u05d4 \u05d6\u05de\u05d9\u05df \u05d1\u05e7\u05e8\u05d5\u05d1.',
+  notificationsCenter: '\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea',
+  notificationsCenterText:
+    '\u05d0\u05d9\u05df \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d7\u05d3\u05e9\u05d5\u05ea \u05db\u05e8\u05d2\u05e2.',
+  helpCenterText:
+    '\u05e6\u05e8\u05d9\u05db\u05d9\u05dd \u05e2\u05d6\u05e8\u05d4? \u05e4\u05e0\u05d5 \u05d0\u05dc\u05d9\u05e0\u05d5 \u05d3\u05e8\u05da \u05de\u05e8\u05db\u05d6 \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4.',
+  switchModeFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  logoutFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d1\u05e6\u05e2 \u05d9\u05e6\u05d9\u05d0\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  deleteModalTitle:
+    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
+  deleteModalWarning:
+    '\u05d4\u05e4\u05e2\u05d5\u05dc\u05d4 \u05ea\u05de\u05d7\u05e7 \u05dc\u05e6\u05de\u05d9\u05ea\u05d5\u05ea \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d5\u05d0\u05ea \u05db\u05dc \u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd.',
+  deleteModalConfirmHint:
+    '\u05dc\u05d4\u05de\u05e9\u05da, \u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 DELETE.',
+  deleteModalBusy:
+    '\u05de\u05d5\u05d7\u05e7\u05d9\u05dd \u05e0\u05ea\u05d5\u05e0\u05d9\u05dd...',
+  cancel: '\u05d1\u05d9\u05d8\u05d5\u05dc',
+  confirmDelete: '\u05dc\u05d4\u05de\u05e9\u05da',
+  deletePermanent:
+    '\u05de\u05d7\u05d9\u05e7\u05d4 \u05dc\u05e6\u05de\u05d9\u05ea\u05d5\u05ea',
+  deleteAlertTitle:
+    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05de\u05d7\u05d9\u05e7\u05d4',
+  deleteAlertMessage:
+    '\u05d9\u05e9 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 DELETE \u05db\u05d3\u05d9 \u05dc\u05d0\u05e9\u05e8 \u05de\u05d7\u05d9\u05e7\u05d4.',
+  deleteFailedTitle:
+    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
+  deleteUnknownError:
+    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05e0\u05db\u05e9\u05dc\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  deleteSuccessTitle:
+    '\u05d4\u05de\u05d7\u05d9\u05e7\u05d4 \u05d4\u05d5\u05e9\u05dc\u05de\u05d4',
+  deleteSuccessPrefix:
+    '\u05d4\u05de\u05d7\u05d9\u05e7\u05d4 \u05d4\u05e1\u05ea\u05d9\u05d9\u05de\u05d4. \u05e1\u05d9\u05db\u05d5\u05dd \u05d8\u05d1\u05dc\u05d0\u05d5\u05ea:',
+  ok: '\u05d0\u05d9\u05e9\u05d5\u05e8',
+  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
 };
 
-function Row({
+function toErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return error;
+  }
+  return fallback;
+}
+
+function formatWipeSummary(counts: Record<string, number>) {
+  return Object.entries(counts)
+    .map(([tableName, count]) => `${tableName}: ${count}`)
+    .join('\n');
+}
+
+function resolveName(sessionContext: ReturnType<typeof useSessionContext>) {
+  const user = sessionContext?.user;
+  const fullName = user?.fullName?.trim();
+  if (fullName) {
+    return fullName;
+  }
+
+  const first = user?.firstName?.trim() ?? '';
+  const last = user?.lastName?.trim() ?? '';
+  const composed = `${first} ${last}`.trim();
+  if (composed) {
+    return composed;
+  }
+
+  const emailPrefix = user?.email?.split('@')[0]?.trim();
+  if (emailPrefix) {
+    return emailPrefix;
+  }
+
+  return TEXT.profileFallbackName;
+}
+
+function resolveInitial(name: string) {
+  const firstChar = name.trim().charAt(0);
+  return firstChar ? firstChar.toUpperCase() : 'S';
+}
+
+function Metric({
+  value,
+  label,
+  withDivider,
+}: {
+  value: number;
+  label: string;
+  withDivider?: boolean;
+}) {
+  return (
+    <View
+      style={[styles.metricBlock, withDivider ? styles.metricDivider : null]}
+    >
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function MenuRow({
   title,
   subtitle,
   icon,
+  onPress,
   danger,
   disabled,
-  onPress,
+  showDot,
 }: {
   title: string;
   subtitle?: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
+  onPress?: () => void;
   danger?: boolean;
   disabled?: boolean;
-  onPress?: () => void;
+  showDot?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => ({
-        backgroundColor: '#FFFFFF',
-        borderRadius: 18,
-        paddingVertical: 14,
-        paddingHorizontal: 14,
-        borderWidth: 1,
-        borderColor: '#E3E9FF',
-        opacity: disabled ? 0.55 : pressed ? 0.92 : 1,
-      })}
+      style={({ pressed }) => [
+        styles.menuRow,
+        danger ? styles.menuRowDanger : null,
+        pressed ? styles.pressed : null,
+        disabled ? styles.disabled : null,
+      ]}
     >
-      <View
-        style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}
-      >
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 14,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: danger ? '#FFE9E9' : '#F3F6FF',
-            borderWidth: 1,
-            borderColor: danger ? '#FFD0D0' : '#E3E9FF',
-          }}
-        >
+      <View style={styles.menuRowInner}>
+        <View style={styles.menuIconShell}>
           <Ionicons
             name={icon}
             size={20}
-            color={danger ? '#D92D20' : '#2F6BFF'}
+            color={danger ? '#B42318' : '#111827'}
           />
+          {showDot ? <View style={styles.menuDot} /> : null}
         </View>
 
-        <View style={{ flex: 1 }}>
+        <View style={styles.menuTextWrap}>
           <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '800',
-              textAlign: 'right',
-              color: danger ? '#D92D20' : '#0B1220',
-            }}
+            style={[styles.menuTitle, danger ? styles.menuTitleDanger : null]}
           >
             {title}
           </Text>
           {subtitle ? (
-            <Text
-              style={{
-                marginTop: 4,
-                fontSize: 12,
-                textAlign: 'right',
-                color: '#5B6475',
-              }}
-            >
-              {subtitle}
-            </Text>
+            <Text style={styles.menuSubtitle}>{subtitle}</Text>
           ) : null}
         </View>
 
-        <Ionicons name="chevron-back" size={18} color="#9AA4B8" />
+        <Ionicons name="chevron-back" size={18} color="#A1A1AA" />
       </View>
     </Pressable>
   );
 }
 
-type AppModeOption = 'customer' | 'business' | 'staff';
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const deleteMyAccountHard = useMutation(api.users.deleteMyAccountHard);
-  const setPreferredMode = useMutation(api.users.setPreferredMode);
+  const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
+  const setActiveMode = useMutation(api.users.setActiveMode);
+  const memberships = useQuery(api.memberships.byCustomer, {}) ?? [];
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
   const sessionContext = useSessionContext();
-  const [appModeBusy, setAppModeBusy] = useState(false);
+  const { signOut } = useAuthActions();
+
+  const [modeSwitchBusy, setModeSwitchBusy] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const { signOut } = useAuthActions();
-  const isActionBusy = appModeBusy || deleteBusy;
+  const [localResetBusy, setLocalResetBusy] = useState(false);
+
+  const isActionBusy = modeSwitchBusy || deleteBusy || localResetBusy;
   const isDeleteConfirmationValid =
     deleteConfirmationText.trim().toUpperCase() === 'DELETE';
   const isDeleteFinalDisabled = deleteBusy || !isDeleteConfirmationValid;
 
   const bizList = sessionContext?.businesses ?? [];
+  const pendingInvites = sessionContext?.pendingInvites ?? [];
   const hasOwnerOrManager = bizList.some(
-    (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+    (business) =>
+      business.staffRole === 'owner' || business.staffRole === 'manager'
   );
-  const hasAnyBizAccess = bizList.length > 0;
+  const businessOnboarded =
+    (sessionContext?.user?.businessOnboardedAt ?? null) != null;
+  const shouldStartBusinessOnboarding =
+    !businessOnboarded || !hasOwnerOrManager;
 
-  const handleAppModeChange = async (nextMode: AppModeOption) => {
-    if (isAppModeLoading || appModeBusy || isActionBusy) {
+  const displayName = useMemo(
+    () => resolveName(sessionContext),
+    [sessionContext]
+  );
+  const displayInitial = useMemo(
+    () => resolveInitial(displayName),
+    [displayName]
+  );
+  const displaySubtitle = useMemo(() => {
+    const primaryBusinessName = bizList[0]?.name;
+    if (primaryBusinessName) {
+      return `${primaryBusinessName} - STAMPIX`;
+    }
+    if (sessionContext?.user?.email?.trim()) {
+      return sessionContext.user.email.trim();
+    }
+    return TEXT.profileFallbackSubtitle;
+  }, [bizList, sessionContext]);
+
+  const openComingSoon = (title: string) => {
+    Alert.alert(title, TEXT.comingSoon);
+  };
+
+  const openNotificationsCenter = () => {
+    Alert.alert(TEXT.notificationsCenter, TEXT.notificationsCenterText);
+  };
+
+  const openHelpCenter = () => {
+    Alert.alert(TEXT.helpTitle, TEXT.helpCenterText);
+  };
+
+  const openLegalScreen = () => {
+    router.push('/(auth)/legal');
+  };
+
+  const handleSwitchToBusiness = async () => {
+    if (isAppModeLoading || modeSwitchBusy || isActionBusy) {
       return;
     }
-    if (nextMode === appMode) {
-      return;
-    }
-    if (nextMode === 'business' && !hasOwnerOrManager) return;
-    if (nextMode === 'staff' && !hasAnyBizAccess) return;
+
     try {
-      setAppModeBusy(true);
-      await setAppMode(nextMode);
-      await setPreferredMode({ mode: nextMode });
+      setModeSwitchBusy(true);
+
+      if (shouldStartBusinessOnboarding) {
+        await setAppMode('business');
+        if (hasOwnerOrManager) {
+          await setActiveMode({ mode: 'business' });
+        }
+        router.replace(BUSINESS_ONBOARDING_ROUTES.role);
+        return;
+      }
+
+      await setActiveMode({ mode: 'business' });
+      await setAppMode('business');
+      router.replace('/(authenticated)/(business)/dashboard');
+    } catch (error) {
+      Alert.alert(
+        TEXT.errorTitle,
+        toErrorMessage(error, TEXT.switchModeFailed)
+      );
     } finally {
-      setAppModeBusy(false);
+      setModeSwitchBusy(false);
+    }
+  };
+
+  const handleSwitchToCustomer = async () => {
+    if (isAppModeLoading || modeSwitchBusy || isActionBusy) {
+      return;
+    }
+
+    try {
+      setModeSwitchBusy(true);
+      await setActiveMode({ mode: 'customer' });
+      await setAppMode('customer');
+      router.replace('/(authenticated)/(customer)/wallet');
+    } catch (error) {
+      Alert.alert(
+        TEXT.errorTitle,
+        toErrorMessage(error, TEXT.switchModeFailed)
+      );
+    } finally {
+      setModeSwitchBusy(false);
     }
   };
 
@@ -194,11 +373,12 @@ export default function SettingsScreen() {
     if (isActionBusy) {
       return;
     }
+
     try {
       await signOut();
       router.replace('/(auth)/sign-in');
-    } finally {
-      /* logout complete */
+    } catch (error) {
+      Alert.alert(TEXT.errorTitle, toErrorMessage(error, TEXT.logoutFailed));
     }
   };
 
@@ -220,14 +400,55 @@ export default function SettingsScreen() {
     setDeleteModalVisible(true);
   };
 
-  const clearLocalStateAfterDelete = async () => {
-    await Promise.allSettled([
+  const hardResetLocalState = async () => {
+    const convexAuthKeys = getConvexAuthSecureStoreKeysForHardReset();
+    const cleanupResults = await Promise.allSettled([
       clearPendingJoin(),
-      clearOnboardingSessionId(),
-      AsyncStorage.removeItem('remembered_email'),
+      AsyncStorage.removeItem(REMEMBERED_EMAIL_STORAGE_KEY),
+      ...convexAuthKeys.map((key) => SecureStore.deleteItemAsync(key)),
+      SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY),
     ]);
 
+    const failed = cleanupResults.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    if (failed.length > 0) {
+      throw new Error(
+        toErrorMessage(failed[0].reason, 'LOCAL_HARD_RESET_FAILED')
+      );
+    }
+
     await setAppMode('customer');
+    await SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY);
+  };
+
+  const runLocalHardReset = async () => {
+    try {
+      await signOut();
+    } catch {
+      // Continue with local cleanup even when remote sign-out fails.
+    }
+
+    await hardResetLocalState();
+  };
+
+  const handleDevLocalReset = async () => {
+    if (!IS_DEV_MODE || isActionBusy) {
+      return;
+    }
+
+    setLocalResetBusy(true);
+    try {
+      await runLocalHardReset();
+      router.replace('/(auth)/welcome');
+    } catch (error) {
+      Alert.alert(
+        TEXT.errorTitle,
+        toErrorMessage(error, TEXT.deleteUnknownError)
+      );
+    } finally {
+      setLocalResetBusy(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -241,231 +462,226 @@ export default function SettingsScreen() {
 
     try {
       setDeleteBusy(true);
-      const result = await deleteMyAccountHard({});
-
-      if (!result.success) {
-        Alert.alert(TEXT.deleteFailedTitle, result.message);
-        return;
-      }
-
-      await signOut();
-      await clearLocalStateAfterDelete();
+      const result = await wipeAllDataHard({});
+      await runLocalHardReset();
 
       setDeleteModalVisible(false);
       setDeleteStep(1);
       setDeleteConfirmationText('');
-      router.replace('/(auth)/welcome');
-    } catch {
-      Alert.alert(TEXT.errorTitle, TEXT.deleteUnknownError);
+      Alert.alert(
+        TEXT.deleteSuccessTitle,
+        `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(result.counts)}`,
+        [
+          {
+            text: TEXT.ok,
+            onPress: () => router.replace('/(auth)/welcome'),
+          },
+        ],
+        { cancelable: false }
+      );
+    } catch (error) {
+      Alert.alert(
+        TEXT.deleteFailedTitle,
+        toErrorMessage(error, TEXT.deleteUnknownError)
+      );
     } finally {
       setDeleteBusy(false);
     }
   };
 
+  const isBusinessMode = appMode === 'business';
+  const hostActionDisabled = isAppModeLoading || modeSwitchBusy || isActionBusy;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 16,
-          paddingBottom: 120,
-          gap: 12,
-        }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: (insets.top || 0) + 8 },
+        ]}
       >
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: '#E3E9FF',
-            padding: 12,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row-reverse',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-            }}
+        <View style={styles.headerRow}>
+          <Pressable
+            onPress={openNotificationsCenter}
+            style={({ pressed }) => [
+              styles.notificationButton,
+              pressed ? styles.pressed : null,
+            ]}
           >
-            {hasOwnerOrManager && (
-              <Pressable
-                onPress={() => handleAppModeChange('business')}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 12,
-                  backgroundColor:
-                    appMode === 'business' ? '#E3E9FF' : 'transparent',
-                  opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-                })}
-              >
-                <Text
-                  style={{
-                    fontWeight: appMode === 'business' ? '800' : '600',
-                    color: appMode === 'business' ? '#1A2B4A' : '#5B6475',
-                  }}
-                >
-                  {TEXT.roleBusiness}
-                </Text>
-              </Pressable>
-            )}
-            {hasAnyBizAccess && (
-              <Pressable
-                onPress={() => handleAppModeChange('staff')}
-                style={({ pressed }) => ({
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 12,
-                  backgroundColor:
-                    appMode === 'staff' ? '#E3E9FF' : 'transparent',
-                  opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-                })}
-              >
-                <Text
-                  style={{
-                    fontWeight: appMode === 'staff' ? '800' : '600',
-                    color: appMode === 'staff' ? '#1A2B4A' : '#5B6475',
-                  }}
-                >
-                  {TEXT.roleStaff}
-                </Text>
-              </Pressable>
-            )}
-            <Pressable
-              onPress={() => handleAppModeChange('customer')}
-              style={({ pressed }) => ({
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 12,
-                backgroundColor:
-                  appMode === 'customer' ? '#E3E9FF' : 'transparent',
-                opacity: pressed || isAppModeLoading || appModeBusy ? 0.7 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontWeight: appMode === 'customer' ? '800' : '600',
-                  color: appMode === 'customer' ? '#1A2B4A' : '#5B6475',
-                }}
-              >
-                {TEXT.roleCustomer}
-              </Text>
-            </Pressable>
+            <Ionicons name="notifications-outline" size={24} color="#1F2937" />
+            <View style={styles.notificationDot} />
+          </Pressable>
+
+          <Text style={styles.pageTitle}>{TEXT.title}</Text>
+        </View>
+
+        <View style={styles.profileCard}>
+          <View style={styles.profileCardInner}>
+            <View style={styles.metricsColumn}>
+              <Metric
+                value={memberships.length}
+                label={TEXT.statCards}
+                withDivider={true}
+              />
+              <Metric
+                value={bizList.length}
+                label={TEXT.statBusinesses}
+                withDivider={true}
+              />
+              <Metric value={pendingInvites.length} label={TEXT.statInvites} />
+            </View>
+
+            <View style={styles.identityColumn}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitial}>{displayInitial}</Text>
+                </View>
+                <View style={styles.avatarBadge}>
+                  <Ionicons name="shield-checkmark" size={13} color="#FFFFFF" />
+                </View>
+              </View>
+
+              <Text style={styles.profileName}>{displayName}</Text>
+              <Text style={styles.profileSubtitle}>{displaySubtitle}</Text>
+            </View>
           </View>
-          <Text
-            style={{
-              marginTop: 8,
-              fontSize: 11,
-              color: '#5B6475',
-              textAlign: 'right',
-            }}
-          >
-            {TEXT.roleHint}
-          </Text>
         </View>
 
-        <View>
-          <Text
-            style={{
-              fontSize: 24,
-              fontWeight: '800',
-              color: '#1A2B4A',
-              textAlign: 'right',
-            }}
+        <View style={styles.quickGrid}>
+          <Pressable
+            onPress={() => router.push('/(authenticated)/(customer)/wallet')}
+            style={({ pressed }) => [
+              styles.quickCard,
+              pressed ? styles.pressed : null,
+            ]}
           >
-            {TEXT.title}
-          </Text>
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              color: '#2F6BFF',
-              textAlign: 'right',
-              fontWeight: '600',
-            }}
+            <View style={styles.quickIconWrap}>
+              <Ionicons name="wallet-outline" size={30} color="#18181B" />
+            </View>
+            <View style={styles.quickTextWrap}>
+              <Text style={styles.quickTitle}>{TEXT.quickWalletTitle}</Text>
+              <Text style={styles.quickSubtitle}>
+                {TEXT.quickWalletSubtitle}
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/(authenticated)/(customer)/rewards')}
+            style={({ pressed }) => [
+              styles.quickCard,
+              pressed ? styles.pressed : null,
+            ]}
           >
-            {TEXT.subtitle}
-          </Text>
+            <View style={styles.quickBadge}>
+              <Text style={styles.quickBadgeText}>{TEXT.quickNew}</Text>
+            </View>
+            <View style={styles.quickIconWrap}>
+              <Ionicons name="gift-outline" size={30} color="#18181B" />
+            </View>
+            <View style={styles.quickTextWrap}>
+              <Text style={styles.quickTitle}>{TEXT.quickRewardsTitle}</Text>
+              <Text style={styles.quickSubtitle}>
+                {TEXT.quickRewardsSubtitle}
+              </Text>
+            </View>
+          </Pressable>
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: '800',
-              color: '#5B6475',
-              textAlign: 'right',
-            }}
-          >
-            {TEXT.sectionGeneral}
-          </Text>
-          <Row
+        <Pressable
+          onPress={
+            isBusinessMode ? handleSwitchToCustomer : handleSwitchToBusiness
+          }
+          disabled={hostActionDisabled}
+          style={({ pressed }) => [
+            styles.hostCard,
+            pressed ? styles.pressed : null,
+            hostActionDisabled ? styles.disabled : null,
+          ]}
+        >
+          <View style={styles.hostCardInner}>
+            <View style={styles.hostIconShell}>
+              <Ionicons
+                name={isBusinessMode ? 'person-outline' : 'storefront-outline'}
+                size={28}
+                color="#111827"
+              />
+            </View>
+
+            <View style={styles.hostTextWrap}>
+              <Text style={styles.hostTitle}>
+                {isBusinessMode ? TEXT.switchToCustomerTitle : TEXT.hostTitle}
+              </Text>
+              <Text style={styles.hostSubtitle}>
+                {isBusinessMode
+                  ? TEXT.switchToCustomerSubtitle
+                  : TEXT.hostSubtitle}
+              </Text>
+
+              <View style={styles.hostButton}>
+                {modeSwitchBusy ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.hostButtonText}>
+                      {isBusinessMode
+                        ? TEXT.switchToCustomerButton
+                        : TEXT.hostButton}
+                    </Text>
+                    <Ionicons name="chevron-back" size={16} color="#FFFFFF" />
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        </Pressable>
+
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
+          <MenuRow
+            title={TEXT.accountSettingsTitle}
+            subtitle={TEXT.accountSettingsSubtitle}
+            icon="settings-outline"
+            showDot={true}
+            onPress={() => openComingSoon(TEXT.accountSettingsTitle)}
+          />
+          <MenuRow
             title={TEXT.notificationsTitle}
             subtitle={TEXT.notificationsSubtitle}
             icon="notifications-outline"
-            onPress={() => {}}
-          />
-          <Row
-            title={TEXT.languageTitle}
-            subtitle={TEXT.languageSubtitle}
-            icon="language-outline"
-            onPress={() => {}}
+            onPress={() => openComingSoon(TEXT.notificationsTitle)}
           />
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: '800',
-              color: '#5B6475',
-              textAlign: 'right',
-            }}
-          >
-            {TEXT.sectionSupport}
-          </Text>
-          <Row
-            title={TEXT.supportTitle}
-            subtitle={TEXT.supportSubtitle}
+        <View style={styles.divider} />
+
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>{TEXT.sectionSupport}</Text>
+          <MenuRow
+            title={TEXT.helpTitle}
+            subtitle={TEXT.helpSubtitle}
             icon="help-circle-outline"
-            onPress={() => {}}
+            onPress={openHelpCenter}
           />
-          <Row
+          <MenuRow
             title={TEXT.termsTitle}
             subtitle={TEXT.termsSubtitle}
             icon="document-text-outline"
-            onPress={() => {}}
+            onPress={openLegalScreen}
           />
-          <Row
+          <MenuRow
             title={TEXT.privacyTitle}
             subtitle={TEXT.privacySubtitle}
             icon="shield-checkmark-outline"
-            onPress={() => {}}
+            onPress={openLegalScreen}
           />
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: '800',
-              color: '#5B6475',
-              textAlign: 'right',
-            }}
-          >
-            {TEXT.sectionAccount}
-          </Text>
-          <Row
-            title={TEXT.deleteTitle}
-            subtitle={TEXT.deleteSubtitle}
-            icon="trash-outline"
-            danger={true}
-            disabled={isActionBusy}
-            onPress={openDeleteModal}
-          />
-          <Row
+        <View style={styles.divider} />
+
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>{TEXT.sectionAccount}</Text>
+          <MenuRow
             title={TEXT.logoutTitle}
             subtitle={TEXT.logoutSubtitle}
             icon="log-out-outline"
@@ -473,18 +689,26 @@ export default function SettingsScreen() {
             disabled={isActionBusy}
             onPress={handleLogout}
           />
+          <MenuRow
+            title={TEXT.deleteTitle}
+            subtitle={TEXT.deleteSubtitle}
+            icon="trash-outline"
+            danger={true}
+            disabled={isActionBusy}
+            onPress={openDeleteModal}
+          />
+          {IS_DEV_MODE ? (
+            <MenuRow
+              title={TEXT.devResetTitle}
+              subtitle={TEXT.devResetSubtitle}
+              icon="refresh-outline"
+              disabled={isActionBusy}
+              onPress={handleDevLocalReset}
+            />
+          ) : null}
         </View>
 
-        <Text
-          style={{
-            marginTop: 6,
-            textAlign: 'right',
-            color: '#8A94A6',
-            fontSize: 11,
-          }}
-        >
-          {TEXT.demoNote}
-        </Text>
+        <Text style={styles.footerNote}>{TEXT.footerNote}</Text>
       </ScrollView>
 
       <Modal
@@ -493,57 +717,15 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={closeDeleteModal}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(11, 18, 32, 0.45)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: '#E3E9FF',
-              padding: 18,
-              gap: 12,
-            }}
-          >
-            <Text
-              style={{
-                textAlign: 'right',
-                fontSize: 18,
-                fontWeight: '900',
-                color: '#D92D20',
-              }}
-            >
-              {TEXT.deleteModalTitle}
-            </Text>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{TEXT.deleteModalTitle}</Text>
 
             {deleteStep === 1 ? (
-              <Text
-                style={{
-                  textAlign: 'right',
-                  color: '#3A4252',
-                  lineHeight: 20,
-                }}
-              >
-                {TEXT.deleteModalWarning}
-              </Text>
+              <Text style={styles.modalText}>{TEXT.deleteModalWarning}</Text>
             ) : (
-              <View style={{ gap: 10 }}>
-                <Text
-                  style={{
-                    textAlign: 'right',
-                    color: '#3A4252',
-                    lineHeight: 20,
-                  }}
-                >
+              <View style={styles.modalInputBlock}>
+                <Text style={styles.modalText}>
                   {TEXT.deleteModalConfirmHint}
                 </Text>
                 <TextInput
@@ -553,58 +735,30 @@ export default function SettingsScreen() {
                   autoCapitalize="characters"
                   autoCorrect={false}
                   placeholder="DELETE"
-                  placeholderTextColor="#9AA4B8"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#E3E9FF',
-                    borderRadius: 14,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    textAlign: 'left',
-                    color: '#0B1220',
-                    fontWeight: '700',
-                  }}
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.modalInput}
                 />
               </View>
             )}
 
             {deleteBusy ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: 8,
-                }}
-              >
-                <Text style={{ color: '#5B6475', fontWeight: '600' }}>
-                  {TEXT.deleteModalBusy}
-                </Text>
+              <View style={styles.modalBusyRow}>
+                <Text style={styles.modalBusyText}>{TEXT.deleteModalBusy}</Text>
                 <ActivityIndicator color="#D92D20" />
               </View>
             ) : null}
 
-            <View
-              style={{
-                flexDirection: 'row-reverse',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
+            <View style={styles.modalActions}>
               <Pressable
                 disabled={deleteBusy}
                 onPress={closeDeleteModal}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: '#D0D7E6',
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  opacity: deleteBusy ? 0.5 : pressed ? 0.85 : 1,
-                })}
+                style={({ pressed }) => [
+                  styles.modalSecondaryButton,
+                  pressed ? styles.pressed : null,
+                  deleteBusy ? styles.disabled : null,
+                ]}
               >
-                <Text style={{ fontWeight: '800', color: '#3A4252' }}>
+                <Text style={styles.modalSecondaryButtonText}>
                   {TEXT.cancel}
                 </Text>
               </Pressable>
@@ -613,27 +767,13 @@ export default function SettingsScreen() {
                 <Pressable
                   disabled={deleteBusy}
                   onPress={() => setDeleteStep(2)}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    borderRadius: 14,
-                    minHeight: 48,
-                    borderWidth: 1,
-                    borderColor: '#B42318',
-                    backgroundColor: '#FEE4E2',
-                    paddingVertical: 12,
-                    paddingHorizontal: 10,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: deleteBusy ? 0.7 : pressed ? 0.9 : 1,
-                  })}
+                  style={({ pressed }) => [
+                    styles.modalWarningButton,
+                    pressed ? styles.pressed : null,
+                    deleteBusy ? styles.disabled : null,
+                  ]}
                 >
-                  <Text
-                    style={{
-                      fontWeight: '900',
-                      color: '#B42318',
-                    }}
-                    numberOfLines={1}
-                  >
+                  <Text style={styles.modalWarningButtonText}>
                     {TEXT.confirmDelete}
                   </Text>
                 </Pressable>
@@ -641,28 +781,21 @@ export default function SettingsScreen() {
                 <Pressable
                   disabled={isDeleteFinalDisabled}
                   onPress={handleDeleteAccount}
-                  style={({ pressed }) => ({
-                    flex: 1,
-                    borderRadius: 14,
-                    minHeight: 48,
-                    borderWidth: 1,
-                    borderColor: '#B42318',
-                    backgroundColor: isDeleteFinalDisabled
-                      ? '#FEE4E2'
-                      : '#D92D20',
-                    paddingVertical: 12,
-                    paddingHorizontal: 10,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: pressed ? 0.92 : 1,
-                  })}
+                  style={({ pressed }) => [
+                    styles.modalDangerButton,
+                    isDeleteFinalDisabled
+                      ? styles.modalDangerButtonDisabled
+                      : null,
+                    pressed ? styles.pressed : null,
+                  ]}
                 >
                   <Text
-                    style={{
-                      fontWeight: '900',
-                      color: isDeleteFinalDisabled ? '#B42318' : '#FFFFFF',
-                    }}
-                    numberOfLines={1}
+                    style={[
+                      styles.modalDangerButtonText,
+                      isDeleteFinalDisabled
+                        ? styles.modalDangerButtonTextDisabled
+                        : null,
+                    ]}
                   >
                     {TEXT.deletePermanent}
                   </Text>
@@ -675,3 +808,385 @@ export default function SettingsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 120, gap: 14 },
+  pressed: { opacity: 0.88 },
+  disabled: { opacity: 0.6 },
+
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  notificationButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EAEAEA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E61E5A',
+  },
+  pageTitle: {
+    textAlign: 'right',
+    fontSize: 44,
+    lineHeight: 48,
+    fontWeight: '900',
+    color: '#171717',
+  },
+
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    padding: 18,
+    shadowColor: '#111827',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 3,
+  },
+  profileCardInner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  metricsColumn: { width: 110 },
+  metricBlock: { paddingVertical: 10, alignItems: 'flex-end' },
+  metricDivider: { borderBottomWidth: 1, borderBottomColor: '#ECECEC' },
+  metricValue: {
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '800',
+    color: '#171717',
+    textAlign: 'right',
+  },
+  metricLabel: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+    textAlign: 'right',
+  },
+
+  identityColumn: { flex: 1, alignItems: 'flex-end' },
+  avatarWrap: { position: 'relative' },
+  avatarCircle: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: '#E6ECF8',
+    borderWidth: 1,
+    borderColor: '#D5DDED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 44,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    left: -5,
+    bottom: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#E61E5A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileName: {
+    marginTop: 12,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+    color: '#171717',
+    textAlign: 'right',
+  },
+  profileSubtitle: {
+    marginTop: 3,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'right',
+  },
+
+  quickGrid: { flexDirection: 'row', gap: 12 },
+  quickCard: {
+    flex: 1,
+    minHeight: 150,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    shadowColor: '#111827',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+    justifyContent: 'space-between',
+  },
+  quickBadge: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#4C678E',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  quickBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'right',
+  },
+  quickIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  quickTextWrap: { alignItems: 'flex-end', gap: 1 },
+  quickTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#18181B',
+    textAlign: 'right',
+  },
+  quickSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'right',
+  },
+
+  hostCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    padding: 16,
+    shadowColor: '#111827',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  hostCardInner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  hostIconShell: {
+    width: 58,
+    height: 58,
+    borderRadius: 17,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hostTextWrap: { flex: 1, alignItems: 'flex-end', gap: 7 },
+  hostTitle: {
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+    color: '#171717',
+    textAlign: 'right',
+  },
+  hostSubtitle: {
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '500',
+    color: '#52525B',
+    textAlign: 'right',
+  },
+  hostButton: {
+    marginTop: 2,
+    backgroundColor: '#111827',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    minWidth: 148,
+  },
+  hostButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'right',
+  },
+
+  menuSection: { gap: 10 },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#71717A',
+    textAlign: 'right',
+  },
+  divider: { height: 1, backgroundColor: '#DEDEDE' },
+  menuRow: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 13,
+  },
+  menuRowDanger: {
+    borderColor: '#FECACA',
+    backgroundColor: '#FFF7F7',
+  },
+  menuRowInner: { flexDirection: 'row-reverse', alignItems: 'center', gap: 11 },
+  menuIconShell: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  menuDot: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#E61E5A',
+  },
+  menuTextWrap: { flex: 1, alignItems: 'flex-end' },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#18181B',
+    textAlign: 'right',
+  },
+  menuTitleDanger: { color: '#B42318' },
+  menuSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'right',
+  },
+
+  footerNote: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#71717A',
+    textAlign: 'right',
+    lineHeight: 18,
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#F5D0D0',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    gap: 12,
+  },
+  modalTitle: {
+    textAlign: 'right',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#B42318',
+  },
+  modalText: {
+    textAlign: 'right',
+    fontSize: 14,
+    color: '#3F3F46',
+    lineHeight: 21,
+  },
+  modalInputBlock: { gap: 10 },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlign: 'left',
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalBusyRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalBusyText: { color: '#52525B', fontWeight: '600' },
+  modalActions: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D4D4D8',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSecondaryButtonText: { fontWeight: '800', color: '#3F3F46' },
+  modalWarningButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B42318',
+    backgroundColor: '#FEE4E2',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalWarningButtonText: { fontWeight: '900', color: '#B42318' },
+  modalDangerButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B42318',
+    backgroundColor: '#D92D20',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalDangerButtonDisabled: { backgroundColor: '#FEE4E2' },
+  modalDangerButtonText: { fontWeight: '900', color: '#FFFFFF' },
+  modalDangerButtonTextDisabled: { color: '#B42318' },
+});

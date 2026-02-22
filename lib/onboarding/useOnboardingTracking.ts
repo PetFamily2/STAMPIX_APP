@@ -1,4 +1,4 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { usePathname } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
@@ -7,7 +7,14 @@ import {
   type AnalyticsEventName,
   type OnboardingRole,
 } from '@/lib/analytics/events';
-import { getOrCreateOnboardingSessionId } from '@/lib/onboarding/session';
+
+function generateSessionId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 type OnboardingTrackingOptions = {
   screen: string;
@@ -54,7 +61,7 @@ export function useOnboardingTracking({
     if (sessionIdRef.current) {
       return sessionIdRef.current;
     }
-    const id = await getOrCreateOnboardingSessionId();
+    const id = generateSessionId();
     sessionIdRef.current = id;
     if (isMountedRef.current) {
       setOnboardingSessionId(id);
