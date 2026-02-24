@@ -16,11 +16,28 @@ type ProgramDraft = {
   stampIcon: string;
 };
 
+type BusinessOnboardingDraft = {
+  firstName: string;
+  lastName: string;
+  ageRange: string | null;
+  discoverySource: string | null;
+  reason: string | null;
+  businessName: string;
+  usageAreas: string[];
+  city: string;
+  street: string;
+  streetNumber: string;
+};
+
 type OnboardingContextValue = {
   businessDraft: BusinessDraft;
   setBusinessDraft: React.Dispatch<React.SetStateAction<BusinessDraft>>;
   programDraft: ProgramDraft;
   setProgramDraft: React.Dispatch<React.SetStateAction<ProgramDraft>>;
+  businessOnboardingDraft: BusinessOnboardingDraft;
+  setBusinessOnboardingDraft: React.Dispatch<
+    React.SetStateAction<BusinessOnboardingDraft>
+  >;
   businessId: Id<'businesses'> | null;
   setBusinessId: (value: Id<'businesses'> | null) => void;
   programId: Id<'loyaltyPrograms'> | null;
@@ -34,10 +51,23 @@ const defaultBusinessDraft: BusinessDraft = {
 };
 
 const defaultProgramDraft: ProgramDraft = {
-  title: 'כרטיס נאמנות',
-  rewardName: 'הטבה ראשונה',
+  title: '',
+  rewardName: '',
   maxStamps: '10',
   stampIcon: 'star',
+};
+
+const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {
+  firstName: '',
+  lastName: '',
+  ageRange: null,
+  discoverySource: null,
+  reason: null,
+  businessName: '',
+  usageAreas: [],
+  city: '',
+  street: '',
+  streetNumber: '',
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
@@ -55,6 +85,10 @@ export function OnboardingProvider({
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => ({
     ...defaultProgramDraft,
   }));
+  const [businessOnboardingDraft, setBusinessOnboardingDraft] =
+    useState<BusinessOnboardingDraft>(() => ({
+      ...defaultBusinessOnboardingDraft,
+    }));
   const [businessId, setBusinessId] = useState<Id<'businesses'> | null>(null);
   const [programId, setProgramId] = useState<Id<'loyaltyPrograms'> | null>(
     null
@@ -66,6 +100,8 @@ export function OnboardingProvider({
       setBusinessDraft,
       programDraft,
       setProgramDraft,
+      businessOnboardingDraft,
+      setBusinessOnboardingDraft,
       businessId,
       setBusinessId,
       programId,
@@ -73,11 +109,18 @@ export function OnboardingProvider({
       reset: () => {
         setBusinessDraft({ ...defaultBusinessDraft });
         setProgramDraft({ ...defaultProgramDraft });
+        setBusinessOnboardingDraft({ ...defaultBusinessOnboardingDraft });
         setBusinessId(null);
         setProgramId(null);
       },
     }),
-    [businessDraft, programDraft, businessId, programId]
+    [
+      businessDraft,
+      programDraft,
+      businessOnboardingDraft,
+      businessId,
+      programId,
+    ]
   );
 
   return (

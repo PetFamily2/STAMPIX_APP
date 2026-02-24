@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -16,14 +17,16 @@ import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 const TEXT = {
   title: '\u05de\u05d4 \u05e9\u05dd \u05d4\u05e2\u05e1\u05e7?',
   subtitle:
-    '\u05db\u05da \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d9\u05d6\u05d4\u05d5 \u05d0\u05ea\u05db\u05dd \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4.',
+    '\u05db\u05da \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d9\u05d6\u05d4\u05d5 \u05d0\u05ea\u05db\u05dd \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
   label: '\u05e9\u05dd \u05d4\u05e2\u05e1\u05e7',
   placeholder:
-    '\u05dc\u05de\u05e9\u05dc: \u05e7\u05e4\u05d4 \u05d4\u05de\u05e8\u05e4\u05e1\u05ea',
+    '\u05dc\u05de\u05e9\u05dc: \u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd STAMPAIX',
 };
 
 export default function OnboardingBusinessNameScreen() {
-  const [businessName, setBusinessName] = useState('');
+  const { businessOnboardingDraft, setBusinessOnboardingDraft } =
+    useOnboarding();
+  const businessName = businessOnboardingDraft.businessName;
   const { completeStep, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_name',
     role: 'business',
@@ -52,7 +55,7 @@ export default function OnboardingBusinessNameScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.reason)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.reason)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -69,15 +72,21 @@ export default function OnboardingBusinessNameScreen() {
           <Text style={styles.label}>{TEXT.label}</Text>
           <TextInput
             value={businessName}
-            onChangeText={setBusinessName}
+            onChangeText={(value) =>
+              setBusinessOnboardingDraft((prev) => ({
+                ...prev,
+                businessName: value,
+              }))
+            }
             placeholder={TEXT.placeholder}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#C7CDD8"
             returnKeyType="next"
             autoCapitalize="words"
             style={styles.input}
             accessibilityLabel={TEXT.label}
             blurOnSubmit={true}
             onSubmitEditing={Keyboard.dismiss}
+            textAlign="right"
           />
         </View>
 
@@ -119,18 +128,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
+    lineHeight: 20,
   },
   inputContainer: {
-    marginTop: 24,
+    marginTop: 32,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
     marginBottom: 8,
+    writingDirection: 'rtl',
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -143,6 +154,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   footer: {
     marginTop: 'auto',

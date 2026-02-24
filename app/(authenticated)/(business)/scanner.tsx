@@ -115,8 +115,10 @@ export default function ScannerScreen() {
 
   const resolveScan = useMutation(api.scanner.resolveScan);
   const addStamp = useMutation(api.scanner.addStamp);
+  const redeemReward = useMutation(api.scanner.redeemReward);
   const [isResolving, setIsResolving] = useState(false);
   const [isStamping, setIsStamping] = useState(false);
+  const [isRedeeming, setIsRedeeming] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -124,7 +126,7 @@ export default function ScannerScreen() {
   const [resolved, setResolved] = useState<ResolvedScan | null>(null);
 
   const canScan = Boolean(selectedBusiness && selectedProgram);
-  const isBusy = isResolving || isStamping;
+  const isBusy = isResolving || isStamping || isRedeeming;
 
   const resolveByToken = useCallback(
     async (token: string, showErrors = true) => {
@@ -186,7 +188,7 @@ export default function ScannerScreen() {
       setIsResolving(false);
       setScannerResetKey((prev) => prev + 1);
     },
-    [isBusy, resolveByToken]
+    [isBusy, resolveByToken, selectedBusiness?.businessId]
   );
 
   const handleAddStamp = useCallback(async () => {
@@ -244,6 +246,45 @@ export default function ScannerScreen() {
     user?._id,
   ]);
 
+  const handleRedeemReward = useCallback(async () => {
+    if (!resolved || !selectedBusiness || !selectedProgram) return;
+    if (isBusy) return;
+
+    setIsRedeeming(true);
+    setStatusMessage(null);
+    setScanError(null);
+    try {
+      await redeemReward({
+        businessId: selectedBusiness.businessId,
+        programId: selectedProgram.loyaltyProgramId,
+        customerUserId: resolved.customerUserId as Id<'users'>,
+      });
+      setStatusMessage(
+        '\u05d4\u05d8\u05d1\u05d4 \u05de\u05d5\u05de\u05e9\u05d4 \u05d5\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05d0\u05d5\u05e4\u05e1 \u05dc\u05de\u05d7\u05d6\u05d5\u05e8 \u05d7\u05d3\u05e9'
+      );
+      if (scanToken) {
+        await resolveByToken(scanToken, false);
+      }
+    } catch (error) {
+      const mapped = mapScanError(error);
+      setScanError(mapped.message);
+      track(ANALYTICS_EVENTS.stampFailed, {
+        error_code: mapped.code,
+        context: 'redeemReward',
+      });
+    } finally {
+      setIsRedeeming(false);
+    }
+  }, [
+    isBusy,
+    redeemReward,
+    resolved,
+    scanToken,
+    resolveByToken,
+    selectedBusiness,
+    selectedProgram,
+  ]);
+
   const cycleBusiness = () => {
     if (businesses.length <= 1) return;
     setBusinessIndex((prev) => (prev + 1) % businesses.length);
@@ -280,6 +321,7 @@ export default function ScannerScreen() {
     () => Array.from({ length: stampState.dots }, (_, index) => index + 1),
     [stampState.dots]
   );
+  const canRedeemNow = Boolean(resolved?.membership?.canRedeemNow);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -356,7 +398,7 @@ export default function ScannerScreen() {
           </View>
         ) : null}
 
-        <View style={styles.card}>
+        <View style={[styles.card, canRedeemNow && styles.cardRedeemReady]}>
           <Text style={styles.cardTitle}>סטטוס לקוח</Text>
           {resolved ? (
             <>
@@ -385,6 +427,19 @@ export default function ScannerScreen() {
                   <Text style={styles.moreText}>+{stampState.overflow}</Text>
                 ) : null}
               </View>
+              {canRedeemNow ? (
+                <Text style={styles.redeemReadyText}>
+                  {
+                    '\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9 - \u05d4\u05de\u05ea\u05e0\u05d4 \u05ea\u05d9\u05e0\u05ea\u05df \u05d1\u05e2\u05e1\u05e7\u05d4 \u05e0\u05e4\u05e8\u05d3\u05ea'
+                  }
+                </Text>
+              ) : (
+                <Text style={styles.pendingProgressText}>
+                  {
+                    '\u05e6\u05d5\u05d1\u05e8 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd'
+                  }
+                </Text>
+              )}
             </>
           ) : (
             <Text style={styles.emptyStateText}>
@@ -394,17 +449,26 @@ export default function ScannerScreen() {
         </View>
 
         <Pressable
-          onPress={handleAddStamp}
+          onPress={canRedeemNow ? handleRedeemReward : handleAddStamp}
           disabled={!resolved || isBusy}
           style={({ pressed }) => [
             styles.primaryButton,
+            canRedeemNow && styles.primaryButtonRedeem,
             (!resolved || isBusy) && styles.primaryButtonDisabled,
             pressed && !isBusy && resolved ? { opacity: 0.9 } : null,
           ]}
         >
-          {isStamping ? <ActivityIndicator color="#FFFFFF" /> : null}
+          {isStamping || isRedeeming ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : null}
           <Text style={styles.primaryButtonText}>
-            {isStamping ? 'מוסיף...' : 'הוסף ניקוב'}
+            {isRedeeming
+              ? '\u05de\u05de\u05de\u05e9...'
+              : isStamping
+                ? '\u05de\u05d5\u05e1\u05d9\u05e3...'
+                : canRedeemNow
+                  ? '\u05de\u05de\u05e9 \u05d4\u05d8\u05d1\u05d4'
+                  : '\u05d4\u05d5\u05e1\u05e3 \u05e0\u05d9\u05e7\u05d5\u05d1'}
           </Text>
         </Pressable>
 
@@ -490,6 +554,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
+  cardRedeemReady: {
+    borderColor: '#A9E4C4',
+    backgroundColor: '#F4FFF8',
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
@@ -539,6 +607,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B6475',
   },
+  redeemReadyText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D7A3E',
+    textAlign: 'right',
+  },
+  pendingProgressText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'right',
+  },
   emptyStateText: {
     marginTop: 10,
     fontSize: 12,
@@ -571,6 +653,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
     backgroundColor: '#2F6BFF',
+  },
+  primaryButtonRedeem: {
+    backgroundColor: '#0D9A4B',
   },
   primaryButtonDisabled: {
     backgroundColor: '#8FB3FF',

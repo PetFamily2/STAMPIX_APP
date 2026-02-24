@@ -1,9 +1,8 @@
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -19,7 +18,7 @@ import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { safeBack, safePush } from '@/lib/navigation';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -27,31 +26,17 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
-  title:
-    '\u05d9\u05d5\u05e6\u05e8\u05d9\u05dd \u05e2\u05e1\u05e7 \u05d7\u05d3\u05e9',
-  subtitle:
-    '\u05d4\u05d2\u05d3\u05e8\u05d5 \u05d0\u05ea \u05d4\u05e4\u05e8\u05d8\u05d9\u05dd \u05d4\u05d1\u05e1\u05d9\u05e1\u05d9\u05d9\u05dd \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7 \u05db\u05d3\u05d9 \u05dc\u05d4\u05ea\u05d7\u05d9\u05dc.',
-  businessNameLabel: '\u05e9\u05dd \u05d4\u05e2\u05e1\u05e7',
-  businessNamePlaceholder:
-    '\u05dc\u05de\u05e9\u05dc: \u05e7\u05e4\u05d4 \u05d4\u05e4\u05d9\u05e0\u05d4',
-  externalIdLabel: '\u05de\u05d6\u05d4\u05d4 \u05e2\u05e1\u05e7 (externalId)',
-  externalIdPlaceholder: '\u05dc\u05de\u05e9\u05dc: cafe-hapina',
-  applySlug:
-    '\u05d4\u05e9\u05ea\u05de\u05e9\u05d5 \u05d1\u05d4\u05e6\u05e2\u05d4',
-  slugHintPrefix: '\u05d4\u05e6\u05e2\u05d4:',
-  logoUrlLabel:
-    '\u05e7\u05d9\u05e9\u05d5\u05e8 \u05dc\u05dc\u05d5\u05d2\u05d5 (\u05d0\u05d5\u05e4\u05e6\u05d9\u05d5\u05e0\u05dc\u05d9)',
-  logoUrlPlaceholder:
-    '\u05db\u05ea\u05d5\u05d1\u05ea \u05ea\u05de\u05d5\u05e0\u05d4',
-  colorsLabel:
-    '\u05e6\u05d1\u05e2 \u05e8\u05d0\u05e9\u05d9 (\u05d0\u05d5\u05e4\u05e6\u05d9\u05d5\u05e0\u05dc\u05d9)',
-  colorsPlaceholder: '#2563EB',
-  continue: '\u05e9\u05de\u05d9\u05e8\u05d4 \u05d5\u05d4\u05de\u05e9\u05da',
-  submitting: '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05e1\u05e7...',
-  errorFallback:
-    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d9\u05e6\u05d9\u05e8\u05ea \u05d4\u05e2\u05e1\u05e7',
-  helper:
-    '\u05d4\u05e4\u05e8\u05d8\u05d9\u05dd \u05d9\u05d5\u05db\u05dc\u05d5 \u05dc\u05d4\u05ea\u05e2\u05d3\u05db\u05df \u05d1\u05d4\u05de\u05e9\u05da \u05de\u05de\u05e1\u05da \u05d4\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea.',
+  title: 'מה הכתובות של העסק?',
+  subtitle: 'כדי שנוכל להציג את העסק נכון במפה',
+  cityLabel: 'עיר/יישוב',
+  cityPlaceholder: 'תל אביב',
+  streetLabel: 'רחוב',
+  streetPlaceholder: 'הרצל',
+  numberLabel: 'מספר',
+  numberPlaceholder: '12',
+  continue: 'המשך',
+  submitting: 'שומרים עסק...',
+  errorFallback: 'שגיאה ביצירת העסק',
 };
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -62,43 +47,99 @@ function toErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function CreateBusinessScreen() {
-  const { businessDraft, setBusinessDraft, setBusinessId } = useOnboarding();
+  const {
+    businessDraft,
+    setBusinessDraft,
+    businessId,
+    setBusinessId,
+    businessOnboardingDraft,
+    setBusinessOnboardingDraft,
+  } = useOnboarding();
   const { user } = useUser();
   const createBusiness = useMutation(api.business.createBusiness);
   const { businessName } = useLocalSearchParams<{ businessName?: string }>();
+  const streetInputRef = useRef<TextInput>(null);
+  const streetNumberInputRef = useRef<TextInput>(null);
 
+  const city = businessOnboardingDraft.city;
+  const street = businessOnboardingDraft.street;
+  const streetNumber = businessOnboardingDraft.streetNumber;
+  const resolvedBusinessNameFromFlow = businessOnboardingDraft.businessName;
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (typeof businessName !== 'string') {
-      return;
-    }
-    const normalized = businessName.trim();
+    const fromDraft = resolvedBusinessNameFromFlow.trim();
+    const fromParams =
+      typeof businessName === 'string' ? businessName.trim() : '';
+    const normalized = fromDraft || fromParams;
     if (!normalized || businessDraft.name.trim().length > 0) {
       return;
     }
 
     setBusinessDraft((prev) => ({ ...prev, name: normalized }));
-  }, [businessDraft.name, businessName, setBusinessDraft]);
+    if (!fromDraft) {
+      setBusinessOnboardingDraft((prev) => ({
+        ...prev,
+        businessName: normalized,
+      }));
+    }
+  }, [
+    businessDraft.name,
+    businessName,
+    resolvedBusinessNameFromFlow,
+    setBusinessOnboardingDraft,
+    setBusinessDraft,
+  ]);
 
-  const slugSuggestion = useMemo(() => {
-    if (!businessDraft.name) {
+  const normalizedBusinessName = useMemo(
+    () => businessDraft.name.trim(),
+    [businessDraft.name]
+  );
+
+  const generatedExternalId = useMemo(() => {
+    if (!normalizedBusinessName) {
       return '';
     }
-    return businessDraft.name
+
+    const slug = normalizedBusinessName
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-  }, [businessDraft.name]);
+
+    if (slug.length > 0) {
+      return slug;
+    }
+
+    // Fallback for names that don't contain latin letters/digits (e.g. Hebrew).
+    return `business-${Date.now().toString(36)}`;
+  }, [normalizedBusinessName]);
+
+  const resolvedExternalId = useMemo(() => {
+    const existing = businessDraft.externalId.trim();
+    if (existing) {
+      return existing;
+    }
+    return generatedExternalId;
+  }, [businessDraft.externalId, generatedExternalId]);
+
+  const hasAddress =
+    city.trim().length > 0 &&
+    street.trim().length > 0 &&
+    streetNumber.trim().length > 0;
 
   const canSubmit =
-    Boolean(businessDraft.name.trim() && businessDraft.externalId.trim()) &&
+    Boolean(normalizedBusinessName && resolvedExternalId && hasAddress) &&
     !isSubmitting;
 
   const handleSubmit = async () => {
+    if (businessId) {
+      safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
+      return;
+    }
+
     if (!canSubmit) {
       return;
     }
@@ -107,9 +148,16 @@ export default function CreateBusinessScreen() {
     setIsSubmitting(true);
 
     try {
+      if (!businessDraft.externalId.trim()) {
+        setBusinessDraft((prev) => ({
+          ...prev,
+          externalId: resolvedExternalId,
+        }));
+      }
+
       const { businessId } = await createBusiness({
-        name: businessDraft.name.trim(),
-        externalId: businessDraft.externalId.trim(),
+        name: normalizedBusinessName,
+        externalId: resolvedExternalId,
         logoUrl: businessDraft.logoUrl,
         colors: businessDraft.colors,
       });
@@ -133,7 +181,7 @@ export default function CreateBusinessScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.usageArea)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.usageArea)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -146,99 +194,73 @@ export default function CreateBusinessScreen() {
           <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
-        <View style={styles.formCard}>
+        <View style={styles.form}>
           <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.businessNameLabel}</Text>
+            <Text style={styles.label}>{TEXT.cityLabel}</Text>
             <TextInput
-              value={businessDraft.name}
-              onChangeText={(text) =>
-                setBusinessDraft((prev) => ({ ...prev, name: text }))
+              value={city}
+              onChangeText={(value) =>
+                setBusinessOnboardingDraft((prev) => ({
+                  ...prev,
+                  city: value,
+                }))
               }
-              placeholder={TEXT.businessNamePlaceholder}
-              placeholderTextColor="#9CA3AF"
+              placeholder={TEXT.cityPlaceholder}
+              placeholderTextColor="#9EA7B8"
               style={styles.input}
-              accessibilityLabel={TEXT.businessNameLabel}
-              autoCapitalize="words"
+              accessibilityLabel={TEXT.cityLabel}
               returnKeyType="next"
+              submitBehavior="submit"
+              blurOnSubmit={false}
+              onSubmitEditing={() => streetInputRef.current?.focus()}
+              textAlign="right"
             />
           </View>
 
-          <View style={styles.field}>
-            <View style={styles.rowBetween}>
-              {slugSuggestion ? (
-                <Pressable
-                  onPress={() =>
-                    setBusinessDraft((prev) => ({
-                      ...prev,
-                      externalId: slugSuggestion,
-                    }))
-                  }
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.slugAction}>{TEXT.applySlug}</Text>
-                </Pressable>
-              ) : (
-                <View />
-              )}
-              <Text style={styles.label}>{TEXT.externalIdLabel}</Text>
+          <View style={styles.addressRow}>
+            <View style={[styles.field, styles.streetField]}>
+              <Text style={styles.label}>{TEXT.streetLabel}</Text>
+              <TextInput
+                ref={streetInputRef}
+                value={street}
+                onChangeText={(value) =>
+                  setBusinessOnboardingDraft((prev) => ({
+                    ...prev,
+                    street: value,
+                  }))
+                }
+                placeholder={TEXT.streetPlaceholder}
+                placeholderTextColor="#9EA7B8"
+                style={styles.input}
+                accessibilityLabel={TEXT.streetLabel}
+                returnKeyType="next"
+                submitBehavior="submit"
+                blurOnSubmit={false}
+                onSubmitEditing={() => streetNumberInputRef.current?.focus()}
+                textAlign="right"
+              />
             </View>
 
-            <TextInput
-              value={businessDraft.externalId}
-              onChangeText={(text) =>
-                setBusinessDraft((prev) => ({ ...prev, externalId: text }))
-              }
-              placeholder={TEXT.externalIdPlaceholder}
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              accessibilityLabel={TEXT.externalIdLabel}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            {slugSuggestion ? (
-              <Text
-                style={styles.hintText}
-              >{`${TEXT.slugHintPrefix} ${slugSuggestion}`}</Text>
-            ) : null}
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.logoUrlLabel}</Text>
-            <TextInput
-              value={businessDraft.logoUrl ?? ''}
-              onChangeText={(text) =>
-                setBusinessDraft((prev) => ({
-                  ...prev,
-                  logoUrl: text.trim().length > 0 ? text : undefined,
-                }))
-              }
-              placeholder={TEXT.logoUrlPlaceholder}
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              accessibilityLabel={TEXT.logoUrlLabel}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.colorsLabel}</Text>
-            <TextInput
-              value={businessDraft.colors ?? ''}
-              onChangeText={(text) =>
-                setBusinessDraft((prev) => ({
-                  ...prev,
-                  colors: text.trim().length > 0 ? text : undefined,
-                }))
-              }
-              placeholder={TEXT.colorsPlaceholder}
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              accessibilityLabel={TEXT.colorsLabel}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={[styles.field, styles.numberField]}>
+              <Text style={styles.label}>{TEXT.numberLabel}</Text>
+              <TextInput
+                ref={streetNumberInputRef}
+                value={streetNumber}
+                onChangeText={(value) =>
+                  setBusinessOnboardingDraft((prev) => ({
+                    ...prev,
+                    streetNumber: value,
+                  }))
+                }
+                placeholder={TEXT.numberPlaceholder}
+                placeholderTextColor="#9EA7B8"
+                style={styles.input}
+                accessibilityLabel={TEXT.numberLabel}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                textAlign="center"
+              />
+            </View>
           </View>
         </View>
 
@@ -259,7 +281,6 @@ export default function CreateBusinessScreen() {
             disabled={!canSubmit}
             label={TEXT.continue}
           />
-          <Text style={styles.helperText}>{TEXT.helper}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -291,42 +312,30 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
     lineHeight: 20,
   },
-  formCard: {
-    marginTop: 28,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    gap: 14,
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  form: {
+    marginTop: 24,
+    gap: 12,
   },
   field: {
     gap: 8,
   },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -338,18 +347,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
-    textAlign: 'right',
+    writingDirection: 'rtl',
   },
-  slugAction: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
-    textAlign: 'left',
+  addressRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    gap: 10,
   },
-  hintText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    textAlign: 'right',
+  streetField: {
+    flex: 1,
+  },
+  numberField: {
+    width: 92,
   },
   errorText: {
     marginTop: 12,
@@ -357,6 +366,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#DC2626',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   submittingRow: {
     marginTop: 8,
@@ -373,12 +383,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-    gap: 10,
-  },
-  helperText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    textAlign: 'right',
-    lineHeight: 16,
   },
 });

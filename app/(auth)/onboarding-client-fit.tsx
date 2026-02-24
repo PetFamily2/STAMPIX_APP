@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -38,7 +39,9 @@ export default function OnboardingClientFitScreen() {
   };
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue) {
+      return;
+    }
     trackContinue();
     completeStep({
       fit_count: selected.length,
@@ -68,28 +71,12 @@ export default function OnboardingClientFitScreen() {
           {FIT_OPTIONS.map((option) => {
             const isSelected = selected.includes(option.id);
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={option.id}
+                selected={isSelected}
+                label={option.title}
                 onPress={() => toggleOption(option.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={
-                    isSelected ? styles.optionSelected : styles.optionUnselected
-                  }
-                >
-                  <Text
-                    style={
-                      isSelected
-                        ? styles.optionTextSelected
-                        : styles.optionTextUnselected
-                    }
-                  >
-                    {option.title}
-                  </Text>
-                </View>
-              </Pressable>
+              />
             );
           })}
         </View>
@@ -139,44 +126,6 @@ const styles = StyleSheet.create({
   optionsContainer: {
     marginTop: 32,
     gap: 12,
-  },
-  optionSelected: {
-    backgroundColor: '#2563eb',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionUnselected: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionTextSelected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  optionTextUnselected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#111827',
-    textAlign: 'center',
   },
   footer: {
     marginTop: 'auto',

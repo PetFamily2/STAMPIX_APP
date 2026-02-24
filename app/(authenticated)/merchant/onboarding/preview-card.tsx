@@ -9,7 +9,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
-import { safeBack, safePush } from '@/lib/navigation';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -21,28 +21,23 @@ const TEXT = {
     '\u05ea\u05e6\u05d5\u05d2\u05d4 \u05de\u05e7\u05d3\u05d9\u05de\u05d4 \u05dc\u05db\u05e8\u05d8\u05d9\u05e1',
   subtitle:
     '\u05db\u05db\u05d4 \u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05e9\u05dc\u05db\u05dd \u05d9\u05e8\u05d0\u05d4 \u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea.',
-  cardTitlePrefix: '\u05db\u05e8\u05d8\u05d9\u05e1:',
   rewardLabel: '\u05d4\u05d8\u05d1\u05d4',
   stampsLabel:
     '\u05de\u05e1\u05e4\u05e8 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd',
-  businessIdLabel: '\u05de\u05d6\u05d4\u05d4 \u05e2\u05e1\u05e7',
   continue:
     '\u05e1\u05d9\u05d5\u05dd \u05d5\u05e4\u05ea\u05d9\u05d7\u05ea \u05e1\u05d5\u05e8\u05e7',
   submitting:
     '\u05de\u05e9\u05dc\u05d9\u05de\u05d9\u05dd \u05d4\u05d2\u05d3\u05e8\u05d5\u05ea...',
-  helper:
-    '\u05d0\u05d7\u05e8\u05d9 \u05d4\u05e1\u05d9\u05d5\u05dd \u05ea\u05e2\u05d1\u05e8\u05d5 \u05dc\u05de\u05e1\u05da \u05d4\u05e1\u05e8\u05d9\u05e7\u05d4 \u05d4\u05e2\u05e1\u05e7\u05d9.',
   fallbackBusinessName: '\u05e2\u05e1\u05e7 \u05d7\u05d3\u05e9',
-  fallbackProgramTitle:
-    '\u05db\u05e8\u05d8\u05d9\u05e1 \u05e0\u05d0\u05de\u05e0\u05d5\u05ea',
   fallbackReward:
-    '\u05d4\u05d8\u05d1\u05d4 \u05e8\u05d0\u05e9\u05d5\u05e0\u05d4',
+    '\u05de\u05d2\u05e9 \u05e4\u05d9\u05e6\u05d4 \u05d7\u05d9\u05e0\u05dd',
   errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
   errorMessage:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d4\u05e9\u05dc\u05d9\u05dd \u05d0\u05ea \u05d4\u05d0\u05d5\u05e0\u05d1\u05d5\u05e8\u05d3\u05d9\u05e0\u05d2 \u05d4\u05e2\u05e1\u05e7\u05d9. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
 };
 
 const PREVIEW_FILLED_STAMPS = 3;
+const MAX_STAMPS_PER_ROW = 5;
 
 export default function PreviewCardScreen() {
   const { businessDraft, programDraft, businessId, programId, reset } =
@@ -83,6 +78,31 @@ export default function PreviewCardScreen() {
     () => Array.from({ length: stampCount }, (_, index) => index + 1),
     [stampCount]
   );
+  const stampRows = useMemo(() => {
+    if (stampSlots.length <= MAX_STAMPS_PER_ROW) {
+      return [stampSlots];
+    }
+
+    if (stampSlots.length <= MAX_STAMPS_PER_ROW * 2) {
+      const firstRowCount = Math.ceil(stampSlots.length / 2);
+      return [
+        stampSlots.slice(0, firstRowCount),
+        stampSlots.slice(firstRowCount),
+      ];
+    }
+
+    const rows: number[][] = [];
+    for (
+      let index = 0;
+      index < stampSlots.length;
+      index += MAX_STAMPS_PER_ROW
+    ) {
+      rows.push(stampSlots.slice(index, index + MAX_STAMPS_PER_ROW));
+    }
+    return rows;
+  }, [stampSlots]);
+  const rewardValue = programDraft.rewardName.trim();
+  const isFallbackReward = rewardValue.length === 0;
 
   const handleFinish = async () => {
     if (!businessId || !programId || isFinishing) {
@@ -108,7 +128,9 @@ export default function PreviewCardScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.createProgram)}
+            onPress={() =>
+              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.createProgram)
+            }
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -126,46 +148,45 @@ export default function PreviewCardScreen() {
             {businessDraft.name.trim() || TEXT.fallbackBusinessName}
           </Text>
           <Text
-            style={styles.previewProgramTitle}
-          >{`${TEXT.cardTitlePrefix} ${programDraft.title.trim() || TEXT.fallbackProgramTitle}`}</Text>
-          <Text
-            style={styles.previewReward}
-          >{`${TEXT.rewardLabel}: ${programDraft.rewardName.trim() || TEXT.fallbackReward}`}</Text>
+            style={[
+              styles.previewReward,
+              isFallbackReward && styles.previewRewardFallback,
+            ]}
+          >{`${TEXT.rewardLabel}: ${rewardValue || TEXT.fallbackReward}`}</Text>
 
-          <View style={styles.stampsRow}>
-            {stampSlots.map((slot) => {
-              const filled =
-                slot <= Math.min(PREVIEW_FILLED_STAMPS, stampCount);
-              return (
-                <View
-                  key={`stamp-${slot}`}
-                  style={[
-                    styles.stamp,
-                    filled ? styles.stampFilled : styles.stampEmpty,
-                  ]}
-                >
-                  <Text
-                    style={
-                      filled ? styles.stampTextFilled : styles.stampTextEmpty
-                    }
-                  >
-                    {stampLabel}
-                  </Text>
-                </View>
-              );
-            })}
+          <View style={styles.stampsGroup}>
+            {stampRows.map((row, rowIndex) => (
+              <View key={`stamps-row-${rowIndex + 1}`} style={styles.stampsRow}>
+                {row.map((slot) => {
+                  const filled =
+                    slot <= Math.min(PREVIEW_FILLED_STAMPS, stampCount);
+                  return (
+                    <View
+                      key={`stamp-${slot}`}
+                      style={[
+                        styles.stamp,
+                        filled ? styles.stampFilled : styles.stampEmpty,
+                      ]}
+                    >
+                      <Text
+                        style={
+                          filled
+                            ? styles.stampTextFilled
+                            : styles.stampTextEmpty
+                        }
+                      >
+                        {stampLabel}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{TEXT.stampsLabel}</Text>
             <Text style={styles.summaryValue}>{stampCount}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{TEXT.businessIdLabel}</Text>
-            <Text style={styles.summaryValue}>
-              {businessDraft.externalId || '-'}
-            </Text>
           </View>
         </View>
 
@@ -184,7 +205,6 @@ export default function PreviewCardScreen() {
             disabled={!businessId || !programId || isFinishing}
             label={TEXT.continue}
           />
-          <Text style={styles.helperText}>{TEXT.helper}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -221,7 +241,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
     lineHeight: 20,
   },
@@ -244,24 +264,23 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
   },
-  previewProgramTitle: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2563EB',
-    textAlign: 'right',
-  },
   previewReward: {
-    marginTop: 2,
+    marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
     textAlign: 'right',
   },
-  stampsRow: {
+  previewRewardFallback: {
+    color: '#9CA3AF',
+  },
+  stampsGroup: {
     marginTop: 16,
+    gap: 8,
+  },
+  stampsRow: {
     flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   stamp: {
@@ -323,12 +342,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-    gap: 10,
-  },
-  helperText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    textAlign: 'right',
-    lineHeight: 16,
   },
 });

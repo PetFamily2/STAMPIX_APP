@@ -1,10 +1,11 @@
 import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -77,31 +78,15 @@ export default function OnboardingReturnMotivationScreen() {
           {RETURN_MOTIVATIONS.map((item) => {
             const isSelected = selected === item.id;
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={item.id}
+                selected={isSelected}
+                label={item.title}
                 onPress={() => {
                   setSelected(item.id);
                   trackChoice('return_motivation', item.id);
                 }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={
-                    isSelected ? styles.optionSelected : styles.optionUnselected
-                  }
-                >
-                  <Text
-                    style={
-                      isSelected
-                        ? styles.optionTextSelected
-                        : styles.optionTextUnselected
-                    }
-                  >
-                    {item.title}
-                  </Text>
-                </View>
-              </Pressable>
+              />
             );
           })}
         </View>
@@ -154,44 +139,6 @@ const styles = StyleSheet.create({
   optionsContainer: {
     marginTop: 28,
     gap: 12,
-  },
-  optionSelected: {
-    backgroundColor: '#2563eb',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionUnselected: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionTextSelected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  optionTextUnselected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#111827',
-    textAlign: 'center',
   },
   footer: {
     marginTop: 'auto',

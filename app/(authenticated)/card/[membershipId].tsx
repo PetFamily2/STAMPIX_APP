@@ -39,6 +39,8 @@ const TEXT = {
   personalQr: 'QR \u05d0\u05d9\u05e9\u05d9',
   personalQrSubtitle:
     '\u05d4\u05e8\u05d0\u05d4 \u05dc\u05e6\u05d5\u05d5\u05ea \u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05e0\u05d9\u05e7\u05d5\u05d1',
+  personalQrRedeemSubtitle:
+    '\u05d4\u05e8\u05d0\u05d4 \u05dc\u05e6\u05d5\u05d5\u05ea \u05db\u05d3\u05d9 \u05dc\u05de\u05de\u05e9 \u05d0\u05ea \u05d4\u05de\u05ea\u05e0\u05d4 \u05d1\u05e2\u05e1\u05e7\u05d4 \u05e0\u05e4\u05e8\u05d3\u05ea',
   qrCreateTokenError:
     '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d9\u05e6\u05d5\u05e8 QR',
   qrLoading: '\u05d8\u05d5\u05e2\u05df QR...',
@@ -49,6 +51,18 @@ const TEXT = {
   refreshQr: '\u05e8\u05e2\u05e0\u05df QR',
   hidePayload: '\u05d4\u05e1\u05ea\u05e8 Payload',
   showPayload: '\u05d4\u05e6\u05d2 Payload',
+  cardReadyTitle:
+    '\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05dc\u05d0 - \u05de\u05d7\u05db\u05d4 \u05dc\u05da \u05de\u05ea\u05e0\u05d4',
+  cardReadySubtitle:
+    '\u05d4\u05de\u05d9\u05de\u05d5\u05e9 \u05de\u05ea\u05d1\u05e6\u05e2 \u05d1\u05d1\u05d9\u05e7\u05d5\u05e8 \u05d4\u05d1\u05d0 \u05d1\u05e2\u05e1\u05e7\u05d4 \u05e0\u05e4\u05e8\u05d3\u05ea.',
+  cardPendingTitle:
+    '\u05de\u05de\u05e9\u05d9\u05db\u05d9\u05dd \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd',
+  cardPendingPrefix: '\u05e0\u05d5\u05ea\u05e8\u05d5',
+  cardPendingSuffix:
+    '\u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05dc\u05de\u05ea\u05e0\u05d4',
+  redeemButtonReady: '\u05d4\u05e6\u05d2 \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
+  redeemButtonLocked:
+    '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
 };
 
 export default function CardDetailsScreen() {
@@ -151,6 +165,8 @@ export default function CardDetailsScreen() {
 
   const current = Number(membership.currentStamps ?? 0);
   const goal = Math.max(1, Number(membership.maxStamps ?? 0) || 0);
+  const remainingStamps = Math.max(0, goal - current);
+  const isRedeemEligible = Boolean(membership.canRedeem || current >= goal);
   const dots = Math.min(goal, 20);
   const overflow = Math.max(0, goal - dots);
   const dotIds = Array.from({ length: dots }, (_, index) => index + 1);
@@ -174,12 +190,19 @@ export default function CardDetailsScreen() {
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>{TEXT.cardDetails}</Text>
             <Text style={styles.headerSubtitle}>
-              {membership.businessName} {'\u00b7'} {membership.programTitle}
+              {membership.businessName} {'\u00b7'} {membership.rewardName}
             </Text>
           </View>
         </View>
 
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            isRedeemEligible
+              ? styles.progressCardReady
+              : styles.progressCardPending,
+          ]}
+        >
           <Text style={styles.progressText}>
             {current}/{goal}
           </Text>
@@ -200,11 +223,75 @@ export default function CardDetailsScreen() {
               <Text style={styles.moreText}>+{overflow}</Text>
             ) : null}
           </View>
+
+          <View
+            style={[
+              styles.redeemPanel,
+              isRedeemEligible
+                ? styles.redeemPanelReady
+                : styles.redeemPanelPending,
+            ]}
+          >
+            <Text
+              style={[
+                styles.redeemTitle,
+                isRedeemEligible
+                  ? styles.redeemTitleReady
+                  : styles.redeemTitlePending,
+              ]}
+            >
+              {isRedeemEligible ? TEXT.cardReadyTitle : TEXT.cardPendingTitle}
+            </Text>
+            <Text
+              style={[
+                styles.redeemSubtitle,
+                isRedeemEligible
+                  ? styles.redeemSubtitleReady
+                  : styles.redeemSubtitlePending,
+              ]}
+            >
+              {isRedeemEligible
+                ? TEXT.cardReadySubtitle
+                : `${TEXT.cardPendingPrefix} ${remainingStamps} ${TEXT.cardPendingSuffix}`}
+            </Text>
+            <Pressable
+              onPress={() => void refreshScanToken()}
+              disabled={
+                !isRedeemEligible || isTokenLoading || !membershipIdForToken
+              }
+              style={({ pressed }) => [
+                styles.redeemButton,
+                isRedeemEligible
+                  ? styles.redeemButtonReady
+                  : styles.redeemButtonDisabled,
+                (pressed && isRedeemEligible) || isTokenLoading
+                  ? { opacity: 0.9 }
+                  : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.redeemButtonText,
+                  !isRedeemEligible && styles.redeemButtonTextDisabled,
+                ]}
+              >
+                {isTokenLoading && isRedeemEligible
+                  ? TEXT.loading
+                  : isRedeemEligible
+                    ? TEXT.redeemButtonReady
+                    : TEXT.redeemButtonLocked}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
-          <Text style={styles.cardSubtitle}>{TEXT.personalQrSubtitle}</Text>
+          <Text style={styles.cardSubtitle}>
+            {isRedeemEligible
+              ? TEXT.personalQrRedeemSubtitle
+              : TEXT.personalQrSubtitle}
+          </Text>
           <View style={styles.qrFrame}>
             {scanTokenPayload ? (
               <QRCode
@@ -328,6 +415,14 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
+  progressCardReady: {
+    backgroundColor: '#F3FFF8',
+    borderColor: '#B6E7CC',
+  },
+  progressCardPending: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E3E9FF',
+  },
   progressText: {
     fontSize: 28,
     fontWeight: '900',
@@ -362,6 +457,66 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#5B6475',
+  },
+  redeemPanel: {
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  redeemPanelReady: {
+    backgroundColor: '#EAFBF1',
+    borderColor: '#9EDDB9',
+  },
+  redeemPanelPending: {
+    backgroundColor: '#F5F8FF',
+    borderColor: '#DCE6FF',
+  },
+  redeemTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  redeemTitleReady: {
+    color: '#0D7A3E',
+  },
+  redeemTitlePending: {
+    color: '#1A2B4A',
+  },
+  redeemSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'right',
+  },
+  redeemSubtitleReady: {
+    color: '#215E3E',
+  },
+  redeemSubtitlePending: {
+    color: '#5B6475',
+  },
+  redeemButton: {
+    marginTop: 2,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  redeemButtonReady: {
+    backgroundColor: '#0D9A4B',
+  },
+  redeemButtonDisabled: {
+    backgroundColor: '#CFDAF2',
+  },
+  redeemButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  redeemButtonTextDisabled: {
+    color: '#5F6D86',
   },
   cardTitle: {
     fontSize: 16,

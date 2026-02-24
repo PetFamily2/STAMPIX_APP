@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -19,9 +21,9 @@ type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
 
 const TEXT = {
   title:
-    '\u05d1\u05d0\u05d9\u05dc\u05d5 \u05d0\u05d6\u05d5\u05e8\u05d9\u05dd \u05d4\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05d4\u05d9\u05d5\u05dd?\n\u05d1\u05d5\u05d7\u05e8\u05d9\u05dd \u05e2\u05d3 3 \u05d0\u05e4\u05e9\u05e8\u05d5\u05d9\u05d5\u05ea',
+    '\u05d1\u05d0\u05d9\u05dc\u05d5 \u05d0\u05d6\u05d5\u05e8\u05d9\u05dd \u05d4\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc?',
   subtitle:
-    '\u05d6\u05d4 \u05e2\u05d5\u05d6\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05d0\u05ea \u05d4\u05d7\u05d5\u05d5\u05d9\u05d4 \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da.',
+    '\u05d6\u05d4 \u05e2\u05d5\u05d6\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05d0\u05ea \u05d4\u05d7\u05d5\u05d5\u05d9\u05d4 \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da',
 };
 
 const USAGE_AREAS: Array<{
@@ -42,8 +44,7 @@ const USAGE_AREAS: Array<{
   },
   {
     id: 'online',
-    title:
-      '\u05d1\u05d0\u05d5\u05e0\u05dc\u05d9\u05d9\u05df \u05d1\u05dc\u05d1\u05d3',
+    title: '\u05d1\u05d0\u05d5\u05e0\u05dc\u05d9\u05d9\u05df',
     icon: 'phone-portrait-outline',
   },
   {
@@ -54,25 +55,52 @@ const USAGE_AREAS: Array<{
 ];
 
 export default function OnboardingBusinessUsageAreaScreen() {
-  const { businessName } = useLocalSearchParams<{ businessName?: string }>();
-  const [selected, setSelected] = useState<UsageAreaId[]>([]);
+  const { businessName: businessNameFromParams } = useLocalSearchParams<{
+    businessName?: string;
+  }>();
+  const { businessOnboardingDraft, setBusinessOnboardingDraft } =
+    useOnboarding();
+  const selected = businessOnboardingDraft.usageAreas as UsageAreaId[];
   const canContinue = selected.length > 0;
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_usage_area',
     role: 'business',
   });
 
+  useEffect(() => {
+    if (businessOnboardingDraft.businessName.trim().length > 0) {
+      return;
+    }
+    if (
+      typeof businessNameFromParams !== 'string' ||
+      businessNameFromParams.trim().length === 0
+    ) {
+      return;
+    }
+    setBusinessOnboardingDraft((prev) => ({
+      ...prev,
+      businessName: businessNameFromParams.trim(),
+    }));
+  }, [
+    businessNameFromParams,
+    businessOnboardingDraft.businessName,
+    setBusinessOnboardingDraft,
+  ]);
+
   const toggleArea = (id: UsageAreaId) => {
-    setSelected((prev) => {
-      if (prev.includes(id)) {
+    setBusinessOnboardingDraft((prev) => {
+      if (prev.usageAreas.includes(id)) {
         trackChoice('usage_area', id, { selected: false });
-        return prev.filter((item) => item !== id);
-      }
-      if (prev.length >= 3) {
-        return prev;
+        return {
+          ...prev,
+          usageAreas: prev.usageAreas.filter((item) => item !== id),
+        };
       }
       trackChoice('usage_area', id, { selected: true });
-      return [...prev, id];
+      return {
+        ...prev,
+        usageAreas: [...prev.usageAreas, id],
+      };
     });
   };
 
@@ -86,9 +114,14 @@ export default function OnboardingBusinessUsageAreaScreen() {
       areas_values: selected,
     });
 
+    const resolvedBusinessName =
+      businessOnboardingDraft.businessName.trim().length > 0
+        ? businessOnboardingDraft.businessName
+        : businessNameFromParams;
     const encodedName =
-      typeof businessName === 'string' && businessName.trim().length > 0
-        ? encodeURIComponent(businessName.trim())
+      typeof resolvedBusinessName === 'string' &&
+      resolvedBusinessName.trim().length > 0
+        ? encodeURIComponent(resolvedBusinessName.trim())
         : '';
     const nextHref = encodedName
       ? `${BUSINESS_ONBOARDING_ROUTES.createBusiness}?businessName=${encodedName}`
@@ -102,7 +135,7 @@ export default function OnboardingBusinessUsageAreaScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.name)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.name)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -119,41 +152,19 @@ export default function OnboardingBusinessUsageAreaScreen() {
           {USAGE_AREAS.map((area) => {
             const isSelected = selected.includes(area.id);
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={area.id}
+                selected={isSelected}
+                label={area.title}
                 onPress={() => toggleArea(area.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={[
-                    styles.option,
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected,
-                  ]}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons
-                        name={area.icon}
-                        size={20}
-                        color={isSelected ? '#FFFFFF' : '#2563EB'}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        isSelected
-                          ? styles.optionTextSelected
-                          : styles.optionTextUnselected,
-                      ]}
-                    >
-                      {area.title}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
+                icon={
+                  <Ionicons
+                    name={area.icon}
+                    size={20}
+                    color={isSelected ? '#FFFFFF' : '#2563EB'}
+                  />
+                }
+              />
             );
           })}
         </View>
@@ -196,56 +207,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
     lineHeight: 20,
   },
   optionsContainer: {
     marginTop: 32,
     gap: 12,
-  },
-  option: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-    shadowColor: '#93C5FD',
-  },
-  optionUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
-    shadowColor: '#9CA3AF',
-  },
-  optionContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconContainer: {
-    height: 32,
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  optionTextSelected: {
-    color: '#FFFFFF',
-  },
-  optionTextUnselected: {
-    color: '#111827',
   },
   footer: {
     marginTop: 'auto',

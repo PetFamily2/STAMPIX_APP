@@ -14,8 +14,12 @@ export default function MerchantLayout() {
   const segmentStrings = segments as string[];
   const isOnboardingRoute = segmentStrings.includes('onboarding');
 
-  if (isLoading) {
+  if (isLoading && !isOnboardingRoute) {
     return <FullScreenLoading />;
+  }
+
+  if (!isPreviewMode && user?.customerOnboardedAt == null) {
+    return <Redirect href="/(auth)/name-capture" />;
   }
 
   if (!user || !isAuthorized) {

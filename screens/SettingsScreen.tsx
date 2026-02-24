@@ -53,10 +53,11 @@ const TEXT = {
     '\u05e7\u05d5\u05e4\u05d5\u05e0\u05d9\u05dd \u05d5\u05de\u05d9\u05de\u05d5\u05e9\u05d9\u05dd',
   quickNew: '\u05d7\u05d3\u05e9',
   hostTitle:
-    '\u05e8\u05d5\u05e6\u05d9\u05dd \u05dc\u05e4\u05ea\u05d5\u05d7 \u05e2\u05e1\u05e7?',
+    '\u05e8\u05d5\u05e6\u05d9\u05dd \u05dc\u05e6\u05e8\u05e3 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7 \u05e9\u05dc\u05db\u05dd?',
   hostSubtitle:
     '\u05d4\u05e4\u05e2\u05d9\u05dc\u05d5 \u05db\u05e8\u05d8\u05d9\u05e1 \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9 \u05d5\u05d4\u05ea\u05d7\u05d9\u05dc\u05d5 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd.',
-  hostButton: '\u05dc\u05d4\u05ea\u05d7\u05d9\u05dc \u05dc\u05d0\u05e8\u05d7',
+  hostButton:
+    '\u05e6\u05d5\u05e8 \u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da',
   switchToCustomerTitle:
     '\u05d7\u05d6\u05e8\u05d4 \u05dc\u05de\u05e6\u05d1 \u05dc\u05e7\u05d5\u05d7',
   switchToCustomerSubtitle:
@@ -508,7 +509,7 @@ export default function SettingsScreen() {
               pressed ? styles.pressed : null,
             ]}
           >
-            <Ionicons name="notifications-outline" size={24} color="#1F2937" />
+            <Ionicons name="notifications-outline" size={20} color="#1F2937" />
             <View style={styles.notificationDot} />
           </Pressable>
 
@@ -541,100 +542,67 @@ export default function SettingsScreen() {
                 </View>
               </View>
 
-              <Text style={styles.profileName}>{displayName}</Text>
-              <Text style={styles.profileSubtitle}>{displaySubtitle}</Text>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Text style={styles.profileSubtitle} numberOfLines={1}>
+                {displaySubtitle}
+              </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.quickGrid}>
+        <View style={styles.hostFrame}>
           <Pressable
-            onPress={() => router.push('/(authenticated)/(customer)/wallet')}
+            onPress={
+              isBusinessMode ? handleSwitchToCustomer : handleSwitchToBusiness
+            }
+            disabled={hostActionDisabled}
             style={({ pressed }) => [
-              styles.quickCard,
+              styles.hostCard,
               pressed ? styles.pressed : null,
+              hostActionDisabled ? styles.disabled : null,
             ]}
           >
-            <View style={styles.quickIconWrap}>
-              <Ionicons name="wallet-outline" size={30} color="#18181B" />
-            </View>
-            <View style={styles.quickTextWrap}>
-              <Text style={styles.quickTitle}>{TEXT.quickWalletTitle}</Text>
-              <Text style={styles.quickSubtitle}>
-                {TEXT.quickWalletSubtitle}
-              </Text>
-            </View>
-          </Pressable>
+            <View style={styles.hostCardInner}>
+              <View style={styles.hostIconShell}>
+                <Ionicons
+                  name={
+                    isBusinessMode ? 'person-outline' : 'storefront-outline'
+                  }
+                  size={22}
+                  color="#111827"
+                />
+              </View>
 
-          <Pressable
-            onPress={() => router.push('/(authenticated)/(customer)/rewards')}
-            style={({ pressed }) => [
-              styles.quickCard,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <View style={styles.quickBadge}>
-              <Text style={styles.quickBadgeText}>{TEXT.quickNew}</Text>
-            </View>
-            <View style={styles.quickIconWrap}>
-              <Ionicons name="gift-outline" size={30} color="#18181B" />
-            </View>
-            <View style={styles.quickTextWrap}>
-              <Text style={styles.quickTitle}>{TEXT.quickRewardsTitle}</Text>
-              <Text style={styles.quickSubtitle}>
-                {TEXT.quickRewardsSubtitle}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
+              <View style={styles.hostTextWrap}>
+                <Text style={styles.hostTitle} numberOfLines={2}>
+                  {isBusinessMode ? TEXT.switchToCustomerTitle : TEXT.hostTitle}
+                </Text>
+                <Text style={styles.hostSubtitle} numberOfLines={3}>
+                  {isBusinessMode
+                    ? TEXT.switchToCustomerSubtitle
+                    : TEXT.hostSubtitle}
+                </Text>
 
-        <Pressable
-          onPress={
-            isBusinessMode ? handleSwitchToCustomer : handleSwitchToBusiness
-          }
-          disabled={hostActionDisabled}
-          style={({ pressed }) => [
-            styles.hostCard,
-            pressed ? styles.pressed : null,
-            hostActionDisabled ? styles.disabled : null,
-          ]}
-        >
-          <View style={styles.hostCardInner}>
-            <View style={styles.hostIconShell}>
-              <Ionicons
-                name={isBusinessMode ? 'person-outline' : 'storefront-outline'}
-                size={28}
-                color="#111827"
-              />
-            </View>
-
-            <View style={styles.hostTextWrap}>
-              <Text style={styles.hostTitle}>
-                {isBusinessMode ? TEXT.switchToCustomerTitle : TEXT.hostTitle}
-              </Text>
-              <Text style={styles.hostSubtitle}>
-                {isBusinessMode
-                  ? TEXT.switchToCustomerSubtitle
-                  : TEXT.hostSubtitle}
-              </Text>
-
-              <View style={styles.hostButton}>
-                {modeSwitchBusy ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Text style={styles.hostButtonText}>
-                      {isBusinessMode
-                        ? TEXT.switchToCustomerButton
-                        : TEXT.hostButton}
-                    </Text>
-                    <Ionicons name="chevron-back" size={16} color="#FFFFFF" />
-                  </>
-                )}
+                <View style={styles.hostButton}>
+                  {modeSwitchBusy ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Text style={styles.hostButtonText}>
+                        {isBusinessMode
+                          ? TEXT.switchToCustomerButton
+                          : TEXT.hostButton}
+                      </Text>
+                      <Ionicons name="chevron-back" size={14} color="#FFFFFF" />
+                    </>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
 
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
@@ -811,7 +779,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 120, gap: 14 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 100, gap: 10 },
   pressed: { opacity: 0.88 },
   disabled: { opacity: 0.6 },
 
@@ -822,9 +790,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   notificationButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#EAEAEA',
     alignItems: 'center',
     justifyContent: 'center',
@@ -840,42 +808,42 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     textAlign: 'right',
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '900',
     color: '#171717',
   },
 
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 26,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E8E8E8',
-    padding: 18,
+    padding: 12,
     shadowColor: '#111827',
     shadowOpacity: 0.05,
-    shadowRadius: 12,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 7 },
-    elevation: 3,
+    elevation: 2,
   },
   profileCardInner: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 12,
   },
-  metricsColumn: { width: 110 },
-  metricBlock: { paddingVertical: 10, alignItems: 'flex-end' },
+  metricsColumn: { width: 82 },
+  metricBlock: { paddingVertical: 7, alignItems: 'flex-end' },
   metricDivider: { borderBottomWidth: 1, borderBottomColor: '#ECECEC' },
   metricValue: {
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '800',
     color: '#171717',
     textAlign: 'right',
   },
   metricLabel: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
     color: '#4B5563',
     textAlign: 'right',
@@ -884,9 +852,9 @@ const styles = StyleSheet.create({
   identityColumn: { flex: 1, alignItems: 'flex-end' },
   avatarWrap: { position: 'relative' },
   avatarCircle: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: '#E6ECF8',
     borderWidth: 1,
     borderColor: '#D5DDED',
@@ -894,18 +862,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitial: {
-    fontSize: 44,
+    fontSize: 24,
     fontWeight: '900',
     color: '#111827',
     textAlign: 'center',
   },
   avatarBadge: {
     position: 'absolute',
-    left: -5,
-    bottom: 6,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    left: -4,
+    bottom: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#FFFFFF',
     backgroundColor: '#E61E5A',
@@ -913,79 +881,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileName: {
-    marginTop: 12,
-    fontSize: 34,
-    lineHeight: 38,
+    marginTop: 8,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '900',
     color: '#171717',
     textAlign: 'right',
   },
   profileSubtitle: {
-    marginTop: 3,
-    fontSize: 15,
+    marginTop: 2,
+    fontSize: 12,
     fontWeight: '500',
     color: '#6B7280',
     textAlign: 'right',
   },
 
-  quickGrid: { flexDirection: 'row', gap: 12 },
-  quickCard: {
-    flex: 1,
-    minHeight: 150,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    shadowColor: '#111827',
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
-    justifyContent: 'space-between',
-  },
-  quickBadge: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#4C678E',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  quickBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'right',
-  },
-  quickIconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  quickTextWrap: { alignItems: 'flex-end', gap: 1 },
-  quickTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#18181B',
-    textAlign: 'right',
-  },
-  quickSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'right',
+  hostFrame: {
+    borderWidth: 2,
+    borderColor: '#9DB6FF',
+    borderRadius: 18,
+    backgroundColor: '#EEF3FF',
+    padding: 6,
   },
 
   hostCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E8E8E8',
-    padding: 16,
+    padding: 12,
     shadowColor: '#111827',
     shadowOpacity: 0.04,
     shadowRadius: 10,
@@ -998,24 +922,24 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   hostIconShell: {
-    width: 58,
-    height: 58,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   hostTextWrap: { flex: 1, alignItems: 'flex-end', gap: 7 },
   hostTitle: {
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '900',
     color: '#171717',
     textAlign: 'right',
   },
   hostSubtitle: {
-    fontSize: 16,
-    lineHeight: 23,
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '500',
     color: '#52525B',
     textAlign: 'right',
@@ -1024,16 +948,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     backgroundColor: '#111827',
     borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    minWidth: 148,
+    minWidth: 118,
   },
   hostButtonText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'right',
@@ -1041,7 +965,7 @@ const styles = StyleSheet.create({
 
   menuSection: { gap: 10 },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#71717A',
     textAlign: 'right',

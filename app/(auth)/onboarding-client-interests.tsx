@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -53,7 +54,9 @@ export default function OnboardingInterestsScreen() {
   };
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue) {
+      return;
+    }
     trackContinue();
     completeStep({
       interests_count: selected.length,
@@ -85,41 +88,22 @@ export default function OnboardingInterestsScreen() {
           {BUSINESS_TYPES.map((type) => {
             const isSelected = selected.includes(type.id);
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={type.id}
+                selected={isSelected}
+                label={type.title}
                 onPress={() => toggleType(type.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={[
-                    styles.option,
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected,
-                  ]}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons
-                        name={type.icon}
-                        size={20}
-                        color={isSelected ? '#FFFFFF' : '#2563EB'}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        isSelected
-                          ? styles.optionTextSelected
-                          : styles.optionTextUnselected,
-                      ]}
-                    >
-                      {type.title}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
+                labelNumberOfLines={1}
+                labelAdjustsFontSizeToFit={true}
+                labelMinimumFontScale={0.82}
+                icon={
+                  <Ionicons
+                    name={type.icon}
+                    size={20}
+                    color={isSelected ? '#FFFFFF' : '#2563EB'}
+                  />
+                }
+              />
             );
           })}
         </View>
@@ -168,49 +152,6 @@ const styles = StyleSheet.create({
   optionsContainer: {
     marginTop: 32,
     gap: 12,
-  },
-  option: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-    shadowColor: '#93c5fd',
-  },
-  optionUnselected: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
-  },
-  optionContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconContainer: {
-    height: 32,
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  optionTextSelected: {
-    color: '#ffffff',
-  },
-  optionTextUnselected: {
-    color: '#111827',
   },
   footer: {
     marginTop: 'auto',

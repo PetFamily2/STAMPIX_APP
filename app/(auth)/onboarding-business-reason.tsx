@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -25,7 +26,7 @@ const TEXT = {
   title:
     '\u05de\u05d4 \u05d4\u05de\u05d8\u05e8\u05d4 \u05d4\u05e2\u05d9\u05e7\u05e8\u05d9\u05ea \u05e9\u05dc\u05db\u05dd?',
   subtitle:
-    '\u05d1\u05d7\u05d9\u05e8\u05d4 \u05d6\u05d5 \u05ea\u05e2\u05d6\u05d5\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05dc\u05db\u05dd \u05d4\u05de\u05dc\u05e6\u05d5\u05ea \u05d4\u05de\u05e9\u05da.',
+    '\u05d1\u05d7\u05d9\u05e8\u05d4 \u05d6\u05d5 \u05ea\u05e2\u05d6\u05d5\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05dc\u05db\u05dd \u05d4\u05de\u05dc\u05e6\u05d5\u05ea \u05d4\u05de\u05e9\u05da',
 };
 
 const REASONS: Array<{ id: ReasonId; title: string }> = [
@@ -58,7 +59,9 @@ const REASONS: Array<{ id: ReasonId; title: string }> = [
 ];
 
 export default function OnboardingBusinessReasonScreen() {
-  const [selected, setSelected] = useState<ReasonId | null>(null);
+  const { businessOnboardingDraft, setBusinessOnboardingDraft } =
+    useOnboarding();
+  const selected = businessOnboardingDraft.reason as ReasonId | null;
   const canContinue = Boolean(selected);
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_reason',
@@ -80,7 +83,7 @@ export default function OnboardingBusinessReasonScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.discovery)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.discovery)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -97,31 +100,18 @@ export default function OnboardingBusinessReasonScreen() {
           {REASONS.map((reason) => {
             const isSelected = selected === reason.id;
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={reason.id}
+                selected={isSelected}
+                label={reason.title}
                 onPress={() => {
-                  setSelected(reason.id);
+                  setBusinessOnboardingDraft((prev) => ({
+                    ...prev,
+                    reason: reason.id,
+                  }));
                   trackChoice('reason', reason.id);
                 }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={
-                    isSelected ? styles.optionSelected : styles.optionUnselected
-                  }
-                >
-                  <Text
-                    style={
-                      isSelected
-                        ? styles.optionTextSelected
-                        : styles.optionTextUnselected
-                    }
-                  >
-                    {reason.title}
-                  </Text>
-                </View>
-              </Pressable>
+              />
             );
           })}
         </View>
@@ -164,50 +154,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
+    lineHeight: 20,
   },
   optionsContainer: {
-    marginTop: 28,
+    marginTop: 32,
     gap: 12,
-  },
-  optionSelected: {
-    backgroundColor: '#2563EB',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#2563EB',
-    shadowColor: '#93C5FD',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionTextSelected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  optionTextUnselected: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#111827',
-    textAlign: 'center',
   },
   footer: {
     marginTop: 'auto',

@@ -21,6 +21,21 @@ export const safeBack = (fallback?: string) => {
   }
 };
 
+export const safeDismissTo = (href: string) => {
+  try {
+    router.dismissTo(href as Href);
+    return;
+  } catch {
+    // Fall through to a deterministic replace when dismissTo is unavailable.
+  }
+
+  try {
+    router.replace(href as Href);
+  } catch {
+    // No navigation context; ignore to avoid crash.
+  }
+};
+
 export const safePush = (href: string) => {
   try {
     router.push(href as Href);

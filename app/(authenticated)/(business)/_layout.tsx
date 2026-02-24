@@ -32,6 +32,10 @@ export default function BusinessTabsLayout() {
     return <Redirect href="/(auth)/sign-up" />;
   }
 
+  if (!isPreviewMode && sessionContext?.user.customerOnboardedAt == null) {
+    return <Redirect href="/(auth)/name-capture" />;
+  }
+
   const bizList = sessionContext?.businesses ?? [];
   const hasOwnerOrManager = bizList.some(
     (b) => b.staffRole === 'owner' || b.staffRole === 'manager'

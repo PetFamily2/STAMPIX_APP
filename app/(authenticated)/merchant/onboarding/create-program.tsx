@@ -17,7 +17,7 @@ import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { safeBack, safePush } from '@/lib/navigation';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -28,19 +28,18 @@ const TEXT = {
   title:
     '\u05d9\u05d5\u05e6\u05e8\u05d9\u05dd \u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05e0\u05d0\u05de\u05e0\u05d5\u05ea',
   subtitle:
-    '\u05d4\u05d2\u05d3\u05d9\u05e8\u05d5 \u05de\u05d4 \u05d4\u05dc\u05e7\u05d5\u05d7 \u05e6\u05d5\u05d1\u05e8 \u05d5\u05de\u05ea\u05d9 \u05de\u05de\u05de\u05e9\u05d9\u05dd \u05d4\u05d8\u05d1\u05d4.',
-  cardNameLabel: '\u05e9\u05dd \u05d4\u05db\u05e8\u05d8\u05d9\u05e1',
+    '\u05d4\u05d2\u05d3\u05d9\u05e8\u05d5 \u05de\u05d4 \u05d4\u05dc\u05e7\u05d5\u05d7 \u05e6\u05d5\u05d1\u05e8 \u05d5\u05de\u05ea\u05d9 \u05de\u05de\u05de\u05e9\u05d9\u05dd \u05d4\u05d8\u05d1\u05d4',
+  cardNameLabel:
+    '\u05e9\u05dd \u05d4\u05db\u05e8\u05d8\u05d9\u05e1 (\u05de\u05d4 \u05d4\u05dc\u05e7\u05d5\u05d7 \u05e6\u05d5\u05d1\u05e8)',
   cardNamePlaceholder:
-    '\u05dc\u05de\u05e9\u05dc: \u05db\u05e8\u05d8\u05d9\u05e1 \u05e7\u05e4\u05d4 \u05e7\u05d1\u05d5\u05e2',
-  rewardLabel: '\u05e9\u05dd \u05d4\u05d4\u05d8\u05d1\u05d4',
+    "\u05dc\u05de\u05e9\u05dc: \u05de\u05e1\u05d0\u05d2'\u05d9\u05dd/\u05de\u05d2\u05e9\u05d9 \u05e4\u05d9\u05e6\u05d4/\u05db\u05d5\u05e1\u05d5\u05ea \u05e7\u05e4\u05d4/\u05e9\u05d8\u05d9\u05e4\u05ea \u05e8\u05db\u05d1",
+  rewardLabel:
+    '\u05de\u05d4 \u05d4\u05de\u05ea\u05e0\u05d4 \u05dc\u05dc\u05e7\u05d5\u05d7',
   rewardPlaceholder:
-    '\u05dc\u05de\u05e9\u05dc: \u05e7\u05e4\u05d4 \u05d7\u05d9\u05e0\u05dd',
+    '\u05de\u05d2\u05e9 \u05e4\u05d9\u05e6\u05d4 \u05d7\u05d9\u05e0\u05dd',
   maxStampsLabel:
     '\u05db\u05de\u05d5\u05ea \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd',
   maxStampsPlaceholder: '10',
-  stampIconLabel:
-    '\u05d0\u05d9\u05d9\u05e7\u05d5\u05df \u05e0\u05d9\u05e7\u05d5\u05d1',
-  stampIconPlaceholder: 'star',
   continue: '\u05e9\u05de\u05d9\u05e8\u05d4 \u05d5\u05d4\u05de\u05e9\u05da',
   submitting:
     '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05ea\u05d5\u05db\u05e0\u05d9\u05ea...',
@@ -48,9 +47,13 @@ const TEXT = {
     '\u05e0\u05d3\u05e8\u05e9 \u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05e7\u05d5\u05d3\u05dd',
   errorFallback:
     '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d9\u05e6\u05d9\u05e8\u05ea \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea',
-  helper:
-    '\u05d1\u05e9\u05dc\u05d1 \u05d4\u05d1\u05d0 \u05ea\u05e8\u05d0\u05d5 \u05ea\u05e6\u05d5\u05d2\u05d4 \u05de\u05e7\u05d3\u05d9\u05de\u05d4 \u05e9\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1.',
 };
+
+const LEGACY_CARD_TITLE_DEFAULTS = [
+  'כרטיס נאמנות',
+  "למשל: מסאג'/מגשי פיצה",
+  "למשל: מסאג'ים/מגשי פיצה/כוסות קפה/שטיפת רכב",
+] as const;
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -74,18 +77,22 @@ export default function CreateProgramScreen() {
     }
   }, [businessId]);
 
+  useEffect(() => {
+    // Backward-compat: clear old seeded/sample values so placeholder is visible.
+    const normalizedTitle = programDraft.title.trim();
+    if (LEGACY_CARD_TITLE_DEFAULTS.some((value) => value === normalizedTitle)) {
+      setProgramDraft((prev) => ({ ...prev, title: '' }));
+    }
+  }, [programDraft.title, setProgramDraft]);
+
   const maxStampsNumber = useMemo(
     () => Number(programDraft.maxStamps),
     [programDraft.maxStamps]
   );
 
   const canSubmit =
-    Boolean(
-      programDraft.title.trim() &&
-        programDraft.rewardName.trim() &&
-        programDraft.stampIcon.trim() &&
-        maxStampsNumber > 0
-    ) && !isSubmitting;
+    Boolean(programDraft.rewardName.trim() && maxStampsNumber > 0) &&
+    !isSubmitting;
 
   const handleSubmit = async () => {
     if (!businessId) {
@@ -102,10 +109,10 @@ export default function CreateProgramScreen() {
     try {
       const { loyaltyProgramId } = await createProgram({
         businessId,
-        title: programDraft.title.trim(),
+        title: programDraft.title.trim() || programDraft.rewardName.trim(),
         rewardName: programDraft.rewardName.trim(),
         maxStamps: maxStampsNumber,
-        stampIcon: programDraft.stampIcon.trim(),
+        stampIcon: programDraft.stampIcon.trim() || 'star',
       });
 
       setProgramId(loyaltyProgramId);
@@ -127,7 +134,9 @@ export default function CreateProgramScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.createBusiness)}
+            onPress={() =>
+              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.createBusiness)
+            }
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -140,7 +149,7 @@ export default function CreateProgramScreen() {
           <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
-        <View style={styles.formCard}>
+        <View style={styles.form}>
           <View style={styles.field}>
             <Text style={styles.label}>{TEXT.cardNameLabel}</Text>
             <TextInput
@@ -150,23 +159,8 @@ export default function CreateProgramScreen() {
               }
               placeholder={TEXT.cardNamePlaceholder}
               placeholderTextColor="#9CA3AF"
-              style={styles.input}
+              style={[styles.input, styles.cardNameInput]}
               accessibilityLabel={TEXT.cardNameLabel}
-              returnKeyType="next"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.rewardLabel}</Text>
-            <TextInput
-              value={programDraft.rewardName}
-              onChangeText={(text) =>
-                setProgramDraft((prev) => ({ ...prev, rewardName: text }))
-              }
-              placeholder={TEXT.rewardPlaceholder}
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              accessibilityLabel={TEXT.rewardLabel}
               returnKeyType="next"
             />
           </View>
@@ -187,18 +181,17 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.stampIconLabel}</Text>
+            <Text style={styles.label}>{TEXT.rewardLabel}</Text>
             <TextInput
-              value={programDraft.stampIcon}
+              value={programDraft.rewardName}
               onChangeText={(text) =>
-                setProgramDraft((prev) => ({ ...prev, stampIcon: text }))
+                setProgramDraft((prev) => ({ ...prev, rewardName: text }))
               }
-              placeholder={TEXT.stampIconPlaceholder}
+              placeholder={TEXT.rewardPlaceholder}
               placeholderTextColor="#9CA3AF"
               style={styles.input}
-              accessibilityLabel={TEXT.stampIconLabel}
-              autoCapitalize="none"
-              autoCorrect={false}
+              accessibilityLabel={TEXT.rewardLabel}
+              returnKeyType="next"
             />
           </View>
         </View>
@@ -220,7 +213,6 @@ export default function CreateProgramScreen() {
             disabled={!canSubmit}
             label={TEXT.continue}
           />
-          <Text style={styles.helperText}>{TEXT.helper}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -257,23 +249,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
     lineHeight: 20,
   },
-  formCard: {
-    marginTop: 28,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    gap: 14,
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  form: {
+    marginTop: 24,
+    gap: 12,
   },
   field: {
     gap: 8,
@@ -281,8 +263,9 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#6b7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -295,6 +278,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  cardNameInput: {
+    fontSize: 13,
+    paddingHorizontal: 12,
   },
   errorText: {
     marginTop: 12,
@@ -318,12 +306,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-    gap: 10,
-  },
-  helperText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    textAlign: 'right',
-    lineHeight: 16,
   },
 });

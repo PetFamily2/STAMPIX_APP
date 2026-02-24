@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { safeBack, safePush } from '@/lib/navigation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
@@ -20,13 +21,12 @@ type DiscoverySourceId =
   | 'social'
   | 'tiktok'
   | 'app_store'
+  | 'in_app'
   | 'other';
 
 const TEXT = {
   title:
     '\u05d0\u05d9\u05da \u05d4\u05d2\u05e2\u05ea\u05dd \u05d0\u05dc\u05d9\u05e0\u05d5?',
-  subtitle:
-    '\u05db\u05d3\u05d9 \u05e9\u05e0\u05e9\u05e4\u05e8 \u05d0\u05ea \u05d7\u05d5\u05d5\u05d9\u05d9\u05ea \u05d4\u05d4\u05ea\u05d7\u05dc\u05d4 \u05e9\u05dc\u05db\u05dd.',
 };
 
 const DISCOVERY_SOURCES: Array<{
@@ -62,11 +62,20 @@ const DISCOVERY_SOURCES: Array<{
       '\u05d7\u05e0\u05d5\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d5\u05ea',
     icon: 'apps-outline',
   },
+  {
+    id: 'in_app',
+    title:
+      '\u05d3\u05e8\u05da \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
+    icon: 'phone-portrait-outline',
+  },
   { id: 'other', title: '\u05d0\u05d7\u05e8', icon: 'ellipsis-horizontal' },
 ];
 
 export default function OnboardingBusinessDiscoveryScreen() {
-  const [selected, setSelected] = useState<DiscoverySourceId | null>(null);
+  const { businessOnboardingDraft, setBusinessOnboardingDraft } =
+    useOnboarding();
+  const selected =
+    businessOnboardingDraft.discoverySource as DiscoverySourceId | null;
   const canContinue = Boolean(selected);
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_discovery',
@@ -88,7 +97,7 @@ export default function OnboardingBusinessDiscoveryScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack(BUSINESS_ONBOARDING_ROUTES.role)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.role)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -97,52 +106,34 @@ export default function OnboardingBusinessDiscoveryScreen() {
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {TEXT.title}
+          </Text>
         </View>
 
         <View style={styles.optionsContainer}>
           {DISCOVERY_SOURCES.map((source) => {
             const isSelected = selected === source.id;
             return (
-              <Pressable
+              <OnboardingChoiceButton
                 key={source.id}
+                selected={isSelected}
+                label={source.title}
                 onPress={() => {
-                  setSelected(source.id);
+                  setBusinessOnboardingDraft((prev) => ({
+                    ...prev,
+                    discoverySource: source.id,
+                  }));
                   trackChoice('discovery_source', source.id);
                 }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View
-                  style={[
-                    styles.option,
-                    isSelected
-                      ? styles.optionSelected
-                      : styles.optionUnselected,
-                  ]}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons
-                        name={source.icon}
-                        size={20}
-                        color={isSelected ? '#FFFFFF' : '#2563EB'}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        isSelected
-                          ? styles.optionTextSelected
-                          : styles.optionTextUnselected,
-                      ]}
-                    >
-                      {source.title}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
+                icon={
+                  <Ionicons
+                    name={source.icon}
+                    size={20}
+                    color={isSelected ? '#FFFFFF' : '#2563EB'}
+                  />
+                }
+              />
             );
           })}
         </View>
@@ -162,7 +153,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
   },
@@ -174,66 +165,20 @@ const styles = StyleSheet.create({
   titleContainer: {
     marginTop: 32,
     alignItems: 'flex-end',
+    width: '100%',
   },
   title: {
     fontSize: 24,
     fontWeight: '900',
     color: '#111827',
+    width: '100%',
     textAlign: 'right',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    textAlign: 'right',
+    writingDirection: 'rtl',
+    lineHeight: 32,
   },
   optionsContainer: {
-    marginTop: 28,
+    marginTop: 32,
     gap: 12,
-  },
-  option: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-    shadowColor: '#93C5FD',
-  },
-  optionUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
-    shadowColor: '#9CA3AF',
-  },
-  optionContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconContainer: {
-    height: 32,
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  optionTextSelected: {
-    color: '#FFFFFF',
-  },
-  optionTextUnselected: {
-    color: '#111827',
   },
   footer: {
     marginTop: 'auto',

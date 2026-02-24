@@ -43,6 +43,13 @@ export default function AuthenticatedLayout() {
   );
   const router = useRouter();
   const segments = useSegments();
+  const segmentStrings = (
+    Array.isArray(segments) ? segments.filter(Boolean) : []
+  ) as string[];
+  const isMerchantRoute = segmentStrings.includes('merchant');
+  const isMerchantOnboardingRoute =
+    segmentStrings.includes('merchant') &&
+    segmentStrings.includes('onboarding');
 
   const lastRedirectRef = useRef<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -242,6 +249,9 @@ export default function AuthenticatedLayout() {
 
   const shouldShowLoadingScreen =
     !isPreviewMode &&
+    segmentStrings.length > 0 &&
+    !isMerchantRoute &&
+    !isMerchantOnboardingRoute &&
     (isLoading ||
       isAppModeLoading ||
       (shouldLoadUser &&
