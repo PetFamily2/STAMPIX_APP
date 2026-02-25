@@ -25,6 +25,7 @@
     "eas:build:all:production": "powershell -ExecutionPolicy Bypass -File scripts/eas-run.ps1 build --platform all --profile production --non-interactive",
     "eas:submit:android:production": "powershell -ExecutionPolicy Bypass -File scripts/eas-run.ps1 submit --platform android --profile production --non-interactive",
     "eas:submit:ios:production": "powershell -ExecutionPolicy Bypass -File scripts/eas-run.ps1 submit --platform ios --profile production --non-interactive",
+    "testflight": "bun run eas:build:ios:production:interactive && bun run eas:submit:ios:production",
     "lint": "biome check .",
     "format": "biome format --write .",
     "check": "biome check --write .",
