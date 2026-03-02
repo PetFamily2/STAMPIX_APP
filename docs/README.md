@@ -1,4 +1,4 @@
-﻿# STAMPIX Docs
+# STAMPAIX Docs
 
 Last synced: 2026-02-18
 

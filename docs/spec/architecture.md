@@ -1,4 +1,4 @@
-﻿# STAMPIX - Architecture Spec
+# STAMPAIX - Architecture Spec
 
 Last synced: 2026-02-18
 

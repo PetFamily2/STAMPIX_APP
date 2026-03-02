@@ -225,6 +225,20 @@ export default defineSchema({
     .index('by_toUserId', ['toUserId'])
     .index('by_createdAt', ['createdAt']),
 
+  supportRequests: defineTable({
+    userId: v.id('users'),
+    name: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    message: v.string(),
+    status: v.union(v.literal('new'), v.literal('handled')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_status', ['status'])
+    .index('by_createdAt', ['createdAt']),
+
   apiClients: defineTable({
     businessId: v.id('businesses'),
     name: v.string(),

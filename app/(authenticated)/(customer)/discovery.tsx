@@ -1,10 +1,13 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
+import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 
 type Business = {
   id: string;
@@ -36,11 +39,14 @@ const demoBusinesses: Business[] = [
 
 export default function DiscoveryScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
     const s = q.trim();
-    if (!s) return demoBusinesses;
+    if (!s) {
+      return demoBusinesses;
+    }
     return demoBusinesses.filter(
       (b) => b.name.includes(s) || b.subtitle.includes(s)
     );
@@ -52,14 +58,14 @@ export default function DiscoveryScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: (insets.top || 0) + 16,
-          paddingBottom: 120,
+          paddingBottom: tabBarHeight + 24,
         }}
         keyboardShouldPersistTaps="handled"
       >
         <Text
           style={{
             fontSize: 24,
-            fontWeight: '800',
+            fontWeight: '900',
             color: '#1A2B4A',
             textAlign: 'right',
           }}
@@ -77,6 +83,8 @@ export default function DiscoveryScreen() {
         >
           מצא מועדונים חדשים להצטרפות
         </Text>
+
+        <BusinessModeCtaCard style={{ marginTop: 14 }} />
 
         <View
           style={{

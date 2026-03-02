@@ -8,8 +8,9 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
+import stampaixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -261,6 +262,14 @@ export default function AuthenticatedLayout() {
   if (shouldShowLoadingScreen) {
     return (
       <View style={styles.loadingScreen}>
+        <View style={styles.loadingLogoShell}>
+          <Image
+            source={stampaixLogo}
+            style={styles.loadingLogo}
+            resizeMode="contain"
+            accessibilityLabel="Stampaix logo"
+          />
+        </View>
         <Text style={styles.loadingPercent}>
           {Math.min(100, loadingProgress)}%
         </Text>
@@ -290,6 +299,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  loadingLogoShell: {
+    width: 228,
+    height: 228,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  loadingLogo: {
+    width: 192,
+    height: 192,
   },
   loadingPercent: {
     fontSize: 84,

@@ -44,7 +44,7 @@ function readEnvNamespace(
   return null;
 }
 
-export function getConvexAuthSecureStoreKeysForHardReset(): string[] {
+export function getConvexAuthSecureStoreKeysForCleanup(): string[] {
   const namespaces = new Set<string>([CONVEX_AUTH_STORAGE_NAMESPACE]);
 
   const currentNamespace = readCurrentConvexNamespace();

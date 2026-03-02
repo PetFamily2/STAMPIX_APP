@@ -1,4 +1,4 @@
-﻿# STAMPIX - Screen Map (Current)
+# STAMPAIX - Screen Map (Current)
 
 Last synced: 2026-02-18
 

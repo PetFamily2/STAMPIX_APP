@@ -1,4 +1,4 @@
-ο»Ώimport { useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,7 +42,7 @@ const TEXT = {
   maxStampsPlaceholder: '10',
   continue: '\u05e9\u05de\u05d9\u05e8\u05d4 \u05d5\u05d4\u05de\u05e9\u05da',
   submitting:
-    '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05ea\u05d5\u05db\u05e0\u05d9\u05ea...',
+    '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05ea\u05d5\u05db\u05e0\u05d9\u05ea',
   missingBusiness:
     '\u05e0\u05d3\u05e8\u05e9 \u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05e7\u05d5\u05d3\u05dd',
   errorFallback:
@@ -50,9 +50,9 @@ const TEXT = {
 };
 
 const LEGACY_CARD_TITLE_DEFAULTS = [
-  'Χ›Χ¨ΧΧ™Χ΅ Χ ΧΧΧ Χ•Χª',
-  "ΧΧΧ©Χ: ΧΧ΅ΧΧ’'/ΧΧ’Χ©Χ™ Χ¤Χ™Χ¦Χ”",
-  "ΧΧΧ©Χ: ΧΧ΅ΧΧ’'Χ™Χ/ΧΧ’Χ©Χ™ Χ¤Χ™Χ¦Χ”/Χ›Χ•Χ΅Χ•Χª Χ§Χ¤Χ”/Χ©ΧΧ™Χ¤Χª Χ¨Χ›Χ‘",
+  'λψθιρ πΰξπεϊ',
+  "μξωμ: ξρΰβ'/ξβωι τιφδ",
+  "μξωμ: ξρΰβ'ιν/ξβωι τιφδ/λερεϊ χτδ/ωθιτϊ ψλα",
 ] as const;
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -308,3 +308,4 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
 });
+

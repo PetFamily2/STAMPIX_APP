@@ -35,7 +35,7 @@ const TEXT = {
   numberLabel: 'מספר',
   numberPlaceholder: '12',
   continue: 'המשך',
-  submitting: 'שומרים עסק...',
+  submitting: 'שומרים עסק',
   errorFallback: 'שגיאה ביצירת העסק',
 };
 

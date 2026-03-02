@@ -1,6 +1,7 @@
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Image,
   Pressable,
@@ -13,7 +14,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import stampixLogo from '@/assets/images/stampix-logo-clean.png';
+import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -25,18 +26,18 @@ const TEXT = {
   subtitle:
     '\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d1\u05de\u05e7\u05d5\u05dd \u05d0\u05d7\u05d3',
   loading:
-    '\u05d8\u05d5\u05e2\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea...',
+    '\u05d8\u05d5\u05e2\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
   noCards:
     '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
   noCardsHint:
-    '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5.',
+    '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
   createDemo:
     '\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
-  creating: '\u05d9\u05d5\u05e6\u05e8...',
+  creating: '\u05d9\u05d5\u05e6\u05e8',
   demoCreated:
-    '\u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5 \u05e0\u05d5\u05e6\u05e8 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4.',
+    '\u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5 \u05e0\u05d5\u05e6\u05e8 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4',
   demoFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5.',
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
   rewardPrefix: '\u05d4\u05d8\u05d1\u05d4:',
   businessFallback: '\u05e2\u05e1\u05e7',
   rewardFallback: '\u05d4\u05d8\u05d1\u05d4',
@@ -52,6 +53,7 @@ type WalletMembership = {
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { isAuthenticated } = useConvexAuth();
   const pendingJoinChecked = useRef(false);
 
@@ -113,25 +115,24 @@ export default function WalletScreen() {
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingTop: (insets.top || 0) + 16 },
+          {
+            paddingTop: (insets.top || 0) + 16,
+            paddingBottom: tabBarHeight + 24,
+          },
         ]}
         alwaysBounceVertical={false}
       >
+        <Text style={styles.topBrand}>
+          <Text style={styles.topBrandAccent}>S</Text>
+          tamp
+          <Text style={styles.topBrandAccent}>A</Text>
+          ix
+        </Text>
+
         <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerText}>
-              <Text style={styles.headerLabel}>STAMPIX</Text>
-              <Text style={styles.headerTitle}>{TEXT.title}</Text>
-              <Text style={styles.headerSubtitle}>{TEXT.subtitle}</Text>
-            </View>
-            <View style={styles.headerLogoShell}>
-              <Image
-                source={stampixLogo}
-                style={styles.headerLogo}
-                resizeMode="contain"
-                accessibilityLabel="Stampix logo"
-              />
-            </View>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{TEXT.title}</Text>
+            <Text style={styles.headerSubtitle}>{TEXT.subtitle}</Text>
           </View>
         </View>
 
@@ -252,49 +253,31 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
   },
   scrollBackground: {
     backgroundColor: '#E9F0FF',
   },
+  topBrand: {
+    textAlign: 'center',
+    fontSize: 24,
+    lineHeight: 30,
+    letterSpacing: 1.6,
+    color: '#2F6BFF',
+    fontWeight: '900',
+  },
+  topBrandAccent: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '900',
+    color: '#2F6BFF',
+  },
   header: {
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
     marginBottom: 20,
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLogoShell: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#D7E3FF',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#184399',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  headerLogo: {
-    width: 46,
-    height: 46,
-  },
   headerText: {
-    flex: 1,
     alignItems: 'flex-end',
-    marginHorizontal: 12,
-  },
-  headerLabel: {
-    fontSize: 11,
-    textAlign: 'right',
-    letterSpacing: 1.2,
-    color: '#2F6BFF',
-    fontWeight: '700',
   },
   headerTitle: {
     fontSize: 24,

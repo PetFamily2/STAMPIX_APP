@@ -16,7 +16,7 @@ const MENU_ITEMS = [
   },
   {
     title: 'תמיכה וסטטוס',
-    subtitle: 'פנה לצוות STAMPIX או שחרר משימה',
+    subtitle: 'פנה לצוות STAMPAIX או שחרר משימה',
     icon: 'help',
   },
 ];
@@ -78,7 +78,7 @@ export default function MerchantProfileSettingsScreen() {
           </Card>
           <Card className="p-4 border border-gray-100">
             <Text className="text-base font-black text-text-main">
-              גרסת STAMPIX OS
+              גרסת STAMPAIX OS
             </Text>
             <Text className="text-xs text-gray-400 mt-1">
               v2.7.1 • Production

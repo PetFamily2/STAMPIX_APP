@@ -4,7 +4,7 @@ import { Heart, TrendingUp } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { BackHandler, Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import stampixLogo from '@/assets/images/stampix-logo-circle.png';
+import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';

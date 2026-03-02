@@ -24,6 +24,7 @@ import type * as otp from "../otp.js";
 import type * as scanTokens from "../scanTokens.js";
 import type * as scanner from "../scanner.js";
 import type * as seed from "../seed.js";
+import type * as support from "../support.js";
 import type * as users from "../users.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   scanTokens: typeof scanTokens;
   scanner: typeof scanner;
   seed: typeof seed;
+  support: typeof support;
   users: typeof users;
 }>;
 

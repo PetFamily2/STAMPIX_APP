@@ -819,7 +819,7 @@ export default function FlowMapScreen() {
           {additionalScreens.length > 0 ? (
             <FlowGrid items={additionalScreens} />
           ) : (
-            <Text style={styles.emptyText}>אין כרגע מסכים לא ממופים.</Text>
+            <Text style={styles.emptyText}>אין כרגע מסכים לא ממופים</Text>
           )}
         </View>
       </ScrollView>

@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import {
@@ -7,6 +8,7 @@ import {
 
 export default function RewardsScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
 
   // דמו זמני - בשלב הבא נחבר ל-Convex ונציג רק הטבות זמינות
   const rewards: Array<{ id: string; title: string; subtitle: string }> = [];
@@ -17,13 +19,13 @@ export default function RewardsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: (insets.top || 0) + 16,
-          paddingBottom: 120,
+          paddingBottom: tabBarHeight + 24,
         }}
       >
         <Text
           style={{
             fontSize: 24,
-            fontWeight: '800',
+            fontWeight: '900',
             color: '#1A2B4A',
             textAlign: 'right',
           }}

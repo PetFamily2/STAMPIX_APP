@@ -136,11 +136,11 @@ export default function PaywallScreen() {
       return;
     }
     if (isExpoGo) {
-      Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.');
+      Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go השתמשו ב-Dev Build');
       return;
     }
     if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
+      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה');
       return;
     }
 
@@ -157,7 +157,7 @@ export default function PaywallScreen() {
         safeBack('/(auth)/sign-up');
       }
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall. נסו שוב.');
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall נסו שוב');
     }
   };
 
@@ -166,17 +166,17 @@ export default function PaywallScreen() {
       return;
     }
     if (isExpoGo) {
-      Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go.');
+      Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go');
       return;
     }
     if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
+      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה');
       return;
     }
     try {
       await RevenueCatUI.presentCustomerCenter();
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את Customer Center. נסו שוב.');
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את Customer Center נסו שוב');
     }
   };
 

@@ -100,7 +100,7 @@ export default function BusinessTeamScreen() {
       });
       const msg =
         result.alreadyPending === true
-          ? `הזמנה ממתינה כבר. קוד: ${result.inviteCode}`
+          ? `הזמנה ממתינה כבר קוד: ${result.inviteCode}`
           : `ההזמנה נוצרה! שתף את הקוד עם העובד: ${result.inviteCode}`;
       setInviteSuccess(msg);
       setInviteEmail('');
@@ -223,7 +223,7 @@ export default function BusinessTeamScreen() {
                   ? staffList.length
                     ? `${staffList.length} חברים`
                     : 'אין עובדים'
-                  : 'טוען...'}
+                  : 'טוען'}
               </Text>
             </View>
             {staffMembers === undefined ? (

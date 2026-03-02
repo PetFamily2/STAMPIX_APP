@@ -46,7 +46,7 @@ export default function BusinessJoinQrScreen() {
           <Text style={styles.headerSubtitle}>
             {selectedBusiness
               ? `${selectedBusiness.name} · הצג ללקוח כדי להצטרף למועדון`
-              : 'טוען עסק...'}
+              : 'טוען עסק'}
           </Text>
         </View>
 
@@ -64,7 +64,7 @@ export default function BusinessJoinQrScreen() {
               <Text style={styles.qrPlaceholderText}>
                 {selectedBusiness
                   ? 'חסר businessPublicId — הריצו migration'
-                  : 'טוען...'}
+                  : 'טוען'}
               </Text>
             )}
           </View>

@@ -111,7 +111,7 @@ export default function BusinessAnalyticsScreen() {
           </Text>
           <Text className="text-sm text-zinc-400 text-center mb-6">
             התכנית שלך ({SUBSCRIPTION_PLAN_LABELS[subscriptionPlan]}) לא כוללת
-            את הפיצ'ר הזה.
+            את הפיצ'ר הזה
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/(auth)/paywall')}
@@ -156,7 +156,7 @@ export default function BusinessAnalyticsScreen() {
             Analytics
           </Text>
           <Text className={`text-sm text-zinc-400 ${tw.textStart}`}>
-            מעקב לביצועים וניהול הלקוחות העסקיים שלך.
+            מעקב לביצועים וניהול הלקוחות העסקיים שלך
           </Text>
 
           {businesses.length > 0 && (
@@ -214,7 +214,7 @@ export default function BusinessAnalyticsScreen() {
           {isLoadingData && (
             <View className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 flex-row items-center justify-center gap-2">
               <ActivityIndicator color="#4fc3f7" />
-              <Text className="text-xs text-zinc-400">טוען נתונים...</Text>
+              <Text className="text-xs text-zinc-400">טוען נתונים</Text>
             </View>
           )}
 
@@ -224,7 +224,7 @@ export default function BusinessAnalyticsScreen() {
             </Text>
             {daily.length === 0 ? (
               <Text className="text-xs text-zinc-500">
-                אין עדיין נתונים להצגה.
+                אין עדיין נתונים להצגה
               </Text>
             ) : (
               daily.map((period) => (
@@ -267,7 +267,7 @@ export default function BusinessAnalyticsScreen() {
             </Text>
             {weekly.length === 0 ? (
               <Text className="text-xs text-zinc-500">
-                הנתונים עדיין נטענים.
+                הנתונים עדיין נטענים
               </Text>
             ) : (
               weekly.map((period) => (

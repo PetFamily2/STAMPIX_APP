@@ -247,7 +247,7 @@ export default function MerchantAnalyticsScreen() {
         ) : (
           <View className="mt-6 space-y-5">
             <TextInput
-              placeholder="חפש לקוח לפי שם או טלפון..."
+              placeholder="חפש לקוח לפי שם או טלפון"
               placeholderTextColor="#94a3b8"
               className="h-12 rounded-2xl bg-white px-4 text-sm font-medium border border-gray-100"
               value={searchQuery}

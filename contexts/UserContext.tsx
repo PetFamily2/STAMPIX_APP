@@ -9,6 +9,7 @@ export type SessionContext = {
   user: {
     _id: import('@/convex/_generated/dataModel').Id<'users'>;
     email?: string;
+    phone?: string;
     firstName?: string;
     lastName?: string;
     fullName?: string;

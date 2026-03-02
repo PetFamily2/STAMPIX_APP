@@ -63,7 +63,7 @@ export default function QrScanner({
 
   const statusLabel = useMemo(() => {
     if (caption) return caption;
-    if (isBusy || internalBusy) return 'מעדכן נתונים...';
+    if (isBusy || internalBusy) return 'מעדכן נתונים';
     if (scanned) return 'הקוד נסרק';
     return 'סמן את ה-QR בתוך המסגרת';
   }, [caption, internalBusy, isBusy, scanned]);
@@ -73,7 +73,7 @@ export default function QrScanner({
       return (
         <View style={styles.permissionFallback}>
           <ActivityIndicator color="#2F6BFF" />
-          <Text style={styles.permissionTitle}>טוען הרשאות מצלמה...</Text>
+          <Text style={styles.permissionTitle}>טוען הרשאות מצלמה</Text>
         </View>
       );
     }
@@ -82,7 +82,7 @@ export default function QrScanner({
       return (
         <View style={styles.permissionFallback}>
           <Text style={styles.permissionTitle}>אין הרשאת מצלמה</Text>
-          <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק.</Text>
+          <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק</Text>
           <Pressable
             onPress={requestPermission}
             style={styles.permissionButton}

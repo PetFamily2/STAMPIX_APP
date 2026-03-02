@@ -4,8 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const TEXT = {
   title: 'לא נמצא מסלול תואם',
-  subtitle:
-    'הקישור שפתח את האפליקציה לא תואם למסך קיים. חוזרים להתחברות רגילה.',
+  subtitle: 'הקישור שפתח את האפליקציה לא תואם למסך קיים חוזרים להתחברות רגילה',
   action: 'חזרה להתחברות',
   debugPrefix: 'מסלול שהתקבל:',
 };

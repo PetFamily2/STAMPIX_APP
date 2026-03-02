@@ -42,26 +42,26 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
     const code = error.message;
     switch (code) {
       case 'INVALID_QR':
-        return { message: 'קוד QR לא תקין.', code };
+        return { message: 'קוד QR לא תקין', code };
       case 'EXPIRED_TOKEN':
-        return { message: 'ה-QR פג תוקף. בקשו מהלקוח לרענן.', code };
+        return { message: 'ה-QR פג תוקף בקשו מהלקוח לרענן', code };
       case 'TOKEN_ALREADY_USED':
-        return { message: 'ה-QR כבר נסרק. בקשו מהלקוח לרענן.', code };
+        return { message: 'ה-QR כבר נסרק בקשו מהלקוח לרענן', code };
       case 'SELF_STAMP':
-        return { message: 'לא ניתן להוסיף ניקוב לעצמך.', code };
+        return { message: 'לא ניתן להוסיף ניקוב לעצמך', code };
       case 'RATE_LIMITED':
-        return { message: 'המתן 30 שניות בין ניקובים לאותו לקוח.', code };
+        return { message: 'המתן 30 שניות בין ניקובים לאותו לקוח', code };
       case 'CUSTOMER_NOT_FOUND':
-        return { message: 'לקוח לא נמצא במערכת.', code };
+        return { message: 'לקוח לא נמצא במערכת', code };
       case 'MEMBERSHIP_NOT_FOUND':
-        return { message: 'לא נמצאה חברות למועדון.', code };
+        return { message: 'לא נמצאה חברות למועדון', code };
       case 'NOT_AUTHORIZED':
-        return { message: 'אין הרשאה לבצע פעולה זו.', code };
+        return { message: 'אין הרשאה לבצע פעולה זו', code };
       default:
         return { message: code, code };
     }
   }
-  return { message: 'משהו השתבש. נסה שוב.', code: 'UNKNOWN' };
+  return { message: 'משהו השתבש נסה שוב', code: 'UNKNOWN' };
 };
 
 export default function ScannerScreen() {
@@ -132,7 +132,7 @@ export default function ScannerScreen() {
     async (token: string, showErrors = true) => {
       if (!canScan) {
         if (showErrors) {
-          setScanError('בחר עסק ותוכנית לפני סריקה.');
+          setScanError('בחר עסק ותוכנית לפני סריקה');
         }
         return null;
       }
@@ -167,7 +167,7 @@ export default function ScannerScreen() {
       if (isBusy) return;
       const data = rawData?.trim();
       if (!data) {
-        setScanError('קוד QR חסר.');
+        setScanError('קוד QR חסר');
         setScannerResetKey((prev) => prev + 1);
         return;
       }
@@ -463,9 +463,9 @@ export default function ScannerScreen() {
           ) : null}
           <Text style={styles.primaryButtonText}>
             {isRedeeming
-              ? '\u05de\u05de\u05de\u05e9...'
+              ? '\u05de\u05de\u05de\u05e9'
               : isStamping
-                ? '\u05de\u05d5\u05e1\u05d9\u05e3...'
+                ? '\u05de\u05d5\u05e1\u05d9\u05e3'
                 : canRedeemNow
                   ? '\u05de\u05de\u05e9 \u05d4\u05d8\u05d1\u05d4'
                   : '\u05d4\u05d5\u05e1\u05e3 \u05e0\u05d9\u05e7\u05d5\u05d1'}

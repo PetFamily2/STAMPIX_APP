@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react';
+import { router } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
 import {
@@ -8,6 +9,7 @@ import {
   SectionHeader,
   StatCard,
 } from '@/components/ui';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { tw } from '@/lib/rtl';
 
@@ -33,6 +35,8 @@ const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
 export default function MerchantDashboardScreen() {
+  const sessionContext = useSessionContext();
+  const isAdmin = sessionContext?.isAdmin === true;
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const businessId = businesses[0]?.businessId ?? null;
   const analytics = useQuery(
@@ -80,8 +84,8 @@ export default function MerchantDashboardScreen() {
 
   const insightCopy =
     riskCount > 0
-      ? `זיהינו ${riskCount} לקוחות שלא ביקרו מעל שבוע. שלח הודעת החזרה אחת עם הצעה חמה בטקסט שמותאם לעסק שלך.`
-      : 'אין לקוחות בסיכון כרגע. המשך לשמור על קשר עם כולם.';
+      ? `זיהינו ${riskCount} לקוחות שלא ביקרו מעל שבוע שלח הודעת החזרה אחת עם הצעה חמה בטקסט שמותאם לעסק שלך`
+      : 'אין לקוחות בסיכון כרגע המשך לשמור על קשר עם כולם';
 
   return (
     <ScrollView
@@ -103,6 +107,18 @@ export default function MerchantDashboardScreen() {
             icon={<Text className="text-white text-lg">📸</Text>}
           />
         </View>
+
+        {isAdmin ? (
+          <View className="mt-3">
+            <PrimaryButton
+              title="\u05e4\u05e0\u05d9\u05d5\u05ea \u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea"
+              onPress={() =>
+                router.push('/(authenticated)/merchant/support-inbox')
+              }
+              className="py-4 bg-zinc-900 shadow-zinc-900/20"
+            />
+          </View>
+        ) : null}
 
         <View className={`${tw.flexRow} gap-4 mt-6`}>
           {statCards.map((stat) => (

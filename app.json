@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "STAMPIX",
+    "name": "STAMPAIX",
     "slug": "stampix",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/STAMPAIX_LOGO_round.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },

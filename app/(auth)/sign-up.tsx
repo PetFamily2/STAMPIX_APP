@@ -24,15 +24,15 @@ const TEXT = {
   termsIntro: 'בלחיצה על המשך, אתם מסכימים למסמך המשפטי המרוכז',
   legalLink: 'מסמך משפטי',
   continue: 'המשך',
-  connectingToGoogle: 'מתחברים ל-Google...',
-  connectingToApple: 'מתחברים ל-Apple...',
+  connectingToGoogle: 'מתחברים ל-Google',
+  connectingToApple: 'מתחברים ל-Apple',
   authErrorTitle: 'שגיאה',
   googleNotConfigured:
-    'התחברות עם Google לא מוגדרת עדיין. הגדירו AUTH_GOOGLE_ID ו-AUTH_GOOGLE_SECRET ב-Convex.',
+    'התחברות עם Google לא מוגדרת עדיין הגדירו AUTH_GOOGLE_ID ו-AUTH_GOOGLE_SECRET ב-Convex',
   appleNotConfigured:
-    'התחברות עם Apple לא מוגדרת עדיין. הגדירו AUTH_APPLE_ID ו-AUTH_APPLE_SECRET ב-Convex.',
-  googleFailed: 'ההתחברות עם Google נכשלה. נסו שוב.',
-  appleFailed: 'ההתחברות עם Apple נכשלה. נסו שוב.',
+    'התחברות עם Apple לא מוגדרת עדיין הגדירו AUTH_APPLE_ID ו-AUTH_APPLE_SECRET ב-Convex',
+  googleFailed: 'ההתחברות עם Google נכשלה נסו שוב',
+  appleFailed: 'ההתחברות עם Apple נכשלה נסו שוב',
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';

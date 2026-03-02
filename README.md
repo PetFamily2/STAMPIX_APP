@@ -1,8 +1,8 @@
-﻿# STAMPIX App
+# STAMPAIX App
 
 Last synced: 2026-02-18
 
-STAMPIX is an Expo + React Native + Convex mobile app for customer loyalty and business scanner workflows.
+STAMPAIX is an Expo + React Native + Convex mobile app for customer loyalty and business scanner workflows.
 
 ## Stack
 - Expo Router

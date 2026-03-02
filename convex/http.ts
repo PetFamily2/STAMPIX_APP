@@ -20,7 +20,7 @@ http.route({
     const src = url.searchParams.get('src') ?? '';
     const camp = url.searchParams.get('camp') ?? '';
 
-    let businessName = 'STAMPIX';
+    let businessName = 'STAMPAIX';
     let logoUrl = '';
     let joinCode = '';
 
@@ -44,8 +44,8 @@ http.route({
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>הצטרפו ל${escapeHtml(businessName)} ב-STAMPIX</title>
-  <meta property="og:title" content="הצטרפו ל${escapeHtml(businessName)} ב-STAMPIX" />
+  <title>הצטרפו ל${escapeHtml(businessName)} ב-STAMPAIX</title>
+  <meta property="og:title" content="הצטרפו ל${escapeHtml(businessName)} ב-STAMPAIX" />
   <meta property="og:description" content="סירקו כדי להצטרף למועדון הנאמנות של ${escapeHtml(businessName)}" />
   ${logoUrl ? `<meta property="og:image" content="${escapeHtml(logoUrl)}" />` : ''}
   <style>
@@ -103,7 +103,7 @@ http.route({
   <div class="card">
     ${logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(businessName)}" />` : ''}
     <h1>${escapeHtml(businessName)}</h1>
-    <p class="sub">הצטרפו למועדון הנאמנות ב-STAMPIX</p>
+    <p class="sub">הצטרפו למועדון הנאמנות ב-STAMPAIX</p>
     <a class="btn btn-primary" href="${escapeHtml(appDeepLink)}">פתח באפליקציה</a>
     <div class="stores">
       <a href="https://apps.apple.com/app/stampix/id000000000" target="_blank">App Store</a>

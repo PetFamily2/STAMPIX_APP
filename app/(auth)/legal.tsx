@@ -5,14 +5,14 @@ import { BackButton } from '@/components/BackButton';
 import { safeBack } from '@/lib/navigation';
 
 const LEGAL_BODY = `עודכן לאחרונה: ________
-מפעיל השירות: "STAMPIX" (שם זמני) - פרטים משפטיים מלאים יתווספו לפני השקה מסחרית.
+מפעיל השירות: "STAMPAIX" (שם זמני) - פרטים משפטיים מלאים יתווספו לפני השקה מסחרית.
 
 מסמך זה כולל: תנאי שימוש, מדיניות פרטיות, מדיניות שיווק ודיוור, מדיניות עוגיות (לאתר עתידי), תנאי תשלום לעסקים, ועקרונות תקנון מבצעים.
 
 השימוש באפליקציה ובשירותים מהווה הסכמה למסמך זה. אם אינך מסכים - אין להשתמש בשירות.
 
 1. הגדרות
-"השירות" - אפליקציית STAMPIX, רכיבי ווב/אתר עתידיים, ממשקי ניהול וכל רכיב קשור.
+"השירות" - אפליקציית STAMPAIX, רכיבי ווב/אתר עתידיים, ממשקי ניהול וכל רכיב קשור.
 "משתמש" - כל מי שעושה שימוש בשירות.
 "לקוח" - משתמש קצה המחזיק כרטיסיות נאמנות.
 "עסק" - בעל עסק, מנהל/ת, עובד/ת או מי שפועל מטעם עסק.
@@ -154,7 +154,7 @@ export default function LegalScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>מסמך משפטי מרוכז - STAMPIX</Text>
+        <Text style={styles.title}>מסמך משפטי מרוכז - STAMPAIX</Text>
         <Text style={styles.body}>{LEGAL_BODY}</Text>
       </ScrollView>
     </SafeAreaView>

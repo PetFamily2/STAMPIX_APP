@@ -10,11 +10,11 @@ const AUTH_FALLBACK_DELAY_MS = 2200;
 const CONTINUE_DELAY_MS = 1200;
 
 const TEXT = {
-  loading: 'משלימים התחברות...',
-  linked: 'מצאנו חשבון קיים, ממשיכים להתחברות.',
-  newAccount: 'מכינים חשבון חדש, ממשיכים להתחברות.',
-  missingAuth: 'לא זוהתה התחברות פעילה. מחזירים למסך הרשמה.',
-  waitingUser: 'מקבלים נתוני משתמש...',
+  loading: 'משלימים התחברות',
+  linked: 'מצאנו חשבון קיים, ממשיכים להתחברות',
+  newAccount: 'מכינים חשבון חדש, ממשיכים להתחברות',
+  missingAuth: 'לא זוהתה התחברות פעילה מחזירים למסך הרשמה',
+  waitingUser: 'מקבלים נתוני משתמש',
 };
 
 function needsCustomerOnboarding(user: {

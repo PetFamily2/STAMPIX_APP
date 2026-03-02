@@ -113,7 +113,7 @@ export default function MerchantQRCodeScreen() {
               textAlign: 'right',
             }}
           >
-            {selectedBusiness ? selectedBusiness.name : 'טוען עסק...'}
+            {selectedBusiness ? selectedBusiness.name : 'טוען עסק'}
           </Text>
           {selectedBusiness ? (
             <Text

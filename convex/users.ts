@@ -26,6 +26,7 @@ const DEFAULT_PLAN_STATUS: Record<SubscriptionPlan, SubscriptionPlanStatus> = {
 };
 
 const NAME_MAX_LENGTH = 60;
+const PHONE_MAX_LENGTH = 24;
 
 function normalizeNamePart(value: string, field: 'FIRST_NAME' | 'LAST_NAME') {
   const normalized = value.trim().replace(/\s+/g, ' ');
@@ -34,6 +35,20 @@ function normalizeNamePart(value: string, field: 'FIRST_NAME' | 'LAST_NAME') {
   }
   if (normalized.length > NAME_MAX_LENGTH) {
     throw new Error(`${field}_TOO_LONG`);
+  }
+  return normalized;
+}
+
+function normalizePhone(value: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (normalized.length === 0) {
+    throw new Error('PHONE_REQUIRED');
+  }
+  if (normalized.length > PHONE_MAX_LENGTH) {
+    throw new Error('PHONE_TOO_LONG');
+  }
+  if (!/^[0-9+()\-\s]+$/.test(normalized)) {
+    throw new Error('PHONE_INVALID');
   }
   return normalized;
 }
@@ -71,6 +86,7 @@ const DELETE_BATCH_SIZE = 100;
 const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
+  'supportRequests',
   'messageLog',
   'campaigns',
   'scanTokenEvents',
@@ -113,6 +129,7 @@ type DeleteStats = {
   scanTokenEvents: number;
   campaigns: number;
   messageLog: number;
+  supportRequests: number;
   apiClients: number;
   apiKeys: number;
   authAccounts: number;
@@ -159,6 +176,7 @@ function emptyDeleteStats(): DeleteStats {
     scanTokenEvents: 0,
     campaigns: 0,
     messageLog: 0,
+    supportRequests: 0,
     apiClients: 0,
     apiKeys: 0,
     authAccounts: 0,
@@ -175,6 +193,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
   return {
     apiKeys: 0,
     apiClients: 0,
+    supportRequests: 0,
     messageLog: 0,
     campaigns: 0,
     scanTokenEvents: 0,
@@ -407,6 +426,13 @@ async function deleteUserScopedBusinessData(
     'toUserId',
     userId
   );
+  deleted.supportRequests += await deleteByIndexInBatches(
+    ctx,
+    'supportRequests',
+    'by_userId',
+    'userId',
+    userId
+  );
   deleted.businessStaff += await deleteByIndexInBatches(
     ctx,
     'businessStaff',
@@ -586,6 +612,7 @@ export const getSessionContext = query({
       user: {
         _id: user._id,
         email: user.email,
+        phone: user.phone,
         firstName: user.firstName,
         lastName: user.lastName,
         fullName: user.fullName,
@@ -718,6 +745,28 @@ export const setMyName = mutation({
       firstName: normalizedFirstName,
       lastName: normalizedLastName,
       fullName: `${normalizedFirstName} ${normalizedLastName}`,
+      updatedAt: now,
+    });
+
+    const updatedUser = await ctx.db.get(user._id);
+    if (!updatedUser) {
+      throw new Error('USER_NOT_FOUND');
+    }
+    return updatedUser;
+  },
+});
+
+export const setMyPhone = mutation({
+  args: {
+    phone: v.string(),
+  },
+  handler: async (ctx, { phone }) => {
+    const user = await requireCurrentUser(ctx);
+    const normalizedPhone = normalizePhone(phone);
+    const now = Date.now();
+
+    await ctx.db.patch(user._id, {
+      phone: normalizedPhone,
       updatedAt: now,
     });
 

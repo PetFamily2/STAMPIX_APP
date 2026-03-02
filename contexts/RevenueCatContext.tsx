@@ -305,7 +305,7 @@ export function RevenueCatProvider({
       if (isExpoGo) {
         Alert.alert(
           'מצב פיתוח',
-          'רכישות לא זמינות ב-Expo Go.\n\nכדי לבדוק רכישות אמיתיות, בנה גרסת פיתוח (development build).'
+          'רכישות לא זמינות ב-Expo Go\n\nכדי לבדוק רכישות אמיתיות, בנה גרסת פיתוח (development build)'
         );
         return false;
       }
@@ -314,7 +314,7 @@ export function RevenueCatProvider({
       if (!isConfigured) {
         Alert.alert(
           'לא מוגדר',
-          'מפתחות RevenueCat לא מוגדרים.\n\nהגדר את המפתחות ב-.env כדי לאפשר רכישות.'
+          'מפתחות RevenueCat לא מוגדרים\n\nהגדר את המפתחות ב-env כדי לאפשר רכישות'
         );
         return false;
       }
@@ -346,7 +346,7 @@ export function RevenueCatProvider({
           return false;
         }
 
-        Alert.alert('שגיאה', 'הרכישה נכשלה. אנא נסה שוב.');
+        Alert.alert('שגיאה', 'הרכישה נכשלה אנא נסה שוב');
         return false;
       }
     },
@@ -367,13 +367,13 @@ export function RevenueCatProvider({
 
     // Expo Go
     if (isExpoGo) {
-      Alert.alert('מצב פיתוח', 'שחזור רכישות לא זמין ב-Expo Go.');
+      Alert.alert('מצב פיתוח', 'שחזור רכישות לא זמין ב-Expo Go');
       return false;
     }
 
     // אין מפתחות
     if (!isConfigured) {
-      Alert.alert('לא מוגדר', 'מפתחות RevenueCat לא מוגדרים.');
+      Alert.alert('לא מוגדר', 'מפתחות RevenueCat לא מוגדרים');
       return false;
     }
 
@@ -386,12 +386,12 @@ export function RevenueCatProvider({
       if (isPaid) {
         Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
       } else {
-        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות.');
+        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות');
       }
 
       return isPaid;
     } catch (_error) {
-      Alert.alert('שגיאה', 'שחזור הרכישות נכשל. אנא נסה שוב.');
+      Alert.alert('שגיאה', 'שחזור הרכישות נכשל אנא נסה שוב');
       return false;
     }
   }, [isExpoGo, isConfigured, handleCustomerInfo]);

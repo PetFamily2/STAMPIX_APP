@@ -28,8 +28,8 @@ const TEXT = {
   firstNameA11y: 'שדה שם פרטי',
   lastNameA11y: 'שדה שם משפחה',
   continue: 'המשך',
-  saving: 'שומרים...',
-  loading: 'טוענים...',
+  saving: 'שומרים',
+  loading: 'טוענים',
 };
 
 const AUTH_REDIRECT_DELAY_MS = 1800;

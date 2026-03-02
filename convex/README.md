@@ -2,7 +2,7 @@
 
 Last synced: 2026-02-18
 
-This folder contains the backend schema and server functions for STAMPIX.
+This folder contains the backend schema and server functions for STAMPAIX.
 
 ## Main files
 - `schema.ts` - full data model

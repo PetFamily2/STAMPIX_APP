@@ -23,12 +23,12 @@ const TEXT = {
   label: 'אימייל',
   placeholder: 'name@example.com',
   submit: 'שלחו לי קוד',
-  sending: 'שולח קוד...',
+  sending: 'שולח קוד',
   back: 'חזרה',
-  sendFailed: 'לא הצלחנו לשלוח קוד. נסו שוב.',
-  invalidEmail: 'כתובת האימייל לא תקינה.',
-  rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות.',
-  missingConfig: 'שירות האימייל לא מוגדר עדיין. בדקו את ההגדרות בסביבת Convex.',
+  sendFailed: 'לא הצלחנו לשלוח קוד נסו שוב',
+  invalidEmail: 'כתובת האימייל לא תקינה',
+  rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות',
+  missingConfig: 'שירות האימייל לא מוגדר עדיין בדקו את ההגדרות בסביבת Convex',
 };
 
 function isValidEmail(value: string) {
