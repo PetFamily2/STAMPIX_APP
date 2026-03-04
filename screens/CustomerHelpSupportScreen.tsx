@@ -4,7 +4,6 @@ import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -18,6 +17,8 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { ContinueButton } from '@/components/ContinueButton';
 import { api } from '@/convex/_generated/api';
 
 const SUPPORT_MESSAGE_MAX_LENGTH = 1200;
@@ -30,6 +31,7 @@ const TEXT = {
   messagePlaceholder:
     '\u05db\u05ea\u05d1\u05d5 \u05db\u05d0\u05df \u05de\u05d4 \u05d4\u05d1\u05e2\u05d9\u05d4 \u05d0\u05d5 \u05de\u05d4 \u05d0\u05ea\u05dd \u05e6\u05e8\u05d9\u05db\u05d9\u05dd...',
   send: '\u05e9\u05dc\u05d7\u05d5 \u05dc\u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  sending: '\u05e9\u05d5\u05dc\u05d7...',
   sentTitle:
     '\u05d4\u05e4\u05e0\u05d9\u05d9\u05d4 \u05e0\u05e9\u05dc\u05d7\u05d4',
   sentMessage:
@@ -151,26 +153,28 @@ export default function CustomerHelpSupportScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 8,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Ionicons name="chevron-forward" size={20} color="#111827" />
-          </Pressable>
-
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.pageTitle}>{TEXT.title}</Text>
-          </View>
+          <BusinessScreenHeader
+            title={TEXT.title}
+            titleAccessory={
+              <Pressable
+                onPress={() => router.back()}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#111827" />
+              </Pressable>
+            }
+          />
         </View>
 
         <View style={styles.section}>
@@ -217,32 +221,16 @@ export default function CustomerHelpSupportScreen() {
               </Text>
             </View>
 
-            <Pressable
-              onPress={handleSubmit}
-              disabled={isSendDisabled}
-              style={({ pressed }) => [
-                styles.sendButton,
-                isSendDisabled
-                  ? styles.sendButtonDisabled
-                  : styles.sendButtonActive,
-                pressed && !isSendDisabled ? styles.sendButtonPressed : null,
-              ]}
-            >
-              {isSending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text
-                  style={[
-                    styles.sendButtonText,
-                    isSendDisabled
-                      ? styles.sendButtonTextDisabled
-                      : styles.sendButtonTextActive,
-                  ]}
-                >
-                  {TEXT.send}
-                </Text>
-              )}
-            </Pressable>
+            <View style={styles.sendButtonRow}>
+              <ContinueButton
+                onPress={() => {
+                  void handleSubmit();
+                }}
+                disabled={isSendDisabled}
+                label={isSending ? TEXT.sending : TEXT.send}
+                accessibilityLabel={TEXT.send}
+              />
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -251,41 +239,27 @@ export default function CustomerHelpSupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
   scrollContent: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 10,
   },
   pressed: { opacity: 0.88 },
 
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 14,
-  },
-  headerTextWrap: {
-    flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'stretch',
+    marginBottom: 4,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-    color: '#171717',
-    textAlign: 'right',
-  },
-
   section: { gap: 10 },
   sectionTitle: {
     fontSize: 12,
@@ -369,46 +343,8 @@ const styles = StyleSheet.create({
   counterTextDanger: {
     color: '#B42318',
   },
-  sendButton: {
-    alignSelf: 'center',
-    minHeight: 52,
-    width: 240,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DCE6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 12,
+  sendButtonRow: {
     marginTop: 4,
-  },
-  sendButtonActive: {
-    backgroundColor: '#2F6BFF',
-    borderColor: '#2F6BFF',
-    shadowColor: '#2F6BFF',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#BFDBFE',
-  },
-  sendButtonPressed: {
-    backgroundColor: '#245AE8',
-    borderColor: '#245AE8',
-  },
-  sendButtonText: {
-    fontSize: 14,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  sendButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  sendButtonTextDisabled: {
-    color: '#2F6BFF',
+    alignItems: 'center',
   },
 });

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -15,7 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
@@ -178,21 +179,30 @@ export default function CardDetailsScreen() {
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 16,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
-        <View style={styles.header}>
-          <BackButton
-            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+        <View style={styles.headerRow}>
+          <BusinessScreenHeader
+            title={TEXT.cardDetails}
+            subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
+            titleAccessory={
+              <Pressable
+                onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed ? styles.pressed : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="\u05d7\u05d6\u05e8\u05d4"
+              >
+                <Ionicons name="chevron-forward" size={20} color="#111827" />
+              </Pressable>
+            }
           />
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{TEXT.cardDetails}</Text>
-            <Text style={styles.headerSubtitle}>
-              {membership.businessName} {'\u00b7'} {membership.rewardName}
-            </Text>
-          </View>
         </View>
 
         <View
@@ -378,31 +388,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   scrollContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     gap: 16,
   },
-  header: {
-    flexDirection: 'row-reverse',
+  headerRow: {
+    alignItems: 'stretch',
+    marginBottom: 4,
+  },
+  backButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    justifyContent: 'center',
   },
-  headerText: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'right',
-  },
-  headerSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2F6BFF',
-    textAlign: 'right',
+  pressed: {
+    opacity: 0.88,
   },
   card: {
     backgroundColor: '#FFFFFF',

@@ -14,6 +14,7 @@ type ProgramDraft = {
   rewardName: string;
   maxStamps: string;
   stampIcon: string;
+  cardThemeId: string;
 };
 
 type BusinessOnboardingDraft = {
@@ -24,6 +25,10 @@ type BusinessOnboardingDraft = {
   reason: string | null;
   businessName: string;
   usageAreas: string[];
+  formattedAddress: string;
+  placeId: string;
+  locationLat: number | null;
+  locationLng: number | null;
   city: string;
   street: string;
   streetNumber: string;
@@ -55,6 +60,7 @@ const defaultProgramDraft: ProgramDraft = {
   rewardName: '',
   maxStamps: '10',
   stampIcon: 'star',
+  cardThemeId: 'midnight-luxe',
 };
 
 const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {
@@ -65,6 +71,10 @@ const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {
   reason: null,
   businessName: '',
   usageAreas: [],
+  formattedAddress: '',
+  placeId: '',
+  locationLat: null,
+  locationLng: null,
   city: '',
   street: '',
   streetNumber: '',

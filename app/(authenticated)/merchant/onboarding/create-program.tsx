@@ -50,9 +50,9 @@ const TEXT = {
 };
 
 const LEGACY_CARD_TITLE_DEFAULTS = [
-  'лшийс раореъ',
-  "мощм: осав'/овщй фйцд",
-  "мощм: осав'йн/овщй фйцд/лесеъ чфд/щийфъ шлб",
+  'пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ',
+  "пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ'/пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ",
+  "пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ'пїЅпїЅ/пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ",
 ] as const;
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -134,9 +134,7 @@ export default function CreateProgramScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() =>
-              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.createBusiness)
-            }
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.plan)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -308,4 +306,3 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
 });
-

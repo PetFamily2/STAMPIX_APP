@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { query } from './_generated/server';
 
+import { assertEntitlement } from './entitlements';
 import { requireActorIsStaffForBusiness } from './guards';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -187,6 +188,9 @@ export const getMerchantActivity = query({
     }
 
     await requireActorIsStaffForBusiness(ctx, businessId);
+    await assertEntitlement(ctx, businessId, {
+      featureKey: 'canSeeAdvancedReports',
+    });
     const activity = await collectBusinessActivity(ctx, businessId);
     return {
       ...activity,

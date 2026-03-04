@@ -1,83 +1,85 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+
+const TEXT = {
+  title: '\u05d4\u05d8\u05d1\u05d5\u05ea',
+  subtitle:
+    '\u05db\u05d0\u05df \u05ea\u05e8\u05d0\u05d5 \u05d4\u05d8\u05d1\u05d5\u05ea \u05d6\u05de\u05d9\u05e0\u05d5\u05ea \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
+  emptyTitle:
+    '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05d4\u05d8\u05d1\u05d5\u05ea \u05d6\u05de\u05d9\u05e0\u05d5\u05ea',
+  emptySubtitle:
+    '\u05db\u05e9\u05ea\u05e9\u05dc\u05d9\u05de\u05d5 \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d4 \u05d5\u05ea\u05d2\u05d9\u05e2\u05d5 \u05dc\u05d9\u05e2\u05d3, \u05d4\u05d4\u05d8\u05d1\u05d4 \u05ea\u05d5\u05e4\u05d9\u05e2 \u05db\u05d0\u05df \u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9\u05ea.',
+};
+
 export default function RewardsScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
 
-  // דמו זמני - בשלב הבא נחבר ל-Convex ונציג רק הטבות זמינות
+  // Demo placeholder until rewards are loaded from Convex.
   const rewards: Array<{ id: string; title: string; subtitle: string }> = [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 16,
-          paddingBottom: tabBarHeight + 24,
-        }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: (insets.top || 0) + 12,
+            paddingBottom: tabBarHeight + 24,
+          },
+        ]}
       >
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: '900',
-            color: '#1A2B4A',
-            textAlign: 'right',
-          }}
-        >
-          הטבות
-        </Text>
-        <Text
-          style={{
-            marginTop: 6,
-            fontSize: 13,
-            color: '#2F6BFF',
-            textAlign: 'right',
-            fontWeight: '600',
-          }}
-        >
-          כאן תראה הטבות שזמינות למימוש
-        </Text>
+        <View style={styles.headerRow}>
+          <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+        </View>
 
         {rewards.length === 0 ? (
-          <View
-            style={{
-              marginTop: 18,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 24,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: '#E3E9FF',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '800',
-                color: '#0B1220',
-                textAlign: 'right',
-              }}
-            >
-              עדיין אין הטבות זמינות
-            </Text>
-            <Text
-              style={{
-                marginTop: 6,
-                fontSize: 13,
-                color: '#5B6475',
-                textAlign: 'right',
-              }}
-            >
-              כשתשלים כרטיסיה ותגיע ליעד, ההטבה תופיע כאן אוטומטית.
-            </Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
+            <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
           </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E9F0FF',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+  },
+  headerRow: {
+    alignItems: 'stretch',
+    marginBottom: 4,
+  },
+  emptyCard: {
+    marginTop: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E3E9FF',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
+  },
+  emptySubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#5B6475',
+    textAlign: 'right',
+  },
+});

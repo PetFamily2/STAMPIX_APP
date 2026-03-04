@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { query } from './_generated/server';
 
+import { assertEntitlement } from './entitlements';
 import { requireActorIsStaffForBusiness } from './guards';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +40,9 @@ export const getMerchantCustomers = query({
     }
 
     await requireActorIsStaffForBusiness(ctx, businessId);
+    await assertEntitlement(ctx, businessId, {
+      featureKey: 'canUseSmartAnalytics',
+    });
 
     const now = Date.now();
     const weekAgo = now - RISK_WINDOW_MS;

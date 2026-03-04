@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { assertEntitlement } from './entitlements';
 import { requireActorIsBusinessOwner } from './guards';
 
 export const listByBusiness = query({
@@ -42,6 +43,15 @@ export const createLoyaltyProgram = mutation({
     { businessId, title, rewardName, maxStamps, stampIcon }
   ) => {
     await requireActorIsBusinessOwner(ctx, businessId);
+    const existingPrograms = await ctx.db
+      .query('loyaltyPrograms')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .collect();
+    await assertEntitlement(ctx, businessId, {
+      limitKey: 'maxCards',
+      currentValue: existingPrograms.length,
+    });
 
     const normalizedTitle = title.trim();
     const normalizedReward = rewardName.trim();

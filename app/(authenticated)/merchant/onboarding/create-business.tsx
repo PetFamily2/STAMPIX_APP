@@ -1,13 +1,16 @@
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
@@ -16,8 +19,10 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
@@ -26,24 +31,88 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
-  title: 'מה הכתובות של העסק?',
-  subtitle: 'כדי שנוכל להציג את העסק נכון במפה',
-  cityLabel: 'עיר/יישוב',
-  cityPlaceholder: 'תל אביב',
-  streetLabel: 'רחוב',
-  streetPlaceholder: 'הרצל',
-  numberLabel: 'מספר',
-  numberPlaceholder: '12',
-  continue: 'המשך',
-  submitting: 'שומרים עסק',
-  errorFallback: 'שגיאה ביצירת העסק',
+  title:
+    '\u05de\u05d4 \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7?',
+  subtitle:
+    '\u05d1\u05d7\u05e8\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea \u05d0\u05de\u05d9\u05ea\u05d9\u05ea \u05de\u05e8\u05e9\u05d9\u05de\u05ea \u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05d5\u05d0\u05e9\u05e8\u05d5 \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
+  searchLabel: '\u05d7\u05d9\u05e4\u05d5\u05e9 \u05db\u05ea\u05d5\u05d1\u05ea',
+  searchPlaceholder:
+    '\u05d4\u05ea\u05d7\u05d9\u05dc\u05d5 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05dc\u05d0\u05d4',
+  selectedAddressLabel:
+    '\u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05e9\u05e0\u05d1\u05d7\u05e8\u05d4',
+  mapLabel: '\u05ea\u05e6\u05d5\u05d2\u05ea \u05de\u05e4\u05d4',
+  continue:
+    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05d5\u05d4\u05de\u05e9\u05da',
+  createBusiness: '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05e1\u05e7',
+  updateBusiness:
+    '\u05de\u05e2\u05d3\u05db\u05e0\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea',
+  loadingSuggestions:
+    '\u05de\u05d7\u05e4\u05e9\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05d5\u05ea...',
+  loadingPlace:
+    '\u05d8\u05d5\u05e2\u05e0\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea...',
+  noSuggestions:
+    '\u05dc\u05d0 \u05e0\u05de\u05e6\u05d0\u05d5 \u05db\u05ea\u05d5\u05d1\u05d5\u05ea \u05ea\u05d5\u05d0\u05de\u05d5\u05ea. \u05e0\u05e1\u05d5 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05d3\u05d5\u05d9\u05e7\u05ea \u05d9\u05d5\u05ea\u05e8.',
+  addressRequired:
+    '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05ea\u05d5\u05da \u05e8\u05e9\u05d9\u05de\u05ea \u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05dc\u05e4\u05e0\u05d9 \u05d4\u05d4\u05de\u05e9\u05da.',
+  googleKeyMissing:
+    '\u05d7\u05e1\u05e8 EXPO_PUBLIC_GOOGLE_MAPS_API_KEY \u05d5\u05dc\u05db\u05df \u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d8\u05e2\u05d5\u05df \u05d4\u05e9\u05dc\u05de\u05ea \u05db\u05ea\u05d5\u05d1\u05ea.',
+  autocompleteError:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d8\u05e2\u05d5\u05df \u05d4\u05e6\u05e2\u05d5\u05ea \u05db\u05ea\u05d5\u05d1\u05ea. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  placeDetailsError:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d8\u05e2\u05d5\u05df \u05d0\u05ea \u05e4\u05e8\u05d8\u05d9 \u05d4\u05db\u05ea\u05d5\u05d1\u05ea. \u05e0\u05e1\u05d5 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05e9\u05d5\u05d1.',
+  createError:
+    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d9\u05e6\u05d9\u05e8\u05ea \u05d4\u05e2\u05e1\u05e7',
+  updateError:
+    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e2\u05d3\u05db\u05d5\u05df \u05db\u05ea\u05d5\u05d1\u05ea \u05d4\u05e2\u05e1\u05e7',
+  cityFallback: '\u05dc\u05dc\u05d0 \u05e2\u05d9\u05e8',
+  streetFallback: '\u05dc\u05dc\u05d0 \u05e8\u05d7\u05d5\u05d1',
 };
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
+    switch (error.message) {
+      case 'GOOGLE_MAPS_API_KEY_MISSING':
+        return TEXT.googleKeyMissing;
+      case 'PLACES_AUTOCOMPLETE_REQUEST_FAILED':
+      case 'PLACES_AUTOCOMPLETE_FAILED':
+        return TEXT.autocompleteError;
+      case 'PLACE_DETAILS_REQUEST_FAILED':
+      case 'PLACE_DETAILS_INCOMPLETE':
+      case 'PLACE_ID_REQUIRED':
+        return TEXT.placeDetailsError;
+      default:
+        return error.message;
+    }
   }
+
   return fallback;
+}
+
+function SuggestionRow({
+  suggestion,
+  onPress,
+}: {
+  suggestion: PlaceSuggestion;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.suggestionRow,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={styles.suggestionTextWrap}>
+        <Text style={styles.suggestionPrimary}>{suggestion.primaryText}</Text>
+        {suggestion.secondaryText ? (
+          <Text style={styles.suggestionSecondary}>
+            {suggestion.secondaryText}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
 }
 
 export default function CreateBusinessScreen() {
@@ -57,39 +126,57 @@ export default function CreateBusinessScreen() {
   } = useOnboarding();
   const { user } = useUser();
   const createBusiness = useMutation(api.business.createBusiness);
+  const updateBusinessAddress = useMutation(api.business.updateBusinessAddress);
   const { businessName } = useLocalSearchParams<{ businessName?: string }>();
-  const streetInputRef = useRef<TextInput>(null);
-  const streetNumberInputRef = useRef<TextInput>(null);
 
-  const city = businessOnboardingDraft.city;
-  const street = businessOnboardingDraft.street;
-  const streetNumber = businessOnboardingDraft.streetNumber;
-  const resolvedBusinessNameFromFlow = businessOnboardingDraft.businessName;
+  const [addressQuery, setAddressQuery] = useState(
+    businessOnboardingDraft.formattedAddress
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSelectingPlace, setIsSelectingPlace] = useState(false);
+
+  const selectedAddress = businessOnboardingDraft.formattedAddress.trim();
+  const searchQueryForAutocomplete =
+    selectedAddress && addressQuery.trim() === selectedAddress
+      ? ''
+      : addressQuery;
+  const {
+    suggestions,
+    isLoading: isSuggestionsLoading,
+    error: autocompleteError,
+    sessionToken,
+    clearSuggestions,
+    resetSessionToken,
+  } = useGooglePlaceAutocomplete(searchQueryForAutocomplete);
 
   useEffect(() => {
-    const fromDraft = resolvedBusinessNameFromFlow.trim();
+    const fromDraft = businessOnboardingDraft.businessName.trim();
     const fromParams =
       typeof businessName === 'string' ? businessName.trim() : '';
-    const normalized = fromDraft || fromParams;
-    if (!normalized || businessDraft.name.trim().length > 0) {
+    const normalizedBusinessName = fromDraft || fromParams;
+
+    if (!normalizedBusinessName || businessDraft.name.trim().length > 0) {
       return;
     }
 
-    setBusinessDraft((prev) => ({ ...prev, name: normalized }));
+    setBusinessDraft((prev) => ({
+      ...prev,
+      name: normalizedBusinessName,
+    }));
+
     if (!fromDraft) {
       setBusinessOnboardingDraft((prev) => ({
         ...prev,
-        businessName: normalized,
+        businessName: normalizedBusinessName,
       }));
     }
   }, [
     businessDraft.name,
     businessName,
-    resolvedBusinessNameFromFlow,
-    setBusinessOnboardingDraft,
+    businessOnboardingDraft.businessName,
     setBusinessDraft,
+    setBusinessOnboardingDraft,
   ]);
 
   const normalizedBusinessName = useMemo(
@@ -113,39 +200,106 @@ export default function CreateBusinessScreen() {
       return slug;
     }
 
-    // Fallback for names that don't contain latin letters/digits (e.g. Hebrew).
     return `business-${Date.now().toString(36)}`;
   }, [normalizedBusinessName]);
 
   const resolvedExternalId = useMemo(() => {
-    const existing = businessDraft.externalId.trim();
-    if (existing) {
-      return existing;
+    const existingExternalId = businessDraft.externalId.trim();
+
+    if (existingExternalId) {
+      return existingExternalId;
     }
+
     return generatedExternalId;
   }, [businessDraft.externalId, generatedExternalId]);
 
-  const hasAddress =
-    city.trim().length > 0 &&
-    street.trim().length > 0 &&
-    streetNumber.trim().length > 0;
-
+  const latitude = businessOnboardingDraft.locationLat;
+  const longitude = businessOnboardingDraft.locationLng;
+  const hasValidatedAddress =
+    businessOnboardingDraft.placeId.trim().length > 0 &&
+    typeof latitude === 'number' &&
+    typeof longitude === 'number';
   const canSubmit =
-    Boolean(normalizedBusinessName && resolvedExternalId && hasAddress) &&
-    !isSubmitting;
+    Boolean(
+      normalizedBusinessName && resolvedExternalId && hasValidatedAddress
+    ) &&
+    !isSubmitting &&
+    !isSelectingPlace;
+
+  const clearSelectedAddress = () => {
+    setBusinessOnboardingDraft((prev) => ({
+      ...prev,
+      formattedAddress: '',
+      placeId: '',
+      locationLat: null,
+      locationLng: null,
+      city: '',
+      street: '',
+      streetNumber: '',
+    }));
+  };
+
+  const handleAddressChange = (value: string) => {
+    setAddressQuery(value);
+    setError(null);
+
+    if (
+      businessOnboardingDraft.placeId.trim().length > 0 &&
+      value.trim() !== selectedAddress
+    ) {
+      clearSelectedAddress();
+    }
+  };
+
+  const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
+    try {
+      setError(null);
+      setIsSelectingPlace(true);
+
+      const details = await fetchPlaceDetails(suggestion.placeId, sessionToken);
+
+      setBusinessOnboardingDraft((prev) => ({
+        ...prev,
+        formattedAddress: details.formattedAddress,
+        placeId: details.placeId,
+        locationLat: details.lat,
+        locationLng: details.lng,
+        city: details.city,
+        street: details.street,
+        streetNumber: details.streetNumber,
+      }));
+      setAddressQuery(details.formattedAddress);
+      clearSuggestions();
+      resetSessionToken();
+    } catch (selectionError) {
+      setError(toErrorMessage(selectionError, TEXT.placeDetailsError));
+    } finally {
+      setIsSelectingPlace(false);
+    }
+  };
 
   const handleSubmit = async () => {
-    if (businessId) {
-      safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
-      return;
-    }
-
-    if (!canSubmit) {
+    if (
+      !canSubmit ||
+      typeof latitude !== 'number' ||
+      typeof longitude !== 'number'
+    ) {
+      setError(TEXT.addressRequired);
       return;
     }
 
     setError(null);
     setIsSubmitting(true);
+
+    const addressPayload = {
+      formattedAddress: businessOnboardingDraft.formattedAddress.trim(),
+      placeId: businessOnboardingDraft.placeId.trim(),
+      lat: latitude,
+      lng: longitude,
+      city: businessOnboardingDraft.city.trim(),
+      street: businessOnboardingDraft.street.trim(),
+      streetNumber: businessOnboardingDraft.streetNumber.trim(),
+    };
 
     try {
       if (!businessDraft.externalId.trim()) {
@@ -155,33 +309,53 @@ export default function CreateBusinessScreen() {
         }));
       }
 
-      const { businessId } = await createBusiness({
+      if (businessId) {
+        await updateBusinessAddress({
+          businessId,
+          ...addressPayload,
+        });
+        safePush(BUSINESS_ONBOARDING_ROUTES.usageArea);
+        return;
+      }
+
+      const result = await createBusiness({
         name: normalizedBusinessName,
         externalId: resolvedExternalId,
         logoUrl: businessDraft.logoUrl,
         colors: businessDraft.colors,
+        ...addressPayload,
       });
 
-      setBusinessId(businessId);
+      setBusinessId(result.businessId);
       void trackActivationEvent(ANALYTICS_EVENTS.businessCreated, {
         role: 'business',
         userId: user?._id,
       });
-
-      safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
-    } catch (submitError: unknown) {
-      setError(toErrorMessage(submitError, TEXT.errorFallback));
+      safePush(BUSINESS_ONBOARDING_ROUTES.usageArea);
+    } catch (submitError) {
+      setError(
+        toErrorMessage(
+          submitError,
+          businessId ? TEXT.updateError : TEXT.createError
+        )
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const showNoSuggestions =
+    searchQueryForAutocomplete.trim().length >= 2 &&
+    !isSuggestionsLoading &&
+    suggestions.length === 0 &&
+    !autocompleteError;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.usageArea)}
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.name)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -189,89 +363,122 @@ export default function CreateBusinessScreen() {
           />
         </View>
 
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
-        </View>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>{TEXT.title}</Text>
+            <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
+          </View>
 
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={styles.label}>{TEXT.cityLabel}</Text>
+          <View style={styles.searchSection}>
+            <Text style={styles.label}>{TEXT.searchLabel}</Text>
             <TextInput
-              value={city}
-              onChangeText={(value) =>
-                setBusinessOnboardingDraft((prev) => ({
-                  ...prev,
-                  city: value,
-                }))
-              }
-              placeholder={TEXT.cityPlaceholder}
+              value={addressQuery}
+              onChangeText={handleAddressChange}
+              placeholder={TEXT.searchPlaceholder}
               placeholderTextColor="#9EA7B8"
               style={styles.input}
-              accessibilityLabel={TEXT.cityLabel}
-              returnKeyType="next"
-              submitBehavior="submit"
-              blurOnSubmit={false}
-              onSubmitEditing={() => streetInputRef.current?.focus()}
+              autoCapitalize="words"
+              autoCorrect={false}
               textAlign="right"
+              accessibilityLabel={TEXT.searchLabel}
             />
+
+            {isSuggestionsLoading || isSelectingPlace ? (
+              <View style={styles.inlineStatusRow}>
+                <ActivityIndicator color="#2563EB" />
+                <Text style={styles.inlineStatusText}>
+                  {isSelectingPlace
+                    ? TEXT.loadingPlace
+                    : TEXT.loadingSuggestions}
+                </Text>
+              </View>
+            ) : null}
+
+            {autocompleteError ? (
+              <Text style={styles.helperErrorText}>
+                {toErrorMessage(
+                  new Error(autocompleteError),
+                  TEXT.autocompleteError
+                )}
+              </Text>
+            ) : null}
+
+            {showNoSuggestions ? (
+              <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
+            ) : null}
+
+            {suggestions.length > 0 ? (
+              <View style={styles.suggestionsCard}>
+                {suggestions.map((suggestion) => (
+                  <SuggestionRow
+                    key={suggestion.placeId}
+                    suggestion={suggestion}
+                    onPress={() => {
+                      void handleSelectSuggestion(suggestion);
+                    }}
+                  />
+                ))}
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.addressRow}>
-            <View style={[styles.field, styles.streetField]}>
-              <Text style={styles.label}>{TEXT.streetLabel}</Text>
-              <TextInput
-                ref={streetInputRef}
-                value={street}
-                onChangeText={(value) =>
-                  setBusinessOnboardingDraft((prev) => ({
-                    ...prev,
-                    street: value,
-                  }))
-                }
-                placeholder={TEXT.streetPlaceholder}
-                placeholderTextColor="#9EA7B8"
-                style={styles.input}
-                accessibilityLabel={TEXT.streetLabel}
-                returnKeyType="next"
-                submitBehavior="submit"
-                blurOnSubmit={false}
-                onSubmitEditing={() => streetNumberInputRef.current?.focus()}
-                textAlign="right"
-              />
+          {hasValidatedAddress &&
+          typeof latitude === 'number' &&
+          typeof longitude === 'number' ? (
+            <View style={styles.previewSection}>
+              <View style={styles.previewHeader}>
+                <Text style={styles.previewValue}>
+                  {businessOnboardingDraft.formattedAddress}
+                </Text>
+                <Text style={styles.previewLabel}>
+                  {TEXT.selectedAddressLabel}
+                </Text>
+              </View>
+
+              <View style={styles.previewMetaRow}>
+                <Text style={styles.previewMetaText}>
+                  {businessOnboardingDraft.city || TEXT.cityFallback}
+                </Text>
+                <Text style={styles.previewMetaText}>
+                  {businessOnboardingDraft.street || TEXT.streetFallback}
+                </Text>
+                <Text style={styles.previewMetaText}>
+                  {businessOnboardingDraft.streetNumber || '-'}
+                </Text>
+              </View>
+
+              <View style={styles.mapBlock}>
+                <Text style={styles.label}>{TEXT.mapLabel}</Text>
+                <View style={styles.mapShell}>
+                  <MapView
+                    style={styles.map}
+                    pointerEvents="none"
+                    region={{
+                      latitude,
+                      longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                  >
+                    <Marker coordinate={{ latitude, longitude }} />
+                  </MapView>
+                </View>
+              </View>
             </View>
-
-            <View style={[styles.field, styles.numberField]}>
-              <Text style={styles.label}>{TEXT.numberLabel}</Text>
-              <TextInput
-                ref={streetNumberInputRef}
-                value={streetNumber}
-                onChangeText={(value) =>
-                  setBusinessOnboardingDraft((prev) => ({
-                    ...prev,
-                    streetNumber: value,
-                  }))
-                }
-                placeholder={TEXT.numberPlaceholder}
-                placeholderTextColor="#9EA7B8"
-                style={styles.input}
-                accessibilityLabel={TEXT.numberLabel}
-                keyboardType="number-pad"
-                returnKeyType="done"
-                textAlign="center"
-              />
+          ) : (
+            <View style={styles.emptyPreviewCard}>
+              <Text style={styles.emptyPreviewText}>
+                {TEXT.addressRequired}
+              </Text>
             </View>
-          </View>
-        </View>
+          )}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {isSubmitting ? (
-          <View style={styles.submittingRow}>
-            <ActivityIndicator color="#2563EB" />
-            <Text style={styles.submittingText}>{TEXT.submitting}</Text>
-          </View>
-        ) : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </ScrollView>
 
         <View style={styles.footer}>
           <ContinueButton
@@ -279,7 +486,13 @@ export default function CreateBusinessScreen() {
               void handleSubmit();
             }}
             disabled={!canSubmit}
-            label={TEXT.continue}
+            label={
+              isSubmitting
+                ? businessId
+                  ? TEXT.updateBusiness
+                  : TEXT.createBusiness
+                : TEXT.continue
+            }
           />
         </View>
       </View>
@@ -303,8 +516,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  body: {
+    marginTop: 24,
+    flex: 1,
+  },
+  bodyContent: {
+    gap: 18,
+    paddingBottom: 16,
+  },
   titleContainer: {
-    marginTop: 32,
     alignItems: 'flex-end',
   },
   title: {
@@ -313,27 +533,23 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
-    marginBottom: 8,
   },
   subtitle: {
+    marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 20,
   },
-  form: {
-    marginTop: 24,
-    gap: 12,
-  },
-  field: {
-    gap: 8,
+  searchSection: {
+    gap: 10,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
+    color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -347,41 +563,139 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
-  addressRow: {
+  inlineStatusRow: {
     flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    gap: 8,
   },
-  streetField: {
+  inlineStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  helperText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  helperErrorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  suggestionsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  suggestionTextWrap: {
+    alignItems: 'flex-end',
+  },
+  suggestionPrimary: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'right',
+  },
+  suggestionSecondary: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'right',
+  },
+  previewSection: {
+    gap: 12,
+  },
+  previewHeader: {
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  previewLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  previewValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  previewMetaRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  previewMetaText: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#E8EEF9',
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  mapBlock: {
+    gap: 8,
+  },
+  mapShell: {
+    height: 220,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  map: {
     flex: 1,
   },
-  numberField: {
-    width: 92,
+  emptyPreviewCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  emptyPreviewText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    lineHeight: 20,
   },
   errorText: {
-    marginTop: 12,
     fontSize: 14,
     fontWeight: '600',
     color: '#DC2626',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  submittingRow: {
-    marginTop: 8,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 8,
-  },
-  submittingText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#2563EB',
-    textAlign: 'right',
-  },
   footer: {
-    marginTop: 'auto',
+    marginTop: 16,
+  },
+  pressed: {
+    opacity: 0.88,
   },
 });

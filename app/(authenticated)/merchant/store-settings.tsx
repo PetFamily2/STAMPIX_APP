@@ -28,7 +28,7 @@ export default function MerchantStoreSettingsScreen() {
   return (
     <ScrollView
       contentContainerStyle={{ paddingBottom: 48 }}
-      className="flex-1 bg-slate-50"
+      className="flex-1 bg-[#E9F0FF]"
     >
       <View className="px-5 pt-6 pb-8">
         <SectionHeader
@@ -37,7 +37,7 @@ export default function MerchantStoreSettingsScreen() {
         />
 
         <Card
-          className={`mt-6 p-5 border ${isLocked ? 'border-emerald-200' : 'border-gray-100'}`}
+          className={`mt-6 border p-5 ${isLocked ? 'border-emerald-200' : 'border-[#E3E9FF]'}`}
         >
           <View className={`${tw.flexRow} items-center justify-between mb-4`}>
             <Text className="text-base font-black text-text-main">
@@ -47,7 +47,7 @@ export default function MerchantStoreSettingsScreen() {
               {isLocked ? 'כרטיס נעול' : 'אי אפשר לערוך פרטים'}
             </Text>
           </View>
-          <View className="rounded-[26px] border border-gray-100 bg-white p-5 shadow-sm">
+          <View className="rounded-[26px] border border-[#E3E9FF] bg-white p-5 shadow-sm">
             <View className={`h-1 rounded-full ${selectedColor.colorClass}`} />
             <View className={`${tw.flexRow} items-center justify-between mt-4`}>
               <View>
@@ -68,7 +68,7 @@ export default function MerchantStoreSettingsScreen() {
               {stamps.map((_, index) => (
                 <View
                   key={`stamp-${index}`}
-                  className={`h-8 w-8 rounded-full border ${index < 3 ? selectedColor.colorClass : 'border-gray-200 bg-gray-50'}`}
+                  className={`h-8 w-8 rounded-full border ${index < 3 ? selectedColor.colorClass : 'border-[#E3E9FF] bg-[#F6F8FC]'}`}
                 />
               ))}
             </View>
@@ -126,7 +126,7 @@ export default function MerchantStoreSettingsScreen() {
           <View className={`${tw.flexRow} items-center gap-2`}>
             <TouchableOpacity
               disabled={isLocked || maxStamps <= 3}
-              className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center"
+              className="h-10 w-10 rounded-2xl bg-[#EEF3FF] items-center justify-center"
               onPress={() => setMaxStamps((prev) => Math.max(3, prev - 1))}
             >
               <Text className="text-lg font-black text-text-main">-</Text>
@@ -136,7 +136,7 @@ export default function MerchantStoreSettingsScreen() {
             </Text>
             <TouchableOpacity
               disabled={isLocked || maxStamps >= 12}
-              className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center"
+              className="h-10 w-10 rounded-2xl bg-[#EEF3FF] items-center justify-center"
               onPress={() => setMaxStamps((prev) => Math.min(12, prev + 1))}
             >
               <Text className="text-lg font-black text-text-main">+</Text>

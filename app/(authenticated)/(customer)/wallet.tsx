@@ -1,7 +1,7 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Image,
   Pressable,
@@ -14,7 +14,9 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
 import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -59,14 +61,16 @@ export default function WalletScreen() {
 
   // Check for deferred deep link join after authentication
   useEffect(() => {
-    if (!isAuthenticated || pendingJoinChecked.current) return;
+    if (!isAuthenticated || pendingJoinChecked.current) {
+      return;
+    }
     pendingJoinChecked.current = true;
     void (async () => {
       const pending = await consumePendingJoin();
       if (pending?.biz) {
         // Re-save so join screen can consume it
         await savePendingJoin(pending);
-        router.push('/(authenticated)/join' as any);
+        router.push('/(authenticated)/join');
       }
     })();
   }, [isAuthenticated]);
@@ -116,24 +120,14 @@ export default function WalletScreen() {
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 16,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         alwaysBounceVertical={false}
       >
-        <Text style={styles.topBrand}>
-          <Text style={styles.topBrandAccent}>S</Text>
-          tamp
-          <Text style={styles.topBrandAccent}>A</Text>
-          ix
-        </Text>
-
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{TEXT.title}</Text>
-            <Text style={styles.headerSubtitle}>{TEXT.subtitle}</Text>
-          </View>
+        <View style={styles.headerRow}>
+          <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
         </View>
 
         {isLoading ? (
@@ -257,43 +251,12 @@ const styles = StyleSheet.create({
   scrollBackground: {
     backgroundColor: '#E9F0FF',
   },
-  topBrand: {
-    textAlign: 'center',
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: 1.6,
-    color: '#2F6BFF',
-    fontWeight: '900',
-  },
-  topBrandAccent: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-    color: '#2F6BFF',
-  },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 8,
-    marginBottom: 20,
-  },
-  headerText: {
-    alignItems: 'flex-end',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'right',
-  },
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    color: '#5B6475',
-    textAlign: 'right',
-    fontWeight: '600',
+  headerRow: {
+    alignItems: 'stretch',
+    marginBottom: 4,
   },
   cardList: {
-    marginTop: 8,
+    marginTop: 18,
     gap: 12,
   },
   cardContainer: {

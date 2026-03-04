@@ -13,7 +13,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import BrandPageHeader from '@/components/BrandPageHeader';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import QrScanner from '@/components/QrScanner';
+import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
@@ -25,6 +28,10 @@ import {
   trackActivationOnce,
 } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
 
 type ResolvedScan = {
   customerUserId: string;
@@ -124,9 +131,28 @@ export default function ScannerScreen() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [resolved, setResolved] = useState<ResolvedScan | null>(null);
+  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
+  const [upgradeReason, setUpgradeReason] = useState<
+    'feature_locked' | 'limit_reached' | 'subscription_inactive'
+  >('feature_locked');
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
+    undefined
+  );
 
   const canScan = Boolean(selectedBusiness && selectedProgram);
   const isBusy = isResolving || isStamping || isRedeeming;
+
+  const openUpgrade = (
+    featureKey: string,
+    requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
+    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
+  ) => {
+    setUpgradeFeatureKey(featureKey);
+    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
+    setUpgradeReason(reason);
+    setIsUpgradeVisible(true);
+  };
 
   const resolveByToken = useCallback(
     async (token: string, showErrors = true) => {
@@ -226,6 +252,25 @@ export default function ScannerScreen() {
         await resolveByToken(scanToken, false);
       }
     } catch (error) {
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        setScanError(entitlementErrorToHebrewMessage(entitlementError));
+        openUpgrade(
+          entitlementError.featureKey ?? entitlementError.limitKey ?? 'maxCustomers',
+          entitlementError.requiredPlan ?? 'pro',
+          entitlementError.code === 'PLAN_LIMIT_REACHED'
+            ? 'limit_reached'
+            : entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+              ? 'subscription_inactive'
+              : 'feature_locked'
+        );
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code: entitlementError.code,
+          context: 'addStamp',
+        });
+        return;
+      }
+
       const mapped = mapScanError(error);
       setScanError(mapped.message);
       track(ANALYTICS_EVENTS.stampFailed, {
@@ -324,18 +369,29 @@ export default function ScannerScreen() {
   const canRedeemNow = Boolean(resolved?.membership?.canRedeemNow);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 16,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
         <View style={styles.header}>
+          <BusinessScreenHeader
+            title={'\u05e1\u05e8\u05d9\u05e7\u05ea \u05dc\u05e7\u05d5\u05d7'}
+            subtitle={
+              '\u05e1\u05e8\u05e7\u05d5 QR \u05e9\u05dc \u05dc\u05e7\u05d5\u05d7 \u05db\u05d3\u05d9 \u05dc\u05d4\u05d5\u05e1\u05d9\u05e3 \u05e0\u05d9\u05e7\u05d5\u05d1.'
+            }
+          />
+          <BrandPageHeader
+            style={{ display: 'none' }}
+            title="סריקת לקוח"
+            subtitle="סרקו QR של לקוח כדי להוסיף ניקוב."
+          />
           <Text style={styles.headerTitle}>סריקת לקוח</Text>
           <Text style={styles.headerSubtitle}>
             סרוק QR של לקוח כדי להוסיף ניקוב.
@@ -482,6 +538,14 @@ export default function ScannerScreen() {
           <Text style={styles.secondaryButtonText}>סרוק מחדש</Text>
         </Pressable>
       </ScrollView>
+      <UpgradeModal
+        visible={isUpgradeVisible}
+        businessId={selectedBusiness?.businessId ?? null}
+        initialPlan={upgradePlan}
+        reason={upgradeReason}
+        featureKey={upgradeFeatureKey}
+        onClose={() => setIsUpgradeVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -502,19 +566,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headerTitle: {
-    fontSize: 22,
+    display: 'none',
+    fontSize: 24,
     fontWeight: '900',
     color: '#1A2B4A',
     textAlign: 'right',
   },
   headerSubtitle: {
+    display: 'none',
     fontSize: 13,
     fontWeight: '700',
     color: '#2F6BFF',
     textAlign: 'right',
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 10,
   },
   selectorCard: {
@@ -646,7 +712,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   primaryButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',

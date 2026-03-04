@@ -60,7 +60,7 @@ export default function MerchantQRCodeScreen() {
         <View>
           <Text
             style={{
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: '900',
               color: '#1A2B4A',
               textAlign: 'right',
@@ -159,7 +159,7 @@ export default function MerchantQRCodeScreen() {
             disabled={!qrPayload}
             style={({ pressed }) => ({
               marginTop: 12,
-              alignSelf: 'flex-start',
+              alignSelf: 'flex-end',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 10,
@@ -167,7 +167,14 @@ export default function MerchantQRCodeScreen() {
               opacity: pressed || !qrPayload ? 0.7 : 1,
             })}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 12 }}>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontWeight: '900',
+                fontSize: 12,
+                textAlign: 'right',
+              }}
+            >
               שתף/העתק
             </Text>
           </Pressable>

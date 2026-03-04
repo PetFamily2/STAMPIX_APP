@@ -54,7 +54,6 @@ Last synced: 2026-02-18
 
 ## Merchant routes (`app/(authenticated)/merchant`)
 - `/(authenticated)/merchant/index`
-- `/(authenticated)/merchant/analytics`
 - `/(authenticated)/merchant/qr`
 - `/(authenticated)/merchant/profile-settings`
 - `/(authenticated)/merchant/store-settings`

@@ -47,6 +47,15 @@ export const seedMvp = mutation({
       name: businessName,
       logoUrl: undefined,
       colors: undefined,
+      address: {
+        formattedAddress: 'Allenby St 1, Tel Aviv-Yafo, Israel',
+        placeId: 'seed-demo-place-id',
+        lat: 32.066157,
+        lng: 34.777821,
+        city: 'Tel Aviv-Yafo',
+        street: 'Allenby St',
+        streetNumber: '1',
+      },
       now,
     });
 

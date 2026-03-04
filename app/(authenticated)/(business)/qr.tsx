@@ -7,6 +7,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BrandPageHeader from '@/components/BrandPageHeader';
 import { api } from '@/convex/_generated/api';
 
 const BASE_URL = 'https://stampix.app/join';
@@ -30,18 +31,22 @@ export default function BusinessJoinQrScreen() {
   const joinCode = selectedBusiness?.joinCode ?? null;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={[]}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 16,
+            paddingTop: 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
         <View style={styles.header}>
+          <BrandPageHeader
+            title="קוד הצטרפות"
+            subtitle="שתפו עם לקוחות QR להצטרפות מהירה למועדון."
+          />
           <Text style={styles.headerTitle}>QR להצטרפות לקוחות</Text>
           <Text style={styles.headerSubtitle}>
             {selectedBusiness
@@ -123,12 +128,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headerTitle: {
-    fontSize: 22,
+    display: 'none',
+    fontSize: 24,
     fontWeight: '900',
     color: '#1A2B4A',
     textAlign: 'right',
   },
   headerSubtitle: {
+    display: 'none',
     fontSize: 13,
     fontWeight: '700',
     color: '#2F6BFF',

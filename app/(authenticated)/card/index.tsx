@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { safeBack } from '@/lib/navigation';
 
@@ -20,6 +23,7 @@ function clamp(n: number, min: number, max: number) {
 }
 
 export default function CardDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     businessName?: string;
     subtitle?: string;
@@ -35,18 +39,18 @@ export default function CardDetailsScreen() {
   const [qrOpen, setQrOpen] = useState(false);
 
   const stamps = useMemo(() => {
-    return range(stampsGoal).map((i) => i < stampsCurrent);
+    return range(stampsGoal).map((index) => ({
+      id: index + 1,
+      filled: index < stampsCurrent,
+    }));
   }, [stampsGoal, stampsCurrent]);
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: '#F6F8FC' }}
-      edges={['top']}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 24,
-          paddingTop: 12,
+          paddingHorizontal: 20,
+          paddingTop: (insets.top || 0) + 12,
           paddingBottom: 28,
         }}
       >
@@ -175,24 +179,24 @@ export default function CardDetailsScreen() {
               justifyContent: 'flex-start',
             }}
           >
-            {stamps.map((filled, idx) => (
+            {stamps.map((stamp) => (
               <View
-                key={idx}
+                key={stamp.id}
                 style={{
                   width: 56,
                   height: 56,
                   borderRadius: 16,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: filled ? '#2F6BFF' : '#F1F4FA',
+                  backgroundColor: stamp.filled ? '#2F6BFF' : '#F1F4FA',
                   borderWidth: 1,
-                  borderColor: filled ? '#2F6BFF' : '#E6EBF5',
+                  borderColor: stamp.filled ? '#2F6BFF' : '#E6EBF5',
                 }}
               >
                 <Ionicons
-                  name={filled ? 'checkmark' : 'ellipse-outline'}
+                  name={stamp.filled ? 'checkmark' : 'ellipse-outline'}
                   size={22}
-                  color={filled ? '#FFFFFF' : '#9AA4B2'}
+                  color={stamp.filled ? '#FFFFFF' : '#9AA4B2'}
                 />
               </View>
             ))}

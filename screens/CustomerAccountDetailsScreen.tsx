@@ -1,5 +1,5 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -18,6 +18,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 
@@ -283,26 +284,28 @@ export default function CustomerAccountDetailsScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 8,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Ionicons name="chevron-forward" size={20} color="#111827" />
-          </Pressable>
-
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.pageTitle}>{TEXT.title}</Text>
-          </View>
+          <BusinessScreenHeader
+            title={TEXT.title}
+            titleAccessory={
+              <Pressable
+                onPress={() => router.back()}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#111827" />
+              </Pressable>
+            }
+          />
         </View>
 
         <View style={styles.section}>
@@ -337,42 +340,28 @@ export default function CustomerAccountDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
   scrollContent: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 10,
   },
   pressed: { opacity: 0.88 },
   disabled: { opacity: 0.6 },
 
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 14,
-  },
-  headerTextWrap: {
-    flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'stretch',
+    marginBottom: 4,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-    color: '#171717',
-    textAlign: 'right',
-  },
-
   section: { gap: 10 },
   sectionTitle: {
     fontSize: 12,

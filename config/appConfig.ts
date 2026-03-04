@@ -45,6 +45,27 @@ export const PAYMENT_SYSTEM_ENABLED = false;
 //    - הגדר ל-FALSE לייצור (רכישות RevenueCat אמיתיות דרך חנויות האפליקציות)
 export const MOCK_PAYMENTS = false;
 
+export type BusinessPlan = 'starter' | 'pro' | 'unlimited';
+export type BillingPeriod = 'monthly' | 'yearly';
+export const BILLING_PERIOD_LABELS: Record<BillingPeriod, string> = {
+  monthly: 'חודשי',
+  yearly: 'שנתי',
+};
+
+export const REVENUECAT_PACKAGE_BY_PLAN_PERIOD: Record<
+  Exclude<BusinessPlan, 'starter'>,
+  Record<BillingPeriod, string | null>
+> = {
+  pro: {
+    monthly: process.env.EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY ?? null,
+    yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY ?? null,
+  },
+  unlimited: {
+    monthly: process.env.EXPO_PUBLIC_RC_PACKAGE_UNLIMITED_MONTHLY ?? null,
+    yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_UNLIMITED_YEARLY ?? null,
+  },
+};
+
 // ============================================================================
 // קישורי תנאי שימוש ומדיניות פרטיות
 // ============================================================================

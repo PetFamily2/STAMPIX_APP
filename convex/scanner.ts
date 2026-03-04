@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { assertEntitlement, countActiveCustomersForBusiness } from './entitlements';
 import {
   getCurrentUserOrNull,
   requireActorIsStaffForBusiness,
@@ -260,6 +261,24 @@ export const addStamp = mutation({
 
     // Decide MVP rule: cap at maxStamps (prevents overflow)
     if (!existing) {
+      const existingBusinessMembership = await ctx.db
+        .query('memberships')
+        .withIndex('by_userId_businessId', (q: any) =>
+          q.eq('userId', customerUserId).eq('businessId', args.businessId)
+        )
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .first();
+      if (!existingBusinessMembership) {
+        const activeCustomersCount = await countActiveCustomersForBusiness(
+          ctx,
+          args.businessId
+        );
+        await assertEntitlement(ctx, args.businessId, {
+          limitKey: 'maxCustomers',
+          currentValue: activeCustomersCount,
+        });
+      }
+
       const membershipId = await ctx.db.insert('memberships', {
         userId: customerUserId,
         businessId: args.businessId,

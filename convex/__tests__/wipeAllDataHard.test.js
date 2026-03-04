@@ -4,8 +4,10 @@ import { wipeAllDataHardImpl } from '../users';
 const WIPE_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
+  'supportRequests',
   'messageLog',
   'campaigns',
+  'subscriptions',
   'scanTokenEvents',
   'events',
   'memberships',
@@ -134,8 +136,10 @@ describe('wipeAllDataHardImpl', () => {
     const tables = {
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
       apiClients: [{ _id: 'ac_1', businessId: 'b_1' }],
+      supportRequests: [{ _id: 'sr_1', userId: 'u_admin' }],
       messageLog: [{ _id: 'ml_1', businessId: 'b_1' }],
       campaigns: [{ _id: 'camp_1', businessId: 'b_1' }],
+      subscriptions: [{ _id: 'sub_1', businessId: 'b_1' }],
       scanTokenEvents: [{ _id: 'ste_1', businessId: 'b_1' }],
       events: [{ _id: 'ev_1', businessId: 'b_1' }],
       memberships: [{ _id: 'mem_1', businessId: 'b_1' }],
@@ -176,8 +180,10 @@ describe('wipeAllDataHardImpl', () => {
     const expectedCounts = {
       apiKeys: 1,
       apiClients: 1,
+      supportRequests: 1,
       messageLog: 1,
       campaigns: 1,
+      subscriptions: 1,
       scanTokenEvents: 1,
       events: 1,
       memberships: 1,

@@ -11,7 +11,9 @@
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as business from "../business.js";
+import type * as campaigns from "../campaigns.js";
 import type * as debug from "../debug.js";
+import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
 import type * as guards from "../guards.js";
 import type * as http from "../http.js";
@@ -19,6 +21,7 @@ import type * as lib_ids from "../lib/ids.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
+import type * as migrations_backfillBusinessSubscriptions from "../migrations/backfillBusinessSubscriptions.js";
 import type * as migrations_migrateToOnboardingFlags from "../migrations/migrateToOnboardingFlags.js";
 import type * as otp from "../otp.js";
 import type * as scanTokens from "../scanTokens.js";
@@ -37,7 +40,9 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   auth: typeof auth;
   business: typeof business;
+  campaigns: typeof campaigns;
   debug: typeof debug;
+  entitlements: typeof entitlements;
   events: typeof events;
   guards: typeof guards;
   http: typeof http;
@@ -45,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   loyaltyPrograms: typeof loyaltyPrograms;
   memberships: typeof memberships;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
+  "migrations/backfillBusinessSubscriptions": typeof migrations_backfillBusinessSubscriptions;
   "migrations/migrateToOnboardingFlags": typeof migrations_migrateToOnboardingFlags;
   otp: typeof otp;
   scanTokens: typeof scanTokens;

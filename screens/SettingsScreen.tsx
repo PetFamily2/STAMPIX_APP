@@ -1,11 +1,11 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { router } from 'expo-router';
+import { router, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,9 +22,9 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import { useAppMode } from '@/contexts/AppModeContext';
-import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
@@ -37,7 +37,6 @@ const NOTIFICATIONS_ENABLED_STORAGE_KEY =
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TEXT = {
-  profileFallbackName: '\u05d7\u05d1\u05e8 STAMPAIX',
   quickWalletTitle: '\u05d4\u05d0\u05e8\u05e0\u05e7',
   quickWalletSubtitle:
     '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d5\u05e0\u05e7\u05d5\u05d3\u05d5\u05ea',
@@ -71,6 +70,12 @@ const TEXT = {
     '\u05d9\u05e6\u05d9\u05d0\u05d4 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
   logoutSubtitle:
     '\u05d4\u05ea\u05e0\u05ea\u05e7\u05d5\u05ea \u05de\u05d4\u05de\u05db\u05e9\u05d9\u05e8 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
+  logoutConfirmTitle:
+    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d9\u05e6\u05d9\u05d0\u05d4',
+  logoutConfirmMessage:
+    '\u05d4\u05d0\u05dd \u05d0\u05ea\u05dd \u05d1\u05d8\u05d5\u05d7\u05d9\u05dd \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05db\u05dd \u05dc\u05d4\u05ea\u05e0\u05ea\u05e7 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df?',
+  logoutConfirmAction:
+    '\u05d9\u05e6\u05d9\u05d0\u05d4 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
   deleteTitle: '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
   deleteSubtitle:
     '\u05de\u05d7\u05d9\u05e7\u05d4 \u05de\u05dc\u05d0\u05d4 \u05e9\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d5\u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd',
@@ -126,28 +131,6 @@ function formatWipeSummary(counts: Record<string, number>) {
   return Object.entries(counts)
     .map(([tableName, count]) => `${tableName}: ${count}`)
     .join('\n');
-}
-
-function resolveName(sessionContext: ReturnType<typeof useSessionContext>) {
-  const user = sessionContext?.user;
-  const fullName = user?.fullName?.trim();
-  if (fullName) {
-    return fullName;
-  }
-
-  const first = user?.firstName?.trim() ?? '';
-  const last = user?.lastName?.trim() ?? '';
-  const composed = `${first} ${last}`.trim();
-  if (composed) {
-    return composed;
-  }
-
-  const emailPrefix = user?.email?.split('@')[0]?.trim();
-  if (emailPrefix) {
-    return emailPrefix;
-  }
-
-  return TEXT.profileFallbackName;
 }
 
 function MenuRow({
@@ -265,10 +248,10 @@ function NotificationToggleRow({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
   const tabBarHeight = useBottomTabBarHeight();
   const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
   const { setAppMode } = useAppMode();
-  const sessionContext = useSessionContext();
   const { signOut } = useAuthActions();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -283,10 +266,9 @@ export default function SettingsScreen() {
     deleteConfirmationText.trim().toUpperCase() === 'DELETE';
   const isDeleteFinalDisabled = deleteBusy || !isDeleteConfirmationValid;
 
-  const displayName = useMemo(
-    () => resolveName(sessionContext),
-    [sessionContext]
-  );
+  const isBusinessSettingsScreen = (
+    Array.isArray(segments) ? (segments as string[]) : []
+  ).includes('(business)');
 
   const openHelpCenter = () => {
     router.push('/(authenticated)/(customer)/help-support');
@@ -311,6 +293,23 @@ export default function SettingsScreen() {
     } catch (error) {
       Alert.alert(TEXT.errorTitle, toErrorMessage(error, TEXT.logoutFailed));
     }
+  };
+
+  const confirmLogout = () => {
+    if (isActionBusy) {
+      return;
+    }
+
+    Alert.alert(TEXT.logoutConfirmTitle, TEXT.logoutConfirmMessage, [
+      { text: TEXT.cancel, style: 'cancel' },
+      {
+        text: TEXT.logoutConfirmAction,
+        style: 'destructive',
+        onPress: () => {
+          void handleLogout();
+        },
+      },
+    ]);
   };
 
   const closeDeleteModal = () => {
@@ -459,15 +458,20 @@ export default function SettingsScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 16,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.pageTitle} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <BusinessScreenHeader
+            title={'\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea'}
+            subtitle={
+              isBusinessSettingsScreen
+                ? '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea \u05d4\u05e2\u05e1\u05e7'
+                : '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea \u05d4\u05dc\u05e7\u05d5\u05d7'
+            }
+          />
         </View>
 
         <BusinessModeCtaCard disabled={deleteBusy} />
@@ -524,7 +528,7 @@ export default function SettingsScreen() {
             icon="log-out-outline"
             danger={true}
             disabled={isActionBusy}
-            onPress={handleLogout}
+            onPress={confirmLogout}
           />
           <MenuRow
             title={TEXT.deleteTitle}
@@ -644,9 +648,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
 
   headerRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginBottom: 4,
   },
   pageTitle: {

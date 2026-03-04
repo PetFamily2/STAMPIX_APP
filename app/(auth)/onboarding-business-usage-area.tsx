@@ -114,20 +114,7 @@ export default function OnboardingBusinessUsageAreaScreen() {
       areas_values: selected,
     });
 
-    const resolvedBusinessName =
-      businessOnboardingDraft.businessName.trim().length > 0
-        ? businessOnboardingDraft.businessName
-        : businessNameFromParams;
-    const encodedName =
-      typeof resolvedBusinessName === 'string' &&
-      resolvedBusinessName.trim().length > 0
-        ? encodeURIComponent(resolvedBusinessName.trim())
-        : '';
-    const nextHref = encodedName
-      ? `${BUSINESS_ONBOARDING_ROUTES.createBusiness}?businessName=${encodedName}`
-      : BUSINESS_ONBOARDING_ROUTES.createBusiness;
-
-    safePush(nextHref);
+    safePush(BUSINESS_ONBOARDING_ROUTES.plan);
   };
 
   return (
@@ -135,7 +122,9 @@ export default function OnboardingBusinessUsageAreaScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.name)}
+            onPress={() =>
+              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.createBusiness)
+            }
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}

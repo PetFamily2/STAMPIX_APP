@@ -89,6 +89,35 @@ export default defineSchema({
     name: v.string(),
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
+    subscriptionPlan: v.optional(
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('unlimited'))
+    ),
+    subscriptionStatus: v.optional(
+      v.union(
+        v.literal('active'),
+        v.literal('trialing'),
+        v.literal('past_due'),
+        v.literal('canceled')
+      )
+    ),
+    subscriptionStartAt: v.optional(v.union(v.number(), v.null())),
+    subscriptionEndAt: v.optional(v.union(v.number(), v.null())),
+    billingPeriod: v.optional(
+      v.union(v.literal('monthly'), v.literal('yearly'), v.null())
+    ),
+    aiCampaignsUsedThisMonth: v.optional(v.number()),
+    aiCampaignsMonthKey: v.optional(v.string()),
+    location: v.optional(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      })
+    ),
+    placeId: v.optional(v.string()),
+    formattedAddress: v.optional(v.string()),
+    city: v.optional(v.string()),
+    street: v.optional(v.string()),
+    streetNumber: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -203,7 +232,13 @@ export default defineSchema({
     type: v.union(
       v.literal('birthday'),
       v.literal('winback'),
-      v.literal('promo')
+      v.literal('promo'),
+      v.literal('ai_marketing')
+    ),
+    title: v.optional(v.string()),
+    prompt: v.optional(v.string()),
+    status: v.optional(
+      v.union(v.literal('draft'), v.literal('scheduled'), v.literal('sent'))
     ),
     rules: v.optional(v.any()),
     channels: v.optional(v.array(v.string())),
@@ -211,6 +246,26 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_businessId', ['businessId']),
+
+  subscriptions: defineTable({
+    businessId: v.id('businesses'),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('unlimited')),
+    status: v.union(
+      v.literal('active'),
+      v.literal('trialing'),
+      v.literal('past_due'),
+      v.literal('canceled')
+    ),
+    period: v.union(v.literal('monthly'), v.literal('yearly')),
+    startAt: v.number(),
+    endAt: v.optional(v.union(v.number(), v.null())),
+    provider: v.union(v.literal('revenuecat'), v.literal('mock'), v.literal('manual')),
+    providerSubscriptionId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_providerSubscriptionId', ['providerSubscriptionId']),
 
   messageLog: defineTable({
     businessId: v.id('businesses'),

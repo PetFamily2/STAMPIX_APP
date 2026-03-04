@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { assertEntitlement, getCurrentMonthKey } from './entitlements';
 import {
   requireActorIsBusinessOwner,
   requireActorIsStaffForBusiness,
@@ -12,13 +13,81 @@ import {
   generatePublicId,
 } from './lib/ids';
 
+type BusinessAddressInput = {
+  formattedAddress: string;
+  placeId: string;
+  lat: number;
+  lng: number;
+  city: string;
+  street: string;
+  streetNumber: string;
+};
+
 export interface BusinessCreationInput {
   ownerUserId: Id<'users'>;
   externalId: string;
   name: string;
   logoUrl?: string;
   colors?: unknown;
+  address: BusinessAddressInput;
   now?: number;
+}
+
+function normalizeBusinessAddressInput(input: BusinessAddressInput) {
+  const formattedAddress = input.formattedAddress.trim();
+  const placeId = input.placeId.trim();
+  const city = input.city.trim();
+  const street = input.street.trim();
+  const streetNumber = input.streetNumber.trim();
+
+  if (!formattedAddress) {
+    throw new Error('FORMATTED_ADDRESS_REQUIRED');
+  }
+  if (!placeId) {
+    throw new Error('PLACE_ID_REQUIRED');
+  }
+  if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) {
+    throw new Error('LOCATION_REQUIRED');
+  }
+
+  return {
+    formattedAddress,
+    placeId,
+    city,
+    street,
+    streetNumber,
+    location: {
+      lat: input.lat,
+      lng: input.lng,
+    },
+  };
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function haversineDistanceKm(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+) {
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(endLat - startLat);
+  const deltaLng = toRadians(endLng - startLng);
+  const originLat = toRadians(startLat);
+  const destinationLat = toRadians(endLat);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(originLat) *
+      Math.cos(destinationLat) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
 }
 
 async function ensureBusinessStaffRecord(
@@ -112,6 +181,7 @@ export async function createBusinessForOwner(
   input: BusinessCreationInput
 ) {
   const now = input.now ?? Date.now();
+  const normalizedAddress = normalizeBusinessAddressInput(input.address);
 
   const businessPublicId = await generateUniquePublicId(ctx);
   const joinCode = await generateUniqueJoinCode(ctx);
@@ -124,6 +194,19 @@ export async function createBusinessForOwner(
     name: input.name,
     logoUrl: input.logoUrl,
     colors: input.colors,
+    subscriptionPlan: 'starter',
+    subscriptionStatus: 'active',
+    subscriptionStartAt: now,
+    subscriptionEndAt: null,
+    billingPeriod: null,
+    aiCampaignsUsedThisMonth: 0,
+    aiCampaignsMonthKey: getCurrentMonthKey(now),
+    location: normalizedAddress.location,
+    placeId: normalizedAddress.placeId,
+    formattedAddress: normalizedAddress.formattedAddress,
+    city: normalizedAddress.city,
+    street: normalizedAddress.street,
+    streetNumber: normalizedAddress.streetNumber,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -139,8 +222,30 @@ export const createBusiness = mutation({
     externalId: v.string(),
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
+    formattedAddress: v.string(),
+    placeId: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    city: v.string(),
+    street: v.string(),
+    streetNumber: v.string(),
   },
-  handler: async (ctx, { name, externalId, logoUrl, colors }) => {
+  handler: async (
+    ctx,
+    {
+      name,
+      externalId,
+      logoUrl,
+      colors,
+      formattedAddress,
+      placeId,
+      lat,
+      lng,
+      city,
+      street,
+      streetNumber,
+    }
+  ) => {
     const user = await requireCurrentUser(ctx);
     const normalizedName = name.trim();
     const normalizedExternalId = externalId.trim();
@@ -168,10 +273,126 @@ export const createBusiness = mutation({
       name: normalizedName,
       logoUrl,
       colors,
+      address: {
+        formattedAddress,
+        placeId,
+        lat,
+        lng,
+        city,
+        street,
+        streetNumber,
+      },
       now: Date.now(),
     });
 
     return { businessId };
+  },
+});
+
+export const updateBusinessAddress = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    formattedAddress: v.string(),
+    placeId: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    city: v.string(),
+    street: v.string(),
+    streetNumber: v.string(),
+  },
+  handler: async (
+    ctx,
+    {
+      businessId,
+      formattedAddress,
+      placeId,
+      lat,
+      lng,
+      city,
+      street,
+      streetNumber,
+    }
+  ) => {
+    await requireActorIsBusinessOwner(ctx, businessId);
+    const normalizedAddress = normalizeBusinessAddressInput({
+      formattedAddress,
+      placeId,
+      lat,
+      lng,
+      city,
+      street,
+      streetNumber,
+    });
+
+    await ctx.db.patch(businessId, {
+      location: normalizedAddress.location,
+      placeId: normalizedAddress.placeId,
+      formattedAddress: normalizedAddress.formattedAddress,
+      city: normalizedAddress.city,
+      street: normalizedAddress.street,
+      streetNumber: normalizedAddress.streetNumber,
+      updatedAt: Date.now(),
+    });
+
+    return { businessId };
+  },
+});
+
+export const getBusinessesNearby = query({
+  args: {
+    userLat: v.number(),
+    userLng: v.number(),
+    radiusKm: v.number(),
+  },
+  handler: async (ctx, { userLat, userLng, radiusKm }) => {
+    await requireCurrentUser(ctx);
+
+    if (
+      !Number.isFinite(userLat) ||
+      !Number.isFinite(userLng) ||
+      !Number.isFinite(radiusKm)
+    ) {
+      throw new Error('INVALID_LOCATION_QUERY');
+    }
+
+    const normalizedRadiusKm = Math.max(0.1, Math.min(radiusKm, 50));
+    const businesses = await ctx.db
+      .query('businesses')
+      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))
+      .collect();
+
+    const nearbyBusinesses = businesses
+      .flatMap((business) => {
+        const lat = business.location?.lat;
+        const lng = business.location?.lng;
+        if (
+          typeof lat !== 'number' ||
+          typeof lng !== 'number' ||
+          business.name.trim().length === 0
+        ) {
+          return [];
+        }
+
+        const distanceKm = haversineDistanceKm(userLat, userLng, lat, lng);
+        if (distanceKm > normalizedRadiusKm) {
+          return [];
+        }
+
+        return [
+          {
+            businessId: business._id,
+            name: business.name,
+            distanceKm,
+            lat,
+            lng,
+            formattedAddress: business.formattedAddress ?? '',
+          },
+        ];
+      })
+      .sort((first, second) => first.distanceKm - second.distanceKm)
+      .slice(0, 50);
+
+    return nearbyBusinesses;
   },
 });
 
@@ -197,6 +418,9 @@ export const listBusinessStaff = query({
     }
 
     await requireActorIsStaffForBusiness(ctx, businessId);
+    await assertEntitlement(ctx, businessId, {
+      featureKey: 'canManageTeam',
+    });
 
     const staffRecords = await ctx.db
       .query('businessStaff')
@@ -264,6 +488,9 @@ export const inviteBusinessStaff = mutation({
   },
   handler: async (ctx, { businessId, email }) => {
     const actor = await requireActorIsBusinessOwner(ctx, businessId);
+    await assertEntitlement(ctx, businessId, {
+      featureKey: 'canManageTeam',
+    });
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
       throw new Error('EMAIL_REQUIRED');
@@ -353,6 +580,9 @@ export const acceptStaffInvite = mutation({
     ) {
       throw new Error('EMAIL_MISMATCH');
     }
+    await assertEntitlement(ctx, invite.businessId, {
+      featureKey: 'canManageTeam',
+    });
 
     const staffId = await ensureBusinessStaffRecord(
       ctx,

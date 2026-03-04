@@ -188,15 +188,21 @@ const BUSINESS_SIGNUP_FLOW: FlowItem[] = [
     tone: 'business',
   },
   {
+    title: 'Create Business',
+    href: BUSINESS_ONBOARDING_ROUTES.createBusiness,
+    icon: 'business-outline',
+    tone: 'business',
+  },
+  {
     title: 'Usage Area',
     href: BUSINESS_ONBOARDING_ROUTES.usageArea,
     icon: 'map-outline',
     tone: 'business',
   },
   {
-    title: 'Create Business',
-    href: BUSINESS_ONBOARDING_ROUTES.createBusiness,
-    icon: 'business-outline',
+    title: 'Plan',
+    href: BUSINESS_ONBOARDING_ROUTES.plan,
+    icon: 'card-outline',
     tone: 'business',
   },
   {
@@ -323,12 +329,6 @@ const MAIN_ADMIN_FLOW: FlowItem[] = [
     tone: 'admin',
   },
   {
-    title: 'Merchant Analytics',
-    href: '/(authenticated)/merchant/analytics',
-    icon: 'stats-chart-outline',
-    tone: 'admin',
-  },
-  {
     title: 'Store Settings',
     href: '/(authenticated)/merchant/store-settings',
     icon: 'storefront-outline',
@@ -356,6 +356,12 @@ const MAIN_ADMIN_FLOW: FlowItem[] = [
     title: 'Create Business',
     href: BUSINESS_ONBOARDING_ROUTES.createBusiness,
     icon: 'business-outline',
+    tone: 'admin',
+  },
+  {
+    title: 'Plan',
+    href: BUSINESS_ONBOARDING_ROUTES.plan,
+    icon: 'card-outline',
     tone: 'admin',
   },
   {
@@ -406,6 +412,7 @@ const KNOWN_APP_ROUTE_HINTS = [
   '/(auth)/name-capture',
   '/(auth)/onboarding-business-discovery',
   '/(auth)/onboarding-business-name',
+  '/(auth)/onboarding-business-plan',
   '/(auth)/onboarding-business-reason',
   '/(auth)/onboarding-business-role',
   '/(auth)/onboarding-business-usage-area',
@@ -436,13 +443,13 @@ const KNOWN_APP_ROUTE_HINTS = [
   '/(authenticated)/card/index',
   '/(authenticated)/card/[membershipId]',
   '/(authenticated)/merchant',
-  '/(authenticated)/merchant/analytics',
   '/(authenticated)/merchant/profile-settings',
   '/(authenticated)/merchant/qr',
   '/(authenticated)/merchant/store-settings',
   '/(authenticated)/merchant/onboarding',
   '/(authenticated)/merchant/onboarding/index',
   BUSINESS_ONBOARDING_ROUTES.createBusiness,
+  BUSINESS_ONBOARDING_ROUTES.plan,
   BUSINESS_ONBOARDING_ROUTES.createProgram,
   BUSINESS_ONBOARDING_ROUTES.previewCard,
 ];

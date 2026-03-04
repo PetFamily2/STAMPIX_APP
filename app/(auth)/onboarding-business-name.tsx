@@ -46,7 +46,7 @@ export default function OnboardingBusinessNameScreen() {
     trackContinue();
     completeStep({ name_length: businessName.trim().length });
     safePush(
-      `${BUSINESS_ONBOARDING_ROUTES.usageArea}?businessName=${encodedName}`
+      `${BUSINESS_ONBOARDING_ROUTES.createBusiness}?businessName=${encodedName}`
     );
   };
 

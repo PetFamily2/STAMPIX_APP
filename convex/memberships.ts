@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import { assertEntitlement, countActiveCustomersForBusiness } from './entitlements';
 import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 // ---------------------------------------------------------------------------
@@ -266,6 +267,14 @@ export const joinByBusinessQr = mutation({
 
     if (!program) throw new Error('PROGRAM_NOT_FOUND');
 
+    const existingBusinessMembership = await ctx.db
+      .query('memberships')
+      .withIndex('by_userId_businessId', (q: any) =>
+        q.eq('userId', user._id).eq('businessId', business._id)
+      )
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .first();
+
     const existing = await ctx.db
       .query('memberships')
       .withIndex('by_userId_programId', (q: any) =>
@@ -284,6 +293,17 @@ export const joinByBusinessQr = mutation({
         programId: program._id,
         alreadyExisted: true,
       };
+    }
+
+    if (!existingBusinessMembership) {
+      const activeCustomersCount = await countActiveCustomersForBusiness(
+        ctx,
+        business._id
+      );
+      await assertEntitlement(ctx, business._id, {
+        limitKey: 'maxCustomers',
+        currentValue: activeCustomersCount,
+      });
     }
 
     const membershipId = await ctx.db.insert('memberships', {

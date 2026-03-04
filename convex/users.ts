@@ -89,6 +89,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'supportRequests',
   'messageLog',
   'campaigns',
+  'subscriptions',
   'scanTokenEvents',
   'events',
   'memberships',
@@ -128,6 +129,7 @@ type DeleteStats = {
   events: number;
   scanTokenEvents: number;
   campaigns: number;
+  subscriptions: number;
   messageLog: number;
   supportRequests: number;
   apiClients: number;
@@ -175,6 +177,7 @@ function emptyDeleteStats(): DeleteStats {
     events: 0,
     scanTokenEvents: 0,
     campaigns: 0,
+    subscriptions: 0,
     messageLog: 0,
     supportRequests: 0,
     apiClients: 0,
@@ -196,6 +199,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     supportRequests: 0,
     messageLog: 0,
     campaigns: 0,
+    subscriptions: 0,
     scanTokenEvents: 0,
     events: 0,
     memberships: 0,
@@ -311,6 +315,13 @@ async function deleteBusinessGraph(
   deleted.campaigns += await deleteByIndexInBatches(
     ctx,
     'campaigns',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.subscriptions += await deleteByIndexInBatches(
+    ctx,
+    'subscriptions',
     'by_businessId',
     'businessId',
     businessId

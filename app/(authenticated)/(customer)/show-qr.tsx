@@ -17,12 +17,15 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 
 const TEXT = {
-  title: '\u05d4\u05e6\u05d2 QR',
+  title: '\u05d4-QR \u05e9\u05dc\u05d9',
+  subtitle:
+    '\u05d4\u05e6\u05d2 \u05d0\u05ea \u05d4-QR \u05d4\u05d0\u05d9\u05e9\u05d9 \u05e9\u05dc\u05da \u05dc\u05e1\u05e8\u05d9\u05e7\u05d4',
   loadingMemberships:
     '\u05d8\u05d5\u05e2\u05df \u05d0\u05ea \u05d4-QR \u05e9\u05dc\u05da',
   emptyTitle:
@@ -82,30 +85,38 @@ export default function CustomerShowQrScreen() {
   const isLoading = isAuthenticated && membershipsQuery === undefined;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <View
         style={[
           styles.screen,
           {
-            paddingTop: (insets.top || 0) + 14,
+            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 14,
           },
         ]}
       >
         <View style={styles.headerRow}>
-          <View style={styles.headerSpacer} />
-          <Text style={styles.pageTitle}>{TEXT.title}</Text>
-          <Pressable
-            onPress={() => router.replace('/(authenticated)/(customer)/wallet')}
-            style={({ pressed }) => [
-              styles.closeButton,
-              pressed ? styles.closeButtonPressed : null,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Close QR screen"
-          >
-            <Ionicons name="close" size={22} color="#1A2B4A" />
-          </Pressable>
+          <BusinessScreenHeader
+            title={TEXT.title}
+            subtitle={TEXT.subtitle}
+            subtitleStyle={styles.pageSubtitle}
+            titleAccessory={
+              <Pressable
+                onPress={() =>
+                  router.replace('/(authenticated)/(customer)/wallet')
+                }
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed ? styles.closeButtonPressed : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Close QR screen"
+              >
+                <Ionicons name="close" size={22} color="#1A2B4A" />
+              </Pressable>
+            }
+          />
         </View>
 
         <View style={styles.content}>
@@ -159,27 +170,22 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    marginBottom: 4,
   },
-  headerSpacer: {
-    width: 44,
-    height: 44,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'center',
+  pageSubtitle: {
+    fontSize: 13,
+    color: '#2F6BFF',
+    textAlign: 'right',
+    fontWeight: '600',
   },
   closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(255, 255, 255, 0.88)',
     borderWidth: 1,
     borderColor: '#DCE6FF',
