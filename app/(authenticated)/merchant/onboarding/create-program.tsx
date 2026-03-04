@@ -50,10 +50,28 @@ const TEXT = {
 };
 
 const LEGACY_CARD_TITLE_DEFAULTS = [
-  '����� ������',
-  "����: ����'/���� ����",
-  "����: ����'��/���� ����/����� ���/����� ���",
+  'תוכנית נאמנות',
+  "דוגמה: קפה/משקה חם",
+  "דוגמה: מסאז'ים/מגשי פיצה/כוסות קפה/שטיפת רכב",
 ] as const;
+
+function isLegacyOrCorruptedTitle(title: string) {
+  const normalized = title.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  if (LEGACY_CARD_TITLE_DEFAULTS.some((value) => value === normalized)) {
+    return true;
+  }
+
+  // Legacy mojibake values can survive in local draft state from older builds.
+  return (
+    normalized.includes('�') ||
+    normalized.includes('ן¿½') ||
+    /^(?:׳[^׳]){4,}/.test(normalized)
+  );
+}
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
@@ -80,7 +98,7 @@ export default function CreateProgramScreen() {
   useEffect(() => {
     // Backward-compat: clear old seeded/sample values so placeholder is visible.
     const normalizedTitle = programDraft.title.trim();
-    if (LEGACY_CARD_TITLE_DEFAULTS.some((value) => value === normalizedTitle)) {
+    if (isLegacyOrCorruptedTitle(normalizedTitle)) {
       setProgramDraft((prev) => ({ ...prev, title: '' }));
     }
   }, [programDraft.title, setProgramDraft]);

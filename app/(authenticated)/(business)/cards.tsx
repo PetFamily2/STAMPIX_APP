@@ -166,7 +166,7 @@ export default function BusinessCardsScreen() {
   };
 
   const createCardSection = (
-    <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
+    <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
       <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
         יצירת כרטיס חדש
       </Text>
@@ -240,7 +240,7 @@ export default function BusinessCardsScreen() {
           }
         />
 
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
+        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
           <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
             עסק נבחר
           </Text>
@@ -290,7 +290,7 @@ export default function BusinessCardsScreen() {
           </LockedFeatureWrapper>
         </View>
 
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
+        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
           <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
             כרטיסים פעילים
           </Text>

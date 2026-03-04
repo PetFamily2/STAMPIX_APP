@@ -65,44 +65,44 @@ type QuickShortcutTile = {
 const ACTION_CARDS = [
   {
     id: 'card-settings',
-    title: '׳”׳’׳“׳¨׳•׳× ׳›׳¨׳˜׳™׳¡ ׳•׳”׳˜׳‘׳•׳×',
-    subtitle: '׳¢׳¨׳•׳ ׳₪׳¨׳¡׳™׳, ׳ ׳™׳§׳•׳‘׳™׳ ׳•׳׳™׳×׳•׳’',
-    icon: 'נ“',
+    title: 'הגדרות כרטיס והטבות',
+    subtitle: 'עריכת פרסים, ניקובים ומיתוג',
+    icon: '🎫',
   },
   {
     id: 'team',
-    title: '׳ ׳™׳”׳•׳ ׳¦׳•׳•׳× ׳¢׳•׳‘׳“׳™׳',
-    subtitle: '׳”׳¨׳©׳׳•׳×, ׳׳©׳׳¨׳•׳× ׳•׳ ׳™׳˜׳•׳¨ ׳₪׳¢׳™׳׳•׳×',
-    icon: 'נ›¡ן¸',
+    title: 'ניהול צוות עובדים',
+    subtitle: 'הרשאות, משמרות וניטור פעילות',
+    icon: '👥',
   },
 ];
 
 const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
   {
     id: 'business-analytics',
-    title: '׳“׳•׳—׳•׳× ׳¢׳¡׳§',
-    subtitle: 'Business analytics',
+    title: 'דוחות עסק',
+    subtitle: 'ניתוח נתוני העסק',
     icon: 'bar-chart-outline',
     route: '/(authenticated)/(business)/analytics',
   },
   {
     id: 'store-settings',
-    title: '׳”׳’׳“׳¨׳•׳× ׳—׳ ׳•׳×',
-    subtitle: '׳₪׳¨׳˜׳™ ׳¢׳¡׳§ ׳•׳”׳¢׳“׳₪׳•׳×',
+    title: 'הגדרות חנות',
+    subtitle: 'פרטי העסק והעדפות',
     icon: 'storefront-outline',
     route: '/merchant/store-settings',
   },
   {
     id: 'profile-settings',
-    title: '׳”׳’׳“׳¨׳•׳× ׳₪׳¨׳•׳₪׳™׳',
-    subtitle: '׳—׳©׳‘׳•׳ ׳•׳”׳¨׳©׳׳•׳×',
+    title: 'הגדרות פרופיל',
+    subtitle: 'חשבון והרשאות',
     icon: 'person-circle-outline',
     route: '/merchant/profile-settings',
   },
   {
     id: 'staff-qr',
-    title: 'QR ׳׳¢׳•׳‘׳“׳™׳',
-    subtitle: '׳¡׳¨׳™׳§׳× ׳¦׳•׳•׳×',
+    title: 'QR לעובדים',
+    subtitle: 'סריקת צוות',
     icon: 'qr-code-outline',
     route: '/(authenticated)/(business)/qr',
     fullWidth: true,
@@ -110,9 +110,9 @@ const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
 ];
 
 const ACTIVITY_FEED: Activity[] = [
-  { id: '1', customer: '׳™׳©׳¨׳׳ ׳™׳©׳¨׳׳׳™', type: 'punch', time: '10:42' },
-  { id: '2', customer: '׳׳™׳›׳ ׳׳•׳™', type: 'reward', time: '09:15' },
-  { id: '3', customer: '׳“׳ ׳™ ׳›׳”׳', type: 'punch', time: '08:50' },
+  { id: '1', customer: 'ישראל ישראלי', type: 'punch', time: '10:42' },
+  { id: '2', customer: 'מיכל לוי', type: 'reward', time: '09:15' },
+  { id: '3', customer: 'דני כהן', type: 'punch', time: '08:50' },
 ];
 
 export default function MerchantDashboardScreen() {
@@ -200,24 +200,24 @@ export default function MerchantDashboardScreen() {
   const kpiCards = [
     {
       id: 'punches',
-      label: '׳ ׳™׳§׳•׳‘׳™׳ ׳”׳™׳•׳',
+      label: 'ניקובים היום',
       value: formatNumber(today?.stamps ?? 0),
       accent: 'bg-blue-50',
-      icon: 'ג”ן¸',
+      icon: '📌',
     },
     {
       id: 'new-customers',
-      label: '׳׳§׳•׳—׳•׳× ׳₪׳¢׳™׳׳™׳ ׳”׳©׳‘׳•׳¢',
+      label: 'לקוחות פעילים השבוע',
       value: formatNumber(weeklyUnique),
       accent: 'bg-emerald-50',
-      icon: 'ג•',
+      icon: '👥',
     },
     {
       id: 'redemptions',
-      label: '׳”׳˜׳‘׳•׳× ׳”׳©׳‘׳•׳¢',
+      label: 'הטבות השבוע',
       value: formatNumber(weeklyRedemptions),
       accent: 'bg-orange-50',
-      icon: 'נ',
+      icon: '🎁',
     },
   ];
 
@@ -226,7 +226,7 @@ export default function MerchantDashboardScreen() {
   const aiUsageLimit =
     aiCampaignsData?.usage?.limit ?? entitlements?.limits.maxAiCampaignsPerMonth ?? 0;
   const aiUsageLabel =
-    aiUsageLimit === -1 ? `${aiUsageUsed}/׳׳׳ ׳”׳’׳‘׳׳”` : `${aiUsageUsed}/${aiUsageLimit}`;
+    aiUsageLimit === -1 ? `${aiUsageUsed}/ללא הגבלה` : `${aiUsageUsed}/${aiUsageLimit}`;
 
   const handleUpgradeFromBanner = () => {
     openUpgrade('canUseMarketingHubAI', 'pro', 'feature_locked');
@@ -252,10 +252,10 @@ export default function MerchantDashboardScreen() {
     try {
       await createAiCampaign({
         businessId: selectedBusinessId,
-        title: '׳§׳׳₪׳™׳™׳ AI ׳—׳“׳©',
-        prompt: '׳”׳¦׳™׳¢׳• ׳׳‘׳¦׳¢ ׳”׳—׳–׳¨׳” ׳׳׳§׳•׳—׳•׳× ׳©׳׳ ׳‘׳™׳§׳¨׳• ׳‘׳©׳‘׳•׳¢ ׳”׳׳—׳¨׳•׳.',
+        title: 'קמפיין AI חדש',
+        prompt: 'הציעו מבצע החזרה ללקוחות שלא ביקרו בשבוע האחרון.',
       });
-      Alert.alert('׳‘׳•׳¦׳¢', '׳˜׳™׳•׳˜׳× ׳§׳׳₪׳™׳™׳ AI ׳ ׳•׳¦׳¨׳” ׳‘׳”׳¦׳׳—׳”.');
+      Alert.alert('בוצע', 'טיוטת קמפיין AI נוצרה בהצלחה.');
     } catch (error) {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
@@ -268,9 +268,9 @@ export default function MerchantDashboardScreen() {
               ? 'subscription_inactive'
               : 'feature_locked'
         );
-        Alert.alert('׳©׳“׳¨׳•׳’ ׳ ׳“׳¨׳©', entitlementErrorToHebrewMessage(entitlementError));
+        Alert.alert('שדרוג נדרש', entitlementErrorToHebrewMessage(entitlementError));
       } else {
-        Alert.alert('׳©׳’׳™׳׳”', '׳׳ ׳”׳¦׳׳—׳ ׳• ׳׳™׳¦׳•׳¨ ׳§׳׳₪׳™׳™׳ AI. ׳ ׳¡׳• ׳©׳•׳‘.');
+        Alert.alert('שגיאה', 'לא הצלחנו ליצור קמפיין AI. נסו שוב.');
       }
     } finally {
       setIsCreatingAiCampaign(false);
@@ -297,8 +297,8 @@ export default function MerchantDashboardScreen() {
         </View>
         <View className="hidden">
           <BrandPageHeader
-            title="׳׳¨׳›׳– ׳ ׳™׳”׳•׳"
-            subtitle="׳×׳׳•׳ ׳× ׳׳¦׳‘ ׳׳”׳™׳¨׳” ׳©׳ ׳”׳₪׳¢׳™׳׳•׳× ׳‘׳¢׳¡׳§"
+            title="מרכז ניהול"
+            subtitle="תמונת מצב מהירה של הפעילות בעסק"
           />
         </View>
         <View className="hidden px-5 pb-4 pt-2">
@@ -308,15 +308,15 @@ export default function MerchantDashboardScreen() {
               <Text
                 className={`text-[24px] font-black text-[#1A2B4A] ${tw.textStart}`}
               >
-                ׳©׳׳•׳, ׳§׳₪׳” ׳׳¨׳•׳׳” נ‘‹
+                שלום, קפה ארומה ☕
               </Text>
             </View>
             <View className="h-12 w-12 items-center justify-center rounded-full bg-white">
-              <Text className="text-2xl text-[#2F6BFF]">נ‘₪</Text>
+              <Text className="text-2xl text-[#2F6BFF]">🔔</Text>
             </View>
           </View>
           <Text className={`mt-1 text-sm text-[#2F6BFF] ${tw.textStart}`}>
-            ׳›׳׳ ׳¡׳§׳™׳¨׳” ׳׳”׳™׳¨׳” ׳©׳ ׳”׳₪׳¢׳™׳׳•׳× ׳”׳™׳•׳׳™׳× ׳‘׳¢׳¡׳§
+            כאן סקירה מהירה של הפעילות היומית בעסק
           </Text>
         </View>
 
@@ -336,10 +336,10 @@ export default function MerchantDashboardScreen() {
                 <Text
                   className={`text-lg font-extrabold text-[#1A2B4A] ${tw.textStart}`}
                 >
-                  ׳©׳“׳¨׳•׳’ ׳׳׳¡׳׳•׳ ׳׳×׳§׳“׳
+                  שדרוג למסלול מתקדם
                 </Text>
                 <Text className={`mt-1 text-xs text-[#4F6387] ${tw.textStart}`}>
-                  ׳”׳׳¡׳׳•׳ ׳”׳ ׳•׳›׳—׳™: {entitlements?.plan
+                  המסלול הנוכחי: {entitlements?.plan
                     ? BUSINESS_PLAN_LABELS[entitlements.plan]
                     : 'Starter'}
                 </Text>
@@ -349,28 +349,28 @@ export default function MerchantDashboardScreen() {
                 className="rounded-xl border border-[#2F6BFF] bg-white px-4 py-2.5"
               >
                 <Text className="text-sm font-bold text-[#2F6BFF]">
-                  ׳׳¦׳₪׳™׳™׳” ׳‘׳—׳‘׳™׳׳•׳×
+                  לצפייה בחבילות
                 </Text>
               </TouchableOpacity>
             </View>
           </Card>
         </View>
 
-        <View className="space-y-3 py-6">
+        <View className="gap-3 py-6">
           <PrimaryButton
-            title="׳¡׳¨׳™׳§׳× ׳׳§׳•׳—"
+            title="סריקת לקוח"
             onPress={() => router.push('/(authenticated)/(business)/scanner')}
           />
           <TouchableOpacity
             onPress={() => router.push('/merchant/qr')}
             className="items-center justify-center rounded-2xl border border-[#A9C7FF] bg-[#EEF3FF] px-4 py-3"
           >
-            <Text className="text-sm font-bold text-[#2F6BFF]">QR ׳¢׳¡׳§</Text>
+            <Text className="text-sm font-bold text-[#2F6BFF]">QR עסק</Text>
           </TouchableOpacity>
         </View>
 
         <View>
-          <Card className="rounded-2xl border border-[#E3E9FF] bg-white p-4 space-y-3">
+          <Card className="rounded-2xl border border-[#E3E9FF] bg-white p-4 gap-3">
             <Text
               className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
             >
@@ -432,13 +432,13 @@ export default function MerchantDashboardScreen() {
             >
               <ActivityIndicator color="#2F6BFF" />
               <Text className="text-xs text-[#7B86A0]">
-                ׳˜׳•׳¢׳ ׳ ׳×׳•׳ ׳™׳ ׳¢׳“׳›׳ ׳™׳™׳...
+                טוען נתונים עדכניים...
               </Text>
             </View>
           </View>
         )}
 
-        <View className="mt-6 space-y-3">
+        <View className="mt-6 gap-3">
           {ACTION_CARDS.filter((action) => action.id !== 'team' || isOwner).map(
             (action) => {
               const isTeamAction = action.id === 'team';
@@ -580,14 +580,14 @@ export default function MerchantDashboardScreen() {
         </View>
 
         <View className="mt-8">
-          <SectionHeader title="׳₪׳¢׳™׳׳•׳× ׳׳—׳¨׳•׳ ׳”" />
-          <View className="space-y-3 mt-3">
+          <SectionHeader title="פעילות אחרונה" />
+          <View className="mt-3 gap-3">
             {ACTIVITY_FEED.map((item) => (
               <ListRow
                 key={item.id}
                 title={item.customer}
                 subtitle={
-                  item.type === 'punch' ? '׳§׳™׳‘׳/׳” ׳ ׳™׳§׳•׳‘ 1' : '׳׳™׳׳©/׳” ׳”׳˜׳‘׳” נ‰'
+                  item.type === 'punch' ? 'קיבל/ה ניקוב 1' : 'מימש/ה הטבה 🎉'
                 }
                 subtitleClassName={
                   item.type === 'punch' ? 'text-gray-400' : 'text-blue-600'
