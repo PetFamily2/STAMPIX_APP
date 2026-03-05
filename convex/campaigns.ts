@@ -328,7 +328,9 @@ async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
     .collect();
 }
 
-function buildCampaignDeliveryStats(logs: Array<{ toUserId: Id<'users'>; createdAt: number }>): CampaignDeliveryStats {
+function buildCampaignDeliveryStats(
+  logs: Array<{ toUserId: Id<'users'>; createdAt: number }>
+): CampaignDeliveryStats {
   const uniqueUsers = new Set<string>();
   let lastSentAt: number | null = null;
 
@@ -347,7 +349,11 @@ function buildCampaignDeliveryStats(logs: Array<{ toUserId: Id<'users'>; created
 }
 
 async function countMissingBirthdayForCampaign(ctx: any, campaign: any) {
-  const rows = await loadAudienceRows(ctx, campaign.businessId, campaign.programId);
+  const rows = await loadAudienceRows(
+    ctx,
+    campaign.businessId,
+    campaign.programId
+  );
   return countMissingBirthdayFromRows(rows);
 }
 
@@ -629,7 +635,9 @@ export const listManagementCampaignsByBusiness = query({
             : Promise.resolve(null),
         ]);
         const deliveryStats = buildCampaignDeliveryStats(logs);
-        const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
+        const automationEnabled = isAutomationEnabled(
+          campaign.automationEnabled
+        );
 
         return {
           campaignId: campaign._id,

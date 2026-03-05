@@ -116,6 +116,16 @@ function audienceCopy(type: CampaignType): {
   }
 }
 
+function formatDateTime(value: number): string {
+  return new Date(value).toLocaleString('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function CampaignDraftEditorScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -159,11 +169,15 @@ export default function CampaignDraftEditorScreen() {
     api.campaigns.estimateCampaignAudience
   );
   const sendCampaignNow = useMutation(api.campaigns.sendCampaignNow);
+  const setCampaignAutomationEnabled = useMutation(
+    api.campaigns.setCampaignAutomationEnabled
+  );
 
   const [messageTitle, setMessageTitle] = useState('');
   const [messageBody, setMessageBody] = useState('');
   const [daysInput, setDaysInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTogglingAutomation, setIsTogglingAutomation] = useState(false);
 
   useEffect(() => {
     if (!campaignDraft) {
@@ -246,8 +260,21 @@ export default function CampaignDraftEditorScreen() {
 
   const campaignType = campaignDraft.type as CampaignType;
   const audience = audienceCopy(campaignType);
-  const isDraft = (campaignDraft.status ?? 'draft') === 'draft';
-  const isReadOnly = !canManagePrograms || !isDraft;
+  const isSent = (campaignDraft.status ?? 'draft') === 'sent';
+  const automationEnabled = campaignDraft.automationEnabled === true;
+  const isRulesLocked =
+    (campaignDraft.isRulesLocked ?? automationEnabled) === true;
+
+  const canEditContent = canManagePrograms && !isSent;
+  const canEditRules = canEditContent && !isRulesLocked;
+
+  const stats = campaignDraft.stats ?? {
+    eligibleAudienceNow: 0,
+    reachedUniqueAllTime: 0,
+    reachedMessagesAllTime: 0,
+    lastSentAt: null,
+    missingBirthdayCount: null,
+  };
 
   const buildRulesPayload = (): EditableCampaignRules | null => {
     if (campaignType === 'welcome') {
@@ -298,28 +325,65 @@ export default function CampaignDraftEditorScreen() {
     return true;
   };
 
-  const saveDraftMutation = async (rulesPayload: EditableCampaignRules) => {
-    await updateCampaignDraft({
+  const saveDraftMutation = async (rulesPayload?: EditableCampaignRules) => {
+    const payload: {
+      businessId: Id<'businesses'>;
+      campaignId: Id<'campaigns'>;
+      messageTitle: string;
+      messageBody: string;
+      rules?: EditableCampaignRules;
+      programId?: Id<'loyaltyPrograms'>;
+    } = {
       businessId: selectedBusinessId,
       campaignId,
       messageTitle: messageTitle.trim(),
       messageBody: messageBody.trim(),
-      rules: rulesPayload,
-      programId: campaignDraft.programId ?? undefined,
-    });
+    };
+
+    if (!isRulesLocked && rulesPayload) {
+      payload.rules = rulesPayload;
+      payload.programId = campaignDraft.programId ?? undefined;
+    }
+
+    await updateCampaignDraft(payload);
+  };
+
+  const handleToggleAutomation = async () => {
+    if (!canManagePrograms || isTogglingAutomation) {
+      return;
+    }
+    setIsTogglingAutomation(true);
+    try {
+      await setCampaignAutomationEnabled({
+        businessId: selectedBusinessId,
+        campaignId,
+        enabled: !automationEnabled,
+      });
+    } catch (error) {
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא הצלחנו לעדכן מצב אוטומציה.'
+      );
+    } finally {
+      setIsTogglingAutomation(false);
+    }
   };
 
   const handleSaveOnly = async () => {
-    if (isReadOnly || isSubmitting) {
+    if (!canEditContent || isSubmitting) {
       return;
     }
     if (!validateContent()) {
       return;
     }
 
-    const rulesPayload = buildRulesPayload();
-    if (!rulesPayload) {
-      return;
+    let rulesPayload: EditableCampaignRules | undefined;
+    if (!isRulesLocked) {
+      const builtRules = buildRulesPayload();
+      if (!builtRules) {
+        return;
+      }
+      rulesPayload = builtRules;
     }
 
     setIsSubmitting(true);
@@ -339,16 +403,20 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleSaveAndSend = async () => {
-    if (isReadOnly || isSubmitting) {
+    if (!canEditContent || isSubmitting) {
       return;
     }
     if (!validateContent()) {
       return;
     }
 
-    const rulesPayload = buildRulesPayload();
-    if (!rulesPayload) {
-      return;
+    let rulesPayload: EditableCampaignRules | undefined;
+    if (!isRulesLocked) {
+      const builtRules = buildRulesPayload();
+      if (!builtRules) {
+        return;
+      }
+      rulesPayload = builtRules;
     }
 
     setIsSubmitting(true);
@@ -401,8 +469,8 @@ export default function CampaignDraftEditorScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="עריכת טיוטת קמפיין"
-          subtitle="עדכנו כותרת, הטבה וקהל יעד לפני שליחה"
+          title="עריכת קמפיין"
+          subtitle="תוכן, אוטומציה וסטטיסטיקות במקום אחד"
           titleAccessory={
             <TouchableOpacity
               onPress={() => router.back()}
@@ -413,10 +481,10 @@ export default function CampaignDraftEditorScreen() {
           }
         />
 
-        {!isDraft ? (
+        {isSent ? (
           <View className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
             <Text className="text-right text-sm font-semibold text-amber-800">
-              הקמפיין הזה כבר נשלח ולא ניתן לעריכה.
+              הקמפיין הזה מסומן כנשלח, עריכת תוכן נעולה.
             </Text>
           </View>
         ) : null}
@@ -429,6 +497,80 @@ export default function CampaignDraftEditorScreen() {
           </View>
         ) : null}
 
+        {isRulesLocked ? (
+          <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+            <Text className="text-right text-sm font-semibold text-blue-700">
+              קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
+            </Text>
+          </View>
+        ) : null}
+
+        <View className="mt-5 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+          <Text
+            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+          >
+            מצב קמפיין
+          </Text>
+          <Text className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}>
+            אוטומטי יומי בשעה 09:00 (ישראל)
+          </Text>
+          <View className={`${tw.flexRow} items-center justify-between`}>
+            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+              מצב נוכחי: {automationEnabled ? 'פעיל' : 'כבוי'}
+            </Text>
+            <TouchableOpacity
+              disabled={!canManagePrograms || isTogglingAutomation}
+              onPress={() => {
+                void handleToggleAutomation();
+              }}
+              className={`rounded-full px-3 py-1 ${
+                automationEnabled ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
+              }`}
+            >
+              {isTogglingAutomation ? (
+                <ActivityIndicator color="#1E293B" size="small" />
+              ) : (
+                <Text
+                  className={`text-xs font-bold ${
+                    automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
+                  }`}
+                >
+                  {automationEnabled ? 'פעיל' : 'כבוי'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="mt-5 gap-2 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+          <Text
+            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+          >
+            סטטיסטיקות
+          </Text>
+          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+            קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+          </Text>
+          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+            הגיע לייחודיים: {stats.reachedUniqueAllTime}
+          </Text>
+          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+            סה"כ הודעות: {stats.reachedMessagesAllTime}
+          </Text>
+          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+            נשלח לאחרונה:{' '}
+            {typeof stats.lastSentAt === 'number'
+              ? formatDateTime(stats.lastSentAt)
+              : 'טרם נשלח'}
+          </Text>
+          {campaignType === 'birthday' &&
+          typeof stats.missingBirthdayCount === 'number' ? (
+            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+              חסר יום הולדת: {stats.missingBirthdayCount}
+            </Text>
+          ) : null}
+        </View>
+
         <View className="mt-5 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
             className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
@@ -438,7 +580,7 @@ export default function CampaignDraftEditorScreen() {
           <TextInput
             value={messageTitle}
             onChangeText={setMessageTitle}
-            editable={!isReadOnly}
+            editable={canEditContent}
             placeholder="כותרת ההודעה"
             placeholderTextColor="#94A3B8"
             className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
@@ -446,7 +588,7 @@ export default function CampaignDraftEditorScreen() {
           <TextInput
             value={messageBody}
             onChangeText={setMessageBody}
-            editable={!isReadOnly}
+            editable={canEditContent}
             multiline={true}
             textAlignVertical="top"
             placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
@@ -472,7 +614,7 @@ export default function CampaignDraftEditorScreen() {
             <TextInput
               value={daysInput}
               onChangeText={setDaysInput}
-              editable={!isReadOnly}
+              editable={canEditRules}
               keyboardType="number-pad"
               placeholder={audience.daysLabel}
               placeholderTextColor="#94A3B8"
@@ -483,12 +625,12 @@ export default function CampaignDraftEditorScreen() {
 
         <View className="mt-6 gap-3">
           <TouchableOpacity
-            disabled={isReadOnly || isSubmitting}
+            disabled={!canEditContent || isSubmitting}
             onPress={() => {
               void handleSaveOnly();
             }}
             className={`rounded-2xl px-4 py-3 ${
-              !isReadOnly && !isSubmitting ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+              canEditContent && !isSubmitting ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
             }`}
           >
             {isSubmitting ? (
@@ -501,12 +643,12 @@ export default function CampaignDraftEditorScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled={isReadOnly || isSubmitting}
+            disabled={!canEditContent || isSubmitting}
             onPress={() => {
               void handleSaveAndSend();
             }}
             className={`rounded-2xl px-4 py-3 ${
-              !isReadOnly && !isSubmitting ? 'bg-[#0F766E]' : 'bg-[#CBD5E1]'
+              canEditContent && !isSubmitting ? 'bg-[#0F766E]' : 'bg-[#CBD5E1]'
             }`}
           >
             <Text className="text-center text-sm font-bold text-white">

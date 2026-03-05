@@ -78,14 +78,20 @@ const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
     title: 'הגדרות חנות',
     subtitle: 'פרטי העסק והעדפות',
     icon: 'storefront-outline',
-    route: '/merchant/store-settings',
+    route: {
+      pathname: '/(authenticated)/(business)/settings',
+      params: { section: 'store' },
+    },
   },
   {
     id: 'profile-settings',
     title: 'הגדרות פרופיל',
     subtitle: 'חשבון והרשאות',
     icon: 'person-circle-outline',
-    route: '/merchant/profile-settings',
+    route: {
+      pathname: '/(authenticated)/(business)/settings',
+      params: { section: 'profile' },
+    },
   },
   {
     id: 'staff-qr',

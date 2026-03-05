@@ -394,6 +394,76 @@ export const updateBusinessAddress = mutation({
   },
 });
 
+const BUSINESS_NAME_MAX_LENGTH = 80;
+
+function normalizeBusinessName(value: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) {
+    throw new Error('BUSINESS_NAME_REQUIRED');
+  }
+  if (normalized.length > BUSINESS_NAME_MAX_LENGTH) {
+    throw new Error('BUSINESS_NAME_TOO_LONG');
+  }
+  return normalized;
+}
+
+export const getBusinessSettings = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return null;
+    }
+
+    await requireActorIsStaffForBusiness(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    return {
+      businessId: business._id,
+      name: business.name,
+      formattedAddress: business.formattedAddress ?? '',
+      city: business.city ?? '',
+      street: business.street ?? '',
+      streetNumber: business.streetNumber ?? '',
+      logoUrl: business.logoUrl ?? null,
+      colors: business.colors ?? null,
+      updatedAt: business.updatedAt,
+    };
+  },
+});
+
+export const updateBusinessProfile = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    name: v.string(),
+  },
+  handler: async (ctx, { businessId, name }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const normalizedName = normalizeBusinessName(name);
+    const updatedAt = Date.now();
+
+    await ctx.db.patch(businessId, {
+      name: normalizedName,
+      updatedAt,
+    });
+
+    return {
+      businessId,
+      name: normalizedName,
+      updatedAt,
+    };
+  },
+});
+
 export const getCustomerSegmentationConfig = query({
   args: {
     businessId: v.optional(v.id('businesses')),

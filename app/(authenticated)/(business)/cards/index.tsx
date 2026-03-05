@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -35,32 +35,32 @@ const CAMPAIGN_TEMPLATES: Array<{
   {
     type: 'welcome',
     title: 'Welcome',
-    subtitle: '׳׳§׳•׳—׳•׳× ׳—׳“׳©׳™׳ ׳׳”׳©׳‘׳•׳¢׳™׳™׳ ׳”׳׳—׳¨׳•׳ ׳™׳',
-    icon: 'נ‘‹',
+    subtitle: 'לקוחות חדשים מהשבועיים האחרונים',
+    icon: '👋',
   },
   {
     type: 'birthday',
     title: 'Birthday',
-    subtitle: '׳׳§׳•׳—׳•׳× ׳¢׳ ׳™׳•׳ ׳”׳•׳׳“׳× ׳”׳™׳•׳',
-    icon: 'נ‚',
+    subtitle: 'לקוחות עם יום הולדת היום',
+    icon: '🎂',
   },
   {
     type: 'anniversary',
     title: 'Anniversary',
-    subtitle: '׳׳§׳•׳—׳•׳× ׳¢׳ ׳™׳•׳ ׳ ׳™׳©׳•׳׳™׳ ׳”׳™׳•׳',
-    icon: 'נ’',
+    subtitle: 'לקוחות עם יום נישואין היום',
+    icon: '💍',
   },
   {
     type: 'winback',
     title: 'Winback',
-    subtitle: '׳׳§׳•׳—׳•׳× ׳©׳׳ ׳”׳’׳™׳¢׳• 30 ׳™׳•׳',
-    icon: 'נ”',
+    subtitle: 'לקוחות שלא הגיעו 30 יום',
+    icon: '🔁',
   },
   {
     type: 'promo',
     title: 'Promo',
-    subtitle: '׳›׳ ׳”׳׳§׳•׳—׳•׳× ׳”׳₪׳¢׳™׳׳™׳',
-    icon: 'נ“£',
+    subtitle: 'כל הלקוחות הפעילים',
+    icon: '📣',
   },
 ];
 
@@ -222,11 +222,11 @@ export default function BusinessCardsManagementScreen() {
       setRewardName('');
       setMaxStamps('10');
       setStampIcon('star');
-      Alert.alert('׳ ׳©׳׳¨', '׳›׳¨׳˜׳™׳¡׳™׳” ׳—׳“׳©׳” ׳ ׳•׳¦׳¨׳” ׳‘׳”׳¦׳׳—׳”.');
+      Alert.alert('נשמר', 'כרטיסיה חדשה נוצרה בהצלחה.');
     } catch (error) {
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error ? error.message : '׳™׳¦׳™׳¨׳× ׳›׳¨׳˜׳™׳¡׳™׳” ׳ ׳›׳©׳׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת כרטיסיה נכשלה.'
       );
     } finally {
       setIsCreatingProgram(false);
@@ -254,8 +254,8 @@ export default function BusinessCardsManagementScreen() {
       });
     } catch (error) {
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error ? error.message : '׳™׳¦׳™׳¨׳× ׳§׳׳₪׳™׳™׳ ׳ ׳›׳©׳׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
       );
     } finally {
       setIsWorkingCampaignId(null);
@@ -288,17 +288,17 @@ export default function BusinessCardsManagementScreen() {
       });
 
       if (estimate.total === 0) {
-        Alert.alert('׳׳™׳ ׳ ׳׳¢׳ ׳™׳', '׳׳ ׳ ׳׳¦׳׳• ׳׳§׳•׳—׳•׳× ׳–׳›׳׳™׳ (Opt-in) ׳׳§׳׳₪׳™׳™׳ ׳–׳”.');
+        Alert.alert('אין נמענים', 'לא נמצאו לקוחות זכאים (Opt-in) לקמפיין זה.');
         return;
       }
 
       Alert.alert(
-        '׳׳™׳©׳•׳¨ ׳©׳׳™׳—׳”',
-        `׳”׳§׳׳₪׳™׳™׳ ׳™׳©׳׳— ׳-${formatNumber(estimate.total)} ׳׳§׳•׳—׳•׳×. ׳׳”׳׳©׳™׳?`,
+        'אישור שליחה',
+        `הקמפיין ישלח ל-${formatNumber(estimate.total)} לקוחות. להמשיך?`,
         [
-          { text: '׳‘׳™׳˜׳•׳', style: 'cancel' },
+          { text: 'ביטול', style: 'cancel' },
           {
-            text: '׳©׳׳— ׳¢׳›׳©׳™׳•',
+            text: 'שלח עכשיו',
             style: 'default',
             onPress: () => {
               void (async () => {
@@ -308,17 +308,17 @@ export default function BusinessCardsManagementScreen() {
                     campaignId,
                   });
                   Alert.alert(
-                    '׳ ׳©׳׳—',
-                    `׳ ׳©׳׳—׳• ${formatNumber(result.sentCount)} ׳”׳•׳“׳¢׳•׳×. ׳“׳•׳׳’׳• ${formatNumber(
+                    'נשלח',
+                    `נשלחו ${formatNumber(result.sentCount)} הודעות. דולגו ${formatNumber(
                       result.skippedCount
                     )}.`
                   );
                 } catch (error) {
                   Alert.alert(
-                    '׳©׳’׳™׳׳”',
+                    'שגיאה',
                     error instanceof Error
                       ? error.message
-                      : '׳©׳׳™׳—׳× ׳§׳׳₪׳™׳™׳ ׳ ׳›׳©׳׳”.'
+                      : 'שליחת קמפיין נכשלה.'
                   );
                 }
               })();
@@ -328,8 +328,8 @@ export default function BusinessCardsManagementScreen() {
       );
     } catch (error) {
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error ? error.message : '׳׳ ׳ ׳™׳×׳ ׳׳—׳©׳‘ ׳§׳”׳ ׳™׳¢׳“.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא ניתן לחשב קהל יעד.'
       );
     } finally {
       setIsWorkingCampaignId(null);
@@ -353,10 +353,8 @@ export default function BusinessCardsManagementScreen() {
       });
     } catch (error) {
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳׳ ׳”׳¦׳׳—׳ ׳• ׳׳¢׳“׳›׳ ׳׳¦׳‘ ׳׳•׳˜׳•׳׳¦׳™׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא הצלחנו לעדכן מצב אוטומציה.'
       );
     } finally {
       setIsTogglingCampaignId(null);
@@ -366,22 +364,22 @@ export default function BusinessCardsManagementScreen() {
   const summaryCards = [
     {
       id: 'active',
-      label: '׳₪׳¢׳™׳׳•׳×',
+      label: 'פעילות',
       value: formatNumber(activePrograms.length),
     },
     {
       id: 'archived',
-      label: '׳™׳©׳ ׳•׳×',
+      label: 'ישנות',
       value: formatNumber(archivedPrograms.length),
     },
     {
       id: 'customers',
-      label: '׳׳§׳•׳—׳•׳× ׳₪׳¢׳™׳׳™׳',
+      label: 'לקוחות פעילים',
       value: formatNumber(totalActiveCustomers),
     },
     {
       id: 'redeem',
-      label: '׳׳™׳׳•׳©׳™׳ 30 ׳™׳•׳',
+      label: 'מימושים 30 יום',
       value: formatNumber(totalRedemptions30d),
     },
   ];
@@ -397,8 +395,8 @@ export default function BusinessCardsManagementScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="׳ ׳™׳”׳•׳ ׳›׳¨׳˜׳™׳¡׳™׳ 2.0"
-          subtitle="׳›׳¨׳˜׳™׳¡׳™׳•׳×, ׳§׳׳₪׳™׳™׳ ׳™׳ ׳•׳×׳•׳‘׳ ׳•׳× ׳‘׳׳§׳•׳ ׳׳—׳“"
+          title="ניהול כרטיסים 2.0"
+          subtitle="כרטיסיות, קמפיינים ותובנות במקום אחד"
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -406,7 +404,7 @@ export default function BusinessCardsManagementScreen() {
               }
               className="h-10 w-10 items-center justify-center rounded-full bg-white"
             >
-              <Text className="text-lg text-[#1A2B4A]">ג†</Text>
+              <Text className="text-lg text-[#1A2B4A]">←</Text>
             </TouchableOpacity>
           }
         />
@@ -415,7 +413,7 @@ export default function BusinessCardsManagementScreen() {
           <Text
             className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
           >
-            ׳¢׳¡׳§ ׳ ׳‘׳—׳¨
+            עסק נבחר
           </Text>
           <View className={`${tw.flexRow} flex-wrap gap-2`}>
             {businesses.map((business) => {
@@ -450,8 +448,8 @@ export default function BusinessCardsManagementScreen() {
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
           {[
-            { key: 'programs' as const, label: '׳›׳¨׳˜׳™׳¡׳™׳•׳×' },
-            { key: 'campaigns' as const, label: '׳§׳׳₪׳™׳™׳ ׳™׳' },
+            { key: 'programs' as const, label: 'כרטיסיות' },
+            { key: 'campaigns' as const, label: 'קמפיינים' },
           ].map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -498,26 +496,26 @@ export default function BusinessCardsManagementScreen() {
               isLocked={cardLimit.isAtLimit}
               requiredPlan={requiredPlanForCards}
               onUpgradeClick={openUpgradeForCards}
-              title="׳”׳’׳¢׳×׳ ׳׳׳›׳¡׳× ׳”׳›׳¨׳˜׳™׳¡׳™׳ ׳”׳₪׳¢׳™׳׳™׳"
-              subtitle="׳›׳¨׳˜׳™׳¡׳™׳” ׳™׳©׳ ׳” ׳׳ ׳ ׳¡׳₪׳¨׳× ׳‘׳׳›׳¡׳”, ׳׳• ׳©׳“׳¨׳’׳• ׳׳׳¡׳׳•׳ ׳׳×׳§׳“׳."
+              title="הגעתם למכסת הכרטיסים הפעילים"
+              subtitle="כרטיסיה ישנה לא נספרת במכסה, או שדרגו למסלול מתקדם."
             >
               <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
                 <Text
                   className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
                 >
-                  ׳™׳¦׳™׳¨׳× ׳›׳¨׳˜׳™׳¡׳™׳” ׳—׳“׳©׳”
+                  יצירת כרטיסיה חדשה
                 </Text>
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="׳©׳ ׳”׳›׳¨׳˜׳™׳¡׳™׳”"
+                  placeholder="שם הכרטיסיה"
                   placeholderTextColor="#94A3B8"
                   className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                 />
                 <TextInput
                   value={rewardName}
                   onChangeText={setRewardName}
-                  placeholder="׳”׳˜׳‘׳” ׳׳׳§׳•׳—"
+                  placeholder="הטבה ללקוח"
                   placeholderTextColor="#94A3B8"
                   className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                 />
@@ -526,14 +524,14 @@ export default function BusinessCardsManagementScreen() {
                     value={maxStamps}
                     onChangeText={setMaxStamps}
                     keyboardType="number-pad"
-                    placeholder="׳ ׳™׳§׳•׳‘׳™׳"
+                    placeholder="ניקובים"
                     placeholderTextColor="#94A3B8"
                     className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                   />
                   <TextInput
                     value={stampIcon}
                     onChangeText={setStampIcon}
-                    placeholder="׳׳™׳™׳§׳•׳ (star)"
+                    placeholder="אייקון (star)"
                     placeholderTextColor="#94A3B8"
                     className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                   />
@@ -569,7 +567,7 @@ export default function BusinessCardsManagementScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text className="text-center text-sm font-bold text-white">
-                      ׳™׳¦׳™׳¨׳× ׳›׳¨׳˜׳™׳¡׳™׳”
+                      יצירת כרטיסיה
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -580,11 +578,11 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                ׳›׳¨׳˜׳™׳¡׳™׳•׳× ׳₪׳¢׳™׳׳•׳×
+                כרטיסיות פעילות
               </Text>
               {activePrograms.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-                  ׳׳™׳ ׳¢׳“׳™׳™׳ ׳›׳¨׳˜׳™׳¡׳™׳•׳× ׳₪׳¢׳™׳׳•׳×.
+                  אין עדיין כרטיסיות פעילות.
                 </Text>
               ) : (
                 activePrograms.map((program) => (
@@ -607,7 +605,7 @@ export default function BusinessCardsManagementScreen() {
                     >
                       <View className="rounded-full bg-[#EAF1FF] px-3 py-1">
                         <Text className="text-[11px] font-bold text-[#2756C5]">
-                          ׳₪׳¢׳™׳׳”
+                          פעילה
                         </Text>
                       </View>
                       <Text
@@ -619,15 +617,15 @@ export default function BusinessCardsManagementScreen() {
                     <Text
                       className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}
                     >
-                      ׳”׳˜׳‘׳”: {program.rewardName} ֲ· ׳ ׳™׳§׳•׳‘׳™׳:{' '}
+                      הטבה: {program.rewardName} · ניקובים:{' '}
                       {formatNumber(program.maxStamps)}
                     </Text>
                     <Text
                       className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}
                     >
-                      ׳׳§׳•׳—׳•׳× ׳₪׳¢׳™׳׳™׳:{' '}
-                      {formatNumber(program.metrics.activeMembers)} ֲ· ׳׳™׳׳•׳©׳™׳ 30
-                      ׳™׳•׳: {formatNumber(program.metrics.redemptions30d)}
+                      לקוחות פעילים:{' '}
+                      {formatNumber(program.metrics.activeMembers)} · מימושים 30
+                      יום: {formatNumber(program.metrics.redemptions30d)}
                     </Text>
                   </TouchableOpacity>
                 ))
@@ -638,11 +636,11 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                ׳›׳¨׳˜׳™׳¡׳™׳•׳× ׳™׳©׳ ׳•׳× (׳׳¨׳›׳™׳•׳)
+                כרטיסיות ישנות (ארכיון)
               </Text>
               {archivedPrograms.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-                  ׳׳™׳ ׳›׳¨׳˜׳™׳¡׳™׳•׳× ׳‘׳׳¨׳›׳™׳•׳.
+                  אין כרטיסיות בארכיון.
                 </Text>
               ) : (
                 archivedPrograms.map((program) => (
@@ -665,7 +663,7 @@ export default function BusinessCardsManagementScreen() {
                     >
                       <View className="rounded-full bg-[#EEF2F7] px-3 py-1">
                         <Text className="text-[11px] font-bold text-[#64748B]">
-                          ׳™׳©׳ ׳”
+                          ישנה
                         </Text>
                       </View>
                       <Text
@@ -677,7 +675,7 @@ export default function BusinessCardsManagementScreen() {
                     <Text
                       className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                     >
-                      ׳׳§׳•׳—׳•׳× ׳₪׳¢׳™׳׳™׳:{' '}
+                      לקוחות פעילים:{' '}
                       {formatNumber(program.metrics.activeMembers)}
                     </Text>
                   </TouchableOpacity>
@@ -691,7 +689,7 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                ׳×׳‘׳ ׳™׳•׳× ׳׳”׳™׳¨׳•׳×
+                תבניות מהירות
               </Text>
               <View className={`${tw.flexRow} flex-wrap gap-2`}>
                 {CAMPAIGN_TEMPLATES.map((template) => {
@@ -732,11 +730,11 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                ׳˜׳™׳•׳˜׳•׳× ׳•׳§׳׳₪׳™׳™׳ ׳™׳
+                טיוטות וקמפיינים
               </Text>
               {campaigns.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-                  ׳׳™׳ ׳§׳׳₪׳™׳™׳ ׳™׳ ׳¢׳“׳™׳™׳. ׳¦׳¨׳• ׳×׳‘׳ ׳™׳× ׳׳”׳™׳¨׳” ׳›׳“׳™ ׳׳”׳×׳—׳™׳.
+                  אין קמפיינים עדיין. צרו תבנית מהירה כדי להתחיל.
                 </Text>
               ) : (
                 campaigns.map((campaign) => {
@@ -764,7 +762,7 @@ export default function BusinessCardsManagementScreen() {
                                 : 'text-[#2756C5]'
                             }`}
                           >
-                            {campaign.status === 'sent' ? '׳ ׳©׳׳—' : '׳˜׳™׳•׳˜׳”'}
+                            {campaign.status === 'sent' ? 'נשלח' : 'טיוטה'}
                           </Text>
                         </View>
                         <Text
@@ -787,7 +785,8 @@ export default function BusinessCardsManagementScreen() {
                       <Text
                         className={`text-xs text-[#62748B] ${tw.textStart}`}
                       >
-                        הגיע ל-{formatNumber(campaign.reachedUniqueAllTime)} ייחודיים ·{' '}
+                        הגיע ל-{formatNumber(campaign.reachedUniqueAllTime)}{' '}
+                        ייחודיים ·{' '}
                         {formatNumber(campaign.reachedMessagesAllTime)} הודעות
                       </Text>
                       {campaign.type === 'birthday' &&
@@ -795,7 +794,8 @@ export default function BusinessCardsManagementScreen() {
                         <Text
                           className={`text-xs text-[#62748B] ${tw.textStart}`}
                         >
-                          חסר יום הולדת: {formatNumber(campaign.missingBirthdayCount)}
+                          חסר יום הולדת:{' '}
+                          {formatNumber(campaign.missingBirthdayCount)}
                         </Text>
                       ) : null}
                       <View
@@ -823,7 +823,8 @@ export default function BusinessCardsManagementScreen() {
                               : 'bg-[#E2E8F0]'
                           }`}
                         >
-                          {isTogglingCampaignId === String(campaign.campaignId) ? (
+                          {isTogglingCampaignId ===
+                          String(campaign.campaignId) ? (
                             <ActivityIndicator color="#1E293B" size="small" />
                           ) : (
                             <Text
@@ -833,7 +834,9 @@ export default function BusinessCardsManagementScreen() {
                                   : 'text-[#475569]'
                               }`}
                             >
-                              {campaign.automationEnabled === true ? 'פעיל' : 'כבוי'}
+                              {campaign.automationEnabled === true
+                                ? 'פעיל'
+                                : 'כבוי'}
                             </Text>
                           )}
                         </TouchableOpacity>
@@ -841,7 +844,9 @@ export default function BusinessCardsManagementScreen() {
                       <View className={`${tw.flexRow} gap-2`}>
                         <TouchableOpacity
                           disabled={isBusy}
-                          onPress={() => handleEditCampaign(campaign.campaignId)}
+                          onPress={() =>
+                            handleEditCampaign(campaign.campaignId)
+                          }
                           className="flex-1 rounded-xl border border-[#2F6BFF] bg-white px-3 py-2"
                         >
                           <Text className="text-center text-xs font-bold text-[#2F6BFF]">

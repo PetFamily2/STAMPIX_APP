@@ -1,3 +1,3 @@
-import SettingsScreen from '@/screens/SettingsScreen';
+import BusinessSettingsScreen from '@/screens/BusinessSettingsScreen';
 
-export default SettingsScreen;
+export default BusinessSettingsScreen;
