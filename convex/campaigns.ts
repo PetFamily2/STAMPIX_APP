@@ -67,7 +67,10 @@ function buildDefaultDraftByType(type: ManagementCampaignType) {
         messageTitle: 'ברוכים הבאים למועדון!',
         messageBody:
           'כיף שהצטרפתם אלינו. הציגו את הכרטיסייה בביקור הבא ותתחילו לצבור ניקובים.',
-        rules: { audience: 'new_customers', joinedWithinDays: 14 } as CampaignRules,
+        rules: {
+          audience: 'new_customers',
+          joinedWithinDays: 14,
+        } as CampaignRules,
       };
     case 'birthday':
       return {
@@ -89,8 +92,7 @@ function buildDefaultDraftByType(type: ManagementCampaignType) {
       return {
         title: 'מתגעגעים אליכם',
         messageTitle: 'לא ראינו אתכם לאחרונה',
-        messageBody:
-          'כבר זמן מה שלא ביקרתם. מחכה לכם הטבה מיוחדת לחזרה מהירה.',
+        messageBody: 'כבר זמן מה שלא ביקרתם. מחכה לכם הטבה מיוחדת לחזרה מהירה.',
         rules: { audience: 'inactive_days', daysInactive: 30 } as CampaignRules,
       };
     case 'promo':
@@ -186,7 +188,11 @@ async function validateProgramBelongsToBusiness(
     return;
   }
   const program = await ctx.db.get(programId);
-  if (!program || program.businessId !== businessId || program.isActive !== true) {
+  if (
+    !program ||
+    program.businessId !== businessId ||
+    program.isActive !== true
+  ) {
     throw new Error('PROGRAM_NOT_FOUND');
   }
 }
@@ -279,7 +285,11 @@ async function estimateAudienceForCampaign(
 ): Promise<{ userIds: Id<'users'>[]; total: number; sample: string[] }> {
   const normalizedType = normalizeManagementType(campaign.type);
   const rules = normalizeCampaignRules(normalizedType, campaign.rules);
-  const rows = await loadAudienceRows(ctx, campaign.businessId, campaign.programId);
+  const rows = await loadAudienceRows(
+    ctx,
+    campaign.businessId,
+    campaign.programId
+  );
   const now = Date.now();
 
   const userIdSet = new Set<string>();
@@ -463,6 +473,35 @@ export const listManagementCampaignsByBusiness = query({
   },
 });
 
+export const getManagementCampaignDraft = query({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+  },
+  handler: async (ctx, { businessId, campaignId }) => {
+    await requireActorIsStaffForBusiness(ctx, businessId);
+    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+
+    const defaults = buildDefaultDraftByType(campaign.type);
+
+    return {
+      campaignId: campaign._id,
+      businessId: campaign.businessId,
+      type: campaign.type,
+      status: campaign.status ?? 'draft',
+      messageTitle: campaign.messageTitle ?? defaults.messageTitle,
+      messageBody: campaign.messageBody ?? defaults.messageBody,
+      rules: campaign.rules ?? defaults.rules,
+      programId: campaign.programId ?? null,
+      createdAt: campaign.createdAt,
+      updatedAt: campaign.updatedAt,
+    };
+  },
+});
+
 export const createCampaignDraft = mutation({
   args: {
     businessId: v.id('businesses'),
@@ -513,7 +552,15 @@ export const updateCampaignDraft = mutation({
   },
   handler: async (
     ctx,
-    { businessId, campaignId, title, messageTitle, messageBody, rules, programId }
+    {
+      businessId,
+      campaignId,
+      title,
+      messageTitle,
+      messageBody,
+      rules,
+      programId,
+    }
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
@@ -640,11 +687,9 @@ export const listInboxForCustomer = query({
           businessId: log.businessId,
           businessName: business?.name ?? 'העסק',
           campaignType: campaign?.type ?? 'promo',
-          title:
-            campaign?.messageTitle ??
-            campaign?.title ??
-            'עדכון חדש מהעסק',
-          body: campaign?.messageBody ?? 'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
+          title: campaign?.messageTitle ?? campaign?.title ?? 'עדכון חדש מהעסק',
+          body:
+            campaign?.messageBody ?? 'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
           createdAt: log.createdAt,
           readAt: log.readAt ?? null,
           status: log.status,

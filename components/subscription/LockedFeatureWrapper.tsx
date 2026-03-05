@@ -50,7 +50,11 @@ export function LockedFeatureWrapper({
       <View style={styles.content}>{children}</View>
       {isLocked ? (
         <View style={styles.overlay} pointerEvents="box-none">
-          <BlurView intensity={35} tint="light" style={StyleSheet.absoluteFill} />
+          <BlurView
+            intensity={35}
+            tint="light"
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.scrim} />
           <View style={styles.lockCard}>
             <View style={styles.iconWrap}>

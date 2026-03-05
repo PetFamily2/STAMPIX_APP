@@ -1,7 +1,8 @@
-import { useFocusEffect } from '@react-navigation/native';
+﻿import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, ChevronLeft, X } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
+import { X } from 'lucide-react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,26 +14,23 @@ import {
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
+import {
+  type BillingPeriod,
+  IS_DEV_MODE,
+  REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
+} from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { tw } from '@/lib/rtl';
-
-// ============================================================================
-// קונפיגורציית תכונות למסך התשלום
-// ============================================================================
-
-const FEATURES = [
-  'תכונה #1 - תיאור התכונה',
-  'תכונה #2 - תיאור התכונה',
-  'תכונה #3 - תיאור התכונה',
-];
-
-// ============================================================================
-// מסך התשלום (Paywall)
-// ============================================================================
+import {
+  buildComparisonRows,
+  normalizePlanCatalog,
+  type PlanId,
+} from '@/lib/subscription/planComparison';
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -42,8 +40,17 @@ export default function PaywallScreen() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
 
+  const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
+  const planCatalog = useMemo(
+    () => normalizePlanCatalog(planCatalogQuery),
+    [planCatalogQuery]
+  );
+  const comparisonRows = useMemo(
+    () => buildComparisonRows(planCatalog),
+    [planCatalog]
+  );
+
   const {
-    packages,
     isLoading,
     purchasePackage,
     restorePurchases,
@@ -56,21 +63,43 @@ export default function PaywallScreen() {
   });
   const completionRef = useRef(false);
 
-  // מציאת החבילות החודשית והשנתית
-  const monthlyPackage = packages.find((p) => p.packageType === 'monthly');
-  const annualPackage = packages.find((p) => p.packageType === 'annual');
-
-  // בחירת תוכנית - ברירת מחדל: שנתית
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>(
-    'annual'
-  );
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
+  const resolvePackageId = useCallback(
+    (plan: PlanId, period: BillingPeriod): string | null => {
+      if (plan === 'starter') {
+        return null;
+      }
+      return REVENUECAT_PACKAGE_BY_PLAN_PERIOD[plan][period];
+    },
+    []
+  );
+
+  const buildPlanAnalyticsPayload = useCallback(
+    (plan: PlanId, period: BillingPeriod) => {
+      const payload: Record<string, string> = {
+        plan,
+        billing_period: period,
+      };
+      const packageId = resolvePackageId(plan, period);
+      if (packageId) {
+        payload.plan_id = packageId;
+      }
+      return payload;
+    },
+    [resolvePackageId]
+  );
+
   useFocusEffect(
     useCallback(() => {
-      trackEvent(ANALYTICS_EVENTS.paywallViewed);
-    }, [trackEvent])
+      trackEvent(ANALYTICS_EVENTS.paywallViewed, {
+        selected_plan: selectedPlan,
+        billing_period: billingPeriod,
+      });
+    }, [billingPeriod, selectedPlan, trackEvent])
   );
 
   const finishOnboarding = useCallback(() => {
@@ -81,51 +110,91 @@ export default function PaywallScreen() {
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'business' });
   }, [trackEvent]);
 
-  // ============================================================================
-  // פעולות
-  // ============================================================================
-
   const handleClose = () => {
     completeStep();
     finishOnboarding();
     safeBack('/(auth)/sign-up');
   };
 
+  const handleSelectPlan = (plan: PlanId) => {
+    setSelectedPlan(plan);
+    trackEvent(
+      ANALYTICS_EVENTS.planSelected,
+      buildPlanAnalyticsPayload(plan, billingPeriod)
+    );
+  };
+
+  const handleBillingPeriodChange = (period: BillingPeriod) => {
+    setBillingPeriod(period);
+    trackEvent(
+      ANALYTICS_EVENTS.planSelected,
+      buildPlanAnalyticsPayload(selectedPlan, period)
+    );
+  };
+
   const handleContinue = async () => {
-    if (isPreviewMode) {
-      // במצב תצוגה מקדימה - לא מבצעים רכישה אמיתית
+    if (selectedPlan === 'starter') {
+      trackContinue({ plan: 'starter', billing_period: billingPeriod });
+      completeStep();
+      finishOnboarding();
+      safeBack('/(auth)/sign-up');
       return;
     }
 
-    const packageId =
-      selectedPlan === 'monthly'
-        ? monthlyPackage?.identifier
-        : annualPackage?.identifier;
+    if (isPreviewMode) {
+      return;
+    }
 
+    const packageId = resolvePackageId(selectedPlan, billingPeriod);
     if (!packageId) {
+      Alert.alert(
+        'תצורה חסרה',
+        'לא הוגדר מזהה חבילה למסלול שנבחר. בדקו EXPO_PUBLIC_RC_PACKAGE_*'
+      );
+      trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
+        plan: selectedPlan,
+        billing_period: billingPeriod,
+        error_code: 'missing_package_mapping',
+      });
       return;
     }
 
     setIsPurchasing(true);
-    trackContinue();
-    trackEvent(ANALYTICS_EVENTS.checkoutStarted, { plan_id: packageId });
+    trackContinue({
+      plan: selectedPlan,
+      billing_period: billingPeriod,
+      plan_id: packageId,
+    });
+    trackEvent(ANALYTICS_EVENTS.checkoutStarted, {
+      plan_id: packageId,
+      plan: selectedPlan,
+      billing_period: billingPeriod,
+    });
+
     try {
       const success = await purchasePackage(packageId);
       if (success) {
-        trackEvent(ANALYTICS_EVENTS.purchaseCompleted, { plan_id: packageId });
+        trackEvent(ANALYTICS_EVENTS.purchaseCompleted, {
+          plan_id: packageId,
+          plan: selectedPlan,
+          billing_period: billingPeriod,
+        });
         completeStep();
         finishOnboarding();
         safeBack('/(auth)/sign-up');
-      } else {
-        trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
-          plan_id: packageId,
-          error_code: isExpoGo
-            ? 'expo_go'
-            : isConfigured
-              ? 'cancelled_or_failed'
-              : 'not_configured',
-        });
+        return;
       }
+
+      trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
+        plan_id: packageId,
+        plan: selectedPlan,
+        billing_period: billingPeriod,
+        error_code: isExpoGo
+          ? 'expo_go'
+          : isConfigured
+            ? 'cancelled_or_failed'
+            : 'not_configured',
+      });
     } finally {
       setIsPurchasing(false);
     }
@@ -136,11 +205,11 @@ export default function PaywallScreen() {
       return;
     }
     if (isExpoGo) {
-      Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go השתמשו ב-Dev Build');
+      Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.');
       return;
     }
     if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה');
+      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
       return;
     }
 
@@ -157,7 +226,7 @@ export default function PaywallScreen() {
         safeBack('/(auth)/sign-up');
       }
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall נסו שוב');
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall. נסו שוב.');
     }
   };
 
@@ -166,17 +235,17 @@ export default function PaywallScreen() {
       return;
     }
     if (isExpoGo) {
-      Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go');
+      Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go.');
       return;
     }
     if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה');
+      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
       return;
     }
     try {
       await RevenueCatUI.presentCustomerCenter();
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את Customer Center נסו שוב');
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את Customer Center. נסו שוב.');
     }
   };
 
@@ -202,10 +271,6 @@ export default function PaywallScreen() {
     router.push('/(auth)/legal');
   };
 
-  // ============================================================================
-  // רינדור
-  // ============================================================================
-
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-[#0a0a0a] items-center justify-center">
@@ -230,142 +295,71 @@ export default function PaywallScreen() {
             <X size={24} color="#a1a1aa" />
           </TouchableOpacity>
         </View>
-        {isPreviewMode && (
+
+        {isPreviewMode ? (
           <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/50">
             <Text className="text-yellow-400 text-center text-sm font-medium">
               מצב תצוגה מקדימה - רכישות מושבתות
             </Text>
           </View>
-        )}
-        {isExpoGo && !isPreviewMode && (
+        ) : null}
+
+        {isExpoGo && !isPreviewMode ? (
           <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-blue-500/20 border border-blue-500/50">
             <Text className="text-blue-400 text-center text-sm font-medium">
               Expo Go - רכישות לא זמינות
             </Text>
           </View>
-        )}
-        <View className="px-6 pt-4 pb-6">
+        ) : null}
+
+        <View className="px-6 pt-4 pb-4">
           <Text className="text-white text-3xl font-bold text-center mb-2">
-            כותרת מסך התשלום
+            בחרו מסלול שמתאים לעסק שלכם
           </Text>
           <Text className="text-zinc-400 text-base text-center">
-            כותרת משנה למסך התשלום
+            Starter בחינם, או שדרוג ל-Pro AI / Unlimited AI.
           </Text>
         </View>
-        <View className="px-6 pb-6">
-          {FEATURES.map((feature) => (
-            <View
-              key={feature}
-              className={`${tw.flexRow} items-center gap-3 mb-3`}
-            >
-              <View className="w-6 h-6 items-center justify-center">
-                <ChevronLeft size={20} color="#4fc3f7" />
-              </View>
-              <Text className={`text-white text-base flex-1 ${tw.textStart}`}>
-                {feature}
-              </Text>
-            </View>
-          ))}
+
+        <View className="px-4 pb-6">
+          <PlanComparisonTable
+            plans={planCatalog}
+            rows={comparisonRows}
+            selectedPlan={selectedPlan}
+            billingPeriod={billingPeriod}
+            onSelectPlan={handleSelectPlan}
+            onBillingPeriodChange={handleBillingPeriodChange}
+            popularPlan="pro"
+            popularLabel="הכי פופולרי"
+          />
         </View>
-        <View className="bg-white py-3 px-6">
-          <Text className="text-zinc-900 text-center font-semibold text-base">
-            הצטרף היום במחיר הטוב ביותר
-          </Text>
-        </View>
-        <View className="px-4 py-6 gap-3">
-          {monthlyPackage && (
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedPlan('monthly');
-                trackEvent(ANALYTICS_EVENTS.planSelected, {
-                  plan_id: monthlyPackage.identifier,
-                  billing_period: 'monthly',
-                });
-              }}
-              className={`rounded-xl p-4 border-2 ${
-                selectedPlan === 'monthly'
-                  ? 'border-[#4fc3f7] bg-zinc-900'
-                  : 'border-zinc-700 bg-zinc-900'
-              }`}
-            >
-              <View className={`${tw.flexRow} items-center justify-between`}>
-                <Text className="text-zinc-400 text-lg font-semibold">
-                  {monthlyPackage.priceString}
-                </Text>
-                <View className={`${tw.flexRow} items-center gap-3`}>
-                  <Text className="text-white text-lg font-semibold">
-                    חודשי
-                  </Text>
-                  <View
-                    className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                      selectedPlan === 'monthly'
-                        ? 'border-[#4fc3f7] bg-[#4fc3f7]'
-                        : 'border-zinc-600'
-                    }`}
-                  >
-                    {selectedPlan === 'monthly' && (
-                      <Check size={14} color="#0a0a0a" strokeWidth={3} />
-                    )}
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          {annualPackage && (
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedPlan('annual');
-                trackEvent(ANALYTICS_EVENTS.planSelected, {
-                  plan_id: annualPackage.identifier,
-                  billing_period: 'yearly',
-                });
-              }}
-              className={`rounded-xl p-4 border-2 ${
-                selectedPlan === 'annual'
-                  ? 'border-[#4fc3f7] bg-zinc-900'
-                  : 'border-zinc-700 bg-zinc-900'
-              }`}
-            >
-              <View className={`${tw.flexRow} items-center justify-between`}>
-                <Text className="text-zinc-400 text-lg font-semibold">
-                  {annualPackage.priceString}
-                </Text>
-                <View className={`${tw.flexRow} items-center gap-3`}>
-                  <Text className="text-white text-lg font-semibold">שנתי</Text>
-                  <View
-                    className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                      selectedPlan === 'annual'
-                        ? 'border-[#4fc3f7] bg-[#4fc3f7]'
-                        : 'border-zinc-600'
-                    }`}
-                  >
-                    {selectedPlan === 'annual' && (
-                      <Check size={14} color="#0a0a0a" strokeWidth={3} />
-                    )}
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
+
         <Text className="text-zinc-500 text-center text-sm px-6 mb-4">
-          הצטרף היום, בטל בכל עת.
+          הצטרפו היום, בטלו בכל עת.
         </Text>
+
         <View className="px-6 mb-6">
           <TouchableOpacity
             onPress={handleContinue}
-            disabled={isPurchasing || isPreviewMode}
+            disabled={
+              isPurchasing || (isPreviewMode && selectedPlan !== 'starter')
+            }
             className={`bg-[#4fc3f7] rounded-xl py-4 items-center ${
-              isPurchasing || isPreviewMode ? 'opacity-60' : ''
+              isPurchasing || (isPreviewMode && selectedPlan !== 'starter')
+                ? 'opacity-60'
+                : ''
             }`}
           >
             {isPurchasing ? (
               <ActivityIndicator color="#0a0a0a" />
             ) : (
-              <Text className="text-[#0a0a0a] text-lg font-bold">המשך</Text>
+              <Text className="text-[#0a0a0a] text-lg font-bold">
+                {selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לתשלום'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
+
         <View className="px-6 mb-6 gap-3">
           <TouchableOpacity
             onPress={handleShowPaywall}
@@ -390,6 +384,7 @@ export default function PaywallScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
         <View className={`${tw.flexRow} justify-center gap-8 pb-6`}>
           <TouchableOpacity
             onPress={handleRestore}
@@ -398,7 +393,7 @@ export default function PaywallScreen() {
             {isRestoring ? (
               <ActivityIndicator size="small" color="#a1a1aa" />
             ) : (
-              <Text className="text-zinc-500 text-sm">שחזור</Text>
+              <Text className="text-zinc-500 text-sm">שחזור רכישות</Text>
             )}
           </TouchableOpacity>
 

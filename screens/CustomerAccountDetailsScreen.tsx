@@ -183,7 +183,9 @@ export default function CustomerAccountDetailsScreen() {
     } catch (error) {
       Alert.alert(
         'שגיאה',
-        error instanceof Error && error.message ? error.message : TEXT.phoneError
+        error instanceof Error && error.message
+          ? error.message
+          : TEXT.phoneError
       );
     } finally {
       setIsSavingPhone(false);
@@ -289,7 +291,9 @@ export default function CustomerAccountDetailsScreen() {
                         pressed ? styles.pressed : null,
                       ]}
                     >
-                      <Text style={styles.smallButtonSecondaryText}>{TEXT.cancel}</Text>
+                      <Text style={styles.smallButtonSecondaryText}>
+                        {TEXT.cancel}
+                      </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -305,7 +309,9 @@ export default function CustomerAccountDetailsScreen() {
                       {isSavingPhone ? (
                         <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
-                        <Text style={styles.smallButtonPrimaryText}>{TEXT.save}</Text>
+                        <Text style={styles.smallButtonPrimaryText}>
+                          {TEXT.save}
+                        </Text>
                       )}
                     </Pressable>
                   </View>
@@ -317,7 +323,9 @@ export default function CustomerAccountDetailsScreen() {
                       pressed ? styles.pressed : null,
                     ]}
                   >
-                    <Text style={styles.smallButtonSecondaryText}>{TEXT.editPhone}</Text>
+                    <Text style={styles.smallButtonSecondaryText}>
+                      {TEXT.editPhone}
+                    </Text>
                   </Pressable>
                 )}
               </View>
@@ -422,7 +430,9 @@ export default function CustomerAccountDetailsScreen() {
               {isSavingMarketing ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.primaryButtonText}>{TEXT.marketingSave}</Text>
+                <Text style={styles.primaryButtonText}>
+                  {TEXT.marketingSave}
+                </Text>
               )}
             </Pressable>
           </View>

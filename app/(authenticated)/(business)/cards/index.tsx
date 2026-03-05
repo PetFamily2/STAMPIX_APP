@@ -90,11 +90,13 @@ export default function BusinessCardsManagementScreen() {
   );
 
   const selectedBusiness = useMemo(
-    () => businesses.find((business) => business.businessId === selectedBusinessId),
+    () =>
+      businesses.find((business) => business.businessId === selectedBusinessId),
     [businesses, selectedBusinessId]
   );
   const canManagePrograms =
-    selectedBusiness?.staffRole === 'owner' || selectedBusiness?.staffRole === 'manager';
+    selectedBusiness?.staffRole === 'owner' ||
+    selectedBusiness?.staffRole === 'manager';
 
   const programs =
     useQuery(
@@ -108,13 +110,19 @@ export default function BusinessCardsManagementScreen() {
       selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
     ) ?? [];
 
-  const createLoyaltyProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
+  const createLoyaltyProgram = useMutation(
+    api.loyaltyPrograms.createLoyaltyProgram
+  );
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
-  const estimateCampaignAudience = useMutation(api.campaigns.estimateCampaignAudience);
+  const estimateCampaignAudience = useMutation(
+    api.campaigns.estimateCampaignAudience
+  );
   const sendCampaignNow = useMutation(api.campaigns.sendCampaignNow);
   const { entitlements, limitStatus } = useEntitlements(selectedBusinessId);
 
-  const activePrograms = programs.filter((program) => program.lifecycle === 'active');
+  const activePrograms = programs.filter(
+    (program) => program.lifecycle === 'active'
+  );
   const archivedPrograms = programs.filter(
     (program) => program.lifecycle === 'archived'
   );
@@ -138,23 +146,28 @@ export default function BusinessCardsManagementScreen() {
   const [stampIcon, setStampIcon] = useState('star');
   const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
   const [isCreatingProgram, setIsCreatingProgram] = useState(false);
-  const [isWorkingCampaignId, setIsWorkingCampaignId] = useState<string | null>(null);
+  const [isWorkingCampaignId, setIsWorkingCampaignId] = useState<string | null>(
+    null
+  );
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
   >('limit_reached');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     setSelectedBusinessId((current) => {
       if (!businesses.length) {
         return null;
       }
-      if (current && businesses.some((business) => business.businessId === current)) {
+      if (
+        current &&
+        businesses.some((business) => business.businessId === current)
+      ) {
         return current;
       }
       return businesses[0].businessId;
@@ -205,7 +218,10 @@ export default function BusinessCardsManagementScreen() {
       setStampIcon('star');
       Alert.alert('נשמר', 'כרטיסיה חדשה נוצרה בהצלחה.');
     } catch (error) {
-      Alert.alert('שגיאה', error instanceof Error ? error.message : 'יצירת כרטיסיה נכשלה.');
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת כרטיסיה נכשלה.'
+      );
     } finally {
       setIsCreatingProgram(false);
     }
@@ -219,16 +235,38 @@ export default function BusinessCardsManagementScreen() {
     }
     setIsWorkingCampaignId(`create-${type}`);
     try {
-      await createCampaignDraft({
+      const result = await createCampaignDraft({
         businessId: selectedBusinessId,
         type,
       });
-      Alert.alert('טיוטה נוצרה', 'הקמפיין נוסף לרשימת הטיוטות.');
+      router.push({
+        pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+        params: {
+          campaignId: result.campaignId,
+          businessId: selectedBusinessId,
+        },
+      });
     } catch (error) {
-      Alert.alert('שגיאה', error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.');
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
+      );
     } finally {
       setIsWorkingCampaignId(null);
     }
+  };
+
+  const handleEditCampaign = (campaignId: Id<'campaigns'>) => {
+    if (!selectedBusinessId) {
+      return;
+    }
+    router.push({
+      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      params: {
+        campaignId,
+        businessId: selectedBusinessId,
+      },
+    });
   };
 
   const handleSendCampaign = async (campaignId: Id<'campaigns'>) => {
@@ -272,7 +310,9 @@ export default function BusinessCardsManagementScreen() {
                 } catch (error) {
                   Alert.alert(
                     'שגיאה',
-                    error instanceof Error ? error.message : 'שליחת קמפיין נכשלה.'
+                    error instanceof Error
+                      ? error.message
+                      : 'שליחת קמפיין נכשלה.'
                   );
                 }
               })();
@@ -291,8 +331,16 @@ export default function BusinessCardsManagementScreen() {
   };
 
   const summaryCards = [
-    { id: 'active', label: 'פעילות', value: formatNumber(activePrograms.length) },
-    { id: 'archived', label: 'ישנות', value: formatNumber(archivedPrograms.length) },
+    {
+      id: 'active',
+      label: 'פעילות',
+      value: formatNumber(activePrograms.length),
+    },
+    {
+      id: 'archived',
+      label: 'ישנות',
+      value: formatNumber(archivedPrograms.length),
+    },
     {
       id: 'customers',
       label: 'לקוחות פעילים',
@@ -320,7 +368,9 @@ export default function BusinessCardsManagementScreen() {
           subtitle="כרטיסיות, קמפיינים ותובנות במקום אחד"
           titleAccessory={
             <TouchableOpacity
-              onPress={() => router.replace('/(authenticated)/(business)/dashboard')}
+              onPress={() =>
+                router.replace('/(authenticated)/(business)/dashboard')
+              }
               className="h-10 w-10 items-center justify-center rounded-full bg-white"
             >
               <Text className="text-lg text-[#1A2B4A]">←</Text>
@@ -329,7 +379,9 @@ export default function BusinessCardsManagementScreen() {
         />
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
+          <Text
+            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+          >
             עסק נבחר
           </Text>
           <View className={`${tw.flexRow} flex-wrap gap-2`}>
@@ -345,10 +397,14 @@ export default function BusinessCardsManagementScreen() {
                       : 'border-[#E3E9FF] bg-[#F6F8FC]'
                   }`}
                 >
-                  <Text className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}>
+                  <Text
+                    className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
+                  >
                     {business.name}
                   </Text>
-                  <Text className={`text-[11px] text-[#7B86A0] ${tw.textStart}`}>
+                  <Text
+                    className={`text-[11px] text-[#7B86A0] ${tw.textStart}`}
+                  >
                     {business.staffRole}
                   </Text>
                 </TouchableOpacity>
@@ -393,8 +449,12 @@ export default function BusinessCardsManagementScreen() {
                   key={card.id}
                   className="w-[48.5%] rounded-2xl border border-[#DDE7FC] bg-white p-4"
                 >
-                  <Text className={`text-xs text-[#6F7E9A] ${tw.textStart}`}>{card.label}</Text>
-                  <Text className={`mt-1 text-xl font-black text-[#13233F] ${tw.textStart}`}>
+                  <Text className={`text-xs text-[#6F7E9A] ${tw.textStart}`}>
+                    {card.label}
+                  </Text>
+                  <Text
+                    className={`mt-1 text-xl font-black text-[#13233F] ${tw.textStart}`}
+                  >
                     {card.value}
                   </Text>
                 </View>
@@ -409,7 +469,9 @@ export default function BusinessCardsManagementScreen() {
               subtitle="כרטיסיה ישנה לא נספרת במכסה, או שדרגו למסלול מתקדם."
             >
               <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-                <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+                <Text
+                  className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+                >
                   יצירת כרטיסיה חדשה
                 </Text>
                 <TextInput
@@ -456,7 +518,9 @@ export default function BusinessCardsManagementScreen() {
                             : 'border-[#DCE6F7] bg-[#F8FAFF]'
                         }`}
                       >
-                        <Text className="text-xs font-bold text-[#1A2B4A]">{theme.name}</Text>
+                        <Text className="text-xs font-bold text-[#1A2B4A]">
+                          {theme.name}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -471,14 +535,18 @@ export default function BusinessCardsManagementScreen() {
                   {isCreatingProgram ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text className="text-center text-sm font-bold text-white">יצירת כרטיסיה</Text>
+                    <Text className="text-center text-sm font-bold text-white">
+                      יצירת כרטיסיה
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
             </LockedFeatureWrapper>
 
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 כרטיסיות פעילות
               </Text>
               {activePrograms.length === 0 ? (
@@ -491,7 +559,8 @@ export default function BusinessCardsManagementScreen() {
                     key={program.loyaltyProgramId}
                     onPress={() =>
                       router.push({
-                        pathname: '/(authenticated)/(business)/cards/[programId]',
+                        pathname:
+                          '/(authenticated)/(business)/cards/[programId]',
                         params: {
                           programId: program.loyaltyProgramId,
                           businessId: selectedBusinessId ?? '',
@@ -500,20 +569,32 @@ export default function BusinessCardsManagementScreen() {
                     }
                     className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
                   >
-                    <View className={`${tw.flexRow} items-center justify-between`}>
+                    <View
+                      className={`${tw.flexRow} items-center justify-between`}
+                    >
                       <View className="rounded-full bg-[#EAF1FF] px-3 py-1">
-                        <Text className="text-[11px] font-bold text-[#2756C5]">פעילה</Text>
+                        <Text className="text-[11px] font-bold text-[#2756C5]">
+                          פעילה
+                        </Text>
                       </View>
-                      <Text className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}>
+                      <Text
+                        className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}
+                      >
                         {program.title}
                       </Text>
                     </View>
-                    <Text className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}>
-                      הטבה: {program.rewardName} · ניקובים: {formatNumber(program.maxStamps)}
+                    <Text
+                      className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}
+                    >
+                      הטבה: {program.rewardName} · ניקובים:{' '}
+                      {formatNumber(program.maxStamps)}
                     </Text>
-                    <Text className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}>
-                      לקוחות פעילים: {formatNumber(program.metrics.activeMembers)} · מימושים 30 יום:{' '}
-                      {formatNumber(program.metrics.redemptions30d)}
+                    <Text
+                      className={`mt-1 text-xs text-[#62748B] ${tw.textStart}`}
+                    >
+                      לקוחות פעילים:{' '}
+                      {formatNumber(program.metrics.activeMembers)} · מימושים 30
+                      יום: {formatNumber(program.metrics.redemptions30d)}
                     </Text>
                   </TouchableOpacity>
                 ))
@@ -521,7 +602,9 @@ export default function BusinessCardsManagementScreen() {
             </View>
 
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 כרטיסיות ישנות (ארכיון)
               </Text>
               {archivedPrograms.length === 0 ? (
@@ -534,7 +617,8 @@ export default function BusinessCardsManagementScreen() {
                     key={program.loyaltyProgramId}
                     onPress={() =>
                       router.push({
-                        pathname: '/(authenticated)/(business)/cards/[programId]',
+                        pathname:
+                          '/(authenticated)/(business)/cards/[programId]',
                         params: {
                           programId: program.loyaltyProgramId,
                           businessId: selectedBusinessId ?? '',
@@ -543,16 +627,25 @@ export default function BusinessCardsManagementScreen() {
                     }
                     className="rounded-2xl border border-[#E3E9FF] bg-[#F9FAFB] p-4"
                   >
-                    <View className={`${tw.flexRow} items-center justify-between`}>
+                    <View
+                      className={`${tw.flexRow} items-center justify-between`}
+                    >
                       <View className="rounded-full bg-[#EEF2F7] px-3 py-1">
-                        <Text className="text-[11px] font-bold text-[#64748B]">ישנה</Text>
+                        <Text className="text-[11px] font-bold text-[#64748B]">
+                          ישנה
+                        </Text>
                       </View>
-                      <Text className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}>
+                      <Text
+                        className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}
+                      >
                         {program.title}
                       </Text>
                     </View>
-                    <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                      לקוחות פעילים: {formatNumber(program.metrics.activeMembers)}
+                    <Text
+                      className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                    >
+                      לקוחות פעילים:{' '}
+                      {formatNumber(program.metrics.activeMembers)}
                     </Text>
                   </TouchableOpacity>
                 ))
@@ -562,12 +655,15 @@ export default function BusinessCardsManagementScreen() {
         ) : (
           <View className="mt-5 gap-4">
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 תבניות מהירות
               </Text>
               <View className={`${tw.flexRow} flex-wrap gap-2`}>
                 {CAMPAIGN_TEMPLATES.map((template) => {
-                  const isLoading = isWorkingCampaignId === `create-${template.type}`;
+                  const isLoading =
+                    isWorkingCampaignId === `create-${template.type}`;
                   return (
                     <TouchableOpacity
                       key={template.type}
@@ -577,12 +673,21 @@ export default function BusinessCardsManagementScreen() {
                       }}
                       className="w-[48.5%] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-3"
                     >
-                      <Text className={`text-xs text-[#5B6475] ${tw.textStart}`}>{template.subtitle}</Text>
-                      <Text className={`mt-1 text-sm font-black text-[#142743] ${tw.textStart}`}>
+                      <Text
+                        className={`text-xs text-[#5B6475] ${tw.textStart}`}
+                      >
+                        {template.subtitle}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-sm font-black text-[#142743] ${tw.textStart}`}
+                      >
                         {template.icon} {template.title}
                       </Text>
                       {isLoading ? (
-                        <ActivityIndicator color="#2F6BFF" style={{ marginTop: 8 }} />
+                        <ActivityIndicator
+                          color="#2F6BFF"
+                          style={{ marginTop: 8 }}
+                        />
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -591,7 +696,9 @@ export default function BusinessCardsManagementScreen() {
             </View>
 
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 טיוטות וקמפיינים
               </Text>
               {campaigns.length === 0 ? (
@@ -600,55 +707,93 @@ export default function BusinessCardsManagementScreen() {
                 </Text>
               ) : (
                 campaigns.map((campaign) => {
-                  const isBusy = isWorkingCampaignId === String(campaign.campaignId);
+                  const isBusy =
+                    isWorkingCampaignId === String(campaign.campaignId);
                   return (
                     <View
                       key={campaign.campaignId}
                       className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4 gap-2"
                     >
-                      <View className={`${tw.flexRow} items-center justify-between`}>
+                      <View
+                        className={`${tw.flexRow} items-center justify-between`}
+                      >
                         <View
                           className={`rounded-full px-3 py-1 ${
-                            campaign.status === 'sent' ? 'bg-[#DCFCE7]' : 'bg-[#EAF1FF]'
+                            campaign.status === 'sent'
+                              ? 'bg-[#DCFCE7]'
+                              : 'bg-[#EAF1FF]'
                           }`}
                         >
                           <Text
                             className={`text-[11px] font-bold ${
-                              campaign.status === 'sent' ? 'text-[#166534]' : 'text-[#2756C5]'
+                              campaign.status === 'sent'
+                                ? 'text-[#166534]'
+                                : 'text-[#2756C5]'
                             }`}
                           >
                             {campaign.status === 'sent' ? 'נשלח' : 'טיוטה'}
                           </Text>
                         </View>
-                        <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
+                        <Text
+                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                        >
                           {campaign.title}
                         </Text>
                       </View>
-                      <Text className={`text-xs text-[#62748B] ${tw.textStart}`}>
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
                         {campaign.messageTitle}
                       </Text>
-                      <Text className={`text-xs text-[#62748B] ${tw.textStart}`}>
-                        קהל משוער: {formatNumber(campaign.estimatedAudience)} · נוצר:{' '}
-                        {formatDate(campaign.createdAt)}
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
+                        קהל משוער: {formatNumber(campaign.estimatedAudience)} ·
+                        נוצר: {formatDate(campaign.createdAt)}
                       </Text>
                       {campaign.status === 'draft' ? (
-                        <TouchableOpacity
-                          disabled={!canManagePrograms || isBusy}
-                          onPress={() => {
-                            void handleSendCampaign(campaign.campaignId);
-                          }}
-                          className={`rounded-xl px-3 py-2 ${
-                            canManagePrograms && !isBusy ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
-                          }`}
-                        >
-                          {isBusy ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                          ) : (
-                            <Text className="text-center text-xs font-bold text-white">
-                              שלח עכשיו
+                        <View className={`${tw.flexRow} gap-2`}>
+                          <TouchableOpacity
+                            disabled={!canManagePrograms || isBusy}
+                            onPress={() =>
+                              handleEditCampaign(campaign.campaignId)
+                            }
+                            className={`flex-1 rounded-xl border px-3 py-2 ${
+                              canManagePrograms && !isBusy
+                                ? 'border-[#2F6BFF] bg-white'
+                                : 'border-[#CBD5E1] bg-[#F1F5F9]'
+                            }`}
+                          >
+                            <Text
+                              className={`text-center text-xs font-bold ${
+                                canManagePrograms && !isBusy
+                                  ? 'text-[#2F6BFF]'
+                                  : 'text-[#94A3B8]'
+                              }`}
+                            >
+                              עריכה
                             </Text>
-                          )}
-                        </TouchableOpacity>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            disabled={!canManagePrograms || isBusy}
+                            onPress={() => {
+                              void handleSendCampaign(campaign.campaignId);
+                            }}
+                            className={`flex-1 rounded-xl px-3 py-2 ${
+                              canManagePrograms && !isBusy
+                                ? 'bg-[#2F6BFF]'
+                                : 'bg-[#CBD5E1]'
+                            }`}
+                          >
+                            {isBusy ? (
+                              <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                              <Text className="text-center text-xs font-bold text-white">
+                                שלח עכשיו
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       ) : null}
                     </View>
                   );

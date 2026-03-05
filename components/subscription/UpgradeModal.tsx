@@ -13,9 +13,9 @@ import {
 
 import {
   BILLING_PERIOD_LABELS,
+  type BillingPeriod,
   PAYMENT_SYSTEM_ENABLED,
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
-  type BillingPeriod,
 } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
@@ -31,7 +31,11 @@ type UpgradeModalProps = {
   businessId: Id<'businesses'> | null;
   initialPlan?: 'pro' | 'unlimited';
   initialBillingPeriod?: BillingPeriod;
-  reason?: 'feature_locked' | 'limit_reached' | 'subscription_inactive' | string;
+  reason?:
+    | 'feature_locked'
+    | 'limit_reached'
+    | 'subscription_inactive'
+    | string;
   featureKey?: string;
   onClose: () => void;
   onSuccess?: () => void;
@@ -103,7 +107,8 @@ export function UpgradeModal({
   }, [planCatalog]);
 
   const selectedPlanCard =
-    paidPlanCards.find((plan) => plan.plan === selectedPlan) ?? paidPlanCards[0];
+    paidPlanCards.find((plan) => plan.plan === selectedPlan) ??
+    paidPlanCards[0];
   const reasonCopy =
     PLAN_REASON_COPY[reason] ?? 'שדרגו כדי לפתוח את הפיצ׳ר לעסק שלכם.';
 
@@ -138,7 +143,8 @@ export function UpgradeModal({
         plan: selectedPlan,
         status: 'active',
         period: billingPeriod,
-        provider: PAYMENT_SYSTEM_ENABLED && isConfigured ? 'revenuecat' : 'mock',
+        provider:
+          PAYMENT_SYSTEM_ENABLED && isConfigured ? 'revenuecat' : 'mock',
       });
 
       onSuccess?.();
@@ -154,7 +160,7 @@ export function UpgradeModal({
     <Modal
       visible={visible}
       animationType="slide"
-      transparent
+      transparent={true}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
@@ -207,14 +213,20 @@ export function UpgradeModal({
                 <Pressable
                   key={plan.plan}
                   onPress={() => setSelectedPlan(plan.plan)}
-                  style={[styles.planCard, active ? styles.planCardActive : null]}
+                  style={[
+                    styles.planCard,
+                    active ? styles.planCardActive : null,
+                  ]}
                 >
                   <View style={styles.planHeader}>
                     <Text style={styles.planName}>{plan.label}</Text>
                     <Text style={styles.planPrice}>₪{price}</Text>
                   </View>
                   <Text style={styles.planMeta}>
-                    כרטיסים: {plan.limits.maxCards === -1 ? 'ללא הגבלה' : plan.limits.maxCards}
+                    כרטיסים:{' '}
+                    {plan.limits.maxCards === -1
+                      ? 'ללא הגבלה'
+                      : plan.limits.maxCards}
                   </Text>
                   <Text style={styles.planMeta}>
                     קמפייני AI לחודש:{' '}
@@ -228,7 +240,10 @@ export function UpgradeModal({
           </ScrollView>
 
           <Pressable
-            style={[styles.upgradeButton, isSubmitting ? styles.disabled : null]}
+            style={[
+              styles.upgradeButton,
+              isSubmitting ? styles.disabled : null,
+            ]}
             onPress={handleUpgrade}
             disabled={isSubmitting}
           >

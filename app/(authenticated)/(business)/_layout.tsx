@@ -16,6 +16,7 @@ const TEXT = {
   analytics: 'דוחות',
   scanCustomer: 'סרוק לקוח',
   customers: 'לקוחות',
+  marketing: '\u05e9\u05d9\u05d5\u05d5\u05e7',
   settings: 'הגדרות',
 };
 
@@ -134,9 +135,15 @@ export default function BusinessTabsLayout() {
   ) as string[];
   const currentLeafSegment =
     segmentStrings[segmentStrings.length - 1] ?? 'dashboard';
+  const isCardsRoute = segmentStrings.includes('cards');
+  const isCustomersRoute = segmentStrings.includes('customers');
   const activeTabName = DASHBOARD_ROUTE_NAMES.has(currentLeafSegment)
     ? 'dashboard'
-    : currentLeafSegment;
+    : isCardsRoute
+      ? 'cards'
+      : isCustomersRoute
+        ? 'analytics'
+        : currentLeafSegment;
 
   return (
     <Tabs
@@ -189,15 +196,15 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="customers"
+        name="cards"
         options={{
-          title: TEXT.customers,
+          title: TEXT.marketing,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.customers}
-              icon="people-outline"
-              isActive={activeTabName === 'customers'}
+              title={TEXT.marketing}
+              icon="megaphone-outline"
+              isActive={activeTabName === 'cards'}
             />
           ),
         }}
@@ -297,7 +304,7 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="cards"
+        name="customers"
         options={{
           href: null,
         }}

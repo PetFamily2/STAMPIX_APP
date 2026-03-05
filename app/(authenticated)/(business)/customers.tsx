@@ -29,6 +29,12 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 
 type Segment = 'frequent' | 'stable' | 'dropoff' | 'risk';
+type ReportsTopTab = 'reports' | 'customers';
+
+const TOP_TABS: Array<{ key: ReportsTopTab; label: string }> = [
+  { key: 'reports', label: '\u05d3\u05d5\u05d7\u05d5\u05ea' },
+  { key: 'customers', label: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea' },
+];
 
 const SEGMENT_LABELS: Record<Segment, string> = {
   frequent: 'תדיר',
@@ -64,12 +70,15 @@ function formatLastVisit(daysSinceLastVisit: number) {
 export default function BusinessCustomersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, tab } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    tab?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const activeTopTab: ReportsTopTab =
+    tab === 'reports' ? 'reports' : 'customers';
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [selectedBusinessId, setSelectedBusinessId] =
@@ -106,9 +115,9 @@ export default function BusinessCustomersScreen() {
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
   >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
 
   const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
   const [riskDays, setRiskDays] = useState('');
@@ -121,7 +130,10 @@ export default function BusinessCustomersScreen() {
       if (!businesses.length) {
         return null;
       }
-      if (current && businesses.some((business) => business.businessId === current)) {
+      if (
+        current &&
+        businesses.some((business) => business.businessId === current)
+      ) {
         return current;
       }
       return businesses[0].businessId;
@@ -138,6 +150,13 @@ export default function BusinessCustomersScreen() {
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   useEffect(() => {
+    if (activeTopTab !== 'reports') {
+      return;
+    }
+    router.replace('/(authenticated)/(business)/analytics');
+  }, [activeTopTab, router]);
+
+  useEffect(() => {
     const config = snapshot?.segmentationConfig ?? segmentationConfig;
     if (!config || isThresholdModalVisible) {
       return;
@@ -145,12 +164,19 @@ export default function BusinessCustomersScreen() {
     setRiskDays(String(config.riskDaysWithoutVisit));
     setFrequentVisits(String(config.frequentVisitsLast30Days));
     setDropPercent(String(config.dropPercentThreshold));
-  }, [segmentationConfig, snapshot?.segmentationConfig, isThresholdModalVisible]);
+  }, [
+    segmentationConfig,
+    snapshot?.segmentationConfig,
+    isThresholdModalVisible,
+  ]);
 
   const openUpgrade = (
     featureKey: string,
     requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive' = 'feature_locked'
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
   ) => {
     setUpgradeFeatureKey(featureKey);
     setUpgradeReason(reason);
@@ -251,13 +277,49 @@ export default function BusinessCustomersScreen() {
           subtitle="סקירה על לקוחות פעילים, סיכון ותובנות AI"
           titleAccessory={
             <TouchableOpacity
-              onPress={() => router.replace('/(authenticated)/(business)/dashboard')}
+              onPress={() =>
+                router.replace('/(authenticated)/(business)/dashboard')
+              }
               className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
             >
               <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
             </TouchableOpacity>
           }
         />
+
+        <View
+          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
+        >
+          {TOP_TABS.map((topTab) => {
+            const isActive = activeTopTab === topTab.key;
+            return (
+              <TouchableOpacity
+                key={topTab.key}
+                onPress={() => {
+                  if (topTab.key === 'reports') {
+                    router.replace('/(authenticated)/(business)/analytics');
+                    return;
+                  }
+                  router.replace({
+                    pathname: '/(authenticated)/(business)/customers',
+                    params: { tab: 'customers' },
+                  });
+                }}
+                className={`flex-1 rounded-full py-2.5 ${
+                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
+                }`}
+              >
+                <Text
+                  className={`text-center text-sm font-extrabold ${
+                    isActive ? 'text-white' : 'text-[#51617F]'
+                  }`}
+                >
+                  {topTab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-white p-4">
           <Text
@@ -315,7 +377,9 @@ export default function BusinessCustomersScreen() {
                     לקוחות פעילים
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#0F294B]">
-                    {smartGate.isLocked ? '--' : formatNumber(summary.activeCustomers)}
+                    {smartGate.isLocked
+                      ? '--'
+                      : formatNumber(summary.activeCustomers)}
                   </Text>
                 </View>
                 <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#FFF6F6] p-3">
@@ -323,7 +387,9 @@ export default function BusinessCustomersScreen() {
                     לקוחות בסיכון
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#B42318]">
-                    {smartGate.isLocked ? '--' : formatNumber(summary.riskCount)}
+                    {smartGate.isLocked
+                      ? '--'
+                      : formatNumber(summary.riskCount)}
                   </Text>
                 </View>
                 <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#F0FDF4] p-3">
@@ -331,7 +397,9 @@ export default function BusinessCustomersScreen() {
                     לקוחות תדירים
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#166534]">
-                    {smartGate.isLocked ? '--' : formatNumber(summary.frequentCount)}
+                    {smartGate.isLocked
+                      ? '--'
+                      : formatNumber(summary.frequentCount)}
                   </Text>
                 </View>
                 <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#FFF7ED] p-3">
@@ -339,7 +407,9 @@ export default function BusinessCustomersScreen() {
                     לקוחות בירידה
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#C2410C]">
-                    {smartGate.isLocked ? '--' : formatNumber(summary.dropoffCount)}
+                    {smartGate.isLocked
+                      ? '--'
+                      : formatNumber(summary.dropoffCount)}
                   </Text>
                 </View>
               </View>
@@ -369,15 +439,24 @@ export default function BusinessCustomersScreen() {
                   <Ionicons name="sparkles" size={18} color="#7EB1FF" />
                 </View>
                 <View className="flex-1 items-end">
-                  <Text className="text-lg font-black text-[#7EB1FF]">תובנות AI</Text>
+                  <Text className="text-lg font-black text-[#7EB1FF]">
+                    תובנות AI
+                  </Text>
                   {smartGate.isLocked ? (
-                    <Text className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}>
+                    <Text
+                      className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}
+                    >
                       שדרגו למסלול Pro כדי לראות תובנות חכמות בזמן אמת.
                     </Text>
                   ) : snapshot === undefined ? (
-                    <ActivityIndicator color="#FFFFFF" style={{ marginTop: 12 }} />
+                    <ActivityIndicator
+                      color="#FFFFFF"
+                      style={{ marginTop: 12 }}
+                    />
                   ) : snapshot.insights.length === 0 ? (
-                    <Text className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}>
+                    <Text
+                      className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}
+                    >
                       אין כרגע תובנות להצגה.
                     </Text>
                   ) : (
@@ -467,23 +546,33 @@ export default function BusinessCustomersScreen() {
                 >
                   <View className={`${tw.flexRow} items-start justify-between`}>
                     <View className="items-end">
-                      <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
+                      <Text
+                        className={`text-xs text-[#94A3B8] ${tw.textStart}`}
+                      >
                         ביקור אחרון
                       </Text>
-                      <Text className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}>
+                      <Text
+                        className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
+                      >
                         {formatLastVisit(customer.daysSinceLastVisit)}
                       </Text>
-                      <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                      <Text
+                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
                         30 ימים: {customer.visitsLast30} | 30 קודמים:{' '}
                         {customer.visitsPrev30}
                       </Text>
                     </View>
 
                     <View className="flex-1 items-end px-3">
-                      <Text className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}>
+                      <Text
+                        className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
+                      >
                         {customer.name}
                       </Text>
-                      <Text className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}>
+                      <Text
+                        className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
+                      >
                         {customer.phone ?? 'ללא טלפון'}
                       </Text>
                       <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
@@ -496,14 +585,20 @@ export default function BusinessCustomersScreen() {
                         </View>
                         {customer.isVip ? (
                           <View className="rounded-full bg-indigo-100 px-3 py-1">
-                            <Text className="text-xs font-bold text-indigo-700">VIP</Text>
+                            <Text className="text-xs font-bold text-indigo-700">
+                              VIP
+                            </Text>
                           </View>
                         ) : null}
                       </View>
                     </View>
 
                     <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
-                      <Ionicons name="person-outline" size={20} color="#2F6BFF" />
+                      <Ionicons
+                        name="person-outline"
+                        size={20}
+                        color="#2F6BFF"
+                      />
                     </View>
                   </View>
                 </View>
@@ -529,10 +624,15 @@ export default function BusinessCustomersScreen() {
         onRequestClose={() => setIsThresholdModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/40">
-          <Pressable style={{ flex: 1 }} onPress={() => setIsThresholdModalVisible(false)} />
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => setIsThresholdModalVisible(false)}
+          />
           <View className="rounded-t-3xl bg-white px-5 pb-6 pt-4">
             <View className="h-1.5 w-12 self-center rounded-full bg-[#CBD5E1]" />
-            <Text className={`mt-4 text-xl font-black text-[#0F172A] ${tw.textStart}`}>
+            <Text
+              className={`mt-4 text-xl font-black text-[#0F172A] ${tw.textStart}`}
+            >
               התאמת ספי סגמנטציה
             </Text>
             <Text className={`mt-1 text-sm text-[#64748B] ${tw.textStart}`}>
@@ -541,7 +641,9 @@ export default function BusinessCustomersScreen() {
 
             <View className="mt-4 gap-3">
               <View>
-                <Text className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+                <Text
+                  className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
                   סף סיכון (ימים ללא ביקור)
                 </Text>
                 <TextInput
@@ -553,7 +655,9 @@ export default function BusinessCustomersScreen() {
               </View>
 
               <View>
-                <Text className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+                <Text
+                  className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
                   סף לקוח תדיר (ביקורים ב-30 יום)
                 </Text>
                 <TextInput
@@ -565,7 +669,9 @@ export default function BusinessCustomersScreen() {
               </View>
 
               <View>
-                <Text className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+                <Text
+                  className={`mb-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
                   אחוז ירידה ל-Dropoff
                 </Text>
                 <TextInput

@@ -21,10 +21,7 @@ export type FeatureKey =
   | 'canUseSmartAnalytics'
   | 'canUseAdvancedSegmentation';
 
-export type LimitKey =
-  | 'maxCards'
-  | 'maxCustomers'
-  | 'maxAiCampaignsPerMonth';
+export type LimitKey = 'maxCards' | 'maxCustomers' | 'maxAiCampaignsPerMonth';
 
 type FeatureConfig = Record<FeatureKey, boolean>;
 type LimitConfig = Record<LimitKey, number>;
@@ -69,7 +66,10 @@ export type BusinessEntitlements = {
   };
   requiredPlanMap: {
     byFeature: Record<FeatureKey, BusinessPlan>;
-    byLimitFromCurrentPlan: Record<BusinessPlan, Record<LimitKey, BusinessPlan | null>>;
+    byLimitFromCurrentPlan: Record<
+      BusinessPlan,
+      Record<LimitKey, BusinessPlan | null>
+    >;
   };
 };
 
@@ -181,7 +181,10 @@ const SUBSCRIPTION_STATUS_ORDER: BusinessSubscriptionStatus[] = [
   'canceled',
 ];
 
-const ACTIVE_PAID_STATUSES: BusinessSubscriptionStatus[] = ['active', 'trialing'];
+const ACTIVE_PAID_STATUSES: BusinessSubscriptionStatus[] = [
+  'active',
+  'trialing',
+];
 
 function throwEntitlementError(payload: EntitlementErrorPayload): never {
   throw new ConvexError(payload);
@@ -435,7 +438,10 @@ export async function canUseFeature(
   businessId: Id<'businesses'>,
   featureKey: FeatureKey
 ) {
-  const entitlements = await getBusinessEntitlementsForBusinessId(ctx, businessId);
+  const entitlements = await getBusinessEntitlementsForBusinessId(
+    ctx,
+    businessId
+  );
   if (!entitlements.isSubscriptionActive && entitlements.plan !== 'starter') {
     return false;
   }
@@ -447,7 +453,10 @@ export async function assertEntitlement(
   businessId: Id<'businesses'>,
   requirement: EntitlementRequirement
 ) {
-  const entitlements = await getBusinessEntitlementsForBusinessId(ctx, businessId);
+  const entitlements = await getBusinessEntitlementsForBusinessId(
+    ctx,
+    businessId
+  );
   assertEntitlementFromSnapshot(entitlements, requirement);
   return entitlements;
 }
@@ -462,8 +471,9 @@ export async function countActiveCustomersForBusiness(
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
 
-  return new Set(memberships.map((membership: any) => String(membership.userId)))
-    .size;
+  return new Set(
+    memberships.map((membership: any) => String(membership.userId))
+  ).size;
 }
 
 export async function reserveAiCampaignQuota(
@@ -471,7 +481,10 @@ export async function reserveAiCampaignQuota(
   businessId: Id<'businesses'>
 ) {
   const business = await getBusinessOrThrow(ctx, businessId);
-  const entitlements = buildBusinessEntitlementsFromBusiness(business, Date.now());
+  const entitlements = buildBusinessEntitlementsFromBusiness(
+    business,
+    Date.now()
+  );
   assertEntitlementFromSnapshot(entitlements, {
     featureKey: 'canUseMarketingHubAI',
     limitKey: 'maxAiCampaignsPerMonth',
@@ -523,7 +536,11 @@ export const getPlanCatalog = query({
 export const syncBusinessSubscription = mutation({
   args: {
     businessId: v.id('businesses'),
-    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('unlimited')),
+    plan: v.union(
+      v.literal('starter'),
+      v.literal('pro'),
+      v.literal('unlimited')
+    ),
     status: v.optional(
       v.union(
         v.literal('active'),
@@ -547,7 +564,8 @@ export const syncBusinessSubscription = mutation({
     const monthKey = getCurrentMonthKey(now);
     const plan = args.plan;
     const status = normalizeSubscriptionStatus(args.status, plan);
-    const billingPeriod = args.period ?? (plan === 'starter' ? null : 'monthly');
+    const billingPeriod =
+      args.period ?? (plan === 'starter' ? null : 'monthly');
     const startAt = args.startAt ?? now;
     const endAt = args.endAt ?? null;
     const provider = args.provider ?? (plan === 'starter' ? 'manual' : 'mock');
@@ -572,7 +590,9 @@ export const syncBusinessSubscription = mutation({
 
     const existingSubscription = await ctx.db
       .query('subscriptions')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
+      .withIndex('by_businessId', (q: any) =>
+        q.eq('businessId', args.businessId)
+      )
       .first();
 
     if (existingSubscription) {

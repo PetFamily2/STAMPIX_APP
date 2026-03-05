@@ -19,13 +19,7 @@ import BrandPageHeader from '@/components/BrandPageHeader';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
-import {
-  Card,
-  ListRow,
-  PrimaryButton,
-  SectionHeader,
-  StatCard,
-} from '@/components/ui';
+import { Card, ListRow, SectionHeader, StatCard } from '@/components/ui';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -64,12 +58,6 @@ type QuickShortcutTile = {
 
 const ACTION_CARDS = [
   {
-    id: 'card-settings',
-    title: 'הגדרות כרטיס והטבות',
-    subtitle: 'עריכת פרסים, ניקובים ומיתוג',
-    icon: '🎫',
-  },
-  {
     id: 'team',
     title: 'ניהול צוות עובדים',
     subtitle: 'הרשאות, משמרות וניטור פעילות',
@@ -81,9 +69,9 @@ const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
   {
     id: 'customers',
     title: 'לקוחות',
-    subtitle: 'ניהול לקוחות ותובנות',
+    subtitle: 'מסך לקוחות מלא',
     icon: 'people-outline',
-    route: '/merchant/customers',
+    route: '/(authenticated)/(business)/customers?tab=customers',
   },
   {
     id: 'business-analytics',
@@ -91,6 +79,34 @@ const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
     subtitle: 'ניתוח נתוני העסק',
     icon: 'bar-chart-outline',
     route: '/(authenticated)/(business)/analytics',
+  },
+  {
+    id: 'scanner',
+    title: 'סריקת לקוח',
+    subtitle: 'סריקה, ניקוב ומימוש',
+    icon: 'scan-outline',
+    route: '/(authenticated)/(business)/scanner',
+  },
+  {
+    id: 'cards-management',
+    title: 'כרטיסים וקמפיינים',
+    subtitle: 'ניהול כרטיסים והטבות',
+    icon: 'ticket-outline',
+    route: '/(authenticated)/(business)/cards',
+  },
+  {
+    id: 'business-settings',
+    title: 'הגדרות מערכת',
+    subtitle: 'העדפות חשבון ותמיכה',
+    icon: 'settings-outline',
+    route: '/(authenticated)/(business)/settings',
+  },
+  {
+    id: 'business-qr',
+    title: 'QR עסק',
+    subtitle: 'קוד הצטרפות ללקוחות',
+    icon: 'qr-code-outline',
+    route: '/merchant/qr',
   },
   {
     id: 'store-settings',
@@ -139,7 +155,8 @@ export default function MerchantDashboardScreen() {
     (b) => b.businessId === selectedBusinessId
   );
   const isOwner = selectedBiz?.staffRole === 'owner';
-  const { entitlements, gate, limitStatus } = useEntitlements(selectedBusinessId);
+  const { entitlements, gate, limitStatus } =
+    useEntitlements(selectedBusinessId);
   const teamGate = gate('canManageTeam');
   const marketingGate = gate('canUseMarketingHubAI');
   const aiCampaignLimit = limitStatus('maxAiCampaignsPerMonth');
@@ -150,9 +167,9 @@ export default function MerchantDashboardScreen() {
   const createAiCampaign = useMutation(api.campaigns.createAiCampaign);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
@@ -162,7 +179,10 @@ export default function MerchantDashboardScreen() {
   const openUpgrade = (
     featureKey: string,
     requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive' = 'feature_locked'
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
   ) => {
     setUpgradeFeatureKey(featureKey);
     setUpgradeReason(reason);
@@ -229,11 +249,20 @@ export default function MerchantDashboardScreen() {
   ];
 
   const aiUsageUsed =
-    aiCampaignsData?.usage?.used ?? entitlements?.usage.aiCampaignsUsedThisMonth ?? 0;
+    aiCampaignsData?.usage?.used ??
+    entitlements?.usage.aiCampaignsUsedThisMonth ??
+    0;
   const aiUsageLimit =
-    aiCampaignsData?.usage?.limit ?? entitlements?.limits.maxAiCampaignsPerMonth ?? 0;
+    aiCampaignsData?.usage?.limit ??
+    entitlements?.limits.maxAiCampaignsPerMonth ??
+    0;
   const aiUsageLabel =
-    aiUsageLimit === -1 ? `${aiUsageUsed}/ללא הגבלה` : `${aiUsageUsed}/${aiUsageLimit}`;
+    aiUsageLimit === -1
+      ? `${aiUsageUsed}/ללא הגבלה`
+      : `${aiUsageUsed}/${aiUsageLimit}`;
+  const visibleActionCards = ACTION_CARDS.filter(
+    (action) => action.id !== 'team' || isOwner
+  );
 
   const handleUpgradeFromBanner = () => {
     openUpgrade('canUseMarketingHubAI', 'pro', 'feature_locked');
@@ -275,7 +304,10 @@ export default function MerchantDashboardScreen() {
               ? 'subscription_inactive'
               : 'feature_locked'
         );
-        Alert.alert('שדרוג נדרש', entitlementErrorToHebrewMessage(entitlementError));
+        Alert.alert(
+          'שדרוג נדרש',
+          entitlementErrorToHebrewMessage(entitlementError)
+        );
       } else {
         Alert.alert('שגיאה', 'לא הצלחנו ליצור קמפיין AI. נסו שוב.');
       }
@@ -346,7 +378,8 @@ export default function MerchantDashboardScreen() {
                   שדרוג למסלול מתקדם
                 </Text>
                 <Text className={`mt-1 text-xs text-[#4F6387] ${tw.textStart}`}>
-                  המסלול הנוכחי: {entitlements?.plan
+                  המסלול הנוכחי:{' '}
+                  {entitlements?.plan
                     ? BUSINESS_PLAN_LABELS[entitlements.plan]
                     : 'Starter'}
                 </Text>
@@ -361,19 +394,6 @@ export default function MerchantDashboardScreen() {
               </TouchableOpacity>
             </View>
           </Card>
-        </View>
-
-        <View className="gap-3 py-6">
-          <PrimaryButton
-            title="סריקת לקוח"
-            onPress={() => router.push('/(authenticated)/(business)/scanner')}
-          />
-          <TouchableOpacity
-            onPress={() => router.push('/merchant/qr')}
-            className="items-center justify-center rounded-2xl border border-[#A9C7FF] bg-[#EEF3FF] px-4 py-3"
-          >
-            <Text className="text-sm font-bold text-[#2F6BFF]">QR עסק</Text>
-          </TouchableOpacity>
         </View>
 
         <View>
@@ -445,9 +465,9 @@ export default function MerchantDashboardScreen() {
           </View>
         )}
 
-        <View className="mt-6 gap-3">
-          {ACTION_CARDS.filter((action) => action.id !== 'team' || isOwner).map(
-            (action) => {
+        {visibleActionCards.length > 0 && (
+          <View className="mt-6 gap-3">
+            {visibleActionCards.map((action) => {
               const isTeamAction = action.id === 'team';
               const isLocked = isTeamAction && teamGate.isLocked;
               const card = (
@@ -467,10 +487,6 @@ export default function MerchantDashboardScreen() {
                       }
                       router.push('/(authenticated)/(business)/team');
                       return;
-                    }
-
-                    if (action.id === 'card-settings') {
-                      router.push('/(authenticated)/(business)/cards');
                     }
                   }}
                   className={`${tw.flexRow} items-center justify-between rounded-[26px] border border-[#E3E9FF] bg-white px-5 py-5 shadow-sm active:scale-[0.98]`}
@@ -503,7 +519,7 @@ export default function MerchantDashboardScreen() {
               return (
                 <LockedFeatureWrapper
                   key={action.id}
-                  isLocked
+                  isLocked={true}
                   requiredPlan={teamGate.requiredPlan}
                   onUpgradeClick={() =>
                     openUpgrade(
@@ -520,9 +536,9 @@ export default function MerchantDashboardScreen() {
                   {card}
                 </LockedFeatureWrapper>
               );
-            }
-          )}
-        </View>
+            })}
+          </View>
+        )}
 
         <View className="mt-6">
           <LockedFeatureWrapper
@@ -581,7 +597,8 @@ export default function MerchantDashboardScreen() {
 
           {!marketingGate.isLocked && (
             <Text className={`mt-2 text-xs text-[#5B6475] ${tw.textStart}`}>
-              נשארו {aiCampaignLimit.remaining ?? 'ללא הגבלה'} קמפייני AI בחודש הנוכחי.
+              נשארו {aiCampaignLimit.remaining ?? 'ללא הגבלה'} קמפייני AI בחודש
+              הנוכחי.
             </Text>
           )}
         </View>

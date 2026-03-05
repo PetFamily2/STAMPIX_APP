@@ -13,8 +13,7 @@ const TEXT = {
   title: 'הטבות והודעות',
   subtitle: 'כאן תראו מבצעים ועדכונים שנשלחו אליכם מהעסקים',
   emptyTitle: 'עדיין אין הודעות פעילות',
-  emptySubtitle:
-    'כשתישלח אליכם הודעה עסקית או מבצע, היא תופיע כאן אוטומטית.',
+  emptySubtitle: 'כשתישלח אליכם הודעה עסקית או מבצע, היא תופיע כאן אוטומטית.',
 };
 
 function formatDateTime(value: number) {
@@ -62,7 +61,9 @@ export default function RewardsScreen() {
             {inbox.map((item) => (
               <View key={item.messageId} style={styles.messageCard}>
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>{formatDateTime(item.createdAt)}</Text>
+                  <Text style={styles.metaText}>
+                    {formatDateTime(item.createdAt)}
+                  </Text>
                   <Text style={styles.badge}>{item.businessName}</Text>
                 </View>
                 <Text style={styles.messageTitle}>{item.title}</Text>

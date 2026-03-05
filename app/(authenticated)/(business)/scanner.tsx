@@ -142,9 +142,9 @@ export default function ScannerScreen() {
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
   >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
 
   const canScan = Boolean(selectedBusiness && selectedProgram);
   const isBusy = isResolving || isStamping || isRedeeming;
@@ -262,7 +262,9 @@ export default function ScannerScreen() {
       if (entitlementError) {
         setScanError(entitlementErrorToHebrewMessage(entitlementError));
         openUpgrade(
-          entitlementError.featureKey ?? entitlementError.limitKey ?? 'maxCustomers',
+          entitlementError.featureKey ??
+            entitlementError.limitKey ??
+            'maxCustomers',
           entitlementError.requiredPlan ?? 'pro',
           entitlementError.code === 'PLAN_LIMIT_REACHED'
             ? 'limit_reached'
@@ -754,5 +756,3 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
-
-

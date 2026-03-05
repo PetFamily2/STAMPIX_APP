@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  REQUIRED_PLAN_BY_FEATURE,
   assertEntitlement,
   getCurrentMonthKey,
   getRequiredPlanForLimit,
+  REQUIRED_PLAN_BY_FEATURE,
   reserveAiCampaignQuota,
 } from '../entitlements';
 

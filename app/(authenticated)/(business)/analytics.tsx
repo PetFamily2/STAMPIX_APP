@@ -26,6 +26,12 @@ import { tw } from '@/lib/rtl';
 
 const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 
+type AnalyticsTopTab = 'reports' | 'customers';
+const TOP_TABS: Array<{ key: AnalyticsTopTab; label: string }> = [
+  { key: 'reports', label: '\u05d3\u05d5\u05d7\u05d5\u05ea' },
+  { key: 'customers', label: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea' },
+];
+
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
@@ -51,12 +57,15 @@ function calculateGrowthFromWeekly(weekly?: Array<{ stamps: number }>) {
 export default function BusinessAnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, tab } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    tab?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const activeTopTab: AnalyticsTopTab =
+    tab === 'customers' ? 'customers' : 'reports';
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const [selectedBusinessId, setSelectedBusinessId] =
@@ -94,6 +103,16 @@ export default function BusinessAnalyticsScreen() {
       router.replace('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
+
+  useEffect(() => {
+    if (activeTopTab !== 'customers') {
+      return;
+    }
+    router.replace({
+      pathname: '/(authenticated)/(business)/customers',
+      params: { tab: 'customers' },
+    });
+  }, [activeTopTab, router]);
 
   const { entitlements, gate } = useEntitlements(selectedBusinessId);
   const advancedReportsGate = gate('canSeeAdvancedReports');
@@ -182,6 +201,40 @@ export default function BusinessAnalyticsScreen() {
             </TouchableOpacity>
           }
         />
+
+        <View
+          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
+        >
+          {TOP_TABS.map((topTab) => {
+            const isActive = activeTopTab === topTab.key;
+            return (
+              <TouchableOpacity
+                key={topTab.key}
+                onPress={() => {
+                  if (topTab.key === 'customers') {
+                    router.replace({
+                      pathname: '/(authenticated)/(business)/customers',
+                      params: { tab: 'customers' },
+                    });
+                    return;
+                  }
+                  router.replace('/(authenticated)/(business)/analytics');
+                }}
+                className={`flex-1 rounded-full py-2.5 ${
+                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
+                }`}
+              >
+                <Text
+                  className={`text-center text-sm font-extrabold ${
+                    isActive ? 'text-white' : 'text-[#51617F]'
+                  }`}
+                >
+                  {topTab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-white p-4">
           <Text

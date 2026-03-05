@@ -49,7 +49,8 @@ export default function BusinessTeamScreen() {
   const [selectedBusinessId, setSelectedBusinessId] =
     useState<Id<'businesses'> | null>(null);
   const selectedBusiness = useMemo(
-    () => businesses.find((business) => business.businessId === selectedBusinessId),
+    () =>
+      businesses.find((business) => business.businessId === selectedBusinessId),
     [businesses, selectedBusinessId]
   );
   const isOwner = selectedBusiness?.staffRole === 'owner';
@@ -75,16 +76,19 @@ export default function BusinessTeamScreen() {
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
   >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     setSelectedBusinessId((current) => {
       if (!businesses.length) {
         return null;
       }
-      if (current && businesses.some((business) => business.businessId === current)) {
+      if (
+        current &&
+        businesses.some((business) => business.businessId === current)
+      ) {
         return current;
       }
       return businesses[0].businessId;
@@ -103,7 +107,10 @@ export default function BusinessTeamScreen() {
   const openUpgrade = (
     featureKey: string,
     requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive' = 'feature_locked'
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
   ) => {
     setUpgradeFeatureKey(featureKey);
     setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
@@ -172,7 +179,9 @@ export default function BusinessTeamScreen() {
 
   const inviteSection = (
     <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
-      <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
+      <Text
+        className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+      >
         הזמנת עובד חדש
       </Text>
       <TextInput
@@ -203,14 +212,20 @@ export default function BusinessTeamScreen() {
         {isInviting ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="text-center text-sm font-bold text-white">שליחת הזמנה</Text>
+          <Text className="text-center text-sm font-bold text-white">
+            שליחת הזמנה
+          </Text>
         )}
       </TouchableOpacity>
       {inviteError ? (
-        <Text className={`text-xs text-rose-600 ${tw.textStart}`}>{inviteError}</Text>
+        <Text className={`text-xs text-rose-600 ${tw.textStart}`}>
+          {inviteError}
+        </Text>
       ) : null}
       {inviteSuccess ? (
-        <Text className={`text-xs text-emerald-600 ${tw.textStart}`}>{inviteSuccess}</Text>
+        <Text className={`text-xs text-emerald-600 ${tw.textStart}`}>
+          {inviteSuccess}
+        </Text>
       ) : null}
     </View>
   );
@@ -220,8 +235,12 @@ export default function BusinessTeamScreen() {
       key={`placeholder-${index}`}
       className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
     >
-      <Text className={`text-sm font-bold text-[#475569] ${tw.textStart}`}>עובד לדוגמה</Text>
-      <Text className={`mt-1 text-xs text-[#94A3B8] ${tw.textStart}`}>employee@example.com</Text>
+      <Text className={`text-sm font-bold text-[#475569] ${tw.textStart}`}>
+        עובד לדוגמה
+      </Text>
+      <Text className={`mt-1 text-xs text-[#94A3B8] ${tw.textStart}`}>
+        employee@example.com
+      </Text>
     </View>
   ));
 
@@ -240,7 +259,9 @@ export default function BusinessTeamScreen() {
           subtitle="הזמנת עובדים וניהול הרשאות"
           titleAccessory={
             <TouchableOpacity
-              onPress={() => router.replace('/(authenticated)/(business)/dashboard')}
+              onPress={() =>
+                router.replace('/(authenticated)/(business)/dashboard')
+              }
               className="h-10 w-10 items-center justify-center rounded-full bg-white"
             >
               <Text className="text-lg text-[#1A2B4A]">←</Text>
@@ -249,7 +270,9 @@ export default function BusinessTeamScreen() {
         />
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
-          <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
+          <Text
+            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+          >
             עסק נבחר
           </Text>
           <View className={`${tw.flexRow} flex-wrap gap-2`}>
@@ -317,7 +340,9 @@ export default function BusinessTeamScreen() {
           >
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
               <View className={`${tw.flexRow} items-center justify-between`}>
-                <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
+                <Text
+                  className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+                >
                   צוות פעיל
                 </Text>
                 <Text className="text-xs text-[#7B86A0]">
@@ -341,12 +366,18 @@ export default function BusinessTeamScreen() {
                     key={member.staffId}
                     className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
                   >
-                    <View className={`${tw.flexRow} items-start justify-between`}>
+                    <View
+                      className={`${tw.flexRow} items-start justify-between`}
+                    >
                       <View className="items-end">
-                        <Text className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}>
+                        <Text
+                          className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                        >
                           {member.displayName}
                         </Text>
-                        <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                        <Text
+                          className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                        >
                           {member.email ?? 'ללא אימייל'}
                         </Text>
                       </View>
@@ -359,7 +390,9 @@ export default function BusinessTeamScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text className={`mt-2 text-xs text-[#64748B] ${tw.textStart}`}>
+                    <Text
+                      className={`mt-2 text-xs text-[#64748B] ${tw.textStart}`}
+                    >
                       פעיל מאז {formatDate(member.createdAt)}
                     </Text>
                   </View>

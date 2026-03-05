@@ -1,6 +1,6 @@
+import { useMutation, useQuery } from 'convex/react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMutation, useQuery } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,12 +34,16 @@ function StampPreview({ maxStamps }: { maxStamps: number }) {
         <View
           key={id}
           className={`h-8 w-8 rounded-full border ${
-            id <= filled ? 'border-white bg-white' : 'border-white/50 bg-white/10'
+            id <= filled
+              ? 'border-white bg-white'
+              : 'border-white/50 bg-white/10'
           }`}
         />
       ))}
       {maxStamps > dots ? (
-        <Text className="self-center text-xs font-bold text-white">+{maxStamps - dots}</Text>
+        <Text className="self-center text-xs font-bold text-white">
+          +{maxStamps - dots}
+        </Text>
       ) : null}
     </View>
   );
@@ -53,7 +57,9 @@ export default function ProgramDetailsScreen() {
     businessId?: string;
   }>();
   const programId = params.programId as Id<'loyaltyPrograms'> | undefined;
-  const businessIdFromParams = params.businessId as Id<'businesses'> | undefined;
+  const businessIdFromParams = params.businessId as
+    | Id<'businesses'>
+    | undefined;
 
   const businesses = useQuery(api.scanner.myBusinesses) ?? [];
   const selectedBusinessId = useMemo(() => {
@@ -64,11 +70,13 @@ export default function ProgramDetailsScreen() {
   }, [businessIdFromParams, businesses]);
 
   const selectedBusiness = useMemo(
-    () => businesses.find((business) => business.businessId === selectedBusinessId),
+    () =>
+      businesses.find((business) => business.businessId === selectedBusinessId),
     [businesses, selectedBusinessId]
   );
   const canManage =
-    selectedBusiness?.staffRole === 'owner' || selectedBusiness?.staffRole === 'manager';
+    selectedBusiness?.staffRole === 'owner' ||
+    selectedBusiness?.staffRole === 'manager';
 
   const details = useQuery(
     api.loyaltyPrograms.getProgramDetailsForManagement,
@@ -77,7 +85,9 @@ export default function ProgramDetailsScreen() {
       : 'skip'
   );
 
-  const updateProgram = useMutation(api.loyaltyPrograms.updateProgramForManagement);
+  const updateProgram = useMutation(
+    api.loyaltyPrograms.updateProgramForManagement
+  );
   const archiveProgram = useMutation(api.loyaltyPrograms.archiveProgram);
   const unarchiveProgram = useMutation(api.loyaltyPrograms.unarchiveProgram);
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
@@ -139,7 +149,10 @@ export default function ProgramDetailsScreen() {
       });
       Alert.alert('נשמר', 'שינויי הכרטיסיה נשמרו בהצלחה.');
     } catch (error) {
-      Alert.alert('שגיאה', error instanceof Error ? error.message : 'שמירה נכשלה.');
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'שמירה נכשלה.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -159,7 +172,10 @@ export default function ProgramDetailsScreen() {
         Alert.alert('הוחזר לפעילות', 'הכרטיסיה חזרה לרשימת פעילות.');
       }
     } catch (error) {
-      Alert.alert('שגיאה', error instanceof Error ? error.message : 'עדכון סטטוס נכשל.');
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'עדכון סטטוס נכשל.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +195,10 @@ export default function ProgramDetailsScreen() {
       Alert.alert('נוצר', 'טיוטת קמפיין Promo נוצרה עבור כרטיסיה זו.');
       router.replace('/(authenticated)/(business)/cards?tab=campaigns');
     } catch (error) {
-      Alert.alert('שגיאה', error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.');
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
+      );
     } finally {
       setIsTriggeringCampaign(false);
     }
@@ -240,14 +259,16 @@ export default function ProgramDetailsScreen() {
                 className={`mt-1 text-xs ${tw.textStart}`}
                 style={{ color: selectedTheme.subtitleColor }}
               >
-                הטבה: {rewardName || details.rewardName} · {parsedMaxStamps || details.maxStamps}{' '}
-                ניקובים
+                הטבה: {rewardName || details.rewardName} ·{' '}
+                {parsedMaxStamps || details.maxStamps} ניקובים
               </Text>
               <StampPreview maxStamps={parsedMaxStamps || details.maxStamps} />
             </LinearGradient>
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 נתוני כרטיסיה
               </Text>
               <TextInput
@@ -299,7 +320,9 @@ export default function ProgramDetailsScreen() {
                           : 'border-[#DCE6F7] bg-[#F8FAFF]'
                       }`}
                     >
-                      <Text className="text-xs font-bold text-[#1A2B4A]">{theme.name}</Text>
+                      <Text className="text-xs font-bold text-[#1A2B4A]">
+                        {theme.name}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -315,13 +338,17 @@ export default function ProgramDetailsScreen() {
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text className="text-center text-sm font-bold text-white">שמור שינויים</Text>
+                  <Text className="text-center text-sm font-bold text-white">
+                    שמור שינויים
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-2">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 ביצועי כרטיסיה
               </Text>
               <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
@@ -339,13 +366,17 @@ export default function ProgramDetailsScreen() {
               <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
                 פעילות אחרונה:{' '}
                 {details.metrics.lastActivityAt
-                  ? new Date(details.metrics.lastActivityAt).toLocaleString('he-IL')
+                  ? new Date(details.metrics.lastActivityAt).toLocaleString(
+                      'he-IL'
+                    )
                   : 'אין עדיין פעילות'}
               </Text>
             </View>
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}>
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
                 פעולות מהירות
               </Text>
               <TouchableOpacity
@@ -354,13 +385,17 @@ export default function ProgramDetailsScreen() {
                   void handleCreateProgramCampaign();
                 }}
                 className={`rounded-2xl px-4 py-3 ${
-                  canManage && !isTriggeringCampaign ? 'bg-[#1D4ED8]' : 'bg-[#CBD5E1]'
+                  canManage && !isTriggeringCampaign
+                    ? 'bg-[#1D4ED8]'
+                    : 'bg-[#CBD5E1]'
                 }`}
               >
                 {isTriggeringCampaign ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text className="text-center text-sm font-bold text-white">צור קמפיין Promo</Text>
+                  <Text className="text-center text-sm font-bold text-white">
+                    צור קמפיין Promo
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -378,7 +413,9 @@ export default function ProgramDetailsScreen() {
                 }`}
               >
                 <Text className="text-center text-sm font-bold text-white">
-                  {lifecycle === 'active' ? 'העבר לישנה (ארכיון)' : 'החזר לפעילות'}
+                  {lifecycle === 'active'
+                    ? 'העבר לישנה (ארכיון)'
+                    : 'החזר לפעילות'}
                 </Text>
               </TouchableOpacity>
 

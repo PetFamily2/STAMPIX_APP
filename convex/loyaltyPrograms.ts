@@ -51,7 +51,11 @@ async function getProgramOrThrow(
   programId: string
 ) {
   const program = await ctx.db.get(programId);
-  if (!program || program.businessId !== businessId || program.isActive !== true) {
+  if (
+    !program ||
+    program.businessId !== businessId ||
+    program.isActive !== true
+  ) {
     throw new Error('PROGRAM_NOT_FOUND');
   }
   return program;
@@ -110,21 +114,29 @@ export const listManagementByBusiness = query({
       await Promise.all([
         ctx.db
           .query('loyaltyPrograms')
-          .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+          .withIndex('by_businessId', (q: any) =>
+            q.eq('businessId', businessId)
+          )
           .filter((q: any) => q.eq(q.field('isActive'), true))
           .collect(),
         ctx.db
           .query('memberships')
-          .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+          .withIndex('by_businessId', (q: any) =>
+            q.eq('businessId', businessId)
+          )
           .filter((q: any) => q.eq(q.field('isActive'), true))
           .collect(),
         ctx.db
           .query('memberships')
-          .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+          .withIndex('by_businessId', (q: any) =>
+            q.eq('businessId', businessId)
+          )
           .collect(),
         ctx.db
           .query('events')
-          .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+          .withIndex('by_businessId', (q: any) =>
+            q.eq('businessId', businessId)
+          )
           .filter((q: any) => q.gte(q.field('createdAt'), thirtyDaysAgo))
           .collect(),
       ]);
@@ -146,7 +158,8 @@ export const listManagementByBusiness = query({
           : null;
       const stamps7d = programEvents.filter(
         (event) =>
-          event.type === 'STAMP_ADDED' && Number(event.createdAt) >= sevenDaysAgo
+          event.type === 'STAMP_ADDED' &&
+          Number(event.createdAt) >= sevenDaysAgo
       ).length;
       const redemptions30d = programEvents.filter(
         (event) => event.type === 'REWARD_REDEEMED'
