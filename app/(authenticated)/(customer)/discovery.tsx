@@ -1,7 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useQuery } from 'convex/react';
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -24,56 +24,131 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
 
 const TEXT = {
-  title: '\u05d2\u05d9\u05dc\u05d5\u05d9 \u05e2\u05e1\u05e7\u05d9\u05dd',
-  subtitle:
-    '\u05de\u05e6\u05d0\u05d5 \u05e2\u05e1\u05e7\u05d9\u05dd \u05e7\u05e8\u05d5\u05d1\u05d9\u05dd \u05dc\u05e4\u05d9 \u05d4\u05de\u05e4\u05d4 \u05d5\u05d4\u05de\u05e8\u05d7\u05e7 \u05de\u05de\u05db\u05dd',
-  mapTitle: '\u05de\u05e4\u05ea \u05e2\u05e1\u05e7\u05d9\u05dd',
-  radiusTitle: '\u05e8\u05d3\u05d9\u05d5\u05e1 \u05d7\u05d9\u05e4\u05d5\u05e9',
-  nearbyTitle:
-    '\u05e2\u05e1\u05e7\u05d9\u05dd \u05d1\u05e1\u05d1\u05d9\u05d1\u05ea\u05da',
-  permissionTitle:
-    '\u05db\u05d3\u05d9 \u05dc\u05d4\u05e6\u05d9\u05d2 \u05e2\u05e1\u05e7\u05d9\u05dd \u05e7\u05e8\u05d5\u05d1\u05d9\u05dd \u05d0\u05e0\u05d7\u05e0\u05d5 \u05e6\u05e8\u05d9\u05db\u05d9\u05dd \u05d2\u05d9\u05e9\u05d4 \u05dc\u05de\u05d9\u05e7\u05d5\u05dd',
-  permissionSubtitle:
-    '\u05d0\u05e9\u05e8\u05d5 \u05d2\u05d9\u05e9\u05d4 \u05dc\u05de\u05d9\u05e7\u05d5\u05dd \u05db\u05d3\u05d9 \u05dc\u05e8\u05d0\u05d5\u05ea \u05e2\u05e1\u05e7\u05d9\u05dd \u05d1\u05de\u05e8\u05d7\u05e7 \u05e9\u05dc 1 \u05e2\u05d3 10 \u05e7\u05de.',
-  permissionButton:
-    '\u05d0\u05e9\u05e8 \u05d2\u05d9\u05e9\u05d4 \u05dc\u05de\u05d9\u05e7\u05d5\u05dd',
-  openSettings: '\u05e4\u05ea\u05d7 \u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
-  loadingLocation:
-    '\u05d8\u05d5\u05e2\u05e0\u05d9\u05dd \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05e9\u05dc\u05da',
-  loadingNearby:
-    '\u05de\u05d7\u05e4\u05e9\u05d9\u05dd \u05e2\u05e1\u05e7\u05d9\u05dd \u05e7\u05e8\u05d5\u05d1\u05d9\u05dd',
-  retry: '\u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  emptyTitle:
-    '\u05d0\u05d9\u05df \u05e2\u05e1\u05e7\u05d9\u05dd \u05d1\u05d8\u05d5\u05d5\u05d7 \u05e9\u05d1\u05d7\u05e8\u05ea',
-  emptySubtitle:
-    '\u05e0\u05e1\u05d5 \u05dc\u05d4\u05d2\u05d3\u05d9\u05dc \u05d0\u05ea \u05d4\u05e8\u05d3\u05d9\u05d5\u05e1 \u05db\u05d3\u05d9 \u05dc\u05e8\u05d0\u05d5\u05ea \u05e2\u05e1\u05e7\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd',
-  myLocation: '\u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05e9\u05dc\u05d9',
-  addressFallback:
-    '\u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05d0 \u05d6\u05de\u05d9\u05e0\u05d4',
+  title: 'גילוי עסקים',
+  subtitle: 'מצאו עסקים קרובים לפי המפה והמרחק מכם',
+  mapTitle: 'מפת עסקים',
+  radiusTitle: 'רדיוס חיפוש',
+  nearbyTitle: 'עסקים בסביבתך',
+  permissionTitle: 'כדי להציג עסקים קרובים אנחנו צריכים גישה למיקום',
+  permissionSubtitle: 'אשרו גישה למיקום כדי לראות עסקים במרחק של 1 עד 10 קמ.',
+  permissionButton: 'אשר גישה למיקום',
+  openSettings: 'פתח הגדרות',
+  loadingLocation: 'טוענים את המיקום שלך',
+  loadingNearby: 'מחפשים עסקים קרובים',
+  retry: 'נסו שוב',
+  emptyTitle: 'אין עסקים בטווח שבחרת',
+  emptySubtitle: 'נסו להגדיל את הרדיוס כדי לראות עסקים נוספים',
+  myLocation: 'המיקום שלי',
+  addressFallback: 'כתובת לא זמינה',
+  filtersTitle: 'סוגי שירותים',
+  filtersClear: 'נקה סינון',
+  sortTitle: 'מיון',
+  sortDistance: 'מרחק',
+  sortServiceType: 'סוג עסק',
+  unclassified: 'לא סווג',
 };
 
-type NearbyBusiness = {
+type BusinessServiceType =
+  | 'food_drink'
+  | 'beauty'
+  | 'health_wellness'
+  | 'fitness'
+  | 'retail'
+  | 'professional_services'
+  | 'education'
+  | 'hospitality'
+  | 'other';
+
+const BUSINESS_SERVICE_TYPE_OPTIONS: Array<{
+  id: BusinessServiceType;
+  label: string;
+}> = [
+  { id: 'food_drink', label: 'מזון ומשקאות' },
+  { id: 'beauty', label: 'יופי וטיפוח' },
+  { id: 'health_wellness', label: 'בריאות ורווחה' },
+  { id: 'fitness', label: 'כושר וספורט' },
+  { id: 'retail', label: 'קמעונאות' },
+  { id: 'professional_services', label: 'שירותים מקצועיים' },
+  { id: 'education', label: 'לימודים והדרכה' },
+  { id: 'hospitality', label: 'אירוח ופנאי' },
+  { id: 'other', label: 'אחר' },
+];
+
+const BUSINESS_SERVICE_TYPE_LABELS = Object.fromEntries(
+  BUSINESS_SERVICE_TYPE_OPTIONS.map((option) => [option.id, option.label])
+) as Record<BusinessServiceType, string>;
+
+const BUSINESS_SERVICE_TYPE_SET = new Set<BusinessServiceType>(
+  BUSINESS_SERVICE_TYPE_OPTIONS.map((option) => option.id)
+);
+
+type DiscoverySortBy = 'distance' | 'service_type';
+
+type NearbyBusinessQuery = {
   businessId: string;
   name: string;
   distanceKm: number;
   lat: number;
   lng: number;
   formattedAddress: string;
+  serviceTypes?: string[];
+  serviceTags?: string[];
 };
 
 function getMapDelta(radiusKm: number) {
   return Math.max(0.025, radiusKm * 0.03);
 }
 
+function sanitizeServiceTypes(value: string[] | undefined) {
+  const unique: BusinessServiceType[] = [];
+  if (!value) {
+    return unique;
+  }
+
+  for (const item of value) {
+    if (!BUSINESS_SERVICE_TYPE_SET.has(item as BusinessServiceType)) {
+      continue;
+    }
+    const normalized = item as BusinessServiceType;
+    if (!unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+  }
+
+  return unique;
+}
+
+function sanitizeServiceTags(value: string[] | undefined) {
+  const unique: string[] = [];
+  if (!value) {
+    return unique;
+  }
+
+  for (const item of value) {
+    const normalized = item.trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      continue;
+    }
+    if (!unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+    if (unique.length >= 8) {
+      break;
+    }
+  }
+
+  return unique;
+}
+
 function toLocationErrorMessage(error: string | null) {
   switch (error) {
     case 'LOCATION_SERVICES_DISABLED':
-      return '\u05e9\u05d9\u05e8\u05d5\u05ea\u05d9 \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05d1\u05de\u05db\u05e9\u05d9\u05e8 \u05db\u05d1\u05d5\u05d9\u05dd. \u05d4\u05e4\u05e2\u05d9\u05dc\u05d5 \u05d0\u05d5\u05ea\u05dd \u05d5\u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.';
+      return 'שירותי המיקום במכשיר כבויים. הפעילו אותם ונסו שוב.';
     case 'LOCATION_FETCH_FAILED':
-      return '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d8\u05e2\u05d5\u05df \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05e9\u05dc\u05da.';
+      return 'לא הצלחנו לטעון את המיקום שלך.';
     case 'LOCATION_PERMISSION_FAILED':
     case 'LOCATION_PERMISSION_CHECK_FAILED':
-      return '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e7\u05d1\u05dc \u05d0\u05ea \u05d4\u05e8\u05e9\u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd.';
+      return 'לא הצלחנו לקבל את הרשאת המיקום.';
     default:
       return error;
   }
@@ -84,7 +159,14 @@ export default function DiscoveryScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { isAuthenticated } = useConvexAuth();
   const [radiusKm, setRadiusKm] = useState(3);
+  const [serviceTypeFilters, setServiceTypeFilters] = useState<
+    BusinessServiceType[]
+  >([]);
+  const [sortBy, setSortBy] = useState<DiscoverySortBy>('distance');
   const deferredRadiusKm = useDeferredValue(radiusKm);
+  const deferredServiceTypeFilters = useDeferredValue(serviceTypeFilters);
+  const deferredSortBy = useDeferredValue(sortBy);
+
   const {
     coords,
     isLoading: isLocationLoading,
@@ -102,16 +184,47 @@ export default function DiscoveryScreen() {
           userLat: coords.latitude,
           userLng: coords.longitude,
           radiusKm: deferredRadiusKm,
+          serviceTypeFilters:
+            deferredServiceTypeFilters.length > 0
+              ? deferredServiceTypeFilters
+              : undefined,
+          sortBy: deferredSortBy,
         }
       : 'skip'
   );
-  const nearbyBusinesses = (nearbyBusinessesQuery ?? []) as NearbyBusiness[];
+
+  const nearbyBusinesses = useMemo(
+    () =>
+      ((nearbyBusinessesQuery ?? []) as NearbyBusinessQuery[]).map(
+        (business) => ({
+          businessId: business.businessId,
+          name: business.name,
+          distanceKm: business.distanceKm,
+          lat: business.lat,
+          lng: business.lng,
+          formattedAddress: business.formattedAddress,
+          serviceTypes: sanitizeServiceTypes(business.serviceTypes),
+          serviceTags: sanitizeServiceTags(business.serviceTags),
+        })
+      ),
+    [nearbyBusinessesQuery]
+  );
+
   const isBusinessesLoading =
     Boolean(coords && isAuthenticated) && nearbyBusinessesQuery === undefined;
   const isLoadingState =
     (isLocationLoading && !coords && !needsPermission) || isBusinessesLoading;
   const mapDelta = getMapDelta(deferredRadiusKm);
   const locationErrorMessage = toLocationErrorMessage(error);
+
+  const toggleServiceTypeFilter = (serviceType: BusinessServiceType) => {
+    setServiceTypeFilters((current) => {
+      if (current.includes(serviceType)) {
+        return current.filter((item) => item !== serviceType);
+      }
+      return [...current, serviceType];
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -213,6 +326,97 @@ export default function DiscoveryScreen() {
               />
             </View>
 
+            <View style={styles.panel}>
+              <View style={styles.filterHeaderRow}>
+                <Text style={styles.panelTitle}>{TEXT.filtersTitle}</Text>
+                {serviceTypeFilters.length > 0 ? (
+                  <Pressable
+                    onPress={() => setServiceTypeFilters([])}
+                    style={({ pressed }) => [
+                      styles.clearButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.clearButtonText}>
+                      {TEXT.filtersClear}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View style={styles.filterChipsWrap}>
+                {BUSINESS_SERVICE_TYPE_OPTIONS.map((option) => {
+                  const isSelected = serviceTypeFilters.includes(option.id);
+                  return (
+                    <Pressable
+                      key={option.id}
+                      onPress={() => toggleServiceTypeFilter(option.id)}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        isSelected ? styles.filterChipActive : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isSelected ? styles.filterChipTextActive : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.sortSection}>
+                <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
+                <View style={styles.sortButtonsRow}>
+                  <Pressable
+                    onPress={() => setSortBy('distance')}
+                    style={({ pressed }) => [
+                      styles.sortButton,
+                      sortBy === 'distance' ? styles.sortButtonActive : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sortButtonText,
+                        sortBy === 'distance'
+                          ? styles.sortButtonTextActive
+                          : null,
+                      ]}
+                    >
+                      {TEXT.sortDistance}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSortBy('service_type')}
+                    style={({ pressed }) => [
+                      styles.sortButton,
+                      sortBy === 'service_type'
+                        ? styles.sortButtonActive
+                        : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sortButtonText,
+                        sortBy === 'service_type'
+                          ? styles.sortButtonTextActive
+                          : null,
+                      ]}
+                    >
+                      {TEXT.sortServiceType}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
             <View style={styles.mapCard}>
               <View style={styles.panelHeader}>
                 <Text style={styles.locationBadge}>{TEXT.myLocation}</Text>
@@ -280,26 +484,62 @@ export default function DiscoveryScreen() {
 
               {!isBusinessesLoading && nearbyBusinesses.length > 0 ? (
                 <View style={styles.resultsList}>
-                  {nearbyBusinesses.map((business) => (
-                    <View key={business.businessId} style={styles.businessCard}>
-                      <View style={styles.businessHeader}>
-                        <View style={styles.distanceBadge}>
-                          <Text style={styles.distanceText}>
-                            {formatDistance(business.distanceKm)}
-                          </Text>
+                  {nearbyBusinesses.map((business) => {
+                    const typeChips =
+                      business.serviceTypes.length > 0
+                        ? business.serviceTypes.map(
+                            (serviceType) =>
+                              BUSINESS_SERVICE_TYPE_LABELS[serviceType] ??
+                              TEXT.unclassified
+                          )
+                        : [TEXT.unclassified];
+
+                    return (
+                      <View
+                        key={business.businessId}
+                        style={styles.businessCard}
+                      >
+                        <View style={styles.businessHeader}>
+                          <View style={styles.distanceBadge}>
+                            <Text style={styles.distanceText}>
+                              {formatDistance(business.distanceKm)}
+                            </Text>
+                          </View>
+
+                          <View style={styles.businessTextWrap}>
+                            <Text style={styles.businessName}>
+                              {business.name}
+                            </Text>
+                            <Text style={styles.businessAddress}>
+                              {business.formattedAddress ||
+                                TEXT.addressFallback}
+                            </Text>
+                          </View>
                         </View>
 
-                        <View style={styles.businessTextWrap}>
-                          <Text style={styles.businessName}>
-                            {business.name}
-                          </Text>
-                          <Text style={styles.businessAddress}>
-                            {business.formattedAddress || TEXT.addressFallback}
-                          </Text>
+                        <View style={styles.metaChipsWrap}>
+                          {typeChips.map((chipLabel) => (
+                            <View
+                              key={`${business.businessId}-${chipLabel}`}
+                              style={[styles.metaChip, styles.metaChipType]}
+                            >
+                              <Text style={styles.metaChipTypeText}>
+                                {chipLabel}
+                              </Text>
+                            </View>
+                          ))}
+                          {business.serviceTags.map((tag) => (
+                            <View
+                              key={`${business.businessId}-${tag}`}
+                              style={[styles.metaChip, styles.metaChipTag]}
+                            >
+                              <Text style={styles.metaChipTagText}>{tag}</Text>
+                            </View>
+                          ))}
                         </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : null}
             </View>
@@ -374,6 +614,88 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#D94A33',
   },
+  filterHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  clearButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#C9D8FF',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2F6BFF',
+  },
+  filterChipsWrap: {
+    marginTop: 12,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#DCE6F7',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EAF1FF',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  filterChipTextActive: {
+    color: '#1D4ED8',
+  },
+  sortSection: {
+    marginTop: 14,
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  sortTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+    textAlign: 'right',
+  },
+  sortButtonsRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row-reverse',
+    gap: 8,
+  },
+  sortButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DCE6F7',
+    backgroundColor: '#F8FAFF',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  sortButtonActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EAF1FF',
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  sortButtonTextActive: {
+    color: '#1D4ED8',
+  },
   mapShell: {
     marginTop: 14,
     height: 260,
@@ -430,6 +752,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+  },
+  metaChipsWrap: {
+    marginTop: 10,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  metaChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  metaChipType: {
+    backgroundColor: '#EAF1FF',
+    borderWidth: 1,
+    borderColor: '#C8D8FF',
+  },
+  metaChipTag: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  metaChipTypeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  metaChipTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#374151',
   },
   infoCard: {
     marginTop: 14,

@@ -47,6 +47,44 @@ export const DEFAULT_CUSTOMER_SEGMENTATION_CONFIG = {
   dropPercentThreshold: 40,
 } as const;
 
+const BUSINESS_NAME_MAX_LENGTH = 80;
+const BUSINESS_SHORT_DESCRIPTION_MAX_LENGTH = 220;
+const BUSINESS_PHONE_MAX_LENGTH = 24;
+const BUSINESS_SERVICE_TYPE_MAX_COUNT = 6;
+const BUSINESS_SERVICE_TAG_MAX_COUNT = 8;
+const BUSINESS_SERVICE_TAG_MIN_LENGTH = 2;
+const BUSINESS_SERVICE_TAG_MAX_LENGTH = 24;
+
+const BUSINESS_SERVICE_TYPE_LITERALS = [
+  'food_drink',
+  'beauty',
+  'health_wellness',
+  'fitness',
+  'retail',
+  'professional_services',
+  'education',
+  'hospitality',
+  'other',
+] as const;
+
+type BusinessServiceType = (typeof BUSINESS_SERVICE_TYPE_LITERALS)[number];
+
+const BUSINESS_SERVICE_TYPE_SET = new Set<string>(
+  BUSINESS_SERVICE_TYPE_LITERALS
+);
+
+const BUSINESS_SERVICE_TYPE_UNION = v.union(
+  v.literal('food_drink'),
+  v.literal('beauty'),
+  v.literal('health_wellness'),
+  v.literal('fitness'),
+  v.literal('retail'),
+  v.literal('professional_services'),
+  v.literal('education'),
+  v.literal('hospitality'),
+  v.literal('other')
+);
+
 export function normalizeCustomerSegmentationConfig(
   config: unknown,
   now: number
@@ -394,8 +432,6 @@ export const updateBusinessAddress = mutation({
   },
 });
 
-const BUSINESS_NAME_MAX_LENGTH = 80;
-
 function normalizeBusinessName(value: string) {
   const normalized = value.trim().replace(/\s+/g, ' ');
   if (!normalized) {
@@ -405,6 +441,150 @@ function normalizeBusinessName(value: string) {
     throw new Error('BUSINESS_NAME_TOO_LONG');
   }
   return normalized;
+}
+
+function normalizeBusinessShortDescription(value: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.length > BUSINESS_SHORT_DESCRIPTION_MAX_LENGTH) {
+    throw new Error('BUSINESS_SHORT_DESCRIPTION_TOO_LONG');
+  }
+  return normalized;
+}
+
+function normalizeBusinessPhone(value: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.length > BUSINESS_PHONE_MAX_LENGTH) {
+    throw new Error('BUSINESS_PHONE_TOO_LONG');
+  }
+  if (!/^[0-9+()\-\s]+$/.test(normalized)) {
+    throw new Error('BUSINESS_PHONE_INVALID');
+  }
+  return normalized;
+}
+
+function normalizeServiceTypes(values: BusinessServiceType[]) {
+  const unique: BusinessServiceType[] = [];
+
+  for (const value of values) {
+    if (!BUSINESS_SERVICE_TYPE_SET.has(value)) {
+      throw new Error('BUSINESS_SERVICE_TYPE_INVALID');
+    }
+    if (!unique.includes(value)) {
+      unique.push(value);
+    }
+  }
+
+  if (unique.length > BUSINESS_SERVICE_TYPE_MAX_COUNT) {
+    throw new Error('BUSINESS_SERVICE_TYPES_TOO_MANY');
+  }
+
+  return unique;
+}
+
+function sanitizeServiceTypes(values: string[] | undefined) {
+  const unique: BusinessServiceType[] = [];
+  if (!values) {
+    return unique;
+  }
+
+  for (const value of values) {
+    if (!BUSINESS_SERVICE_TYPE_SET.has(value)) {
+      continue;
+    }
+    const typedValue = value as BusinessServiceType;
+    if (!unique.includes(typedValue)) {
+      unique.push(typedValue);
+    }
+    if (unique.length >= BUSINESS_SERVICE_TYPE_MAX_COUNT) {
+      break;
+    }
+  }
+
+  return unique;
+}
+
+function normalizeServiceTags(values: string[]) {
+  const unique: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      continue;
+    }
+    if (normalized.length < BUSINESS_SERVICE_TAG_MIN_LENGTH) {
+      throw new Error('BUSINESS_SERVICE_TAG_TOO_SHORT');
+    }
+    if (normalized.length > BUSINESS_SERVICE_TAG_MAX_LENGTH) {
+      throw new Error('BUSINESS_SERVICE_TAG_TOO_LONG');
+    }
+    if (!unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+  }
+
+  if (unique.length > BUSINESS_SERVICE_TAG_MAX_COUNT) {
+    throw new Error('BUSINESS_SERVICE_TAGS_TOO_MANY');
+  }
+
+  return unique;
+}
+
+function sanitizeServiceTags(values: string[] | undefined) {
+  const unique: string[] = [];
+  if (!values) {
+    return unique;
+  }
+
+  for (const value of values) {
+    const normalized = value.trim().replace(/\s+/g, ' ');
+    if (!normalized) {
+      continue;
+    }
+    if (
+      normalized.length < BUSINESS_SERVICE_TAG_MIN_LENGTH ||
+      normalized.length > BUSINESS_SERVICE_TAG_MAX_LENGTH
+    ) {
+      continue;
+    }
+    if (!unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+    if (unique.length >= BUSINESS_SERVICE_TAG_MAX_COUNT) {
+      break;
+    }
+  }
+
+  return unique;
+}
+
+function normalizeOnboardingSnapshotText(value: string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  return normalized || undefined;
+}
+
+function normalizeOnboardingUsageAreas(value: string[] | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const unique: string[] = [];
+  for (const area of value) {
+    const normalized = area.trim();
+    if (!normalized) {
+      continue;
+    }
+    if (!unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+  }
+  return unique.length > 0 ? unique : undefined;
 }
 
 export const getBusinessSettings = query({
@@ -425,6 +605,11 @@ export const getBusinessSettings = query({
     return {
       businessId: business._id,
       name: business.name,
+      shortDescription: business.shortDescription ?? '',
+      businessPhone: business.businessPhone ?? '',
+      serviceTypes: sanitizeServiceTypes(business.serviceTypes),
+      serviceTags: sanitizeServiceTags(business.serviceTags),
+      onboardingSnapshot: business.onboardingSnapshot ?? null,
       formattedAddress: business.formattedAddress ?? '',
       city: business.city ?? '',
       street: business.street ?? '',
@@ -440,8 +625,22 @@ export const updateBusinessProfile = mutation({
   args: {
     businessId: v.id('businesses'),
     name: v.string(),
+    shortDescription: v.string(),
+    businessPhone: v.string(),
+    serviceTypes: v.array(BUSINESS_SERVICE_TYPE_UNION),
+    serviceTags: v.array(v.string()),
   },
-  handler: async (ctx, { businessId, name }) => {
+  handler: async (
+    ctx,
+    {
+      businessId,
+      name,
+      shortDescription,
+      businessPhone,
+      serviceTypes,
+      serviceTags,
+    }
+  ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const business = await ctx.db.get(businessId);
     if (!business || business.isActive !== true) {
@@ -449,17 +648,79 @@ export const updateBusinessProfile = mutation({
     }
 
     const normalizedName = normalizeBusinessName(name);
+    const normalizedShortDescription =
+      normalizeBusinessShortDescription(shortDescription);
+    const normalizedBusinessPhone = normalizeBusinessPhone(businessPhone);
+    const normalizedServiceTypes = normalizeServiceTypes(serviceTypes);
+    const normalizedServiceTags = normalizeServiceTags(serviceTags);
     const updatedAt = Date.now();
 
     await ctx.db.patch(businessId, {
       name: normalizedName,
+      shortDescription: normalizedShortDescription || undefined,
+      businessPhone: normalizedBusinessPhone || undefined,
+      serviceTypes:
+        normalizedServiceTypes.length > 0 ? normalizedServiceTypes : undefined,
+      serviceTags:
+        normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
       updatedAt,
     });
 
     return {
       businessId,
       name: normalizedName,
+      shortDescription: normalizedShortDescription,
+      businessPhone: normalizedBusinessPhone,
+      serviceTypes: normalizedServiceTypes,
+      serviceTags: normalizedServiceTags,
       updatedAt,
+    };
+  },
+});
+
+export const saveBusinessOnboardingSnapshot = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    discoverySource: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    usageAreas: v.optional(v.array(v.string())),
+    ownerAgeRange: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { businessId, discoverySource, reason, usageAreas, ownerAgeRange }
+  ) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const nextSnapshot = {
+      ...(business.onboardingSnapshot ?? {}),
+      discoverySource:
+        normalizeOnboardingSnapshotText(discoverySource) ??
+        business.onboardingSnapshot?.discoverySource,
+      reason:
+        normalizeOnboardingSnapshotText(reason) ??
+        business.onboardingSnapshot?.reason,
+      usageAreas:
+        normalizeOnboardingUsageAreas(usageAreas) ??
+        business.onboardingSnapshot?.usageAreas,
+      ownerAgeRange:
+        normalizeOnboardingSnapshotText(ownerAgeRange) ??
+        business.onboardingSnapshot?.ownerAgeRange,
+      collectedAt: Date.now(),
+    };
+
+    await ctx.db.patch(businessId, {
+      onboardingSnapshot: nextSnapshot,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      businessId,
+      onboardingSnapshot: nextSnapshot,
     };
   },
 });
@@ -531,13 +792,44 @@ export const updateCustomerSegmentationConfig = mutation({
   },
 });
 
+function normalizeServiceTypeFilters(value: BusinessServiceType[] | undefined) {
+  if (!value || value.length === 0) {
+    return [];
+  }
+
+  return normalizeServiceTypes(value);
+}
+
+function getPrimaryServiceType(
+  value: string[] | undefined
+): BusinessServiceType | null {
+  if (!value || value.length === 0) {
+    return null;
+  }
+
+  for (const item of value) {
+    if (BUSINESS_SERVICE_TYPE_SET.has(item)) {
+      return item as BusinessServiceType;
+    }
+  }
+
+  return null;
+}
+
 export const getBusinessesNearby = query({
   args: {
     userLat: v.number(),
     userLng: v.number(),
     radiusKm: v.number(),
+    serviceTypeFilters: v.optional(v.array(BUSINESS_SERVICE_TYPE_UNION)),
+    sortBy: v.optional(
+      v.union(v.literal('distance'), v.literal('service_type'))
+    ),
   },
-  handler: async (ctx, { userLat, userLng, radiusKm }) => {
+  handler: async (
+    ctx,
+    { userLat, userLng, radiusKm, serviceTypeFilters, sortBy }
+  ) => {
     await requireCurrentUser(ctx);
 
     if (
@@ -549,6 +841,8 @@ export const getBusinessesNearby = query({
     }
 
     const normalizedRadiusKm = Math.max(0.1, Math.min(radiusKm, 50));
+    const normalizedServiceTypeFilters =
+      normalizeServiceTypeFilters(serviceTypeFilters);
     const businesses = await ctx.db
       .query('businesses')
       .withIndex('by_isActive', (q: any) => q.eq('isActive', true))
@@ -566,6 +860,19 @@ export const getBusinessesNearby = query({
           return [];
         }
 
+        const normalizedBusinessServiceTypes = sanitizeServiceTypes(
+          business.serviceTypes
+        );
+
+        if (
+          normalizedServiceTypeFilters.length > 0 &&
+          !normalizedBusinessServiceTypes.some((serviceType) =>
+            normalizedServiceTypeFilters.includes(serviceType)
+          )
+        ) {
+          return [];
+        }
+
         const distanceKm = haversineDistanceKm(userLat, userLng, lat, lng);
         if (distanceKm > normalizedRadiusKm) {
           return [];
@@ -579,10 +886,37 @@ export const getBusinessesNearby = query({
             lat,
             lng,
             formattedAddress: business.formattedAddress ?? '',
+            serviceTypes: normalizedBusinessServiceTypes,
+            serviceTags: sanitizeServiceTags(business.serviceTags),
           },
         ];
       })
-      .sort((first, second) => first.distanceKm - second.distanceKm)
+      .sort((first, second) => {
+        if (sortBy === 'service_type') {
+          const firstPrimaryType = getPrimaryServiceType(first.serviceTypes);
+          const secondPrimaryType = getPrimaryServiceType(second.serviceTypes);
+          const firstTypeIndex =
+            firstPrimaryType === null
+              ? Number.MAX_SAFE_INTEGER
+              : BUSINESS_SERVICE_TYPE_LITERALS.indexOf(firstPrimaryType);
+          const secondTypeIndex =
+            secondPrimaryType === null
+              ? Number.MAX_SAFE_INTEGER
+              : BUSINESS_SERVICE_TYPE_LITERALS.indexOf(secondPrimaryType);
+
+          if (firstTypeIndex !== secondTypeIndex) {
+            return firstTypeIndex - secondTypeIndex;
+          }
+
+          if (first.distanceKm !== second.distanceKm) {
+            return first.distanceKm - second.distanceKm;
+          }
+
+          return first.name.localeCompare(second.name, 'he');
+        }
+
+        return first.distanceKm - second.distanceKm;
+      })
       .slice(0, 50);
 
     return nearbyBusinesses;

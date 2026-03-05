@@ -93,6 +93,19 @@ export default defineSchema({
     businessPublicId: v.optional(v.string()), // opaque nanoid(12) for QR links
     joinCode: v.optional(v.string()), // short alphanumeric code for manual entry
     name: v.string(),
+    shortDescription: v.optional(v.string()),
+    businessPhone: v.optional(v.string()),
+    serviceTypes: v.optional(v.array(v.string())),
+    serviceTags: v.optional(v.array(v.string())),
+    onboardingSnapshot: v.optional(
+      v.object({
+        discoverySource: v.optional(v.string()),
+        reason: v.optional(v.string()),
+        usageAreas: v.optional(v.array(v.string())),
+        ownerAgeRange: v.optional(v.string()),
+        collectedAt: v.optional(v.number()),
+      })
+    ),
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
     subscriptionPlan: v.optional(

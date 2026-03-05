@@ -314,6 +314,7 @@ function ThemeOption({
 export default function PreviewCardScreen() {
   const {
     businessDraft,
+    businessOnboardingDraft,
     programDraft,
     setProgramDraft,
     businessId,
@@ -322,6 +323,9 @@ export default function PreviewCardScreen() {
   } = useOnboarding();
   const completeBusinessOnboarding = useMutation(
     api.users.completeBusinessOnboarding
+  );
+  const saveBusinessOnboardingSnapshot = useMutation(
+    api.business.saveBusinessOnboardingSnapshot
   );
   const setActiveMode = useMutation(api.users.setActiveMode);
   const { setAppMode } = useAppMode();
@@ -406,6 +410,16 @@ export default function PreviewCardScreen() {
 
     setIsFinishing(true);
     try {
+      await saveBusinessOnboardingSnapshot({
+        businessId,
+        discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
+        reason: businessOnboardingDraft.reason ?? undefined,
+        usageAreas:
+          businessOnboardingDraft.usageAreas.length > 0
+            ? businessOnboardingDraft.usageAreas
+            : undefined,
+        ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
+      });
       await completeBusinessOnboarding({});
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');

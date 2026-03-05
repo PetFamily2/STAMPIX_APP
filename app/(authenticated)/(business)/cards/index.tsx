@@ -22,12 +22,24 @@ import { CARD_THEMES } from '@/constants/cardThemes';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
 
 type ManagementTab = 'programs' | 'campaigns';
+type CampaignTemplateType =
+  | 'welcome'
+  | 'birthday'
+  | 'anniversary'
+  | 'winback'
+  | 'promo';
+
+const MANAGEMENT_TABS: Array<{ key: ManagementTab; label: string }> = [
+  { key: 'programs', label: 'כרטיסיות' },
+  { key: 'campaigns', label: 'קמפיינים' },
+];
 
 const CAMPAIGN_TEMPLATES: Array<{
-  type: 'welcome' | 'birthday' | 'anniversary' | 'winback' | 'promo';
+  type: CampaignTemplateType;
   title: string;
   subtitle: string;
   icon: string;
@@ -64,6 +76,11 @@ const CAMPAIGN_TEMPLATES: Array<{
   },
 ];
 
+function parseTab(value: unknown): ManagementTab {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  return normalized === 'campaigns' ? 'campaigns' : 'programs';
+}
+
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
@@ -79,15 +96,20 @@ export default function BusinessCardsManagementScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    tab?: string;
+    tab?: string | string[];
   }>();
 
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
+  const businessesQuery = useQuery(api.scanner.myBusinesses);
+  const businesses = businessesQuery ?? [];
   const [selectedBusinessId, setSelectedBusinessId] =
     useState<Id<'businesses'> | null>(null);
-  const [activeTab, setActiveTab] = useState<ManagementTab>(
-    params.tab === 'campaigns' ? 'campaigns' : 'programs'
+  const [activeTab, setActiveTab] = useState<ManagementTab>(() =>
+    parseTab(params.tab)
   );
+
+  useEffect(() => {
+    setActiveTab(parseTab(params.tab));
+  }, [params.tab]);
 
   const selectedBusiness = useMemo(
     () =>
@@ -98,17 +120,17 @@ export default function BusinessCardsManagementScreen() {
     selectedBusiness?.staffRole === 'owner' ||
     selectedBusiness?.staffRole === 'manager';
 
-  const programs =
-    useQuery(
-      api.loyaltyPrograms.listManagementByBusiness,
-      selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
-    ) ?? [];
+  const programsQuery = useQuery(
+    api.loyaltyPrograms.listManagementByBusiness,
+    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+  );
+  const campaignsQuery = useQuery(
+    api.campaigns.listManagementCampaignsByBusiness,
+    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+  );
 
-  const campaigns =
-    useQuery(
-      api.campaigns.listManagementCampaignsByBusiness,
-      selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
-    ) ?? [];
+  const programs = programsQuery ?? [];
+  const campaigns = campaignsQuery ?? [];
 
   const createLoyaltyProgram = useMutation(
     api.loyaltyPrograms.createLoyaltyProgram
@@ -131,8 +153,8 @@ export default function BusinessCardsManagementScreen() {
   );
   const cardLimit = limitStatus('maxCards', activePrograms.length);
   const requiredPlanForCards =
-    entitlements?.requiredPlanMap.byLimitFromCurrentPlan[entitlements.plan]
-      .maxCards ?? 'pro';
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxCards ?? 'pro';
 
   const totalActiveCustomers = activePrograms.reduce(
     (sum, program) => sum + program.metrics.activeMembers,
@@ -191,12 +213,21 @@ export default function BusinessCardsManagementScreen() {
     parsedMaxStamps > 0 &&
     !isCreatingProgram;
 
+  const isProgramsLoading = !!selectedBusinessId && programsQuery === undefined;
+  const isCampaignsLoading =
+    !!selectedBusinessId && campaignsQuery === undefined;
+
   const openUpgradeForCards = () => {
     const requiredPlan = requiredPlanForCards;
     setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
     setUpgradeReason('limit_reached');
     setUpgradeFeatureKey('maxCards');
     setIsUpgradeVisible(true);
+  };
+
+  const navigateToTab = (tab: ManagementTab) => {
+    setActiveTab(tab);
+    router.setParams({ tab });
   };
 
   const handleCreateProgram = async () => {
@@ -233,9 +264,7 @@ export default function BusinessCardsManagementScreen() {
     }
   };
 
-  const handleCreateTemplateCampaign = async (
-    type: 'welcome' | 'birthday' | 'anniversary' | 'winback' | 'promo'
-  ) => {
+  const handleCreateTemplateCampaign = async (type: CampaignTemplateType) => {
     if (!selectedBusinessId || !canManagePrograms) {
       return;
     }
@@ -364,12 +393,12 @@ export default function BusinessCardsManagementScreen() {
   const summaryCards = [
     {
       id: 'active',
-      label: 'פעילות',
+      label: 'כרטיסיות פעילות',
       value: formatNumber(activePrograms.length),
     },
     {
       id: 'archived',
-      label: 'ישנות',
+      label: 'כרטיסיות בארכיון',
       value: formatNumber(archivedPrograms.length),
     },
     {
@@ -384,6 +413,51 @@ export default function BusinessCardsManagementScreen() {
     },
   ];
 
+  if (businessesQuery === undefined) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
+        <ActivityIndicator color="#2F6BFF" />
+      </SafeAreaView>
+    );
+  }
+
+  if (businesses.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: (insets.top || 0) + 12,
+            paddingBottom: 24,
+          }}
+        >
+          <BusinessScreenHeader
+            title="ניהול כרטיסיות"
+            subtitle="כרטיסיות, קמפיינים ותובנות במקום אחד"
+          />
+          <View className="mt-6 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+            <Text
+              className={`text-base font-extrabold text-[#1A2B4A] ${tw.textStart}`}
+            >
+              אין כרגע עסק מחובר לחשבון.
+            </Text>
+            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+              כדי לעבוד עם כרטיסיות וקמפיינים צריך להשלים onboarding עסקי.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push(BUSINESS_ONBOARDING_ROUTES.role)}
+              className="rounded-2xl bg-[#2F6BFF] px-4 py-3"
+            >
+              <Text className="text-center text-sm font-bold text-white">
+                מעבר ל-onboarding עסקי
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
@@ -395,8 +469,8 @@ export default function BusinessCardsManagementScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="ניהול כרטיסים 2.0"
-          subtitle="כרטיסיות, קמפיינים ותובנות במקום אחד"
+          title="ניהול כרטיסיות"
+          subtitle="כרטיסיות, קמפיינים ופעולות במקום אחד"
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -404,7 +478,7 @@ export default function BusinessCardsManagementScreen() {
               }
               className="h-10 w-10 items-center justify-center rounded-full bg-white"
             >
-              <Text className="text-lg text-[#1A2B4A]">←</Text>
+              <Text className="text-lg text-[#1A2B4A]">{'<'}</Text>
             </TouchableOpacity>
           }
         />
@@ -413,7 +487,7 @@ export default function BusinessCardsManagementScreen() {
           <Text
             className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
           >
-            עסק נבחר
+            בחירת עסק
           </Text>
           <View className={`${tw.flexRow} flex-wrap gap-2`}>
             {businesses.map((business) => {
@@ -442,20 +516,22 @@ export default function BusinessCardsManagementScreen() {
               );
             })}
           </View>
+          {!canManagePrograms ? (
+            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+              צפייה בלבד: עריכה ויצירה זמינות לבעלים או מנהל.
+            </Text>
+          ) : null}
         </View>
 
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
-          {[
-            { key: 'programs' as const, label: 'כרטיסיות' },
-            { key: 'campaigns' as const, label: 'קמפיינים' },
-          ].map((tab) => {
+          {MANAGEMENT_TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
               <TouchableOpacity
                 key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
+                onPress={() => navigateToTab(tab.key)}
                 className={`flex-1 rounded-full py-2.5 ${
                   isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
                 }`}
@@ -474,22 +550,35 @@ export default function BusinessCardsManagementScreen() {
 
         {activeTab === 'programs' ? (
           <View className="mt-5 gap-4">
-            <View className={`${tw.flexRow} flex-wrap gap-3`}>
-              {summaryCards.map((card) => (
-                <View
-                  key={card.id}
-                  className="w-[48.5%] rounded-2xl border border-[#DDE7FC] bg-white p-4"
-                >
-                  <Text className={`text-xs text-[#6F7E9A] ${tw.textStart}`}>
-                    {card.label}
-                  </Text>
-                  <Text
-                    className={`mt-1 text-xl font-black text-[#13233F] ${tw.textStart}`}
-                  >
-                    {card.value}
-                  </Text>
+            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
+                תמונת מצב
+              </Text>
+              {isProgramsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : (
+                <View className={`${tw.flexRow} flex-wrap gap-3`}>
+                  {summaryCards.map((card) => (
+                    <View
+                      key={card.id}
+                      className="w-[48.5%] rounded-2xl border border-[#DDE7FC] bg-[#F8FAFF] p-4"
+                    >
+                      <Text
+                        className={`text-xs text-[#6F7E9A] ${tw.textStart}`}
+                      >
+                        {card.label}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xl font-black text-[#13233F] ${tw.textStart}`}
+                      >
+                        {card.value}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
+              )}
             </View>
 
             <LockedFeatureWrapper
@@ -497,7 +586,7 @@ export default function BusinessCardsManagementScreen() {
               requiredPlan={requiredPlanForCards}
               onUpgradeClick={openUpgradeForCards}
               title="הגעתם למכסת הכרטיסים הפעילים"
-              subtitle="כרטיסיה ישנה לא נספרת במכסה, או שדרגו למסלול מתקדם."
+              subtitle="כרטיסיה בארכיון לא נספרת במכסה, או שדרגו למסלול מתקדם."
             >
               <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
                 <Text
@@ -508,6 +597,7 @@ export default function BusinessCardsManagementScreen() {
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
+                  editable={canManagePrograms}
                   placeholder="שם הכרטיסיה"
                   placeholderTextColor="#94A3B8"
                   className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
@@ -515,6 +605,7 @@ export default function BusinessCardsManagementScreen() {
                 <TextInput
                   value={rewardName}
                   onChangeText={setRewardName}
+                  editable={canManagePrograms}
                   placeholder="הטבה ללקוח"
                   placeholderTextColor="#94A3B8"
                   className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
@@ -523,6 +614,7 @@ export default function BusinessCardsManagementScreen() {
                   <TextInput
                     value={maxStamps}
                     onChangeText={setMaxStamps}
+                    editable={canManagePrograms}
                     keyboardType="number-pad"
                     placeholder="ניקובים"
                     placeholderTextColor="#94A3B8"
@@ -531,6 +623,7 @@ export default function BusinessCardsManagementScreen() {
                   <TextInput
                     value={stampIcon}
                     onChangeText={setStampIcon}
+                    editable={canManagePrograms}
                     placeholder="אייקון (star)"
                     placeholderTextColor="#94A3B8"
                     className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
@@ -542,6 +635,7 @@ export default function BusinessCardsManagementScreen() {
                     return (
                       <TouchableOpacity
                         key={theme.id}
+                        disabled={!canManagePrograms}
                         onPress={() => setCardThemeId(theme.id)}
                         className={`rounded-xl border px-3 py-2 ${
                           selected
@@ -580,7 +674,9 @@ export default function BusinessCardsManagementScreen() {
               >
                 כרטיסיות פעילות
               </Text>
-              {activePrograms.length === 0 ? (
+              {isProgramsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : activePrograms.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
                   אין עדיין כרטיסיות פעילות.
                 </Text>
@@ -636,9 +732,11 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                כרטיסיות ישנות (ארכיון)
+                ארכיון כרטיסיות
               </Text>
-              {archivedPrograms.length === 0 ? (
+              {isProgramsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : archivedPrograms.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
                   אין כרטיסיות בארכיון.
                 </Text>
@@ -732,7 +830,9 @@ export default function BusinessCardsManagementScreen() {
               >
                 טיוטות וקמפיינים
               </Text>
-              {campaigns.length === 0 ? (
+              {isCampaignsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : campaigns.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
                   אין קמפיינים עדיין. צרו תבנית מהירה כדי להתחיל.
                 </Text>
