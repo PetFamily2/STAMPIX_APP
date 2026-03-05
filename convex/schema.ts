@@ -31,6 +31,12 @@ export default defineSchema({
       v.union(v.literal('customer'), v.literal('business'))
     ),
     avatarUrl: v.optional(v.string()),
+    marketingOptIn: v.optional(v.boolean()),
+    marketingOptInAt: v.optional(v.number()),
+    birthdayMonth: v.optional(v.number()),
+    birthdayDay: v.optional(v.number()),
+    anniversaryMonth: v.optional(v.number()),
+    anniversaryDay: v.optional(v.number()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
     subscriptionPlan: v.optional(
       v.union(v.literal('free'), v.literal('pro'), v.literal('unlimited'))
@@ -107,6 +113,14 @@ export default defineSchema({
     ),
     aiCampaignsUsedThisMonth: v.optional(v.number()),
     aiCampaignsMonthKey: v.optional(v.string()),
+    customerSegmentationConfig: v.optional(
+      v.object({
+        riskDaysWithoutVisit: v.number(),
+        frequentVisitsLast30Days: v.number(),
+        dropPercentThreshold: v.number(),
+        updatedAt: v.number(),
+      })
+    ),
     location: v.optional(
       v.object({
         lat: v.number(),
@@ -150,6 +164,10 @@ export default defineSchema({
     rewardName: v.string(),
     maxStamps: v.number(),
     stampIcon: v.string(),
+    cardThemeId: v.optional(v.string()),
+    isArchived: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id('users')),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -230,12 +248,17 @@ export default defineSchema({
   campaigns: defineTable({
     businessId: v.id('businesses'),
     type: v.union(
+      v.literal('welcome'),
       v.literal('birthday'),
+      v.literal('anniversary'),
       v.literal('winback'),
       v.literal('promo'),
       v.literal('ai_marketing')
     ),
+    programId: v.optional(v.id('loyaltyPrograms')),
     title: v.optional(v.string()),
+    messageTitle: v.optional(v.string()),
+    messageBody: v.optional(v.string()),
     prompt: v.optional(v.string()),
     status: v.optional(
       v.union(v.literal('draft'), v.literal('scheduled'), v.literal('sent'))
@@ -249,7 +272,11 @@ export default defineSchema({
 
   subscriptions: defineTable({
     businessId: v.id('businesses'),
-    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('unlimited')),
+    plan: v.union(
+      v.literal('starter'),
+      v.literal('pro'),
+      v.literal('unlimited')
+    ),
     status: v.union(
       v.literal('active'),
       v.literal('trialing'),
@@ -259,7 +286,11 @@ export default defineSchema({
     period: v.union(v.literal('monthly'), v.literal('yearly')),
     startAt: v.number(),
     endAt: v.optional(v.union(v.number(), v.null())),
-    provider: v.union(v.literal('revenuecat'), v.literal('mock'), v.literal('manual')),
+    provider: v.union(
+      v.literal('revenuecat'),
+      v.literal('mock'),
+      v.literal('manual')
+    ),
     providerSubscriptionId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -274,10 +305,14 @@ export default defineSchema({
     channel: v.string(),
     status: v.string(),
     providerMessageId: v.optional(v.string()),
+    readAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_campaignId', ['campaignId'])
+    .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
+    .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
     .index('by_createdAt', ['createdAt']),
 
   supportRequests: defineTable({

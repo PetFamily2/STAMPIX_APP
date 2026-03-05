@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -23,6 +24,8 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 
+const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
@@ -31,6 +34,18 @@ function formatGrowth(value: number) {
     return '+0%';
   }
   return `${value > 0 ? '+' : ''}${Math.round(value)}%`;
+}
+
+function calculateGrowthFromWeekly(weekly?: Array<{ stamps: number }>) {
+  if (!weekly || weekly.length < 2) {
+    return 0;
+  }
+  const latestWeek = weekly[weekly.length - 1]?.stamps ?? 0;
+  const previousWeek = weekly[weekly.length - 2]?.stamps ?? 0;
+  if (previousWeek === 0) {
+    return 0;
+  }
+  return Math.round(((latestWeek - previousWeek) / previousWeek) * 100);
 }
 
 export default function BusinessAnalyticsScreen() {
@@ -52,16 +67,19 @@ export default function BusinessAnalyticsScreen() {
   const [upgradeReason, setUpgradeReason] = useState<
     'feature_locked' | 'limit_reached' | 'subscription_inactive'
   >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<string | undefined>(
-    undefined
-  );
+  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
+    string | undefined
+  >(undefined);
 
   useEffect(() => {
     setSelectedBusinessId((current) => {
       if (!businesses.length) {
         return null;
       }
-      if (current && businesses.some((business) => business.businessId === current)) {
+      if (
+        current &&
+        businesses.some((business) => business.businessId === current)
+      ) {
         return current;
       }
       return businesses[0].businessId;
@@ -79,12 +97,14 @@ export default function BusinessAnalyticsScreen() {
 
   const { entitlements, gate } = useEntitlements(selectedBusinessId);
   const advancedReportsGate = gate('canSeeAdvancedReports');
-  const smartAnalyticsGate = gate('canUseSmartAnalytics');
 
   const openUpgrade = (
     featureKey: string,
     requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive' = 'feature_locked'
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
   ) => {
     setUpgradeFeatureKey(featureKey);
     setUpgradeReason(reason);
@@ -96,7 +116,6 @@ export default function BusinessAnalyticsScreen() {
     api.analytics.getBusinessActivity,
     selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
   );
-
   const advancedAnalytics = useQuery(
     api.analytics.getMerchantActivity,
     selectedBusinessId && entitlements && !advancedReportsGate.isLocked
@@ -104,53 +123,43 @@ export default function BusinessAnalyticsScreen() {
       : 'skip'
   );
 
-  const smartCustomersData = useQuery(
-    api.events.getMerchantCustomers,
-    selectedBusinessId && entitlements && !smartAnalyticsGate.isLocked
-      ? { businessId: selectedBusinessId }
-      : 'skip'
-  );
-
-  const recentActivity = useQuery(
-    api.events.getRecentActivity,
-    selectedBusinessId ? { businessId: selectedBusinessId, limit: 5 } : 'skip'
-  );
-
+  const isLoading = selectedBusinessId !== null && basicAnalytics === undefined;
   const selectedBusinessName =
-    businesses.find((business) => business.businessId === selectedBusinessId)?.name ??
-    'עסק';
-  const isLoadingBasic = selectedBusinessId !== null && basicAnalytics === undefined;
+    businesses.find((business) => business.businessId === selectedBusinessId)
+      ?.name ?? 'עסק';
 
-  const basicStats = useMemo(
-    () => [
-      {
-        id: 'stamps',
-        label: 'ניקובים השבוע',
-        value: formatNumber(basicAnalytics?.totals.stamps ?? 0),
-      },
-      {
-        id: 'redemptions',
-        label: 'מימושים השבוע',
-        value: formatNumber(basicAnalytics?.totals.redemptions ?? 0),
-      },
-      {
-        id: 'customers',
-        label: 'לקוחות פעילים',
-        value: formatNumber(basicAnalytics?.totals.uniqueCustomers ?? 0),
-      },
-    ],
-    [basicAnalytics]
-  );
+  const dailyStamps = useMemo(() => {
+    const rawDaily = basicAnalytics?.daily ?? [];
+    const fallback = WEEKDAY_LABELS.map(() => 0);
+    if (!rawDaily.length) {
+      return fallback;
+    }
+    return rawDaily
+      .slice(-WEEKDAY_LABELS.length)
+      .map((day) => day.stamps)
+      .concat(fallback)
+      .slice(0, WEEKDAY_LABELS.length);
+  }, [basicAnalytics]);
 
-  const riskCount = smartCustomersData?.riskCount ?? 0;
-  const newCustomersLastWeek = smartCustomersData?.newCustomersLastWeek ?? 0;
-  const recommendationText =
-    riskCount > 0
-      ? `זוהו ${riskCount} לקוחות בסיכון. מומלץ לשלוח קמפיין חזרה ממוקד.`
-      : 'אין כרגע לקוחות בסיכון גבוה. המשיכו לשמור על רצף פעילות.';
+  const chartHeights = useMemo(() => {
+    const maxValue = Math.max(...dailyStamps, 0);
+    if (maxValue === 0) {
+      return dailyStamps.map(() => 6);
+    }
+    return dailyStamps.map((value) =>
+      Math.max(10, Math.round((value / maxValue) * 120))
+    );
+  }, [dailyStamps]);
+
+  const weeklyStampsTotal = basicAnalytics?.totals.stamps ?? 0;
+  const weeklyRedemptions = basicAnalytics?.totals.redemptions ?? 0;
+  const weeklyCustomers = basicAnalytics?.totals.uniqueCustomers ?? 0;
+  const growthPercent =
+    advancedAnalytics?.growthPercent ??
+    calculateGrowthFromWeekly(basicAnalytics?.weekly);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -160,23 +169,27 @@ export default function BusinessAnalyticsScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="דוחות ואנליטיקה"
+          title="דוחות עסק"
           subtitle={selectedBusinessName}
           titleAccessory={
             <TouchableOpacity
-              onPress={() => router.replace('/(authenticated)/(business)/dashboard')}
-              className="h-10 w-10 items-center justify-center rounded-full bg-white"
+              onPress={() =>
+                router.replace('/(authenticated)/(business)/dashboard')
+              }
+              className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
             >
-              <Text className="text-lg text-[#1A2B4A]">←</Text>
+              <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
             </TouchableOpacity>
           }
         />
 
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
+        <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-white p-4">
+          <Text
+            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+          >
             עסק נבחר
           </Text>
-          <View className={`${tw.flexRow} flex-wrap gap-2`}>
+          <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
             {businesses.map((business) => {
               const isActive = business.businessId === selectedBusinessId;
               return (
@@ -196,43 +209,79 @@ export default function BusinessAnalyticsScreen() {
               );
             })}
           </View>
-          {!advancedReportsGate.isLocked || !smartAnalyticsGate.isLocked ? null : (
-            <TouchableOpacity
-              onPress={() =>
-                openUpgrade('canSeeAdvancedReports', advancedReportsGate.requiredPlan)
-              }
-              className="self-end rounded-xl border border-[#2F6BFF] bg-[#EEF3FF] px-4 py-2"
-            >
-              <Text className="text-sm font-bold text-[#2F6BFF]">שדרגו לאנליטיקה מתקדמת</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5">
-          <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
-            נתונים בסיסיים
-          </Text>
-          {isLoadingBasic ? (
-            <View className="mt-4 items-center justify-center py-6">
-              <ActivityIndicator color="#2F6BFF" />
+        <View className="mt-5 rounded-3xl border border-[#E5EAF2] bg-white p-5">
+          <View className={`${tw.flexRow} items-center justify-between`}>
+            <Text
+              className={`text-2xl font-black text-[#15233A] ${tw.textStart}`}
+            >
+              ניקובים השבוע
+            </Text>
+            <View className="rounded-full border border-[#CFE0FF] bg-[#F1F6FF] px-3 py-1">
+              <Text className="text-[11px] font-bold text-[#2F6BFF]">
+                סה"כ {formatNumber(weeklyStampsTotal)}
+              </Text>
             </View>
-          ) : (
-            <View className={`${tw.flexRow} mt-4 flex-wrap gap-3`}>
-              {basicStats.map((stat) => (
+          </View>
+
+          <View className="mt-4 h-[180px] rounded-[22px] border border-[#EEF2F8] bg-[#FCFDFF] px-3 py-4">
+            {isLoading ? (
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator color="#2F6BFF" />
+              </View>
+            ) : (
+              <View className="flex-1">
                 <View
-                  key={stat.id}
-                  className="w-[31%] min-w-[100px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-3 py-3"
+                  className={`${tw.flexRow} h-[130px] items-end justify-between gap-2`}
                 >
-                  <Text className="text-right text-xs font-semibold text-[#64748B]">
-                    {stat.label}
-                  </Text>
-                  <Text className="mt-1 text-right text-lg font-black text-[#1A2B4A]">
-                    {stat.value}
-                  </Text>
+                  {WEEKDAY_LABELS.map((dayLabel, index) => (
+                    <View
+                      key={dayLabel}
+                      className="flex-1 items-center justify-end"
+                    >
+                      <View
+                        className="w-[8px] rounded-full bg-[#2F6BFF]"
+                        style={{
+                          height: chartHeights[index],
+                          opacity: dailyStamps[index] > 0 ? 1 : 0.2,
+                        }}
+                      />
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          )}
+                <View className={`${tw.flexRow} mt-4 justify-between`}>
+                  {WEEKDAY_LABELS.map((dayLabel) => (
+                    <Text
+                      key={`${dayLabel}-label`}
+                      className="flex-1 text-center text-[11px] font-semibold text-[#A0AABA]"
+                    >
+                      {dayLabel}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View className={`${tw.flexRow} mt-5 gap-3`}>
+          <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
+            <Text className="text-right text-xs font-semibold text-[#64748B]">
+              מימושים השבוע
+            </Text>
+            <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
+              {formatNumber(weeklyRedemptions)}
+            </Text>
+          </View>
+          <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
+            <Text className="text-right text-xs font-semibold text-[#64748B]">
+              לקוחות פעילים
+            </Text>
+            <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
+              {formatNumber(weeklyCustomers)}
+            </Text>
+          </View>
         </View>
 
         <View className="mt-5">
@@ -249,120 +298,30 @@ export default function BusinessAnalyticsScreen() {
               )
             }
             title="דוחות מתקדמים נעולים"
-            subtitle="מדדי צמיחה והשוואות תקופתיות זמינים במסלול Pro ומעלה."
+            subtitle="ניתוחי עומק והשוואות תקופתיות זמינים במסלול Pro ומעלה."
           >
-            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
-                דוחות מתקדמים
-              </Text>
-              <View className={`${tw.flexRow} gap-3`}>
-                <View className="flex-1 rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-4 py-3">
-                  <Text className="text-right text-xs font-semibold text-[#64748B]">
-                    צמיחת ניקובים
-                  </Text>
-                  <Text className="mt-1 text-right text-xl font-black text-[#1A2B4A]">
+            <View className="rounded-3xl border border-[#E5EAF2] bg-white p-5">
+              <View className={`${tw.flexRow} items-center justify-between`}>
+                <Text
+                  className={`text-lg font-black text-[#15233A] ${tw.textStart}`}
+                >
+                  צמיחה תקופתית
+                </Text>
+                <View className="rounded-full bg-[#EAF8F2] px-3 py-1">
+                  <Text className="text-sm font-bold text-[#0EAD69]">
                     {advancedReportsGate.isLocked
                       ? '--'
-                      : formatGrowth(advancedAnalytics?.growthPercent ?? 0)}
-                  </Text>
-                </View>
-                <View className="flex-1 rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-4 py-3">
-                  <Text className="text-right text-xs font-semibold text-[#64748B]">
-                    שבוע אחרון
-                  </Text>
-                  <Text className="mt-1 text-right text-xl font-black text-[#1A2B4A]">
-                    {advancedReportsGate.isLocked
-                      ? '--'
-                      : formatNumber(advancedAnalytics?.weekly.at(-1)?.stamps ?? 0)}
+                      : formatGrowth(growthPercent)}
                   </Text>
                 </View>
               </View>
-            </View>
-          </LockedFeatureWrapper>
-        </View>
-
-        <View className="mt-5">
-          <LockedFeatureWrapper
-            isLocked={smartAnalyticsGate.isLocked}
-            requiredPlan={smartAnalyticsGate.requiredPlan}
-            onUpgradeClick={() =>
-              openUpgrade(
-                'canUseSmartAnalytics',
-                smartAnalyticsGate.requiredPlan,
-                smartAnalyticsGate.reason === 'subscription_inactive'
-                  ? 'subscription_inactive'
-                  : 'feature_locked'
-              )
-            }
-            title="Smart Analytics נעול"
-            subtitle="רשימת לקוחות בסיכון והמלצות שימור זמינות במסלול Pro ומעלה."
-            benefits={[
-              'איתור לקוחות בסיכון נטישה',
-              'המלצות שימור אוטומטיות',
-              'פילוח לקוחות מתקדם',
-            ]}
-          >
-            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
-                Smart Analytics
+              <Text className={`mt-3 text-sm text-[#64748B] ${tw.textStart}`}>
+                {advancedReportsGate.isLocked
+                  ? 'שדרוג למסלול Pro יפתח דוחות השוואה בין תקופות ותובנות מתקדמות.'
+                  : 'הצמיחה מחושבת לפי השוואת השבוע האחרון מול השבוע שקדם לו.'}
               </Text>
-              <View className="rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-4 py-3">
-                <Text className="text-right text-xs font-semibold text-[#64748B]">
-                  לקוחות בסיכון
-                </Text>
-                <Text className="mt-1 text-right text-xl font-black text-[#1A2B4A]">
-                  {smartAnalyticsGate.isLocked ? '--' : formatNumber(riskCount)}
-                </Text>
-              </View>
-              <View className="rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-4 py-3">
-                <Text className="text-right text-xs font-semibold text-[#64748B]">
-                  לקוחות חדשים השבוע
-                </Text>
-                <Text className="mt-1 text-right text-xl font-black text-[#1A2B4A]">
-                  {smartAnalyticsGate.isLocked
-                    ? '--'
-                    : formatNumber(newCustomersLastWeek)}
-                </Text>
-              </View>
-              <View className="rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-4 py-3">
-                <Text className={`text-sm font-semibold text-[#334155] ${tw.textStart}`}>
-                  {smartAnalyticsGate.isLocked
-                    ? 'שדרוג למסלול Pro יפתח המלצות שימור לקוחות בזמן אמת.'
-                    : recommendationText}
-                </Text>
-              </View>
             </View>
           </LockedFeatureWrapper>
-        </View>
-
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}>
-            פעילות אחרונה
-          </Text>
-          {(recentActivity ?? []).length === 0 ? (
-            <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-              עדיין אין פעילות להצגה.
-            </Text>
-          ) : (
-            (recentActivity ?? []).map((activity) => (
-              <View
-                key={activity.id}
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
-              >
-                <View className={`${tw.flexRow} items-center justify-between`}>
-                  <View className="items-end">
-                    <Text className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}>
-                      {activity.customer}
-                    </Text>
-                    <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                      {activity.detail}
-                    </Text>
-                  </View>
-                  <Text className="text-xs font-semibold text-[#64748B]">{activity.time}</Text>
-                </View>
-              </View>
-            ))
-          )}
         </View>
       </ScrollView>
 

@@ -53,6 +53,32 @@ function normalizePhone(value: string) {
   return normalized;
 }
 
+function normalizeMonth(
+  value: number | undefined,
+  field: 'BIRTHDAY_MONTH' | 'ANNIVERSARY_MONTH'
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Number.isInteger(value) || value < 1 || value > 12) {
+    throw new Error(`${field}_INVALID`);
+  }
+  return value;
+}
+
+function normalizeDay(
+  value: number | undefined,
+  field: 'BIRTHDAY_DAY' | 'ANNIVERSARY_DAY'
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Number.isInteger(value) || value < 1 || value > 31) {
+    throw new Error(`${field}_INVALID`);
+  }
+  return value;
+}
+
 async function patchSubscriptionPlan(
   ctx: any,
   userId: Id<'users'>,
@@ -624,6 +650,12 @@ export const getSessionContext = query({
         _id: user._id,
         email: user.email,
         phone: user.phone,
+        marketingOptIn: user.marketingOptIn,
+        marketingOptInAt: user.marketingOptInAt,
+        birthdayMonth: user.birthdayMonth,
+        birthdayDay: user.birthdayDay,
+        anniversaryMonth: user.anniversaryMonth,
+        anniversaryDay: user.anniversaryDay,
         firstName: user.firstName,
         lastName: user.lastName,
         fullName: user.fullName,
@@ -781,6 +813,78 @@ export const setMyPhone = mutation({
       updatedAt: now,
     });
 
+    const updatedUser = await ctx.db.get(user._id);
+    if (!updatedUser) {
+      throw new Error('USER_NOT_FOUND');
+    }
+    return updatedUser;
+  },
+});
+
+export const setMyMarketingProfile = mutation({
+  args: {
+    marketingOptIn: v.boolean(),
+    birthdayMonth: v.optional(v.number()),
+    birthdayDay: v.optional(v.number()),
+    anniversaryMonth: v.optional(v.number()),
+    anniversaryDay: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    {
+      marketingOptIn,
+      birthdayMonth,
+      birthdayDay,
+      anniversaryMonth,
+      anniversaryDay,
+    }
+  ) => {
+    const user = await requireCurrentUser(ctx);
+
+    const normalizedBirthdayMonth = normalizeMonth(
+      birthdayMonth,
+      'BIRTHDAY_MONTH'
+    );
+    const normalizedBirthdayDay = normalizeDay(birthdayDay, 'BIRTHDAY_DAY');
+    const normalizedAnniversaryMonth = normalizeMonth(
+      anniversaryMonth,
+      'ANNIVERSARY_MONTH'
+    );
+    const normalizedAnniversaryDay = normalizeDay(
+      anniversaryDay,
+      'ANNIVERSARY_DAY'
+    );
+
+    if (
+      (normalizedBirthdayMonth === undefined) !==
+      (normalizedBirthdayDay === undefined)
+    ) {
+      throw new Error('BIRTHDAY_INCOMPLETE');
+    }
+    if (
+      (normalizedAnniversaryMonth === undefined) !==
+      (normalizedAnniversaryDay === undefined)
+    ) {
+      throw new Error('ANNIVERSARY_INCOMPLETE');
+    }
+
+    const now = Date.now();
+    const patch: Record<string, unknown> = {
+      marketingOptIn,
+      birthdayMonth: normalizedBirthdayMonth,
+      birthdayDay: normalizedBirthdayDay,
+      anniversaryMonth: normalizedAnniversaryMonth,
+      anniversaryDay: normalizedAnniversaryDay,
+      updatedAt: now,
+    };
+
+    if (marketingOptIn) {
+      patch.marketingOptInAt = user.marketingOptInAt ?? now;
+    } else {
+      patch.marketingOptInAt = undefined;
+    }
+
+    await ctx.db.patch(user._id, patch);
     const updatedUser = await ctx.db.get(user._id);
     if (!updatedUser) {
       throw new Error('USER_NOT_FOUND');

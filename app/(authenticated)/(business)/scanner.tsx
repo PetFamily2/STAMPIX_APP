@@ -49,26 +49,32 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
     const code = error.message;
     switch (code) {
       case 'INVALID_QR':
-        return { message: 'קוד QR לא תקין', code };
+        return { message: 'Invalid QR code', code };
       case 'EXPIRED_TOKEN':
-        return { message: 'ה-QR פג תוקף בקשו מהלקוח לרענן', code };
+        return { message: 'QR expired. Ask customer to refresh.', code };
       case 'TOKEN_ALREADY_USED':
-        return { message: 'ה-QR כבר נסרק בקשו מהלקוח לרענן', code };
+        return { message: 'QR already used. Ask customer to refresh.', code };
       case 'SELF_STAMP':
-        return { message: 'לא ניתן להוסיף ניקוב לעצמך', code };
+        return { message: 'Cannot stamp your own card.', code };
       case 'RATE_LIMITED':
-        return { message: 'המתן 30 שניות בין ניקובים לאותו לקוח', code };
+        return { message: 'Wait 30 seconds before next stamp.', code };
       case 'CUSTOMER_NOT_FOUND':
-        return { message: 'לקוח לא נמצא במערכת', code };
+        return { message: 'Customer not found.', code };
       case 'MEMBERSHIP_NOT_FOUND':
-        return { message: 'לא נמצאה חברות למועדון', code };
+        return { message: 'Membership not found.', code };
       case 'NOT_AUTHORIZED':
-        return { message: 'אין הרשאה לבצע פעולה זו', code };
+        return { message: 'You are not authorized for this action.', code };
+      case 'PROGRAM_ARCHIVED':
+        return {
+          message:
+            'This program is archived. New customers cannot join through scanner.',
+          code,
+        };
       default:
         return { message: code, code };
     }
   }
-  return { message: 'משהו השתבש נסה שוב', code: 'UNKNOWN' };
+  return { message: 'Something went wrong. Try again.', code: 'UNKNOWN' };
 };
 
 export default function ScannerScreen() {
@@ -429,7 +435,11 @@ export default function ScannerScreen() {
               {selectedProgram ? selectedProgram.title : 'בחר תוכנית'}
             </Text>
             <Text style={styles.selectorSubtitle}>
-              {programs.length > 1 ? 'לחץ להחלפה' : 'בחר תוכנית כדי להתחיל'}
+              {selectedProgram?.isArchived
+                ? 'Archived program (existing members only)'
+                : programs.length > 1
+                  ? 'Tap to switch'
+                  : 'Choose a program to start'}
             </Text>
           </Pressable>
         </View>
@@ -744,3 +754,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+
+

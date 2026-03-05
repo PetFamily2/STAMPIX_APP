@@ -261,6 +261,10 @@ export const addStamp = mutation({
 
     // Decide MVP rule: cap at maxStamps (prevents overflow)
     if (!existing) {
+      if (program.isArchived === true) {
+        throw new Error('PROGRAM_ARCHIVED');
+      }
+
       const existingBusinessMembership = await ctx.db
         .query('memberships')
         .withIndex('by_userId_businessId', (q: any) =>

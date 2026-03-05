@@ -77,3 +77,17 @@ export async function requireActorIsBusinessOwner(
   }
   return actor;
 }
+
+export async function requireActorIsBusinessOwnerOrManager(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const { actor, staffRole } = await requireActorIsStaffForBusiness(
+    ctx,
+    businessId
+  );
+  if (staffRole !== 'owner' && staffRole !== 'manager') {
+    throw new Error('NOT_AUTHORIZED');
+  }
+  return { actor, staffRole };
+}

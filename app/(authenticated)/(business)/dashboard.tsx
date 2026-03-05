@@ -79,6 +79,13 @@ const ACTION_CARDS = [
 
 const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
   {
+    id: 'customers',
+    title: 'לקוחות',
+    subtitle: 'ניהול לקוחות ותובנות',
+    icon: 'people-outline',
+    route: '/merchant/customers',
+  },
+  {
     id: 'business-analytics',
     title: 'דוחות עסק',
     subtitle: 'ניתוח נתוני העסק',
@@ -617,4 +624,3 @@ export default function MerchantDashboardScreen() {
     </SafeAreaView>
   );
 }
-

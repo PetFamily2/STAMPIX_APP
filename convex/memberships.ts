@@ -262,7 +262,12 @@ export const joinByBusinessQr = mutation({
     const program = await ctx.db
       .query('loyaltyPrograms')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', business._id))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('isActive'), true),
+          q.neq(q.field('isArchived'), true)
+        )
+      )
       .first();
 
     if (!program) throw new Error('PROGRAM_NOT_FOUND');

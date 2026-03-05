@@ -15,7 +15,7 @@ const TEXT = {
   dashboard: 'מרכז ניהול',
   analytics: 'דוחות',
   scanCustomer: 'סרוק לקוח',
-  customerManagement: 'ניהול כרטיסיות',
+  customers: 'לקוחות',
   settings: 'הגדרות',
 };
 
@@ -189,15 +189,15 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="team"
+        name="customers"
         options={{
-          title: TEXT.customerManagement,
+          title: TEXT.customers,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.customerManagement}
+              title={TEXT.customers}
               icon="people-outline"
-              isActive={activeTabName === 'team'}
+              isActive={activeTabName === 'customers'}
             />
           ),
         }}
@@ -286,6 +286,12 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="qr"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="team"
         options={{
           href: null,
         }}

@@ -1,4 +1,8 @@
 import { mutation } from '../_generated/server';
+import {
+  DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
+  normalizeCustomerSegmentationConfig,
+} from '../business';
 import { getCurrentMonthKey } from '../entitlements';
 
 /**
@@ -63,6 +67,38 @@ export default mutation({
         business.aiCampaignsMonthKey.trim().length === 0
       ) {
         patch.aiCampaignsMonthKey = monthKey;
+      }
+
+      const normalizedSegmentationConfig = normalizeCustomerSegmentationConfig(
+        business.customerSegmentationConfig,
+        now
+      );
+      const currentSegmentationConfig =
+        business.customerSegmentationConfig &&
+        typeof business.customerSegmentationConfig === 'object'
+          ? (business.customerSegmentationConfig as Record<string, unknown>)
+          : null;
+
+      const hasSegmentationConfig =
+        currentSegmentationConfig &&
+        Number.isFinite(currentSegmentationConfig.riskDaysWithoutVisit) &&
+        Number.isFinite(currentSegmentationConfig.frequentVisitsLast30Days) &&
+        Number.isFinite(currentSegmentationConfig.dropPercentThreshold);
+
+      if (!hasSegmentationConfig) {
+        patch.customerSegmentationConfig = {
+          ...DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
+          updatedAt: now,
+        };
+      } else if (
+        normalizedSegmentationConfig.riskDaysWithoutVisit !==
+          Number(currentSegmentationConfig.riskDaysWithoutVisit) ||
+        normalizedSegmentationConfig.frequentVisitsLast30Days !==
+          Number(currentSegmentationConfig.frequentVisitsLast30Days) ||
+        normalizedSegmentationConfig.dropPercentThreshold !==
+          Number(currentSegmentationConfig.dropPercentThreshold)
+      ) {
+        patch.customerSegmentationConfig = normalizedSegmentationConfig;
       }
 
       if (Object.keys(patch).length > 0) {

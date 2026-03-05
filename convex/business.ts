@@ -4,6 +4,7 @@ import { mutation, query } from './_generated/server';
 import { assertEntitlement, getCurrentMonthKey } from './entitlements';
 import {
   requireActorIsBusinessOwner,
+  requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
   requireCurrentUser,
 } from './guards';
@@ -31,6 +32,57 @@ export interface BusinessCreationInput {
   colors?: unknown;
   address: BusinessAddressInput;
   now?: number;
+}
+
+export type BusinessCustomerSegmentationConfig = {
+  riskDaysWithoutVisit: number;
+  frequentVisitsLast30Days: number;
+  dropPercentThreshold: number;
+  updatedAt: number;
+};
+
+export const DEFAULT_CUSTOMER_SEGMENTATION_CONFIG = {
+  riskDaysWithoutVisit: 10,
+  frequentVisitsLast30Days: 6,
+  dropPercentThreshold: 40,
+} as const;
+
+export function normalizeCustomerSegmentationConfig(
+  config: unknown,
+  now: number
+): BusinessCustomerSegmentationConfig {
+  const source =
+    config && typeof config === 'object'
+      ? (config as Record<string, unknown>)
+      : {};
+
+  const riskDaysWithoutVisit = Number.isFinite(source.riskDaysWithoutVisit)
+    ? Math.max(1, Math.min(90, Math.floor(Number(source.riskDaysWithoutVisit))))
+    : DEFAULT_CUSTOMER_SEGMENTATION_CONFIG.riskDaysWithoutVisit;
+
+  const frequentVisitsLast30Days = Number.isFinite(
+    source.frequentVisitsLast30Days
+  )
+    ? Math.max(
+        1,
+        Math.min(60, Math.floor(Number(source.frequentVisitsLast30Days)))
+      )
+    : DEFAULT_CUSTOMER_SEGMENTATION_CONFIG.frequentVisitsLast30Days;
+
+  const dropPercentThreshold = Number.isFinite(source.dropPercentThreshold)
+    ? Math.max(1, Math.min(95, Math.floor(Number(source.dropPercentThreshold))))
+    : DEFAULT_CUSTOMER_SEGMENTATION_CONFIG.dropPercentThreshold;
+
+  const updatedAt = Number.isFinite(source.updatedAt)
+    ? Math.max(0, Math.floor(Number(source.updatedAt)))
+    : now;
+
+  return {
+    riskDaysWithoutVisit,
+    frequentVisitsLast30Days,
+    dropPercentThreshold,
+    updatedAt,
+  };
 }
 
 function normalizeBusinessAddressInput(input: BusinessAddressInput) {
@@ -201,6 +253,10 @@ export async function createBusinessForOwner(
     billingPeriod: null,
     aiCampaignsUsedThisMonth: 0,
     aiCampaignsMonthKey: getCurrentMonthKey(now),
+    customerSegmentationConfig: {
+      ...DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
+      updatedAt: now,
+    },
     location: normalizedAddress.location,
     placeId: normalizedAddress.placeId,
     formattedAddress: normalizedAddress.formattedAddress,
@@ -335,6 +391,73 @@ export const updateBusinessAddress = mutation({
     });
 
     return { businessId };
+  },
+});
+
+export const getCustomerSegmentationConfig = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return null;
+    }
+
+    await requireActorIsStaffForBusiness(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    return normalizeCustomerSegmentationConfig(
+      business.customerSegmentationConfig,
+      Date.now()
+    );
+  },
+});
+
+export const updateCustomerSegmentationConfig = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    riskDaysWithoutVisit: v.number(),
+    frequentVisitsLast30Days: v.number(),
+    dropPercentThreshold: v.number(),
+  },
+  handler: async (
+    ctx,
+    {
+      businessId,
+      riskDaysWithoutVisit,
+      frequentVisitsLast30Days,
+      dropPercentThreshold,
+    }
+  ) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const now = Date.now();
+    const nextConfig = normalizeCustomerSegmentationConfig(
+      {
+        riskDaysWithoutVisit,
+        frequentVisitsLast30Days,
+        dropPercentThreshold,
+        updatedAt: now,
+      },
+      now
+    );
+
+    await ctx.db.patch(businessId, {
+      customerSegmentationConfig: nextConfig,
+      updatedAt: now,
+    });
+
+    return {
+      businessId,
+      config: nextConfig,
+    };
   },
 });
 
