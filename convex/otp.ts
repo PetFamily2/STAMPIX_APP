@@ -139,7 +139,7 @@ export const sendEmailOtp = action({
         html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>:הקוד שלך הוא:</p>
 <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${code}</p>
-<p>תוקף הקוד: 3 דקות.</p>
+<p>תוקף הקוד: 3 דקות..</p>
 </div>`,
       }),
     });

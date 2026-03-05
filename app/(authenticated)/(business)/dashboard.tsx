@@ -67,41 +67,6 @@ const ACTION_CARDS = [
 
 const QUICK_SHORTCUT_TILES: QuickShortcutTile[] = [
   {
-    id: 'customers',
-    title: 'לקוחות',
-    subtitle: 'מסך לקוחות מלא',
-    icon: 'people-outline',
-    route: '/(authenticated)/(business)/customers?tab=customers',
-  },
-  {
-    id: 'business-analytics',
-    title: 'דוחות עסק',
-    subtitle: 'ניתוח נתוני העסק',
-    icon: 'bar-chart-outline',
-    route: '/(authenticated)/(business)/analytics',
-  },
-  {
-    id: 'scanner',
-    title: 'סריקת לקוח',
-    subtitle: 'סריקה, ניקוב ומימוש',
-    icon: 'scan-outline',
-    route: '/(authenticated)/(business)/scanner',
-  },
-  {
-    id: 'cards-management',
-    title: 'כרטיסים וקמפיינים',
-    subtitle: 'ניהול כרטיסים והטבות',
-    icon: 'ticket-outline',
-    route: '/(authenticated)/(business)/cards',
-  },
-  {
-    id: 'business-settings',
-    title: 'הגדרות מערכת',
-    subtitle: 'העדפות חשבון ותמיכה',
-    icon: 'settings-outline',
-    route: '/(authenticated)/(business)/settings',
-  },
-  {
     id: 'business-qr',
     title: 'QR עסק',
     subtitle: 'קוד הצטרפות ללקוחות',

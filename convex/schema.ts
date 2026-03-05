@@ -265,10 +265,13 @@ export default defineSchema({
     ),
     rules: v.optional(v.any()),
     channels: v.optional(v.array(v.string())),
+    automationEnabled: v.optional(v.boolean()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_businessId', ['businessId']),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_automationEnabled', ['automationEnabled']),
 
   subscriptions: defineTable({
     businessId: v.id('businesses'),

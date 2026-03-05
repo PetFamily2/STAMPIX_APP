@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import {
   getBusinessEntitlementsForBusinessId,
   reserveAiCampaignQuota,
@@ -20,6 +20,20 @@ const MANAGEMENT_TYPES = [
   'winback',
   'promo',
 ] as const;
+const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
+const ISRAEL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: ISRAEL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const ISRAEL_YEAR_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: ISRAEL_TIME_ZONE,
+  year: 'numeric',
+});
 
 type ManagementCampaignType = (typeof MANAGEMENT_TYPES)[number];
 type CampaignRules =
@@ -33,6 +47,11 @@ type AudienceRow = {
   membership: any;
   user: any;
 };
+type CampaignDeliveryStats = {
+  reachedUniqueAllTime: number;
+  reachedMessagesAllTime: number;
+  lastSentAt: number | null;
+};
 
 const MANAGEMENT_CAMPAIGN_TYPE_UNION = v.union(
   v.literal('welcome'),
@@ -45,6 +64,47 @@ const MANAGEMENT_CAMPAIGN_TYPE_UNION = v.union(
 function normalizeText(value: string | undefined, fallback: string) {
   const normalized = value?.trim();
   return normalized && normalized.length > 0 ? normalized : fallback;
+}
+
+function isAutomationEnabled(value: unknown): boolean {
+  return value === true;
+}
+
+function getDateTimePartsByFormatter(
+  formatter: Intl.DateTimeFormat,
+  timestamp: number
+) {
+  const raw = formatter.formatToParts(new Date(timestamp));
+  const values = new Map<string, string>();
+  for (const part of raw) {
+    if (part.type !== 'literal') {
+      values.set(part.type, part.value);
+    }
+  }
+  return values;
+}
+
+function getIsraelHour(timestamp: number): number {
+  const parts = getDateTimePartsByFormatter(
+    ISRAEL_DATE_TIME_FORMATTER,
+    timestamp
+  );
+  return Number(parts.get('hour') ?? 0);
+}
+
+function getIsraelYear(timestamp: number): number {
+  return Number(ISRAEL_YEAR_FORMATTER.format(new Date(timestamp)));
+}
+
+function getIsraelMonthDay(timestamp: number): { month: number; day: number } {
+  const parts = getDateTimePartsByFormatter(
+    ISRAEL_DATE_TIME_FORMATTER,
+    timestamp
+  );
+  return {
+    month: Number(parts.get('month') ?? 0),
+    day: Number(parts.get('day') ?? 0),
+  };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -240,6 +300,74 @@ async function loadAudienceRows(
   return rows;
 }
 
+function getUniqueUsersFromRows(rows: AudienceRow[]) {
+  const uniqueByUserId = new Map<string, any>();
+  for (const row of rows) {
+    uniqueByUserId.set(String(row.user._id), row.user);
+  }
+  return [...uniqueByUserId.values()];
+}
+
+function isValidBirthdayValue(value: unknown, min: number, max: number) {
+  return Number.isFinite(value) && Number(value) >= min && Number(value) <= max;
+}
+
+function countMissingBirthdayFromRows(rows: AudienceRow[]) {
+  const users = getUniqueUsersFromRows(rows);
+  return users.filter(
+    (user) =>
+      !isValidBirthdayValue(user.birthdayMonth, 1, 12) ||
+      !isValidBirthdayValue(user.birthdayDay, 1, 31)
+  ).length;
+}
+
+async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
+  return await ctx.db
+    .query('messageLog')
+    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
+    .collect();
+}
+
+function buildCampaignDeliveryStats(logs: Array<{ toUserId: Id<'users'>; createdAt: number }>): CampaignDeliveryStats {
+  const uniqueUsers = new Set<string>();
+  let lastSentAt: number | null = null;
+
+  for (const log of logs) {
+    uniqueUsers.add(String(log.toUserId));
+    if (lastSentAt === null || log.createdAt > lastSentAt) {
+      lastSentAt = log.createdAt;
+    }
+  }
+
+  return {
+    reachedUniqueAllTime: uniqueUsers.size,
+    reachedMessagesAllTime: logs.length,
+    lastSentAt,
+  };
+}
+
+async function countMissingBirthdayForCampaign(ctx: any, campaign: any) {
+  const rows = await loadAudienceRows(ctx, campaign.businessId, campaign.programId);
+  return countMissingBirthdayFromRows(rows);
+}
+
+function shouldSkipAutomationByHistory(
+  campaignType: ManagementCampaignType,
+  previousSentTimestamps: number[],
+  now: number
+) {
+  if (previousSentTimestamps.length === 0) {
+    return false;
+  }
+  if (campaignType === 'birthday' || campaignType === 'anniversary') {
+    const currentIsraelYear = getIsraelYear(now);
+    return previousSentTimestamps.some(
+      (sentAt) => getIsraelYear(sentAt) === currentIsraelYear
+    );
+  }
+  return true;
+}
+
 function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
   if (row.user.isActive !== true) {
     return false;
@@ -252,15 +380,11 @@ function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
     case 'new_customers':
       return row.membership.createdAt >= now - rule.joinedWithinDays * DAY_MS;
     case 'birthday_today': {
-      const today = new Date(now);
-      const month = today.getUTCMonth() + 1;
-      const day = today.getUTCDate();
+      const { month, day } = getIsraelMonthDay(now);
       return row.user.birthdayMonth === month && row.user.birthdayDay === day;
     }
     case 'anniversary_today': {
-      const today = new Date(now);
-      const month = today.getUTCMonth() + 1;
-      const day = today.getUTCDate();
+      const { month, day } = getIsraelMonthDay(now);
       return (
         row.user.anniversaryMonth === month && row.user.anniversaryDay === day
       );
@@ -315,6 +439,57 @@ async function estimateAudienceForCampaign(
     total: userIdSet.size,
     sample,
   };
+}
+
+async function sendAutomationForCampaign(
+  ctx: any,
+  campaign: any,
+  now: number
+): Promise<{ sentCount: number; skippedCount: number }> {
+  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  const campaignType = normalizeManagementType(campaign.type);
+  const logs = await getCampaignLogs(ctx, campaign._id);
+
+  const historyByUserId = new Map<string, number[]>();
+  for (const log of logs) {
+    const key = String(log.toUserId);
+    const values = historyByUserId.get(key) ?? [];
+    values.push(Number(log.createdAt));
+    historyByUserId.set(key, values);
+  }
+
+  let sentCount = 0;
+  let skippedCount = 0;
+
+  for (const userId of estimate.userIds) {
+    const userKey = String(userId);
+    const userHistory = historyByUserId.get(userKey) ?? [];
+    if (shouldSkipAutomationByHistory(campaignType, userHistory, now)) {
+      skippedCount += 1;
+      continue;
+    }
+
+    await ctx.db.insert('messageLog', {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      toUserId: userId,
+      channel: 'in_app',
+      status: 'sent',
+      createdAt: now,
+    });
+
+    userHistory.push(now);
+    historyByUserId.set(userKey, userHistory);
+    sentCount += 1;
+  }
+
+  if (sentCount > 0) {
+    await ctx.db.patch(campaign._id, {
+      updatedAt: now,
+    });
+  }
+
+  return { sentCount, skippedCount };
 }
 
 export const listAiCampaignsByBusiness = query({
@@ -403,6 +578,7 @@ export const createAiCampaign = mutation({
       status: 'draft',
       rules,
       channels,
+      automationEnabled: false,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -445,7 +621,16 @@ export const listManagementCampaignsByBusiness = query({
         if (!isManagementType(campaign.type)) {
           return null;
         }
-        const estimate = await estimateAudienceForCampaign(ctx, campaign);
+        const [estimate, logs, missingBirthdayCount] = await Promise.all([
+          estimateAudienceForCampaign(ctx, campaign),
+          getCampaignLogs(ctx, campaign._id),
+          campaign.type === 'birthday'
+            ? countMissingBirthdayForCampaign(ctx, campaign)
+            : Promise.resolve(null),
+        ]);
+        const deliveryStats = buildCampaignDeliveryStats(logs);
+        const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
+
         return {
           campaignId: campaign._id,
           businessId: campaign.businessId,
@@ -460,7 +645,13 @@ export const listManagementCampaignsByBusiness = query({
             buildDefaultDraftByType(campaign.type).messageBody,
           status: campaign.status ?? 'draft',
           rules: campaign.rules ?? buildDefaultDraftByType(campaign.type).rules,
+          automationEnabled,
           estimatedAudience: estimate.total,
+          reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
+          reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
+          lastSentAt: deliveryStats.lastSentAt,
+          missingBirthdayCount:
+            campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
           createdAt: campaign.createdAt,
           updatedAt: campaign.updatedAt,
         };
@@ -486,6 +677,15 @@ export const getManagementCampaignDraft = query({
     }
 
     const defaults = buildDefaultDraftByType(campaign.type);
+    const [estimate, logs, missingBirthdayCount] = await Promise.all([
+      estimateAudienceForCampaign(ctx, campaign),
+      getCampaignLogs(ctx, campaign._id),
+      campaign.type === 'birthday'
+        ? countMissingBirthdayForCampaign(ctx, campaign)
+        : Promise.resolve(null),
+    ]);
+    const deliveryStats = buildCampaignDeliveryStats(logs);
+    const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
 
     return {
       campaignId: campaign._id,
@@ -496,6 +696,16 @@ export const getManagementCampaignDraft = query({
       messageBody: campaign.messageBody ?? defaults.messageBody,
       rules: campaign.rules ?? defaults.rules,
       programId: campaign.programId ?? null,
+      automationEnabled,
+      isRulesLocked: automationEnabled,
+      stats: {
+        eligibleAudienceNow: estimate.total,
+        reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
+        reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
+        lastSentAt: deliveryStats.lastSentAt,
+        missingBirthdayCount:
+          campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
+      },
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
     };
@@ -531,12 +741,38 @@ export const createCampaignDraft = mutation({
       channels: DEFAULT_CHANNELS,
       programId,
       status: 'draft',
+      automationEnabled: false,
       isActive: true,
       createdAt: now,
       updatedAt: now,
     });
 
     return { campaignId };
+  },
+});
+
+export const setCampaignAutomationEnabled = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, { businessId, campaignId, enabled }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+
+    await ctx.db.patch(campaign._id, {
+      automationEnabled: enabled,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      ok: true,
+      automationEnabled: enabled,
+    };
   },
 });
 
@@ -570,18 +806,28 @@ export const updateCampaignDraft = mutation({
     if ((campaign.status ?? 'draft') !== 'draft') {
       throw new Error('CAMPAIGN_NOT_DRAFT');
     }
+    if (isAutomationEnabled(campaign.automationEnabled)) {
+      if (rules !== undefined || programId !== undefined) {
+        throw new Error('ACTIVE_CAMPAIGN_RULES_LOCKED');
+      }
+    }
 
-    await validateProgramBelongsToBusiness(ctx, businessId, programId);
+    if (!isAutomationEnabled(campaign.automationEnabled)) {
+      await validateProgramBelongsToBusiness(ctx, businessId, programId);
+    }
     const defaults = buildDefaultDraftByType(campaign.type);
-
-    await ctx.db.patch(campaign._id, {
+    const patchPayload: Record<string, unknown> = {
       title: normalizeText(title, defaults.title),
       messageTitle: normalizeText(messageTitle, defaults.messageTitle),
       messageBody: normalizeText(messageBody, defaults.messageBody),
-      rules: normalizeCampaignRules(campaign.type, rules),
-      programId,
       updatedAt: Date.now(),
-    });
+    };
+    if (!isAutomationEnabled(campaign.automationEnabled)) {
+      patchPayload.rules = normalizeCampaignRules(campaign.type, rules);
+      patchPayload.programId = programId;
+    }
+
+    await ctx.db.patch(campaign._id, patchPayload);
 
     return { ok: true };
   },
@@ -656,6 +902,56 @@ export const sendCampaignNow = mutation({
       sentCount,
       skippedCount,
       estimatedAudience: estimate.total,
+    };
+  },
+});
+
+export const runAutomationSweepInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const israelHour = getIsraelHour(now);
+    if (israelHour !== 9) {
+      return {
+        processedCampaigns: 0,
+        sentCount: 0,
+        skippedCount: 0,
+        reason: 'outside_window',
+      };
+    }
+
+    const campaigns = await ctx.db
+      .query('campaigns')
+      .withIndex('by_automationEnabled', (q: any) =>
+        q.eq('automationEnabled', true)
+      )
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('isActive'), true),
+          q.neq(q.field('type'), 'ai_marketing')
+        )
+      )
+      .collect();
+
+    let processedCampaigns = 0;
+    let sentCount = 0;
+    let skippedCount = 0;
+
+    for (const campaign of campaigns) {
+      if (!isManagementType(campaign.type)) {
+        continue;
+      }
+      processedCampaigns += 1;
+      const result = await sendAutomationForCampaign(ctx, campaign, now);
+      sentCount += result.sentCount;
+      skippedCount += result.skippedCount;
+    }
+
+    return {
+      processedCampaigns,
+      sentCount,
+      skippedCount,
+      reason: 'ok',
     };
   },
 });
