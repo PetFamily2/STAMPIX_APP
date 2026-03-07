@@ -30,6 +30,7 @@ export default defineSchema({
     activeMode: v.optional(
       v.union(v.literal('customer'), v.literal('business'))
     ),
+    activeBusinessId: v.optional(v.id('businesses')),
     avatarUrl: v.optional(v.string()),
     marketingOptIn: v.optional(v.boolean()),
     marketingOptInAt: v.optional(v.number()),
@@ -280,6 +281,8 @@ export default defineSchema({
     channels: v.optional(v.array(v.string())),
     automationEnabled: v.optional(v.boolean()),
     isActive: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id('users')),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +21,7 @@ import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
   entitlementErrorToHebrewMessage,
@@ -45,23 +45,16 @@ export default function BusinessTeamScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] =
-    useState<Id<'businesses'> | null>(null);
-  const selectedBusiness = useMemo(
-    () =>
-      businesses.find((business) => business.businessId === selectedBusinessId),
-    [businesses, selectedBusinessId]
-  );
-  const isOwner = selectedBusiness?.staffRole === 'owner';
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const isOwner = activeBusiness?.staffRole === 'owner';
 
-  const { entitlements, gate } = useEntitlements(selectedBusinessId);
+  const { entitlements, gate } = useEntitlements(activeBusinessId);
   const teamGate = gate('canManageTeam');
 
   const staffMembers = useQuery(
     api.business.listBusinessStaff,
-    selectedBusinessId && entitlements && !teamGate.isLocked
-      ? { businessId: selectedBusinessId }
+    activeBusinessId && entitlements && !teamGate.isLocked
+      ? { businessId: activeBusinessId }
       : 'skip'
   );
   const inviteStaff = useMutation(api.business.inviteBusinessStaff);
@@ -79,21 +72,6 @@ export default function BusinessTeamScreen() {
   const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
     string | undefined
   >(undefined);
-
-  useEffect(() => {
-    setSelectedBusinessId((current) => {
-      if (!businesses.length) {
-        return null;
-      }
-      if (
-        current &&
-        businesses.some((business) => business.businessId === current)
-      ) {
-        return current;
-      }
-      return businesses[0].businessId;
-    });
-  }, [businesses]);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -119,8 +97,8 @@ export default function BusinessTeamScreen() {
   };
 
   const handleInvite = async () => {
-    if (!selectedBusinessId) {
-      setInviteError('בחרו עסק לפני שליחת הזמנה.');
+    if (!activeBusinessId) {
+      setInviteError('לא נמצא עסק פעיל עבור החשבון.');
       return;
     }
     if (!inviteEmail.trim()) {
@@ -147,7 +125,7 @@ export default function BusinessTeamScreen() {
     setIsInviting(true);
     try {
       const result = await inviteStaff({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         email: inviteEmail.trim(),
       });
 
@@ -269,33 +247,6 @@ export default function BusinessTeamScreen() {
           }
         />
 
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
-          <Text
-            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
-          >
-            עסק נבחר
-          </Text>
-          <View className={`${tw.flexRow} flex-wrap gap-2`}>
-            {businesses.map((business) => {
-              const isActive = business.businessId === selectedBusinessId;
-              return (
-                <TouchableOpacity
-                  key={business.businessId}
-                  onPress={() => setSelectedBusinessId(business.businessId)}
-                  className={`rounded-2xl border px-4 py-2 ${
-                    isActive
-                      ? 'border-[#A9C7FF] bg-[#E7F0FF]'
-                      : 'border-[#E3E9FF] bg-[#F6F8FC]'
-                  }`}
-                >
-                  <Text className="text-right text-sm font-semibold text-[#1A2B4A]">
-                    {business.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
         <View className="mt-5">
           <LockedFeatureWrapper
@@ -405,7 +356,7 @@ export default function BusinessTeamScreen() {
 
       <UpgradeModal
         visible={isUpgradeVisible}
-        businessId={selectedBusinessId}
+        businessId={activeBusinessId}
         initialPlan={upgradePlan}
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}

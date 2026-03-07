@@ -47,6 +47,7 @@ export type SessionContext = {
     inviteCode: string;
   }>;
   activeMode: 'customer' | 'business';
+  activeBusinessId: import('@/convex/_generated/dataModel').Id<'businesses'> | null;
 };
 
 type UserContextValue = {

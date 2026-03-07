@@ -137,12 +137,16 @@ export default function BusinessTabsLayout() {
     segmentStrings[segmentStrings.length - 1] ?? 'dashboard';
   const isCardsRoute = segmentStrings.includes('cards');
   const isCustomersRoute = segmentStrings.includes('customers');
+  const isSettingsSubRoute =
+    currentLeafSegment.startsWith('settings-business-');
   const activeTabName = DASHBOARD_ROUTE_NAMES.has(currentLeafSegment)
     ? 'dashboard'
     : isCardsRoute
       ? 'cards'
       : isCustomersRoute
         ? 'analytics'
+        : isSettingsSubRoute
+          ? 'settings'
         : currentLeafSegment;
 
   return (
@@ -305,6 +309,24 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="customers"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings-business-profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings-business-account"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings-business-subscription"
         options={{
           href: null,
         }}

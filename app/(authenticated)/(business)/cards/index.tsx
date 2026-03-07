@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -21,6 +23,7 @@ import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
@@ -81,6 +84,22 @@ function parseTab(value: unknown): ManagementTab {
   return normalized === 'campaigns' ? 'campaigns' : 'programs';
 }
 
+function resolveCampaignLifecycle(campaign: {
+  lifecycle?: string;
+  isActive?: boolean;
+  automationEnabled?: boolean;
+}) {
+  if (campaign.lifecycle) {
+    return campaign.lifecycle;
+  }
+  if (campaign.isActive === false) {
+    return 'archived' as const;
+  }
+  return campaign.automationEnabled === true
+    ? ('active' as const)
+    : ('inactive' as const);
+}
+
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
@@ -99,10 +118,12 @@ export default function BusinessCardsManagementScreen() {
     tab?: string | string[];
   }>();
 
-  const businessesQuery = useQuery(api.scanner.myBusinesses);
-  const businesses = businessesQuery ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] =
-    useState<Id<'businesses'> | null>(null);
+  const {
+    activeBusinessId,
+    activeBusiness,
+    businesses,
+    isLoading: isLoadingBusinesses,
+  } = useActiveBusiness();
   const [activeTab, setActiveTab] = useState<ManagementTab>(() =>
     parseTab(params.tab)
   );
@@ -111,22 +132,16 @@ export default function BusinessCardsManagementScreen() {
     setActiveTab(parseTab(params.tab));
   }, [params.tab]);
 
-  const selectedBusiness = useMemo(
-    () =>
-      businesses.find((business) => business.businessId === selectedBusinessId),
-    [businesses, selectedBusinessId]
-  );
   const canManagePrograms =
-    selectedBusiness?.staffRole === 'owner' ||
-    selectedBusiness?.staffRole === 'manager';
+    activeBusiness?.staffRole === 'owner' || activeBusiness?.staffRole === 'manager';
 
   const programsQuery = useQuery(
     api.loyaltyPrograms.listManagementByBusiness,
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const campaignsQuery = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
 
   const programs = programsQuery ?? [];
@@ -136,6 +151,9 @@ export default function BusinessCardsManagementScreen() {
     api.loyaltyPrograms.createLoyaltyProgram
   );
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
+  const createGeneralCampaignDraft = useMutation(
+    api.campaigns.createGeneralCampaignDraft
+  );
   const estimateCampaignAudience = useMutation(
     api.campaigns.estimateCampaignAudience
   );
@@ -143,7 +161,13 @@ export default function BusinessCardsManagementScreen() {
   const setCampaignAutomationEnabled = useMutation(
     api.campaigns.setCampaignAutomationEnabled
   );
-  const { entitlements, limitStatus } = useEntitlements(selectedBusinessId);
+  const archiveManagementCampaign = useMutation(
+    api.campaigns.archiveManagementCampaign
+  );
+  const restoreManagementCampaign = useMutation(
+    api.campaigns.restoreManagementCampaign
+  );
+  const { entitlements, limitStatus } = useEntitlements(activeBusinessId);
 
   const activePrograms = programs.filter(
     (program) => program.lifecycle === 'active'
@@ -177,6 +201,18 @@ export default function BusinessCardsManagementScreen() {
   const [isTogglingCampaignId, setIsTogglingCampaignId] = useState<
     string | null
   >(null);
+  const [isArchivingCampaignId, setIsArchivingCampaignId] = useState<
+    string | null
+  >(null);
+  const [isRestoringCampaignId, setIsRestoringCampaignId] = useState<
+    string | null
+  >(null);
+  const [isCreateCampaignModalVisible, setIsCreateCampaignModalVisible] =
+    useState(false);
+  const [isTemplateSelectorVisible, setIsTemplateSelectorVisible] =
+    useState(false);
+  const [isCreatingGeneralCampaign, setIsCreatingGeneralCampaign] =
+    useState(false);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
@@ -187,24 +223,9 @@ export default function BusinessCardsManagementScreen() {
     string | undefined
   >(undefined);
 
-  useEffect(() => {
-    setSelectedBusinessId((current) => {
-      if (!businesses.length) {
-        return null;
-      }
-      if (
-        current &&
-        businesses.some((business) => business.businessId === current)
-      ) {
-        return current;
-      }
-      return businesses[0].businessId;
-    });
-  }, [businesses]);
-
   const parsedMaxStamps = Number(maxStamps);
   const canCreateProgram =
-    !!selectedBusinessId &&
+    !!activeBusinessId &&
     canManagePrograms &&
     title.trim().length > 0 &&
     rewardName.trim().length > 0 &&
@@ -213,9 +234,34 @@ export default function BusinessCardsManagementScreen() {
     parsedMaxStamps > 0 &&
     !isCreatingProgram;
 
-  const isProgramsLoading = !!selectedBusinessId && programsQuery === undefined;
+  const isProgramsLoading = !!activeBusinessId && programsQuery === undefined;
   const isCampaignsLoading =
-    !!selectedBusinessId && campaignsQuery === undefined;
+    !!activeBusinessId && campaignsQuery === undefined;
+  const sortedCampaigns = useMemo(
+    () => [...campaigns].sort((a, b) => b.updatedAt - a.updatedAt),
+    [campaigns]
+  );
+  const activeCampaigns = useMemo(
+    () =>
+      sortedCampaigns.filter(
+        (campaign) => resolveCampaignLifecycle(campaign) === 'active'
+      ),
+    [sortedCampaigns]
+  );
+  const inactiveCampaigns = useMemo(
+    () =>
+      sortedCampaigns.filter(
+        (campaign) => resolveCampaignLifecycle(campaign) === 'inactive'
+      ),
+    [sortedCampaigns]
+  );
+  const archivedCampaigns = useMemo(
+    () =>
+      sortedCampaigns.filter(
+        (campaign) => resolveCampaignLifecycle(campaign) === 'archived'
+      ),
+    [sortedCampaigns]
+  );
 
   const openUpgradeForCards = () => {
     const requiredPlan = requiredPlanForCards;
@@ -230,8 +276,18 @@ export default function BusinessCardsManagementScreen() {
     router.setParams({ tab });
   };
 
+  const openCreateCampaignModal = () => {
+    setIsTemplateSelectorVisible(false);
+    setIsCreateCampaignModalVisible(true);
+  };
+
+  const closeCreateCampaignModal = () => {
+    setIsCreateCampaignModalVisible(false);
+    setIsTemplateSelectorVisible(false);
+  };
+
   const handleCreateProgram = async () => {
-    if (!selectedBusinessId || !canCreateProgram) {
+    if (!activeBusinessId || !canCreateProgram) {
       return;
     }
     if (cardLimit.isAtLimit) {
@@ -242,7 +298,7 @@ export default function BusinessCardsManagementScreen() {
     setIsCreatingProgram(true);
     try {
       await createLoyaltyProgram({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         title: title.trim(),
         rewardName: rewardName.trim(),
         maxStamps: parsedMaxStamps,
@@ -265,20 +321,21 @@ export default function BusinessCardsManagementScreen() {
   };
 
   const handleCreateTemplateCampaign = async (type: CampaignTemplateType) => {
-    if (!selectedBusinessId || !canManagePrograms) {
+    if (!activeBusinessId || !canManagePrograms) {
       return;
     }
     setIsWorkingCampaignId(`create-${type}`);
     try {
       const result = await createCampaignDraft({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         type,
       });
+      closeCreateCampaignModal();
       router.push({
         pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
         params: {
           campaignId: result.campaignId,
-          businessId: selectedBusinessId,
+          businessId: activeBusinessId,
         },
       });
     } catch (error) {
@@ -291,28 +348,60 @@ export default function BusinessCardsManagementScreen() {
     }
   };
 
+  const handleCreateGeneralCampaign = async () => {
+    if (
+      !activeBusinessId ||
+      !canManagePrograms ||
+      isCreatingGeneralCampaign
+    ) {
+      return;
+    }
+
+    setIsCreatingGeneralCampaign(true);
+    try {
+      const result = await createGeneralCampaignDraft({
+        businessId: activeBusinessId,
+      });
+      closeCreateCampaignModal();
+      router.push({
+        pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+        params: {
+          campaignId: result.campaignId,
+          businessId: activeBusinessId,
+        },
+      });
+    } catch (error) {
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
+      );
+    } finally {
+      setIsCreatingGeneralCampaign(false);
+    }
+  };
+
   const handleEditCampaign = (campaignId: Id<'campaigns'>) => {
-    if (!selectedBusinessId) {
+    if (!activeBusinessId) {
       return;
     }
     router.push({
       pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
       params: {
         campaignId,
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
       },
     });
   };
 
   const handleSendCampaign = async (campaignId: Id<'campaigns'>) => {
-    if (!selectedBusinessId || !canManagePrograms) {
+    if (!activeBusinessId || !canManagePrograms) {
       return;
     }
 
     setIsWorkingCampaignId(String(campaignId));
     try {
       const estimate = await estimateCampaignAudience({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         campaignId,
       });
 
@@ -333,7 +422,7 @@ export default function BusinessCardsManagementScreen() {
               void (async () => {
                 try {
                   const result = await sendCampaignNow({
-                    businessId: selectedBusinessId,
+                    businessId: activeBusinessId,
                     campaignId,
                   });
                   Alert.alert(
@@ -369,14 +458,14 @@ export default function BusinessCardsManagementScreen() {
     campaignId: Id<'campaigns'>,
     automationEnabled: boolean
   ) => {
-    if (!selectedBusinessId || !canManagePrograms) {
+    if (!activeBusinessId || !canManagePrograms) {
       return;
     }
 
     setIsTogglingCampaignId(String(campaignId));
     try {
       await setCampaignAutomationEnabled({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         campaignId,
         enabled: !automationEnabled,
       });
@@ -387,6 +476,55 @@ export default function BusinessCardsManagementScreen() {
       );
     } finally {
       setIsTogglingCampaignId(null);
+    }
+  };
+
+  const handleArchiveCampaign = async (
+    campaignId: Id<'campaigns'>,
+    automationEnabled: boolean
+  ) => {
+    if (!activeBusinessId || !canManagePrograms) {
+      return;
+    }
+    if (automationEnabled) {
+      Alert.alert('לא ניתן לארכב', 'כבה אוטומציה כדי להעביר לארכיון.');
+      return;
+    }
+
+    setIsArchivingCampaignId(String(campaignId));
+    try {
+      await archiveManagementCampaign({
+        businessId: activeBusinessId,
+        campaignId,
+      });
+    } catch (error) {
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא הצלחנו להעביר לארכיון.'
+      );
+    } finally {
+      setIsArchivingCampaignId(null);
+    }
+  };
+
+  const handleRestoreCampaign = async (campaignId: Id<'campaigns'>) => {
+    if (!activeBusinessId || !canManagePrograms) {
+      return;
+    }
+
+    setIsRestoringCampaignId(String(campaignId));
+    try {
+      await restoreManagementCampaign({
+        businessId: activeBusinessId,
+        campaignId,
+      });
+    } catch (error) {
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא הצלחנו לשחזר מהארכיון.'
+      );
+    } finally {
+      setIsRestoringCampaignId(null);
     }
   };
 
@@ -413,7 +551,7 @@ export default function BusinessCardsManagementScreen() {
     },
   ];
 
-  if (businessesQuery === undefined) {
+  if (isLoadingBusinesses) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
         <ActivityIndicator color="#2F6BFF" />
@@ -483,45 +621,6 @@ export default function BusinessCardsManagementScreen() {
           }
         />
 
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
-          >
-            בחירת עסק
-          </Text>
-          <View className={`${tw.flexRow} flex-wrap gap-2`}>
-            {businesses.map((business) => {
-              const isActive = business.businessId === selectedBusinessId;
-              return (
-                <TouchableOpacity
-                  key={business.businessId}
-                  onPress={() => setSelectedBusinessId(business.businessId)}
-                  className={`rounded-2xl border px-4 py-2 ${
-                    isActive
-                      ? 'border-[#A9C7FF] bg-[#E7F0FF]'
-                      : 'border-[#E3E9FF] bg-[#F6F8FC]'
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
-                  >
-                    {business.name}
-                  </Text>
-                  <Text
-                    className={`text-[11px] text-[#7B86A0] ${tw.textStart}`}
-                  >
-                    {business.staffRole}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          {!canManagePrograms ? (
-            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-              צפייה בלבד: עריכה ויצירה זמינות לבעלים או מנהל.
-            </Text>
-          ) : null}
-        </View>
 
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
@@ -690,7 +789,7 @@ export default function BusinessCardsManagementScreen() {
                           '/(authenticated)/(business)/cards/[programId]',
                         params: {
                           programId: program.loyaltyProgramId,
-                          businessId: selectedBusinessId ?? '',
+                          businessId: activeBusinessId ?? '',
                         },
                       })
                     }
@@ -750,7 +849,7 @@ export default function BusinessCardsManagementScreen() {
                           '/(authenticated)/(business)/cards/[programId]',
                         params: {
                           programId: program.loyaltyProgramId,
-                          businessId: selectedBusinessId ?? '',
+                          businessId: activeBusinessId ?? '',
                         },
                       })
                     }
@@ -787,57 +886,40 @@ export default function BusinessCardsManagementScreen() {
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                תבניות מהירות
+                יצירת קמפיין חדש
               </Text>
-              <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                {CAMPAIGN_TEMPLATES.map((template) => {
-                  const isLoading =
-                    isWorkingCampaignId === `create-${template.type}`;
-                  return (
-                    <TouchableOpacity
-                      key={template.type}
-                      disabled={!canManagePrograms || isLoading}
-                      onPress={() => {
-                        void handleCreateTemplateCampaign(template.type);
-                      }}
-                      className="w-[48.5%] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-3"
-                    >
-                      <Text
-                        className={`text-xs text-[#5B6475] ${tw.textStart}`}
-                      >
-                        {template.subtitle}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-sm font-black text-[#142743] ${tw.textStart}`}
-                      >
-                        {template.icon} {template.title}
-                      </Text>
-                      {isLoading ? (
-                        <ActivityIndicator
-                          color="#2F6BFF"
-                          style={{ marginTop: 8 }}
-                        />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <TouchableOpacity
+                disabled={!canManagePrograms}
+                onPress={openCreateCampaignModal}
+                className={`rounded-2xl px-4 py-3 ${
+                  canManagePrograms ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+                }`}
+              >
+                <Text className="text-center text-sm font-bold text-white">
+                  + צור קמפיין חדש
+                </Text>
+              </TouchableOpacity>
+              {!canManagePrograms ? (
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  רק בעלים או מנהל יכולים ליצור ולנהל קמפיינים.
+                </Text>
+              ) : null}
             </View>
 
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
               <Text
                 className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
               >
-                טיוטות וקמפיינים
+                קמפיינים פעילים ({activeCampaigns.length})
               </Text>
               {isCampaignsLoading ? (
                 <ActivityIndicator color="#2F6BFF" />
-              ) : campaigns.length === 0 ? (
+              ) : activeCampaigns.length === 0 ? (
                 <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-                  אין קמפיינים עדיין. צרו תבנית מהירה כדי להתחיל.
+                  אין קמפיינים פעילים כרגע.
                 </Text>
               ) : (
-                campaigns.map((campaign) => {
+                activeCampaigns.map((campaign) => {
                   const isBusy =
                     isWorkingCampaignId === String(campaign.campaignId);
                   return (
@@ -941,6 +1023,11 @@ export default function BusinessCardsManagementScreen() {
                           )}
                         </TouchableOpacity>
                       </View>
+                      <Text
+                        className={`text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        כבה אוטומציה כדי להעביר לארכיון.
+                      </Text>
                       <View className={`${tw.flexRow} gap-2`}>
                         <TouchableOpacity
                           disabled={isBusy}
@@ -974,7 +1061,250 @@ export default function BusinessCardsManagementScreen() {
                             )}
                           </TouchableOpacity>
                         ) : null}
+                        <TouchableOpacity
+                          disabled={true}
+                          onPress={() => {
+                            void handleArchiveCampaign(
+                              campaign.campaignId,
+                              campaign.automationEnabled === true
+                            );
+                          }}
+                          className="flex-1 rounded-xl bg-[#CBD5E1] px-3 py-2"
+                        >
+                          <Text className="text-center text-xs font-bold text-[#64748B]">
+                            שלח לארכיון
+                          </Text>
+                        </TouchableOpacity>
                       </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
+                קמפיינים לא פעילים ({inactiveCampaigns.length})
+              </Text>
+              {isCampaignsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : inactiveCampaigns.length === 0 ? (
+                <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
+                  אין קמפיינים לא פעילים.
+                </Text>
+              ) : (
+                inactiveCampaigns.map((campaign) => {
+                  const isBusy =
+                    isWorkingCampaignId === String(campaign.campaignId);
+                  const isArchiving =
+                    isArchivingCampaignId === String(campaign.campaignId);
+                  const isToggling =
+                    isTogglingCampaignId === String(campaign.campaignId);
+                  const canArchive =
+                    campaign.canArchive === true &&
+                    campaign.automationEnabled !== true;
+
+                  return (
+                    <View
+                      key={campaign.campaignId}
+                      className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4 gap-2"
+                    >
+                      <View
+                        className={`${tw.flexRow} items-center justify-between`}
+                      >
+                        <View className="rounded-full bg-[#EAF1FF] px-3 py-1">
+                          <Text className="text-[11px] font-bold text-[#2756C5]">
+                            לא פעיל
+                          </Text>
+                        </View>
+                        <Text
+                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                        >
+                          {campaign.title}
+                        </Text>
+                      </View>
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
+                        {campaign.messageTitle}
+                      </Text>
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
+                        קהל משוער: {formatNumber(campaign.estimatedAudience)} ·
+                        נוצר: {formatDate(campaign.createdAt)}
+                      </Text>
+                      <View
+                        className={`${tw.flexRow} items-center justify-between rounded-xl border border-[#D7E3FA] bg-white px-3 py-2`}
+                      >
+                        <Text
+                          className={`text-xs font-semibold text-[#3E5279] ${tw.textStart}`}
+                        >
+                          אוטומטי יומי 09:00
+                        </Text>
+                        <TouchableOpacity
+                          disabled={!canManagePrograms || isToggling}
+                          onPress={() => {
+                            void handleToggleCampaignAutomation(
+                              campaign.campaignId,
+                              campaign.automationEnabled === true
+                            );
+                          }}
+                          className={`rounded-full px-3 py-1 ${
+                            campaign.automationEnabled === true
+                              ? 'bg-[#DCFCE7]'
+                              : 'bg-[#E2E8F0]'
+                          }`}
+                        >
+                          {isToggling ? (
+                            <ActivityIndicator color="#1E293B" size="small" />
+                          ) : (
+                            <Text
+                              className={`text-xs font-bold ${
+                                campaign.automationEnabled === true
+                                  ? 'text-[#166534]'
+                                  : 'text-[#475569]'
+                              }`}
+                            >
+                              {campaign.automationEnabled === true
+                                ? 'פעיל'
+                                : 'כבוי'}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                      <View className={`${tw.flexRow} gap-2`}>
+                        <TouchableOpacity
+                          disabled={isBusy}
+                          onPress={() =>
+                            handleEditCampaign(campaign.campaignId)
+                          }
+                          className="flex-1 rounded-xl border border-[#2F6BFF] bg-white px-3 py-2"
+                        >
+                          <Text className="text-center text-xs font-bold text-[#2F6BFF]">
+                            פרטים
+                          </Text>
+                        </TouchableOpacity>
+                        {campaign.status === 'draft' ? (
+                          <TouchableOpacity
+                            disabled={!canManagePrograms || isBusy}
+                            onPress={() => {
+                              void handleSendCampaign(campaign.campaignId);
+                            }}
+                            className={`flex-1 rounded-xl px-3 py-2 ${
+                              canManagePrograms && !isBusy
+                                ? 'bg-[#2F6BFF]'
+                                : 'bg-[#CBD5E1]'
+                            }`}
+                          >
+                            {isBusy ? (
+                              <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                              <Text className="text-center text-xs font-bold text-white">
+                                שלח עכשיו
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity
+                          disabled={
+                            !canManagePrograms || !canArchive || isArchiving
+                          }
+                          onPress={() => {
+                            void handleArchiveCampaign(
+                              campaign.campaignId,
+                              campaign.automationEnabled === true
+                            );
+                          }}
+                          className={`flex-1 rounded-xl px-3 py-2 ${
+                            canManagePrograms && canArchive && !isArchiving
+                              ? 'bg-[#0F766E]'
+                              : 'bg-[#CBD5E1]'
+                          }`}
+                        >
+                          {isArchiving ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                          ) : (
+                            <Text className="text-center text-xs font-bold text-white">
+                              שלח לארכיון
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+              <Text
+                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+              >
+                ארכיון קמפיינים ({archivedCampaigns.length})
+              </Text>
+              {isCampaignsLoading ? (
+                <ActivityIndicator color="#2F6BFF" />
+              ) : archivedCampaigns.length === 0 ? (
+                <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
+                  אין קמפיינים בארכיון.
+                </Text>
+              ) : (
+                archivedCampaigns.map((campaign) => {
+                  const isRestoring =
+                    isRestoringCampaignId === String(campaign.campaignId);
+                  return (
+                    <View
+                      key={campaign.campaignId}
+                      className="rounded-2xl border border-[#E3E9FF] bg-[#F9FAFB] p-4 gap-2"
+                    >
+                      <View
+                        className={`${tw.flexRow} items-center justify-between`}
+                      >
+                        <View className="rounded-full bg-[#EEF2F7] px-3 py-1">
+                          <Text className="text-[11px] font-bold text-[#64748B]">
+                            ארכיון
+                          </Text>
+                        </View>
+                        <Text
+                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                        >
+                          {campaign.title}
+                        </Text>
+                      </View>
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
+                        {campaign.messageTitle}
+                      </Text>
+                      <Text
+                        className={`text-xs text-[#62748B] ${tw.textStart}`}
+                      >
+                        הגיע ל-{formatNumber(campaign.reachedUniqueAllTime)}{' '}
+                        ייחודיים ·{' '}
+                        {formatNumber(campaign.reachedMessagesAllTime)} הודעות
+                      </Text>
+                      <TouchableOpacity
+                        disabled={!canManagePrograms || isRestoring}
+                        onPress={() => {
+                          void handleRestoreCampaign(campaign.campaignId);
+                        }}
+                        className={`rounded-xl px-3 py-2 ${
+                          canManagePrograms && !isRestoring
+                            ? 'bg-[#2F6BFF]'
+                            : 'bg-[#CBD5E1]'
+                        }`}
+                      >
+                        {isRestoring ? (
+                          <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                          <Text className="text-center text-xs font-bold text-white">
+                            שחזר
+                          </Text>
+                        )}
+                      </TouchableOpacity>
                     </View>
                   );
                 })
@@ -984,9 +1314,112 @@ export default function BusinessCardsManagementScreen() {
         )}
       </ScrollView>
 
+      <Modal
+        visible={isCreateCampaignModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeCreateCampaignModal}
+      >
+        <View className="flex-1 justify-end bg-black/35">
+          <Pressable className="flex-1" onPress={closeCreateCampaignModal} />
+          <View className="rounded-t-3xl bg-white p-5 gap-3">
+            <View className={`${tw.flexRow} items-center justify-between`}>
+              <TouchableOpacity
+                onPress={closeCreateCampaignModal}
+                className="rounded-full bg-[#EEF2F7] px-3 py-1"
+              >
+                <Text className="text-xs font-bold text-[#475569]">סגור</Text>
+              </TouchableOpacity>
+              <Text
+                className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+              >
+                יצירת קמפיין חדש
+              </Text>
+            </View>
+
+            {!isTemplateSelectorVisible ? (
+              <View className="gap-2">
+                <TouchableOpacity
+                  disabled={!canManagePrograms}
+                  onPress={() => setIsTemplateSelectorVisible(true)}
+                  className={`rounded-2xl px-4 py-3 ${
+                    canManagePrograms ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+                  }`}
+                >
+                  <Text className="text-center text-sm font-bold text-white">
+                    תבנית מוכנה
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={!canManagePrograms || isCreatingGeneralCampaign}
+                  onPress={() => {
+                    void handleCreateGeneralCampaign();
+                  }}
+                  className={`rounded-2xl px-4 py-3 ${
+                    canManagePrograms && !isCreatingGeneralCampaign
+                      ? 'bg-[#0F766E]'
+                      : 'bg-[#CBD5E1]'
+                  }`}
+                >
+                  {isCreatingGeneralCampaign ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-center text-sm font-bold text-white">
+                      ליצור חדש
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="gap-2">
+                <TouchableOpacity
+                  onPress={() => setIsTemplateSelectorVisible(false)}
+                  className="self-start rounded-xl bg-[#EEF2F7] px-3 py-1"
+                >
+                  <Text className="text-xs font-bold text-[#334155]">חזרה</Text>
+                </TouchableOpacity>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  {CAMPAIGN_TEMPLATES.map((template) => {
+                    const isLoading =
+                      isWorkingCampaignId === `create-${template.type}`;
+                    return (
+                      <TouchableOpacity
+                        key={template.type}
+                        disabled={!canManagePrograms || isLoading}
+                        onPress={() => {
+                          void handleCreateTemplateCampaign(template.type);
+                        }}
+                        className="w-[48.5%] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-3"
+                      >
+                        <Text
+                          className={`text-xs text-[#5B6475] ${tw.textStart}`}
+                        >
+                          {template.subtitle}
+                        </Text>
+                        <Text
+                          className={`mt-1 text-sm font-black text-[#142743] ${tw.textStart}`}
+                        >
+                          {template.icon} {template.title}
+                        </Text>
+                        {isLoading ? (
+                          <ActivityIndicator
+                            color="#2F6BFF"
+                            style={{ marginTop: 8 }}
+                          />
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <UpgradeModal
         visible={isUpgradeVisible}
-        businessId={selectedBusinessId}
+        businessId={activeBusinessId}
         initialPlan={upgradePlan}
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}

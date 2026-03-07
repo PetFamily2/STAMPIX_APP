@@ -20,7 +20,7 @@ import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 
@@ -66,10 +66,7 @@ export default function BusinessAnalyticsScreen() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const activeTopTab: AnalyticsTopTab =
     tab === 'customers' ? 'customers' : 'reports';
-
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] =
-    useState<Id<'businesses'> | null>(null);
+  const { activeBusinessId } = useActiveBusiness();
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
@@ -79,21 +76,6 @@ export default function BusinessAnalyticsScreen() {
   const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
     string | undefined
   >(undefined);
-
-  useEffect(() => {
-    setSelectedBusinessId((current) => {
-      if (!businesses.length) {
-        return null;
-      }
-      if (
-        current &&
-        businesses.some((business) => business.businessId === current)
-      ) {
-        return current;
-      }
-      return businesses[0].businessId;
-    });
-  }, [businesses]);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -114,7 +96,7 @@ export default function BusinessAnalyticsScreen() {
     });
   }, [activeTopTab, router]);
 
-  const { entitlements, gate } = useEntitlements(selectedBusinessId);
+  const { entitlements, gate } = useEntitlements(activeBusinessId);
   const advancedReportsGate = gate('canSeeAdvancedReports');
 
   const openUpgrade = (
@@ -133,19 +115,16 @@ export default function BusinessAnalyticsScreen() {
 
   const basicAnalytics = useQuery(
     api.analytics.getBusinessActivity,
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const advancedAnalytics = useQuery(
     api.analytics.getMerchantActivity,
-    selectedBusinessId && entitlements && !advancedReportsGate.isLocked
-      ? { businessId: selectedBusinessId }
+    activeBusinessId && entitlements && !advancedReportsGate.isLocked
+      ? { businessId: activeBusinessId }
       : 'skip'
   );
 
-  const isLoading = selectedBusinessId !== null && basicAnalytics === undefined;
-  const selectedBusinessName =
-    businesses.find((business) => business.businessId === selectedBusinessId)
-      ?.name ?? 'עסק';
+  const isLoading = activeBusinessId !== null && basicAnalytics === undefined;
 
   const dailyStamps = useMemo(() => {
     const rawDaily = basicAnalytics?.daily ?? [];
@@ -189,7 +168,7 @@ export default function BusinessAnalyticsScreen() {
       >
         <BusinessScreenHeader
           title="דוחות עסק"
-          subtitle={selectedBusinessName}
+          subtitle="����� ������"
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -234,34 +213,6 @@ export default function BusinessAnalyticsScreen() {
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-white p-4">
-          <Text
-            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
-          >
-            עסק נבחר
-          </Text>
-          <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
-            {businesses.map((business) => {
-              const isActive = business.businessId === selectedBusinessId;
-              return (
-                <TouchableOpacity
-                  key={business.businessId}
-                  onPress={() => setSelectedBusinessId(business.businessId)}
-                  className={`rounded-2xl border px-4 py-2 ${
-                    isActive
-                      ? 'border-[#A9C7FF] bg-[#E7F0FF]'
-                      : 'border-[#E3E9FF] bg-[#F6F8FC]'
-                  }`}
-                >
-                  <Text className="text-right text-sm font-semibold text-[#1A2B4A]">
-                    {business.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
 
         <View className="mt-5 rounded-3xl border border-[#E5EAF2] bg-white p-5">
@@ -380,7 +331,7 @@ export default function BusinessAnalyticsScreen() {
 
       <UpgradeModal
         visible={isUpgradeVisible}
-        businessId={selectedBusinessId}
+        businessId={activeBusinessId}
         initialPlan={upgradePlan}
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}

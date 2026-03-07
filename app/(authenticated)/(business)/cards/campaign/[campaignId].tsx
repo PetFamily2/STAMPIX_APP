@@ -18,6 +18,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { tw } from '@/lib/rtl';
 
 type CampaignType =
@@ -139,18 +140,22 @@ export default function CampaignDraftEditorScreen() {
     | Id<'businesses'>
     | undefined;
 
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
+  const { businesses, activeBusinessId, activeBusiness } = useActiveBusiness();
   const selectedBusinessId = useMemo(() => {
-    if (businessIdFromParams) {
+    if (
+      businessIdFromParams &&
+      businesses.some((business) => business.businessId === businessIdFromParams)
+    ) {
       return businessIdFromParams;
     }
-    return businesses[0]?.businessId;
-  }, [businessIdFromParams, businesses]);
+    return activeBusinessId ?? null;
+  }, [activeBusinessId, businessIdFromParams, businesses]);
 
   const selectedBusiness = useMemo(
     () =>
-      businesses.find((business) => business.businessId === selectedBusinessId),
-    [businesses, selectedBusinessId]
+      businesses.find((business) => business.businessId === selectedBusinessId) ??
+      (activeBusinessId === selectedBusinessId ? activeBusiness : null),
+    [activeBusiness, activeBusinessId, businesses, selectedBusinessId]
   );
 
   const canManagePrograms =

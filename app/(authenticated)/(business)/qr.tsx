@@ -1,4 +1,3 @@
-import { useQuery } from 'convex/react';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -9,13 +8,13 @@ import {
 
 import BrandPageHeader from '@/components/BrandPageHeader';
 import { api } from '@/convex/_generated/api';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
 const BASE_URL = 'https://stampix.app/join';
 
 export default function BusinessJoinQrScreen() {
   const insets = useSafeAreaInsets();
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const selectedBusiness = businesses[0]; // first business for now
+  const { activeBusiness: selectedBusiness } = useActiveBusiness();
   const [source, setSource] = useState('');
 
   const qrValue = useMemo(() => {
@@ -50,7 +49,7 @@ export default function BusinessJoinQrScreen() {
           <Text style={styles.headerTitle}>QR להצטרפות לקוחות</Text>
           <Text style={styles.headerSubtitle}>
             {selectedBusiness
-              ? `${selectedBusiness.name} · הצג ללקוח כדי להצטרף למועדון`
+              ? 'הציגו ללקוח כדי להצטרף במהירות למועדון'
               : 'טוען עסק'}
           </Text>
         </View>
@@ -68,7 +67,7 @@ export default function BusinessJoinQrScreen() {
             ) : (
               <Text style={styles.qrPlaceholderText}>
                 {selectedBusiness
-                  ? 'חסר businessPublicId — הריצו migration'
+                  ? 'חסר businessPublicId - הריצו migration'
                   : 'טוען'}
               </Text>
             )}

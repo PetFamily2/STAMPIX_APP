@@ -22,6 +22,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { track } from '@/lib/analytics';
 import {
   trackActivationEvent,
@@ -87,19 +88,8 @@ export default function ScannerScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [businessIndex, setBusinessIndex] = useState(0);
-  const selectedBusiness = businesses[businessIndex] ?? businesses[0];
-
-  useEffect(() => {
-    if (businesses.length === 0) {
-      setBusinessIndex(0);
-      return;
-    }
-    if (businessIndex >= businesses.length) {
-      setBusinessIndex(0);
-    }
-  }, [businesses.length, businessIndex]);
+  const { activeBusinessId, activeBusiness: selectedBusiness } =
+    useActiveBusiness();
 
   useEffect(() => {
     if (isPreviewMode) return;
@@ -110,9 +100,10 @@ export default function ScannerScreen() {
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const programs =
-    useQuery(api.loyaltyPrograms.listByBusiness, {
-      businessId: selectedBusiness?.businessId,
-    }) ?? [];
+    useQuery(
+      api.loyaltyPrograms.listByBusiness,
+      activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+    ) ?? [];
   const [programIndex, setProgramIndex] = useState(0);
   const selectedProgram = programs[programIndex];
 
@@ -164,7 +155,7 @@ export default function ScannerScreen() {
     async (token: string, showErrors = true) => {
       if (!canScan) {
         if (showErrors) {
-          setScanError('בחר עסק ותוכנית לפני סריקה');
+          setScanError('יש לבחור תוכנית לפני סריקה.');
         }
         return null;
       }
@@ -338,11 +329,6 @@ export default function ScannerScreen() {
     selectedProgram,
   ]);
 
-  const cycleBusiness = () => {
-    if (businesses.length <= 1) return;
-    setBusinessIndex((prev) => (prev + 1) % businesses.length);
-  };
-
   const cycleProgram = () => {
     if (programs.length <= 1) return;
     setProgramIndex((prev) => (prev + 1) % programs.length);
@@ -408,24 +394,6 @@ export default function ScannerScreen() {
 
         <View style={styles.row}>
           <Pressable
-            onPress={cycleBusiness}
-            style={({ pressed }) => [
-              styles.selectorCard,
-              { opacity: pressed ? 0.85 : 1 },
-              !selectedBusiness && styles.selectorCardDisabled,
-            ]}
-          >
-            <Text style={styles.selectorTitle}>
-              {selectedBusiness ? selectedBusiness.name : 'בחר עסק'}
-            </Text>
-            <Text style={styles.selectorSubtitle}>
-              {businesses.length > 1
-                ? 'לחץ להחלפה'
-                : (selectedBusiness?.externalId ?? '')}
-            </Text>
-          </Pressable>
-
-          <Pressable
             onPress={cycleProgram}
             style={({ pressed }) => [
               styles.selectorCard,
@@ -474,7 +442,7 @@ export default function ScannerScreen() {
                 {resolved.customerDisplayName}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {selectedBusiness?.name ?? ''} · {selectedProgram?.title ?? ''}
+                {selectedProgram?.title ?? ''}
               </Text>
               <Text style={styles.progressText}>
                 {stampState.current}/{stampState.goal}
@@ -552,7 +520,7 @@ export default function ScannerScreen() {
       </ScrollView>
       <UpgradeModal
         visible={isUpgradeVisible}
-        businessId={selectedBusiness?.businessId ?? null}
+        businessId={activeBusinessId}
         initialPlan={upgradePlan}
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}

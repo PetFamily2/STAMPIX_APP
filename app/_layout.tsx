@@ -8,6 +8,7 @@ import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
+import { ActiveBusinessProvider } from '@/contexts/ActiveBusinessContext';
 import { AppModeProvider } from '@/contexts/AppModeContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
@@ -98,15 +99,17 @@ export default function RootLayout() {
         storageNamespace={CONVEX_AUTH_STORAGE_NAMESPACE}
       >
         <UserCtx.UserProvider>
-          <AppModeProvider>
-            <OnboardingProvider>
-              <RevenueCatProvider>
-                <RootErrorBoundary>
-                  <Slot />
-                </RootErrorBoundary>
-              </RevenueCatProvider>
-            </OnboardingProvider>
-          </AppModeProvider>
+          <ActiveBusinessProvider>
+            <AppModeProvider>
+              <OnboardingProvider>
+                <RevenueCatProvider>
+                  <RootErrorBoundary>
+                    <Slot />
+                  </RootErrorBoundary>
+                </RevenueCatProvider>
+              </OnboardingProvider>
+            </AppModeProvider>
+          </ActiveBusinessProvider>
         </UserCtx.UserProvider>
       </ConvexAuthProvider>
     </SafeAreaProvider>

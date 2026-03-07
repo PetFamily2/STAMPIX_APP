@@ -23,7 +23,7 @@ import { Card, ListRow, SectionHeader, StatCard } from '@/components/ui';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
   entitlementErrorToHebrewMessage,
@@ -119,21 +119,16 @@ export default function MerchantDashboardScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] =
-    useState<Id<'businesses'> | null>(null);
-  const selectedBiz = businesses.find(
-    (b) => b.businessId === selectedBusinessId
-  );
-  const isOwner = selectedBiz?.staffRole === 'owner';
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const isOwner = activeBusiness?.staffRole === 'owner';
   const { entitlements, gate, limitStatus } =
-    useEntitlements(selectedBusinessId);
+    useEntitlements(activeBusinessId);
   const teamGate = gate('canManageTeam');
   const marketingGate = gate('canUseMarketingHubAI');
   const aiCampaignLimit = limitStatus('maxAiCampaignsPerMonth');
   const aiCampaignsData = useQuery(
     api.campaigns.listAiCampaignsByBusiness,
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const createAiCampaign = useMutation(api.campaigns.createAiCampaign);
 
@@ -162,19 +157,6 @@ export default function MerchantDashboardScreen() {
   };
 
   useEffect(() => {
-    setSelectedBusinessId((current) => {
-      const list = businesses ?? [];
-      if (!list.length) {
-        return null;
-      }
-      if (current && list.some((business) => business.businessId === current)) {
-        return current;
-      }
-      return list[0].businessId;
-    });
-  }, [businesses]);
-
-  useEffect(() => {
     if (isPreviewMode) {
       return;
     }
@@ -186,14 +168,14 @@ export default function MerchantDashboardScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  const analyticsArgs = selectedBusinessId
-    ? { businessId: selectedBusinessId }
+  const analyticsArgs = activeBusinessId
+    ? { businessId: activeBusinessId }
     : 'skip';
   const analytics = useQuery(api.analytics.getBusinessActivity, analyticsArgs);
   const today = analytics?.daily?.at(-1);
   const weeklyUnique = analytics?.totals?.uniqueCustomers ?? 0;
   const weeklyRedemptions = analytics?.totals?.redemptions ?? 0;
-  const isAnalyticsLoading = !!selectedBusinessId && analytics === undefined;
+  const isAnalyticsLoading = !!activeBusinessId && analytics === undefined;
 
   const kpiCards = [
     {
@@ -240,7 +222,7 @@ export default function MerchantDashboardScreen() {
   };
 
   const handleCreateAiCampaign = async () => {
-    if (!selectedBusinessId || isCreatingAiCampaign) {
+    if (!activeBusinessId || isCreatingAiCampaign) {
       return;
     }
 
@@ -258,7 +240,7 @@ export default function MerchantDashboardScreen() {
     setIsCreatingAiCampaign(true);
     try {
       await createAiCampaign({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         title: 'קמפיין AI חדש',
         prompt: 'הציעו מבצע החזרה ללקוחות שלא ביקרו בשבוע האחרון.',
       });
@@ -602,7 +584,7 @@ export default function MerchantDashboardScreen() {
 
         <UpgradeModal
           visible={isUpgradeVisible}
-          businessId={selectedBusinessId}
+          businessId={activeBusinessId}
           initialPlan={upgradePlan}
           reason={upgradeReason}
           featureKey={upgradeFeatureKey}

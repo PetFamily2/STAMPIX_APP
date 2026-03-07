@@ -24,7 +24,7 @@ import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 
@@ -80,31 +80,24 @@ export default function BusinessCustomersScreen() {
   const activeTopTab: ReportsTopTab =
     tab === 'reports' ? 'reports' : 'customers';
 
-  const businesses = useQuery(api.scanner.myBusinesses) ?? [];
-  const [selectedBusinessId, setSelectedBusinessId] =
-    useState<Id<'businesses'> | null>(null);
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const [search, setSearch] = useState('');
-
-  const selectedBusiness = businesses.find(
-    (business) => business.businessId === selectedBusinessId
-  );
   const canEditThresholds =
-    selectedBusiness?.staffRole === 'owner' ||
-    selectedBusiness?.staffRole === 'manager';
+    activeBusiness?.staffRole === 'owner' || activeBusiness?.staffRole === 'manager';
 
-  const { entitlements, gate } = useEntitlements(selectedBusinessId);
+  const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('canUseSmartAnalytics');
 
   const snapshot = useQuery(
     api.events.getCustomerManagementSnapshot,
-    selectedBusinessId && entitlements && !smartGate.isLocked
-      ? { businessId: selectedBusinessId }
+    activeBusinessId && entitlements && !smartGate.isLocked
+      ? { businessId: activeBusinessId }
       : 'skip'
   );
 
   const segmentationConfig = useQuery(
     api.business.getCustomerSegmentationConfig,
-    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const updateSegmentationConfig = useMutation(
     api.business.updateCustomerSegmentationConfig
@@ -124,21 +117,6 @@ export default function BusinessCustomersScreen() {
   const [frequentVisits, setFrequentVisits] = useState('');
   const [dropPercent, setDropPercent] = useState('');
   const [isSavingThresholds, setIsSavingThresholds] = useState(false);
-
-  useEffect(() => {
-    setSelectedBusinessId((current) => {
-      if (!businesses.length) {
-        return null;
-      }
-      if (
-        current &&
-        businesses.some((business) => business.businessId === current)
-      ) {
-        return current;
-      }
-      return businesses[0].businessId;
-    });
-  }, [businesses]);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -224,7 +202,7 @@ export default function BusinessCustomersScreen() {
   };
 
   const saveThresholds = async () => {
-    if (!selectedBusinessId || isSavingThresholds) {
+    if (!activeBusinessId || isSavingThresholds) {
       return;
     }
 
@@ -244,7 +222,7 @@ export default function BusinessCustomersScreen() {
     setIsSavingThresholds(true);
     try {
       await updateSegmentationConfig({
-        businessId: selectedBusinessId,
+        businessId: activeBusinessId,
         riskDaysWithoutVisit: parsedRiskDays,
         frequentVisitsLast30Days: parsedFrequentVisits,
         dropPercentThreshold: parsedDropPercent,
@@ -321,33 +299,6 @@ export default function BusinessCustomersScreen() {
           })}
         </View>
 
-        <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-white p-4">
-          <Text
-            className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
-          >
-            עסק נבחר
-          </Text>
-          <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
-            {businesses.map((business) => {
-              const isActive = business.businessId === selectedBusinessId;
-              return (
-                <TouchableOpacity
-                  key={business.businessId}
-                  onPress={() => setSelectedBusinessId(business.businessId)}
-                  className={`rounded-2xl border px-4 py-2 ${
-                    isActive
-                      ? 'border-[#A9C7FF] bg-[#E7F0FF]'
-                      : 'border-[#E3E9FF] bg-[#F6F8FC]'
-                  }`}
-                >
-                  <Text className="text-right text-sm font-semibold text-[#1A2B4A]">
-                    {business.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
         <View className="mt-5">
           <LockedFeatureWrapper
@@ -610,7 +561,7 @@ export default function BusinessCustomersScreen() {
 
       <UpgradeModal
         visible={isUpgradeVisible}
-        businessId={selectedBusinessId}
+        businessId={activeBusinessId}
         initialPlan={upgradePlan}
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}

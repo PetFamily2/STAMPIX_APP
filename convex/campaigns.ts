@@ -239,6 +239,18 @@ async function getCampaignOrThrow(
   return campaign;
 }
 
+async function getCampaignAnyStateOrThrow(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  campaignId: Id<'campaigns'>
+) {
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign || campaign.businessId !== businessId) {
+    throw new Error('CAMPAIGN_NOT_FOUND');
+  }
+  return campaign;
+}
+
 async function validateProgramBelongsToBusiness(
   ctx: any,
   businessId: Id<'businesses'>,
@@ -614,12 +626,7 @@ export const listManagementCampaignsByBusiness = query({
     const campaigns = await ctx.db
       .query('campaigns')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.neq(q.field('type'), 'ai_marketing')
-        )
-      )
+      .filter((q: any) => q.neq(q.field('type'), 'ai_marketing'))
       .collect();
 
     const result = await Promise.all(
@@ -638,6 +645,11 @@ export const listManagementCampaignsByBusiness = query({
         const automationEnabled = isAutomationEnabled(
           campaign.automationEnabled
         );
+        const lifecycle = campaign.isActive
+          ? automationEnabled
+            ? 'active'
+            : 'inactive'
+          : 'archived';
 
         return {
           campaignId: campaign._id,
@@ -654,12 +666,16 @@ export const listManagementCampaignsByBusiness = query({
           status: campaign.status ?? 'draft',
           rules: campaign.rules ?? buildDefaultDraftByType(campaign.type).rules,
           automationEnabled,
+          lifecycle,
+          canArchive: lifecycle === 'inactive',
           estimatedAudience: estimate.total,
           reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
           reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
           lastSentAt: deliveryStats.lastSentAt,
           missingBirthdayCount:
             campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
+          isActive: campaign.isActive,
+          archivedAt: campaign.archivedAt ?? null,
           createdAt: campaign.createdAt,
           updatedAt: campaign.updatedAt,
         };
@@ -668,7 +684,7 @@ export const listManagementCampaignsByBusiness = query({
 
     return result
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .sort((a, b) => b.createdAt - a.createdAt);
+      .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 });
 
@@ -759,6 +775,34 @@ export const createCampaignDraft = mutation({
   },
 });
 
+export const createGeneralCampaignDraft = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+
+    const defaults = buildDefaultDraftByType('promo');
+    const now = Date.now();
+    const campaignId = await ctx.db.insert('campaigns', {
+      businessId,
+      type: 'promo',
+      title: defaults.title,
+      messageTitle: defaults.messageTitle,
+      messageBody: defaults.messageBody,
+      rules: defaults.rules,
+      channels: DEFAULT_CHANNELS,
+      status: 'draft',
+      automationEnabled: false,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { campaignId };
+  },
+});
+
 export const setCampaignAutomationEnabled = mutation({
   args: {
     businessId: v.id('businesses'),
@@ -780,6 +824,82 @@ export const setCampaignAutomationEnabled = mutation({
     return {
       ok: true,
       automationEnabled: enabled,
+    };
+  },
+});
+
+export const archiveManagementCampaign = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+  },
+  handler: async (ctx, { businessId, campaignId }) => {
+    const { actor } = await requireActorIsBusinessOwnerOrManager(
+      ctx,
+      businessId
+    );
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      businessId,
+      campaignId
+    );
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+    if (campaign.isActive !== true) {
+      throw new Error('CAMPAIGN_ALREADY_ARCHIVED');
+    }
+    if (isAutomationEnabled(campaign.automationEnabled)) {
+      throw new Error('CAMPAIGN_AUTOMATION_MUST_BE_DISABLED');
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(campaign._id, {
+      isActive: false,
+      archivedAt: now,
+      archivedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    return {
+      ok: true,
+      campaignId: campaign._id,
+      archivedAt: now,
+    };
+  },
+});
+
+export const restoreManagementCampaign = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+  },
+  handler: async (ctx, { businessId, campaignId }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      businessId,
+      campaignId
+    );
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+    if (campaign.isActive === true) {
+      throw new Error('CAMPAIGN_NOT_ARCHIVED');
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(campaign._id, {
+      isActive: true,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
+      updatedAt: now,
+    });
+
+    return {
+      ok: true,
+      campaignId: campaign._id,
+      updatedAt: now,
     };
   },
 });

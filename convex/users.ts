@@ -637,6 +637,14 @@ export const getSessionContext = query({
       customer: true,
     };
 
+    const activeBusinessId =
+      user.activeBusinessId &&
+      businesses.some(
+        (business) => String(business.id) === String(user.activeBusinessId)
+      )
+        ? user.activeBusinessId
+        : (businesses[0]?.id ?? null);
+
     const activeMode: ActiveMode =
       user.activeMode === 'business' &&
       businesses.some(
@@ -673,6 +681,7 @@ export const getSessionContext = query({
       businesses,
       pendingInvites,
       activeMode,
+      activeBusinessId,
     };
   },
 });
@@ -688,6 +697,36 @@ export const setActiveMode = mutation({
       updatedAt: Date.now(),
     });
     return user._id;
+  },
+});
+
+export const setActiveBusiness = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const user = await requireCurrentUser(ctx);
+
+    const staffRecord = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId_userId', (q: any) =>
+        q.eq('businessId', businessId).eq('userId', user._id)
+      )
+      .first();
+
+    if (!staffRecord || staffRecord.isActive !== true) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+
+    await ctx.db.patch(user._id, {
+      activeBusinessId: businessId,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      userId: user._id,
+      activeBusinessId: businessId,
+    };
   },
 });
 
