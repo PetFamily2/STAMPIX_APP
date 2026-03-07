@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -16,13 +16,13 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 
@@ -68,15 +68,6 @@ export default function BusinessAnalyticsScreen() {
     tab === 'customers' ? 'customers' : 'reports';
   const { activeBusinessId } = useActiveBusiness();
 
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
-
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
       return;
@@ -107,10 +98,7 @@ export default function BusinessAnalyticsScreen() {
       | 'limit_reached'
       | 'subscription_inactive' = 'feature_locked'
   ) => {
-    setUpgradeFeatureKey(featureKey);
-    setUpgradeReason(reason);
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setIsUpgradeVisible(true);
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
   };
 
   const basicAnalytics = useQuery(
@@ -328,15 +316,6 @@ export default function BusinessAnalyticsScreen() {
           </LockedFeatureWrapper>
         </View>
       </ScrollView>
-
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-      />
     </SafeAreaView>
   );
 }

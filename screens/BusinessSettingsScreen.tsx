@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -17,9 +18,35 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
+
+type ProfileCompletionField =
+  | 'name'
+  | 'shortDescription'
+  | 'businessPhone'
+  | 'address'
+  | 'serviceTypes'
+  | 'serviceTags'
+  | 'discoverySource'
+  | 'reason'
+  | 'usageAreas'
+  | 'ownerAgeRange';
+
+const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
+  name: 'שם העסק',
+  shortDescription: 'תיאור קצר',
+  businessPhone: 'טלפון עסקי',
+  address: 'כתובת העסק',
+  serviceTypes: 'סוגי שירות',
+  serviceTags: 'תגיות שירות',
+  discoverySource: 'מקור הגעה',
+  reason: 'סיבת הצטרפות',
+  usageAreas: 'אזורי פעילות',
+  ownerAgeRange: 'טווח גיל בעלים',
+};
 
 function MenuRow({
   title,
@@ -111,8 +138,24 @@ export default function BusinessSettingsScreen() {
     isSwitchingBusiness,
     setActiveBusinessId,
   } = useActiveBusiness();
+  const canEditBusiness =
+    activeBusiness?.staffRole === 'owner' ||
+    activeBusiness?.staffRole === 'manager';
+  const businessSettings = useQuery(
+    api.business.getBusinessSettings,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
 
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+
+  const missingFieldLabels = (
+    (businessSettings?.profileCompletion?.missingFields ??
+      []) as ProfileCompletionField[]
+  )
+    .filter(
+      (field): field is ProfileCompletionField => field in MISSING_FIELD_LABELS
+    )
+    .map((field) => MISSING_FIELD_LABELS[field]);
 
   if (isLoading) {
     return (
@@ -226,13 +269,48 @@ export default function BusinessSettingsScreen() {
           </View>
         </View>
 
+        {businessSettings?.profileCompletion &&
+        !businessSettings.profileCompletion.isComplete ? (
+          <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-4">
+            <View className={`${tw.flexRow} items-center gap-2`}>
+              <Ionicons name="alert-circle-outline" size={18} color="#B45309" />
+              <Text className="text-sm font-extrabold text-[#92400E]">
+                השלם פרטים
+              </Text>
+            </View>
+            <Text className={`mt-1 text-xs text-[#78350F] ${tw.textStart}`}>
+              שדות חסרים: {missingFieldLabels.join(' • ') || 'יש להשלים נתונים'}
+            </Text>
+            {canEditBusiness ? (
+              <TouchableOpacity
+                onPress={() =>
+                  router.push(
+                    '/(authenticated)/(business)/settings-business-profile'
+                  )
+                }
+                className="mt-3 rounded-xl border border-[#F59E0B] bg-white px-3 py-2"
+              >
+                <Text className="text-center text-xs font-bold text-[#92400E]">
+                  השלם פרטים
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text className={`mt-2 text-xs text-[#92400E] ${tw.textStart}`}>
+                השלמת נתונים זמינה לבעלים או למנהל בלבד.
+              </Text>
+            )}
+          </View>
+        ) : null}
+
         <View className="gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
           <MenuRow
             title="פרופיל עסק"
             subtitle="שם העסק, תיאור, טלפון, סוגי שירותים ותגיות"
             icon="business-outline"
             onPress={() =>
-              router.push('/(authenticated)/(business)/settings-business-profile')
+              router.push(
+                '/(authenticated)/(business)/settings-business-profile'
+              )
             }
           />
           <MenuRow
@@ -240,7 +318,9 @@ export default function BusinessSettingsScreen() {
             subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"
             icon="person-outline"
             onPress={() =>
-              router.push('/(authenticated)/(business)/settings-business-account')
+              router.push(
+                '/(authenticated)/(business)/settings-business-account'
+              )
             }
           />
           <MenuRow
@@ -342,7 +422,11 @@ export default function BusinessSettingsScreen() {
                     }}
                   >
                     {isActive ? (
-                      <Ionicons name="checkmark-circle" size={18} color="#2563EB" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#2563EB"
+                      />
                     ) : null}
                   </View>
                 </Pressable>

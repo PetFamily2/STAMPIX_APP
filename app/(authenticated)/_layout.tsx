@@ -20,8 +20,16 @@ import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingF
 const TEXT = {
   loadingTitle:
     '\u05d1\u05d5\u05e0\u05d4 \u05dc\u05da \u05d7\u05d5\u05d5\u05d9\u05d4 \u05de\u05d5\u05ea\u05d0\u05de\u05ea',
-  loadingSubtitle:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d3\u05e9\u05d1\u05d5\u05e8\u05d3',
+  loadingSubtitleCustomer:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05da',
+  loadingSubtitleBusiness:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05de\u05e8\u05db\u05d6 \u05d4\u05e0\u05d9\u05d4\u05d5\u05dc',
+  loadingSubtitleStaff:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05e1\u05d5\u05e8\u05e7 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  loadingSubtitleBusinessOnboarding:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05de\u05de\u05e9\u05d9\u05db\u05d9\u05dd \u05dc\u05d4\u05d2\u05d3\u05e8\u05ea \u05d4\u05e2\u05e1\u05e7',
+  loadingSubtitleDefault:
+    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d7\u05e9\u05d1\u05d5\u05df \u05e9\u05dc\u05da',
 };
 
 export default function AuthenticatedLayout() {
@@ -259,6 +267,39 @@ export default function AuthenticatedLayout() {
         (user === undefined || sessionContext === undefined)) ||
       (isAuthenticated && !isLoadingPhaseDone));
 
+  const loadingSubtitle = (() => {
+    if (sessionContext == null || user == null) {
+      return appMode === 'business'
+        ? TEXT.loadingSubtitleBusiness
+        : TEXT.loadingSubtitleCustomer;
+    }
+
+    if (user.customerOnboardedAt == null) {
+      return TEXT.loadingSubtitleDefault;
+    }
+
+    const activeMode = sessionContext.activeMode ?? appMode;
+    if (activeMode === 'business') {
+      const businesses = sessionContext.businesses ?? [];
+      const hasOwnerOrManager = businesses.some(
+        (business) =>
+          business.staffRole === 'owner' || business.staffRole === 'manager'
+      );
+
+      if (!hasOwnerOrManager) {
+        return businesses.length > 0
+          ? TEXT.loadingSubtitleStaff
+          : TEXT.loadingSubtitleBusinessOnboarding;
+      }
+
+      return user.businessOnboardedAt == null
+        ? TEXT.loadingSubtitleBusinessOnboarding
+        : TEXT.loadingSubtitleBusiness;
+    }
+
+    return TEXT.loadingSubtitleCustomer;
+  })();
+
   if (shouldShowLoadingScreen) {
     return (
       <View style={styles.loadingScreen}>
@@ -274,7 +315,7 @@ export default function AuthenticatedLayout() {
           {Math.min(100, loadingProgress)}%
         </Text>
         <Text style={styles.loadingTitle}>{TEXT.loadingTitle}</Text>
-        <Text style={styles.loadingSubtitle}>{TEXT.loadingSubtitle}</Text>
+        <Text style={styles.loadingSubtitle}>{loadingSubtitle}</Text>
       </View>
     );
   }

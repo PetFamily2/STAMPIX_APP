@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -17,7 +16,6 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -28,6 +26,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const formatDate = (timestamp: number) =>
   new Date(timestamp).toLocaleDateString('he-IL', {
@@ -64,15 +63,6 @@ export default function BusinessTeamScreen() {
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
 
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
-
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
       return;
@@ -90,10 +80,7 @@ export default function BusinessTeamScreen() {
       | 'limit_reached'
       | 'subscription_inactive' = 'feature_locked'
   ) => {
-    setUpgradeFeatureKey(featureKey);
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setUpgradeReason(reason);
-    setIsUpgradeVisible(true);
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
   };
 
   const handleInvite = async () => {
@@ -208,9 +195,13 @@ export default function BusinessTeamScreen() {
     </View>
   );
 
-  const placeholderRows = Array.from({ length: 3 }, (_, index) => (
+  const placeholderRows = [
+    'placeholder-1',
+    'placeholder-2',
+    'placeholder-3',
+  ].map((placeholderId) => (
     <View
-      key={`placeholder-${index}`}
+      key={placeholderId}
       className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
     >
       <Text className={`text-sm font-bold text-[#475569] ${tw.textStart}`}>
@@ -246,7 +237,6 @@ export default function BusinessTeamScreen() {
             </TouchableOpacity>
           }
         />
-
 
         <View className="mt-5">
           <LockedFeatureWrapper
@@ -353,18 +343,6 @@ export default function BusinessTeamScreen() {
           </LockedFeatureWrapper>
         </View>
       </ScrollView>
-
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-        onSuccess={() => {
-          Alert.alert('עודכן', 'ניהול הצוות נפתח לעסק שנבחר.');
-        }}
-      />
     </SafeAreaView>
   );
 }

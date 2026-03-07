@@ -16,7 +16,6 @@ import {
 import BrandPageHeader from '@/components/BrandPageHeader';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import QrScanner from '@/components/QrScanner';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
@@ -33,6 +32,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ResolvedScan = {
   customerUserId: string;
@@ -128,28 +128,20 @@ export default function ScannerScreen() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [resolved, setResolved] = useState<ResolvedScan | null>(null);
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
 
   const canScan = Boolean(selectedBusiness && selectedProgram);
   const isBusy = isResolving || isStamping || isRedeeming;
 
-  const openUpgrade = (
-    featureKey: string,
-    requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  ) => {
-    setUpgradeFeatureKey(featureKey);
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setUpgradeReason(reason);
-    setIsUpgradeVisible(true);
-  };
+  const openUpgrade = useCallback(
+    (
+      featureKey: string,
+      requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
+      reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
+    ) => {
+      openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
+    },
+    [router]
+  );
 
   const resolveByToken = useCallback(
     async (token: string, showErrors = true) => {
@@ -282,6 +274,7 @@ export default function ScannerScreen() {
   }, [
     addStamp,
     isBusy,
+    openUpgrade,
     resolved,
     scanToken,
     resolveByToken,
@@ -518,14 +511,6 @@ export default function ScannerScreen() {
           <Text style={styles.secondaryButtonText}>סרוק מחדש</Text>
         </Pressable>
       </ScrollView>
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-      />
     </SafeAreaView>
   );
 }

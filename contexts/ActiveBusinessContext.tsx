@@ -7,9 +7,9 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { useSessionContext } from '@/contexts/UserContext';
 
 type BusinessForStaff = {
   businessId: Id<'businesses'>;
@@ -45,16 +45,19 @@ export function ActiveBusinessProvider({
   const setActiveBusiness = useMutation(api.users.setActiveBusiness);
   const businesses = (businessesQuery ?? []) as BusinessForStaff[];
 
-  const [localBusinessIdOverride, setLocalBusinessIdOverride] = useState<
-    Id<'businesses'> | null
-  >(null);
+  const [localBusinessIdOverride, setLocalBusinessIdOverride] =
+    useState<Id<'businesses'> | null>(null);
   const [isSwitchingBusiness, setIsSwitchingBusiness] = useState(false);
 
   useEffect(() => {
     if (!localBusinessIdOverride) {
       return;
     }
-    if (businesses.some((business) => business.businessId === localBusinessIdOverride)) {
+    if (
+      businesses.some(
+        (business) => business.businessId === localBusinessIdOverride
+      )
+    ) {
       return;
     }
     setLocalBusinessIdOverride(null);
@@ -72,7 +75,9 @@ export function ActiveBusinessProvider({
   const activeBusinessId = useMemo(() => {
     if (
       localBusinessIdOverride &&
-      businesses.some((business) => business.businessId === localBusinessIdOverride)
+      businesses.some(
+        (business) => business.businessId === localBusinessIdOverride
+      )
     ) {
       return localBusinessIdOverride;
     }

@@ -19,7 +19,6 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -27,6 +26,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ManagementTab = 'programs' | 'campaigns';
 type CampaignTemplateType =
@@ -133,7 +133,8 @@ export default function BusinessCardsManagementScreen() {
   }, [params.tab]);
 
   const canManagePrograms =
-    activeBusiness?.staffRole === 'owner' || activeBusiness?.staffRole === 'manager';
+    activeBusiness?.staffRole === 'owner' ||
+    activeBusiness?.staffRole === 'manager';
 
   const programsQuery = useQuery(
     api.loyaltyPrograms.listManagementByBusiness,
@@ -214,15 +215,6 @@ export default function BusinessCardsManagementScreen() {
   const [isCreatingGeneralCampaign, setIsCreatingGeneralCampaign] =
     useState(false);
 
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('limit_reached');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
-
   const parsedMaxStamps = Number(maxStamps);
   const canCreateProgram =
     !!activeBusinessId &&
@@ -235,8 +227,7 @@ export default function BusinessCardsManagementScreen() {
     !isCreatingProgram;
 
   const isProgramsLoading = !!activeBusinessId && programsQuery === undefined;
-  const isCampaignsLoading =
-    !!activeBusinessId && campaignsQuery === undefined;
+  const isCampaignsLoading = !!activeBusinessId && campaignsQuery === undefined;
   const sortedCampaigns = useMemo(
     () => [...campaigns].sort((a, b) => b.updatedAt - a.updatedAt),
     [campaigns]
@@ -264,11 +255,11 @@ export default function BusinessCardsManagementScreen() {
   );
 
   const openUpgradeForCards = () => {
-    const requiredPlan = requiredPlanForCards;
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setUpgradeReason('limit_reached');
-    setUpgradeFeatureKey('maxCards');
-    setIsUpgradeVisible(true);
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCards',
+      requiredPlan: requiredPlanForCards,
+      reason: 'limit_reached',
+    });
   };
 
   const navigateToTab = (tab: ManagementTab) => {
@@ -349,11 +340,7 @@ export default function BusinessCardsManagementScreen() {
   };
 
   const handleCreateGeneralCampaign = async () => {
-    if (
-      !activeBusinessId ||
-      !canManagePrograms ||
-      isCreatingGeneralCampaign
-    ) {
+    if (!activeBusinessId || !canManagePrograms || isCreatingGeneralCampaign) {
       return;
     }
 
@@ -620,7 +607,6 @@ export default function BusinessCardsManagementScreen() {
             </TouchableOpacity>
           }
         />
-
 
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
@@ -1416,15 +1402,6 @@ export default function BusinessCardsManagementScreen() {
           </View>
         </View>
       </Modal>
-
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-      />
     </SafeAreaView>
   );
 }

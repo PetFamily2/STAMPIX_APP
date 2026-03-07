@@ -85,6 +85,80 @@ const BUSINESS_SERVICE_TYPE_UNION = v.union(
   v.literal('other')
 );
 
+const BUSINESS_DISCOVERY_SOURCE_LITERALS = [
+  'referral',
+  'search',
+  'social',
+  'tiktok',
+  'app_store',
+  'in_app',
+  'other',
+] as const;
+
+const BUSINESS_REASON_LITERALS = [
+  'repeat',
+  'replace_paper',
+  'insights',
+  'basket',
+  'offers',
+  'other',
+] as const;
+
+const BUSINESS_USAGE_AREA_LITERALS = [
+  'nearby',
+  'citywide',
+  'online',
+  'multiple',
+] as const;
+
+const BUSINESS_OWNER_AGE_RANGE_LITERALS = [
+  '18-24',
+  '25-34',
+  '35-44',
+  '45-54',
+  '55+',
+  'not_specified',
+] as const;
+
+type BusinessDiscoverySource =
+  (typeof BUSINESS_DISCOVERY_SOURCE_LITERALS)[number];
+type BusinessReason = (typeof BUSINESS_REASON_LITERALS)[number];
+type BusinessUsageArea = (typeof BUSINESS_USAGE_AREA_LITERALS)[number];
+type BusinessOwnerAgeRange = (typeof BUSINESS_OWNER_AGE_RANGE_LITERALS)[number];
+
+const BUSINESS_DISCOVERY_SOURCE_SET = new Set<string>(
+  BUSINESS_DISCOVERY_SOURCE_LITERALS
+);
+const BUSINESS_REASON_SET = new Set<string>(BUSINESS_REASON_LITERALS);
+const BUSINESS_USAGE_AREA_SET = new Set<string>(BUSINESS_USAGE_AREA_LITERALS);
+const BUSINESS_OWNER_AGE_RANGE_SET = new Set<string>(
+  BUSINESS_OWNER_AGE_RANGE_LITERALS
+);
+
+const BUSINESS_PROFILE_COMPLETION_FIELDS = [
+  'name',
+  'shortDescription',
+  'businessPhone',
+  'address',
+  'serviceTypes',
+  'serviceTags',
+  'discoverySource',
+  'reason',
+  'usageAreas',
+  'ownerAgeRange',
+] as const;
+
+type BusinessProfileCompletionField =
+  (typeof BUSINESS_PROFILE_COMPLETION_FIELDS)[number];
+
+type BusinessOnboardingSnapshotView = {
+  discoverySource?: BusinessDiscoverySource;
+  reason?: BusinessReason;
+  usageAreas?: BusinessUsageArea[];
+  ownerAgeRange?: BusinessOwnerAgeRange;
+  collectedAt?: number;
+};
+
 export function normalizeCustomerSegmentationConfig(
   config: unknown,
   now: number
@@ -407,7 +481,7 @@ export const updateBusinessAddress = mutation({
       streetNumber,
     }
   ) => {
-    await requireActorIsBusinessOwner(ctx, businessId);
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const normalizedAddress = normalizeBusinessAddressInput({
       formattedAddress,
       placeId,
@@ -562,29 +636,201 @@ function sanitizeServiceTags(values: string[] | undefined) {
   return unique;
 }
 
-function normalizeOnboardingSnapshotText(value: string | undefined) {
-  if (value === undefined) {
-    return undefined;
+function normalizeOptionalText(value: string | undefined) {
+  if (typeof value !== 'string') {
+    return '';
   }
-  const normalized = value.trim().replace(/\s+/g, ' ');
-  return normalized || undefined;
+  return value.trim().replace(/\s+/g, ' ');
 }
 
-function normalizeOnboardingUsageAreas(value: string[] | undefined) {
-  if (value === undefined) {
+function sanitizeOnboardingChoice<T extends string>(
+  value: string | undefined,
+  allowedSet: Set<string>
+) {
+  const normalized = normalizeOptionalText(value);
+  if (!normalized) {
     return undefined;
   }
-  const unique: string[] = [];
+  if (!allowedSet.has(normalized)) {
+    return undefined;
+  }
+  return normalized as T;
+}
+
+function sanitizeOnboardingUsageAreas(
+  value: string[] | undefined
+): BusinessUsageArea[] {
+  const unique: BusinessUsageArea[] = [];
+  if (!value) {
+    return unique;
+  }
   for (const area of value) {
-    const normalized = area.trim();
+    const normalized = normalizeOptionalText(area);
     if (!normalized) {
       continue;
     }
-    if (!unique.includes(normalized)) {
-      unique.push(normalized);
+    if (!BUSINESS_USAGE_AREA_SET.has(normalized)) {
+      continue;
+    }
+    const typedValue = normalized as BusinessUsageArea;
+    if (!unique.includes(typedValue)) {
+      unique.push(typedValue);
     }
   }
-  return unique.length > 0 ? unique : undefined;
+  return unique;
+}
+
+function normalizeOnboardingChoiceInput<T extends string>(
+  value: string | undefined,
+  allowedSet: Set<string>,
+  errorCode: string
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const normalized = normalizeOptionalText(value);
+  if (!normalized || !allowedSet.has(normalized)) {
+    throw new Error(errorCode);
+  }
+  return normalized as T;
+}
+
+function normalizeOnboardingUsageAreasInput(value: string[] | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const unique: BusinessUsageArea[] = [];
+  for (const area of value) {
+    const normalized = normalizeOptionalText(area);
+    if (!normalized || !BUSINESS_USAGE_AREA_SET.has(normalized)) {
+      throw new Error('BUSINESS_USAGE_AREA_INVALID');
+    }
+    const typedValue = normalized as BusinessUsageArea;
+    if (!unique.includes(typedValue)) {
+      unique.push(typedValue);
+    }
+  }
+  if (unique.length === 0) {
+    throw new Error('BUSINESS_USAGE_AREAS_REQUIRED');
+  }
+  return unique;
+}
+
+function sanitizeBusinessOnboardingSnapshot(snapshot: unknown) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
+
+  const source = snapshot as Record<string, unknown>;
+  const discoverySource = sanitizeOnboardingChoice<BusinessDiscoverySource>(
+    typeof source.discoverySource === 'string'
+      ? source.discoverySource
+      : undefined,
+    BUSINESS_DISCOVERY_SOURCE_SET
+  );
+  const reason = sanitizeOnboardingChoice<BusinessReason>(
+    typeof source.reason === 'string' ? source.reason : undefined,
+    BUSINESS_REASON_SET
+  );
+  const usageAreas = sanitizeOnboardingUsageAreas(
+    Array.isArray(source.usageAreas)
+      ? source.usageAreas.filter(
+          (entry): entry is string => typeof entry === 'string'
+        )
+      : undefined
+  );
+  const ownerAgeRange = sanitizeOnboardingChoice<BusinessOwnerAgeRange>(
+    typeof source.ownerAgeRange === 'string' ? source.ownerAgeRange : undefined,
+    BUSINESS_OWNER_AGE_RANGE_SET
+  );
+  const collectedAt = Number.isFinite(source.collectedAt)
+    ? Math.max(0, Math.floor(Number(source.collectedAt)))
+    : undefined;
+
+  const normalizedSnapshot: BusinessOnboardingSnapshotView = {};
+  if (discoverySource) {
+    normalizedSnapshot.discoverySource = discoverySource;
+  }
+  if (reason) {
+    normalizedSnapshot.reason = reason;
+  }
+  if (usageAreas.length > 0) {
+    normalizedSnapshot.usageAreas = usageAreas;
+  }
+  if (ownerAgeRange) {
+    normalizedSnapshot.ownerAgeRange = ownerAgeRange;
+  }
+  if (collectedAt !== undefined) {
+    normalizedSnapshot.collectedAt = collectedAt;
+  }
+
+  return Object.keys(normalizedSnapshot).length > 0 ? normalizedSnapshot : null;
+}
+
+function hasBusinessAddress(business: {
+  formattedAddress?: string;
+  placeId?: string;
+  location?: { lat?: number; lng?: number } | null;
+}) {
+  return (
+    normalizeOptionalText(business.formattedAddress).length > 0 &&
+    normalizeOptionalText(business.placeId).length > 0 &&
+    Number.isFinite(business.location?.lat) &&
+    Number.isFinite(business.location?.lng)
+  );
+}
+
+function computeBusinessProfileCompletion(business: {
+  name: string;
+  shortDescription?: string;
+  businessPhone?: string;
+  formattedAddress?: string;
+  placeId?: string;
+  location?: { lat?: number; lng?: number } | null;
+  serviceTypes?: string[];
+  serviceTags?: string[];
+  onboardingSnapshot?: unknown;
+}) {
+  const missingFields: BusinessProfileCompletionField[] = [];
+  if (!normalizeOptionalText(business.name)) {
+    missingFields.push('name');
+  }
+  if (!normalizeOptionalText(business.shortDescription)) {
+    missingFields.push('shortDescription');
+  }
+  if (!normalizeOptionalText(business.businessPhone)) {
+    missingFields.push('businessPhone');
+  }
+  if (!hasBusinessAddress(business)) {
+    missingFields.push('address');
+  }
+  if (sanitizeServiceTypes(business.serviceTypes).length === 0) {
+    missingFields.push('serviceTypes');
+  }
+  if (sanitizeServiceTags(business.serviceTags).length === 0) {
+    missingFields.push('serviceTags');
+  }
+
+  const snapshot = sanitizeBusinessOnboardingSnapshot(
+    business.onboardingSnapshot
+  );
+  if (!snapshot?.discoverySource) {
+    missingFields.push('discoverySource');
+  }
+  if (!snapshot?.reason) {
+    missingFields.push('reason');
+  }
+  if (!snapshot?.usageAreas || snapshot.usageAreas.length === 0) {
+    missingFields.push('usageAreas');
+  }
+  if (!snapshot?.ownerAgeRange) {
+    missingFields.push('ownerAgeRange');
+  }
+
+  return {
+    isComplete: missingFields.length === 0,
+    missingFields,
+  };
 }
 
 export const getBusinessSettings = query({
@@ -602,6 +848,11 @@ export const getBusinessSettings = query({
       throw new Error('BUSINESS_INACTIVE');
     }
 
+    const onboardingSnapshot = sanitizeBusinessOnboardingSnapshot(
+      business.onboardingSnapshot
+    );
+    const profileCompletion = computeBusinessProfileCompletion(business);
+
     return {
       businessId: business._id,
       name: business.name,
@@ -609,13 +860,16 @@ export const getBusinessSettings = query({
       businessPhone: business.businessPhone ?? '',
       serviceTypes: sanitizeServiceTypes(business.serviceTypes),
       serviceTags: sanitizeServiceTags(business.serviceTags),
-      onboardingSnapshot: business.onboardingSnapshot ?? null,
+      onboardingSnapshot,
       formattedAddress: business.formattedAddress ?? '',
+      placeId: business.placeId ?? '',
+      location: business.location ?? null,
       city: business.city ?? '',
       street: business.street ?? '',
       streetNumber: business.streetNumber ?? '',
       logoUrl: business.logoUrl ?? null,
       colors: business.colors ?? null,
+      profileCompletion,
       updatedAt: business.updatedAt,
     };
   },
@@ -696,20 +950,35 @@ export const saveBusinessOnboardingSnapshot = mutation({
       throw new Error('BUSINESS_INACTIVE');
     }
 
+    const normalizedDiscoverySource =
+      normalizeOnboardingChoiceInput<BusinessDiscoverySource>(
+        discoverySource,
+        BUSINESS_DISCOVERY_SOURCE_SET,
+        'BUSINESS_DISCOVERY_SOURCE_INVALID'
+      );
+    const normalizedReason = normalizeOnboardingChoiceInput<BusinessReason>(
+      reason,
+      BUSINESS_REASON_SET,
+      'BUSINESS_REASON_INVALID'
+    );
+    const normalizedUsageAreas = normalizeOnboardingUsageAreasInput(usageAreas);
+    const normalizedOwnerAgeRange =
+      normalizeOnboardingChoiceInput<BusinessOwnerAgeRange>(
+        ownerAgeRange,
+        BUSINESS_OWNER_AGE_RANGE_SET,
+        'BUSINESS_OWNER_AGE_RANGE_INVALID'
+      );
+
+    const existingSnapshot =
+      sanitizeBusinessOnboardingSnapshot(business.onboardingSnapshot) ?? {};
+
     const nextSnapshot = {
-      ...(business.onboardingSnapshot ?? {}),
+      ...existingSnapshot,
       discoverySource:
-        normalizeOnboardingSnapshotText(discoverySource) ??
-        business.onboardingSnapshot?.discoverySource,
-      reason:
-        normalizeOnboardingSnapshotText(reason) ??
-        business.onboardingSnapshot?.reason,
-      usageAreas:
-        normalizeOnboardingUsageAreas(usageAreas) ??
-        business.onboardingSnapshot?.usageAreas,
-      ownerAgeRange:
-        normalizeOnboardingSnapshotText(ownerAgeRange) ??
-        business.onboardingSnapshot?.ownerAgeRange,
+        normalizedDiscoverySource ?? existingSnapshot.discoverySource,
+      reason: normalizedReason ?? existingSnapshot.reason,
+      usageAreas: normalizedUsageAreas ?? existingSnapshot.usageAreas,
+      ownerAgeRange: normalizedOwnerAgeRange ?? existingSnapshot.ownerAgeRange,
       collectedAt: Date.now(),
     };
 

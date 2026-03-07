@@ -147,7 +147,7 @@ export default function BusinessTabsLayout() {
         ? 'analytics'
         : isSettingsSubRoute
           ? 'settings'
-        : currentLeafSegment;
+          : currentLeafSegment;
 
   return (
     <Tabs
@@ -327,6 +327,12 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="settings-business-subscription"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings-business-address"
         options={{
           href: null,
         }}

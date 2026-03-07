@@ -18,7 +18,6 @@ import {
 import BrandPageHeader from '@/components/BrandPageHeader';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { Card, ListRow, SectionHeader, StatCard } from '@/components/ui';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -30,6 +29,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
@@ -45,6 +45,31 @@ type Activity = {
   customer: string;
   type: 'punch' | 'reward';
   time: string;
+};
+
+type ProfileCompletionField =
+  | 'name'
+  | 'shortDescription'
+  | 'businessPhone'
+  | 'address'
+  | 'serviceTypes'
+  | 'serviceTags'
+  | 'discoverySource'
+  | 'reason'
+  | 'usageAreas'
+  | 'ownerAgeRange';
+
+const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
+  name: 'שם העסק',
+  shortDescription: 'תיאור קצר',
+  businessPhone: 'טלפון עסקי',
+  address: 'כתובת העסק',
+  serviceTypes: 'סוגי שירות',
+  serviceTags: 'תגיות שירות',
+  discoverySource: 'מקור הגעה',
+  reason: 'סיבת הצטרפות',
+  usageAreas: 'אזורי פעילות',
+  ownerAgeRange: 'טווח גיל בעלים',
 };
 
 type QuickShortcutTile = {
@@ -121,8 +146,14 @@ export default function MerchantDashboardScreen() {
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const isOwner = activeBusiness?.staffRole === 'owner';
-  const { entitlements, gate, limitStatus } =
-    useEntitlements(activeBusinessId);
+  const canEditBusiness =
+    activeBusiness?.staffRole === 'owner' ||
+    activeBusiness?.staffRole === 'manager';
+  const businessSettings = useQuery(
+    api.business.getBusinessSettings,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
   const teamGate = gate('canManageTeam');
   const marketingGate = gate('canUseMarketingHubAI');
   const aiCampaignLimit = limitStatus('maxAiCampaignsPerMonth');
@@ -132,14 +163,6 @@ export default function MerchantDashboardScreen() {
   );
   const createAiCampaign = useMutation(api.campaigns.createAiCampaign);
 
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('feature_locked');
   const [isCreatingAiCampaign, setIsCreatingAiCampaign] = useState(false);
 
   const openUpgrade = (
@@ -150,10 +173,7 @@ export default function MerchantDashboardScreen() {
       | 'limit_reached'
       | 'subscription_inactive' = 'feature_locked'
   ) => {
-    setUpgradeFeatureKey(featureKey);
-    setUpgradeReason(reason);
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setIsUpgradeVisible(true);
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
   };
 
   useEffect(() => {
@@ -216,6 +236,14 @@ export default function MerchantDashboardScreen() {
   const visibleActionCards = ACTION_CARDS.filter(
     (action) => action.id !== 'team' || isOwner
   );
+  const missingFieldLabels = (
+    (businessSettings?.profileCompletion?.missingFields ??
+      []) as ProfileCompletionField[]
+  )
+    .filter(
+      (field): field is ProfileCompletionField => field in MISSING_FIELD_LABELS
+    )
+    .map((field) => MISSING_FIELD_LABELS[field]);
 
   const handleUpgradeFromBanner = () => {
     openUpgrade('canUseMarketingHubAI', 'pro', 'feature_locked');
@@ -311,6 +339,48 @@ export default function MerchantDashboardScreen() {
             כאן סקירה מהירה של הפעילות היומית בעסק
           </Text>
         </View>
+
+        {businessSettings?.profileCompletion &&
+        !businessSettings.profileCompletion.isComplete ? (
+          <View className="mt-3">
+            <Card className="rounded-[22px] border border-[#FCD34D] bg-[#FFFBEB] p-4">
+              <View className={`${tw.flexRow} items-center gap-2`}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={18}
+                  color="#B45309"
+                />
+                <Text
+                  className={`text-sm font-extrabold text-[#92400E] ${tw.textStart}`}
+                >
+                  השלם פרטים
+                </Text>
+              </View>
+              <Text className={`mt-1 text-xs text-[#78350F] ${tw.textStart}`}>
+                שדות חסרים:{' '}
+                {missingFieldLabels.join(' • ') || 'יש להשלים נתונים'}
+              </Text>
+              {canEditBusiness ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push(
+                      '/(authenticated)/(business)/settings-business-profile'
+                    )
+                  }
+                  className="mt-3 self-end rounded-xl border border-[#F59E0B] bg-white px-4 py-2"
+                >
+                  <Text className="text-xs font-bold text-[#92400E]">
+                    השלם פרטים
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text className={`mt-2 text-xs text-[#92400E] ${tw.textStart}`}>
+                  השלמת נתונים זמינה לבעלים או למנהל בלבד.
+                </Text>
+              )}
+            </Card>
+          </View>
+        ) : null}
 
         <View className="mt-3">
           <Card className="rounded-[26px] border border-[#A9C7FF] bg-[#EEF3FF] p-5">
@@ -581,15 +651,6 @@ export default function MerchantDashboardScreen() {
             ))}
           </View>
         </View>
-
-        <UpgradeModal
-          visible={isUpgradeVisible}
-          businessId={activeBusinessId}
-          initialPlan={upgradePlan}
-          reason={upgradeReason}
-          featureKey={upgradeFeatureKey}
-          onClose={() => setIsUpgradeVisible(false)}
-        />
       </ScrollView>
     </SafeAreaView>
   );

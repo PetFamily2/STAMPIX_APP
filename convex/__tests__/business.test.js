@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   getBusinessesNearby,
+  getBusinessSettings,
   saveBusinessOnboardingSnapshot,
+  updateBusinessAddress,
   updateBusinessProfile,
 } from '../business';
 
@@ -175,6 +177,69 @@ describe('business profile settings and discovery filters', () => {
     ).rejects.toThrow('BUSINESS_SERVICE_TYPE_INVALID');
   });
 
+  test('getBusinessSettings returns strict profile completion missing fields', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: '',
+          businessPhone: '',
+          serviceTypes: [],
+          serviceTags: [],
+          placeId: '',
+          location: null,
+          onboardingSnapshot: {},
+        }),
+      ],
+    });
+
+    const settings = await getBusinessSettings._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    expect(settings.profileCompletion.isComplete).toBe(false);
+    expect(settings.profileCompletion.missingFields).toEqual([
+      'shortDescription',
+      'businessPhone',
+      'address',
+      'serviceTypes',
+      'serviceTags',
+      'discoverySource',
+      'reason',
+      'usageAreas',
+      'ownerAgeRange',
+    ]);
+  });
+
+  test('getBusinessSettings returns complete when all strict fields exist', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: 'Business short description',
+          businessPhone: '+972 50-123-4567',
+          serviceTypes: ['beauty'],
+          serviceTags: ['nails'],
+          placeId: 'place_1',
+          formattedAddress: 'Test Address 10',
+          location: { lat: 32.08, lng: 34.78 },
+          onboardingSnapshot: {
+            discoverySource: 'search',
+            reason: 'insights',
+            usageAreas: ['citywide'],
+            ownerAgeRange: '25-34',
+            collectedAt: Date.now(),
+          },
+        }),
+      ],
+    });
+
+    const settings = await getBusinessSettings._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    expect(settings.profileCompletion.isComplete).toBe(true);
+    expect(settings.profileCompletion.missingFields).toEqual([]);
+  });
+
   test('staff role cannot update business profile', async () => {
     const { ctx } = createMockCtx({
       currentUserId: 'user_staff',
@@ -207,7 +272,7 @@ describe('business profile settings and discovery filters', () => {
       businesses: [
         buildBusiness({
           onboardingSnapshot: {
-            reason: 'existing reason',
+            reason: 'insights',
           },
         }),
       ],
@@ -222,16 +287,14 @@ describe('business profile settings and discovery filters', () => {
 
     await saveBusinessOnboardingSnapshot._handler(ctx, {
       businessId: 'business_1',
-      discoverySource: 'instagram',
+      discoverySource: 'social',
       usageAreas: ['nearby', 'citywide'],
       ownerAgeRange: '25-34',
     });
 
     const updatedBusiness = state.businesses.get('business_1');
-    expect(updatedBusiness.onboardingSnapshot.discoverySource).toBe(
-      'instagram'
-    );
-    expect(updatedBusiness.onboardingSnapshot.reason).toBe('existing reason');
+    expect(updatedBusiness.onboardingSnapshot.discoverySource).toBe('social');
+    expect(updatedBusiness.onboardingSnapshot.reason).toBe('insights');
     expect(updatedBusiness.onboardingSnapshot.usageAreas).toEqual([
       'nearby',
       'citywide',
@@ -240,6 +303,79 @@ describe('business profile settings and discovery filters', () => {
     expect(typeof updatedBusiness.onboardingSnapshot.collectedAt).toBe(
       'number'
     );
+  });
+
+  test('saveBusinessOnboardingSnapshot rejects invalid onboarding values', async () => {
+    const { ctx } = createMockCtx();
+
+    await expect(
+      saveBusinessOnboardingSnapshot._handler(ctx, {
+        businessId: 'business_1',
+        discoverySource: 'invalid_source',
+      })
+    ).rejects.toThrow('BUSINESS_DISCOVERY_SOURCE_INVALID');
+
+    await expect(
+      saveBusinessOnboardingSnapshot._handler(ctx, {
+        businessId: 'business_1',
+        usageAreas: [],
+      })
+    ).rejects.toThrow('BUSINESS_USAGE_AREAS_REQUIRED');
+  });
+
+  test('updateBusinessAddress allows manager and blocks staff', async () => {
+    const manager = createMockCtx({
+      currentUserId: 'user_manager',
+      users: [buildUser({ _id: 'user_manager' })],
+      businessStaff: [
+        buildStaff({
+          _id: 'staff_manager',
+          userId: 'user_manager',
+          staffRole: 'manager',
+        }),
+      ],
+    });
+
+    await updateBusinessAddress._handler(manager.ctx, {
+      businessId: 'business_1',
+      formattedAddress: 'Herzl 1, Tel Aviv',
+      placeId: 'place_2',
+      lat: 32.0853,
+      lng: 34.7818,
+      city: 'Tel Aviv',
+      street: 'Herzl',
+      streetNumber: '1',
+    });
+
+    const updated = manager.state.businesses.get('business_1');
+    expect(updated.formattedAddress).toBe('Herzl 1, Tel Aviv');
+    expect(updated.placeId).toBe('place_2');
+    expect(updated.location).toEqual({ lat: 32.0853, lng: 34.7818 });
+
+    const staff = createMockCtx({
+      currentUserId: 'user_staff',
+      users: [buildUser({ _id: 'user_staff' })],
+      businessStaff: [
+        buildStaff({
+          _id: 'staff_2',
+          userId: 'user_staff',
+          staffRole: 'staff',
+        }),
+      ],
+    });
+
+    await expect(
+      updateBusinessAddress._handler(staff.ctx, {
+        businessId: 'business_1',
+        formattedAddress: 'Herzl 1, Tel Aviv',
+        placeId: 'place_2',
+        lat: 32.0853,
+        lng: 34.7818,
+        city: 'Tel Aviv',
+        street: 'Herzl',
+        streetNumber: '1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
   });
 
   test('getBusinessesNearby filters by serviceTypeFilters', async () => {

@@ -66,7 +66,9 @@ export default function ProgramDetailsScreen() {
   const selectedBusinessId = useMemo(() => {
     if (
       businessIdFromParams &&
-      businesses.some((business) => business.businessId === businessIdFromParams)
+      businesses.some(
+        (business) => business.businessId === businessIdFromParams
+      )
     ) {
       return businessIdFromParams;
     }
@@ -75,8 +77,9 @@ export default function ProgramDetailsScreen() {
 
   const selectedBusiness = useMemo(
     () =>
-      businesses.find((business) => business.businessId === selectedBusinessId) ??
-      (activeBusinessId === selectedBusinessId ? activeBusiness : null),
+      businesses.find(
+        (business) => business.businessId === selectedBusinessId
+      ) ?? (activeBusinessId === selectedBusinessId ? activeBusiness : null),
     [activeBusiness, activeBusinessId, businesses, selectedBusinessId]
   );
   const canManage =

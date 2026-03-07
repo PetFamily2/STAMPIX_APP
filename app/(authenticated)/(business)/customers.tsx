@@ -20,13 +20,13 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type Segment = 'frequent' | 'stable' | 'dropoff' | 'risk';
 type ReportsTopTab = 'reports' | 'customers';
@@ -83,7 +83,8 @@ export default function BusinessCustomersScreen() {
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const [search, setSearch] = useState('');
   const canEditThresholds =
-    activeBusiness?.staffRole === 'owner' || activeBusiness?.staffRole === 'manager';
+    activeBusiness?.staffRole === 'owner' ||
+    activeBusiness?.staffRole === 'manager';
 
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('canUseSmartAnalytics');
@@ -102,15 +103,6 @@ export default function BusinessCustomersScreen() {
   const updateSegmentationConfig = useMutation(
     api.business.updateCustomerSegmentationConfig
   );
-
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
-  const [upgradeReason, setUpgradeReason] = useState<
-    'feature_locked' | 'limit_reached' | 'subscription_inactive'
-  >('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
 
   const [isThresholdModalVisible, setIsThresholdModalVisible] = useState(false);
   const [riskDays, setRiskDays] = useState('');
@@ -156,10 +148,7 @@ export default function BusinessCustomersScreen() {
       | 'limit_reached'
       | 'subscription_inactive' = 'feature_locked'
   ) => {
-    setUpgradeFeatureKey(featureKey);
-    setUpgradeReason(reason);
-    setUpgradePlan(requiredPlan === 'unlimited' ? 'unlimited' : 'pro');
-    setIsUpgradeVisible(true);
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
   };
 
   const summary = snapshot?.summary ?? DEFAULT_SUMMARY;
@@ -176,9 +165,14 @@ export default function BusinessCustomersScreen() {
     });
   }, [search, snapshot?.customers]);
 
-  const placeholderRows = Array.from({ length: 4 }, (_, index) => (
+  const placeholderRows = [
+    'placeholder-1',
+    'placeholder-2',
+    'placeholder-3',
+    'placeholder-4',
+  ].map((placeholderId) => (
     <View
-      key={`placeholder-${index}`}
+      key={placeholderId}
       className="rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] px-4 py-4"
     >
       <Text className={`text-base font-bold text-[#64748B] ${tw.textStart}`}>
@@ -298,7 +292,6 @@ export default function BusinessCustomersScreen() {
             );
           })}
         </View>
-
 
         <View className="mt-5">
           <LockedFeatureWrapper
@@ -558,16 +551,6 @@ export default function BusinessCustomersScreen() {
           )}
         </View>
       </ScrollView>
-
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-      />
-
       <Modal
         visible={isThresholdModalVisible}
         transparent={true}
