@@ -7,11 +7,17 @@ export type EntitlementErrorPayload = {
   code: EntitlementErrorCode;
   businessId: string;
   featureKey?: string;
-  requiredPlan?: 'starter' | 'pro' | 'unlimited';
-  limitKey?: 'maxCards' | 'maxCustomers' | 'maxAiCampaignsPerMonth';
+  requiredPlan?: 'starter' | 'pro' | 'premium';
+  limitKey?: 'maxCards' | 'maxCustomers' | 'maxActiveRetentionActions';
+  limitType?: 'active_retention_actions';
   limitValue?: number;
   currentValue?: number;
-  subscriptionStatus?: 'active' | 'trialing' | 'past_due' | 'canceled';
+  subscriptionStatus?:
+    | 'active'
+    | 'trialing'
+    | 'past_due'
+    | 'canceled'
+    | 'inactive';
 };
 
 function isEntitlementCode(value: unknown): value is EntitlementErrorCode {
@@ -38,13 +44,14 @@ export function entitlementErrorToHebrewMessage(
 ) {
   switch (payload.code) {
     case 'FEATURE_NOT_AVAILABLE':
-      return 'הפיצ׳ר הזה זמין רק במסלול מתקדם יותר.';
+      return 'היכולת הזאת זמינה במסלול מתקדם יותר.';
     case 'PLAN_LIMIT_REACHED': {
       if (
-        payload.limitKey === 'maxAiCampaignsPerMonth' &&
+        (payload.limitKey === 'maxActiveRetentionActions' ||
+          payload.limitType === 'active_retention_actions') &&
         typeof payload.limitValue === 'number'
       ) {
-        return `הגעתם למכסת קמפייני AI החודשית (${payload.limitValue}).`;
+        return `הגעתם למכסת קמפייני השימור הפעילים במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         payload.limitKey === 'maxCards' &&
@@ -61,8 +68,8 @@ export function entitlementErrorToHebrewMessage(
       return 'הגעתם למגבלת המסלול הנוכחי.';
     }
     case 'SUBSCRIPTION_INACTIVE':
-      return 'המנוי אינו פעיל כרגע. יש להסדיר תשלום או לבצע שדרוג.';
+      return 'המנוי לא פעיל כרגע. יש להסדיר תשלום או לשדרג.';
     default:
-      return 'אין הרשאה לפעולה זו.';
+      return 'אין הרשאה לפעולה הזו.';
   }
 }

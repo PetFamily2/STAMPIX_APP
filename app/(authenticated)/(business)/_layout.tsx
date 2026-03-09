@@ -16,7 +16,7 @@ const TEXT = {
   analytics: 'דוחות',
   scanCustomer: 'סרוק לקוח',
   customers: 'לקוחות',
-  marketing: '\u05e9\u05d9\u05d5\u05d5\u05e7',
+  marketing: 'כרטיסים',
   settings: 'הגדרות',
 };
 

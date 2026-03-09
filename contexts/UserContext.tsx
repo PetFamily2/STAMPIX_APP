@@ -24,7 +24,7 @@ export type SessionContext = {
     businessOnboardedAt?: number;
     activeMode?: 'customer' | 'business';
     userType?: 'free' | 'paid';
-    subscriptionPlan?: 'free' | 'pro' | 'unlimited';
+    subscriptionPlan?: 'starter' | 'pro' | 'premium';
     subscriptionStatus?: 'active' | 'inactive' | 'cancelled';
     isActive: boolean;
   };

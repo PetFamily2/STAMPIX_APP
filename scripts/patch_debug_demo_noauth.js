@@ -47,7 +47,7 @@ export const createDemoMembershipForExternalId = mutation({
         userType: 'free',
         role: 'customer',
         isActive: true,
-        subscriptionPlan: 'free',
+        subscriptionPlan: 'starter',
         subscriptionStatus: 'inactive',
         subscriptionProductId: undefined,
         subscriptionUpdatedAt: now,

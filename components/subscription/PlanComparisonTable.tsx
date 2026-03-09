@@ -27,7 +27,7 @@ const FEATURE_COLUMN_WIDTH = 190;
 const PLAN_COLUMN_WIDTH = 118;
 const TABLE_MIN_WIDTH = FEATURE_COLUMN_WIDTH + PLAN_COLUMN_WIDTH * 3;
 
-const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'unlimited'];
+const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) {

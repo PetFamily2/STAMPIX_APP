@@ -29,7 +29,6 @@ import {
   type PlanId,
 } from '@/lib/subscription/planComparison';
 
-type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled';
 type UpgradeReason =
   | 'feature_locked'
   | 'limit_reached'
@@ -39,51 +38,19 @@ const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 const TEXT_START = IS_RTL ? 'right' : 'left';
 const TEXT_END = IS_RTL ? 'left' : 'right';
 
-const PLAN_FALLBACK_LABELS: Record<PlanId, string> = {
+const PLAN_LABELS: Record<PlanId, string> = {
   starter: 'Starter',
   pro: 'Pro AI',
-  unlimited: 'Unlimited AI',
+  premium: 'Premium AI',
 };
 
-const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   active: 'פעיל',
   trialing: 'ניסיון',
   past_due: 'תשלום נכשל',
   canceled: 'מבוטל',
+  inactive: 'לא פעיל',
 };
-
-function formatLimitValue(
-  limitValue: number | null | undefined,
-  isUnlimited: boolean
-) {
-  if (isUnlimited) {
-    return 'ללא הגבלה';
-  }
-  if (limitValue === null || limitValue === undefined) {
-    return '-';
-  }
-  return String(limitValue);
-}
-
-function formatSubscriptionStatus(status: string | undefined) {
-  if (!status) {
-    return 'פעיל';
-  }
-  return (
-    SUBSCRIPTION_STATUS_LABELS[status as SubscriptionStatus] ??
-    status.replaceAll('_', ' ')
-  );
-}
-
-function resolveUpgradeTarget(plan: PlanId): 'pro' | 'unlimited' | null {
-  if (plan === 'starter') {
-    return 'pro';
-  }
-  if (plan === 'pro') {
-    return 'unlimited';
-  }
-  return null;
-}
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -94,7 +61,7 @@ function parsePlanParam(value: string | string[] | undefined): PlanId | null {
   if (
     normalized === 'starter' ||
     normalized === 'pro' ||
-    normalized === 'unlimited'
+    normalized === 'premium'
   ) {
     return normalized;
   }
@@ -115,6 +82,20 @@ function parseUpgradeReasonParam(
   return null;
 }
 
+function formatLimit(used: number, limit: number) {
+  return `${used} / ${limit}`;
+}
+
+function resolveNextPlan(plan: PlanId): 'pro' | 'premium' | null {
+  if (plan === 'starter') {
+    return 'pro';
+  }
+  if (plan === 'pro') {
+    return 'premium';
+  }
+  return null;
+}
+
 export default function BusinessSettingsSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -123,123 +104,90 @@ export default function BusinessSettingsSubscriptionScreen() {
     recommendedPlan?: string | string[];
     upgradeReason?: string | string[];
     featureKey?: string | string[];
+    autoOpenUpgrade?: string | string[];
   }>();
   const scrollViewRef = useRef<ScrollView>(null);
   const comparisonSectionOffsetRef = useRef(0);
   const hasAutoFocusedComparisonRef = useRef(false);
-  const lastFocusParamRef = useRef<string | undefined>(undefined);
+  const hasAutoOpenedModalRef = useRef(false);
+
   const { activeBusinessId } = useActiveBusiness();
   const {
     entitlements,
     planCatalog: planCatalogQuery,
     limitStatus,
-    isLoading: isEntitlementsLoading,
+    isLoading,
   } = useEntitlements(activeBusinessId);
+  const usageSummary = useQuery(
+    api.entitlements.getBusinessUsageSummary,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+
   const focusParam = firstParam(params.focus);
   const recommendedPlanParam = parsePlanParam(params.recommendedPlan);
-  const requestedUpgradeReasonParam = parseUpgradeReasonParam(
-    params.upgradeReason
-  );
-  const requestedFeatureKeyParam = firstParam(params.featureKey);
-  const programs =
-    useQuery(
-      api.loyaltyPrograms.listManagementByBusiness,
-      activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-    ) ?? [];
+  const upgradeReasonParam = parseUpgradeReasonParam(params.upgradeReason);
+  const featureKeyParam = firstParam(params.featureKey);
+  const autoOpenUpgradeParam = firstParam(params.autoOpenUpgrade) === 'true';
 
   const normalizedPlanCatalog = useMemo(
     () => normalizePlanCatalog(planCatalogQuery),
     [planCatalogQuery]
   );
-
   const comparisonRows = useMemo(
     () => buildComparisonRows(normalizedPlanCatalog),
     [normalizedPlanCatalog]
   );
 
-  const planLabelsById = useMemo(() => {
-    const map = new Map<PlanId, string>();
-    for (const plan of normalizedPlanCatalog) {
-      map.set(plan.plan, plan.label);
-    }
-    return map;
-  }, [normalizedPlanCatalog]);
-
   const currentPlan = entitlements?.plan ?? 'starter';
-  const currentPlanLabel =
-    planLabelsById.get(currentPlan) ?? PLAN_FALLBACK_LABELS[currentPlan];
-  const upgradeTargetPlan = resolveUpgradeTarget(currentPlan);
-  const upgradeTargetLabel = upgradeTargetPlan
-    ? (planLabelsById.get(upgradeTargetPlan) ??
-      PLAN_FALLBACK_LABELS[upgradeTargetPlan])
-    : null;
+  const currentPlanLabel = PLAN_LABELS[currentPlan];
+  const nextPlan = resolveNextPlan(currentPlan);
+  const nextPlanLabel = nextPlan ? PLAN_LABELS[nextPlan] : null;
 
-  const activePrograms = useMemo(
-    () => programs.filter((program) => program.lifecycle === 'active'),
-    [programs]
+  const cardsStatus = limitStatus(
+    'maxCards',
+    usageSummary?.cardsUsed ?? entitlements?.limits.maxCards ?? 0
   );
-  const cardLimit = limitStatus('maxCards', activePrograms.length);
-  const customerLimit = limitStatus('maxCustomers');
-  const aiLimit = limitStatus(
-    'maxAiCampaignsPerMonth',
-    entitlements?.usage.aiCampaignsUsedThisMonth
+  const customersStatus = limitStatus(
+    'maxCustomers',
+    usageSummary?.customersUsed ?? 0
   );
-  const aiUsageThisMonth =
-    entitlements?.usage.aiCampaignsUsedThisMonth ?? aiLimit.currentValue;
+  const aiStatus = limitStatus(
+    'maxActiveRetentionActions',
+    usageSummary?.activeRetentionActionsUsed ??
+      entitlements?.usage.activeRetentionActions ??
+      0
+  );
 
-  const statusRows = useMemo(
-    () => [
-      { label: 'מסלול נוכחי', value: currentPlanLabel },
-      {
-        label: 'סטטוס מנוי',
-        value: formatSubscriptionStatus(entitlements?.subscriptionStatus),
-      },
-      {
-        label: 'מחזור חיוב',
-        value: entitlements?.billingPeriod
-          ? BILLING_PERIOD_LABELS[entitlements.billingPeriod]
-          : '-',
-      },
-      {
-        label: 'כרטיסים פעילים',
-        value: cardLimit.isUnlimited
-          ? `${activePrograms.length} בשימוש / ללא הגבלה`
-          : `${activePrograms.length} מתוך ${formatLimitValue(
-              cardLimit.limitValue,
-              false
-            )}`,
-      },
-      {
-        label: 'מכסת לקוחות',
-        value: formatLimitValue(
-          customerLimit.limitValue,
-          customerLimit.isUnlimited
-        ),
-      },
-      {
-        label: 'קמפייני AI בחודש',
-        value: aiLimit.isUnlimited
-          ? `${aiUsageThisMonth} בשימוש / ללא הגבלה`
-          : `${aiUsageThisMonth} מתוך ${formatLimitValue(aiLimit.limitValue, false)}`,
-      },
-    ],
-    [
-      activePrograms.length,
-      aiLimit.isUnlimited,
-      aiLimit.limitValue,
-      aiUsageThisMonth,
-      cardLimit.isUnlimited,
-      cardLimit.limitValue,
-      currentPlanLabel,
-      customerLimit.isUnlimited,
-      customerLimit.limitValue,
-      entitlements?.billingPeriod,
-      entitlements?.subscriptionStatus,
-    ]
-  );
+  const usageWarnings = useMemo(() => {
+    const warnings: string[] = [];
+
+    if (cardsStatus.isNearLimit || cardsStatus.isAtLimit) {
+      warnings.push(
+        `כרטיסי נאמנות: ${formatLimit(
+          cardsStatus.currentValue,
+          cardsStatus.limitValue
+        )}`
+      );
+    }
+    if (customersStatus.isNearLimit || customersStatus.isAtLimit) {
+      warnings.push(
+        `לקוחות: ${formatLimit(
+          customersStatus.currentValue,
+          customersStatus.limitValue
+        )}`
+      );
+    }
+    if (aiStatus.isNearLimit || aiStatus.isAtLimit) {
+      warnings.push(
+        `קמפייני שימור פעילים: ${formatLimit(aiStatus.currentValue, aiStatus.limitValue)}`
+      );
+    }
+
+    return warnings;
+  }, [aiStatus, cardsStatus, customersStatus]);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'unlimited'>('pro');
+  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'premium'>('pro');
   const [upgradeReason, setUpgradeReason] =
     useState<UpgradeReason>('feature_locked');
   const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
@@ -250,35 +198,30 @@ export default function BusinessSettingsSubscriptionScreen() {
   const [comparisonBillingPeriod, setComparisonBillingPeriod] =
     useState<BillingPeriod>('monthly');
 
-  const focusComparisonSection = useCallback(() => {
-    if (
-      focusParam !== 'comparison' ||
-      hasAutoFocusedComparisonRef.current ||
-      comparisonSectionOffsetRef.current <= 0
-    ) {
-      return;
-    }
+  const openUpgrade = useCallback(
+    (targetPlan?: 'pro' | 'premium') => {
+      const selectedTarget =
+        targetPlan ??
+        (comparisonSelectedPlan === 'premium' ? 'premium' : 'pro');
 
-    hasAutoFocusedComparisonRef.current = true;
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(0, comparisonSectionOffsetRef.current - 8),
-        animated: true,
-      });
-    });
-  }, [focusParam]);
-
-  useEffect(() => {
-    if (lastFocusParamRef.current === focusParam) {
-      return;
-    }
-    hasAutoFocusedComparisonRef.current = false;
-    lastFocusParamRef.current = focusParam;
-  }, [focusParam]);
-
-  useEffect(() => {
-    focusComparisonSection();
-  }, [focusComparisonSection]);
+      setUpgradePlan(selectedTarget);
+      setUpgradeReason(
+        upgradeReasonParam ??
+          (!entitlements?.isSubscriptionActive && currentPlan !== 'starter'
+            ? 'subscription_inactive'
+            : 'feature_locked')
+      );
+      setUpgradeFeatureKey(featureKeyParam?.trim() || 'business_subscription');
+      setIsUpgradeVisible(true);
+    },
+    [
+      comparisonSelectedPlan,
+      currentPlan,
+      entitlements?.isSubscriptionActive,
+      featureKeyParam,
+      upgradeReasonParam,
+    ]
+  );
 
   useEffect(() => {
     if (recommendedPlanParam) {
@@ -294,37 +237,54 @@ export default function BusinessSettingsSubscriptionScreen() {
     }
   }, [entitlements?.billingPeriod]);
 
-  const comparisonUpgradePlan: 'pro' | 'unlimited' =
-    currentPlan === 'unlimited'
-      ? 'unlimited'
-      : comparisonSelectedPlan === 'unlimited'
-        ? 'unlimited'
-        : 'pro';
-  const comparisonUpgradeLabel =
-    planLabelsById.get(comparisonUpgradePlan) ??
-    PLAN_FALLBACK_LABELS[comparisonUpgradePlan];
-  const isSamePlanAsCurrent = comparisonUpgradePlan === currentPlan;
-  const comparisonCtaLabel = isSamePlanAsCurrent
-    ? 'ניהול חבילה'
-    : `שדרוג ל-${comparisonUpgradeLabel}`;
+  useEffect(() => {
+    if (
+      !autoOpenUpgradeParam ||
+      hasAutoOpenedModalRef.current ||
+      !activeBusinessId
+    ) {
+      return;
+    }
 
-  const openPackageManager = (targetPlan?: 'pro' | 'unlimited') => {
-    const fallbackPlan =
-      comparisonSelectedPlan === 'unlimited' ? 'unlimited' : 'pro';
-    const initialPlan = targetPlan ?? fallbackPlan;
-    const reason: UpgradeReason =
-      requestedUpgradeReasonParam ??
-      (entitlements && !entitlements.isSubscriptionActive
-        ? 'subscription_inactive'
-        : 'feature_locked');
-    const featureKey =
-      requestedFeatureKeyParam?.trim() || 'business_subscription';
+    hasAutoOpenedModalRef.current = true;
+    openUpgrade(
+      recommendedPlanParam === 'premium'
+        ? 'premium'
+        : recommendedPlanParam === 'pro'
+          ? 'pro'
+          : currentPlan === 'premium'
+            ? 'premium'
+            : 'pro'
+    );
+  }, [
+    activeBusinessId,
+    autoOpenUpgradeParam,
+    currentPlan,
+    openUpgrade,
+    recommendedPlanParam,
+  ]);
 
-    setUpgradePlan(initialPlan);
-    setUpgradeReason(reason);
-    setUpgradeFeatureKey(featureKey);
-    setIsUpgradeVisible(true);
-  };
+  const focusComparisonSection = useCallback(() => {
+    if (
+      focusParam !== 'comparison' ||
+      hasAutoFocusedComparisonRef.current ||
+      comparisonSectionOffsetRef.current <= 0
+    ) {
+      return;
+    }
+
+    hasAutoFocusedComparisonRef.current = true;
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, comparisonSectionOffsetRef.current - 12),
+        animated: true,
+      });
+    });
+  }, [focusParam]);
+
+  useEffect(() => {
+    focusComparisonSection();
+  }, [focusComparisonSection]);
 
   if (!activeBusinessId) {
     return (
@@ -333,6 +293,15 @@ export default function BusinessSettingsSubscriptionScreen() {
       </SafeAreaView>
     );
   }
+
+  const currentStatusLabel =
+    STATUS_LABELS[entitlements?.subscriptionStatus ?? 'active'] ?? 'פעיל';
+  const comparisonUpgradePlan: 'pro' | 'premium' =
+    comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
+  const comparisonCtaLabel =
+    comparisonUpgradePlan === currentPlan
+      ? 'ניהול המסלול הנוכחי'
+      : `שדרוג ל-${PLAN_LABELS[comparisonUpgradePlan]}`;
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
@@ -344,8 +313,8 @@ export default function BusinessSettingsSubscriptionScreen() {
         ]}
       >
         <BusinessScreenHeader
-          title="מנוי וחבילה"
-          subtitle="סטטוס מנוי, מגבלות שימוש והשוואת מסלולים"
+          title="מסלול וחיוב"
+          subtitle="הבנה ברורה של המסלול, השימוש בפועל והאפשרויות לשדרוג"
           titleAccessory={
             <Pressable
               onPress={() => router.back()}
@@ -359,37 +328,91 @@ export default function BusinessSettingsSubscriptionScreen() {
           }
         />
 
-        <View style={styles.upgradeBanner}>
-          <Text style={styles.bannerEyebrow}>המלצת שדרוג</Text>
-          <Text style={styles.bannerTitle}>
-            {upgradeTargetPlan && upgradeTargetLabel
-              ? `שדרג לחבילת ${upgradeTargetLabel}`
-              : `אתם במסלול ${currentPlanLabel}`}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEyebrow}>המסלול הנוכחי</Text>
+          <Text style={styles.heroTitle}>{currentPlanLabel}</Text>
+          <Text style={styles.heroSubtitle}>
+            {nextPlan && nextPlanLabel
+              ? `${currentPlanLabel} פעיל כרגע. שדרוג ל-${nextPlanLabel} יגדיל מכסות ויפתח יכולות נוספות לעסק.`
+              : 'אתם כבר במסלול הגבוה ביותר. כאן אפשר לעקוב אחרי השימוש ולהשוות מול מה שכלול במסלול.'}
           </Text>
-          <Text style={styles.bannerSubtitle}>
-            {upgradeTargetPlan
-              ? "פתחו יותר פיצ'רים, מגבלות שימוש גבוהות יותר ויכולות AI מתקדמות."
-              : 'אתם כבר במסלול הגבוה ביותר. אפשר לנהל את החבילה ולעדכן מחזור חיוב.'}
-          </Text>
-
           <TouchableOpacity
-            onPress={() => openPackageManager(upgradeTargetPlan ?? 'unlimited')}
-            disabled={isEntitlementsLoading}
-            style={[
-              styles.bannerButton,
-              isEntitlementsLoading ? styles.disabled : null,
-            ]}
+            onPress={() => openUpgrade(nextPlan ?? 'premium')}
+            disabled={isLoading}
+            style={[styles.heroButton, isLoading ? styles.disabled : null]}
           >
-            {isEntitlementsLoading ? (
+            {isLoading ? (
               <ActivityIndicator color="#1D4ED8" size="small" />
             ) : (
-              <Text style={styles.bannerButtonText}>
-                {upgradeTargetPlan && upgradeTargetLabel
-                  ? `שדרוג ל-${upgradeTargetLabel}`
-                  : 'ניהול חבילה'}
+              <Text style={styles.heroButtonText}>
+                {nextPlan ? `שדרוג ל-${nextPlanLabel}` : 'ניהול מסלול'}
               </Text>
             )}
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>שימוש ומגבלות</Text>
+          {isLoading || usageSummary === undefined ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.usageGrid}>
+              <View style={styles.usageCard}>
+                <Text style={styles.usageLabel}>חיוב</Text>
+                <Text style={styles.usageValue}>
+                  {entitlements?.billingPeriod
+                    ? BILLING_PERIOD_LABELS[entitlements.billingPeriod]
+                    : 'ללא חיוב'}
+                </Text>
+                <Text style={styles.usageHint}>
+                  סטטוס: {currentStatusLabel}
+                </Text>
+              </View>
+              <View style={styles.usageCard}>
+                <Text style={styles.usageLabel}>כרטיסים</Text>
+                <Text style={styles.usageValue}>
+                  {formatLimit(
+                    usageSummary?.cardsUsed ?? 0,
+                    cardsStatus.limitValue
+                  )}
+                </Text>
+                <Text style={styles.usageHint}>כרטיסי נאמנות פעילים</Text>
+              </View>
+              <View style={styles.usageCard}>
+                <Text style={styles.usageLabel}>לקוחות</Text>
+                <Text style={styles.usageValue}>
+                  {formatLimit(
+                    usageSummary?.customersUsed ?? 0,
+                    customersStatus.limitValue
+                  )}
+                </Text>
+                <Text style={styles.usageHint}>לקוחות פעילים בעסק</Text>
+              </View>
+              <View style={styles.usageCard}>
+                <Text style={styles.usageLabel}>קמפייני שימור פעילים</Text>
+                <Text style={styles.usageValue}>
+                  {formatLimit(
+                    usageSummary?.activeRetentionActionsUsed ?? 0,
+                    aiStatus.limitValue
+                  )}
+                </Text>
+                <Text style={styles.usageHint}>כמות פעילה כרגע</Text>
+              </View>
+            </View>
+          )}
+
+          {usageWarnings.length > 0 ? (
+            <View style={styles.warningCard}>
+              <Text style={styles.warningTitle}>שימו לב</Text>
+              {usageWarnings.map((warning) => (
+                <Text key={warning} style={styles.warningText}>
+                  • {warning}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View
@@ -399,36 +422,10 @@ export default function BusinessSettingsSubscriptionScreen() {
             focusComparisonSection();
           }}
         >
-          <Text style={styles.sectionTitle}>פרטי מנוי</Text>
-
-          {isEntitlementsLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color="#2F6BFF" />
-            </View>
-          ) : (
-            <View style={styles.statusTable}>
-              {statusRows.map((row, index) => (
-                <View
-                  key={row.label}
-                  style={[
-                    styles.statusRow,
-                    index < statusRows.length - 1
-                      ? styles.statusRowDivider
-                      : null,
-                  ]}
-                >
-                  <Text style={styles.statusLabel}>{row.label}</Text>
-                  <Text style={styles.statusValue}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>השוואת חבילות</Text>
+          <Text style={styles.sectionTitle}>השוואת מסלולים</Text>
           <Text style={styles.sectionSubtitle}>
-            השוואה מלאה בין שלושת המסלולים, כולל מגבלות ופיצ'רים.
+            כל המסכים משתמשים באותו קטלוג מסלולים, ולכן ההשוואה כאן תואמת בדיוק
+            למה שנאכף בשרת ומה שמופיע ב-upgrade flow.
           </Text>
 
           <PlanComparisonTable
@@ -439,11 +436,11 @@ export default function BusinessSettingsSubscriptionScreen() {
             onSelectPlan={setComparisonSelectedPlan}
             onBillingPeriodChange={setComparisonBillingPeriod}
             popularPlan="pro"
-            popularLabel="הכי פופולרי"
+            popularLabel="המסלול המרכזי"
           />
 
           <TouchableOpacity
-            onPress={() => openPackageManager(comparisonUpgradePlan)}
+            onPress={() => openUpgrade(comparisonUpgradePlan)}
             style={styles.compareCta}
           >
             <Text style={styles.compareCtaText}>{comparisonCtaLabel}</Text>
@@ -505,7 +502,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 18,
   },
-  upgradeBanner: {
+  heroCard: {
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#1D4ED8',
@@ -514,7 +511,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     gap: 8,
   },
-  bannerEyebrow: {
+  heroEyebrow: {
     color: '#BFDBFE',
     fontSize: 11,
     fontWeight: '800',
@@ -522,20 +519,20 @@ const styles = StyleSheet.create({
     textAlign: TEXT_START,
     letterSpacing: 0.8,
   },
-  bannerTitle: {
+  heroTitle: {
     color: '#FFFFFF',
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: '900',
     textAlign: TEXT_START,
   },
-  bannerSubtitle: {
+  heroSubtitle: {
     color: '#DBEAFE',
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
     textAlign: TEXT_START,
   },
-  bannerButton: {
+  heroButton: {
     marginTop: 4,
     minHeight: 42,
     borderRadius: 999,
@@ -544,7 +541,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
   },
-  bannerButtonText: {
+  heroButtonText: {
     color: '#1D4ED8',
     fontSize: 14,
     fontWeight: '900',
@@ -578,39 +575,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statusTable: {
-    marginTop: 10,
-    borderRadius: 16,
+  usageGrid: {
+    marginTop: 12,
+    flexDirection: ROW_DIRECTION,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  usageCard: {
+    width: '48.5%',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
-    overflow: 'hidden',
-  },
-  statusRow: {
-    flexDirection: ROW_DIRECTION,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
     paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    alignItems: 'flex-end',
+    gap: 4,
   },
-  statusRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  statusLabel: {
-    flex: 1,
-    color: '#475569',
-    fontSize: 13,
+  usageLabel: {
+    color: '#64748B',
+    fontSize: 12,
     fontWeight: '700',
     textAlign: TEXT_START,
   },
-  statusValue: {
-    flex: 1,
+  usageValue: {
     color: '#0F172A',
-    fontSize: 13,
+    fontSize: 22,
     fontWeight: '900',
     textAlign: TEXT_END,
+  },
+  usageHint: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: TEXT_END,
+  },
+  warningCard: {
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  warningTitle: {
+    color: '#9A3412',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: TEXT_START,
+  },
+  warningText: {
+    color: '#C2410C',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: TEXT_START,
   },
   compareCta: {
     marginTop: 12,

@@ -40,7 +40,7 @@ export default defineSchema({
     anniversaryDay: v.optional(v.number()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
     subscriptionPlan: v.optional(
-      v.union(v.literal('free'), v.literal('pro'), v.literal('unlimited'))
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
     ),
     subscriptionStatus: v.optional(
       v.union(
@@ -110,14 +110,15 @@ export default defineSchema({
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
     subscriptionPlan: v.optional(
-      v.union(v.literal('starter'), v.literal('pro'), v.literal('unlimited'))
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
     ),
     subscriptionStatus: v.optional(
       v.union(
         v.literal('active'),
         v.literal('trialing'),
         v.literal('past_due'),
-        v.literal('canceled')
+        v.literal('canceled'),
+        v.literal('inactive')
       )
     ),
     subscriptionStartAt: v.optional(v.union(v.number(), v.null())),
@@ -125,8 +126,6 @@ export default defineSchema({
     billingPeriod: v.optional(
       v.union(v.literal('monthly'), v.literal('yearly'), v.null())
     ),
-    aiCampaignsUsedThisMonth: v.optional(v.number()),
-    aiCampaignsMonthKey: v.optional(v.string()),
     customerSegmentationConfig: v.optional(
       v.object({
         riskDaysWithoutVisit: v.number(),
@@ -267,7 +266,9 @@ export default defineSchema({
       v.literal('anniversary'),
       v.literal('winback'),
       v.literal('promo'),
-      v.literal('ai_marketing')
+      v.literal('ai_marketing'),
+      v.literal('ai_retention'),
+      v.literal('retention_action')
     ),
     programId: v.optional(v.id('loyaltyPrograms')),
     title: v.optional(v.string()),
@@ -275,7 +276,13 @@ export default defineSchema({
     messageBody: v.optional(v.string()),
     prompt: v.optional(v.string()),
     status: v.optional(
-      v.union(v.literal('draft'), v.literal('scheduled'), v.literal('sent'))
+      v.union(
+        v.literal('draft'),
+        v.literal('active'),
+        v.literal('paused'),
+        v.literal('completed'),
+        v.literal('archived')
+      )
     ),
     rules: v.optional(v.any()),
     channels: v.optional(v.array(v.string())),
@@ -291,16 +298,13 @@ export default defineSchema({
 
   subscriptions: defineTable({
     businessId: v.id('businesses'),
-    plan: v.union(
-      v.literal('starter'),
-      v.literal('pro'),
-      v.literal('unlimited')
-    ),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('premium')),
     status: v.union(
       v.literal('active'),
       v.literal('trialing'),
       v.literal('past_due'),
-      v.literal('canceled')
+      v.literal('canceled'),
+      v.literal('inactive')
     ),
     period: v.union(v.literal('monthly'), v.literal('yearly')),
     startAt: v.number(),
@@ -332,6 +336,63 @@ export default defineSchema({
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
+    .index('by_createdAt', ['createdAt']),
+
+  segments: defineTable({
+    businessId: v.id('businesses'),
+    name: v.string(),
+    rules: v.object({
+      match: v.union(v.literal('all'), v.literal('any')),
+      conditions: v.array(
+        v.object({
+          field: v.union(
+            v.literal('lastVisitDaysAgo'),
+            v.literal('visitCount'),
+            v.literal('loyaltyProgress'),
+            v.literal('customerStatus'),
+            v.literal('joinedDaysAgo')
+          ),
+          operator: v.union(
+            v.literal('gt'),
+            v.literal('gte'),
+            v.literal('lt'),
+            v.literal('lte'),
+            v.literal('eq')
+          ),
+          value: v.union(v.number(), v.string()),
+        })
+      ),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_name', ['businessId', 'name']),
+
+  pushTokens: defineTable({
+    userId: v.id('users'),
+    token: v.string(),
+    platform: v.union(v.literal('ios'), v.literal('android')),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    lastRegisteredAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_token', ['token']),
+
+  pushDeliveryLog: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.optional(v.id('campaigns')),
+    toUserId: v.id('users'),
+    token: v.optional(v.string()),
+    status: v.string(),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_campaignId', ['campaignId'])
+    .index('by_toUserId', ['toUserId'])
     .index('by_createdAt', ['createdAt']),
 
   supportRequests: defineTable({

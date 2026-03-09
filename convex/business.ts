@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { assertEntitlement, getCurrentMonthKey } from './entitlements';
+import { assertEntitlement } from './entitlements';
 import {
   requireActorIsBusinessOwner,
   requireActorIsBusinessOwnerOrManager,
@@ -363,8 +363,6 @@ export async function createBusinessForOwner(
     subscriptionStartAt: now,
     subscriptionEndAt: null,
     billingPeriod: null,
-    aiCampaignsUsedThisMonth: 0,
-    aiCampaignsMonthKey: getCurrentMonthKey(now),
     customerSegmentationConfig: {
       ...DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
       updatedAt: now,

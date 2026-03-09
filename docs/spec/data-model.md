@@ -13,7 +13,7 @@ Key fields:
 - `needsNameCapture?`, `postAuthOnboardingRequired?`
 - `role?` (`customer` | `merchant` | `staff` | `admin`)
 - subscription fields:
-  - `subscriptionPlan?` (`free` | `pro` | `unlimited`)
+  - `subscriptionPlan?` (`starter` | `pro` | `premium`)
   - `subscriptionStatus?` (`active` | `inactive` | `cancelled`)
   - `subscriptionProductId?`
   - `subscriptionUpdatedAt?`
@@ -42,12 +42,17 @@ Provided by `authTables` plus project extension:
 - `businessPublicId?`
 - `joinCode?`
 - `name`, `logoUrl?`, `colors?`
+- subscription fields:
+  - `subscriptionPlan?` (`starter` | `pro` | `premium`)
+  - `billingPeriod?` (`monthly` | `yearly` | `null`)
+  - `subscriptionStatus?` (`active` | `trialing` | `past_due` | `canceled` | `inactive`)
+  - active retention usage is derived from `campaigns` (`type=retention_action`, `status=active`, `isActive=true`)
 - `isActive`, `createdAt`, `updatedAt`
 
 ### `businessStaff`
 - `businessId`
 - `userId`
-- `staffRole` (`owner` | `staff`)
+- `staffRole` (`owner` | `manager` | `staff`)
 - `isActive`, `createdAt`, `updatedAt?`
 
 ### `loyaltyPrograms`
@@ -93,10 +98,13 @@ Fields:
 ## Future-support tables (already in schema)
 - `campaigns`
 - `messageLog`
+- `segments`
+- `pushTokens`
+- `pushDeliveryLog`
 - `apiClients`
 - `apiKeys`
 
 ## Practical model notes
 - App mode and role-based routing read from `users.role` + local appMode.
 - Scanner authorization uses `businessStaff` membership, not just `users.role`.
-- Subscription state is persisted on `users` and synced from RevenueCat flows.
+- Subscription state is persisted on both `users` and `businesses`, with business entitlements enforced server-side.

@@ -135,7 +135,7 @@ export default function ScannerScreen() {
   const openUpgrade = useCallback(
     (
       featureKey: string,
-      requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
+      requiredPlan: 'starter' | 'pro' | 'premium' | null,
       reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
     ) => {
       openSubscriptionComparison(router, { featureKey, requiredPlan, reason });

@@ -353,7 +353,7 @@ async function linkIdentityToUser(
     activeMode: 'customer',
     avatarUrl: input.avatarUrl,
     userType: 'free',
-    subscriptionPlan: 'free',
+    subscriptionPlan: 'starter',
     subscriptionStatus: 'inactive',
     subscriptionProductId: undefined,
     subscriptionUpdatedAt: input.now,

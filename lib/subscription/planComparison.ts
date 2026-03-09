@@ -1,13 +1,17 @@
-﻿import type { BillingPeriod } from '@/config/appConfig';
+import type { BillingPeriod } from '@/config/appConfig';
 
-export type PlanId = 'starter' | 'pro' | 'unlimited';
-export type LimitKey = 'maxCards' | 'maxCustomers' | 'maxAiCampaignsPerMonth';
+export type PlanId = 'starter' | 'pro' | 'premium';
+export type LimitKey =
+  | 'maxCards'
+  | 'maxCustomers'
+  | 'maxActiveRetentionActions';
 export type FeatureKey =
-  | 'canManageTeam'
-  | 'canSeeAdvancedReports'
-  | 'canUseMarketingHubAI'
-  | 'canUseSmartAnalytics'
-  | 'canUseAdvancedSegmentation';
+  | 'team'
+  | 'advancedReports'
+  | 'marketingHub'
+  | 'smartAnalytics'
+  | 'segmentationBuilder'
+  | 'savedSegments';
 
 export type PlanPricing = {
   monthly: number;
@@ -41,90 +45,25 @@ export type ComparisonRow = {
   cells: Record<PlanId, ComparisonCellValue>;
 };
 
-const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'unlimited'];
-
-const DEFAULT_PLAN_CATALOG: PlanCatalogItem[] = [
-  {
-    plan: 'starter',
-    label: 'Starter',
-    pricing: {
-      monthly: 0,
-      yearly: 0,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: 1,
-      maxCustomers: 30,
-      maxAiCampaignsPerMonth: 0,
-    },
-    features: {
-      canManageTeam: false,
-      canSeeAdvancedReports: false,
-      canUseMarketingHubAI: false,
-      canUseSmartAnalytics: false,
-      canUseAdvancedSegmentation: false,
-    },
-  },
-  {
-    plan: 'pro',
-    label: 'Pro AI',
-    pricing: {
-      monthly: 129,
-      yearly: 1238,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: 5,
-      maxCustomers: -1,
-      maxAiCampaignsPerMonth: 5,
-    },
-    features: {
-      canManageTeam: true,
-      canSeeAdvancedReports: true,
-      canUseMarketingHubAI: true,
-      canUseSmartAnalytics: true,
-      canUseAdvancedSegmentation: false,
-    },
-  },
-  {
-    plan: 'unlimited',
-    label: 'Unlimited AI',
-    pricing: {
-      monthly: 249,
-      yearly: 2390,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: -1,
-      maxCustomers: -1,
-      maxAiCampaignsPerMonth: 15,
-    },
-    features: {
-      canManageTeam: true,
-      canSeeAdvancedReports: true,
-      canUseMarketingHubAI: true,
-      canUseSmartAnalytics: true,
-      canUseAdvancedSegmentation: true,
-    },
-  },
-];
+const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
-  maxCards: 'כמות כרטיסים',
-  maxCustomers: 'לקוחות פעילים',
-  maxAiCampaignsPerMonth: 'קמפייני AI בחודש',
+  maxCards: 'כרטיסי נאמנות',
+  maxCustomers: 'לקוחות',
+  maxActiveRetentionActions: 'קמפייני שימור פעילים',
 };
 
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
-  canManageTeam: 'ניהול צוות',
-  canSeeAdvancedReports: 'דוחות מתקדמים',
-  canUseMarketingHubAI: 'Marketing Hub AI',
-  canUseSmartAnalytics: 'Smart Analytics',
-  canUseAdvancedSegmentation: 'סגמנטציה מתקדמת',
+  team: 'ניהול צוות',
+  advancedReports: 'דוחות מתקדמים',
+  marketingHub: 'מרכז שימור',
+  smartAnalytics: 'תובנות לקוחות',
+  segmentationBuilder: 'בונה סגמנטים',
+  savedSegments: 'סגמנטים שמורים',
 };
 
 function isPlanId(value: unknown): value is PlanId {
-  return value === 'starter' || value === 'pro' || value === 'unlimited';
+  return value === 'starter' || value === 'pro' || value === 'premium';
 }
 
 function normalizeNumber(value: unknown, fallbackValue: number): number {
@@ -142,11 +81,34 @@ function normalizeBoolean(value: unknown, fallbackValue: boolean): boolean {
 }
 
 function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
-  const fallback = DEFAULT_PLAN_CATALOG.find((plan) => plan.plan === planId);
-  if (!fallback) {
-    throw new Error(`Missing fallback catalog for plan ${planId}`);
-  }
-  return fallback;
+  const labels: Record<PlanId, string> = {
+    starter: 'Starter',
+    pro: 'Pro AI',
+    premium: 'Premium AI',
+  };
+
+  return {
+    plan: planId,
+    label: labels[planId],
+    pricing: {
+      monthly: 0,
+      yearly: 0,
+      currency: 'ILS',
+    },
+    limits: {
+      maxCards: 0,
+      maxCustomers: 0,
+      maxActiveRetentionActions: 0,
+    },
+    features: {
+      team: false,
+      advancedReports: false,
+      marketingHub: false,
+      smartAnalytics: false,
+      segmentationBuilder: false,
+      savedSegments: false,
+    },
+  };
 }
 
 function normalizePlan(rawPlan: unknown): PlanCatalogItem | null {
@@ -178,7 +140,10 @@ function normalizePlan(rawPlan: unknown): PlanCatalogItem | null {
     label:
       typeof source.label === 'string' && source.label.trim().length > 0
         ? source.label
-        : fallback.label,
+        : typeof source.displayName === 'string' &&
+            source.displayName.trim().length > 0
+          ? source.displayName
+          : fallback.label,
     pricing: {
       monthly: normalizeNumber(sourcePricing.monthly, fallback.pricing.monthly),
       yearly: normalizeNumber(sourcePricing.yearly, fallback.pricing.yearly),
@@ -197,31 +162,32 @@ function normalizePlan(rawPlan: unknown): PlanCatalogItem | null {
         sourceLimits.maxCustomers,
         fallback.limits.maxCustomers
       ),
-      maxAiCampaignsPerMonth: normalizeNumber(
-        sourceLimits.maxAiCampaignsPerMonth,
-        fallback.limits.maxAiCampaignsPerMonth
+      maxActiveRetentionActions: normalizeNumber(
+        sourceLimits.maxActiveRetentionActions,
+        fallback.limits.maxActiveRetentionActions
       ),
     },
     features: {
-      canManageTeam: normalizeBoolean(
-        sourceFeatures.canManageTeam,
-        fallback.features.canManageTeam
+      team: normalizeBoolean(sourceFeatures.team, fallback.features.team),
+      advancedReports: normalizeBoolean(
+        sourceFeatures.advancedReports,
+        fallback.features.advancedReports
       ),
-      canSeeAdvancedReports: normalizeBoolean(
-        sourceFeatures.canSeeAdvancedReports,
-        fallback.features.canSeeAdvancedReports
+      marketingHub: normalizeBoolean(
+        sourceFeatures.marketingHub,
+        fallback.features.marketingHub
       ),
-      canUseMarketingHubAI: normalizeBoolean(
-        sourceFeatures.canUseMarketingHubAI,
-        fallback.features.canUseMarketingHubAI
+      smartAnalytics: normalizeBoolean(
+        sourceFeatures.smartAnalytics,
+        fallback.features.smartAnalytics
       ),
-      canUseSmartAnalytics: normalizeBoolean(
-        sourceFeatures.canUseSmartAnalytics,
-        fallback.features.canUseSmartAnalytics
+      segmentationBuilder: normalizeBoolean(
+        sourceFeatures.segmentationBuilder,
+        fallback.features.segmentationBuilder
       ),
-      canUseAdvancedSegmentation: normalizeBoolean(
-        sourceFeatures.canUseAdvancedSegmentation,
-        fallback.features.canUseAdvancedSegmentation
+      savedSegments: normalizeBoolean(
+        sourceFeatures.savedSegments,
+        fallback.features.savedSegments
       ),
     },
   };
@@ -266,9 +232,6 @@ export function computeAnnualSavings(pricing: PlanPricing): AnnualSavings {
 }
 
 function formatLimitValue(limitValue: number): string {
-  if (limitValue === -1) {
-    return 'ללא הגבלה';
-  }
   return String(limitValue);
 }
 
@@ -280,11 +243,11 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   const resolvedPlans: Record<PlanId, PlanCatalogItem> = {
     starter: planById.get('starter') ?? getDefaultPlanById('starter'),
     pro: planById.get('pro') ?? getDefaultPlanById('pro'),
-    unlimited: planById.get('unlimited') ?? getDefaultPlanById('unlimited'),
+    premium: planById.get('premium') ?? getDefaultPlanById('premium'),
   };
 
   const limitRows: ComparisonRow[] = (
-    ['maxCards', 'maxCustomers', 'maxAiCampaignsPerMonth'] as LimitKey[]
+    ['maxCards', 'maxCustomers', 'maxActiveRetentionActions'] as LimitKey[]
   ).map((limitKey) => ({
     id: `limit:${limitKey}`,
     label: LIMIT_ROW_LABELS[limitKey],
@@ -297,20 +260,21 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
         type: 'text',
         value: formatLimitValue(resolvedPlans.pro.limits[limitKey]),
       },
-      unlimited: {
+      premium: {
         type: 'text',
-        value: formatLimitValue(resolvedPlans.unlimited.limits[limitKey]),
+        value: formatLimitValue(resolvedPlans.premium.limits[limitKey]),
       },
     },
   }));
 
   const featureRows: ComparisonRow[] = (
     [
-      'canManageTeam',
-      'canSeeAdvancedReports',
-      'canUseMarketingHubAI',
-      'canUseSmartAnalytics',
-      'canUseAdvancedSegmentation',
+      'team',
+      'advancedReports',
+      'marketingHub',
+      'smartAnalytics',
+      'segmentationBuilder',
+      'savedSegments',
     ] as FeatureKey[]
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
@@ -324,9 +288,9 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
         type: 'boolean',
         value: resolvedPlans.pro.features[featureKey],
       },
-      unlimited: {
+      premium: {
         type: 'boolean',
-        value: resolvedPlans.unlimited.features[featureKey],
+        value: resolvedPlans.premium.features[featureKey],
       },
     },
   }));

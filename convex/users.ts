@@ -6,9 +6,9 @@ import { mutation, query } from './_generated/server';
 import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
-  v.literal('free'),
+  v.literal('starter'),
   v.literal('pro'),
-  v.literal('unlimited')
+  v.literal('premium')
 );
 
 const SUBSCRIPTION_STATUS_UNION = v.union(
@@ -20,13 +20,28 @@ const SUBSCRIPTION_STATUS_UNION = v.union(
 type SubscriptionPlanStatus = 'active' | 'inactive' | 'cancelled';
 
 const DEFAULT_PLAN_STATUS: Record<SubscriptionPlan, SubscriptionPlanStatus> = {
-  free: 'inactive',
+  starter: 'inactive',
   pro: 'active',
-  unlimited: 'active',
+  premium: 'active',
 };
 
 const NAME_MAX_LENGTH = 60;
 const PHONE_MAX_LENGTH = 24;
+
+function normalizeUserSubscriptionPlan(
+  value: unknown
+): SubscriptionPlan | undefined {
+  if (value === 'pro') {
+    return 'pro';
+  }
+  if (value === 'premium' || value === 'unlimited') {
+    return 'premium';
+  }
+  if (value === 'starter' || value === 'free') {
+    return 'starter';
+  }
+  return undefined;
+}
 
 function normalizeNamePart(value: string, field: 'FIRST_NAME' | 'LAST_NAME') {
   const normalized = value.trim().replace(/\s+/g, ' ');
@@ -96,7 +111,7 @@ async function patchSubscriptionPlan(
     subscriptionStatus: status,
     subscriptionProductId: options?.productId ?? undefined,
     subscriptionUpdatedAt: timestamp,
-    userType: plan === 'free' ? 'free' : 'paid',
+    userType: plan === 'starter' ? 'free' : 'paid',
     updatedAt: timestamp,
   });
 }
@@ -113,6 +128,9 @@ const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
   'supportRequests',
+  'pushDeliveryLog',
+  'pushTokens',
+  'segments',
   'messageLog',
   'campaigns',
   'subscriptions',
@@ -157,6 +175,9 @@ type DeleteStats = {
   campaigns: number;
   subscriptions: number;
   messageLog: number;
+  segments: number;
+  pushTokens: number;
+  pushDeliveryLog: number;
   supportRequests: number;
   apiClients: number;
   apiKeys: number;
@@ -205,6 +226,9 @@ function emptyDeleteStats(): DeleteStats {
     campaigns: 0,
     subscriptions: 0,
     messageLog: 0,
+    segments: 0,
+    pushTokens: 0,
+    pushDeliveryLog: 0,
     supportRequests: 0,
     apiClients: 0,
     apiKeys: 0,
@@ -223,6 +247,9 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     apiKeys: 0,
     apiClients: 0,
     supportRequests: 0,
+    pushDeliveryLog: 0,
+    pushTokens: 0,
+    segments: 0,
     messageLog: 0,
     campaigns: 0,
     subscriptions: 0,
@@ -338,6 +365,13 @@ async function deleteBusinessGraph(
     'businessId',
     businessId
   );
+  deleted.pushDeliveryLog += await deleteByIndexInBatches(
+    ctx,
+    'pushDeliveryLog',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
   deleted.campaigns += await deleteByIndexInBatches(
     ctx,
     'campaigns',
@@ -348,6 +382,13 @@ async function deleteBusinessGraph(
   deleted.subscriptions += await deleteByIndexInBatches(
     ctx,
     'subscriptions',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
+  deleted.segments += await deleteByIndexInBatches(
+    ctx,
+    'segments',
     'by_businessId',
     'businessId',
     businessId
@@ -461,6 +502,20 @@ async function deleteUserScopedBusinessData(
     'messageLog',
     'by_toUserId',
     'toUserId',
+    userId
+  );
+  deleted.pushDeliveryLog += await deleteByIndexInBatches(
+    ctx,
+    'pushDeliveryLog',
+    'by_toUserId',
+    'toUserId',
+    userId
+  );
+  deleted.pushTokens += await deleteByIndexInBatches(
+    ctx,
+    'pushTokens',
+    'by_userId',
+    'userId',
     userId
   );
   deleted.supportRequests += await deleteByIndexInBatches(
@@ -672,7 +727,7 @@ export const getSessionContext = query({
         businessOnboardedAt: user.businessOnboardedAt,
         activeMode: user.activeMode as ActiveMode | undefined,
         userType: user.userType,
-        subscriptionPlan: user.subscriptionPlan,
+        subscriptionPlan: normalizeUserSubscriptionPlan(user.subscriptionPlan),
         subscriptionStatus: user.subscriptionStatus,
         isActive: user.isActive,
       },

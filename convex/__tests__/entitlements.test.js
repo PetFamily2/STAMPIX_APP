@@ -1,10 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
   assertEntitlement,
-  getCurrentMonthKey,
   getRequiredPlanForLimit,
   REQUIRED_PLAN_BY_FEATURE,
-  reserveAiCampaignQuota,
 } from '../entitlements';
 
 function buildBusiness(overrides = {}) {
@@ -23,8 +21,6 @@ function buildBusiness(overrides = {}) {
     subscriptionStartAt: now,
     subscriptionEndAt: null,
     billingPeriod: null,
-    aiCampaignsUsedThisMonth: 0,
-    aiCampaignsMonthKey: getCurrentMonthKey(now),
     ...overrides,
   };
 }
@@ -32,6 +28,17 @@ function buildBusiness(overrides = {}) {
 function buildCtxWithBusiness(businessDoc) {
   const state = {
     business: { ...businessDoc },
+    campaigns: [],
+  };
+
+  const buildCampaignQuery = () => {
+    const chain = {
+      withIndex: () => chain,
+      filter: () => chain,
+      collect: async () => state.campaigns,
+      first: async () => state.campaigns[0] ?? null,
+    };
+    return chain;
   };
 
   const ctx = {
@@ -41,6 +48,12 @@ function buildCtxWithBusiness(businessDoc) {
           return state.business;
         }
         return null;
+      },
+      query: (tableName) => {
+        if (tableName === 'campaigns') {
+          return buildCampaignQuery();
+        }
+        throw new Error(`UNSUPPORTED_QUERY_TABLE:${tableName}`);
       },
       patch: async (id, patch) => {
         if (id !== state.business._id) {
@@ -67,7 +80,7 @@ async function getConvexErrorData(work) {
 }
 
 describe('business entitlements', () => {
-  test('starter caps block 2nd card, 31st customer and AI at 0', async () => {
+  test('starter caps block 2nd card, 31st customer and first active retention action', async () => {
     const business = buildBusiness({
       _id: 'starter_business',
       subscriptionPlan: 'starter',
@@ -96,18 +109,19 @@ describe('business entitlements', () => {
     expect(customerError?.limitKey).toBe('maxCustomers');
     expect(customerError?.limitValue).toBe(30);
 
-    const aiError = await getConvexErrorData(() =>
+    const retentionError = await getConvexErrorData(() =>
       assertEntitlement(ctx, business._id, {
-        limitKey: 'maxAiCampaignsPerMonth',
+        limitKey: 'maxActiveRetentionActions',
         currentValue: 0,
       })
     );
-    expect(aiError?.code).toBe('PLAN_LIMIT_REACHED');
-    expect(aiError?.limitKey).toBe('maxAiCampaignsPerMonth');
-    expect(aiError?.limitValue).toBe(0);
+    expect(retentionError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(retentionError?.limitKey).toBe('maxActiveRetentionActions');
+    expect(retentionError?.limitValue).toBe(0);
+    expect(retentionError?.limitType).toBe('active_retention_actions');
   });
 
-  test('pro allows up to 5 cards and 5 AI campaigns, blocks the next one', async () => {
+  test('pro allows up to 5 active retention actions and blocks the next one', async () => {
     const business = buildBusiness({
       _id: 'pro_business',
       subscriptionPlan: 'pro',
@@ -130,30 +144,31 @@ describe('business entitlements', () => {
       })
     );
     expect(cardError?.code).toBe('PLAN_LIMIT_REACHED');
-    expect(cardError?.requiredPlan).toBe('unlimited');
+    expect(cardError?.requiredPlan).toBe('premium');
 
     await expect(
       assertEntitlement(ctx, business._id, {
-        limitKey: 'maxAiCampaignsPerMonth',
+        limitKey: 'maxActiveRetentionActions',
         currentValue: 4,
       })
     ).resolves.toBeDefined();
 
-    const aiError = await getConvexErrorData(() =>
+    const retentionError = await getConvexErrorData(() =>
       assertEntitlement(ctx, business._id, {
-        limitKey: 'maxAiCampaignsPerMonth',
+        limitKey: 'maxActiveRetentionActions',
         currentValue: 5,
       })
     );
-    expect(aiError?.code).toBe('PLAN_LIMIT_REACHED');
-    expect(aiError?.limitValue).toBe(5);
-    expect(aiError?.requiredPlan).toBe('unlimited');
+    expect(retentionError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(retentionError?.limitValue).toBe(5);
+    expect(retentionError?.requiredPlan).toBe('premium');
+    expect(retentionError?.limitType).toBe('active_retention_actions');
   });
 
-  test('unlimited has unlimited cards/customers and AI cap at 15', async () => {
+  test('premium enforces higher numeric caps (no unlimited values)', async () => {
     const business = buildBusiness({
-      _id: 'unlimited_business',
-      subscriptionPlan: 'unlimited',
+      _id: 'premium_business',
+      subscriptionPlan: 'premium',
       subscriptionStatus: 'active',
       billingPeriod: 'monthly',
     });
@@ -162,51 +177,50 @@ describe('business entitlements', () => {
     await expect(
       assertEntitlement(ctx, business._id, {
         limitKey: 'maxCards',
-        currentValue: 500,
+        currentValue: 9,
       })
     ).resolves.toBeDefined();
 
     await expect(
       assertEntitlement(ctx, business._id, {
         limitKey: 'maxCustomers',
-        currentValue: 5000,
+        currentValue: 9999,
       })
     ).resolves.toBeDefined();
 
-    const aiError = await getConvexErrorData(() =>
+    await expect(
       assertEntitlement(ctx, business._id, {
-        limitKey: 'maxAiCampaignsPerMonth',
+        limitKey: 'maxActiveRetentionActions',
+        currentValue: 14,
+      })
+    ).resolves.toBeDefined();
+
+    const cardsError = await getConvexErrorData(() =>
+      assertEntitlement(ctx, business._id, {
+        limitKey: 'maxCards',
+        currentValue: 10,
+      })
+    );
+    expect(cardsError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(cardsError?.limitValue).toBe(10);
+
+    const customersError = await getConvexErrorData(() =>
+      assertEntitlement(ctx, business._id, {
+        limitKey: 'maxCustomers',
+        currentValue: 10000,
+      })
+    );
+    expect(customersError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(customersError?.limitValue).toBe(10000);
+
+    const retentionError = await getConvexErrorData(() =>
+      assertEntitlement(ctx, business._id, {
+        limitKey: 'maxActiveRetentionActions',
         currentValue: 15,
       })
     );
-    expect(aiError?.code).toBe('PLAN_LIMIT_REACHED');
-    expect(aiError?.limitValue).toBe(15);
-  });
-
-  test('AI monthly reset happens before quota increment', async () => {
-    const now = new Date();
-    const previousMonthDate = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
-    );
-    const previousMonthKey = `${previousMonthDate.getUTCFullYear()}-${String(
-      previousMonthDate.getUTCMonth() + 1
-    ).padStart(2, '0')}`;
-
-    const business = buildBusiness({
-      _id: 'pro_month_reset',
-      subscriptionPlan: 'pro',
-      subscriptionStatus: 'active',
-      billingPeriod: 'monthly',
-      aiCampaignsUsedThisMonth: 5,
-      aiCampaignsMonthKey: previousMonthKey,
-    });
-    const { ctx, state } = buildCtxWithBusiness(business);
-
-    const quota = await reserveAiCampaignQuota(ctx, business._id);
-    expect(quota.usedBefore).toBe(0);
-    expect(quota.usedAfter).toBe(1);
-    expect(state.business.aiCampaignsUsedThisMonth).toBe(1);
-    expect(state.business.aiCampaignsMonthKey).toBe(getCurrentMonthKey());
+    expect(retentionError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(retentionError?.limitValue).toBe(15);
   });
 
   test('required plan mapping is correct for all feature keys', () => {
@@ -214,19 +228,17 @@ describe('business entitlements', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseMarketingHubAI).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseSmartAnalytics).toBe('pro');
-    expect(REQUIRED_PLAN_BY_FEATURE.canUseAdvancedSegmentation).toBe(
-      'unlimited'
-    );
+    expect(REQUIRED_PLAN_BY_FEATURE.canUseAdvancedSegmentation).toBe('premium');
 
     expect(getRequiredPlanForLimit('maxCards', 'starter')).toBe('pro');
     expect(getRequiredPlanForLimit('maxCustomers', 'starter')).toBe('pro');
-    expect(getRequiredPlanForLimit('maxAiCampaignsPerMonth', 'starter')).toBe(
-      'pro'
-    );
-    expect(getRequiredPlanForLimit('maxCards', 'pro')).toBe('unlimited');
-    expect(getRequiredPlanForLimit('maxCustomers', 'pro')).toBeNull();
-    expect(getRequiredPlanForLimit('maxAiCampaignsPerMonth', 'pro')).toBe(
-      'unlimited'
+    expect(
+      getRequiredPlanForLimit('maxActiveRetentionActions', 'starter')
+    ).toBe('pro');
+    expect(getRequiredPlanForLimit('maxCards', 'pro')).toBe('premium');
+    expect(getRequiredPlanForLimit('maxCustomers', 'pro')).toBe('premium');
+    expect(getRequiredPlanForLimit('maxActiveRetentionActions', 'pro')).toBe(
+      'premium'
     );
   });
 

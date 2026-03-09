@@ -19,6 +19,7 @@ import {
 } from 'react';
 import { Alert } from 'react-native';
 import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
+import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import {
   getPrimaryProductIdFromSubscriber,
@@ -123,14 +124,14 @@ export function RevenueCatProvider({
 }) {
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionPlan, setSubscriptionPlan] =
-    useState<SubscriptionPlan>('free');
+    useState<SubscriptionPlan>('starter');
   const [packages, setPackages] = useState<PackageInfo[]>(PREVIEW_PACKAGES);
   const [isInitialized, setIsInitialized] = useState(false);
   const didInitializationRun = useRef(false);
 
   const isExpoGo = isRunningInExpoGo();
   const isConfigured = isRevenueCatConfigured();
-  const user = null as any;
+  const { user } = useUser();
   const updateSubscriptionPlan = useMutation(api.users.updateSubscriptionPlan);
   const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
     string | null
@@ -157,8 +158,8 @@ export function RevenueCatProvider({
   const handleCustomerInfo = useCallback(
     async (customerInfo: any): Promise<SubscriptionPlan> => {
       if (!customerInfo) {
-        setSubscriptionPlan('free');
-        return 'free';
+        setSubscriptionPlan('starter');
+        return 'starter';
       }
 
       const plan = planFromRevenueCatSubscriber(customerInfo);
@@ -185,7 +186,8 @@ export function RevenueCatProvider({
 
     async function initialize() {
       if (!PAYMENT_SYSTEM_ENABLED) {
-        setSubscriptionPlan('pro');
+        setSubscriptionPlan('starter');
+        setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
         setIsInitialized(true);
         return;
@@ -296,7 +298,8 @@ export function RevenueCatProvider({
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        setSubscriptionPlan('pro');
+        const nextPlan = /\bpremium\b/i.test(packageId) ? 'premium' : 'pro';
+        setSubscriptionPlan(nextPlan);
         Alert.alert('הצלחה', 'הרכישה הושלמה בהצלחה (מצב בדיקה)');
         return true;
       }
@@ -333,7 +336,7 @@ export function RevenueCatProvider({
         const { customerInfo } =
           await Purchases.purchasePackage(packageToPurchase);
         const plan = await handleCustomerInfo(customerInfo);
-        return plan !== 'free';
+        return plan !== 'starter';
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'שגיאה לא ידועה';
@@ -381,7 +384,7 @@ export function RevenueCatProvider({
       const Purchases = (await import('react-native-purchases')).default;
       const customerInfo = await Purchases.restorePurchases();
       const plan = await handleCustomerInfo(customerInfo);
-      const isPaid = plan !== 'free';
+      const isPaid = plan !== 'starter';
 
       if (isPaid) {
         Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
@@ -418,7 +421,7 @@ export function RevenueCatProvider({
   // רינדור
   // ============================================================================
 
-  const isPremium = subscriptionPlan !== 'free';
+  const isPremium = subscriptionPlan !== 'starter';
 
   return (
     <RevenueCatContext.Provider

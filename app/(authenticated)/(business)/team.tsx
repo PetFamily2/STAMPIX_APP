@@ -15,7 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
+import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -26,13 +26,15 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
+import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
-const formatDate = (timestamp: number) =>
-  new Date(timestamp).toLocaleDateString('he-IL', {
+function formatDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString('he-IL', {
     day: '2-digit',
     month: 'short',
   });
+}
 
 export default function BusinessTeamScreen() {
   const insets = useSafeAreaInsets();
@@ -43,12 +45,11 @@ export default function BusinessTeamScreen() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const isOwner = activeBusiness?.staffRole === 'owner';
-
   const { entitlements, gate } = useEntitlements(activeBusinessId);
-  const teamGate = gate('canManageTeam');
+  const teamGate = gate('team');
+  const teamCopy = getLockedAreaCopy('team', teamGate.requiredPlan);
 
   const staffMembers = useQuery(
     api.business.listBusinessStaff,
@@ -74,7 +75,7 @@ export default function BusinessTeamScreen() {
 
   const openUpgrade = (
     featureKey: string,
-    requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
+    requiredPlan: 'starter' | 'pro' | 'premium' | null,
     reason:
       | 'feature_locked'
       | 'limit_reached'
@@ -98,7 +99,7 @@ export default function BusinessTeamScreen() {
     }
     if (teamGate.isLocked) {
       openUpgrade(
-        'canManageTeam',
+        'team',
         teamGate.requiredPlan,
         teamGate.reason === 'subscription_inactive'
           ? 'subscription_inactive'
@@ -115,19 +116,18 @@ export default function BusinessTeamScreen() {
         businessId: activeBusinessId,
         email: inviteEmail.trim(),
       });
-
       setInviteEmail('');
       setInviteSuccess(
         result.alreadyPending
-          ? `הזמנה ממתינה כבר נשלחה. קוד: ${result.inviteCode}`
-          : `ההזמנה נוצרה. קוד לעובד: ${result.inviteCode}`
+          ? `הזמנה כבר ממתינה. קוד לעובד: ${result.inviteCode}`
+          : `הזמנה נוצרה. קוד לעובד: ${result.inviteCode}`
       );
     } catch (error) {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
         setInviteError(entitlementErrorToHebrewMessage(entitlementError));
         openUpgrade(
-          entitlementError.featureKey ?? 'canManageTeam',
+          entitlementError.featureKey ?? 'team',
           entitlementError.requiredPlan ?? 'pro',
           entitlementError.code === 'SUBSCRIPTION_INACTIVE'
             ? 'subscription_inactive'
@@ -135,15 +135,16 @@ export default function BusinessTeamScreen() {
         );
         return;
       }
-
-      setInviteError((error as Error).message ?? 'שגיאה בשליחת הזמנה.');
+      setInviteError(
+        error instanceof Error ? error.message : 'שגיאה בשליחת ההזמנה.'
+      );
     } finally {
       setIsInviting(false);
     }
   };
 
   const inviteSection = (
-    <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
+    <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
       <Text
         className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
       >
@@ -161,14 +162,14 @@ export default function BusinessTeamScreen() {
         autoCapitalize="none"
         placeholder="אימייל העובד"
         placeholderTextColor="#94A3B8"
-        className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+        className="mt-3 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
       />
       <TouchableOpacity
         onPress={() => {
           void handleInvite();
         }}
         disabled={isInviting || !inviteEmail.trim() || !isOwner}
-        className={`rounded-2xl px-4 py-3 ${
+        className={`mt-3 rounded-2xl px-4 py-3 ${
           isInviting || !inviteEmail.trim() || !isOwner
             ? 'bg-[#CBD5E1]'
             : 'bg-[#2F6BFF]'
@@ -183,35 +184,17 @@ export default function BusinessTeamScreen() {
         )}
       </TouchableOpacity>
       {inviteError ? (
-        <Text className={`text-xs text-rose-600 ${tw.textStart}`}>
+        <Text className={`mt-2 text-xs text-rose-600 ${tw.textStart}`}>
           {inviteError}
         </Text>
       ) : null}
       {inviteSuccess ? (
-        <Text className={`text-xs text-emerald-600 ${tw.textStart}`}>
+        <Text className={`mt-2 text-xs text-emerald-600 ${tw.textStart}`}>
           {inviteSuccess}
         </Text>
       ) : null}
     </View>
   );
-
-  const placeholderRows = [
-    'placeholder-1',
-    'placeholder-2',
-    'placeholder-3',
-  ].map((placeholderId) => (
-    <View
-      key={placeholderId}
-      className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
-    >
-      <Text className={`text-sm font-bold text-[#475569] ${tw.textStart}`}>
-        עובד לדוגמה
-      </Text>
-      <Text className={`mt-1 text-xs text-[#94A3B8] ${tw.textStart}`}>
-        employee@example.com
-      </Text>
-    </View>
-  ));
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
@@ -224,8 +207,8 @@ export default function BusinessTeamScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="ניהול צוות"
-          subtitle="הזמנת עובדים וניהול הרשאות"
+          title="צוות"
+          subtitle="הזמנת עובדים וגישה משותפת לעסק"
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -239,47 +222,43 @@ export default function BusinessTeamScreen() {
         />
 
         <View className="mt-5">
-          <LockedFeatureWrapper
+          <FeatureGate
             isLocked={teamGate.isLocked}
             requiredPlan={teamGate.requiredPlan}
             onUpgradeClick={() =>
               openUpgrade(
-                'canManageTeam',
+                'team',
                 teamGate.requiredPlan,
                 teamGate.reason === 'subscription_inactive'
                   ? 'subscription_inactive'
                   : 'feature_locked'
               )
             }
-            title="ניהול עובדים נעול"
-            subtitle="ניהול צוות והרשאות זמינים במסלול Pro ומעלה."
-            benefits={[
-              'הזמנת עובדים וקביעת תפקידים',
-              'ניהול הרשאות לפי תפקיד',
-              'מעקב אחר פעילות צוות',
-            ]}
+            title={teamCopy.lockedTitle}
+            subtitle={teamCopy.lockedSubtitle}
+            benefits={teamCopy.benefits}
           >
             {inviteSection}
-          </LockedFeatureWrapper>
+          </FeatureGate>
         </View>
 
         <View className="mt-5">
-          <LockedFeatureWrapper
+          <FeatureGate
             isLocked={teamGate.isLocked}
             requiredPlan={teamGate.requiredPlan}
             onUpgradeClick={() =>
               openUpgrade(
-                'canManageTeam',
+                'team',
                 teamGate.requiredPlan,
                 teamGate.reason === 'subscription_inactive'
                   ? 'subscription_inactive'
                   : 'feature_locked'
               )
             }
-            title="רשימת צוות נעולה"
-            subtitle="צפייה בעובדים פעילים זמינה במסלול Pro ומעלה."
+            title={teamCopy.lockedTitle}
+            subtitle={teamCopy.lockedSubtitle}
           >
-            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 space-y-3">
+            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
               <View className={`${tw.flexRow} items-center justify-between`}>
                 <Text
                   className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
@@ -294,53 +273,71 @@ export default function BusinessTeamScreen() {
               </View>
 
               {teamGate.isLocked ? (
-                placeholderRows
-              ) : staffMembers === undefined ? (
-                <ActivityIndicator color="#2F6BFF" />
-              ) : staffMembers.length === 0 ? (
-                <Text className={`text-sm text-[#7B86A0] ${tw.textStart}`}>
-                  עדיין לא נוספו עובדים לעסק זה.
-                </Text>
-              ) : (
-                staffMembers.map((member) => (
+                ['1', '2', '3'].map((id) => (
                   <View
-                    key={member.staffId}
-                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
+                    key={id}
+                    className="mt-3 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
                   >
-                    <View
-                      className={`${tw.flexRow} items-start justify-between`}
-                    >
-                      <View className="items-end">
-                        <Text
-                          className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-                        >
-                          {member.displayName}
-                        </Text>
-                        <Text
-                          className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                        >
-                          {member.email ?? 'ללא אימייל'}
-                        </Text>
-                      </View>
-                      <View className="items-end">
-                        <Text className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#5B6475]">
-                          {member.staffRole === 'owner' ? 'בעלים' : 'עובד'}
-                        </Text>
-                        <Text className="mt-1 text-[11px] text-[#64748B]">
-                          {member.role ?? 'ללא תפקיד'}
-                        </Text>
-                      </View>
-                    </View>
                     <Text
-                      className={`mt-2 text-xs text-[#64748B] ${tw.textStart}`}
+                      className={`text-sm font-bold text-[#475569] ${tw.textStart}`}
                     >
-                      פעיל מאז {formatDate(member.createdAt)}
+                      עובד לדוגמה
+                    </Text>
+                    <Text
+                      className={`mt-1 text-xs text-[#94A3B8] ${tw.textStart}`}
+                    >
+                      employee@example.com
                     </Text>
                   </View>
                 ))
+              ) : staffMembers === undefined ? (
+                <ActivityIndicator color="#2F6BFF" style={{ marginTop: 16 }} />
+              ) : staffMembers.length === 0 ? (
+                <Text className={`mt-3 text-sm text-[#7B86A0] ${tw.textStart}`}>
+                  עדיין לא נוספו עובדים לעסק.
+                </Text>
+              ) : (
+                <View className="mt-3 gap-3">
+                  {staffMembers.map((member) => (
+                    <View
+                      key={member.staffId}
+                      className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3"
+                    >
+                      <View
+                        className={`${tw.flexRow} items-start justify-between`}
+                      >
+                        <View className="items-end">
+                          <Text
+                            className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                          >
+                            {member.displayName}
+                          </Text>
+                          <Text
+                            className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                          >
+                            {member.email ?? 'ללא אימייל'}
+                          </Text>
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#5B6475]">
+                            {member.staffRole === 'owner' ? 'בעלים' : 'עובד'}
+                          </Text>
+                          <Text className="mt-1 text-[11px] text-[#64748B]">
+                            {member.role ?? 'ללא תפקיד'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        className={`mt-2 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        פעיל מאז {formatDate(member.createdAt)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
-          </LockedFeatureWrapper>
+          </FeatureGate>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -38,8 +38,9 @@ const TEXT = {
   active: 'פעיל',
   inactive: 'לא פעיל',
   freePlan: 'חינם',
-  proPlan: 'Pro',
-  unlimitedPlan: 'Unlimited',
+  starterPlan: 'Starter',
+  proPlan: 'Pro AI',
+  premiumPlan: 'Premium AI',
   missingValue: 'לא הוגדר',
   editPhone: 'עריכת טלפון',
   save: 'שמור',
@@ -57,14 +58,14 @@ const TEXT = {
   marketingError: 'שמירת העדפות שיווק נכשלה',
 };
 
-function resolvePlanLabel(plan?: 'free' | 'pro' | 'unlimited') {
+function resolvePlanLabel(plan?: 'starter' | 'pro' | 'premium') {
   switch (plan) {
     case 'pro':
       return TEXT.proPlan;
-    case 'unlimited':
-      return TEXT.unlimitedPlan;
+    case 'premium':
+      return TEXT.premiumPlan;
     default:
-      return TEXT.freePlan;
+      return TEXT.starterPlan;
   }
 }
 

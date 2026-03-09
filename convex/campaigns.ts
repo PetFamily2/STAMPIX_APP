@@ -1,10 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
-import {
-  getBusinessEntitlementsForBusinessId,
-  reserveAiCampaignQuota,
-} from './entitlements';
+import { getBusinessEntitlementsForBusinessId } from './entitlements';
 import {
   getCurrentUserOrNull,
   requireActorIsBusinessOwnerOrManager,
@@ -12,7 +9,8 @@ import {
 } from './guards';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_CHANNELS = ['in_app'];
+const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
+const ALLOWED_CHANNELS = new Set(['in_app', 'push']);
 const MANAGEMENT_TYPES = [
   'welcome',
   'birthday',
@@ -528,10 +526,10 @@ export const listAiCampaignsByBusiness = query({
       businessId
     );
     const usage = {
-      used: entitlements.usage.aiCampaignsUsedThisMonth,
-      limit: entitlements.limits.maxAiCampaignsPerMonth,
-      remaining: entitlements.usage.aiCampaignsRemainingThisMonth,
-      monthKey: entitlements.usage.aiCampaignsMonthKey,
+      used: entitlements.usage.activeRetentionActions,
+      limit: entitlements.limits.maxActiveRetentionActions,
+      remaining: entitlements.usage.activeRetentionActionsRemaining,
+      limitType: 'active_retention_actions' as const,
       isFeatureEnabled:
         entitlements.features.canUseMarketingHubAI &&
         entitlements.isSubscriptionActive,
@@ -573,7 +571,9 @@ export const createAiCampaign = mutation({
     title: v.optional(v.string()),
     prompt: v.string(),
     rules: v.optional(v.any()),
-    channels: v.optional(v.array(v.string())),
+    channels: v.optional(
+      v.array(v.union(v.literal('in_app'), v.literal('push')))
+    ),
   },
   handler: async (ctx, { businessId, title, prompt, rules, channels }) => {
     await requireActorIsStaffForBusiness(ctx, businessId);
@@ -585,7 +585,11 @@ export const createAiCampaign = mutation({
       throw new Error('PROMPT_REQUIRED');
     }
 
-    const quota = await reserveAiCampaignQuota(ctx, businessId);
+    const normalizedChannels =
+      Array.isArray(channels) && channels.length > 0
+        ? channels.filter((channel) => ALLOWED_CHANNELS.has(channel))
+        : DEFAULT_CHANNELS;
+
     const now = Date.now();
 
     const campaignId = await ctx.db.insert('campaigns', {
@@ -595,19 +599,24 @@ export const createAiCampaign = mutation({
       prompt: normalizedPrompt,
       status: 'draft',
       rules,
-      channels,
+      channels:
+        normalizedChannels.length > 0 ? normalizedChannels : DEFAULT_CHANNELS,
       automationEnabled: false,
       isActive: true,
       createdAt: now,
       updatedAt: now,
     });
+    const entitlements = await getBusinessEntitlementsForBusinessId(
+      ctx,
+      businessId
+    );
 
     return {
       campaignId,
       usage: {
-        used: quota.usedAfter,
-        limit: quota.limitValue,
-        monthKey: quota.monthKey,
+        used: entitlements.usage.activeRetentionActions,
+        limit: entitlements.limits.maxActiveRetentionActions,
+        limitType: 'active_retention_actions' as const,
       },
     };
   },
@@ -1022,7 +1031,7 @@ export const sendCampaignNow = mutation({
     }
 
     await ctx.db.patch(campaign._id, {
-      status: 'sent',
+      status: 'completed',
       updatedAt: now,
     });
 

@@ -9,9 +9,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-type RequiredPlan = 'starter' | 'pro' | 'unlimited' | null;
+export type RequiredPlan = 'starter' | 'pro' | 'premium' | null;
 
-type LockedFeatureWrapperProps = {
+export type FeatureGateProps = {
   isLocked: boolean;
   requiredPlan?: RequiredPlan;
   onUpgradeClick?: () => void;
@@ -22,22 +22,22 @@ type LockedFeatureWrapperProps = {
   children: ReactNode;
 };
 
-const PLAN_LABEL: Record<'starter' | 'pro' | 'unlimited', string> = {
+const PLAN_LABEL: Record<'starter' | 'pro' | 'premium', string> = {
   starter: 'Starter',
   pro: 'Pro AI',
-  unlimited: 'Unlimited AI',
+  premium: 'Premium AI',
 };
 
-export function LockedFeatureWrapper({
+export function FeatureGate({
   isLocked,
   requiredPlan = null,
   onUpgradeClick,
-  title = 'פיצ׳ר נעול במסלול הנוכחי',
+  title = 'פיצר נעול במסלול הנוכחי',
   subtitle,
   benefits,
   style,
   children,
-}: LockedFeatureWrapperProps) {
+}: FeatureGateProps) {
   const requiredLabel = requiredPlan ? PLAN_LABEL[requiredPlan] : null;
   const resolvedSubtitle =
     subtitle ??
@@ -66,7 +66,7 @@ export function LockedFeatureWrapper({
               <View style={styles.benefits}>
                 {benefits.slice(0, 3).map((benefit) => (
                   <Text key={benefit} style={styles.benefitText}>
-                    • {benefit}
+                    - {benefit}
                   </Text>
                 ))}
               </View>
@@ -88,6 +88,8 @@ export function LockedFeatureWrapper({
     </View>
   );
 }
+
+export const LockedFeatureWrapper = FeatureGate;
 
 const styles = StyleSheet.create({
   container: {

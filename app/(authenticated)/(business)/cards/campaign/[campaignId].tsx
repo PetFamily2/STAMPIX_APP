@@ -202,7 +202,7 @@ export default function CampaignDraftEditorScreen() {
   }, [campaignDraft]);
 
   const goBackToCampaignList = () => {
-    router.replace('/(authenticated)/(business)/cards?tab=campaigns');
+    router.replace('/(authenticated)/(business)/cards');
   };
 
   const confirmSendNow = (totalRecipients: number): Promise<boolean> =>
@@ -268,7 +268,7 @@ export default function CampaignDraftEditorScreen() {
 
   const campaignType = campaignDraft.type as CampaignType;
   const audience = audienceCopy(campaignType);
-  const isSent = (campaignDraft.status ?? 'draft') === 'sent';
+  const isSent = (campaignDraft.status ?? 'draft') === 'completed';
   const automationEnabled = campaignDraft.automationEnabled === true;
   const isRulesLocked =
     (campaignDraft.isRulesLocked ?? automationEnabled) === true;

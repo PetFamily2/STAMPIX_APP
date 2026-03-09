@@ -454,12 +454,11 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
+      <View
+        style={[
+          styles.fixedTopSection,
           {
             paddingTop: (insets.top || 0) + 12,
-            paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
@@ -473,9 +472,18 @@ export default function SettingsScreen() {
             }
           />
         </View>
-
         <BusinessModeCtaCard disabled={deleteBusy} />
+      </View>
 
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom: tabBarHeight + 24,
+          },
+        ]}
+      >
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
           <MenuRow
@@ -643,6 +651,12 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  fixedTopSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  scrollArea: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, gap: 10 },
   pressed: { opacity: 0.88 },
   disabled: { opacity: 0.6 },

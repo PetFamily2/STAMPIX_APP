@@ -29,6 +29,7 @@ const formatNumber = (value: number) =>
 function StampPreview({ maxStamps }: { maxStamps: number }) {
   const dots = Math.min(12, Math.max(3, maxStamps));
   const filled = Math.min(3, dots);
+
   return (
     <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
       {Array.from({ length: dots }, (_, index) => index + 1).map((id) => (
@@ -82,6 +83,7 @@ export default function ProgramDetailsScreen() {
       ) ?? (activeBusinessId === selectedBusinessId ? activeBusiness : null),
     [activeBusiness, activeBusinessId, businesses, selectedBusinessId]
   );
+
   const canManage =
     selectedBusiness?.staffRole === 'owner' ||
     selectedBusiness?.staffRole === 'manager';
@@ -98,7 +100,6 @@ export default function ProgramDetailsScreen() {
   );
   const archiveProgram = useMutation(api.loyaltyPrograms.archiveProgram);
   const unarchiveProgram = useMutation(api.loyaltyPrograms.unarchiveProgram);
-  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
 
   const [title, setTitle] = useState('');
   const [rewardName, setRewardName] = useState('');
@@ -106,7 +107,6 @@ export default function ProgramDetailsScreen() {
   const [stampIcon, setStampIcon] = useState('star');
   const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isTriggeringCampaign, setIsTriggeringCampaign] = useState(false);
 
   useEffect(() => {
     if (!details) {
@@ -144,6 +144,7 @@ export default function ProgramDetailsScreen() {
     if (!canSave) {
       return;
     }
+
     setIsSubmitting(true);
     try {
       await updateProgram({
@@ -170,6 +171,7 @@ export default function ProgramDetailsScreen() {
     if (!canManage) {
       return;
     }
+
     setIsSubmitting(true);
     try {
       if (lifecycle === 'active') {
@@ -186,29 +188,6 @@ export default function ProgramDetailsScreen() {
       );
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleCreateProgramCampaign = async () => {
-    if (!canManage || isTriggeringCampaign) {
-      return;
-    }
-    setIsTriggeringCampaign(true);
-    try {
-      await createCampaignDraft({
-        businessId: selectedBusinessId,
-        type: 'promo',
-        programId,
-      });
-      Alert.alert('נוצר', 'טיוטת קמפיין Promo נוצרה עבור כרטיסיה זו.');
-      router.replace('/(authenticated)/(business)/cards?tab=campaigns');
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
-      );
-    } finally {
-      setIsTriggeringCampaign(false);
     }
   };
 
@@ -341,7 +320,9 @@ export default function ProgramDetailsScreen() {
                 onPress={() => {
                   void handleSave();
                 }}
-                className={`rounded-2xl px-4 py-3 ${canSave ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'}`}
+                className={`rounded-2xl px-4 py-3 ${
+                  canSave ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+                }`}
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -388,26 +369,6 @@ export default function ProgramDetailsScreen() {
                 פעולות מהירות
               </Text>
               <TouchableOpacity
-                disabled={!canManage || isTriggeringCampaign}
-                onPress={() => {
-                  void handleCreateProgramCampaign();
-                }}
-                className={`rounded-2xl px-4 py-3 ${
-                  canManage && !isTriggeringCampaign
-                    ? 'bg-[#1D4ED8]'
-                    : 'bg-[#CBD5E1]'
-                }`}
-              >
-                {isTriggeringCampaign ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text className="text-center text-sm font-bold text-white">
-                    צור קמפיין Promo
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 disabled={!canManage || isSubmitting}
                 onPress={() => {
                   void handleArchiveToggle();
@@ -424,6 +385,17 @@ export default function ProgramDetailsScreen() {
                   {lifecycle === 'active'
                     ? 'העבר לישנה (ארכיון)'
                     : 'החזר לפעילות'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+                className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
+              >
+                <Text className="text-center text-sm font-bold text-[#334155]">
+                  למרכז השימור
                 </Text>
               </TouchableOpacity>
 

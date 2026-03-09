@@ -15,30 +15,29 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { LockedFeatureWrapper } from '@/components/subscription/LockedFeatureWrapper';
+import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
+import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+const TOP_TABS = [
+  { key: 'reports', label: 'דוחות' },
+  { key: 'customers', label: 'לקוחות' },
+] as const;
 
-type AnalyticsTopTab = 'reports' | 'customers';
-const TOP_TABS: Array<{ key: AnalyticsTopTab; label: string }> = [
-  { key: 'reports', label: '\u05d3\u05d5\u05d7\u05d5\u05ea' },
-  { key: 'customers', label: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea' },
-];
-
-const formatNumber = (value: number) =>
-  new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
+    value
+  );
+}
 
 function formatGrowth(value: number) {
-  if (!Number.isFinite(value)) {
-    return '+0%';
-  }
   return `${value > 0 ? '+' : ''}${Math.round(value)}%`;
 }
 
@@ -64,8 +63,7 @@ export default function BusinessAnalyticsScreen() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-  const activeTopTab: AnalyticsTopTab =
-    tab === 'customers' ? 'customers' : 'reports';
+  const activeTopTab = tab === 'customers' ? 'customers' : 'reports';
   const { activeBusinessId } = useActiveBusiness();
 
   useEffect(() => {
@@ -78,28 +76,20 @@ export default function BusinessAnalyticsScreen() {
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   useEffect(() => {
-    if (activeTopTab !== 'customers') {
-      return;
+    if (activeTopTab === 'customers') {
+      router.replace({
+        pathname: '/(authenticated)/(business)/customers',
+        params: { tab: 'customers' },
+      });
     }
-    router.replace({
-      pathname: '/(authenticated)/(business)/customers',
-      params: { tab: 'customers' },
-    });
   }, [activeTopTab, router]);
 
   const { entitlements, gate } = useEntitlements(activeBusinessId);
-  const advancedReportsGate = gate('canSeeAdvancedReports');
-
-  const openUpgrade = (
-    featureKey: string,
-    requiredPlan: 'starter' | 'pro' | 'unlimited' | null,
-    reason:
-      | 'feature_locked'
-      | 'limit_reached'
-      | 'subscription_inactive' = 'feature_locked'
-  ) => {
-    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
-  };
+  const advancedReportsGate = gate('advancedReports');
+  const advancedReportsCopy = getLockedAreaCopy(
+    'advancedReports',
+    advancedReportsGate.requiredPlan
+  );
 
   const basicAnalytics = useQuery(
     api.analytics.getBusinessActivity,
@@ -112,7 +102,16 @@ export default function BusinessAnalyticsScreen() {
       : 'skip'
   );
 
-  const isLoading = activeBusinessId !== null && basicAnalytics === undefined;
+  const openUpgrade = (
+    featureKey: string,
+    requiredPlan: 'starter' | 'pro' | 'premium' | null,
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
+  ) => {
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
+  };
 
   const dailyStamps = useMemo(() => {
     const rawDaily = basicAnalytics?.daily ?? [];
@@ -130,16 +129,13 @@ export default function BusinessAnalyticsScreen() {
   const chartHeights = useMemo(() => {
     const maxValue = Math.max(...dailyStamps, 0);
     if (maxValue === 0) {
-      return dailyStamps.map(() => 6);
+      return dailyStamps.map(() => 8);
     }
     return dailyStamps.map((value) =>
-      Math.max(10, Math.round((value / maxValue) * 120))
+      Math.max(12, Math.round((value / maxValue) * 120))
     );
   }, [dailyStamps]);
 
-  const weeklyStampsTotal = basicAnalytics?.totals.stamps ?? 0;
-  const weeklyRedemptions = basicAnalytics?.totals.redemptions ?? 0;
-  const weeklyCustomers = basicAnalytics?.totals.uniqueCustomers ?? 0;
   const growthPercent =
     advancedAnalytics?.growthPercent ??
     calculateGrowthFromWeekly(basicAnalytics?.weekly);
@@ -155,8 +151,8 @@ export default function BusinessAnalyticsScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="דוחות עסק"
-          subtitle="����� ������"
+          title="דוחות"
+          subtitle="פעילות העסק, מגמות שימוש וצמיחה"
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -212,13 +208,13 @@ export default function BusinessAnalyticsScreen() {
             </Text>
             <View className="rounded-full border border-[#CFE0FF] bg-[#F1F6FF] px-3 py-1">
               <Text className="text-[11px] font-bold text-[#2F6BFF]">
-                סה"כ {formatNumber(weeklyStampsTotal)}
+                סה״כ {formatNumber(basicAnalytics?.totals.stamps ?? 0)}
               </Text>
             </View>
           </View>
 
           <View className="mt-4 h-[180px] rounded-[22px] border border-[#EEF2F8] bg-[#FCFDFF] px-3 py-4">
-            {isLoading ? (
+            {basicAnalytics === undefined ? (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator color="#2F6BFF" />
               </View>
@@ -263,34 +259,35 @@ export default function BusinessAnalyticsScreen() {
               מימושים השבוע
             </Text>
             <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
-              {formatNumber(weeklyRedemptions)}
+              {formatNumber(basicAnalytics?.totals.redemptions ?? 0)}
             </Text>
           </View>
           <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
             <Text className="text-right text-xs font-semibold text-[#64748B]">
-              לקוחות פעילים
+              לקוחות פעילים השבוע
             </Text>
             <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
-              {formatNumber(weeklyCustomers)}
+              {formatNumber(basicAnalytics?.totals.uniqueCustomers ?? 0)}
             </Text>
           </View>
         </View>
 
         <View className="mt-5">
-          <LockedFeatureWrapper
+          <FeatureGate
             isLocked={advancedReportsGate.isLocked}
             requiredPlan={advancedReportsGate.requiredPlan}
             onUpgradeClick={() =>
               openUpgrade(
-                'canSeeAdvancedReports',
+                'advancedReports',
                 advancedReportsGate.requiredPlan,
                 advancedReportsGate.reason === 'subscription_inactive'
                   ? 'subscription_inactive'
                   : 'feature_locked'
               )
             }
-            title="דוחות מתקדמים נעולים"
-            subtitle="ניתוחי עומק והשוואות תקופתיות זמינים במסלול Pro ומעלה."
+            title={advancedReportsCopy.lockedTitle}
+            subtitle={advancedReportsCopy.lockedSubtitle}
+            benefits={advancedReportsCopy.benefits}
           >
             <View className="rounded-3xl border border-[#E5EAF2] bg-white p-5">
               <View className={`${tw.flexRow} items-center justify-between`}>
@@ -309,11 +306,11 @@ export default function BusinessAnalyticsScreen() {
               </View>
               <Text className={`mt-3 text-sm text-[#64748B] ${tw.textStart}`}>
                 {advancedReportsGate.isLocked
-                  ? 'שדרוג למסלול Pro יפתח דוחות השוואה בין תקופות ותובנות מתקדמות.'
-                  : 'הצמיחה מחושבת לפי השוואת השבוע האחרון מול השבוע שקדם לו.'}
+                  ? 'שדרוג ל-Pro AI יפתח דוחות מתקדמים והשוואה בין תקופות.'
+                  : 'האחוז מחושב על בסיס השוואת הניקובים של השבוע האחרון מול השבוע שקדם לו.'}
               </Text>
             </View>
-          </LockedFeatureWrapper>
+          </FeatureGate>
         </View>
       </ScrollView>
     </SafeAreaView>

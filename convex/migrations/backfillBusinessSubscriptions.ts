@@ -3,7 +3,6 @@ import {
   DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
   normalizeCustomerSegmentationConfig,
 } from '../business';
-import { getCurrentMonthKey } from '../entitlements';
 
 /**
  * Backfill missing business subscription defaults.
@@ -15,7 +14,6 @@ export default mutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const monthKey = getCurrentMonthKey(now);
     const businesses = await ctx.db.query('businesses').collect();
     let patched = 0;
 
@@ -25,16 +23,18 @@ export default mutation({
       if (
         business.subscriptionPlan !== 'starter' &&
         business.subscriptionPlan !== 'pro' &&
-        business.subscriptionPlan !== 'unlimited'
+        business.subscriptionPlan !== 'premium'
       ) {
-        patch.subscriptionPlan = 'starter';
+        patch.subscriptionPlan =
+          business.subscriptionPlan === 'unlimited' ? 'premium' : 'starter';
       }
 
       if (
         business.subscriptionStatus !== 'active' &&
         business.subscriptionStatus !== 'trialing' &&
         business.subscriptionStatus !== 'past_due' &&
-        business.subscriptionStatus !== 'canceled'
+        business.subscriptionStatus !== 'canceled' &&
+        business.subscriptionStatus !== 'inactive'
       ) {
         patch.subscriptionStatus = 'active';
       }
@@ -56,17 +56,6 @@ export default mutation({
         business.billingPeriod !== null
       ) {
         patch.billingPeriod = null;
-      }
-
-      if (!Number.isFinite(business.aiCampaignsUsedThisMonth)) {
-        patch.aiCampaignsUsedThisMonth = 0;
-      }
-
-      if (
-        typeof business.aiCampaignsMonthKey !== 'string' ||
-        business.aiCampaignsMonthKey.trim().length === 0
-      ) {
-        patch.aiCampaignsMonthKey = monthKey;
       }
 
       const normalizedSegmentationConfig = normalizeCustomerSegmentationConfig(

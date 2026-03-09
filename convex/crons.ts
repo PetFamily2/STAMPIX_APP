@@ -10,4 +10,10 @@ crons.hourly(
   internal.campaigns.runAutomationSweepInternal
 );
 
+crons.hourly(
+  'retention action sweep hourly',
+  { minuteUTC: 0 },
+  internal.retention.runRetentionActionSweepInternal
+);
+
 export default crons;

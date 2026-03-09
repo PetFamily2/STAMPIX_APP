@@ -1,4 +1,4 @@
-﻿import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -18,6 +18,7 @@ import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTab
 import {
   type BillingPeriod,
   IS_DEV_MODE,
+  PAYMENT_SYSTEM_ENABLED,
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
 } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
@@ -141,7 +142,11 @@ export default function PaywallScreen() {
       return;
     }
 
-    if (isPreviewMode) {
+    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
+      Alert.alert(
+        'מצב בדיקה',
+        'רכישות לא פעילות כרגע. אפשר להמשיך עם Starter או לעדכן מסלול בדיקה מתוך אזור העסק.'
+      );
       return;
     }
 
@@ -201,7 +206,7 @@ export default function PaywallScreen() {
   };
 
   const handleShowPaywall = async () => {
-    if (isPreviewMode) {
+    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       return;
     }
     if (isExpoGo) {
@@ -231,7 +236,7 @@ export default function PaywallScreen() {
   };
 
   const handleCustomerCenter = async () => {
-    if (isPreviewMode) {
+    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       return;
     }
     if (isExpoGo) {
@@ -250,7 +255,7 @@ export default function PaywallScreen() {
   };
 
   const handleRestore = async () => {
-    if (isPreviewMode) {
+    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       return;
     }
 
@@ -267,20 +272,16 @@ export default function PaywallScreen() {
     }
   };
 
-  const handleLegal = () => {
-    router.push('/(auth)/legal');
-  };
-
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0a0a0a] items-center justify-center">
-        <ActivityIndicator size="large" color="#4fc3f7" />
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#0f172a]">
+        <ActivityIndicator size="large" color="#38bdf8" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0a0a0a]" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-[#0f172a]" edges={['top', 'bottom']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
@@ -289,35 +290,36 @@ export default function PaywallScreen() {
         <View className={`${tw.flexRow} ${tw.justifyEnd} px-4 pt-4`}>
           <TouchableOpacity
             onPress={handleClose}
-            className="w-10 h-10 items-center justify-center rounded-full bg-zinc-800"
+            className="h-10 w-10 items-center justify-center rounded-full bg-slate-800"
             hitSlop={8}
           >
-            <X size={24} color="#a1a1aa" />
+            <X size={24} color="#cbd5e1" />
           </TouchableOpacity>
         </View>
 
-        {isPreviewMode ? (
-          <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/50">
-            <Text className="text-yellow-400 text-center text-sm font-medium">
-              מצב תצוגה מקדימה - רכישות מושבתות
+        {isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? (
+          <View className="mx-4 mt-2 mb-4 rounded-2xl border border-yellow-500/50 bg-yellow-500/20 p-3">
+            <Text className="text-center text-sm font-medium text-yellow-300">
+              מצב בדיקה. רכישות אמיתיות כבויות כרגע.
             </Text>
           </View>
         ) : null}
 
         {isExpoGo && !isPreviewMode ? (
-          <View className="mx-4 mt-2 mb-4 p-3 rounded-lg bg-blue-500/20 border border-blue-500/50">
-            <Text className="text-blue-400 text-center text-sm font-medium">
-              Expo Go - רכישות לא זמינות
+          <View className="mx-4 mt-2 mb-4 rounded-2xl border border-blue-500/50 bg-blue-500/20 p-3">
+            <Text className="text-center text-sm font-medium text-blue-300">
+              Expo Go לא תומך ברכישות. השתמשו ב-Dev Build.
             </Text>
           </View>
         ) : null}
 
         <View className="px-6 pt-4 pb-4">
-          <Text className="text-white text-3xl font-bold text-center mb-2">
-            בחרו מסלול שמתאים לעסק שלכם
+          <Text className="mb-2 text-center text-3xl font-bold text-white">
+            בחרו את הדרך שבה העסק ישמור על לקוחות
           </Text>
-          <Text className="text-zinc-400 text-base text-center">
-            Starter בחינם, או שדרוג ל-Pro AI / Unlimited AI.
+          <Text className="text-center text-base text-slate-300">
+            Starter מתאים להתחלה. Pro AI פותח Marketing Hub, תובנות לקוחות
+            ודוחות מתקדמים. Premium AI מוסיף בניית סגמנטים ושמירת קהלים.
           </Text>
         </View>
 
@@ -330,57 +332,63 @@ export default function PaywallScreen() {
             onSelectPlan={handleSelectPlan}
             onBillingPeriodChange={handleBillingPeriodChange}
             popularPlan="pro"
-            popularLabel="הכי פופולרי"
+            popularLabel="המסלול המרכזי"
           />
         </View>
 
-        <Text className="text-zinc-500 text-center text-sm px-6 mb-4">
-          הצטרפו היום, בטלו בכל עת.
+        <Text className="mb-4 px-6 text-center text-sm text-slate-500">
+          אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך.
         </Text>
 
-        <View className="px-6 mb-6">
+        <View className="mb-6 px-6">
           <TouchableOpacity
             onPress={handleContinue}
             disabled={
-              isPurchasing || (isPreviewMode && selectedPlan !== 'starter')
+              isPurchasing || selectedPlan === 'starter'
+                ? false
+                : isPreviewMode || !PAYMENT_SYSTEM_ENABLED
             }
-            className={`bg-[#4fc3f7] rounded-xl py-4 items-center ${
-              isPurchasing || (isPreviewMode && selectedPlan !== 'starter')
+            className={`items-center rounded-xl bg-sky-400 py-4 ${
+              isPurchasing ||
+              (
+                selectedPlan !== 'starter' &&
+                  (isPreviewMode || !PAYMENT_SYSTEM_ENABLED)
+              )
                 ? 'opacity-60'
                 : ''
             }`}
           >
             {isPurchasing ? (
-              <ActivityIndicator color="#0a0a0a" />
+              <ActivityIndicator color="#0f172a" />
             ) : (
-              <Text className="text-[#0a0a0a] text-lg font-bold">
-                {selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לתשלום'}
+              <Text className="text-lg font-bold text-[#0f172a]">
+                {selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לרכישה'}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        <View className="px-6 mb-6 gap-3">
+        <View className="mb-6 gap-3 px-6">
           <TouchableOpacity
             onPress={handleShowPaywall}
-            disabled={isPreviewMode}
-            className={`bg-zinc-900 rounded-xl py-3 items-center border border-zinc-700 ${
-              isPreviewMode ? 'opacity-60' : ''
+            disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
+            className={`items-center rounded-xl border border-slate-700 bg-slate-900 py-3 ${
+              isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? 'opacity-60' : ''
             }`}
           >
-            <Text className="text-white text-sm font-semibold">
-              הצגת Paywall
+            <Text className="text-sm font-semibold text-white">
+              הצגת Paywall של RevenueCat
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCustomerCenter}
-            disabled={isPreviewMode}
-            className={`bg-transparent rounded-xl py-3 items-center border border-zinc-700 ${
-              isPreviewMode ? 'opacity-60' : ''
+            disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
+            className={`items-center rounded-xl border border-slate-700 bg-transparent py-3 ${
+              isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? 'opacity-60' : ''
             }`}
           >
-            <Text className="text-zinc-300 text-sm font-semibold">
-              ניהול מנוי (Customer Center)
+            <Text className="text-sm font-semibold text-slate-300">
+              ניהול מנוי קיים
             </Text>
           </TouchableOpacity>
         </View>
@@ -388,17 +396,17 @@ export default function PaywallScreen() {
         <View className={`${tw.flexRow} justify-center gap-8 pb-6`}>
           <TouchableOpacity
             onPress={handleRestore}
-            disabled={isRestoring || isPreviewMode}
+            disabled={isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
           >
             {isRestoring ? (
               <ActivityIndicator size="small" color="#a1a1aa" />
             ) : (
-              <Text className="text-zinc-500 text-sm">שחזור רכישות</Text>
+              <Text className="text-sm text-slate-500">שחזור רכישות</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLegal}>
-            <Text className="text-zinc-500 text-sm">מסמך משפטי</Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/legal')}>
+            <Text className="text-sm text-slate-500">מסמך משפטי</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

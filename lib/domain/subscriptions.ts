@@ -1,33 +1,29 @@
-// ============================================================================
-// Subscription plan helpers
-// ============================================================================
-
-export type SubscriptionPlan = 'free' | 'pro' | 'unlimited';
+export type SubscriptionPlan = 'starter' | 'pro' | 'premium';
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  'free',
+  'starter',
   'pro',
-  'unlimited',
+  'premium',
 ];
 
 export const SUBSCRIPTION_PLAN_ORDER: Record<SubscriptionPlan, number> = {
-  free: 0,
+  starter: 0,
   pro: 1,
-  unlimited: 2,
+  premium: 2,
 };
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
-  free: 'חינמי',
-  pro: 'Pro',
-  unlimited: 'Unlimited',
+  starter: 'Starter',
+  pro: 'Pro AI',
+  premium: 'Premium AI',
 };
 
 export function canAccessAdvancedFeatures(plan: SubscriptionPlan): boolean {
-  return plan !== 'free';
+  return plan !== 'starter';
 }
 
-export function isUnlimitedPlan(plan: SubscriptionPlan): boolean {
-  return plan === 'unlimited';
+export function isPremiumPlan(plan: SubscriptionPlan): boolean {
+  return plan === 'premium';
 }
 
 export function bestPlan(
@@ -39,22 +35,22 @@ export function bestPlan(
     : second;
 }
 
-const PLAN_KEYWORDS: Omit<Record<SubscriptionPlan, RegExp>, 'free'> = {
-  pro: /\b(pro|premium)\b/i,
-  unlimited: /\bunlimited\b/i,
+const PLAN_KEYWORDS: Omit<Record<SubscriptionPlan, RegExp>, 'starter'> = {
+  pro: /\bpro\b/i,
+  premium: /\bpremium\b/i,
 };
 
 export function planFromRevenueCatEntitlements(
   entitlements?: Record<string, unknown>
 ): SubscriptionPlan {
   const activeEntitlements = Object.keys(entitlements ?? {});
-  if (activeEntitlements.some((id) => PLAN_KEYWORDS.unlimited.test(id))) {
-    return 'unlimited';
+  if (activeEntitlements.some((id) => PLAN_KEYWORDS.premium.test(id))) {
+    return 'premium';
   }
   if (activeEntitlements.some((id) => PLAN_KEYWORDS.pro.test(id))) {
     return 'pro';
   }
-  return 'free';
+  return 'starter';
 }
 
 export function planFromRevenueCatSubscriber(

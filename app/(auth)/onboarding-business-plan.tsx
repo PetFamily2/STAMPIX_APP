@@ -1,4 +1,4 @@
-﻿import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -96,8 +96,8 @@ export default function OnboardingBusinessPlanScreen() {
         <View style={styles.titleContainer}>
           <Text style={styles.title}>בחירת מסלול לעסק</Text>
           <Text style={styles.subtitle}>
-            Starter חינם להתחלה. מסלולי Pro ו-Unlimited פותחים יכולות AI ודוחות
-            מתקדמים.
+            Starter מתאים להתחלה. Pro AI פותח את המוצר המלא לרוב העסקים,
+            ו-Premium AI מוסיף בניית סגמנטים ושמירת קהלים לעבודה מדויקת יותר.
           </Text>
         </View>
 
@@ -109,7 +109,7 @@ export default function OnboardingBusinessPlanScreen() {
           onSelectPlan={setSelectedPlan}
           onBillingPeriodChange={setBillingPeriod}
           popularPlan="pro"
-          popularLabel="הכי פופולרי"
+          popularLabel="הבחירה של רוב העסקים"
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -126,7 +126,7 @@ export default function OnboardingBusinessPlanScreen() {
               void handleContinue();
             }}
             label={
-              selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לתשלום'
+              selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך למסלול'
             }
             disabled={isSubmitting}
           />
@@ -136,10 +136,10 @@ export default function OnboardingBusinessPlanScreen() {
       <UpgradeModal
         visible={isUpgradeVisible}
         businessId={businessId}
-        initialPlan={selectedPlan === 'unlimited' ? 'unlimited' : 'pro'}
+        initialPlan={selectedPlan === 'premium' ? 'premium' : 'pro'}
         initialBillingPeriod={billingPeriod}
         reason="onboarding_plan"
-        featureKey="business_onboarding"
+        featureKey="onboarding_plan_selection"
         onClose={() => setIsUpgradeVisible(false)}
         onSuccess={() => {
           safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
-    lineHeight: 20,
+    lineHeight: 21,
     textAlign: 'right',
   },
   errorText: {

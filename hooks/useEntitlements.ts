@@ -4,14 +4,20 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 
 type FeatureKey =
+  | 'team'
+  | 'advancedReports'
+  | 'marketingHub'
+  | 'smartAnalytics'
+  | 'segmentationBuilder'
+  | 'savedSegments'
   | 'canManageTeam'
   | 'canSeeAdvancedReports'
   | 'canUseMarketingHubAI'
   | 'canUseSmartAnalytics'
   | 'canUseAdvancedSegmentation';
 
-type LimitKey = 'maxCards' | 'maxCustomers' | 'maxAiCampaignsPerMonth';
-type BusinessPlan = 'starter' | 'pro' | 'unlimited';
+type LimitKey = 'maxCards' | 'maxCustomers' | 'maxActiveRetentionActions';
+type BusinessPlan = 'starter' | 'pro' | 'premium';
 
 type GateResult = {
   isLocked: boolean;
@@ -21,11 +27,12 @@ type GateResult = {
 };
 
 type LimitStatus = {
-  isUnlimited: boolean;
-  limitValue: number | null;
+  limitValue: number;
   currentValue: number;
-  remaining: number | null;
+  remaining: number;
   isAtLimit: boolean;
+  usageRatio: number;
+  isNearLimit: boolean;
 };
 
 export function useEntitlements(businessId: Id<'businesses'> | null) {
@@ -78,11 +85,12 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
       (limitKey: LimitKey, currentValue?: number): LimitStatus => {
         if (!entitlements) {
           return {
-            isUnlimited: false,
-            limitValue: null,
+            limitValue: 0,
             currentValue: currentValue ?? 0,
-            remaining: null,
+            remaining: 0,
             isAtLimit: false,
+            usageRatio: 0,
+            isNearLimit: false,
           };
         }
 
@@ -90,20 +98,19 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
         const normalizedCurrent =
           typeof currentValue === 'number' && Number.isFinite(currentValue)
             ? Math.max(0, Math.floor(currentValue))
-            : limitKey === 'maxAiCampaignsPerMonth'
-              ? entitlements.usage.aiCampaignsUsedThisMonth
+            : limitKey === 'maxActiveRetentionActions'
+              ? entitlements.usage.activeRetentionActions
               : 0;
-        const isUnlimited = limitValue === -1;
-        const remaining = isUnlimited
-          ? null
-          : Math.max(0, limitValue - normalizedCurrent);
+        const remaining = Math.max(0, limitValue - normalizedCurrent);
+        const usageRatio = limitValue > 0 ? normalizedCurrent / limitValue : 1;
 
         return {
-          isUnlimited,
-          limitValue: isUnlimited ? null : limitValue,
+          limitValue,
           currentValue: normalizedCurrent,
           remaining,
-          isAtLimit: !isUnlimited && normalizedCurrent >= limitValue,
+          isAtLimit: normalizedCurrent >= limitValue,
+          usageRatio,
+          isNearLimit: normalizedCurrent < limitValue && usageRatio >= 0.8,
         };
       },
     [entitlements]

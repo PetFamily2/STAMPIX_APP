@@ -20,16 +20,22 @@ import {
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { getUpgradeAreaLabel } from '@/lib/subscription/lockedAreaCopy';
+import {
+  getPlanPriceForPeriod,
+  normalizePlanCatalog,
+  type PlanCatalogItem,
+} from '@/lib/subscription/planComparison';
 
-const PLAN_LABELS: Record<'pro' | 'unlimited', string> = {
+const PLAN_LABELS: Record<'pro' | 'premium', string> = {
   pro: 'Pro AI',
-  unlimited: 'Unlimited AI',
+  premium: 'Premium AI',
 };
 
 type UpgradeModalProps = {
   visible: boolean;
   businessId: Id<'businesses'> | null;
-  initialPlan?: 'pro' | 'unlimited';
+  initialPlan?: 'pro' | 'premium';
   initialBillingPeriod?: BillingPeriod;
   reason?:
     | 'feature_locked'
@@ -42,10 +48,52 @@ type UpgradeModalProps = {
 };
 
 const PLAN_REASON_COPY: Record<string, string> = {
-  feature_locked: 'הפיצ׳ר שבחרתם זמין במסלול מתקדם יותר.',
-  limit_reached: 'הגעתם למגבלת המסלול. שדרוג יפתח את המגבלות.',
-  subscription_inactive: 'המנוי אינו פעיל כרגע. שדרוג יחזיר גישה מלאה.',
+  feature_locked: 'האזור שבחרתם זמין במסלול מתקדם יותר.',
+  limit_reached: 'הגעתם למגבלת השימוש של המסלול הנוכחי.',
+  subscription_inactive: 'המנוי של העסק לא פעיל כרגע.',
+  onboarding_plan: 'אפשר להתחיל עם Starter או לבחור מסלול בתשלום כבר עכשיו.',
 };
+
+function buildFallbackPlans(): PlanCatalogItem[] {
+  return normalizePlanCatalog([
+    {
+      plan: 'pro',
+      label: PLAN_LABELS.pro,
+      pricing: { monthly: 129, yearly: 1238, currency: 'ILS' },
+      limits: {
+        maxCards: 5,
+        maxCustomers: 2000,
+        maxActiveRetentionActions: 5,
+      },
+      features: {
+        team: true,
+        advancedReports: true,
+        marketingHub: true,
+        smartAnalytics: true,
+        segmentationBuilder: false,
+        savedSegments: false,
+      },
+    },
+    {
+      plan: 'premium',
+      label: PLAN_LABELS.premium,
+      pricing: { monthly: 249, yearly: 2390, currency: 'ILS' },
+      limits: {
+        maxCards: 10,
+        maxCustomers: 10000,
+        maxActiveRetentionActions: 15,
+      },
+      features: {
+        team: true,
+        advancedReports: true,
+        marketingHub: true,
+        smartAnalytics: true,
+        segmentationBuilder: true,
+        savedSegments: true,
+      },
+    },
+  ]).filter((plan) => plan.plan !== 'starter');
+}
 
 export function UpgradeModal({
   visible,
@@ -57,17 +105,18 @@ export function UpgradeModal({
   onClose,
   onSuccess,
 }: UpgradeModalProps) {
-  const planCatalog = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
+  const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
   const syncBusinessSubscription = useMutation(
     api.entitlements.syncBusinessSubscription
   );
-  const { isConfigured, purchasePackage, refreshPurchaserInfo } =
+  const { isConfigured, isExpoGo, purchasePackage, refreshPurchaserInfo } =
     useRevenueCat();
 
-  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'unlimited'>(
+  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'premium'>(
     initialPlan
   );
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [billingPeriod, setBillingPeriod] =
+    useState<BillingPeriod>(initialBillingPeriod);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -78,42 +127,24 @@ export function UpgradeModal({
     setBillingPeriod(initialBillingPeriod);
   }, [initialBillingPeriod, initialPlan, visible]);
 
-  const paidPlanCards = useMemo(() => {
-    const fromCatalog = planCatalog
-      .filter((plan) => plan.plan === 'pro' || plan.plan === 'unlimited')
-      .map((plan) => ({
-        plan: plan.plan as 'pro' | 'unlimited',
-        label: plan.label,
-        limits: plan.limits,
-        pricing: plan.pricing,
-      }));
-    if (fromCatalog.length > 0) {
-      return fromCatalog;
-    }
-    return [
-      {
-        plan: 'pro' as const,
-        label: PLAN_LABELS.pro,
-        limits: { maxCards: 5, maxCustomers: -1, maxAiCampaignsPerMonth: 5 },
-        pricing: { monthly: 129, yearly: 1238, currency: 'ILS' as const },
-      },
-      {
-        plan: 'unlimited' as const,
-        label: PLAN_LABELS.unlimited,
-        limits: { maxCards: -1, maxCustomers: -1, maxAiCampaignsPerMonth: 15 },
-        pricing: { monthly: 249, yearly: 2390, currency: 'ILS' as const },
-      },
-    ];
-  }, [planCatalog]);
+  const paidPlans = useMemo(() => {
+    const normalized = normalizePlanCatalog(planCatalogQuery).filter(
+      (plan): plan is PlanCatalogItem & { plan: 'pro' | 'premium' } =>
+        plan.plan === 'pro' || plan.plan === 'premium'
+    );
+
+    return normalized.length > 0 ? normalized : buildFallbackPlans();
+  }, [planCatalogQuery]);
 
   const selectedPlanCard =
-    paidPlanCards.find((plan) => plan.plan === selectedPlan) ??
-    paidPlanCards[0];
+    paidPlans.find((plan) => plan.plan === selectedPlan) ?? paidPlans[0];
   const reasonCopy =
-    PLAN_REASON_COPY[reason] ?? 'שדרגו כדי לפתוח את הפיצ׳ר לעסק שלכם.';
+    PLAN_REASON_COPY[reason] ?? 'שדרוג פותח יותר יכולות ניהול ושימור לקוחות.';
+  const featureAreaLabel = getUpgradeAreaLabel(featureKey);
+  const isBillingLive = PAYMENT_SYSTEM_ENABLED && isConfigured && !isExpoGo;
 
   const handleUpgrade = async () => {
-    if (!businessId || isSubmitting) {
+    if (!businessId || isSubmitting || !selectedPlanCard) {
       return;
     }
 
@@ -122,11 +153,11 @@ export function UpgradeModal({
       const rcPackageId =
         REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
 
-      if (PAYMENT_SYSTEM_ENABLED && isConfigured) {
+      if (isBillingLive) {
         if (!rcPackageId) {
           Alert.alert(
             'תצורה חסרה',
-            'לא הוגדר מזהה חבילה ל-RevenueCat עבור המסלול שנבחר.'
+            'לא הוגדר מזהה RevenueCat למסלול ולמחזור החיוב שנבחרו.'
           );
           return;
         }
@@ -135,6 +166,7 @@ export function UpgradeModal({
         if (!purchased) {
           return;
         }
+
         await refreshPurchaserInfo();
       }
 
@@ -143,9 +175,15 @@ export function UpgradeModal({
         plan: selectedPlan,
         status: 'active',
         period: billingPeriod,
-        provider:
-          PAYMENT_SYSTEM_ENABLED && isConfigured ? 'revenuecat' : 'mock',
+        provider: isBillingLive ? 'revenuecat' : 'manual',
       });
+
+      if (!isBillingLive) {
+        Alert.alert(
+          'מצב בדיקה',
+          'התשלומים כבויים כרגע, לכן עודכן מסלול בדיקה לעסק במקום רכישה אמיתית.'
+        );
+      }
 
       onSuccess?.();
       onClose();
@@ -169,8 +207,18 @@ export function UpgradeModal({
           <View style={styles.handle} />
           <Text style={styles.title}>שדרוג מסלול</Text>
           <Text style={styles.subtitle}>{reasonCopy}</Text>
-          {featureKey ? (
-            <Text style={styles.featureText}>פיצ׳ר: {featureKey}</Text>
+          {featureAreaLabel ? (
+            <Text style={styles.featureText}>אזור: {featureAreaLabel}</Text>
+          ) : null}
+
+          {!isBillingLive ? (
+            <View style={styles.devBanner}>
+              <Text style={styles.devBannerTitle}>מצב בדיקה</Text>
+              <Text style={styles.devBannerText}>
+                רכישה אמיתית לא זמינה כרגע. בלחיצה על הכפתור יתעדכן לעסק מסלול
+                בדיקה כדי לאפשר לכם להמשיך לבדוק את המוצר.
+              </Text>
+            </View>
           ) : null}
 
           <View style={styles.periodWrap}>
@@ -202,38 +250,67 @@ export function UpgradeModal({
             style={styles.planList}
             contentContainerStyle={styles.planListContent}
           >
-            {paidPlanCards.map((plan) => {
+            {paidPlans.map((plan) => {
               const active = selectedPlan === plan.plan;
-              const price =
-                billingPeriod === 'monthly'
-                  ? plan.pricing.monthly
-                  : plan.pricing.yearly;
+              const price = getPlanPriceForPeriod(plan, billingPeriod);
 
               return (
                 <Pressable
                   key={plan.plan}
-                  onPress={() => setSelectedPlan(plan.plan)}
+                  onPress={() =>
+                    setSelectedPlan(plan.plan === 'premium' ? 'premium' : 'pro')
+                  }
                   style={[
                     styles.planCard,
                     active ? styles.planCardActive : null,
                   ]}
                 >
                   <View style={styles.planHeader}>
-                    <Text style={styles.planName}>{plan.label}</Text>
-                    <Text style={styles.planPrice}>₪{price}</Text>
+                    <View style={styles.planTitleWrap}>
+                      <Text style={styles.planName}>{plan.label}</Text>
+                      <Text style={styles.planPrice}>
+                        ₪{price}
+                        <Text style={styles.planPriceSuffix}>
+                          {billingPeriod === 'monthly' ? ' / חודש' : ' / שנה'}
+                        </Text>
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.selectionDot,
+                        active ? styles.selectionDotActive : null,
+                      ]}
+                    />
                   </View>
-                  <Text style={styles.planMeta}>
-                    כרטיסים:{' '}
-                    {plan.limits.maxCards === -1
-                      ? 'ללא הגבלה'
-                      : plan.limits.maxCards}
-                  </Text>
-                  <Text style={styles.planMeta}>
-                    קמפייני AI לחודש:{' '}
-                    {plan.limits.maxAiCampaignsPerMonth === -1
-                      ? 'ללא הגבלה'
-                      : plan.limits.maxAiCampaignsPerMonth}
-                  </Text>
+
+                  <View style={styles.planMetaGrid}>
+                    <Text style={styles.planMeta}>
+                      כרטיסים: {plan.limits.maxCards}
+                    </Text>
+                    <Text style={styles.planMeta}>
+                      לקוחות: {plan.limits.maxCustomers}
+                    </Text>
+                    <Text style={styles.planMeta}>
+                      קמפייני שימור פעילים:{' '}
+                      {plan.limits.maxActiveRetentionActions}
+                    </Text>
+                  </View>
+
+                  <View style={styles.featureRow}>
+                    <Text style={styles.featureBadge}>
+                      {plan.features.team ? 'צוות' : 'ללא צוות'}
+                    </Text>
+                    <Text style={styles.featureBadge}>
+                      {plan.features.smartAnalytics
+                        ? 'תובנות לקוחות'
+                        : 'ללא תובנות'}
+                    </Text>
+                    <Text style={styles.featureBadge}>
+                      {plan.features.segmentationBuilder
+                        ? 'בונה סגמנטים'
+                        : 'ללא סגמנטים'}
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}
@@ -250,9 +327,12 @@ export function UpgradeModal({
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.upgradeButtonText}>שדרגו עכשיו</Text>
+              <Text style={styles.upgradeButtonText}>
+                {isBillingLive ? 'המשך לרכישה' : 'הפעלת מסלול בדיקה'}
+              </Text>
             )}
           </Pressable>
+
           <Pressable onPress={onClose} style={styles.cancelButton}>
             <Text style={styles.cancelText}>אולי אחר כך</Text>
           </Pressable>
@@ -286,7 +366,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'right',
@@ -300,11 +380,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   featureText: {
-    marginTop: 4,
+    marginTop: 6,
     fontSize: 12,
-    color: '#1E40AF',
+    color: '#1D4ED8',
     textAlign: 'right',
     fontWeight: '700',
+  },
+  devBanner: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  devBannerTitle: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  devBannerText: {
+    color: '#B45309',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    textAlign: 'right',
   },
   periodWrap: {
     marginTop: 14,
@@ -335,7 +438,7 @@ const styles = StyleSheet.create({
   },
   planList: {
     marginTop: 12,
-    maxHeight: 300,
+    maxHeight: 320,
   },
   planListContent: {
     gap: 10,
@@ -348,7 +451,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    gap: 4,
+    gap: 8,
   },
   planCardActive: {
     borderColor: '#2563EB',
@@ -356,27 +459,70 @@ const styles = StyleSheet.create({
   },
   planHeader: {
     flexDirection: 'row-reverse',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
   },
+  planTitleWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
   planName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'right',
   },
   planPrice: {
-    fontSize: 16,
+    marginTop: 2,
+    fontSize: 18,
     fontWeight: '900',
     color: '#1E3A8A',
-    textAlign: 'left',
+    textAlign: 'right',
+  },
+  planPriceSuffix: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  selectionDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    marginTop: 2,
+  },
+  selectionDotActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#2563EB',
+  },
+  planMetaGrid: {
+    gap: 4,
   },
   planMeta: {
     fontSize: 12,
     fontWeight: '600',
     color: '#475569',
     textAlign: 'right',
+  },
+  featureRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  featureBadge: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D5E1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
   },
   upgradeButton: {
     marginTop: 10,

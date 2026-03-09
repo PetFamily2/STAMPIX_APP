@@ -6,35 +6,48 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 
-export type BusinessPlan = 'starter' | 'pro' | 'unlimited';
+export type BusinessPlan = 'starter' | 'pro' | 'premium';
+export type LegacyBusinessPlan = 'starter' | 'pro' | 'unlimited' | 'free';
 export type BusinessSubscriptionStatus =
   | 'active'
   | 'trialing'
   | 'past_due'
-  | 'canceled';
+  | 'canceled'
+  | 'inactive';
 export type BillingPeriod = 'monthly' | 'yearly';
 
-export type FeatureKey =
+export type CanonicalFeatureKey =
+  | 'team'
+  | 'advancedReports'
+  | 'marketingHub'
+  | 'smartAnalytics'
+  | 'segmentationBuilder'
+  | 'savedSegments';
+export type LegacyFeatureKey =
   | 'canManageTeam'
   | 'canSeeAdvancedReports'
   | 'canUseMarketingHubAI'
   | 'canUseSmartAnalytics'
   | 'canUseAdvancedSegmentation';
+export type FeatureKey = CanonicalFeatureKey | LegacyFeatureKey;
+export type LimitKey =
+  | 'maxCards'
+  | 'maxCustomers'
+  | 'maxActiveRetentionActions';
 
-export type LimitKey = 'maxCards' | 'maxCustomers' | 'maxAiCampaignsPerMonth';
-
-type FeatureConfig = Record<FeatureKey, boolean>;
+type CanonicalFeatureConfig = Record<CanonicalFeatureKey, boolean>;
+type FeatureConfig = CanonicalFeatureConfig & Record<LegacyFeatureKey, boolean>;
 type LimitConfig = Record<LimitKey, number>;
 
 type PlanDefinition = {
-  label: string;
+  displayName: string;
   pricing: {
     monthly: number;
     yearly: number;
     currency: 'ILS';
   };
   limits: LimitConfig;
-  features: FeatureConfig;
+  features: CanonicalFeatureConfig;
 };
 
 type BusinessSubscriptionState = {
@@ -43,8 +56,6 @@ type BusinessSubscriptionState = {
   startAt: number | null;
   endAt: number | null;
   billingPeriod: BillingPeriod | null;
-  aiCampaignsUsedThisMonth: number;
-  aiCampaignsMonthKey: string;
   isSubscriptionActive: boolean;
 };
 
@@ -60,9 +71,8 @@ export type BusinessEntitlements = {
   features: FeatureConfig;
   pricing: PlanDefinition['pricing'];
   usage: {
-    aiCampaignsUsedThisMonth: number;
-    aiCampaignsMonthKey: string;
-    aiCampaignsRemainingThisMonth: number | null;
+    activeRetentionActions: number;
+    activeRetentionActionsRemaining: number;
   };
   requiredPlanMap: {
     byFeature: Record<FeatureKey, BusinessPlan>;
@@ -84,8 +94,10 @@ export type EntitlementErrorPayload = {
   featureKey?: FeatureKey;
   requiredPlan?: BusinessPlan;
   limitKey?: LimitKey;
+  limitType?: 'active_retention_actions';
   limitValue?: number;
   currentValue?: number;
+  planKey?: BusinessPlan;
   subscriptionStatus?: BusinessSubscriptionStatus;
 };
 
@@ -95,25 +107,71 @@ export type EntitlementRequirement = {
   currentValue?: number;
 };
 
-export const PLAN_ORDER: BusinessPlan[] = ['starter', 'pro', 'unlimited'];
+export const PLAN_ORDER: BusinessPlan[] = ['starter', 'pro', 'premium'];
 
 export const PLAN_RANK: Record<BusinessPlan, number> = {
   starter: 0,
   pro: 1,
-  unlimited: 2,
+  premium: 2,
 };
 
-export const REQUIRED_PLAN_BY_FEATURE: Record<FeatureKey, BusinessPlan> = {
-  canManageTeam: 'pro',
-  canSeeAdvancedReports: 'pro',
-  canUseMarketingHubAI: 'pro',
-  canUseSmartAnalytics: 'pro',
-  canUseAdvancedSegmentation: 'unlimited',
+const FEATURE_ALIAS_MAP: Record<FeatureKey, CanonicalFeatureKey> = {
+  team: 'team',
+  advancedReports: 'advancedReports',
+  marketingHub: 'marketingHub',
+  smartAnalytics: 'smartAnalytics',
+  segmentationBuilder: 'segmentationBuilder',
+  savedSegments: 'savedSegments',
+  canManageTeam: 'team',
+  canSeeAdvancedReports: 'advancedReports',
+  canUseMarketingHubAI: 'marketingHub',
+  canUseSmartAnalytics: 'smartAnalytics',
+  canUseAdvancedSegmentation: 'segmentationBuilder',
 };
+
+function expandFeatureConfig(features: CanonicalFeatureConfig): FeatureConfig {
+  return {
+    ...features,
+    canManageTeam: features.team,
+    canSeeAdvancedReports: features.advancedReports,
+    canUseMarketingHubAI: features.marketingHub,
+    canUseSmartAnalytics: features.smartAnalytics,
+    canUseAdvancedSegmentation: features.segmentationBuilder,
+  };
+}
+
+function expandRequiredPlanMap(
+  requiredPlanByFeature: Record<CanonicalFeatureKey, BusinessPlan>
+): Record<FeatureKey, BusinessPlan> {
+  return {
+    ...requiredPlanByFeature,
+    canManageTeam: requiredPlanByFeature.team,
+    canSeeAdvancedReports: requiredPlanByFeature.advancedReports,
+    canUseMarketingHubAI: requiredPlanByFeature.marketingHub,
+    canUseSmartAnalytics: requiredPlanByFeature.smartAnalytics,
+    canUseAdvancedSegmentation: requiredPlanByFeature.segmentationBuilder,
+  };
+}
+
+const REQUIRED_PLAN_BY_CANONICAL_FEATURE: Record<
+  CanonicalFeatureKey,
+  BusinessPlan
+> = {
+  team: 'pro',
+  advancedReports: 'pro',
+  marketingHub: 'pro',
+  smartAnalytics: 'pro',
+  segmentationBuilder: 'premium',
+  savedSegments: 'premium',
+};
+
+export const REQUIRED_PLAN_BY_FEATURE = expandRequiredPlanMap(
+  REQUIRED_PLAN_BY_CANONICAL_FEATURE
+);
 
 export const planConfig: Record<BusinessPlan, PlanDefinition> = {
   starter: {
-    label: 'Starter',
+    displayName: 'Starter',
     pricing: {
       monthly: 0,
       yearly: 0,
@@ -122,18 +180,19 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     limits: {
       maxCards: 1,
       maxCustomers: 30,
-      maxAiCampaignsPerMonth: 0,
+      maxActiveRetentionActions: 0,
     },
     features: {
-      canManageTeam: false,
-      canSeeAdvancedReports: false,
-      canUseMarketingHubAI: false,
-      canUseSmartAnalytics: false,
-      canUseAdvancedSegmentation: false,
+      team: false,
+      advancedReports: false,
+      marketingHub: false,
+      smartAnalytics: false,
+      segmentationBuilder: false,
+      savedSegments: false,
     },
   },
   pro: {
-    label: 'Pro AI',
+    displayName: 'Pro AI',
     pricing: {
       monthly: 129,
       yearly: 1238,
@@ -141,35 +200,37 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     },
     limits: {
       maxCards: 5,
-      maxCustomers: -1,
-      maxAiCampaignsPerMonth: 5,
+      maxCustomers: 2000,
+      maxActiveRetentionActions: 5,
     },
     features: {
-      canManageTeam: true,
-      canSeeAdvancedReports: true,
-      canUseMarketingHubAI: true,
-      canUseSmartAnalytics: true,
-      canUseAdvancedSegmentation: false,
+      team: true,
+      advancedReports: true,
+      marketingHub: true,
+      smartAnalytics: true,
+      segmentationBuilder: false,
+      savedSegments: false,
     },
   },
-  unlimited: {
-    label: 'Unlimited AI',
+  premium: {
+    displayName: 'Premium AI',
     pricing: {
       monthly: 249,
       yearly: 2390,
       currency: 'ILS',
     },
     limits: {
-      maxCards: -1,
-      maxCustomers: -1,
-      maxAiCampaignsPerMonth: 15,
+      maxCards: 10,
+      maxCustomers: 10000,
+      maxActiveRetentionActions: 15,
     },
     features: {
-      canManageTeam: true,
-      canSeeAdvancedReports: true,
-      canUseMarketingHubAI: true,
-      canUseSmartAnalytics: true,
-      canUseAdvancedSegmentation: true,
+      team: true,
+      advancedReports: true,
+      marketingHub: true,
+      smartAnalytics: true,
+      segmentationBuilder: true,
+      savedSegments: true,
     },
   },
 };
@@ -179,6 +240,7 @@ const SUBSCRIPTION_STATUS_ORDER: BusinessSubscriptionStatus[] = [
   'trialing',
   'past_due',
   'canceled',
+  'inactive',
 ];
 
 const ACTIVE_PAID_STATUSES: BusinessSubscriptionStatus[] = [
@@ -190,9 +252,12 @@ function throwEntitlementError(payload: EntitlementErrorPayload): never {
   throw new ConvexError(payload);
 }
 
-function normalizeBusinessPlan(value: unknown): BusinessPlan {
-  if (value === 'pro' || value === 'unlimited') {
-    return value;
+export function normalizeBusinessPlan(value: unknown): BusinessPlan {
+  if (value === 'premium' || value === 'unlimited') {
+    return 'premium';
+  }
+  if (value === 'pro') {
+    return 'pro';
   }
   return 'starter';
 }
@@ -212,11 +277,16 @@ function normalizeSubscriptionStatus(
     value === 'active' ||
     value === 'trialing' ||
     value === 'past_due' ||
-    value === 'canceled'
+    value === 'canceled' ||
+    value === 'inactive'
   ) {
     return value;
   }
   return plan === 'starter' ? 'active' : 'active';
+}
+
+function normalizeFeatureKey(featureKey: FeatureKey): CanonicalFeatureKey {
+  return FEATURE_ALIAS_MAP[featureKey];
 }
 
 function isPaidPlanSubscriptionActive(
@@ -229,31 +299,12 @@ function isPaidPlanSubscriptionActive(
   return ACTIVE_PAID_STATUSES.includes(status);
 }
 
-export function getCurrentMonthKey(timestamp = Date.now()): string {
-  const date = new Date(timestamp);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-}
-
 function resolveBusinessSubscriptionState(
   business: Doc<'businesses'>,
-  now = Date.now()
+  _now = Date.now()
 ): BusinessSubscriptionState {
-  const currentMonthKey = getCurrentMonthKey(now);
   const plan = normalizeBusinessPlan(business.subscriptionPlan);
   const status = normalizeSubscriptionStatus(business.subscriptionStatus, plan);
-  const rawMonthKey = business.aiCampaignsMonthKey ?? currentMonthKey;
-  const aiCampaignsMonthKey =
-    typeof rawMonthKey === 'string' && rawMonthKey.trim().length > 0
-      ? rawMonthKey
-      : currentMonthKey;
-  const rawUsage = Number.isFinite(business.aiCampaignsUsedThisMonth)
-    ? Number(business.aiCampaignsUsedThisMonth)
-    : 0;
-  const normalizedUsage = Math.max(0, Math.floor(rawUsage));
-  const aiCampaignsUsedThisMonth =
-    aiCampaignsMonthKey === currentMonthKey ? normalizedUsage : 0;
 
   return {
     plan,
@@ -261,8 +312,6 @@ function resolveBusinessSubscriptionState(
     startAt: business.subscriptionStartAt ?? null,
     endAt: business.subscriptionEndAt ?? null,
     billingPeriod: normalizeBillingPeriod(business.billingPeriod),
-    aiCampaignsUsedThisMonth,
-    aiCampaignsMonthKey: currentMonthKey,
     isSubscriptionActive: isPaidPlanSubscriptionActive(plan, status),
   };
 }
@@ -273,24 +322,35 @@ export function getRequiredPlanForLimit(
 ): BusinessPlan | null {
   const currentRank = PLAN_RANK[currentPlan];
   const currentLimit = planConfig[currentPlan].limits[limitKey];
-  if (currentLimit === -1) {
-    return null;
-  }
 
   for (const plan of PLAN_ORDER) {
     if (PLAN_RANK[plan] <= currentRank) {
       continue;
     }
     const candidateLimit = planConfig[plan].limits[limitKey];
-    if (candidateLimit === -1) {
-      return plan;
-    }
     if (candidateLimit > currentLimit) {
       return plan;
     }
   }
 
   return null;
+}
+
+export function getRequiredPlanForFeature(
+  featureKey: FeatureKey
+): BusinessPlan {
+  return REQUIRED_PLAN_BY_FEATURE[featureKey];
+}
+
+export function getRequiredUpgradePlan(
+  args:
+    | { featureKey: FeatureKey }
+    | { limitKey: LimitKey; currentPlan: BusinessPlan }
+): BusinessPlan | null {
+  if ('featureKey' in args) {
+    return getRequiredPlanForFeature(args.featureKey);
+  }
+  return getRequiredPlanForLimit(args.limitKey, args.currentPlan);
 }
 
 function buildRequiredPlanByLimitFromCurrentPlan(): Record<
@@ -301,25 +361,25 @@ function buildRequiredPlanByLimitFromCurrentPlan(): Record<
     starter: {
       maxCards: getRequiredPlanForLimit('maxCards', 'starter'),
       maxCustomers: getRequiredPlanForLimit('maxCustomers', 'starter'),
-      maxAiCampaignsPerMonth: getRequiredPlanForLimit(
-        'maxAiCampaignsPerMonth',
+      maxActiveRetentionActions: getRequiredPlanForLimit(
+        'maxActiveRetentionActions',
         'starter'
       ),
     },
     pro: {
       maxCards: getRequiredPlanForLimit('maxCards', 'pro'),
       maxCustomers: getRequiredPlanForLimit('maxCustomers', 'pro'),
-      maxAiCampaignsPerMonth: getRequiredPlanForLimit(
-        'maxAiCampaignsPerMonth',
+      maxActiveRetentionActions: getRequiredPlanForLimit(
+        'maxActiveRetentionActions',
         'pro'
       ),
     },
-    unlimited: {
-      maxCards: getRequiredPlanForLimit('maxCards', 'unlimited'),
-      maxCustomers: getRequiredPlanForLimit('maxCustomers', 'unlimited'),
-      maxAiCampaignsPerMonth: getRequiredPlanForLimit(
-        'maxAiCampaignsPerMonth',
-        'unlimited'
+    premium: {
+      maxCards: getRequiredPlanForLimit('maxCards', 'premium'),
+      maxCustomers: getRequiredPlanForLimit('maxCustomers', 'premium'),
+      maxActiveRetentionActions: getRequiredPlanForLimit(
+        'maxActiveRetentionActions',
+        'premium'
       ),
     },
   };
@@ -330,13 +390,22 @@ const REQUIRED_PLAN_BY_LIMIT_FROM_CURRENT_PLAN =
 
 export function buildBusinessEntitlementsFromBusiness(
   business: Doc<'businesses'>,
-  now = Date.now()
+  now = Date.now(),
+  options?: {
+    activeRetentionActions?: number;
+  }
 ): BusinessEntitlements {
   const state = resolveBusinessSubscriptionState(business, now);
   const config = planConfig[state.plan];
-  const limit = config.limits.maxAiCampaignsPerMonth;
-  const remaining =
-    limit === -1 ? null : Math.max(0, limit - state.aiCampaignsUsedThisMonth);
+  const activeRetentionActions = Number.isFinite(
+    options?.activeRetentionActions
+  )
+    ? Math.max(0, Math.floor(Number(options?.activeRetentionActions)))
+    : 0;
+  const remaining = Math.max(
+    0,
+    config.limits.maxActiveRetentionActions - activeRetentionActions
+  );
 
   return {
     businessId: business._id,
@@ -347,12 +416,11 @@ export function buildBusinessEntitlementsFromBusiness(
     billingPeriod: state.billingPeriod,
     isSubscriptionActive: state.isSubscriptionActive,
     limits: config.limits,
-    features: config.features,
+    features: expandFeatureConfig(config.features),
     pricing: config.pricing,
     usage: {
-      aiCampaignsUsedThisMonth: state.aiCampaignsUsedThisMonth,
-      aiCampaignsMonthKey: state.aiCampaignsMonthKey,
-      aiCampaignsRemainingThisMonth: remaining,
+      activeRetentionActions,
+      activeRetentionActionsRemaining: remaining,
     },
     requiredPlanMap: {
       byFeature: REQUIRED_PLAN_BY_FEATURE,
@@ -370,6 +438,7 @@ function assertEntitlementFromSnapshot(
       code: 'SUBSCRIPTION_INACTIVE',
       businessId: String(entitlements.businessId),
       requiredPlan: entitlements.plan,
+      planKey: entitlements.plan,
       subscriptionStatus: entitlements.subscriptionStatus,
       featureKey: requirement.featureKey,
       limitKey: requirement.limitKey,
@@ -381,13 +450,15 @@ function assertEntitlementFromSnapshot(
   }
 
   if (requirement.featureKey) {
-    const hasFeature = entitlements.features[requirement.featureKey] === true;
+    const canonicalFeatureKey = normalizeFeatureKey(requirement.featureKey);
+    const hasFeature = entitlements.features[canonicalFeatureKey] === true;
     if (!hasFeature) {
       throwEntitlementError({
         code: 'FEATURE_NOT_AVAILABLE',
         businessId: String(entitlements.businessId),
         featureKey: requirement.featureKey,
-        requiredPlan: REQUIRED_PLAN_BY_FEATURE[requirement.featureKey],
+        requiredPlan: REQUIRED_PLAN_BY_CANONICAL_FEATURE[canonicalFeatureKey],
+        planKey: entitlements.plan,
         subscriptionStatus: entitlements.subscriptionStatus,
       });
     }
@@ -399,7 +470,7 @@ function assertEntitlementFromSnapshot(
       ? Number(requirement.currentValue)
       : 0;
 
-    if (limitValue !== -1 && currentValue >= limitValue) {
+    if (currentValue >= limitValue) {
       throwEntitlementError({
         code: 'PLAN_LIMIT_REACHED',
         businessId: String(entitlements.businessId),
@@ -409,8 +480,13 @@ function assertEntitlementFromSnapshot(
           ] ?? undefined,
         featureKey: requirement.featureKey,
         limitKey: requirement.limitKey,
+        limitType:
+          requirement.limitKey === 'maxActiveRetentionActions'
+            ? 'active_retention_actions'
+            : undefined,
         limitValue,
         currentValue,
+        planKey: entitlements.plan,
         subscriptionStatus: entitlements.subscriptionStatus,
       });
     }
@@ -430,10 +506,16 @@ export async function getBusinessEntitlementsForBusinessId(
   businessId: Id<'businesses'>
 ) {
   const business = await getBusinessOrThrow(ctx, businessId);
-  return buildBusinessEntitlementsFromBusiness(business, Date.now());
+  const activeRetentionActions = await countActiveRetentionActionsForBusiness(
+    ctx,
+    businessId
+  );
+  return buildBusinessEntitlementsFromBusiness(business, Date.now(), {
+    activeRetentionActions,
+  });
 }
 
-export async function canUseFeature(
+export async function hasFeature(
   ctx: any,
   businessId: Id<'businesses'>,
   featureKey: FeatureKey
@@ -445,7 +527,33 @@ export async function canUseFeature(
   if (!entitlements.isSubscriptionActive && entitlements.plan !== 'starter') {
     return false;
   }
-  return entitlements.features[featureKey] === true;
+  const canonicalFeatureKey = normalizeFeatureKey(featureKey);
+  return entitlements.features[canonicalFeatureKey] === true;
+}
+
+export async function canUseFeature(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  featureKey: FeatureKey
+) {
+  return hasFeature(ctx, businessId, featureKey);
+}
+
+export async function assertFeature(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  featureKey: FeatureKey
+) {
+  return assertEntitlement(ctx, businessId, { featureKey });
+}
+
+export async function assertLimit(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  limitKey: LimitKey,
+  currentValue: number
+) {
+  return assertEntitlement(ctx, businessId, { limitKey, currentValue });
 }
 
 export async function assertEntitlement(
@@ -476,35 +584,56 @@ export async function countActiveCustomersForBusiness(
   ).size;
 }
 
-export async function reserveAiCampaignQuota(
+export async function countActiveRetentionActionsForBusiness(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const business = await getBusinessOrThrow(ctx, businessId);
+  const campaigns = await ctx.db
+    .query('campaigns')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .filter((q: any) =>
+      q.and(
+        q.eq(q.field('type'), 'retention_action'),
+        q.eq(q.field('status'), 'active'),
+        q.eq(q.field('isActive'), true)
+      )
+    )
+    .collect();
+  return campaigns.length;
+}
+
+export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
+  const [business, programs, activeCustomers, activeRetentionActions] =
+    await Promise.all([
+      getBusinessOrThrow(ctx, businessId),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) =>
+          q.and(
+            q.eq(q.field('isActive'), true),
+            q.neq(q.field('isArchived'), true)
+          )
+        )
+        .collect(),
+      countActiveCustomersForBusiness(ctx, businessId),
+      countActiveRetentionActionsForBusiness(ctx, businessId),
+    ]);
+
   const entitlements = buildBusinessEntitlementsFromBusiness(
     business,
-    Date.now()
+    Date.now(),
+    {
+      activeRetentionActions,
+    }
   );
-  assertEntitlementFromSnapshot(entitlements, {
-    featureKey: 'canUseMarketingHubAI',
-    limitKey: 'maxAiCampaignsPerMonth',
-    currentValue: entitlements.usage.aiCampaignsUsedThisMonth,
-  });
-
-  const usedBefore = entitlements.usage.aiCampaignsUsedThisMonth;
-  const usedAfter = usedBefore + 1;
-  const now = Date.now();
-  await ctx.db.patch(businessId, {
-    aiCampaignsMonthKey: getCurrentMonthKey(now),
-    aiCampaignsUsedThisMonth: usedAfter,
-    updatedAt: now,
-  });
-
   return {
-    usedBefore,
-    usedAfter,
-    limitValue: entitlements.limits.maxAiCampaignsPerMonth,
-    monthKey: getCurrentMonthKey(now),
+    cardsUsed: programs.length,
+    customersUsed: activeCustomers,
+    activeRetentionActionsUsed: entitlements.usage.activeRetentionActions,
+    limits: entitlements.limits,
+    billingPeriod: entitlements.billingPeriod,
+    plan: entitlements.plan,
   };
 }
 
@@ -522,12 +651,32 @@ export const getBusinessEntitlements = query({
   },
 });
 
+export const getBusinessUsageSummary = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return null;
+    }
+
+    await requireActorIsStaffForBusiness(ctx, businessId);
+    return await getUsageSummary(ctx, businessId);
+  },
+});
+
 export const getPlanCatalog = query({
   args: {},
   handler: async () => {
     return PLAN_ORDER.map((plan) => ({
       plan,
-      ...planConfig[plan],
+      label: planConfig[plan].displayName,
+      displayName: planConfig[plan].displayName,
+      monthlyPrice: planConfig[plan].pricing.monthly,
+      yearlyPrice: planConfig[plan].pricing.yearly,
+      pricing: planConfig[plan].pricing,
+      limits: planConfig[plan].limits,
+      features: expandFeatureConfig(planConfig[plan].features),
       requiredPlanByLimit: REQUIRED_PLAN_BY_LIMIT_FROM_CURRENT_PLAN[plan],
     }));
   },
@@ -536,17 +685,14 @@ export const getPlanCatalog = query({
 export const syncBusinessSubscription = mutation({
   args: {
     businessId: v.id('businesses'),
-    plan: v.union(
-      v.literal('starter'),
-      v.literal('pro'),
-      v.literal('unlimited')
-    ),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('premium')),
     status: v.optional(
       v.union(
         v.literal('active'),
         v.literal('trialing'),
         v.literal('past_due'),
-        v.literal('canceled')
+        v.literal('canceled'),
+        v.literal('inactive')
       )
     ),
     period: v.optional(v.union(v.literal('monthly'), v.literal('yearly'))),
@@ -561,21 +707,16 @@ export const syncBusinessSubscription = mutation({
     await requireActorIsBusinessOwner(ctx, args.businessId);
     const business = await getBusinessOrThrow(ctx, args.businessId);
     const now = Date.now();
-    const monthKey = getCurrentMonthKey(now);
-    const plan = args.plan;
+    const plan = normalizeBusinessPlan(args.plan);
     const status = normalizeSubscriptionStatus(args.status, plan);
     const billingPeriod =
-      args.period ?? (plan === 'starter' ? null : 'monthly');
+      plan === 'starter'
+        ? null
+        : (args.period ?? business.billingPeriod ?? 'monthly');
     const startAt = args.startAt ?? now;
     const endAt = args.endAt ?? null;
     const provider = args.provider ?? (plan === 'starter' ? 'manual' : 'mock');
     const subscriptionPeriod = args.period ?? 'monthly';
-
-    const existingMonthKey = business.aiCampaignsMonthKey ?? monthKey;
-    const existingUsage = Number.isFinite(business.aiCampaignsUsedThisMonth)
-      ? Math.max(0, Math.floor(Number(business.aiCampaignsUsedThisMonth)))
-      : 0;
-    const normalizedUsage = existingMonthKey === monthKey ? existingUsage : 0;
 
     await ctx.db.patch(args.businessId, {
       subscriptionPlan: plan,
@@ -583,8 +724,6 @@ export const syncBusinessSubscription = mutation({
       subscriptionStartAt: startAt,
       subscriptionEndAt: endAt,
       billingPeriod,
-      aiCampaignsMonthKey: monthKey,
-      aiCampaignsUsedThisMonth: normalizedUsage,
       updatedAt: now,
     });
 
