@@ -146,7 +146,7 @@ export default function BusinessTeamScreen() {
   const inviteSection = (
     <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
       <Text
-        className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+        className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
       >
         הזמנת עובד חדש
       </Text>
@@ -261,7 +261,7 @@ export default function BusinessTeamScreen() {
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
               <View className={`${tw.flexRow} items-center justify-between`}>
                 <Text
-                  className={`text-[10px] uppercase tracking-[0.4em] text-[#5B6475] ${tw.textStart}`}
+                  className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
                 >
                   צוות פעיל
                 </Text>
@@ -319,7 +319,7 @@ export default function BusinessTeamScreen() {
                           </Text>
                         </View>
                         <View className="items-end">
-                          <Text className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#5B6475]">
+                          <Text className="text-[11px] font-semibold text-[#64748B]">
                             {member.staffRole === 'owner' ? 'בעלים' : 'עובד'}
                           </Text>
                           <Text className="mt-1 text-[11px] text-[#64748B]">

@@ -220,53 +220,81 @@ export default function BusinessSettingsScreen() {
         <BusinessModeCtaCard />
 
         <View className="rounded-3xl border border-[#E3E9FF] bg-white p-4">
-          <View className={`${tw.flexRow} items-center justify-between`}>
-            <Pressable
-              onPress={() => setIsPickerVisible(true)}
-              disabled={isSwitchingBusiness}
-              style={({ pressed }) => [
-                {
-                  flexDirection: 'row-reverse',
-                  alignItems: 'center',
-                  gap: 8,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: '#CFE0FF',
-                  backgroundColor: '#F3F7FF',
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  opacity: pressed || isSwitchingBusiness ? 0.82 : 1,
-                },
-              ]}
-            >
-              {isSwitchingBusiness ? (
-                <ActivityIndicator size="small" color="#2F6BFF" />
-              ) : (
-                <Ionicons name="chevron-down" size={14} color="#2F6BFF" />
-              )}
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '800',
-                  color: '#1D4ED8',
-                  textAlign: 'right',
-                }}
-              >
-                {activeBusiness?.name ?? 'בחר עסק'}
-              </Text>
-            </Pressable>
-
-            <Text
+          <Pressable
+            onPress={() => setIsPickerVisible(true)}
+            disabled={isSwitchingBusiness}
+            style={({ pressed }) => [
+              {
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: '#D6E3FF',
+                backgroundColor: '#F4F8FF',
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                opacity: pressed || isSwitchingBusiness ? 0.84 : 1,
+              },
+            ]}
+          >
+            <View
               style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: '#64748B',
-                textAlign: 'right',
+                flexDirection: 'row-reverse',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
               }}
             >
-              עסק פעיל
-            </Text>
-          </View>
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'flex-end',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#64748B',
+                    textAlign: 'right',
+                  }}
+                >
+                  עסק פעיל
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{
+                    marginTop: 2,
+                    fontSize: 16,
+                    fontWeight: '900',
+                    color: '#1A2B4A',
+                    textAlign: 'right',
+                    includeFontPadding: false,
+                  }}
+                >
+                  {activeBusiness?.name ?? 'בחר עסק'}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#CFE0FF',
+                  backgroundColor: '#EEF4FF',
+                }}
+              >
+                {isSwitchingBusiness ? (
+                  <ActivityIndicator size="small" color="#2F6BFF" />
+                ) : (
+                  <Ionicons name="chevron-down" size={16} color="#2F6BFF" />
+                )}
+              </View>
+            </View>
+          </Pressable>
         </View>
 
         {businessSettings?.profileCompletion &&
@@ -359,6 +387,7 @@ export default function BusinessSettingsScreen() {
               borderColor: '#DCE6FF',
               backgroundColor: '#FFFFFF',
               padding: 14,
+              maxHeight: '72%',
               gap: 8,
             }}
           >
@@ -372,66 +401,127 @@ export default function BusinessSettingsScreen() {
             >
               בחירת עסק פעיל
             </Text>
-            {businesses.map((business) => {
-              const isActive = business.businessId === activeBusinessId;
-              return (
-                <Pressable
-                  key={business.businessId}
-                  onPress={() => {
-                    void setActiveBusinessId(business.businessId)
-                      .then(() => setIsPickerVisible(false))
-                      .catch(() => {});
-                  }}
-                  style={({ pressed }) => [
-                    {
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderColor: isActive ? '#A9C7FF' : '#E3E9FF',
-                      backgroundColor: isActive ? '#EAF1FF' : '#FFFFFF',
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      opacity: pressed ? 0.86 : 1,
-                      flexDirection: 'row-reverse',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    style={{
-                      flex: 1,
-                      fontSize: 14,
-                      lineHeight: 18,
-                      fontWeight: isActive ? '800' : '700',
-                      color: '#1A2B4A',
-                      textAlign: 'right',
-                      includeFontPadding: false,
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#64748B',
+                textAlign: 'right',
+              }}
+            >
+              כל העסקים שברשותך
+            </Text>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: 8,
+              }}
+            >
+              {businesses.map((business) => {
+                const isActive = business.businessId === activeBusinessId;
+                return (
+                  <Pressable
+                    key={business.businessId}
+                    onPress={() => {
+                      void setActiveBusinessId(business.businessId)
+                        .then(() => setIsPickerVisible(false))
+                        .catch(() => {});
                     }}
+                    style={({ pressed }) => [
+                      {
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: isActive ? '#A9C7FF' : '#E3E9FF',
+                        backgroundColor: isActive ? '#EAF1FF' : '#FFFFFF',
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        opacity: pressed ? 0.86 : 1,
+                        flexDirection: 'row-reverse',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      },
+                    ]}
                   >
-                    {business.name}
-                  </Text>
-                  <View
-                    style={{
-                      width: 22,
-                      height: 18,
-                      marginRight: 10,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {isActive ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={18}
-                        color="#2563EB"
-                      />
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={{
+                        flex: 1,
+                        fontSize: 14,
+                        lineHeight: 18,
+                        fontWeight: isActive ? '800' : '700',
+                        color: '#1A2B4A',
+                        textAlign: 'right',
+                        includeFontPadding: false,
+                      }}
+                    >
+                      {business.name}
+                    </Text>
+                    <View
+                      style={{
+                        width: 22,
+                        height: 18,
+                        marginRight: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isActive ? (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#2563EB"
+                        />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              onPress={() => {
+                setIsPickerVisible(false);
+                router.push(BUSINESS_ONBOARDING_ROUTES.role);
+              }}
+              style={({ pressed }) => [
+                {
+                  marginTop: 2,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#A9C7FF',
+                  backgroundColor: '#EEF4FF',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  opacity: pressed ? 0.86 : 1,
+                  flexDirection: 'row-reverse',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: 14,
+                  fontWeight: '800',
+                  color: '#1D4ED8',
+                  textAlign: 'right',
+                }}
+              >
+                הוסף עסק
+              </Text>
+              <View
+                style={{
+                  width: 22,
+                  height: 18,
+                  marginRight: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#2563EB" />
+              </View>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>

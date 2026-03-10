@@ -515,7 +515,7 @@ export default function CampaignDraftEditorScreen() {
 
         <View className="mt-5 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             מצב קמפיין
           </Text>
@@ -552,7 +552,7 @@ export default function CampaignDraftEditorScreen() {
 
         <View className="mt-5 gap-2 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             סטטיסטיקות
           </Text>
@@ -581,7 +581,7 @@ export default function CampaignDraftEditorScreen() {
 
         <View className="mt-5 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             תוכן ההודעה
           </Text>
@@ -607,7 +607,7 @@ export default function CampaignDraftEditorScreen() {
 
         <View className="mt-5 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             קהל יעד
           </Text>

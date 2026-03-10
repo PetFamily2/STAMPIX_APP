@@ -19,11 +19,8 @@ export default mutation({
 
     for (const business of businesses) {
       const hasMonthlyFields =
-        Object.prototype.hasOwnProperty.call(
-          business,
-          'aiCampaignsUsedThisMonth'
-        ) ||
-        Object.prototype.hasOwnProperty.call(business, 'aiCampaignsMonthKey');
+        Object.hasOwn(business, 'aiCampaignsUsedThisMonth') ||
+        Object.hasOwn(business, 'aiCampaignsMonthKey');
 
       if (!hasMonthlyFields) {
         continue;

@@ -231,7 +231,7 @@ export default function ProgramDetailsScreen() {
                 className="absolute -left-8 -top-8 h-24 w-24 rounded-full"
               />
               <Text
-                className={`text-[10px] uppercase tracking-[0.3em] ${tw.textStart}`}
+                className={`text-[11px] font-semibold ${tw.textStart}`}
                 style={{ color: selectedTheme.subtitleColor }}
               >
                 תצוגה מקדימה
@@ -254,7 +254,7 @@ export default function ProgramDetailsScreen() {
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
               <Text
-                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
                 נתוני כרטיסיה
               </Text>
@@ -336,7 +336,7 @@ export default function ProgramDetailsScreen() {
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-2">
               <Text
-                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
                 ביצועי כרטיסיה
               </Text>
@@ -364,7 +364,7 @@ export default function ProgramDetailsScreen() {
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
               <Text
-                className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
                 פעולות מהירות
               </Text>

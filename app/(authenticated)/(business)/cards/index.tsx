@@ -208,7 +208,7 @@ export default function BusinessCardsManagementScreen() {
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             שימוש במסלול
           </Text>
@@ -245,7 +245,7 @@ export default function BusinessCardsManagementScreen() {
 
         <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             יצירת כרטיסיה חדשה
           </Text>
@@ -305,7 +305,7 @@ export default function BusinessCardsManagementScreen() {
 
         <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             כרטיסיות פעילות ({activePrograms.length})
           </Text>
@@ -362,7 +362,7 @@ export default function BusinessCardsManagementScreen() {
 
         <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             כרטיסיות בארכיון ({archivedPrograms.length})
           </Text>

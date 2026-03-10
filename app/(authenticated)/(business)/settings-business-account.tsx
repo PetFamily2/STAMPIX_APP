@@ -86,7 +86,7 @@ export default function BusinessSettingsAccountScreen() {
 
         <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
-            className={`text-[10px] uppercase tracking-[0.3em] text-[#5B6475] ${tw.textStart}`}
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             חשבון משתמש
           </Text>

@@ -512,12 +512,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroEyebrow: {
-    color: '#BFDBFE',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    color: '#DBEAFE',
+    fontSize: 12,
+    fontWeight: '700',
     textAlign: TEXT_START,
-    letterSpacing: 0.8,
   },
   heroTitle: {
     color: '#FFFFFF',
