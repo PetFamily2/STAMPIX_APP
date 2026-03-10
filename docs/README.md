@@ -82,4 +82,6 @@ Convex server vars:
 - `docs/EAS_INFRASTRUCTURE.md` - EAS commands and environment
 - `docs/REVENUECAT_SETUP.md` - RevenueCat setup details
 - `docs/AUTH_LINKING_QA_CHECKLIST.md` - auth-linking QA scenarios
+- `docs/INTEGRATIONS_AUDIT.md` - current external integrations status and production gaps
 - `docs/spec/*` - functional specs
+- `docs/spec/business-dashboard-v2-handoff.md` - dashboard V2 implementation handoff

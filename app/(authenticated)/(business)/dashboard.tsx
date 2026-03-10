@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery } from 'convex/react';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from 'convex/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
+  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -16,18 +17,12 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import {
-  entitlementErrorToHebrewMessage,
-  getEntitlementError,
-} from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
-import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const PLAN_LABELS = {
@@ -36,72 +31,94 @@ const PLAN_LABELS = {
   premium: 'Premium AI',
 } as const;
 
-type OpportunityKey = 'at_risk' | 'near_reward' | 'vip' | 'new_customers';
+type BusinessRoute =
+  | '/(authenticated)/(business)/scanner'
+  | '/(authenticated)/(business)/analytics'
+  | '/(authenticated)/(business)/customers'
+  | '/(authenticated)/(business)/cards'
+  | '/(authenticated)/(business)/settings-business-profile'
+  | '/(authenticated)/(business)/settings-business-subscription';
 
-type QuickAction = {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  route: Href;
+type HeroStatus = {
+  key: string;
+  message: string;
+  route?: BusinessRoute;
 };
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    id: 'cards',
-    title: 'כרטיסי נאמנות',
-    subtitle: 'ניהול הכרטיסים של העסק',
-    icon: 'card-outline',
-    route: '/(authenticated)/(business)/cards',
-  },
-  {
-    id: 'customers',
-    title: 'לקוחות',
-    subtitle: 'רשימת לקוחות וסטטוסים',
-    icon: 'people-outline',
-    route: '/(authenticated)/(business)/customers',
-  },
-  {
-    id: 'analytics',
-    title: 'דוחות',
-    subtitle: 'פעילות, צמיחה ושימוש',
-    icon: 'bar-chart-outline',
-    route: '/(authenticated)/(business)/analytics',
-  },
-  {
-    id: 'subscription',
-    title: 'מסלול וחיוב',
-    subtitle: 'שימוש, מגבלות ושדרוג',
-    icon: 'sparkles-outline',
-    route: '/(authenticated)/(business)/settings-business-subscription',
-  },
-];
+type AttentionItem = {
+  key: string;
+  priority: number;
+  title: string;
+  subtitle: string;
+  route: BusinessRoute;
+  tone: 'warn' | 'danger' | 'neutral';
+};
 
-const DEFAULT_RETENTION_MESSAGES: Record<
-  OpportunityKey,
-  { title: string; body: string }
-> = {
-  at_risk: {
-    title: 'חסר לנו לראות אתכם',
-    body: 'עבר זמן מאז הביקור האחרון. נשמח לראות אתכם שוב בקרוב.',
-  },
-  near_reward: {
-    title: 'אתם קרובים להטבה',
-    body: 'נשאר לכם עוד צעד קטן עד ההטבה הבאה. שווה לקפוץ שוב.',
-  },
-  vip: {
-    title: 'תודה שאתם איתנו',
-    body: 'רצינו להגיד תודה ללקוחות הכי פעילים שלנו.',
-  },
-  new_customers: {
-    title: 'ברוכים הבאים',
-    body: 'שמחים שהצטרפתם. מחכים לכם גם בביקור הבא.',
-  },
+type KpiItem = {
+  key: string;
+  label: string;
+  value: string;
+  route: BusinessRoute;
 };
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
     value
+  );
+}
+
+function sumStampsLast7Days(
+  daily: Array<{ stamps: number; redemptions: number }> | undefined
+) {
+  if (!daily) {
+    return 0;
+  }
+  return daily.reduce((sum, day) => sum + (day.stamps ?? 0), 0);
+}
+
+function sumRedemptionsLast7Days(
+  daily: Array<{ stamps: number; redemptions: number }> | undefined
+) {
+  if (!daily) {
+    return 0;
+  }
+  return daily.reduce((sum, day) => sum + (day.redemptions ?? 0), 0);
+}
+
+function getToneClasses(tone: AttentionItem['tone']) {
+  if (tone === 'danger') {
+    return {
+      card: 'border-[#FECACA] bg-[#FFF1F2]',
+      title: 'text-[#B42318]',
+      subtitle: 'text-[#9F1239]',
+      iconWrap: 'bg-[#FEE2E2]',
+      icon: '#B42318',
+    };
+  }
+  if (tone === 'warn') {
+    return {
+      card: 'border-[#FED7AA] bg-[#FFF7ED]',
+      title: 'text-[#B45309]',
+      subtitle: 'text-[#9A3412]',
+      iconWrap: 'bg-[#FFEDD5]',
+      icon: '#B45309',
+    };
+  }
+  return {
+    card: 'border-[#DBEAFE] bg-[#EFF6FF]',
+    title: 'text-[#1D4ED8]',
+    subtitle: 'text-[#1E40AF]',
+    iconWrap: 'bg-[#DBEAFE]',
+    icon: '#1D4ED8',
+  };
+}
+
+function LoadingBlock({ height = 80 }: { height?: number }) {
+  return (
+    <View
+      className="rounded-2xl border border-[#E5EAF2] bg-[#F1F5F9]"
+      style={{ height }}
+    />
   );
 }
 
@@ -115,52 +132,14 @@ export default function MerchantDashboardScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
-  const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const isOwnerOrManager =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
-
-  const businessSettings = useQuery(
-    api.business.getBusinessSettings,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const activity = useQuery(
-    api.analytics.getBusinessActivity,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const usageSummary = useQuery(
-    api.entitlements.getBusinessUsageSummary,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const recentActivity = useQuery(
-    api.events.getRecentActivity,
-    activeBusinessId ? { businessId: activeBusinessId, limit: 5 } : 'skip'
-  );
-
-  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
-  const teamGate = gate('team');
-  const marketingGate = gate('marketingHub');
-  const teamCopy = getLockedAreaCopy('team', teamGate.requiredPlan);
-  const marketingCopy = getLockedAreaCopy(
-    'marketingHub',
-    marketingGate.requiredPlan
-  );
-
-  const marketingHubSnapshot = useQuery(
-    api.retention.getMarketingHubSnapshot,
-    activeBusinessId && entitlements && !marketingGate.isLocked
-      ? { businessId: activeBusinessId }
-      : 'skip'
-  );
-
-  const createAiSuggestion = useMutation(
-    api.retention.createAiRetentionSuggestion
-  );
-  const createRetentionAction = useMutation(
-    api.retention.createRetentionAction
-  );
-
-  const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const {
+    businesses,
+    activeBusinessId,
+    activeBusiness,
+    isSwitchingBusiness,
+    setActiveBusinessId,
+  } = useActiveBusiness();
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -171,549 +150,786 @@ export default function MerchantDashboardScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  const openUpgrade = (
-    featureKey: string,
-    requiredPlan: 'starter' | 'pro' | 'premium' | null,
-    reason:
-      | 'feature_locked'
-      | 'limit_reached'
-      | 'subscription_inactive' = 'feature_locked'
-  ) => {
-    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
-  };
-
-  const handleRetentionError = (error: unknown, fallbackFeature: string) => {
-    const entitlementError = getEntitlementError(error);
-    if (entitlementError) {
-      openUpgrade(
-        entitlementError.featureKey ?? fallbackFeature,
-        entitlementError.requiredPlan ?? 'pro',
-        entitlementError.code === 'PLAN_LIMIT_REACHED'
-          ? 'limit_reached'
-          : entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-            ? 'subscription_inactive'
-            : 'feature_locked'
-      );
-      Alert.alert(
-        'שדרוג נדרש',
-        entitlementErrorToHebrewMessage(entitlementError)
-      );
-      return true;
-    }
-    return false;
-  };
-
-  const handleCreateAiSuggestion = async (targetType: OpportunityKey) => {
-    if (!activeBusinessId || activeActionId) {
-      return;
-    }
-
-    if (marketingGate.isLocked) {
-      openUpgrade(
-        'marketingHub',
-        marketingGate.requiredPlan,
-        marketingGate.reason === 'subscription_inactive'
-          ? 'subscription_inactive'
-          : 'feature_locked'
-      );
-      return;
-    }
-
-    setActiveActionId(`ai:${targetType}`);
-    try {
-      const result = await createAiSuggestion({
-        businessId: activeBusinessId,
-        targetType,
-      });
-      Alert.alert(
-        'הצעת AI נוצרה',
-        `${result.suggestion.title}\n\n${result.suggestion.messageBody}`
-      );
-    } catch (error) {
-      if (!handleRetentionError(error, 'marketingHub')) {
-        Alert.alert('שגיאה', 'לא הצלחנו ליצור הצעת AI. נסו שוב.');
-      }
-    } finally {
-      setActiveActionId(null);
-    }
-  };
-
-  const handleSendRetentionAction = async (
-    targetType: OpportunityKey,
-    channel: 'push' | 'in_app'
-  ) => {
-    if (!activeBusinessId || activeActionId) {
-      return;
-    }
-
-    if (marketingGate.isLocked) {
-      openUpgrade(
-        'marketingHub',
-        marketingGate.requiredPlan,
-        marketingGate.reason === 'subscription_inactive'
-          ? 'subscription_inactive'
-          : 'feature_locked'
-      );
-      return;
-    }
-
-    const message = DEFAULT_RETENTION_MESSAGES[targetType];
-    setActiveActionId(`${channel}:${targetType}`);
-    try {
-      const result = await createRetentionAction({
-        businessId: activeBusinessId,
-        targetType,
-        title: message.title,
-        messageBody: message.body,
-        channels: [channel],
-      });
-      Alert.alert(
-        'פעולת שימור הופעלה',
-        `${result.audienceCount} לקוחות בקהל היעד`
-      );
-    } catch (error) {
-      if (!handleRetentionError(error, 'marketingHub')) {
-        Alert.alert('שגיאה', 'לא הצלחנו לבצע את הפעולה. נסו שוב.');
-      }
-    } finally {
-      setActiveActionId(null);
-    }
-  };
-
-  const cardsStatus = limitStatus('maxCards', usageSummary?.cardsUsed ?? 0);
-  const customersStatus = limitStatus(
-    'maxCustomers',
-    usageSummary?.customersUsed ?? 0
+  const businessSettings = useQuery(
+    api.business.getBusinessSettings,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
-  const aiStatus = limitStatus(
+  const usageSummary = useQuery(
+    api.entitlements.getBusinessUsageSummary,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const activity = useQuery(
+    api.analytics.getBusinessActivity,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const programs = useQuery(
+    api.loyaltyPrograms.listManagementByBusiness,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const recentActivity = useQuery(
+    api.events.getRecentActivity,
+    activeBusinessId ? { businessId: activeBusinessId, limit: 3 } : 'skip'
+  );
+
+  const {
+    entitlements,
+    gate,
+    limitStatus,
+    isLoading: isEntitlementsLoading,
+  } = useEntitlements(activeBusinessId);
+  const smartGate = gate('smartAnalytics');
+
+  const customerSnapshot = useQuery(
+    api.events.getCustomerManagementSnapshot,
+    activeBusinessId &&
+      entitlements &&
+      !isEntitlementsLoading &&
+      !smartGate.isLocked
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
+
+  const activePrograms = useMemo(
+    () => (programs ?? []).filter((program) => program.lifecycle === 'active'),
+    [programs]
+  );
+
+  const stamps7d = useMemo(
+    () => sumStampsLast7Days(activity?.daily),
+    [activity?.daily]
+  );
+  const redemptions7d = useMemo(
+    () => sumRedemptionsLast7Days(activity?.daily),
+    [activity?.daily]
+  );
+
+  const cardsUsed = usageSummary?.cardsUsed ?? 0;
+  const customersUsed = usageSummary?.customersUsed ?? 0;
+  const activeRetentionActionsUsed =
+    usageSummary?.activeRetentionActionsUsed ?? 0;
+
+  const cardsLimit = limitStatus('maxCards', cardsUsed);
+  const customersLimit = limitStatus('maxCustomers', customersUsed);
+  const retentionLimit = limitStatus(
     'maxActiveRetentionActions',
-    usageSummary?.activeRetentionActionsUsed ??
-      entitlements?.usage.activeRetentionActions ??
-      0
+    activeRetentionActionsUsed
   );
 
-  const usageWarnings = [
-    cardsStatus.isNearLimit || cardsStatus.isAtLimit
-      ? `כרטיסים: ${cardsStatus.currentValue}/${cardsStatus.limitValue}`
-      : null,
-    customersStatus.isNearLimit || customersStatus.isAtLimit
-      ? `לקוחות: ${customersStatus.currentValue}/${customersStatus.limitValue}`
-      : null,
-    aiStatus.isNearLimit || aiStatus.isAtLimit
-      ? `קמפייני שימור פעילים: ${aiStatus.currentValue}/${aiStatus.limitValue}`
-      : null,
-  ].filter((value): value is string => Boolean(value));
+  const atLimitEntry = useMemo(() => {
+    if (cardsLimit.isAtLimit) {
+      return { label: 'כרטיסים', status: cardsLimit };
+    }
+    if (customersLimit.isAtLimit) {
+      return { label: 'לקוחות', status: customersLimit };
+    }
+    if (retentionLimit.isAtLimit) {
+      return { label: 'פעולות שימור', status: retentionLimit };
+    }
+    return null;
+  }, [cardsLimit, customersLimit, retentionLimit]);
 
-  const today = activity?.daily?.at(-1);
-  const kpiCards = [
+  const nearLimitEntry = useMemo(() => {
+    if (cardsLimit.isNearLimit) {
+      return { label: 'כרטיסים', status: cardsLimit };
+    }
+    if (customersLimit.isNearLimit) {
+      return { label: 'לקוחות', status: customersLimit };
+    }
+    if (retentionLimit.isNearLimit) {
+      return { label: 'פעולות שימור', status: retentionLimit };
+    }
+    return null;
+  }, [cardsLimit, customersLimit, retentionLimit]);
+
+  const heroStatus = useMemo<HeroStatus>(() => {
+    const missingFieldsCount =
+      businessSettings?.profileCompletion?.missingFields?.length ?? 0;
+
+    if (
+      businessSettings?.profileCompletion &&
+      !businessSettings.profileCompletion.isComplete
+    ) {
+      return {
+        key: 'profile_incomplete',
+        message: `חסרים עדיין ${missingFieldsCount} שדות בפרופיל העסק`,
+        route: '/(authenticated)/(business)/settings-business-profile',
+      };
+    }
+
+    if (programs !== undefined && activePrograms.length === 0) {
+      return {
+        key: 'no_cards',
+        message: 'כדאי ליצור כרטיס נאמנות ראשון כדי להתחיל לצרף לקוחות',
+        route: '/(authenticated)/(business)/cards',
+      };
+    }
+
+    if (atLimitEntry) {
+      return {
+        key: 'limit_reached',
+        message: `${atLimitEntry.label}: הגעתם למגבלה (${atLimitEntry.status.currentValue}/${atLimitEntry.status.limitValue})`,
+        route: '/(authenticated)/(business)/settings-business-subscription',
+      };
+    }
+
+    if (nearLimitEntry) {
+      return {
+        key: 'limit_near',
+        message: `${nearLimitEntry.label}: מתקרבים למגבלה (${nearLimitEntry.status.currentValue}/${nearLimitEntry.status.limitValue})`,
+        route: '/(authenticated)/(business)/settings-business-subscription',
+      };
+    }
+
+    if (activity !== undefined && stamps7d === 0) {
+      return {
+        key: 'no_activity',
+        message: 'לא נרשמה פעילות ניקובים ב-7 הימים האחרונים',
+        route: '/(authenticated)/(business)/analytics',
+      };
+    }
+
+    if (
+      !smartGate.isLocked &&
+      customerSnapshot &&
+      customerSnapshot.summary.atRiskCustomers > 0
+    ) {
+      return {
+        key: 'at_risk',
+        message: `${formatNumber(
+          customerSnapshot.summary.atRiskCustomers
+        )} לקוחות נמצאים בסיכון נטישה`,
+        route: '/(authenticated)/(business)/customers',
+      };
+    }
+
+    return {
+      key: 'healthy',
+      message: `השבוע נרשמו ${formatNumber(stamps7d)} ניקובים ו-${formatNumber(
+        redemptions7d
+      )} מימושים`,
+    };
+  }, [
+    activePrograms.length,
+    activity,
+    atLimitEntry,
+    businessSettings?.profileCompletion,
+    customerSnapshot,
+    nearLimitEntry,
+    programs,
+    redemptions7d,
+    smartGate.isLocked,
+    stamps7d,
+  ]);
+
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = [];
+
+    const missingFieldsCount =
+      businessSettings?.profileCompletion?.missingFields?.length ?? 0;
+    if (
+      businessSettings?.profileCompletion &&
+      !businessSettings.profileCompletion.isComplete
+    ) {
+      items.push({
+        key: 'profile_incomplete',
+        priority: 1,
+        title: 'השלמת פרופיל העסק',
+        subtitle: `חסרים ${missingFieldsCount} שדות. השלמה תשפר את חוויית הניהול.`,
+        route: '/(authenticated)/(business)/settings-business-profile',
+        tone: 'warn',
+      });
+    }
+
+    if (programs !== undefined && activePrograms.length === 0) {
+      items.push({
+        key: 'no_active_cards',
+        priority: 2,
+        title: 'אין כרטיס נאמנות פעיל',
+        subtitle: 'כדאי להקים כרטיס ראשון כדי להתחיל לצבור לקוחות.',
+        route: '/(authenticated)/(business)/cards',
+        tone: 'neutral',
+      });
+    }
+
+    if (atLimitEntry) {
+      items.push({
+        key: 'limit_reached',
+        priority: 3,
+        title: `הגעתם למגבלה במסלול (${atLimitEntry.label})`,
+        subtitle: `${atLimitEntry.status.currentValue}/${atLimitEntry.status.limitValue}. נדרש שדרוג או התאמה.`,
+        route: '/(authenticated)/(business)/settings-business-subscription',
+        tone: 'danger',
+      });
+    } else if (nearLimitEntry) {
+      items.push({
+        key: 'limit_near',
+        priority: 4,
+        title: `מתקרבים למגבלה (${nearLimitEntry.label})`,
+        subtitle: `${nearLimitEntry.status.currentValue}/${nearLimitEntry.status.limitValue}. מומלץ לעקוב אחרי השימוש.`,
+        route: '/(authenticated)/(business)/settings-business-subscription',
+        tone: 'warn',
+      });
+    }
+
+    if (
+      !smartGate.isLocked &&
+      customerSnapshot &&
+      customerSnapshot.summary.atRiskCustomers > 0
+    ) {
+      items.push({
+        key: 'at_risk_customers',
+        priority: 5,
+        title: `${formatNumber(
+          customerSnapshot.summary.atRiskCustomers
+        )} לקוחות בסיכון`,
+        subtitle: 'כדאי לבדוק את מסך הלקוחות ולטפל בחזרה לפעילות.',
+        route: '/(authenticated)/(business)/customers',
+        tone: 'danger',
+      });
+    }
+
+    if (
+      !smartGate.isLocked &&
+      customerSnapshot &&
+      customerSnapshot.summary.nearRewardCustomers > 0
+    ) {
+      items.push({
+        key: 'near_reward_customers',
+        priority: 6,
+        title: `${formatNumber(
+          customerSnapshot.summary.nearRewardCustomers
+        )} לקוחות קרובים להטבה`,
+        subtitle: 'זה חלון טוב לעודד ביקור נוסף.',
+        route: '/(authenticated)/(business)/customers',
+        tone: 'neutral',
+      });
+    }
+
+    if (activity !== undefined && stamps7d === 0) {
+      items.push({
+        key: 'no_activity_7d',
+        priority: 7,
+        title: 'אין פעילות ב-7 ימים',
+        subtitle: 'כדאי לבדוק ביצועים בדוחות ולהפעיל מהלכים לחזרה לפעילות.',
+        route: '/(authenticated)/(business)/analytics',
+        tone: 'warn',
+      });
+    }
+
+    return items.sort((a, b) => a.priority - b.priority).slice(0, 3);
+  }, [
+    activePrograms.length,
+    activity,
+    atLimitEntry,
+    businessSettings?.profileCompletion,
+    customerSnapshot,
+    nearLimitEntry,
+    programs,
+    smartGate.isLocked,
+    stamps7d,
+  ]);
+
+  const isAttentionLoading =
+    businessSettings === undefined ||
+    programs === undefined ||
+    activity === undefined ||
+    isEntitlementsLoading ||
+    (!smartGate.isLocked &&
+      entitlements !== null &&
+      customerSnapshot === undefined);
+
+  const kpiLoading = activity === undefined || usageSummary === undefined;
+  const kpiItems: KpiItem[] = [
     {
-      id: 'stamps',
-      label: 'ניקובים היום',
-      value: formatNumber(today?.stamps ?? 0),
+      key: 'stamps_7d',
+      label: 'ניקובים 7 ימים',
+      value: formatNumber(stamps7d),
+      route: '/(authenticated)/(business)/analytics',
     },
     {
-      id: 'customers',
-      label: 'לקוחות פעילים השבוע',
-      value: formatNumber(activity?.totals?.uniqueCustomers ?? 0),
+      key: 'redemptions_7d',
+      label: 'מימושים 7 ימים',
+      value: formatNumber(redemptions7d),
+      route: '/(authenticated)/(business)/analytics',
     },
     {
-      id: 'redemptions',
-      label: 'מימושים השבוע',
-      value: formatNumber(activity?.totals?.redemptions ?? 0),
+      key: 'active_customers',
+      label: 'לקוחות פעילים',
+      value: formatNumber(customersUsed),
+      route: '/(authenticated)/(business)/customers',
+    },
+    {
+      key: 'active_cards',
+      label: 'כרטיסים פעילים',
+      value: formatNumber(cardsUsed),
+      route: '/(authenticated)/(business)/cards',
     },
   ];
 
-  const missingFields =
-    businessSettings?.profileCompletion?.missingFields ?? [];
+  const topPrograms = activePrograms.slice(0, 2);
+  const programsSummary = useMemo(
+    () => ({
+      activeProgramsCount: activePrograms.length,
+      activeMembers: activePrograms.reduce(
+        (sum, program) => sum + program.metrics.activeMembers,
+        0
+      ),
+      redemptions30d: activePrograms.reduce(
+        (sum, program) => sum + program.metrics.redemptions30d,
+        0
+      ),
+    }),
+    [activePrograms]
+  );
+
+  const openSmartUpgrade = () => {
+    openSubscriptionComparison(router, {
+      featureKey: 'smartAnalytics',
+      requiredPlan: smartGate.requiredPlan,
+      reason:
+        smartGate.reason === 'subscription_inactive'
+          ? 'subscription_inactive'
+          : 'feature_locked',
+    });
+  };
+
+  const openRoute = (route: BusinessRoute) => {
+    router.push(route);
+  };
+
+  if (!activeBusinessId) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+        <Text className="text-center text-base font-semibold text-[#1A2B4A]">
+          לא נמצא עסק פעיל עבור החשבון.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: (insets.top || 0) + 12,
-          paddingBottom: 32,
+          paddingBottom: (insets.bottom || 0) + 30,
         }}
-        className="flex-1"
       >
-        <BusinessScreenHeader
-          title="מרכז ניהול"
-          subtitle="תמונה ברורה של השימוש, הלקוחות וההזדמנויות לשימור"
-        />
-
-        {businessSettings?.profileCompletion &&
-        !businessSettings.profileCompletion.isComplete ? (
-          <View className="mt-3 rounded-[22px] border border-[#FCD34D] bg-[#FFFBEB] p-4">
-            <Text
-              className={`text-sm font-extrabold text-[#92400E] ${tw.textStart}`}
+        <View className="rounded-[28px] border border-[#BFD6FF] bg-[#EEF4FF] p-5">
+          <View className={`${tw.flexRow} items-center justify-between`}>
+            <TouchableOpacity
+              onPress={() => openRoute('/(authenticated)/(business)/scanner')}
+              className="rounded-xl bg-[#2563EB] px-4 py-2.5"
             >
-              השלמת פרטי העסק
-            </Text>
-            <Text className={`mt-1 text-xs text-[#78350F] ${tw.textStart}`}>
-              חסרים עדיין {missingFields.length} שדות. השלמת הפרופיל משפרת את
-              חוויית הלקוחות ואת מסכי הניהול.
-            </Text>
-            {isOwnerOrManager ? (
+              <Text className="text-sm font-bold text-white">סריקת לקוח</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsPickerVisible(true)}
+              disabled={isSwitchingBusiness}
+              className="rounded-full border border-[#C7D8F9] bg-white px-3 py-1.5"
+            >
+              {isSwitchingBusiness ? (
+                <ActivityIndicator size="small" color="#2F6BFF" />
+              ) : (
+                <View className={`${tw.flexRow} items-center gap-1`}>
+                  <Ionicons name="chevron-down" size={14} color="#2F6BFF" />
+                  <Text className="text-xs font-extrabold text-[#1D4ED8]">
+                    {activeBusiness?.name ?? 'בחירת עסק'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <BusinessScreenHeader
+            style={{ marginTop: 12 }}
+            title="מרכז ניהול"
+            subtitle="תמונת על מהירה על מצב העסק"
+            titleAccessory={
               <TouchableOpacity
                 onPress={() =>
-                  router.push(
-                    '/(authenticated)/(business)/settings-business-profile'
+                  openRoute(
+                    '/(authenticated)/(business)/settings-business-subscription'
                   )
                 }
-                className="mt-3 self-end rounded-xl border border-[#F59E0B] bg-white px-4 py-2"
+                className="rounded-full border border-[#D9E7FF] bg-white px-3 py-1.5"
               >
-                <Text className="text-xs font-bold text-[#92400E]">
-                  השלמת פרופיל
+                <Text className="text-[11px] font-black text-[#2F6BFF]">
+                  {PLAN_LABELS[entitlements?.plan ?? 'starter']}
                 </Text>
               </TouchableOpacity>
-            ) : null}
+            }
+          />
+
+          {businessSettings === undefined || programs === undefined ? (
+            <View className="mt-4">
+              <LoadingBlock height={52} />
+            </View>
+          ) : heroStatus.route ? (
+            <TouchableOpacity
+              onPress={() => openRoute(heroStatus.route as BusinessRoute)}
+              className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3"
+            >
+              <Text
+                className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
+              >
+                {heroStatus.message}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3">
+              <Text
+                className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
+              >
+                {heroStatus.message}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+          <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
+            KPI ראשיים
+          </Text>
+          {kpiLoading ? (
+            <View className="mt-3">
+              <LoadingBlock height={86} />
+            </View>
+          ) : (
+            <View className={`${tw.flexRow} mt-3`}>
+              {kpiItems.map((kpi, index) => (
+                <TouchableOpacity
+                  key={kpi.key}
+                  onPress={() => openRoute(kpi.route)}
+                  className={`flex-1 px-2 ${index > 0 ? 'border-r border-[#EEF2F8]' : ''}`}
+                >
+                  <Text
+                    numberOfLines={2}
+                    className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                  >
+                    {kpi.label}
+                  </Text>
+                  <Text
+                    className={`mt-2 text-xl font-black text-[#0F294B] ${tw.textStart}`}
+                  >
+                    {kpi.value}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {isAttentionLoading ? (
+          <View className="mt-4">
+            <Text
+              className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              דורש תשומת לב
+            </Text>
+            <View className="mt-3 gap-3">
+              <LoadingBlock height={78} />
+              <LoadingBlock height={78} />
+            </View>
+          </View>
+        ) : attentionItems.length > 0 ? (
+          <View className="mt-4">
+            <Text
+              className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              דורש תשומת לב
+            </Text>
+            <View className="mt-3 gap-3">
+              {attentionItems.map((item) => {
+                const tone = getToneClasses(item.tone);
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => openRoute(item.route)}
+                    className={`rounded-2xl border px-4 py-3 ${tone.card}`}
+                  >
+                    <View className={`${tw.flexRow} items-center gap-3`}>
+                      <View
+                        className={`h-10 w-10 items-center justify-center rounded-xl ${tone.iconWrap}`}
+                      >
+                        <Ionicons
+                          name="alert-circle-outline"
+                          size={18}
+                          color={tone.icon}
+                        />
+                      </View>
+                      <View className="flex-1 items-end">
+                        <Text
+                          className={`text-sm font-black ${tone.title} ${tw.textStart}`}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          className={`mt-1 text-xs ${tone.subtitle} ${tw.textStart}`}
+                        >
+                          {item.subtitle}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
-        <View className="mt-3 rounded-[26px] border border-[#A9C7FF] bg-[#EEF3FF] p-5">
-          <View className={`${tw.flexRow} items-center justify-between gap-4`}>
-            <View className="h-14 w-14 items-center justify-center rounded-[20px] bg-white">
-              <Text className="text-center text-xs font-black text-[#2F6BFF]">
-                {PLAN_LABELS[entitlements?.plan ?? 'starter']}
-              </Text>
-            </View>
-            <View className="flex-1 items-end">
-              <Text
-                className={`text-lg font-extrabold text-[#1A2B4A] ${tw.textStart}`}
-              >
-                שימוש במסלול
-              </Text>
-              <Text className={`mt-1 text-xs text-[#4F6387] ${tw.textStart}`}>
-                כרטיסים {usageSummary?.cardsUsed ?? 0}/{cardsStatus.limitValue}
-                {' • '}לקוחות {usageSummary?.customersUsed ?? 0}/
-                {customersStatus.limitValue}
-                {' • '}קמפיינים פעילים{' '}
-                {usageSummary?.activeRetentionActionsUsed ?? 0}/
-                {aiStatus.limitValue}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() =>
-                router.push(
-                  '/(authenticated)/(business)/settings-business-subscription'
-                )
-              }
-              className="rounded-xl border border-[#2F6BFF] bg-white px-4 py-2.5"
+        <View className="mt-5">
+          <TouchableOpacity
+            onPress={() => openRoute('/(authenticated)/(business)/customers')}
+            className={`${tw.flexRow} items-center justify-between`}
+          >
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+            <Text
+              className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
             >
-              <Text className="text-sm font-bold text-[#2F6BFF]">
-                ניהול מסלול
-              </Text>
-            </TouchableOpacity>
-          </View>
+              בריאות לקוחות
+            </Text>
+          </TouchableOpacity>
 
-          {usageWarnings.length > 0 ? (
-            <View className="mt-3 rounded-2xl border border-[#F59E0B] bg-[#FFF7ED] p-3">
-              <Text
-                className={`text-xs font-bold text-[#B45309] ${tw.textStart}`}
-              >
-                מתקרבים למגבלה
-              </Text>
-              {usageWarnings.map((warning) => (
-                <Text
-                  key={warning}
-                  className={`mt-1 text-xs text-[#C2410C] ${tw.textStart}`}
-                >
-                  • {warning}
-                </Text>
-              ))}
+          {isEntitlementsLoading ? (
+            <View className="mt-3">
+              <LoadingBlock height={164} />
             </View>
-          ) : null}
-        </View>
-
-        <View className="mt-4">
-          <View className={`${tw.flexRow} flex-wrap gap-3`}>
-            {QUICK_ACTIONS.map((shortcut) => (
+          ) : smartGate.isLocked ? (
+            <View className="mt-3 rounded-3xl border border-[#D6E2F8] bg-[#EEF3FF] p-4">
+              <Text
+                className={`text-sm font-black text-[#1D4ED8] ${tw.textStart}`}
+              >
+                תמונת לקוחות חכמה זמינה במסלול מתקדם
+              </Text>
+              <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
+                שדרוג יפתח סטטוסים, תובנות ומדדי סיכון בזמן אמת.
+              </Text>
               <TouchableOpacity
-                key={shortcut.id}
-                onPress={() => router.push(shortcut.route)}
-                className="w-[48.5%] rounded-2xl border border-[#DCE6F7] bg-white p-4 active:scale-[0.98]"
+                onPress={openSmartUpgrade}
+                className="mt-3 self-start rounded-xl bg-[#1D4ED8] px-3 py-2"
               >
-                <View className={`${tw.flexRow} items-center gap-2`}>
-                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EEF3FF]">
-                    <Ionicons name={shortcut.icon} size={18} color="#2F6BFF" />
-                  </View>
-                  <View className="flex-1 items-end">
-                    <Text
-                      className={`text-sm font-extrabold text-[#1A2B4A] ${tw.textStart}`}
-                    >
-                      {shortcut.title}
-                    </Text>
-                    <Text
-                      className={`mt-0.5 text-[11px] text-[#6E7D97] ${tw.textStart}`}
-                    >
-                      {shortcut.subtitle}
-                    </Text>
-                  </View>
-                </View>
+                <Text className="text-xs font-bold text-white">שדרגו</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View className="mt-4">
-          <View className={`${tw.flexRow} flex-wrap justify-between gap-3`}>
-            {kpiCards.map((card) => (
-              <View
-                key={card.id}
-                className="w-[31.5%] rounded-2xl border border-[#E3E9FF] bg-white p-4"
+            </View>
+          ) : customerSnapshot === undefined ? (
+            <View className="mt-3">
+              <LoadingBlock height={164} />
+            </View>
+          ) : customerSnapshot.summary.totalCustomers === 0 ? (
+            <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+              <Text className={`text-sm text-[#475569] ${tw.textStart}`}>
+                עדיין אין לקוחות פעילים להצגת תמונת מצב.
+              </Text>
+              <TouchableOpacity
+                onPress={() => openRoute('/(authenticated)/(business)/cards')}
+                className="mt-3 self-start rounded-xl border border-[#2F6BFF] bg-white px-3 py-2"
               >
-                <Text className="text-right text-xs font-semibold text-[#64748B]">
-                  {card.label}
+                <Text className="text-xs font-bold text-[#2F6BFF]">
+                  מעבר לניהול כרטיסים
                 </Text>
-                <Text className="mt-2 text-right text-2xl font-black text-[#0F294B]">
-                  {card.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View className="mt-5">
-          <FeatureGate
-            isLocked={teamGate.isLocked}
-            requiredPlan={teamGate.requiredPlan}
-            onUpgradeClick={() =>
-              openUpgrade(
-                'team',
-                teamGate.requiredPlan,
-                teamGate.reason === 'subscription_inactive'
-                  ? 'subscription_inactive'
-                  : 'feature_locked'
-              )
-            }
-            title={teamCopy.lockedTitle}
-            subtitle={teamCopy.lockedSubtitle}
-            benefits={teamCopy.benefits}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                if (teamGate.isLocked) {
-                  openUpgrade(
-                    'team',
-                    teamGate.requiredPlan,
-                    teamGate.reason === 'subscription_inactive'
-                      ? 'subscription_inactive'
-                      : 'feature_locked'
-                  );
-                  return;
-                }
-                router.push('/(authenticated)/(business)/team');
-              }}
-              className={`${tw.flexRow} items-center justify-between rounded-[26px] border border-[#E3E9FF] bg-white px-5 py-5`}
-            >
-              <View className={`${tw.flexRow} items-center gap-3`}>
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#D4EDFF]">
-                  <Ionicons name="people-outline" size={22} color="#2F6BFF" />
-                </View>
-                <View className="items-end">
-                  <Text
-                    className={`text-base font-bold text-[#1A2B4A] ${tw.textStart}`}
-                  >
-                    ניהול צוות
-                  </Text>
-                  <Text
-                    className={`text-[11px] text-[#7B86A0] ${tw.textStart}`}
-                  >
-                    הזמנות עובדים והרשאות גישה
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-xl text-blue-300">›</Text>
-            </TouchableOpacity>
-          </FeatureGate>
-        </View>
-
-        <View className="mt-5">
-          <FeatureGate
-            isLocked={marketingGate.isLocked}
-            requiredPlan={marketingGate.requiredPlan}
-            onUpgradeClick={() =>
-              openUpgrade(
-                'marketingHub',
-                marketingGate.requiredPlan,
-                marketingGate.reason === 'subscription_inactive'
-                  ? 'subscription_inactive'
-                  : 'feature_locked'
-              )
-            }
-            title={marketingCopy.lockedTitle}
-            subtitle={marketingCopy.lockedSubtitle}
-            benefits={marketingCopy.benefits}
-          >
-            <View className="rounded-[26px] border border-[#E3E9FF] bg-white p-5">
-              <View className={`${tw.flexRow} items-center justify-between`}>
-                <View className="items-end">
-                  <Text
-                    className={`text-lg font-extrabold text-[#1A2B4A] ${tw.textStart}`}
-                  >
-                    {marketingCopy.sectionTitle}
-                  </Text>
-                  <Text
-                    className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                  >
-                    קמפייני שימור פעילים:{' '}
-                    {usageSummary?.activeRetentionActionsUsed ?? 0}/
-                    {aiStatus.limitValue}
-                  </Text>
-                </View>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="mt-3 rounded-3xl border border-[#E5EAF2] bg-white p-4">
+              <View className={`${tw.flexRow} flex-wrap gap-3`}>
                 <TouchableOpacity
                   onPress={() =>
-                    router.push('/(authenticated)/(business)/customers')
+                    openRoute('/(authenticated)/(business)/customers')
                   }
-                  className="rounded-xl border border-[#A9C7FF] bg-[#EEF3FF] px-4 py-2.5"
+                  className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
                 >
-                  <Text className="text-sm font-bold text-[#2F6BFF]">
-                    לפתיחת המרכז
+                  <Text className="text-right text-xs font-semibold text-[#64748B]">
+                    פעילים
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#0F294B]">
+                    {formatNumber(customerSnapshot.summary.activeCustomers)}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    openRoute('/(authenticated)/(business)/customers')
+                  }
+                  className="w-[48%] rounded-2xl border border-[#FECACA] bg-[#FFF1F2] p-3"
+                >
+                  <Text className="text-right text-xs font-semibold text-[#B42318]">
+                    בסיכון
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#B42318]">
+                    {formatNumber(customerSnapshot.summary.atRiskCustomers)}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    openRoute('/(authenticated)/(business)/customers')
+                  }
+                  className="w-[48%] rounded-2xl border border-[#FED7AA] bg-[#FFF7ED] p-3"
+                >
+                  <Text className="text-right text-xs font-semibold text-[#B45309]">
+                    קרובים להטבה
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#C2410C]">
+                    {formatNumber(customerSnapshot.summary.nearRewardCustomers)}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    openRoute('/(authenticated)/(business)/customers')
+                  }
+                  className="w-[48%] rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] p-3"
+                >
+                  <Text className="text-right text-xs font-semibold text-[#4338CA]">
+                    VIP / חדשים
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#3730A3]">
+                    {formatNumber(customerSnapshot.summary.vipCustomers)} /{' '}
+                    {formatNumber(customerSnapshot.summary.newCustomers)}
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              {marketingGate.isLocked ? null : marketingHubSnapshot ===
-                undefined ? (
-                <View className="items-center justify-center py-8">
-                  <ActivityIndicator color="#2F6BFF" />
-                </View>
-              ) : (
-                <>
-                  <View className="mt-4 gap-3">
-                    {marketingHubSnapshot.opportunityCards.map((card) => {
-                      const targetType = card.key as OpportunityKey;
-                      return (
-                        <View
-                          key={card.key}
-                          className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
-                        >
-                          <View
-                            className={`${tw.flexRow} items-center justify-between`}
-                          >
-                            <View className="rounded-full bg-[#DBEAFE] px-3 py-1">
-                              <Text className="text-xs font-bold text-[#1D4ED8]">
-                                {formatNumber(card.count)}
-                              </Text>
-                            </View>
-                            <View className="flex-1 items-end px-3">
-                              <Text
-                                className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                              >
-                                {card.title}
-                              </Text>
-                              <Text
-                                className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                              >
-                                {card.description}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <Text
-                            className={`mt-3 text-xs font-semibold text-[#334155] ${tw.textStart}`}
-                          >
-                            הצעה: {card.suggestedAction}
-                          </Text>
-
-                          <View className={`${tw.flexRow} mt-3 gap-2`}>
-                            <TouchableOpacity
-                              onPress={() => {
-                                void handleSendRetentionAction(
-                                  targetType,
-                                  'push'
-                                );
-                              }}
-                              disabled={activeActionId !== null}
-                              className="flex-1 rounded-xl bg-[#0F766E] px-3 py-2"
-                            >
-                              <Text className="text-center text-xs font-bold text-white">
-                                {activeActionId === `push:${targetType}`
-                                  ? 'מפעיל...'
-                                  : 'הפעלת פוש'}
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => {
-                                void handleSendRetentionAction(
-                                  targetType,
-                                  'in_app'
-                                );
-                              }}
-                              disabled={activeActionId !== null}
-                              className="flex-1 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2"
-                            >
-                              <Text className="text-center text-xs font-bold text-[#334155]">
-                                {activeActionId === `in_app:${targetType}`
-                                  ? 'מפעיל...'
-                                  : 'הפעלת הודעה באפליקציה'}
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => {
-                                void handleCreateAiSuggestion(targetType);
-                              }}
-                              disabled={activeActionId !== null}
-                              className="flex-1 rounded-xl bg-[#1D4ED8] px-3 py-2"
-                            >
-                              <Text className="text-center text-xs font-bold text-white">
-                                {activeActionId === `ai:${targetType}`
-                                  ? 'יוצר...'
-                                  : 'הצעת AI'}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <View className="mt-4 rounded-2xl border border-[#E3E9FF] bg-[#182F4E] p-4">
-                    <Text
-                      className={`text-sm font-black text-[#7EB1FF] ${tw.textStart}`}
-                    >
-                      תובנות שימור
-                    </Text>
-                    {marketingHubSnapshot.insights.length === 0 ? (
-                      <Text
-                        className={`mt-2 text-xs text-[#E2E8F6] ${tw.textStart}`}
-                      >
-                        אין כרגע תובנות להצגה.
-                      </Text>
-                    ) : (
-                      marketingHubSnapshot.insights.map((insight) => (
-                        <Text
-                          key={insight}
-                          className={`mt-2 text-xs leading-5 text-[#E2E8F6] ${tw.textStart}`}
-                        >
-                          • {insight}
-                        </Text>
-                      ))
-                    )}
-                  </View>
-                </>
-              )}
+              {customerSnapshot.insights[0] ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    openRoute('/(authenticated)/(business)/customers')
+                  }
+                  className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"
+                >
+                  <Text
+                    className={`text-xs leading-5 text-[#334155] ${tw.textStart}`}
+                  >
+                    {customerSnapshot.insights[0]}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          </FeatureGate>
+          )}
         </View>
 
-        <View className="mt-8">
-          <Text className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}>
-            פעילות אחרונה
-          </Text>
-          <View className="mt-3 gap-3">
-            {recentActivity === undefined ? (
-              <View className="items-center justify-center py-8">
-                <ActivityIndicator color="#2F6BFF" />
-              </View>
-            ) : recentActivity.length === 0 ? (
-              <View className="rounded-2xl border border-[#E3E9FF] bg-white p-4">
-                <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                  עדיין אין פעילות אחרונה להצגה.
+        <View className="mt-5">
+          <TouchableOpacity
+            onPress={() => openRoute('/(authenticated)/(business)/cards')}
+            className={`${tw.flexRow} items-center justify-between`}
+          >
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+            <Text
+              className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              תוכניות נאמנות
+            </Text>
+          </TouchableOpacity>
+
+          {programs === undefined ? (
+            <View className="mt-3">
+              <LoadingBlock height={170} />
+            </View>
+          ) : activePrograms.length === 0 ? (
+            <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+              <Text className={`text-sm text-[#475569] ${tw.textStart}`}>
+                עדיין אין כרטיס נאמנות פעיל לעסק.
+              </Text>
+              <TouchableOpacity
+                onPress={() => openRoute('/(authenticated)/(business)/cards')}
+                className="mt-3 self-start rounded-xl bg-[#2F6BFF] px-3 py-2"
+              >
+                <Text className="text-xs font-bold text-white">
+                  לניהול כרטיסים
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+              <View className={`${tw.flexRow} items-center justify-between`}>
+                <Text className="text-xs font-semibold text-[#64748B]">
+                  כרטיסים פעילים:{' '}
+                  {formatNumber(programsSummary.activeProgramsCount)}
+                </Text>
+                <Text className="text-xs font-semibold text-[#64748B]">
+                  לקוחות פעילים: {formatNumber(programsSummary.activeMembers)}
                 </Text>
               </View>
-            ) : (
-              recentActivity.map((item) => (
+              <Text
+                className={`mt-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                מימושים ב-30 ימים:{' '}
+                {formatNumber(programsSummary.redemptions30d)}
+              </Text>
+
+              <View className="mt-3 gap-2">
+                {topPrograms.map((program) => (
+                  <TouchableOpacity
+                    key={program.loyaltyProgramId}
+                    onPress={() =>
+                      router.push({
+                        pathname:
+                          '/(authenticated)/(business)/cards/[programId]',
+                        params: {
+                          programId: program.loyaltyProgramId,
+                          businessId: activeBusinessId,
+                        },
+                      })
+                    }
+                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-3"
+                  >
+                    <View
+                      className={`${tw.flexRow} items-center justify-between`}
+                    >
+                      <Text className="rounded-full bg-[#DBEAFE] px-2 py-1 text-[10px] font-bold text-[#1D4ED8]">
+                        {formatNumber(program.metrics.stamps7d)} ניקובים / 7
+                        ימים
+                      </Text>
+                      <View className="flex-1 items-end px-3">
+                        <Text
+                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                        >
+                          {program.title}
+                        </Text>
+                        <Text
+                          className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                        >
+                          לקוחות פעילים:{' '}
+                          {formatNumber(program.metrics.activeMembers)}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View className="mt-5">
+          <TouchableOpacity
+            onPress={() => openRoute('/(authenticated)/(business)/analytics')}
+            className={`${tw.flexRow} items-center justify-between`}
+          >
+            <Text className="text-xs font-bold text-[#2563EB]">
+              לכל הפעילות
+            </Text>
+            <Text
+              className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              פעילות אחרונה
+            </Text>
+          </TouchableOpacity>
+
+          {recentActivity === undefined ? (
+            <View className="mt-3 gap-2">
+              <LoadingBlock height={68} />
+              <LoadingBlock height={68} />
+              <LoadingBlock height={68} />
+            </View>
+          ) : recentActivity.length === 0 ? (
+            <View className="mt-3 rounded-2xl border border-[#E3E9FF] bg-white p-4">
+              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                עדיין אין פעילות אחרונה להצגה.
+              </Text>
+            </View>
+          ) : (
+            <View className="mt-3 gap-2">
+              {recentActivity.map((item) => (
                 <View
                   key={item.id}
                   className="rounded-2xl border border-[#E3E9FF] bg-white p-4"
@@ -749,11 +965,111 @@ export default function MerchantDashboardScreen() {
                     </View>
                   </View>
                 </View>
-              ))
-            )}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      <Modal
+        transparent={true}
+        visible={isPickerVisible}
+        animationType="fade"
+        onRequestClose={() => setIsPickerVisible(false)}
+      >
+        <Pressable
+          onPress={() => setIsPickerVisible(false)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(15,23,42,0.35)',
+            justifyContent: 'center',
+            paddingHorizontal: 20,
+          }}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              borderRadius: 22,
+              borderWidth: 1,
+              borderColor: '#DCE6FF',
+              backgroundColor: '#FFFFFF',
+              padding: 14,
+              gap: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: '900',
+                color: '#111827',
+                textAlign: 'right',
+              }}
+            >
+              בחירת עסק פעיל
+            </Text>
+            {businesses.map((business) => {
+              const isActive = business.businessId === activeBusinessId;
+              return (
+                <Pressable
+                  key={business.businessId}
+                  onPress={() => {
+                    void setActiveBusinessId(business.businessId)
+                      .then(() => setIsPickerVisible(false))
+                      .catch(() => {});
+                  }}
+                  style={({ pressed }) => [
+                    {
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: isActive ? '#A9C7FF' : '#E3E9FF',
+                      backgroundColor: isActive ? '#EAF1FF' : '#FFFFFF',
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      opacity: pressed ? 0.86 : 1,
+                      flexDirection: 'row-reverse',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{
+                      flex: 1,
+                      fontSize: 14,
+                      lineHeight: 18,
+                      fontWeight: isActive ? '800' : '700',
+                      color: '#1A2B4A',
+                      textAlign: 'right',
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {business.name}
+                  </Text>
+                  <View
+                    style={{
+                      width: 22,
+                      height: 18,
+                      marginRight: 10,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {isActive ? (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#2563EB"
+                      />
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
