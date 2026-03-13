@@ -4,9 +4,8 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
-import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
+import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import type { BillingPeriod } from '@/config/appConfig';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -40,6 +39,7 @@ export default function OnboardingBusinessPlanScreen() {
     if (businessId) {
       return;
     }
+
     safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
   }, [businessId]);
 
@@ -47,7 +47,6 @@ export default function OnboardingBusinessPlanScreen() {
     () => normalizePlanCatalog(planCatalogQuery),
     [planCatalogQuery]
   );
-
   const comparisonRows = useMemo(
     () => buildComparisonRows(planCatalog),
     [planCatalog]
@@ -59,6 +58,7 @@ export default function OnboardingBusinessPlanScreen() {
     }
 
     setError(null);
+
     if (selectedPlan === 'starter') {
       setIsSubmitting(true);
       try {
@@ -81,7 +81,7 @@ export default function OnboardingBusinessPlanScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
@@ -101,34 +101,35 @@ export default function OnboardingBusinessPlanScreen() {
           </Text>
         </View>
 
-        <PlanComparisonTable
-          plans={planCatalog}
-          rows={comparisonRows}
-          selectedPlan={selectedPlan}
-          billingPeriod={billingPeriod}
-          onSelectPlan={setSelectedPlan}
-          onBillingPeriodChange={setBillingPeriod}
-          popularPlan="pro"
-          popularLabel="הבחירה של רוב העסקים"
-        />
+        {isSubmitting && selectedPlan === 'starter' ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color="#2563EB" />
+            <Text style={styles.loadingText}>שומרים בחירה...</Text>
+          </View>
+        ) : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <View style={styles.footer}>
-          {isSubmitting ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color="#2563EB" />
-              <Text style={styles.loadingText}>שומרים בחירה...</Text>
-            </View>
-          ) : null}
-          <ContinueButton
-            onPress={() => {
-              void handleContinue();
-            }}
-            label={
+        <View style={styles.panelWrap}>
+          <SubscriptionSalesPanel
+            plans={planCatalog}
+            rows={comparisonRows}
+            selectedPlan={selectedPlan}
+            billingPeriod={billingPeriod}
+            context="onboarding"
+            ctaLabel={
               selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך למסלול'
             }
-            disabled={isSubmitting}
+            ctaDisabled={isSubmitting}
+            ctaLoading={isSubmitting && selectedPlan === 'starter'}
+            footerNote={error ?? undefined}
+            footerNoteTone={error ? 'error' : 'default'}
+            onSelectPlan={(plan) => {
+              setError(null);
+              setSelectedPlan(plan);
+            }}
+            onBillingPeriodChange={setBillingPeriod}
+            onPressCta={() => {
+              void handleContinue();
+            }}
           />
         </View>
       </View>
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 32,
+    paddingBottom: 12,
   },
   header: {
     flexDirection: 'row-reverse',
@@ -166,43 +167,38 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   titleContainer: {
-    marginTop: 32,
+    marginTop: 24,
+    gap: 8,
     alignItems: 'flex-end',
   },
   title: {
-    fontSize: 24,
+    fontSize: 25,
+    lineHeight: 30,
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
   },
   subtitle: {
-    marginTop: 8,
     fontSize: 14,
+    lineHeight: 21,
     fontWeight: '600',
     color: '#6B7280',
-    lineHeight: 21,
     textAlign: 'right',
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#DC2626',
-    textAlign: 'right',
-  },
-  footer: {
-    marginTop: 'auto',
   },
   loadingRow: {
-    marginBottom: 8,
+    marginTop: 8,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
   },
   loadingText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#2563EB',
     textAlign: 'right',
+  },
+  panelWrap: {
+    flex: 1,
+    paddingTop: 14,
   },
 });

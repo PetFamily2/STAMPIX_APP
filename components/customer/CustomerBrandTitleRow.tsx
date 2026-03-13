@@ -7,6 +7,7 @@ type CustomerBrandTitleRowProps = {
   style?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
+  titleNumberOfLines?: number;
 };
 
 export default function CustomerBrandTitleRow({
@@ -14,6 +15,7 @@ export default function CustomerBrandTitleRow({
   style,
   titleStyle,
   titleAccessory,
+  titleNumberOfLines = 1,
 }: CustomerBrandTitleRowProps) {
   return (
     <View style={[styles.row, style]}>
@@ -25,7 +27,10 @@ export default function CustomerBrandTitleRow({
       </Text>
       <View style={styles.titleWrap}>
         {titleAccessory}
-        <Text style={[styles.title, titleStyle]} numberOfLines={1}>
+        <Text
+          style={[styles.title, titleStyle]}
+          numberOfLines={titleNumberOfLines}
+        >
           {title}
         </Text>
       </View>

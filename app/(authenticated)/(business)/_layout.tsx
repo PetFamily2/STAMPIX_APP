@@ -5,9 +5,9 @@ import { Redirect, Tabs, useLocalSearchParams, useSegments } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { api } from '@/convex/_generated/api';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
@@ -242,16 +242,26 @@ export default function BusinessTabsLayout() {
                 <View style={styles.qrTabContent}>
                   <View
                     style={[
-                      styles.qrTabBubble,
-                      isActive ? styles.qrTabBubbleFocused : null,
+                      styles.qrTabBubbleShadow,
+                      isActive ? styles.qrTabBubbleShadowFocused : null,
                     ]}
                   >
-                    <Image
-                      source={stampixLogo}
-                      style={styles.qrTabLogo}
-                      resizeMode="cover"
-                      accessibilityLabel="Stampix logo"
+                    <View
+                      pointerEvents="none"
+                      style={styles.qrTabBubbleDepthOuter}
                     />
+                    <View
+                      pointerEvents="none"
+                      style={styles.qrTabBubbleDepthInner}
+                    />
+                    <View style={styles.qrTabBubble}>
+                      <Image
+                        source={STAMPAIX_IMAGE_LOGO}
+                        style={styles.qrTabLogo}
+                        resizeMode="cover"
+                        accessibilityLabel="StampAix logo"
+                      />
+                    </View>
                   </View>
                   <Text
                     style={[
@@ -404,24 +414,60 @@ const styles = StyleSheet.create({
     height: TAB_BAR_CONTENT_HEIGHT,
     alignItems: 'center',
   },
+  qrTabBubbleShadow: {
+    marginTop: -56,
+    width: 92,
+    height: 98,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignSelf: 'center',
+    shadowColor: '#163A87',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.24,
+    shadowRadius: 22,
+    elevation: 18,
+  },
+  qrTabBubbleShadowFocused: {
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.3,
+    shadowRadius: 26,
+    elevation: 22,
+  },
+  qrTabBubbleDepthOuter: {
+    position: 'absolute',
+    top: 16,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#204EBD',
+    opacity: 0.2,
+    transform: [{ scaleX: 0.96 }, { scaleY: 0.92 }],
+  },
+  qrTabBubbleDepthInner: {
+    position: 'absolute',
+    top: 9,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: '#9DB6FF',
+    opacity: 0.28,
+    transform: [{ scaleX: 0.98 }, { scaleY: 0.96 }],
+  },
   qrTabBubble: {
-    marginTop: -50,
     width: 84,
     height: 84,
     borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
     overflow: 'hidden',
-    shadowColor: '#111111',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  qrTabBubbleFocused: {
-    shadowOpacity: 0.26,
-    shadowRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D5E3FF',
+    shadowColor: '#1B4FD6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 6,
   },
   qrTabLogo: {
     width: 84,

@@ -4,14 +4,14 @@
     "slug": "stampix",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/StampAix_LOGO_S.png",
     "scheme": "stampix",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/STAMPAIX_LOGO_round.png",
+      "image": "./assets/images/StampAix_LOGO_S.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#FDFDFD"
     },
     "ios": {
       "supportsTablet": true,
@@ -25,8 +25,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/StampAix_LOGO_S.png",
+        "backgroundColor": "#FDFDFD"
       },
       "edgeToEdgeEnabled": false,
       "permissions": ["android.permission.CAMERA"],
@@ -54,7 +54,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/StampAix_LOGO_S.png"
     },
     "plugins": [
       "expo-router",

@@ -658,7 +658,7 @@ export const runRetentionActionSweepInternal = internalMutation({
           const pushResult = await sendPushNotificationToUser(ctx, {
             businessId: campaign.businessId,
             toUserId: customer.customerId,
-            title: campaign.messageTitle ?? campaign.title ?? 'StampAix',
+            title: campaign.messageTitle ?? campaign.title ?? 'STAMPAIX',
             body: campaign.messageBody ?? '',
             campaignId: campaign._id,
           });

@@ -4,10 +4,10 @@ import { Heart, TrendingUp } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { BackHandler, Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
@@ -62,10 +62,10 @@ export default function WelcomeScreen() {
         <View className="items-center mb-6 -mt-2">
           <View className="items-center justify-center">
             <Image
-              source={stampixLogo}
+              source={STAMPAIX_IMAGE_LOGO}
               className="w-48 h-48"
               resizeMode="contain"
-              accessibilityLabel="לוגו Stampix"
+              accessibilityLabel="StampAix logo"
             />
           </View>
         </View>

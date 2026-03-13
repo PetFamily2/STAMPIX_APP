@@ -1,13 +1,12 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import {
@@ -16,7 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
+import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
@@ -34,9 +33,9 @@ type UpgradeReason =
   | 'limit_reached'
   | 'subscription_inactive';
 
-const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 const TEXT_START = IS_RTL ? 'right' : 'left';
 const TEXT_END = IS_RTL ? 'left' : 'right';
+const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 
 const PLAN_LABELS: Record<PlanId, string> = {
   starter: 'Starter',
@@ -65,6 +64,7 @@ function parsePlanParam(value: string | string[] | undefined): PlanId | null {
   ) {
     return normalized;
   }
+
   return null;
 }
 
@@ -79,36 +79,36 @@ function parseUpgradeReasonParam(
   ) {
     return normalized;
   }
+
   return null;
 }
 
 function formatLimit(used: number, limit: number) {
-  return `${used} / ${limit}`;
+  return `${used}/${limit}`;
 }
 
 function resolveNextPlan(plan: PlanId): 'pro' | 'premium' | null {
   if (plan === 'starter') {
     return 'pro';
   }
+
   if (plan === 'pro') {
     return 'premium';
   }
+
   return null;
 }
 
 export default function BusinessSettingsSubscriptionScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    focus?: string | string[];
     recommendedPlan?: string | string[];
     upgradeReason?: string | string[];
     featureKey?: string | string[];
     autoOpenUpgrade?: string | string[];
   }>();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const comparisonSectionOffsetRef = useRef(0);
-  const hasAutoFocusedComparisonRef = useRef(false);
   const hasAutoOpenedModalRef = useRef(false);
 
   const { activeBusinessId } = useActiveBusiness();
@@ -123,7 +123,6 @@ export default function BusinessSettingsSubscriptionScreen() {
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
 
-  const focusParam = firstParam(params.focus);
   const recommendedPlanParam = parsePlanParam(params.recommendedPlan);
   const upgradeReasonParam = parseUpgradeReasonParam(params.upgradeReason);
   const featureKeyParam = firstParam(params.featureKey);
@@ -163,23 +162,17 @@ export default function BusinessSettingsSubscriptionScreen() {
 
     if (cardsStatus.isNearLimit || cardsStatus.isAtLimit) {
       warnings.push(
-        `כרטיסי נאמנות: ${formatLimit(
-          cardsStatus.currentValue,
-          cardsStatus.limitValue
-        )}`
+        `כרטיסים ${formatLimit(cardsStatus.currentValue, cardsStatus.limitValue)}`
       );
     }
     if (customersStatus.isNearLimit || customersStatus.isAtLimit) {
       warnings.push(
-        `לקוחות: ${formatLimit(
-          customersStatus.currentValue,
-          customersStatus.limitValue
-        )}`
+        `לקוחות ${formatLimit(customersStatus.currentValue, customersStatus.limitValue)}`
       );
     }
     if (aiStatus.isNearLimit || aiStatus.isAtLimit) {
       warnings.push(
-        `קמפייני שימור פעילים: ${formatLimit(aiStatus.currentValue, aiStatus.limitValue)}`
+        `שימור ${formatLimit(aiStatus.currentValue, aiStatus.limitValue)}`
       );
     }
 
@@ -200,9 +193,9 @@ export default function BusinessSettingsSubscriptionScreen() {
 
   const openUpgrade = useCallback(
     (targetPlan?: 'pro' | 'premium') => {
-      const selectedTarget =
-        targetPlan ??
-        (comparisonSelectedPlan === 'premium' ? 'premium' : 'pro');
+      const fallbackPlan =
+        comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
+      const selectedTarget = targetPlan ?? fallbackPlan;
 
       setUpgradePlan(selectedTarget);
       setUpgradeReason(
@@ -228,6 +221,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       setComparisonSelectedPlan(recommendedPlanParam);
       return;
     }
+
     setComparisonSelectedPlan(currentPlan);
   }, [currentPlan, recommendedPlanParam]);
 
@@ -264,28 +258,6 @@ export default function BusinessSettingsSubscriptionScreen() {
     recommendedPlanParam,
   ]);
 
-  const focusComparisonSection = useCallback(() => {
-    if (
-      focusParam !== 'comparison' ||
-      hasAutoFocusedComparisonRef.current ||
-      comparisonSectionOffsetRef.current <= 0
-    ) {
-      return;
-    }
-
-    hasAutoFocusedComparisonRef.current = true;
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(0, comparisonSectionOffsetRef.current - 12),
-        animated: true,
-      });
-    });
-  }, [focusParam]);
-
-  useEffect(() => {
-    focusComparisonSection();
-  }, [focusComparisonSection]);
-
   if (!activeBusinessId) {
     return (
       <SafeAreaView style={styles.emptyState}>
@@ -299,22 +271,58 @@ export default function BusinessSettingsSubscriptionScreen() {
   const comparisonUpgradePlan: 'pro' | 'premium' =
     comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
   const comparisonCtaLabel =
-    comparisonUpgradePlan === currentPlan
+    comparisonSelectedPlan === currentPlan && currentPlan !== 'starter'
       ? 'ניהול המסלול הנוכחי'
-      : `שדרוג ל-${PLAN_LABELS[comparisonUpgradePlan]}`;
+      : comparisonSelectedPlan === 'starter'
+        ? 'שדרוג ל-Pro AI'
+        : `שדרוג ל-${PLAN_LABELS[comparisonUpgradePlan]}`;
+
+  const usageItems = [
+    {
+      label: 'חיוב',
+      value: entitlements?.billingPeriod
+        ? BILLING_PERIOD_LABELS[entitlements.billingPeriod]
+        : 'ללא',
+      hint: currentStatusLabel,
+    },
+    {
+      label: 'כרטיסים',
+      value: formatLimit(usageSummary?.cardsUsed ?? 0, cardsStatus.limitValue),
+      hint: 'בשימוש',
+    },
+    {
+      label: 'לקוחות',
+      value: formatLimit(
+        usageSummary?.customersUsed ?? 0,
+        customersStatus.limitValue
+      ),
+      hint: 'בעסק',
+    },
+    {
+      label: 'שימור',
+      value: formatLimit(
+        usageSummary?.activeRetentionActionsUsed ?? 0,
+        aiStatus.limitValue
+      ),
+      hint: 'קמפיינים',
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingTop: (insets.top || 0) + 12 },
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: (insets.top || 0) + 12,
+          },
         ]}
       >
         <BusinessScreenHeader
           title="מסלול וחיוב"
-          subtitle="הבנה ברורה של המסלול, השימוש בפועל והאפשרויות לשדרוג"
+          subtitle="תמונת מצב ברורה של המסלול, השימוש בפועל והאפשרויות לשדרוג"
+          titleNumberOfLines={2}
+          subtitleNumberOfLines={2}
           titleAccessory={
             <Pressable
               onPress={() => router.back()}
@@ -329,124 +337,66 @@ export default function BusinessSettingsSubscriptionScreen() {
         />
 
         <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>המסלול הנוכחי</Text>
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroStatusBadge}>
+              <Text style={styles.heroStatusText}>{currentStatusLabel}</Text>
+            </View>
+            <Text style={styles.heroEyebrow}>המסלול הפעיל</Text>
+          </View>
           <Text style={styles.heroTitle}>{currentPlanLabel}</Text>
           <Text style={styles.heroSubtitle}>
             {nextPlan && nextPlanLabel
               ? `${currentPlanLabel} פעיל כרגע. שדרוג ל-${nextPlanLabel} יגדיל מכסות ויפתח יכולות נוספות לעסק.`
-              : 'אתם כבר במסלול הגבוה ביותר. כאן אפשר לעקוב אחרי השימוש ולהשוות מול מה שכלול במסלול.'}
+              : 'אתם כבר במסלול הגבוה ביותר. כאן אפשר לעקוב אחרי השימוש ולנהל את המנוי.'}
           </Text>
-          <TouchableOpacity
-            onPress={() => openUpgrade(nextPlan ?? 'premium')}
-            disabled={isLoading}
-            style={[styles.heroButton, isLoading ? styles.disabled : null]}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#1D4ED8" size="small" />
-            ) : (
-              <Text style={styles.heroButtonText}>
-                {nextPlan ? `שדרוג ל-${nextPlanLabel}` : 'ניהול מסלול'}
-              </Text>
-            )}
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>שימוש ומגבלות</Text>
-          {isLoading || usageSummary === undefined ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color="#2F6BFF" />
+        <View style={styles.usageStrip}>
+          {usageItems.map((item) => (
+            <View key={item.label} style={styles.usageChip}>
+              {isLoading || usageSummary === undefined ? (
+                <ActivityIndicator size="small" color="#2F6BFF" />
+              ) : (
+                <>
+                  <Text style={styles.usageChipLabel}>{item.label}</Text>
+                  <Text style={styles.usageChipValue} numberOfLines={1}>
+                    {item.value}
+                  </Text>
+                  <Text style={styles.usageChipHint} numberOfLines={1}>
+                    {item.hint}
+                  </Text>
+                </>
+              )}
             </View>
-          ) : (
-            <View style={styles.usageGrid}>
-              <View style={styles.usageCard}>
-                <Text style={styles.usageLabel}>חיוב</Text>
-                <Text style={styles.usageValue}>
-                  {entitlements?.billingPeriod
-                    ? BILLING_PERIOD_LABELS[entitlements.billingPeriod]
-                    : 'ללא חיוב'}
-                </Text>
-                <Text style={styles.usageHint}>
-                  סטטוס: {currentStatusLabel}
-                </Text>
-              </View>
-              <View style={styles.usageCard}>
-                <Text style={styles.usageLabel}>כרטיסים</Text>
-                <Text style={styles.usageValue}>
-                  {formatLimit(
-                    usageSummary?.cardsUsed ?? 0,
-                    cardsStatus.limitValue
-                  )}
-                </Text>
-                <Text style={styles.usageHint}>כרטיסי נאמנות פעילים</Text>
-              </View>
-              <View style={styles.usageCard}>
-                <Text style={styles.usageLabel}>לקוחות</Text>
-                <Text style={styles.usageValue}>
-                  {formatLimit(
-                    usageSummary?.customersUsed ?? 0,
-                    customersStatus.limitValue
-                  )}
-                </Text>
-                <Text style={styles.usageHint}>לקוחות פעילים בעסק</Text>
-              </View>
-              <View style={styles.usageCard}>
-                <Text style={styles.usageLabel}>קמפייני שימור פעילים</Text>
-                <Text style={styles.usageValue}>
-                  {formatLimit(
-                    usageSummary?.activeRetentionActionsUsed ?? 0,
-                    aiStatus.limitValue
-                  )}
-                </Text>
-                <Text style={styles.usageHint}>כמות פעילה כרגע</Text>
-              </View>
-            </View>
-          )}
-
-          {usageWarnings.length > 0 ? (
-            <View style={styles.warningCard}>
-              <Text style={styles.warningTitle}>שימו לב</Text>
-              {usageWarnings.map((warning) => (
-                <Text key={warning} style={styles.warningText}>
-                  • {warning}
-                </Text>
-              ))}
-            </View>
-          ) : null}
+          ))}
         </View>
 
-        <View
-          style={styles.sectionCard}
-          onLayout={(event) => {
-            comparisonSectionOffsetRef.current = event.nativeEvent.layout.y;
-            focusComparisonSection();
-          }}
-        >
-          <Text style={styles.sectionTitle}>השוואת מסלולים</Text>
-          <Text style={styles.sectionSubtitle}>
-            כל המסכים משתמשים באותו קטלוג מסלולים, ולכן ההשוואה כאן תואמת בדיוק
-            למה שנאכף בשרת ומה שמופיע ב-upgrade flow.
-          </Text>
+        {usageWarnings.length > 0 ? (
+          <View style={styles.warningStrip}>
+            <Text style={styles.warningStripTitle}>שימו לב:</Text>
+            <Text style={styles.warningStripText} numberOfLines={2}>
+              {usageWarnings.join(' • ')}
+            </Text>
+          </View>
+        ) : null}
 
-          <PlanComparisonTable
+        <View style={styles.panelWrap}>
+          <SubscriptionSalesPanel
             plans={normalizedPlanCatalog}
             rows={comparisonRows}
             selectedPlan={comparisonSelectedPlan}
             billingPeriod={comparisonBillingPeriod}
+            currentPlan={currentPlan}
+            context="settings"
+            ctaLabel={comparisonCtaLabel}
+            ctaDisabled={isLoading}
+            footerInsetBottom={tabBarHeight + 10}
             onSelectPlan={setComparisonSelectedPlan}
             onBillingPeriodChange={setComparisonBillingPeriod}
-            popularPlan="pro"
-            popularLabel="המסלול המרכזי"
+            onPressCta={() => openUpgrade(comparisonUpgradePlan)}
           />
-
-          <TouchableOpacity
-            onPress={() => openUpgrade(comparisonUpgradePlan)}
-            style={styles.compareCta}
-          >
-            <Text style={styles.compareCtaText}>{comparisonCtaLabel}</Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
 
       <UpgradeModal
         visible={isUpgradeVisible}
@@ -466,10 +416,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E9F0FF',
   },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    gap: 12,
+  content: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingBottom: 0,
+    gap: 10,
   },
   emptyState: {
     flex: 1,
@@ -503,149 +454,115 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   heroCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#1D4ED8',
-    backgroundColor: '#1D4ED8',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+    borderColor: '#CFE0F7',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  heroTopRow: {
+    flexDirection: ROW_DIRECTION,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
+  heroStatusBadge: {
+    borderRadius: 999,
+    backgroundColor: '#E7F0FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroStatusText: {
+    color: '#1D4ED8',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   heroEyebrow: {
-    color: '#DBEAFE',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '800',
     textAlign: TEXT_START,
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: '#0F172A',
     fontSize: 22,
+    lineHeight: 26,
     fontWeight: '900',
     textAlign: TEXT_START,
   },
   heroSubtitle: {
-    color: '#DBEAFE',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    textAlign: TEXT_START,
-  },
-  heroButton: {
-    marginTop: 4,
-    minHeight: 42,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-  },
-  heroButtonText: {
-    color: '#1D4ED8',
-    fontSize: 14,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  sectionCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  sectionTitle: {
-    color: '#1A2B4A',
-    fontSize: 17,
-    fontWeight: '900',
-    textAlign: TEXT_START,
-  },
-  sectionSubtitle: {
-    marginTop: 4,
     color: '#64748B',
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '600',
     textAlign: TEXT_START,
-    lineHeight: 18,
   },
-  loadingWrap: {
-    marginTop: 12,
-    minHeight: 72,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  usageGrid: {
-    marginTop: 12,
+  usageStrip: {
     flexDirection: ROW_DIRECTION,
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
-  usageCard: {
-    width: '48.5%',
+  usageChip: {
+    flex: 1,
+    minHeight: 68,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    alignItems: 'flex-end',
-    gap: 4,
+    borderColor: '#DCE7F8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    justifyContent: 'center',
+    gap: 2,
   },
-  usageLabel: {
+  usageChipLabel: {
     color: '#64748B',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
     textAlign: TEXT_START,
   },
-  usageValue: {
+  usageChipValue: {
     color: '#0F172A',
-    fontSize: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     textAlign: TEXT_END,
   },
-  usageHint: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '600',
+  usageChipHint: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
     textAlign: TEXT_END,
   },
-  warningCard: {
-    marginTop: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  warningTitle: {
-    color: '#9A3412',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: TEXT_START,
-  },
-  warningText: {
-    color: '#C2410C',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: TEXT_START,
-  },
-  compareCta: {
-    marginTop: 12,
-    minHeight: 44,
-    borderRadius: 14,
+  warningStrip: {
+    flexDirection: ROW_DIRECTION,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1D4ED8',
+    gap: 6,
+    borderRadius: 16,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
     paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  compareCtaText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  warningStripTitle: {
+    color: '#92400E',
+    fontSize: 11,
     fontWeight: '900',
-    textAlign: 'center',
+    textAlign: TEXT_START,
   },
-  disabled: {
-    opacity: 0.7,
+  warningStripText: {
+    flex: 1,
+    color: '#B45309',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  panelWrap: {
+    flex: 1,
+    minHeight: 0,
   },
 });

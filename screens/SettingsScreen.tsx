@@ -29,9 +29,14 @@ import { api } from '@/convex/_generated/api';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 
-const APP_MODE_STORAGE_KEY = 'stamprix.appMode';
+const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
+// Legacy typo key kept for migration only.
+const LEGACY_APP_MODE_STORAGE_KEY = 'stamprix.appMode';
 const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
 const NOTIFICATIONS_ENABLED_STORAGE_KEY =
+  'stampaix.customerNotificationsEnabled';
+// Legacy typo key kept for migration only.
+const LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stamprix.customerNotificationsEnabled';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -336,8 +341,10 @@ export default function SettingsScreen() {
       clearPendingJoin(),
       AsyncStorage.removeItem(REMEMBERED_EMAIL_STORAGE_KEY),
       AsyncStorage.removeItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
+      AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
       ...convexAuthKeys.map((key) => SecureStore.deleteItemAsync(key)),
       SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY),
+      SecureStore.deleteItemAsync(LEGACY_APP_MODE_STORAGE_KEY),
     ]);
 
     const failed = cleanupResults.filter(
@@ -351,6 +358,7 @@ export default function SettingsScreen() {
 
     await setAppMode('customer');
     await SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY);
+    await SecureStore.deleteItemAsync(LEGACY_APP_MODE_STORAGE_KEY);
   };
 
   const cleanupSignedInSession = async () => {
@@ -406,15 +414,30 @@ export default function SettingsScreen() {
 
     void (async () => {
       try {
-        const storedValue = await AsyncStorage.getItem(
+        const storedPrimary = await AsyncStorage.getItem(
           NOTIFICATIONS_ENABLED_STORAGE_KEY
         );
+        const storedLegacy = storedPrimary
+          ? null
+          : await AsyncStorage.getItem(
+              LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
+            );
+        const storedValue = storedPrimary ?? storedLegacy;
 
         if (!isMounted || storedValue == null) {
           return;
         }
 
         setNotificationsEnabled(storedValue === '1');
+        if (storedLegacy !== null) {
+          await AsyncStorage.setItem(
+            NOTIFICATIONS_ENABLED_STORAGE_KEY,
+            storedLegacy
+          );
+          await AsyncStorage.removeItem(
+            LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
+          );
+        }
       } catch {
         if (isMounted) {
           setNotificationsEnabled(true);
@@ -441,6 +464,7 @@ export default function SettingsScreen() {
         NOTIFICATIONS_ENABLED_STORAGE_KEY,
         nextValue ? '1' : '0'
       );
+      await AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY);
     } catch (error) {
       setNotificationsEnabled(!nextValue);
       Alert.alert(

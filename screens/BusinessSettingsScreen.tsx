@@ -48,6 +48,9 @@ const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
   ownerAgeRange: 'טווח גיל בעלים',
 };
 
+const ADD_BUSINESS_LABEL =
+  '\u05e6\u05d5\u05e8 \u05e2\u05e1\u05e7 \u05e0\u05d5\u05e1\u05e3';
+
 function MenuRow({
   title,
   subtitle,
@@ -217,7 +220,7 @@ export default function BusinessSettingsScreen() {
           subtitle="ניהול הגדרות העסק במסכים ייעודיים"
         />
 
-        <BusinessModeCtaCard />
+        <BusinessModeCtaCard accentButton={true} />
 
         <View className="rounded-3xl border border-[#E3E9FF] bg-white p-4">
           <Pressable
@@ -438,7 +441,7 @@ export default function BusinessSettingsScreen() {
                         opacity: pressed ? 0.86 : 1,
                         flexDirection: 'row-reverse',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
+                        gap: 10,
                       },
                     ]}
                   >
@@ -448,7 +451,7 @@ export default function BusinessSettingsScreen() {
                       style={{
                         flex: 1,
                         fontSize: 14,
-                        lineHeight: 18,
+                        lineHeight: 20,
                         fontWeight: isActive ? '800' : '700',
                         color: '#1A2B4A',
                         textAlign: 'right',
@@ -459,9 +462,8 @@ export default function BusinessSettingsScreen() {
                     </Text>
                     <View
                       style={{
-                        width: 22,
-                        height: 18,
-                        marginRight: 10,
+                        width: 24,
+                        height: 24,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
@@ -469,7 +471,7 @@ export default function BusinessSettingsScreen() {
                       {isActive ? (
                         <Ionicons
                           name="checkmark-circle"
-                          size={18}
+                          size={20}
                           color="#2563EB"
                         />
                       ) : null}
@@ -495,7 +497,7 @@ export default function BusinessSettingsScreen() {
                   opacity: pressed ? 0.86 : 1,
                   flexDirection: 'row-reverse',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
+                  gap: 10,
                 },
               ]}
             >
@@ -503,23 +505,23 @@ export default function BusinessSettingsScreen() {
                 style={{
                   flex: 1,
                   fontSize: 14,
+                  lineHeight: 20,
                   fontWeight: '800',
                   color: '#1D4ED8',
                   textAlign: 'right',
                 }}
               >
-                הוסף עסק
+                {ADD_BUSINESS_LABEL}
               </Text>
               <View
                 style={{
-                  width: 22,
-                  height: 18,
-                  marginRight: 10,
+                  width: 24,
+                  height: 24,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="add-circle-outline" size={18} color="#2563EB" />
+                <Ionicons name="add-circle-outline" size={20} color="#2563EB" />
               </View>
             </Pressable>
           </Pressable>

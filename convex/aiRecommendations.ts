@@ -24,7 +24,7 @@ import {
 const MODEL_NAME = 'google/gemini-2.5-flash-lite';
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_TITLE = 'STAMPAIX AI Recommendations';
-const DEFAULT_OPENROUTER_REFERER = 'https://stampaix.app';
+const DEFAULT_OPENROUTER_REFERER = 'https://www.stampaix.com';
 
 const MIN_CUSTOMERS = 20;
 const MIN_ACTIVITY_DAYS = 30;
@@ -300,6 +300,7 @@ type EvaluationResult =
       businessId: Id<'businesses'>;
       snapshotId: Id<'aiBusinessSnapshots'>;
       topState: BusinessState;
+      expectedLanguage: Language;
       goal: Goal;
       outputType: RecommendationType;
       ctaType: CtaType;
@@ -707,13 +708,13 @@ function ctaForRecommendationType(
   state: BusinessState
 ): { ctaType: CtaType; ctaLabel: string } {
   if (type === 'campaign_message') {
-    return { ctaType: 'open_draft', ctaLabel: 'Create editable draft' };
+    return { ctaType: 'open_draft', ctaLabel: 'פתיחת טיוטה לעריכה' };
   }
   if (type === 'business_insight') {
-    return { ctaType: 'view_insight', ctaLabel: 'View insight' };
+    return { ctaType: 'view_insight', ctaLabel: 'צפייה בתובנה' };
   }
   if (type === 'campaign_summary') {
-    return { ctaType: 'view_summary', ctaLabel: 'View summary' };
+    return { ctaType: 'view_summary', ctaLabel: 'צפייה בסיכום' };
   }
   if (
     state === 'ACTIVITY_NORMAL' ||
@@ -721,9 +722,9 @@ function ctaForRecommendationType(
     state === 'WAIT_BEFORE_NEXT_ACTION' ||
     state === 'BUSINESS_TOO_NEW'
   ) {
-    return { ctaType: 'none', ctaLabel: 'No action needed' };
+    return { ctaType: 'none', ctaLabel: 'אין צורך בפעולה' };
   }
-  return { ctaType: 'view_reason', ctaLabel: 'View reason' };
+  return { ctaType: 'view_reason', ctaLabel: 'צפייה בהסבר' };
 }
 
 function topStateFromDetectedStates(detected: BusinessState[]) {
@@ -825,104 +826,107 @@ function fixedMessageForReason(input: {
   topState: BusinessState;
   metrics: CoreMetrics;
 }): { title: string; message: string } {
-  const { reason, topState, metrics } = input;
+  const { reason, metrics } = input;
   if (reason === 'NO_ACTIVE_PROGRAM') {
     return {
-      title: 'Activate one loyalty card first',
+      title: 'צריך להפעיל קודם כרטיס נאמנות',
       message:
-        'Recommendations run on one primary active loyalty card. No active card was found.',
+        'ההמלצות פועלות על כרטיס נאמנות פעיל אחד. כרגע לא נמצא כרטיס פעיל לעסק.',
     };
   }
   if (reason === 'NOT_ENOUGH_DATA') {
     return {
-      title: 'Not enough data yet',
+      title: 'עדיין אין מספיק נתונים',
       message:
-        'We need at least 20 customers, 30 active days, and 10 visits in the last 30 days.',
+        'נדרשים לפחות 20 לקוחות, 30 ימי פעילות ו-10 ביקורים ב-30 הימים האחרונים.',
     };
   }
   if (reason === 'PLAN_NOT_ELIGIBLE') {
     return {
-      title: 'Business issue detected, AI unavailable',
-      message: `State: ${topState}. Your current plan does not include AI recommendations.`,
+      title: 'זוהתה הזדמנות, אבל הבינה המלאכותית לא זמינה',
+      message:
+        'המערכת זיהתה מצב עסקי שדורש תשומת לב, אבל המסלול הנוכחי לא כולל המלצות בינה מלאכותית.',
     };
   }
   if (reason === 'QUOTA_EXHAUSTED') {
     return {
-      title: 'Business issue detected, AI quota exhausted',
-      message: `State: ${topState}. Monthly AI quota is exhausted. You can still act manually.`,
+      title: 'מכסת הבינה המלאכותית החודשית הסתיימה',
+      message:
+        'זוהתה הזדמנות עסקית, אבל מכסת הבינה המלאכותית החודשית נוצלה. עדיין אפשר לפעול ידנית.',
     };
   }
   if (reason === 'DAILY_AI_LIMIT_REACHED') {
     return {
-      title: 'AI limit reached for today',
+      title: 'הגעתם למגבלת בינה מלאכותית יומית',
       message:
-        'Two AI executions already ran today. The recommendation was deferred to the next scan.',
+        'כבר בוצעו היום שתי הרצות בינה מלאכותית. ההמלצה תיבדק שוב בסריקה הבאה.',
     };
   }
   if (reason === 'QUOTA_NEAR_LIMIT') {
     return {
-      title: 'AI budget preserved for higher urgency',
-      message: `State: ${topState}. AI quota is near limit, so this recommendation is shown as fixed text.`,
+      title: 'שומרים את תקציב הבינה המלאכותית למקרים דחופים',
+      message:
+        'זוהתה הזדמנות עסקית, אבל מכסת הבינה המלאכותית קרובה לסיום ולכן מוצג הסבר קבוע.',
     };
   }
   if (reason === 'WAIT_CARD_CHANGE') {
     return {
-      title: 'Wait before another campaign',
+      title: 'כדאי להמתין לפני פעולה נוספת',
       message:
-        'The loyalty card was changed recently. Wait a few more days before taking new action.',
+        'כרטיס הנאמנות עודכן לאחרונה. עדיף להמתין כמה ימים לפני פעולה נוספת.',
     };
   }
   if (reason === 'CAMPAIGN_COOLDOWN_ACTIVE') {
     return {
-      title: 'Wait between campaigns',
+      title: 'כדאי להמתין בין קמפיינים',
       message:
-        'A campaign was sent recently. Wait for the cooldown window before sending another one.',
+        'נשלח קמפיין לאחרונה. עדיף להמתין לסיום חלון הצינון לפני קמפיין נוסף.',
     };
   }
   if (reason === 'WAIT_COOLDOWN') {
     return {
-      title: 'No action recommended right now',
+      title: 'כרגע לא מומלצת פעולה נוספת',
       message:
-        'A recent recommendation already covered this situation. Wait for new movement in customer behavior.',
+        'המערכת כבר הציגה המלצה דומה לאחרונה. כדאי להמתין לשינוי חדש בהתנהגות הלקוחות.',
     };
   }
   if (reason === 'NO_ACTION_NEEDED') {
     return {
-      title: 'No action recommended right now',
+      title: 'כרגע לא נדרשת פעולה',
       message:
-        'Activity looks stable. Keep monitoring and avoid over-messaging customers.',
+        'הפעילות נראית יציבה כרגע. עדיף להמשיך לעקוב ולא להעמיס מסרים על הלקוחות.',
     };
   }
   if (reason === 'WEEKLY_RECOMMENDATION_LIMIT') {
     return {
-      title: 'Weekly recommendation limit reached',
+      title: 'הגעתם למגבלת ההמלצות השבועית',
       message:
-        'You already received the weekly recommendation limit. New items will resume next week.',
+        'כבר הוצגו השבוע מספיק המלצות. המלצות חדשות יחזרו בשבוע הבא.',
     };
   }
   if (reason === 'REPEATED_EVENT_COOLDOWN') {
     return {
-      title: 'Repeated event suppressed',
+      title: 'האירוע כבר טופל לאחרונה',
       message:
-        'The same business event was already handled recently and has not materially changed.',
+        'אותו אירוע עסקי כבר זוהה וטופל לאחרונה, ולא חל בו שינוי מהותי.',
     };
   }
   if (reason === 'AI_REQUEST_FAILED') {
     return {
-      title: 'AI response unavailable',
+      title: 'תשובת הבינה המלאכותית לא זמינה כרגע',
       message:
-        'A deterministic fallback was shown because the AI request failed.',
+        'הוצג הסבר קבוע של המערכת כי בקשת הבינה המלאכותית נכשלה.',
     };
   }
   if (topState === 'CAMPAIGN_COMPLETED') {
     return {
-      title: 'Campaign outcome is ready',
-      message: `Last campaign reached ${metrics.visits_30d} visits in 30 days. Review outcome before sending another campaign.`,
+      title: 'סיכום הקמפיין מוכן',
+      message: `הקמפיין האחרון הוביל ל-${metrics.visits_30d} ביקורים ב-30 הימים האחרונים. כדאי לבדוק תוצאות לפני קמפיין נוסף.`,
     };
   }
   return {
-    title: 'Recommendation deferred',
-    message: 'The engine decided to defer this recommendation in this cycle.',
+    title: 'ההמלצה נדחתה',
+    message: 'מנוע ההמלצות החליט לדחות את ההמלצה במחזור הסריקה הנוכחי.',
   };
 }
 
@@ -964,6 +968,8 @@ function recommendationPromptTemplateCampaign(input: {
     '- Message max 25 words.',
     '- Keep neutral, business-safe, no medical/legal/financial claims.',
     '- Language must match facts.language.',
+    '- If facts.language is "he", title and message must be in Hebrew.',
+    '- If facts.language is "en", title and message must be in English.',
     `Facts: ${JSON.stringify(facts)}`,
   ].join('\n');
 }
@@ -996,6 +1002,8 @@ function recommendationPromptTemplateInsight(input: {
     '- Message max 20 words.',
     '- Keep neutral and practical.',
     '- Language must match facts.language.',
+    '- If facts.language is "he", title and message must be in Hebrew.',
+    '- If facts.language is "en", title and message must be in English.',
     `Facts: ${JSON.stringify(facts)}`,
   ].join('\n');
 }
@@ -1024,6 +1032,8 @@ function recommendationPromptTemplateSummary(input: {
     '- No extra metrics.',
     '- Message max 40 words.',
     '- Language must match facts.language.',
+    '- If facts.language is "he", title and message must be in Hebrew.',
+    '- If facts.language is "en", title and message must be in English.',
     `Facts: ${JSON.stringify(facts)}`,
   ].join('\n');
 }
@@ -1055,6 +1065,8 @@ function recommendationPromptTemplateExplanation(input: {
     '- Message max 35 words.',
     '- No invented facts.',
     '- Language must match facts.language.',
+    '- If facts.language is "he", title and message must be in Hebrew.',
+    '- If facts.language is "en", title and message must be in English.',
     `Facts: ${JSON.stringify(facts)}`,
   ].join('\n');
 }
@@ -1114,9 +1126,25 @@ function parseJsonFromModelText(raw: string) {
   return JSON.parse(withoutFence) as Record<string, unknown>;
 }
 
+function hasHebrewCharacters(text: string) {
+  return /[\u0590-\u05FF]/.test(text);
+}
+
+function outputMatchesExpectedLanguage(input: {
+  title: string;
+  message: string;
+  expectedLanguage: Language;
+}) {
+  if (input.expectedLanguage === 'he') {
+    return hasHebrewCharacters(`${input.title} ${input.message}`);
+  }
+  return true;
+}
+
 function sanitizeModelOutput(input: {
   parsed: Record<string, unknown>;
   expectedType: RecommendationType;
+  expectedLanguage: Language;
 }): { type: RecommendationType; title: string; message: string } | null {
   const rawTitle =
     typeof input.parsed.title === 'string' ? input.parsed.title : '';
@@ -1133,6 +1161,16 @@ function sanitizeModelOutput(input: {
     MAX_WORDS_BY_OUTPUT_TYPE[input.expectedType]
   );
   if (!message) {
+    return null;
+  }
+
+  if (
+    !outputMatchesExpectedLanguage({
+      title,
+      message,
+      expectedLanguage: input.expectedLanguage,
+    })
+  ) {
     return null;
   }
 
@@ -1220,6 +1258,7 @@ function extractMessageContent(raw: unknown): string {
 async function callGeminiJson(input: {
   prompt: string;
   expectedType: RecommendationType;
+  expectedLanguage: Language;
 }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -1302,6 +1341,7 @@ async function callGeminiJson(input: {
     const sanitized = sanitizeModelOutput({
       parsed,
       expectedType: input.expectedType,
+      expectedLanguage: input.expectedLanguage,
     });
     if (!sanitized) {
       return {
@@ -1801,7 +1841,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'NO_ACTIVE_PROGRAM',
@@ -1821,7 +1861,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'NOT_ENOUGH_DATA',
@@ -1841,7 +1881,7 @@ function buildDecision(input: {
       outputType: input.spec.outputType,
       template: input.spec.template,
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
     };
@@ -1863,7 +1903,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'WAIT_CARD_CHANGE',
@@ -1883,7 +1923,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'WAIT_COOLDOWN',
@@ -1923,7 +1963,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'WEEKLY_RECOMMENDATION_LIMIT',
@@ -1946,7 +1986,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'CAMPAIGN_COOLDOWN_ACTIVE',
@@ -1985,7 +2025,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'view_reason',
-      ctaLabel: 'View reason',
+      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'PLAN_NOT_ELIGIBLE',
@@ -2005,7 +2045,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'view_reason',
-      ctaLabel: 'View reason',
+      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'QUOTA_EXHAUSTED',
@@ -2025,7 +2065,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'none',
-      ctaLabel: 'No action needed',
+      ctaLabel: 'אין צורך בפעולה',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'DAILY_AI_LIMIT_REACHED',
@@ -2045,7 +2085,7 @@ function buildDecision(input: {
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
       ctaType: 'view_reason',
-      ctaLabel: 'View reason',
+      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'QUOTA_NEAR_LIMIT',
@@ -2516,7 +2556,14 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
         | CachedGeneration
         | undefined;
 
-      if (validCache) {
+      if (
+        validCache &&
+        outputMatchesExpectedLanguage({
+          title: validCache.responseJson.title,
+          message: validCache.responseJson.message,
+          expectedLanguage: profile.language,
+        })
+      ) {
         const recommendationId = await createRecommendationRecord({
           ctx,
           businessId,
@@ -2573,6 +2620,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       businessId,
       snapshotId,
       topState,
+      expectedLanguage: profile.language,
       goal: decision.goal,
       outputType: decision.outputType,
       ctaType: decision.ctaType,
@@ -2628,7 +2676,7 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
         MAX_WORDS_BY_OUTPUT_TYPE[args.outputType]
       ),
       ctaType: args.ctaType,
-      ctaLabel: normalizeWhitespace(args.ctaLabel) || 'View',
+      ctaLabel: normalizeWhitespace(args.ctaLabel) || 'צפייה',
       dedupeKey: args.dedupeKey,
       promptHash: args.promptHash,
       cacheKey: args.cacheKey,
@@ -2728,7 +2776,7 @@ export const finalizeAiRecommendationFailureInternal = internalMutation({
       title: fixed.title,
       message: `${fixed.message} (${args.reason.slice(0, 80)})`,
       ctaType: 'view_reason',
-      ctaLabel: 'View reason',
+      ctaLabel: 'צפייה בהסבר',
       dedupeKey: args.dedupeKey,
       relatedCampaignRunId: args.relatedCampaignRunId,
       guardrailReason: 'AI_REQUEST_FAILED',
@@ -2805,6 +2853,7 @@ export const runRecommendationSweepInternal = internalAction({
       const aiResult = await callGeminiJson({
         prompt: evaluation.prompt,
         expectedType: evaluation.outputType,
+        expectedLanguage: evaluation.expectedLanguage,
       });
 
       if (aiResult.ok) {

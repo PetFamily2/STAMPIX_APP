@@ -27,9 +27,9 @@ import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const PLAN_LABELS = {
-  starter: 'Starter',
-  pro: 'Pro AI',
-  premium: 'Premium AI',
+  starter: 'סטארטר',
+  pro: 'פרו חכם',
+  premium: 'פרימיום חכם',
 } as const;
 
 type BusinessRoute =
@@ -61,6 +61,174 @@ type KpiItem = {
   value: string;
   route: BusinessRoute;
 };
+
+function localizeAiCtaLabel(label: string) {
+  const normalized = label.trim().toLowerCase();
+  if (normalized === 'create editable draft') {
+    return 'יצירת טיוטה לעריכה';
+  }
+  if (normalized === 'view insight') {
+    return 'צפייה בתובנה';
+  }
+  if (normalized === 'view summary') {
+    return 'צפייה בסיכום';
+  }
+  if (normalized === 'view reason') {
+    return 'צפייה בהסבר';
+  }
+  if (normalized === 'no action needed') {
+    return 'אין צורך בפעולה';
+  }
+  if (normalized === 'view') {
+    return 'צפייה';
+  }
+  return label;
+}
+
+function localizeLegacyAiTitle(title: string) {
+  const normalized = title.trim();
+  if (normalized === 'Activate one loyalty card first') {
+    return 'צריך להפעיל קודם כרטיס נאמנות';
+  }
+  if (normalized === 'Not enough data yet') {
+    return 'עדיין אין מספיק נתונים';
+  }
+  if (normalized === 'Business issue detected, AI unavailable') {
+    return 'זוהתה הזדמנות, אבל הבינה המלאכותית לא זמינה';
+  }
+  if (normalized === 'Business issue detected, AI quota exhausted') {
+    return 'מכסת הבינה המלאכותית החודשית הסתיימה';
+  }
+  if (normalized === 'AI limit reached for today') {
+    return 'הגעתם למגבלת בינה מלאכותית יומית';
+  }
+  if (normalized === 'AI budget preserved for higher urgency') {
+    return 'שומרים את תקציב הבינה המלאכותית למקרים דחופים';
+  }
+  if (normalized === 'Wait before another campaign') {
+    return 'כדאי להמתין לפני פעולה נוספת';
+  }
+  if (normalized === 'Wait between campaigns') {
+    return 'כדאי להמתין בין קמפיינים';
+  }
+  if (normalized === 'No action recommended right now') {
+    return 'כרגע לא מומלצת פעולה';
+  }
+  if (normalized === 'Weekly recommendation limit reached') {
+    return 'הגעתם למגבלת ההמלצות השבועית';
+  }
+  if (normalized === 'Repeated event suppressed') {
+    return 'האירוע כבר טופל לאחרונה';
+  }
+  if (normalized === 'AI response unavailable') {
+    return 'תשובת הבינה המלאכותית לא זמינה כרגע';
+  }
+  if (normalized === 'Campaign outcome is ready') {
+    return 'סיכום הקמפיין מוכן';
+  }
+  if (normalized === 'Recommendation deferred') {
+    return 'ההמלצה נדחתה';
+  }
+  return title;
+}
+
+function localizeLegacyAiMessage(message: string) {
+  const normalized = message.trim().replace(/\s+/g, ' ');
+  if (
+    normalized ===
+    'Recommendations run on one primary active loyalty card. No active card was found.'
+  ) {
+    return 'ההמלצות פועלות על כרטיס נאמנות פעיל אחד. כרגע לא נמצא כרטיס פעיל לעסק.';
+  }
+  if (
+    normalized ===
+    'We need at least 20 customers, 30 active days, and 10 visits in the last 30 days.'
+  ) {
+    return 'נדרשים לפחות 20 לקוחות, 30 ימי פעילות ו-10 ביקורים ב-30 הימים האחרונים.';
+  }
+  if (
+    /^State: .*\. Your current plan does not include AI recommendations\.$/.test(
+      normalized
+    )
+  ) {
+    return 'המערכת זיהתה מצב עסקי שדורש תשומת לב, אבל המסלול הנוכחי לא כולל המלצות בינה מלאכותית.';
+  }
+  if (
+    /^State: .*\. Monthly AI quota is exhausted\. You can still act manually\.$/.test(
+      normalized
+    )
+  ) {
+    return 'זוהתה הזדמנות עסקית, אבל מכסת הבינה המלאכותית החודשית נוצלה. עדיין אפשר לפעול ידנית.';
+  }
+  if (
+    normalized ===
+    'Two AI executions already ran today. The recommendation was deferred to the next scan.'
+  ) {
+    return 'כבר בוצעו היום שתי הרצות בינה מלאכותית. ההמלצה תיבדק שוב בסריקה הבאה.';
+  }
+  if (
+    /^State: .*\. AI quota is near limit, so this recommendation is shown as fixed text\.$/.test(
+      normalized
+    )
+  ) {
+    return 'זוהתה הזדמנות עסקית, אבל מכסת הבינה המלאכותית קרובה לסיום ולכן מוצג הסבר קבוע.';
+  }
+  if (
+    normalized ===
+    'The loyalty card was changed recently. Wait a few more days before taking new action.'
+  ) {
+    return 'כרטיס הנאמנות עודכן לאחרונה. עדיף להמתין כמה ימים לפני פעולה נוספת.';
+  }
+  if (
+    normalized ===
+    'A campaign was sent recently. Wait for the cooldown window before sending another one.'
+  ) {
+    return 'נשלח קמפיין לאחרונה. עדיף להמתין לסיום חלון הצינון לפני קמפיין נוסף.';
+  }
+  if (
+    normalized ===
+    'A recent recommendation already covered this situation. Wait for new movement in customer behavior.'
+  ) {
+    return 'המערכת כבר הציגה המלצה דומה לאחרונה. כדאי להמתין לשינוי חדש בהתנהגות הלקוחות.';
+  }
+  if (
+    normalized ===
+    'Activity looks stable. Keep monitoring and avoid over-messaging customers.'
+  ) {
+    return 'הפעילות נראית יציבה כרגע. עדיף להמשיך לעקוב ולא להעמיס מסרים על הלקוחות.';
+  }
+  if (
+    normalized ===
+    'You already received the weekly recommendation limit. New items will resume next week.'
+  ) {
+    return 'כבר הוצגו השבוע מספיק המלצות. המלצות חדשות יחזרו בשבוע הבא.';
+  }
+  if (
+    normalized ===
+    'The same business event was already handled recently and has not materially changed.'
+  ) {
+    return 'אותו אירוע עסקי כבר זוהה וטופל לאחרונה, ולא חל בו שינוי מהותי.';
+  }
+  if (
+    normalized ===
+    'A deterministic fallback was shown because the AI request failed.'
+  ) {
+    return 'הוצג הסבר קבוע של המערכת כי בקשת הבינה המלאכותית נכשלה.';
+  }
+  const campaignSummaryMatch = normalized.match(
+    /^Last campaign reached (\d+) visits in 30 days\. Review outcome before sending another campaign\.$/
+  );
+  if (campaignSummaryMatch) {
+    return `הקמפיין האחרון הוביל ל-${campaignSummaryMatch[1]} ביקורים ב-30 הימים האחרונים. כדאי לבדוק תוצאות לפני קמפיין נוסף.`;
+  }
+  if (
+    normalized ===
+    'The engine decided to defer this recommendation in this cycle.'
+  ) {
+    return 'מנוע ההמלצות החליט לדחות את ההמלצה במחזור הסריקה הנוכחי.';
+  }
+  return message;
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
@@ -507,6 +675,13 @@ export default function MerchantDashboardScreen() {
     router.push(route);
   };
 
+  const localizedRecommendationTitle = aiRecommendation
+    ? localizeLegacyAiTitle(aiRecommendation.title)
+    : null;
+  const localizedRecommendationMessage = aiRecommendation
+    ? localizeLegacyAiMessage(aiRecommendation.message)
+    : null;
+
   const handleRecommendationCta = async () => {
     if (
       !activeBusinessId ||
@@ -661,7 +836,7 @@ export default function MerchantDashboardScreen() {
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-4">
           <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
-            KPI ראשיים
+            מדדים מרכזיים
           </Text>
           {kpiLoading ? (
             <View className="mt-3">
@@ -755,19 +930,21 @@ export default function MerchantDashboardScreen() {
             <LoadingBlock height={124} />
           </View>
         ) : aiRecommendation ? (
-          <View className="mt-4 rounded-2xl border border-[#D6E2F8] bg-[#EEF3FF] p-4">
+          <View className="mt-4 items-end rounded-2xl border border-[#D6E2F8] bg-[#EEF3FF] p-4">
             <Text
-              className={`text-xs font-bold text-[#1D4ED8] ${tw.textStart}`}
+              className={`w-full text-xs font-bold text-[#1D4ED8] ${tw.textStart}`}
             >
-              SMART RECOMMENDATION
+              המלצה חכמה
             </Text>
             <Text
-              className={`mt-2 text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+              className={`mt-2 w-full text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
             >
-              {aiRecommendation.title}
+              {localizedRecommendationTitle}
             </Text>
-            <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
-              {aiRecommendation.message}
+            <Text
+              className={`mt-1 w-full text-xs text-[#475569] ${tw.textStart}`}
+            >
+              {localizedRecommendationMessage}
             </Text>
             {aiRecommendation.ctaType !== 'none' ? (
               <TouchableOpacity
@@ -775,7 +952,7 @@ export default function MerchantDashboardScreen() {
                   void handleRecommendationCta();
                 }}
                 disabled={isApplyingRecommendation}
-                className={`mt-3 self-start rounded-xl px-3 py-2 ${
+                className={`mt-3 ${tw.selfStart} rounded-xl px-3 py-2 ${
                   isApplyingRecommendation ? 'bg-[#CBD5E1]' : 'bg-[#1D4ED8]'
                 }`}
               >
@@ -783,13 +960,13 @@ export default function MerchantDashboardScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text className="text-xs font-bold text-white">
-                    {aiRecommendation.ctaLabel}
+                    {localizeAiCtaLabel(aiRecommendation.ctaLabel)}
                   </Text>
                 )}
               </TouchableOpacity>
             ) : (
               <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
-                No action is recommended right now.
+                כרגע אין פעולה מומלצת.
               </Text>
             )}
           </View>
@@ -800,12 +977,12 @@ export default function MerchantDashboardScreen() {
             onPress={() => openRoute('/(authenticated)/(business)/customers')}
             className={`${tw.flexRow} items-center justify-between`}
           >
-            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
             <Text
               className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
             >
               בריאות לקוחות
             </Text>
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
           {isEntitlementsLoading ? (
@@ -824,7 +1001,7 @@ export default function MerchantDashboardScreen() {
               </Text>
               <TouchableOpacity
                 onPress={openSmartUpgrade}
-                className="mt-3 self-start rounded-xl bg-[#1D4ED8] px-3 py-2"
+                className={`mt-3 ${tw.selfStart} rounded-xl bg-[#1D4ED8] px-3 py-2`}
               >
                 <Text className="text-xs font-bold text-white">שדרגו</Text>
               </TouchableOpacity>
@@ -840,7 +1017,7 @@ export default function MerchantDashboardScreen() {
               </Text>
               <TouchableOpacity
                 onPress={() => openRoute('/(authenticated)/(business)/cards')}
-                className="mt-3 self-start rounded-xl border border-[#2F6BFF] bg-white px-3 py-2"
+                className={`mt-3 ${tw.selfStart} rounded-xl border border-[#2F6BFF] bg-white px-3 py-2`}
               >
                 <Text className="text-xs font-bold text-[#2F6BFF]">
                   מעבר לניהול כרטיסים
@@ -896,7 +1073,7 @@ export default function MerchantDashboardScreen() {
                   className="w-[48%] rounded-2xl border border-[#C7D2FE] bg-[#EEF2FF] p-3"
                 >
                   <Text className="text-right text-xs font-semibold text-[#4338CA]">
-                    VIP / חדשים
+                    מובילים / חדשים
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#3730A3]">
                     {formatNumber(customerSnapshot.summary.vipCustomers)} /{' '}
@@ -927,12 +1104,12 @@ export default function MerchantDashboardScreen() {
             onPress={() => openRoute('/(authenticated)/(business)/cards')}
             className={`${tw.flexRow} items-center justify-between`}
           >
-            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
             <Text
               className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
             >
               תוכניות נאמנות
             </Text>
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
           {programs === undefined ? (
@@ -946,7 +1123,7 @@ export default function MerchantDashboardScreen() {
               </Text>
               <TouchableOpacity
                 onPress={() => openRoute('/(authenticated)/(business)/cards')}
-                className="mt-3 self-start rounded-xl bg-[#2F6BFF] px-3 py-2"
+                className={`mt-3 ${tw.selfStart} rounded-xl bg-[#2F6BFF] px-3 py-2`}
               >
                 <Text className="text-xs font-bold text-white">
                   לניהול כרטיסים
@@ -1020,13 +1197,13 @@ export default function MerchantDashboardScreen() {
             onPress={() => openRoute('/(authenticated)/(business)/analytics')}
             className={`${tw.flexRow} items-center justify-between`}
           >
-            <Text className="text-xs font-bold text-[#2563EB]">
-              לכל הפעילות
-            </Text>
             <Text
               className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
             >
               פעילות אחרונה
+            </Text>
+            <Text className="text-xs font-bold text-[#2563EB]">
+              לכל הפעילות
             </Text>
           </TouchableOpacity>
 

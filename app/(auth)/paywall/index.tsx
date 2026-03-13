@@ -6,15 +6,19 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
+  Pressable,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
+import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import {
   type BillingPeriod,
   IS_DEV_MODE,
@@ -26,7 +30,6 @@ import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { tw } from '@/lib/rtl';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
@@ -35,6 +38,7 @@ import {
 
 export default function PaywallScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -74,6 +78,7 @@ export default function PaywallScreen() {
       if (plan === 'starter') {
         return null;
       }
+
       return REVENUECAT_PACKAGE_BY_PLAN_PERIOD[plan][period];
     },
     []
@@ -86,9 +91,11 @@ export default function PaywallScreen() {
         billing_period: period,
       };
       const packageId = resolvePackageId(plan, period);
+
       if (packageId) {
         payload.plan_id = packageId;
       }
+
       return payload;
     },
     [resolvePackageId]
@@ -107,6 +114,7 @@ export default function PaywallScreen() {
     if (completionRef.current) {
       return;
     }
+
     completionRef.current = true;
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'business' });
   }, [trackEvent]);
@@ -209,10 +217,12 @@ export default function PaywallScreen() {
     if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       return;
     }
+
     if (isExpoGo) {
       Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.');
       return;
     }
+
     if (!isConfigured) {
       Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
       return;
@@ -222,6 +232,7 @@ export default function PaywallScreen() {
       const result = await RevenueCatUI.presentPaywallIfNeeded({
         requiredEntitlementIdentifier: 'stampix_pro',
       });
+
       if (
         result === PAYWALL_RESULT.PURCHASED ||
         result === PAYWALL_RESULT.RESTORED
@@ -239,14 +250,17 @@ export default function PaywallScreen() {
     if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       return;
     }
+
     if (isExpoGo) {
       Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go.');
       return;
     }
+
     if (!isConfigured) {
       Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
       return;
     }
+
     try {
       await RevenueCatUI.presentCustomerCenter();
     } catch {
@@ -274,142 +288,240 @@ export default function PaywallScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#0f172a]">
-        <ActivityIndicator size="large" color="#38bdf8" />
+      <SafeAreaView style={styles.loadingSafeArea} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color="#38BDF8" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0f172a]" edges={['top', 'bottom']}>
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className={`${tw.flexRow} ${tw.justifyEnd} px-4 pt-4`}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={handleClose}
-            className="h-10 w-10 items-center justify-center rounded-full bg-slate-800"
+            style={styles.closeButton}
             hitSlop={8}
           >
-            <X size={24} color="#cbd5e1" />
+            <X size={22} color="#CBD5E1" />
           </TouchableOpacity>
         </View>
 
         {isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? (
-          <View className="mx-4 mt-2 mb-4 rounded-2xl border border-yellow-500/50 bg-yellow-500/20 p-3">
-            <Text className="text-center text-sm font-medium text-yellow-300">
+          <View style={[styles.banner, styles.warningBanner]}>
+            <Text style={[styles.bannerText, styles.warningBannerText]}>
               מצב בדיקה. רכישות אמיתיות כבויות כרגע.
             </Text>
           </View>
         ) : null}
 
         {isExpoGo && !isPreviewMode ? (
-          <View className="mx-4 mt-2 mb-4 rounded-2xl border border-blue-500/50 bg-blue-500/20 p-3">
-            <Text className="text-center text-sm font-medium text-blue-300">
+          <View style={[styles.banner, styles.infoBanner]}>
+            <Text style={[styles.bannerText, styles.infoBannerText]}>
               Expo Go לא תומך ברכישות. השתמשו ב-Dev Build.
             </Text>
           </View>
         ) : null}
 
-        <View className="px-6 pt-4 pb-4">
-          <Text className="mb-2 text-center text-3xl font-bold text-white">
+        <View style={styles.heroBlock}>
+          <Text style={styles.title}>
             בחרו את הדרך שבה העסק ישמור על לקוחות
           </Text>
-          <Text className="text-center text-base text-slate-300">
+          <Text style={styles.subtitle}>
             Starter מתאים להתחלה. Pro AI פותח Marketing Hub, תובנות לקוחות
             ודוחות מתקדמים. Premium AI מוסיף בניית סגמנטים ושמירת קהלים.
           </Text>
         </View>
 
-        <View className="px-4 pb-6">
-          <PlanComparisonTable
-            plans={planCatalog}
-            rows={comparisonRows}
-            selectedPlan={selectedPlan}
-            billingPeriod={billingPeriod}
-            onSelectPlan={handleSelectPlan}
-            onBillingPeriodChange={handleBillingPeriodChange}
-            popularPlan="pro"
-            popularLabel="המסלול המרכזי"
-          />
-        </View>
-
-        <Text className="mb-4 px-6 text-center text-sm text-slate-500">
-          אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך.
-        </Text>
-
-        <View className="mb-6 px-6">
-          <TouchableOpacity
-            onPress={handleContinue}
-            disabled={
-              isPurchasing || selectedPlan === 'starter'
-                ? false
-                : isPreviewMode || !PAYMENT_SYSTEM_ENABLED
-            }
-            className={`items-center rounded-xl bg-sky-400 py-4 ${
-              isPurchasing ||
-              (
-                selectedPlan !== 'starter' &&
-                  (isPreviewMode || !PAYMENT_SYSTEM_ENABLED)
-              )
-                ? 'opacity-60'
-                : ''
-            }`}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color="#0f172a" />
-            ) : (
-              <Text className="text-lg font-bold text-[#0f172a]">
-                {selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לרכישה'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View className="mb-6 gap-3 px-6">
+        <View style={styles.utilityLinksRow}>
           <TouchableOpacity
             onPress={handleShowPaywall}
             disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
-            className={`items-center rounded-xl border border-slate-700 bg-slate-900 py-3 ${
-              isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? 'opacity-60' : ''
-            }`}
+            style={styles.utilityLinkButton}
           >
-            <Text className="text-sm font-semibold text-white">
+            <Text
+              style={[
+                styles.utilityLinkText,
+                isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+                  ? styles.utilityLinkTextDisabled
+                  : null,
+              ]}
+            >
               הצגת Paywall של RevenueCat
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCustomerCenter}
             disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
-            className={`items-center rounded-xl border border-slate-700 bg-transparent py-3 ${
-              isPreviewMode || !PAYMENT_SYSTEM_ENABLED ? 'opacity-60' : ''
-            }`}
+            style={styles.utilityLinkButton}
           >
-            <Text className="text-sm font-semibold text-slate-300">
+            <Text
+              style={[
+                styles.utilityLinkText,
+                isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+                  ? styles.utilityLinkTextDisabled
+                  : null,
+              ]}
+            >
               ניהול מנוי קיים
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View className={`${tw.flexRow} justify-center gap-8 pb-6`}>
-          <TouchableOpacity
-            onPress={handleRestore}
-            disabled={isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
-          >
-            {isRestoring ? (
-              <ActivityIndicator size="small" color="#a1a1aa" />
-            ) : (
-              <Text className="text-sm text-slate-500">שחזור רכישות</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => router.push('/(auth)/legal')}>
-            <Text className="text-sm text-slate-500">מסמך משפטי</Text>
-          </TouchableOpacity>
+        <View style={styles.panelWrap}>
+          <SubscriptionSalesPanel
+            plans={planCatalog}
+            rows={comparisonRows}
+            selectedPlan={selectedPlan}
+            billingPeriod={billingPeriod}
+            context="paywall"
+            ctaLabel={
+              selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לרכישה'
+            }
+            ctaDisabled={
+              selectedPlan === 'starter'
+                ? false
+                : isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+            }
+            ctaLoading={isPurchasing}
+            footerNote="אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך."
+            footerInsetBottom={Math.max(insets.bottom, 12)}
+            footerBottomSlot={
+              <View style={styles.footerLinkRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    void handleRestore();
+                  }}
+                  disabled={
+                    isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+                  }
+                >
+                  {isRestoring ? (
+                    <ActivityIndicator size="small" color="#94A3B8" />
+                  ) : (
+                    <Text style={styles.footerLinkText}>שחזור רכישות</Text>
+                  )}
+                </TouchableOpacity>
+                <Pressable onPress={() => router.push('/(auth)/legal')}>
+                  <Text style={styles.footerLinkText}>מסמך משפטי</Text>
+                </Pressable>
+              </View>
+            }
+            onSelectPlan={handleSelectPlan}
+            onBillingPeriodChange={handleBillingPeriodChange}
+            onPressCta={() => {
+              void handleContinue();
+            }}
+          />
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingSafeArea: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  headerRow: {
+    alignItems: 'flex-end',
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+  },
+  banner: {
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  warningBanner: {
+    borderColor: 'rgba(234, 179, 8, 0.5)',
+    backgroundColor: 'rgba(234, 179, 8, 0.18)',
+  },
+  infoBanner: {
+    borderColor: 'rgba(59, 130, 246, 0.5)',
+    backgroundColor: 'rgba(59, 130, 246, 0.18)',
+  },
+  bannerText: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  warningBannerText: {
+    color: '#FDE68A',
+  },
+  infoBannerText: {
+    color: '#BFDBFE',
+  },
+  heroBlock: {
+    marginTop: 14,
+    gap: 8,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 29,
+    lineHeight: 36,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  subtitle: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  utilityLinksRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 10,
+  },
+  utilityLinkButton: {
+    flex: 1,
+  },
+  utilityLinkText: {
+    color: '#7DD3FC',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  utilityLinkTextDisabled: {
+    color: '#475569',
+  },
+  panelWrap: {
+    flex: 1,
+    paddingTop: 10,
+  },
+  footerLinkRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    gap: 22,
+    paddingTop: 2,
+  },
+  footerLinkText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+});

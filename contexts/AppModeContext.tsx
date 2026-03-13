@@ -16,7 +16,9 @@ type AppModeContextValue = {
   isLoading: boolean;
 };
 
-const STORAGE_KEY = 'stamprix.appMode';
+const STORAGE_KEY = 'stampaix.appMode';
+// Legacy typo key kept for migration only.
+const LEGACY_STORAGE_KEY = 'stamprix.appMode';
 const AppModeContext = createContext<AppModeContextValue | undefined>(
   undefined
 );
@@ -29,10 +31,18 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
     const load = async () => {
       try {
-        const stored = await SecureStore.getItemAsync(STORAGE_KEY);
+        const storedPrimary = await SecureStore.getItemAsync(STORAGE_KEY);
+        const storedLegacy = storedPrimary
+          ? null
+          : await SecureStore.getItemAsync(LEGACY_STORAGE_KEY);
+        const stored = storedPrimary ?? storedLegacy;
         if (stored === 'customer' || stored === 'business') {
           if (isMounted) {
             setAppModeState(stored);
+          }
+          if (storedLegacy) {
+            await SecureStore.setItemAsync(STORAGE_KEY, stored);
+            await SecureStore.deleteItemAsync(LEGACY_STORAGE_KEY);
           }
         }
         if (stored === 'merchant' || stored === 'staff') {
@@ -40,6 +50,7 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
             setAppModeState('business');
           }
           await SecureStore.setItemAsync(STORAGE_KEY, 'business');
+          await SecureStore.deleteItemAsync(LEGACY_STORAGE_KEY);
         }
       } finally {
         if (isMounted) {
@@ -57,6 +68,7 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     setAppModeState(mode);
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, mode);
+      await SecureStore.deleteItemAsync(LEGACY_STORAGE_KEY);
     } catch {
       // Ignore persistence errors; app still uses in-memory mode.
     }

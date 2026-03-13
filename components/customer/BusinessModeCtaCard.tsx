@@ -60,11 +60,13 @@ function formatSwitchToBusinessTitle(businessName: string) {
 type BusinessModeCtaCardProps = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  accentButton?: boolean;
 };
 
 export default function BusinessModeCtaCard({
   disabled = false,
   style,
+  accentButton = false,
 }: BusinessModeCtaCardProps) {
   const setActiveMode = useMutation(api.users.setActiveMode);
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
@@ -99,6 +101,7 @@ export default function BusinessModeCtaCard({
   const hostButtonLabel = showExistingBusinessCta
     ? TEXT.switchToBusinessButton
     : TEXT.hostButton;
+  const shouldUseAccentButton = !isBusinessMode || accentButton;
 
   useEffect(() => {
     if (isBusinessMode || hostActionDisabled) {
@@ -216,7 +219,7 @@ export default function BusinessModeCtaCard({
             <Animated.View
               style={[
                 styles.hostButton,
-                !isBusinessMode ? styles.hostButtonAccent : null,
+                shouldUseAccentButton ? styles.hostButtonAccent : null,
                 !isBusinessMode
                   ? { transform: [{ scale: hostButtonScale }] }
                   : null,

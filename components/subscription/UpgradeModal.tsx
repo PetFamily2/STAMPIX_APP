@@ -1,15 +1,7 @@
 import { useMutation, useQuery } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   BILLING_PERIOD_LABELS,
@@ -22,10 +14,10 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { getUpgradeAreaLabel } from '@/lib/subscription/lockedAreaCopy';
 import {
-  getPlanPriceForPeriod,
   normalizePlanCatalog,
   type PlanCatalogItem,
 } from '@/lib/subscription/planComparison';
+import { SubscriptionSalesPanel } from './SubscriptionSalesPanel';
 
 const PLAN_LABELS: Record<'pro' | 'premium', string> = {
   pro: 'Pro AI',
@@ -105,6 +97,7 @@ export function UpgradeModal({
   onClose,
   onSuccess,
 }: UpgradeModalProps) {
+  const insets = useSafeAreaInsets();
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
   const syncBusinessSubscription = useMutation(
     api.entitlements.syncBusinessSubscription
@@ -123,6 +116,7 @@ export function UpgradeModal({
     if (!visible) {
       return;
     }
+
     setSelectedPlan(initialPlan);
     setBillingPeriod(initialBillingPeriod);
   }, [initialBillingPeriod, initialPlan, visible]);
@@ -136,15 +130,13 @@ export function UpgradeModal({
     return normalized.length > 0 ? normalized : buildFallbackPlans();
   }, [planCatalogQuery]);
 
-  const selectedPlanCard =
-    paidPlans.find((plan) => plan.plan === selectedPlan) ?? paidPlans[0];
   const reasonCopy =
     PLAN_REASON_COPY[reason] ?? 'שדרוג פותח יותר יכולות ניהול ושימור לקוחות.';
   const featureAreaLabel = getUpgradeAreaLabel(featureKey);
   const isBillingLive = PAYMENT_SYSTEM_ENABLED && isConfigured && !isExpoGo;
 
   const handleUpgrade = async () => {
-    if (!businessId || isSubmitting || !selectedPlanCard) {
+    if (!businessId || isSubmitting) {
       return;
     }
 
@@ -187,7 +179,7 @@ export function UpgradeModal({
 
       onSuccess?.();
       onClose();
-    } catch (_error) {
+    } catch {
       Alert.alert('שגיאה', 'לא הצלחנו להשלים את השדרוג. נסו שוב.');
     } finally {
       setIsSubmitting(false);
@@ -215,127 +207,43 @@ export function UpgradeModal({
             <View style={styles.devBanner}>
               <Text style={styles.devBannerTitle}>מצב בדיקה</Text>
               <Text style={styles.devBannerText}>
-                רכישה אמיתית לא זמינה כרגע. בלחיצה על הכפתור יתעדכן לעסק מסלול
+                רכישה אמיתית לא זמינה כרגע. לחיצה על הכפתור תעדכן לעסק מסלול
                 בדיקה כדי לאפשר לכם להמשיך לבדוק את המוצר.
               </Text>
             </View>
           ) : null}
 
-          <View style={styles.periodWrap}>
-            {(['monthly', 'yearly'] as const).map((period) => {
-              const active = billingPeriod === period;
-              return (
-                <Pressable
-                  key={period}
-                  style={[
-                    styles.periodButton,
-                    active ? styles.periodButtonActive : null,
-                  ]}
-                  onPress={() => setBillingPeriod(period)}
-                >
-                  <Text
-                    style={[
-                      styles.periodText,
-                      active ? styles.periodTextActive : null,
-                    ]}
-                  >
-                    {BILLING_PERIOD_LABELS[period]}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.periodSummary}>
+            <Text style={styles.periodSummaryText}>
+              מחזור נוכחי: {BILLING_PERIOD_LABELS[billingPeriod]}
+            </Text>
           </View>
 
-          <ScrollView
-            style={styles.planList}
-            contentContainerStyle={styles.planListContent}
-          >
-            {paidPlans.map((plan) => {
-              const active = selectedPlan === plan.plan;
-              const price = getPlanPriceForPeriod(plan, billingPeriod);
-
-              return (
-                <Pressable
-                  key={plan.plan}
-                  onPress={() =>
-                    setSelectedPlan(plan.plan === 'premium' ? 'premium' : 'pro')
-                  }
-                  style={[
-                    styles.planCard,
-                    active ? styles.planCardActive : null,
-                  ]}
-                >
-                  <View style={styles.planHeader}>
-                    <View style={styles.planTitleWrap}>
-                      <Text style={styles.planName}>{plan.label}</Text>
-                      <Text style={styles.planPrice}>
-                        ₪{price}
-                        <Text style={styles.planPriceSuffix}>
-                          {billingPeriod === 'monthly' ? ' / חודש' : ' / שנה'}
-                        </Text>
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.selectionDot,
-                        active ? styles.selectionDotActive : null,
-                      ]}
-                    />
-                  </View>
-
-                  <View style={styles.planMetaGrid}>
-                    <Text style={styles.planMeta}>
-                      כרטיסים: {plan.limits.maxCards}
-                    </Text>
-                    <Text style={styles.planMeta}>
-                      לקוחות: {plan.limits.maxCustomers}
-                    </Text>
-                    <Text style={styles.planMeta}>
-                      קמפייני שימור פעילים:{' '}
-                      {plan.limits.maxActiveRetentionActions}
-                    </Text>
-                  </View>
-
-                  <View style={styles.featureRow}>
-                    <Text style={styles.featureBadge}>
-                      {plan.features.team ? 'צוות' : 'ללא צוות'}
-                    </Text>
-                    <Text style={styles.featureBadge}>
-                      {plan.features.smartAnalytics
-                        ? 'תובנות לקוחות'
-                        : 'ללא תובנות'}
-                    </Text>
-                    <Text style={styles.featureBadge}>
-                      {plan.features.segmentationBuilder
-                        ? 'בונה סגמנטים'
-                        : 'ללא סגמנטים'}
-                    </Text>
-                  </View>
+          <View style={styles.panelWrap}>
+            <SubscriptionSalesPanel
+              plans={paidPlans}
+              selectedPlan={selectedPlan}
+              billingPeriod={billingPeriod}
+              visiblePlans={['pro', 'premium']}
+              context="upgrade"
+              ctaLabel={isBillingLive ? 'המשך לרכישה' : 'הפעלת מסלול בדיקה'}
+              ctaDisabled={isSubmitting}
+              ctaLoading={isSubmitting}
+              footerInsetBottom={Math.max(insets.bottom, 6)}
+              footerBottomSlot={
+                <Pressable onPress={onClose} style={styles.cancelButton}>
+                  <Text style={styles.cancelText}>אולי אחר כך</Text>
                 </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <Pressable
-            style={[
-              styles.upgradeButton,
-              isSubmitting ? styles.disabled : null,
-            ]}
-            onPress={handleUpgrade}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.upgradeButtonText}>
-                {isBillingLive ? 'המשך לרכישה' : 'הפעלת מסלול בדיקה'}
-              </Text>
-            )}
-          </Pressable>
-
-          <Pressable onPress={onClose} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>אולי אחר כך</Text>
-          </Pressable>
+              }
+              onSelectPlan={(plan) =>
+                setSelectedPlan(plan === 'premium' ? 'premium' : 'pro')
+              }
+              onBillingPeriodChange={setBillingPeriod}
+              onPressCta={() => {
+                void handleUpgrade();
+              }}
+            />
+          </View>
         </View>
       </View>
     </Modal>
@@ -345,17 +253,17 @@ export function UpgradeModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 12,
-    paddingBottom: 18,
     maxHeight: '92%',
+    minHeight: 560,
   },
   handle: {
     width: 46,
@@ -367,6 +275,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
+    lineHeight: 26,
     fontWeight: '900',
     color: '#0F172A',
     textAlign: 'right',
@@ -387,7 +296,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   devBanner: {
-    marginTop: 14,
+    marginTop: 12,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#FCD34D',
@@ -409,138 +318,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
   },
-  periodWrap: {
-    marginTop: 14,
-    flexDirection: 'row-reverse',
-    gap: 8,
-  },
-  periodButton: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#D5E1F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  periodButtonActive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#2563EB',
-  },
-  periodText: {
-    color: '#334155',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  periodTextActive: {
-    color: '#1D4ED8',
-  },
-  planList: {
-    marginTop: 12,
-    maxHeight: 320,
-  },
-  planListContent: {
-    gap: 10,
-    paddingBottom: 8,
-  },
-  planCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#D5E1F2',
-    backgroundColor: '#F8FAFC',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  planCardActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  planHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  planTitleWrap: {
-    flex: 1,
+  periodSummary: {
+    marginTop: 10,
     alignItems: 'flex-end',
   },
-  planName: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#0F172A',
-    textAlign: 'right',
-  },
-  planPrice: {
-    marginTop: 2,
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1E3A8A',
-    textAlign: 'right',
-  },
-  planPriceSuffix: {
-    fontSize: 12,
-    fontWeight: '700',
+  periodSummaryText: {
     color: '#64748B',
-  },
-  selectionDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#94A3B8',
-    marginTop: 2,
-  },
-  selectionDotActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#2563EB',
-  },
-  planMetaGrid: {
-    gap: 4,
-  },
-  planMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-    textAlign: 'right',
-  },
-  featureRow: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  featureBadge: {
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D5E1F2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     fontSize: 11,
     fontWeight: '700',
-    color: '#334155',
-    textAlign: 'center',
+    textAlign: 'right',
   },
-  upgradeButton: {
-    marginTop: 10,
-    minHeight: 46,
-    borderRadius: 999,
-    backgroundColor: '#1D4ED8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upgradeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    textAlign: 'center',
+  panelWrap: {
+    flex: 1,
+    paddingTop: 10,
   },
   cancelButton: {
-    marginTop: 6,
-    minHeight: 38,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -548,8 +341,5 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     fontWeight: '700',
-  },
-  disabled: {
-    opacity: 0.7,
   },
 });

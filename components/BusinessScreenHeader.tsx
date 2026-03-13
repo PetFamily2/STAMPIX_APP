@@ -11,6 +11,8 @@ type BusinessScreenHeaderProps = {
   titleStyle?: StyleProp<TextStyle>;
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
+  titleNumberOfLines?: number;
+  subtitleNumberOfLines?: number;
 };
 
 export default function BusinessScreenHeader({
@@ -20,6 +22,8 @@ export default function BusinessScreenHeader({
   titleStyle,
   subtitleStyle,
   titleAccessory,
+  titleNumberOfLines,
+  subtitleNumberOfLines,
 }: BusinessScreenHeaderProps) {
   return (
     <View style={[styles.headerRow, style]}>
@@ -29,6 +33,8 @@ export default function BusinessScreenHeader({
         titleStyle={titleStyle}
         subtitleStyle={subtitleStyle}
         titleAccessory={titleAccessory}
+        titleNumberOfLines={titleNumberOfLines}
+        subtitleNumberOfLines={subtitleNumberOfLines}
       />
     </View>
   );

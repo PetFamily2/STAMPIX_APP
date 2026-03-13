@@ -10,8 +10,8 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import stampaixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
@@ -303,17 +303,22 @@ export default function AuthenticatedLayout() {
   if (shouldShowLoadingScreen) {
     return (
       <View style={styles.loadingScreen}>
-        <View style={styles.loadingLogoShell}>
-          <Image
-            source={stampaixLogo}
-            style={styles.loadingLogo}
-            resizeMode="contain"
-            accessibilityLabel="Stampaix logo"
-          />
+        <View style={styles.loadingHero}>
+          <View style={styles.loadingLogoHalo} />
+          <View style={styles.loadingLogoShell}>
+            <Image
+              source={STAMPAIX_IMAGE_LOGO}
+              style={styles.loadingLogo}
+              resizeMode="contain"
+              accessibilityLabel="StampAix logo"
+            />
+          </View>
+          <View style={styles.loadingPercentBadge}>
+            <Text style={styles.loadingPercent}>
+              {Math.min(100, loadingProgress)}%
+            </Text>
+          </View>
         </View>
-        <Text style={styles.loadingPercent}>
-          {Math.min(100, loadingProgress)}%
-        </Text>
         <Text style={styles.loadingTitle}>{TEXT.loadingTitle}</Text>
         <Text style={styles.loadingSubtitle}>{loadingSubtitle}</Text>
       </View>
@@ -336,32 +341,74 @@ export default function AuthenticatedLayout() {
 const styles = StyleSheet.create({
   loadingScreen: {
     flex: 1,
-    backgroundColor: '#ECECEC',
+    backgroundColor: '#FDFDFD',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
+  },
+  loadingHero: {
+    width: 248,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+  },
+  loadingLogoHalo: {
+    position: 'absolute',
+    top: 4,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#EAF1FF',
+    shadowColor: '#2F6BFF',
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4,
   },
   loadingLogoShell: {
-    width: 228,
-    height: 228,
+    width: 208,
+    height: 208,
+    borderRadius: 44,
+    borderWidth: 1,
+    borderColor: '#D6E4FF',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    shadowColor: '#2F6BFF',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
   },
   loadingLogo: {
-    width: 192,
-    height: 192,
+    width: 172,
+    height: 172,
+  },
+  loadingPercentBadge: {
+    marginTop: -18,
+    minWidth: 114,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#1F57E7',
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    shadowColor: '#2F6BFF',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
   loadingPercent: {
-    fontSize: 84,
+    fontSize: 38,
     fontWeight: '900',
-    color: '#2F6BFF',
-    lineHeight: 92,
+    color: '#FFFFFF',
+    lineHeight: 40,
     fontStyle: 'italic',
     textAlign: 'center',
   },
   loadingTitle: {
-    marginTop: 8,
+    marginTop: 4,
     fontSize: 34,
     fontWeight: '900',
     color: '#0F2A4D',

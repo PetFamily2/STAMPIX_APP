@@ -15,8 +15,8 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import stampixLogo from '@/assets/images/STAMPAIX_LOGO_round.png';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -206,10 +206,10 @@ export default function WalletScreen() {
 
                       <View style={styles.imagePlaceholder}>
                         <Image
-                          source={stampixLogo}
+                          source={STAMPAIX_IMAGE_LOGO}
                           style={styles.cardImage}
                           resizeMode="contain"
-                          accessibilityLabel="Business logo"
+                          accessibilityLabel="StampAix logo"
                         />
                       </View>
                     </View>

@@ -135,7 +135,7 @@ export const sendEmailOtp = action({
       body: JSON.stringify({
         from,
         to: [normalizedEmail],
-        subject: 'קוד אימות ל-StampAix',
+        subject: 'קוד אימות ל-STAMPAIX',
         html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>:הקוד שלך הוא:</p>
 <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${code}</p>

@@ -42,6 +42,7 @@ export type ComparisonCellValue =
 export type ComparisonRow = {
   id: string;
   label: string;
+  compactLabel?: string;
   cells: Record<PlanId, ComparisonCellValue>;
 };
 
@@ -53,6 +54,13 @@ const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
   maxActiveRetentionActions: 'קמפייני שימור פעילים',
 };
 
+const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
+  maxCards: '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd',
+  maxCustomers: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  maxActiveRetentionActions:
+    '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9 \u05e9\u05d9\u05de\u05d5\u05e8',
+};
+
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   team: 'ניהול צוות',
   advancedReports: 'דוחות מתקדמים',
@@ -60,6 +68,19 @@ const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   smartAnalytics: 'תובנות לקוחות',
   segmentationBuilder: 'בונה סגמנטים',
   savedSegments: 'סגמנטים שמורים',
+};
+
+const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
+  team: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
+  advancedReports:
+    '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
+  marketingHub: '\u05de\u05e8\u05db\u05d6 \u05e9\u05d9\u05de\u05d5\u05e8',
+  smartAnalytics:
+    '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  segmentationBuilder:
+    '\u05d1\u05d5\u05e0\u05d4 \u05e1\u05d2\u05de\u05e0\u05d8\u05d9\u05dd',
+  savedSegments:
+    '\u05e1\u05d2\u05de\u05e0\u05d8\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
 };
 
 function isPlanId(value: unknown): value is PlanId {
@@ -231,6 +252,28 @@ export function computeAnnualSavings(pricing: PlanPricing): AnnualSavings {
   };
 }
 
+export function computeEquivalentMonthlyPrice(
+  pricing: PlanPricing
+): number | null {
+  if (pricing.yearly <= 0) {
+    return null;
+  }
+
+  return pricing.yearly / 12;
+}
+
+export function formatPlanPrice(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+
+  if (Math.abs(value - Math.round(value)) < 0.001) {
+    return String(Math.round(value));
+  }
+
+  return value.toFixed(2);
+}
+
 function formatLimitValue(limitValue: number): string {
   return String(limitValue);
 }
@@ -251,6 +294,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   ).map((limitKey) => ({
     id: `limit:${limitKey}`,
     label: LIMIT_ROW_LABELS[limitKey],
+    compactLabel: LIMIT_ROW_COMPACT_LABELS[limitKey],
     cells: {
       starter: {
         type: 'text',
@@ -279,6 +323,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
     label: FEATURE_ROW_LABELS[featureKey],
+    compactLabel: FEATURE_ROW_COMPACT_LABELS[featureKey],
     cells: {
       starter: {
         type: 'boolean',
