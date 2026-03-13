@@ -16,4 +16,10 @@ crons.hourly(
   internal.retention.runRetentionActionSweepInternal
 );
 
+crons.interval(
+  'ai recommendation sweep every 12 hours',
+  { hours: 12 },
+  internal.aiRecommendations.runRecommendationSweepInternal
+);
+
 export default crons;

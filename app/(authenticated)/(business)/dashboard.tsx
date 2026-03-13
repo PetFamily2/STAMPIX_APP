@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -170,6 +171,15 @@ export default function MerchantDashboardScreen() {
     api.events.getRecentActivity,
     activeBusinessId ? { businessId: activeBusinessId, limit: 3 } : 'skip'
   );
+  const aiRecommendation = useQuery(
+    api.aiRecommendations.getLatestRecommendationForBusiness,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const executeRecommendationCta = useMutation(
+    api.aiRecommendations.executeRecommendationPrimaryCta
+  );
+  const [isApplyingRecommendation, setIsApplyingRecommendation] =
+    useState(false);
 
   const {
     entitlements,
@@ -497,6 +507,66 @@ export default function MerchantDashboardScreen() {
     router.push(route);
   };
 
+  const handleRecommendationCta = async () => {
+    if (
+      !activeBusinessId ||
+      !aiRecommendation ||
+      aiRecommendation.ctaType === 'none' ||
+      isApplyingRecommendation
+    ) {
+      return;
+    }
+
+    setIsApplyingRecommendation(true);
+    try {
+      const result = await executeRecommendationCta({
+        businessId: activeBusinessId,
+        recommendationId: aiRecommendation.recommendationId,
+      });
+
+      if (result.kind === 'open_draft') {
+        router.push({
+          pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+          params: {
+            campaignId: String(result.campaignId),
+            businessId: String(activeBusinessId),
+          },
+        });
+        return;
+      }
+      if (result.kind === 'view_insight') {
+        openRoute('/(authenticated)/(business)/customers');
+        return;
+      }
+      if (result.kind === 'view_summary') {
+        openRoute('/(authenticated)/(business)/cards');
+        return;
+      }
+      if (result.kind === 'view_reason') {
+        if (
+          aiRecommendation.guardrailReason === 'PLAN_NOT_ELIGIBLE' ||
+          aiRecommendation.guardrailReason === 'QUOTA_EXHAUSTED' ||
+          aiRecommendation.guardrailReason === 'QUOTA_NEAR_LIMIT'
+        ) {
+          openRoute(
+            '/(authenticated)/(business)/settings-business-subscription'
+          );
+          return;
+        }
+        openRoute('/(authenticated)/(business)/analytics');
+      }
+    } catch (error) {
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error
+          ? error.message
+          : 'לא הצלחנו לפתוח את הפעולה המומלצת.'
+      );
+    } finally {
+      setIsApplyingRecommendation(false);
+    }
+  };
+
   if (!activeBusinessId) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
@@ -677,6 +747,51 @@ export default function MerchantDashboardScreen() {
                 );
               })}
             </View>
+          </View>
+        ) : null}
+
+        {aiRecommendation === undefined ? (
+          <View className="mt-4">
+            <LoadingBlock height={124} />
+          </View>
+        ) : aiRecommendation ? (
+          <View className="mt-4 rounded-2xl border border-[#D6E2F8] bg-[#EEF3FF] p-4">
+            <Text
+              className={`text-xs font-bold text-[#1D4ED8] ${tw.textStart}`}
+            >
+              SMART RECOMMENDATION
+            </Text>
+            <Text
+              className={`mt-2 text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              {aiRecommendation.title}
+            </Text>
+            <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
+              {aiRecommendation.message}
+            </Text>
+            {aiRecommendation.ctaType !== 'none' ? (
+              <TouchableOpacity
+                onPress={() => {
+                  void handleRecommendationCta();
+                }}
+                disabled={isApplyingRecommendation}
+                className={`mt-3 self-start rounded-xl px-3 py-2 ${
+                  isApplyingRecommendation ? 'bg-[#CBD5E1]' : 'bg-[#1D4ED8]'
+                }`}
+              >
+                {isApplyingRecommendation ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-xs font-bold text-white">
+                    {aiRecommendation.ctaLabel}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
+                No action is recommended right now.
+              </Text>
+            )}
           </View>
         ) : null}
 

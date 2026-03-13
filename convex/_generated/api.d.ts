@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as business from "../business.js";
@@ -19,7 +20,9 @@ import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
 import type * as guards from "../guards.js";
 import type * as http from "../http.js";
+import type * as lib_campaignRuns from "../lib/campaignRuns.js";
 import type * as lib_ids from "../lib/ids.js";
+import type * as lib_recommendationUtils from "../lib/recommendationUtils.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
@@ -44,6 +47,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiRecommendations: typeof aiRecommendations;
   analytics: typeof analytics;
   auth: typeof auth;
   business: typeof business;
@@ -55,7 +59,9 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   guards: typeof guards;
   http: typeof http;
+  "lib/campaignRuns": typeof lib_campaignRuns;
   "lib/ids": typeof lib_ids;
+  "lib/recommendationUtils": typeof lib_recommendationUtils;
   loyaltyPrograms: typeof loyaltyPrograms;
   memberships: typeof memberships;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;

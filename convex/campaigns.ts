@@ -7,6 +7,7 @@ import {
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
 } from './guards';
+import { recordCampaignRun } from './lib/campaignRuns';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
@@ -502,6 +503,16 @@ async function sendAutomationForCampaign(
   if (sentCount > 0) {
     await ctx.db.patch(campaign._id, {
       updatedAt: now,
+    });
+    await recordCampaignRun(ctx, {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      programId: campaign.programId ?? undefined,
+      campaignType: campaign.type,
+      sentAt: now,
+      targetedCount: estimate.total,
+      deliveredCount: sentCount,
+      lastDeliveryAt: now,
     });
   }
 
@@ -1034,6 +1045,19 @@ export const sendCampaignNow = mutation({
       status: 'completed',
       updatedAt: now,
     });
+
+    if (sentCount > 0) {
+      await recordCampaignRun(ctx, {
+        businessId,
+        campaignId: campaign._id,
+        programId: campaign.programId ?? undefined,
+        campaignType: campaign.type,
+        sentAt: now,
+        targetedCount: estimate.total,
+        deliveredCount: sentCount,
+        lastDeliveryAt: now,
+      });
+    }
 
     return {
       sentCount,

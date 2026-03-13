@@ -107,6 +107,48 @@ export default defineSchema({
         collectedAt: v.optional(v.number()),
       })
     ),
+    aiProfile: v.optional(
+      v.object({
+        language: v.optional(v.union(v.literal('he'), v.literal('en'))),
+        brandStyle: v.optional(
+          v.union(
+            v.literal('friendly'),
+            v.literal('professional'),
+            v.literal('premium'),
+            v.literal('playful'),
+            v.literal('minimal')
+          )
+        ),
+        priceRange: v.optional(
+          v.union(
+            v.literal('low'),
+            v.literal('mid'),
+            v.literal('high'),
+            v.literal('unknown')
+          )
+        ),
+        businessModel: v.optional(
+          v.union(
+            v.literal('service'),
+            v.literal('product'),
+            v.literal('mixed')
+          )
+        ),
+        customerCycleDays: v.optional(v.number()),
+        businessTypeOverride: v.optional(v.string()),
+        serviceNameOverride: v.optional(v.string()),
+        rewardTypeOverride: v.optional(
+          v.union(
+            v.literal('free_item'),
+            v.literal('free_service'),
+            v.literal('discount'),
+            v.literal('upgrade'),
+            v.literal('bonus')
+          )
+        ),
+        updatedAt: v.number(),
+      })
+    ),
     logoUrl: v.optional(v.string()),
     colors: v.optional(v.any()),
     subscriptionPlan: v.optional(
@@ -178,6 +220,8 @@ export default defineSchema({
     maxStamps: v.number(),
     stampIcon: v.string(),
     cardThemeId: v.optional(v.string()),
+    lastStructureChangedAt: v.optional(v.number()),
+    structureSignature: v.optional(v.string()),
     isArchived: v.optional(v.boolean()),
     archivedAt: v.optional(v.number()),
     archivedByUserId: v.optional(v.id('users')),
@@ -202,6 +246,7 @@ export default defineSchema({
   })
     .index('by_userId', ['userId'])
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_userId_businessId', ['userId', 'businessId'])
     .index('by_userId_programId', ['userId', 'programId']),
 
@@ -216,6 +261,12 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_businessId_customerUserId_createdAt', [
+      'businessId',
+      'customerUserId',
+      'createdAt',
+    ])
     .index('by_actorUserId', ['actorUserId'])
     .index('by_customerUserId', ['customerUserId'])
     .index('by_createdAt', ['createdAt']),
@@ -294,7 +345,35 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_automationEnabled', ['automationEnabled']),
+
+  campaignRuns: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    programId: v.optional(v.id('loyaltyPrograms')),
+    campaignType: v.string(),
+    sentAt: v.number(),
+    targetedCount: v.number(),
+    deliveredCount: v.number(),
+    lastDeliveryAt: v.optional(v.number()),
+    summaryReadyAt: v.optional(v.number()),
+    summaryWindowEndsAt: v.optional(v.number()),
+    returnedCustomers14d: v.optional(v.number()),
+    rewardRedemptions14d: v.optional(v.number()),
+    summaryStatus: v.union(
+      v.literal('pending'),
+      v.literal('ready'),
+      v.literal('summarized')
+    ),
+    summaryGeneratedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_campaignId', ['campaignId'])
+    .index('by_businessId_sentAt', ['businessId', 'sentAt'])
+    .index('by_businessId_summaryStatus', ['businessId', 'summaryStatus']),
 
   subscriptions: defineTable({
     businessId: v.id('businesses'),
@@ -332,10 +411,119 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_campaignId', ['campaignId'])
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
+    .index('by_createdAt', ['createdAt']),
+
+  aiBusinessSnapshots: defineTable({
+    businessId: v.id('businesses'),
+    scannedAt: v.number(),
+    enoughData: v.boolean(),
+    enoughDataReasons: v.array(v.string()),
+    topBusinessState: v.optional(v.string()),
+    primaryProgramId: v.optional(v.id('loyaltyPrograms')),
+    stateHash: v.string(),
+    snapshot: v.any(),
+    createdAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt']),
+
+  aiRecommendations: defineTable({
+    businessId: v.id('businesses'),
+    snapshotId: v.optional(v.id('aiBusinessSnapshots')),
+    stateKey: v.string(),
+    goal: v.union(
+      v.literal('bring_back_customers'),
+      v.literal('push_to_reward'),
+      v.literal('general_engagement'),
+      v.literal('campaign_summary'),
+      v.literal('business_insight')
+    ),
+    source: v.union(v.literal('fixed'), v.literal('cache'), v.literal('ai')),
+    action: v.union(
+      v.literal('show_fixed'),
+      v.literal('call_ai'),
+      v.literal('defer'),
+      v.literal('suppress')
+    ),
+    type: v.union(
+      v.literal('campaign_message'),
+      v.literal('business_insight'),
+      v.literal('campaign_summary'),
+      v.literal('recommendation_explanation')
+    ),
+    title: v.string(),
+    message: v.string(),
+    ctaType: v.union(
+      v.literal('open_draft'),
+      v.literal('view_insight'),
+      v.literal('view_summary'),
+      v.literal('view_reason'),
+      v.literal('none')
+    ),
+    ctaLabel: v.string(),
+    dedupeKey: v.string(),
+    promptHash: v.optional(v.string()),
+    cacheKey: v.optional(v.string()),
+    relatedCampaignRunId: v.optional(v.id('campaignRuns')),
+    guardrailReason: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    shownAt: v.optional(v.number()),
+    consumedAt: v.optional(v.number()),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_businessId_dedupeKey', ['businessId', 'dedupeKey']),
+
+  aiGenerationCache: defineTable({
+    cacheKey: v.string(),
+    promptHash: v.string(),
+    goal: v.union(
+      v.literal('bring_back_customers'),
+      v.literal('push_to_reward'),
+      v.literal('general_engagement'),
+      v.literal('campaign_summary'),
+      v.literal('business_insight')
+    ),
+    model: v.string(),
+    responseJson: v.object({
+      type: v.string(),
+      title: v.string(),
+      message: v.string(),
+    }),
+    inputSignature: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index('by_cacheKey', ['cacheKey'])
+    .index('by_expiresAt', ['expiresAt']),
+
+  aiUsageLedger: defineTable({
+    businessId: v.id('businesses'),
+    monthKey: v.string(),
+    requestType: v.union(
+      v.literal('campaign_message'),
+      v.literal('business_insight'),
+      v.literal('campaign_summary'),
+      v.literal('recommendation_explanation')
+    ),
+    model: v.string(),
+    cacheHit: v.boolean(),
+    status: v.union(v.literal('success'), v.literal('failed')),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    costEstimate: v.number(),
+    recommendationId: v.optional(v.id('aiRecommendations')),
+    createdAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_monthKey', ['businessId', 'monthKey'])
     .index('by_createdAt', ['createdAt']),
 
   segments: defineTable({

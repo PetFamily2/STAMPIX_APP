@@ -5,6 +5,7 @@ import {
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
 } from './guards';
+import { buildProgramStructureSignature } from './lib/recommendationUtils';
 
 const DEFAULT_THEME_ID = 'midnight-luxe';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -300,6 +301,11 @@ export const createLoyaltyProgram = mutation({
     const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
+    const structureSignature = buildProgramStructureSignature({
+      title: normalizedTitle,
+      rewardName: normalizedReward,
+      maxStamps: normalizedMaxStamps,
+    });
 
     const now = Date.now();
     const loyaltyProgramId = await ctx.db.insert('loyaltyPrograms', {
@@ -309,6 +315,8 @@ export const createLoyaltyProgram = mutation({
       maxStamps: normalizedMaxStamps,
       stampIcon: normalizedIcon,
       cardThemeId: normalizedThemeId,
+      structureSignature,
+      lastStructureChangedAt: now,
       isArchived: false,
       isActive: true,
       createdAt: now,
@@ -343,16 +351,33 @@ export const updateProgramForManagement = mutation({
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    const normalizedTitle = normalizeTitle(title);
+    const normalizedReward = normalizeReward(rewardName);
+    const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
+    const normalizedIcon = normalizeIcon(stampIcon);
+    const normalizedThemeId = normalizeThemeId(cardThemeId);
+    const nextStructureSignature = buildProgramStructureSignature({
+      title: normalizedTitle,
+      rewardName: normalizedReward,
+      maxStamps: normalizedMaxStamps,
+    });
 
     const now = Date.now();
-    await ctx.db.patch(program._id, {
-      title: normalizeTitle(title),
-      rewardName: normalizeReward(rewardName),
-      maxStamps: normalizeMaxStamps(maxStamps),
-      stampIcon: normalizeIcon(stampIcon),
-      cardThemeId: normalizeThemeId(cardThemeId),
+    const patchPayload: Record<string, unknown> = {
+      title: normalizedTitle,
+      rewardName: normalizedReward,
+      maxStamps: normalizedMaxStamps,
+      stampIcon: normalizedIcon,
+      cardThemeId: normalizedThemeId,
       updatedAt: now,
-    });
+    };
+
+    if (program.structureSignature !== nextStructureSignature) {
+      patchPayload.structureSignature = nextStructureSignature;
+      patchPayload.lastStructureChangedAt = now;
+    }
+
+    await ctx.db.patch(program._id, patchPayload);
 
     return { ok: true };
   },
