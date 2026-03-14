@@ -1,5 +1,11 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { IS_RTL } from '@/lib/rtl';
 import {
@@ -14,6 +20,9 @@ type PlanComparisonTableProps = {
   rows?: ComparisonRow[];
   selectedPlan: PlanId;
   visiblePlans?: PlanId[];
+  currentPlan?: PlanId;
+  onSelectPlan?: (plan: PlanId) => void;
+  headerSelectable?: boolean;
 };
 
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
@@ -43,6 +52,9 @@ export function PlanComparisonTable({
   rows,
   selectedPlan,
   visiblePlans,
+  currentPlan,
+  onSelectPlan,
+  headerSelectable = false,
 }: PlanComparisonTableProps) {
   const { width: windowWidth } = useWindowDimensions();
   const isNarrow = windowWidth <= NARROW_BREAKPOINT;
@@ -69,6 +81,7 @@ export function PlanComparisonTable({
   const featureColumnFlex =
     orderedPlans.length <= 2 ? 1.55 : isNarrow ? 1.2 : 1.35;
   const planColumnFlex = orderedPlans.length <= 2 ? 1.05 : 1;
+  const canSelectHeaders = headerSelectable && Boolean(onSelectPlan);
 
   return (
     <View style={styles.table}>
@@ -89,27 +102,66 @@ export function PlanComparisonTable({
             פירוט
           </Text>
         </View>
-        {orderedPlans.map((plan) => (
-          <View
-            key={plan.plan}
-            style={[
-              styles.planCell,
-              styles.headerCell,
-              { flex: planColumnFlex },
-              selectedPlan === plan.plan ? styles.selectedColumn : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.headerText,
-                isNarrow ? styles.headerTextNarrow : null,
-              ]}
-              numberOfLines={2}
-            >
-              {plan.label}
-            </Text>
-          </View>
-        ))}
+        {orderedPlans.map((plan) => {
+          const isSelected = selectedPlan === plan.plan;
+          const isCurrentPlan = currentPlan === plan.plan;
+          const headerCellStyle = [
+            styles.planCell,
+            styles.headerCell,
+            { flex: planColumnFlex },
+            isSelected ? styles.selectedColumn : null,
+            canSelectHeaders ? styles.headerCellSelectable : null,
+          ];
+          const headerContent = (
+            <View style={styles.headerPlanContent}>
+              {isCurrentPlan ? (
+                <View
+                  style={[
+                    styles.headerCurrentPlanBadge,
+                    isSelected ? styles.headerCurrentPlanBadgeActive : null,
+                  ]}
+                >
+                  <Text
+                    style={styles.headerCurrentPlanBadgeText}
+                    numberOfLines={2}
+                  >
+                    המסלול הפעיל
+                  </Text>
+                </View>
+              ) : null}
+              <Text
+                style={[
+                  styles.headerText,
+                  isNarrow ? styles.headerTextNarrow : null,
+                  isSelected ? styles.headerTextActive : null,
+                ]}
+                numberOfLines={2}
+              >
+                {plan.label}
+              </Text>
+            </View>
+          );
+
+          if (canSelectHeaders && onSelectPlan) {
+            return (
+              <Pressable
+                key={plan.plan}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => onSelectPlan(plan.plan)}
+                style={headerCellStyle}
+              >
+                {headerContent}
+              </Pressable>
+            );
+          }
+
+          return (
+            <View key={plan.plan} style={headerCellStyle}>
+              {headerContent}
+            </View>
+          );
+        })}
       </View>
 
       {comparisonRows.map((row) => (
@@ -178,7 +230,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#EBF1FA',
   },
   headerCell: {
-    minHeight: 46,
+    minHeight: 62,
     justifyContent: 'center',
   },
   featureCell: {
@@ -195,6 +247,10 @@ const styles = StyleSheet.create({
   selectedColumn: {
     backgroundColor: '#EEF4FF',
   },
+  headerCellSelectable: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#BFDBFE',
+  },
   headerText: {
     color: '#0F172A',
     fontSize: 12,
@@ -205,6 +261,34 @@ const styles = StyleSheet.create({
   headerTextNarrow: {
     fontSize: 11,
     lineHeight: 14,
+  },
+  headerTextActive: {
+    color: '#1D4ED8',
+  },
+  headerPlanContent: {
+    alignItems: 'center',
+    gap: 3,
+    width: '100%',
+  },
+  headerCurrentPlanBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    maxWidth: '96%',
+  },
+  headerCurrentPlanBadgeActive: {
+    borderColor: '#60A5FA',
+    backgroundColor: '#DBEAFE',
+  },
+  headerCurrentPlanBadgeText: {
+    color: '#1D4ED8',
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   featureLabel: {
     color: '#1E293B',

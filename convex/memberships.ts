@@ -70,6 +70,101 @@ type CustomerMembershipRecord = {
   canRedeem: boolean;
 };
 
+type CustomerProgramSelection = {
+  programId: Id<'loyaltyPrograms'>;
+  title: string;
+  rewardName: string;
+  maxStamps: number;
+  stampIcon: string;
+  cardThemeId: string | null;
+  membershipId: Id<'memberships'> | null;
+  isJoined: boolean;
+  currentStamps: number;
+  canRedeem: boolean;
+  lastStampAt: number | null;
+};
+
+async function resolveBusinessFromJoinInput(
+  ctx: any,
+  parsed: ReturnType<typeof parseJoinInput>
+) {
+  if (parsed.mode === 'externalId') {
+    return await ctx.db
+      .query('businesses')
+      .withIndex('by_externalId', (q: any) => q.eq('externalId', parsed.bizId))
+      .first();
+  }
+
+  if (parsed.mode === 'publicId') {
+    const byPublicId = await ctx.db
+      .query('businesses')
+      .withIndex('by_businessPublicId', (q: any) =>
+        q.eq('businessPublicId', parsed.bizId)
+      )
+      .first();
+    if (byPublicId) {
+      return byPublicId;
+    }
+    return await ctx.db
+      .query('businesses')
+      .withIndex('by_externalId', (q: any) => q.eq('externalId', parsed.bizId))
+      .first();
+  }
+
+  return await ctx.db
+    .query('businesses')
+    .withIndex('by_joinCode', (q: any) => q.eq('joinCode', parsed.bizId))
+    .first();
+}
+
+async function listActiveProgramsForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const programs = await ctx.db
+    .query('loyaltyPrograms')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .filter((q: any) =>
+      q.and(q.eq(q.field('isActive'), true), q.neq(q.field('isArchived'), true))
+    )
+    .collect();
+
+  programs.sort((left: any, right: any) =>
+    String(left.title ?? '').localeCompare(String(right.title ?? ''), 'he')
+  );
+
+  return programs;
+}
+
+function buildProgramSelectionRows(
+  programs: any[],
+  activeMembershipsByProgramId: Map<string, any>
+): CustomerProgramSelection[] {
+  return programs.map((program: any) => {
+    const membership =
+      activeMembershipsByProgramId.get(String(program._id)) ?? null;
+    const currentStamps = Number(membership?.currentStamps ?? 0);
+    const maxStamps = Number(program.maxStamps ?? 0);
+    return {
+      programId: program._id,
+      title: program.title,
+      rewardName: program.rewardName,
+      maxStamps,
+      stampIcon: program.stampIcon,
+      cardThemeId: program.cardThemeId ?? null,
+      membershipId: membership?._id ?? null,
+      isJoined: membership !== null,
+      currentStamps,
+      canRedeem: currentStamps >= maxStamps,
+      lastStampAt:
+        membership?.lastStampAt ??
+        membership?.updatedAt ??
+        membership?.createdAt ??
+        null,
+    };
+  });
+}
+
 export const byCustomer = query({
   args: {},
   handler: async (ctx) => {
@@ -133,6 +228,146 @@ export const byCustomer = query({
     customers.sort((a, b) => b.lastStampAt - a.lastStampAt);
 
     return customers;
+  },
+});
+
+export const byCustomerBusinesses = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) {
+      return [];
+    }
+
+    const memberships = await ctx.db
+      .query('memberships')
+      .withIndex('by_userId', (q: any) => q.eq('userId', user._id))
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .collect();
+
+    const businessSummaries = new Map<
+      string,
+      {
+        businessId: Id<'businesses'>;
+        businessName: string;
+        businessLogoUrl: string | null;
+        joinedProgramCount: number;
+        redeemableCount: number;
+        lastActivityAt: number;
+      }
+    >();
+
+    for (const membership of memberships) {
+      const [business, program] = await Promise.all([
+        ctx.db.get(membership.businessId),
+        ctx.db.get(membership.programId),
+      ]);
+      if (!business || business.isActive !== true) {
+        continue;
+      }
+      if (
+        !program ||
+        program.isActive !== true ||
+        program.isArchived === true ||
+        program.businessId !== business._id
+      ) {
+        continue;
+      }
+
+      const key = String(business._id);
+      const lastActivityAt =
+        membership.lastStampAt ??
+        membership.updatedAt ??
+        membership.createdAt ??
+        Date.now();
+      const redeemable =
+        Number(membership.currentStamps ?? 0) >= Number(program.maxStamps ?? 0);
+      const existing = businessSummaries.get(key);
+      if (!existing) {
+        businessSummaries.set(key, {
+          businessId: business._id,
+          businessName: business.name,
+          businessLogoUrl: business.logoUrl ?? null,
+          joinedProgramCount: 1,
+          redeemableCount: redeemable ? 1 : 0,
+          lastActivityAt,
+        });
+        continue;
+      }
+
+      existing.joinedProgramCount += 1;
+      if (redeemable) {
+        existing.redeemableCount += 1;
+      }
+      if (lastActivityAt > existing.lastActivityAt) {
+        existing.lastActivityAt = lastActivityAt;
+      }
+    }
+
+    return Array.from(businessSummaries.values()).sort((left, right) => {
+      if (right.lastActivityAt !== left.lastActivityAt) {
+        return right.lastActivityAt - left.lastActivityAt;
+      }
+      return left.businessName.localeCompare(right.businessName, 'he');
+    });
+  },
+});
+
+export const getCustomerBusiness = query({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const user = await requireCurrentUser(ctx);
+
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_NOT_FOUND');
+    }
+
+    const [programs, memberships] = await Promise.all([
+      listActiveProgramsForBusiness(ctx, businessId),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_userId_businessId', (q: any) =>
+          q.eq('userId', user._id).eq('businessId', businessId)
+        )
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+
+    const activeMembershipsByProgramId = new Map(
+      memberships.map((membership) => [
+        String(membership.programId),
+        membership,
+      ])
+    );
+    const rows = buildProgramSelectionRows(
+      programs,
+      activeMembershipsByProgramId
+    );
+
+    const joinedPrograms = rows
+      .filter((row) => row.isJoined)
+      .sort((left, right) => {
+        const leftAt = left.lastStampAt ?? 0;
+        const rightAt = right.lastStampAt ?? 0;
+        return rightAt - leftAt;
+      });
+    const availablePrograms = rows.filter((row) => !row.isJoined);
+
+    return {
+      business: {
+        businessId: business._id,
+        name: business.name,
+        logoUrl: business.logoUrl ?? null,
+        formattedAddress: business.formattedAddress ?? null,
+        serviceTypes: business.serviceTypes ?? [],
+        serviceTags: business.serviceTags ?? [],
+      },
+      joinedPrograms,
+      availablePrograms,
+    };
   },
 });
 
@@ -200,6 +435,217 @@ function parseJoinInput(raw: string): {
   };
 }
 
+export const resolveJoinBusiness = query({
+  args: {
+    qrData: v.string(),
+    source: v.optional(v.string()),
+    campaign: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { qrData, source: argSource, campaign: argCampaign }
+  ) => {
+    const user = await requireCurrentUser(ctx);
+    const raw = (qrData ?? '').trim();
+    if (!raw) {
+      throw new Error('INVALID_QR');
+    }
+
+    const parsed = parseJoinInput(raw);
+    if (!parsed.bizId) {
+      throw new Error('INVALID_QR');
+    }
+
+    const resolvedSource = parsed.source ?? argSource;
+    const resolvedCampaign = parsed.campaign ?? argCampaign;
+    const business = await resolveBusinessFromJoinInput(ctx, parsed);
+
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_NOT_FOUND');
+    }
+
+    const [programs, memberships] = await Promise.all([
+      listActiveProgramsForBusiness(ctx, business._id),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_userId_businessId', (q: any) =>
+          q.eq('userId', user._id).eq('businessId', business._id)
+        )
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+
+    if (programs.length === 0) {
+      throw new Error('PROGRAM_NOT_FOUND');
+    }
+
+    const activeMembershipsByProgramId = new Map(
+      memberships.map((membership) => [
+        String(membership.programId),
+        membership,
+      ])
+    );
+
+    return {
+      business: {
+        businessId: business._id,
+        name: business.name,
+        logoUrl: business.logoUrl ?? null,
+      },
+      source: resolvedSource ?? null,
+      campaign: resolvedCampaign ?? null,
+      programs: buildProgramSelectionRows(
+        programs,
+        activeMembershipsByProgramId
+      ),
+    };
+  },
+});
+
+export const joinSelectedPrograms = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    programIds: v.array(v.id('loyaltyPrograms')),
+    source: v.optional(v.string()),
+    campaign: v.optional(v.string()),
+  },
+  handler: async (ctx, { businessId, programIds, source, campaign }) => {
+    const user = await requireCurrentUser(ctx);
+    const now = Date.now();
+
+    const uniqueProgramIds: Id<'loyaltyPrograms'>[] = [];
+    const seen = new Set<string>();
+    for (const programId of programIds) {
+      const key = String(programId);
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueProgramIds.push(programId);
+      }
+    }
+
+    if (uniqueProgramIds.length === 0) {
+      throw new Error('PROGRAM_SELECTION_REQUIRED');
+    }
+
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_NOT_FOUND');
+    }
+
+    const [selectedPrograms, allBusinessMemberships] = await Promise.all([
+      Promise.all(uniqueProgramIds.map((programId) => ctx.db.get(programId))),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_userId_businessId', (q: any) =>
+          q.eq('userId', user._id).eq('businessId', businessId)
+        )
+        .collect(),
+    ]);
+
+    const invalidProgram = selectedPrograms.find(
+      (program) =>
+        !program ||
+        program.isActive !== true ||
+        program.isArchived === true ||
+        String(program.businessId) !== String(businessId)
+    );
+    if (invalidProgram) {
+      throw new Error('PROGRAM_NOT_AVAILABLE');
+    }
+
+    const membershipByProgramId = new Map<string, any>();
+    for (const membership of allBusinessMemberships) {
+      const key = String(membership.programId);
+      const existing = membershipByProgramId.get(key);
+      if (!existing) {
+        membershipByProgramId.set(key, membership);
+        continue;
+      }
+      if (existing.isActive !== true && membership.isActive === true) {
+        membershipByProgramId.set(key, membership);
+      }
+    }
+    const hasActiveBusinessMembership = allBusinessMemberships.some(
+      (membership) => membership.isActive === true
+    );
+    const willActivateBusinessMembership = uniqueProgramIds.some(
+      (programId) => {
+        const existing = membershipByProgramId.get(String(programId));
+        return !existing || existing.isActive !== true;
+      }
+    );
+
+    if (!hasActiveBusinessMembership && willActivateBusinessMembership) {
+      const activeCustomersCount = await countActiveCustomersForBusiness(
+        ctx,
+        businessId
+      );
+      await assertEntitlement(ctx, businessId, {
+        limitKey: 'maxCustomers',
+        currentValue: activeCustomersCount,
+      });
+    }
+
+    const joinedPrograms: Array<{
+      programId: Id<'loyaltyPrograms'>;
+      membershipId: Id<'memberships'>;
+      status: 'created' | 'existing' | 'reactivated';
+    }> = [];
+
+    for (const programId of uniqueProgramIds) {
+      const existing = membershipByProgramId.get(String(programId));
+      if (existing && existing.isActive === true) {
+        joinedPrograms.push({
+          programId,
+          membershipId: existing._id,
+          status: 'existing',
+        });
+        continue;
+      }
+
+      if (existing && existing.isActive !== true) {
+        await ctx.db.patch(existing._id, {
+          isActive: true,
+          updatedAt: now,
+          joinSource: source ?? existing.joinSource,
+          joinCampaign: campaign ?? existing.joinCampaign,
+        });
+        joinedPrograms.push({
+          programId,
+          membershipId: existing._id,
+          status: 'reactivated',
+        });
+        continue;
+      }
+
+      const membershipId = await ctx.db.insert('memberships', {
+        userId: user._id,
+        businessId,
+        programId,
+        currentStamps: 0,
+        lastStampAt: undefined,
+        joinSource: source,
+        joinCampaign: campaign,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      joinedPrograms.push({
+        programId,
+        membershipId,
+        status: 'created',
+      });
+    }
+
+    return {
+      ok: true,
+      businessId,
+      joinedCount: joinedPrograms.length,
+      joinedPrograms,
+    };
+  },
+});
+
 // Join a business (create membership) by scanning the BUSINESS QR (customer flow).
 // Supports: legacy externalId prefix, deep link URL, publicId, and joinCode.
 export const joinByBusinessQr = mutation({
@@ -225,39 +671,7 @@ export const joinByBusinessQr = mutation({
     const source = parsed.source ?? argSource;
     const campaign = parsed.campaign ?? argCampaign;
 
-    // Resolve business
-    let business: any = null;
-
-    if (parsed.mode === 'externalId') {
-      business = await ctx.db
-        .query('businesses')
-        .withIndex('by_externalId', (q: any) =>
-          q.eq('externalId', parsed.bizId)
-        )
-        .first();
-    } else if (parsed.mode === 'publicId') {
-      // Try businessPublicId first
-      business = await ctx.db
-        .query('businesses')
-        .withIndex('by_businessPublicId', (q: any) =>
-          q.eq('businessPublicId', parsed.bizId)
-        )
-        .first();
-      // Fallback: try externalId
-      if (!business) {
-        business = await ctx.db
-          .query('businesses')
-          .withIndex('by_externalId', (q: any) =>
-            q.eq('externalId', parsed.bizId)
-          )
-          .first();
-      }
-    } else if (parsed.mode === 'joinCode') {
-      business = await ctx.db
-        .query('businesses')
-        .withIndex('by_joinCode', (q: any) => q.eq('joinCode', parsed.bizId))
-        .first();
-    }
+    const business = await resolveBusinessFromJoinInput(ctx, parsed);
 
     if (!business || business.isActive !== true)
       throw new Error('BUSINESS_NOT_FOUND');

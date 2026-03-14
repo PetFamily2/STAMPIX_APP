@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -28,6 +31,8 @@ type SubscriptionSalesContext =
   | 'settings'
   | 'upgrade';
 
+type FooterMode = 'sticky' | 'inline';
+
 type SubscriptionSalesPanelProps = {
   plans: PlanCatalogItem[];
   rows?: ComparisonRow[];
@@ -36,6 +41,8 @@ type SubscriptionSalesPanelProps = {
   visiblePlans?: PlanId[];
   currentPlan?: PlanId;
   context: SubscriptionSalesContext;
+  footerMode?: FooterMode;
+  showPlanSelector?: boolean;
   ctaLabel: string;
   ctaDisabled?: boolean;
   ctaLoading?: boolean;
@@ -48,8 +55,78 @@ type SubscriptionSalesPanelProps = {
   onPressCta: () => void;
 };
 
+type BillingDiscountBadgeProps = {
+  percent: number;
+  animate: boolean;
+};
+
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 const COMPACT_BREAKPOINT = 392;
+
+function BillingDiscountBadge({ percent, animate }: BillingDiscountBadgeProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!animate) {
+      scale.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1.08,
+            duration: 650,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: -1,
+            duration: 650,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 650,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 650,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+
+    pulseLoop.start();
+    return () => {
+      pulseLoop.stop();
+    };
+  }, [animate, scale, translateY]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.billingOptionDiscountBadge,
+        animate ? styles.billingOptionDiscountBadgeAnimated : null,
+        {
+          transform: [{ scale }, { translateY }],
+        },
+      ]}
+    >
+      <Text style={styles.billingOptionDiscountBadgeText}>{percent}% OFF</Text>
+    </Animated.View>
+  );
+}
 
 export function SubscriptionSalesPanel({
   plans,
@@ -59,6 +136,8 @@ export function SubscriptionSalesPanel({
   visiblePlans,
   currentPlan,
   context,
+  footerMode = 'sticky',
+  showPlanSelector = true,
   ctaLabel,
   ctaDisabled = false,
   ctaLoading = false,
@@ -72,6 +151,7 @@ export function SubscriptionSalesPanel({
 }: SubscriptionSalesPanelProps) {
   const { width: windowWidth } = useWindowDimensions();
   const isCompact = windowWidth <= COMPACT_BREAKPOINT || context === 'upgrade';
+  const isStickyFooter = footerMode === 'sticky';
 
   const orderedPlans = useMemo(() => {
     const visibleOrder =
@@ -100,208 +180,251 @@ export function SubscriptionSalesPanel({
   }
 
   const equivalentMonthly =
-    selectedPlanCard.plan !== 'starter' && billingPeriod === 'yearly'
+    selectedPlanCard.plan !== 'starter'
       ? computeEquivalentMonthlyPrice(selectedPlanCard.pricing)
       : null;
   const annualSavings =
-    selectedPlanCard.plan !== 'starter' && billingPeriod === 'yearly'
+    selectedPlanCard.plan !== 'starter'
       ? computeAnnualSavings(selectedPlanCard.pricing)
       : null;
-  const footerSummaryLabel =
-    currentPlan && currentPlan === selectedPlanCard.plan
-      ? 'המסלול הפעיל'
-      : 'המסלול שבחרת';
+  const isCurrentSelectedPlan = currentPlan === selectedPlanCard.plan;
+  const footerSummaryLabel = isCurrentSelectedPlan
+    ? 'המסלול הפעיל'
+    : 'המסלול שבחרת';
+  const monthlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.monthly)}`;
+  const yearlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.yearly)}`;
+  const monthlyOptionPrice =
+    selectedPlanCard.plan === 'starter'
+      ? 'חינם'
+      : `${monthlyBillingAmount}/חודש`;
+  const yearlyOptionPrice =
+    selectedPlanCard.plan === 'starter'
+      ? 'חינם'
+      : equivalentMonthly
+        ? `₪${formatPlanPrice(equivalentMonthly)}/חודש`
+        : `${yearlyBillingAmount}/שנה`;
 
-  return (
-    <View style={styles.root}>
-      <View style={styles.content}>
-        <View style={styles.selectorRow}>
-          {orderedPlans.map((plan) => {
-            const active = plan.plan === selectedPlanCard.plan;
-            const isCurrentPlan = currentPlan === plan.plan;
+  const selectorSection = (
+    <View style={styles.selectorRow}>
+      {orderedPlans.map((plan) => {
+        const active = plan.plan === selectedPlanCard.plan;
+        const isCurrentPlan = currentPlan === plan.plan;
 
-            return (
-              <Pressable
-                key={plan.plan}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => onSelectPlan(plan.plan)}
+        return (
+          <Pressable
+            key={plan.plan}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onSelectPlan(plan.plan)}
+            style={[
+              styles.selectorButton,
+              isCompact ? styles.selectorButtonCompact : null,
+              active ? styles.selectorButtonActive : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.selectorText,
+                isCompact ? styles.selectorTextCompact : null,
+                active ? styles.selectorTextActive : null,
+              ]}
+              numberOfLines={2}
+            >
+              {plan.label}
+            </Text>
+            {isCurrentPlan ? (
+              <View
                 style={[
-                  styles.selectorButton,
-                  isCompact ? styles.selectorButtonCompact : null,
-                  active ? styles.selectorButtonActive : null,
+                  styles.currentPlanBadge,
+                  active ? styles.currentPlanBadgeActive : null,
                 ]}
               >
                 <Text
                   style={[
-                    styles.selectorText,
-                    isCompact ? styles.selectorTextCompact : null,
-                    active ? styles.selectorTextActive : null,
+                    styles.currentPlanBadgeText,
+                    active ? styles.currentPlanBadgeTextActive : null,
                   ]}
-                  numberOfLines={2}
+                  numberOfLines={1}
                 >
-                  {plan.label}
+                  פעיל
                 </Text>
-                {isCurrentPlan ? (
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const comparisonTable = (
+    <PlanComparisonTable
+      plans={plans}
+      rows={comparisonRows}
+      selectedPlan={selectedPlanCard.plan}
+      visiblePlans={visiblePlans}
+      currentPlan={currentPlan}
+      onSelectPlan={onSelectPlan}
+      headerSelectable={!showPlanSelector}
+    />
+  );
+
+  const footerSection = (
+    <View
+      style={[
+        styles.footerWrap,
+        !isStickyFooter ? styles.footerWrapInline : null,
+        { paddingBottom: footerInsetBottom },
+      ]}
+    >
+      <View style={styles.footerCard}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.summaryTextWrap}>
+            <Text style={styles.summaryEyebrow}>{footerSummaryLabel}</Text>
+            <Text
+              style={[
+                styles.summaryPlanName,
+                isCompact ? styles.summaryPlanNameCompact : null,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedPlanCard.label}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.billingOptionsRow}>
+          {(['monthly', 'yearly'] as const).map((period) => {
+            const active = billingPeriod === period;
+            const isYearly = period === 'yearly';
+            const optionPrice = isYearly
+              ? yearlyOptionPrice
+              : monthlyOptionPrice;
+            const optionSubline =
+              selectedPlanCard.plan === 'starter'
+                ? 'ללא חיוב'
+                : isYearly
+                  ? `חיוב ${yearlyBillingAmount} לשנה`
+                  : `חיוב ${monthlyBillingAmount} לחודש`;
+
+            return (
+              <Pressable
+                key={period}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => onBillingPeriodChange(period)}
+                style={[
+                  styles.billingOptionCard,
+                  active ? styles.billingOptionCardActive : null,
+                ]}
+              >
+                {isYearly && annualSavings ? (
+                  <BillingDiscountBadge
+                    percent={annualSavings.percent}
+                    animate={annualSavings.percent === 20}
+                  />
+                ) : null}
+
+                <View style={styles.billingOptionHeader}>
+                  <Text
+                    style={[
+                      styles.billingOptionLabel,
+                      active ? styles.billingOptionLabelActive : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {BILLING_PERIOD_LABELS[period]}
+                  </Text>
+
                   <View
                     style={[
-                      styles.currentPlanBadge,
-                      active ? styles.currentPlanBadgeActive : null,
+                      styles.billingOptionIndicator,
+                      active ? styles.billingOptionIndicatorActive : null,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.currentPlanBadgeText,
-                        active ? styles.currentPlanBadgeTextActive : null,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      פעיל
-                    </Text>
+                    {active ? (
+                      <Text style={styles.billingOptionIndicatorText}>✓</Text>
+                    ) : null}
                   </View>
-                ) : null}
+                </View>
+
+                <Text
+                  style={[
+                    styles.billingOptionPrice,
+                    active ? styles.billingOptionPriceActive : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {optionPrice}
+                </Text>
+
+                <Text style={styles.billingOptionSubline} numberOfLines={1}>
+                  {optionSubline}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        <View style={styles.tableWrap}>
-          <PlanComparisonTable
-            plans={plans}
-            rows={comparisonRows}
-            selectedPlan={selectedPlanCard.plan}
-            visiblePlans={visiblePlans}
-          />
-        </View>
-      </View>
-
-      <View style={[styles.footerWrap, { paddingBottom: footerInsetBottom }]}>
-        <View style={styles.footerCard}>
-          <View style={styles.summaryHeader}>
-            <View style={styles.summaryTextWrap}>
-              <Text style={styles.summaryEyebrow}>{footerSummaryLabel}</Text>
-              <Text
-                style={[
-                  styles.summaryPlanName,
-                  isCompact ? styles.summaryPlanNameCompact : null,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedPlanCard.label}
-              </Text>
-            </View>
-
-            {annualSavings ? (
-              <View style={styles.savingsBadge}>
-                <Text style={styles.savingsText}>
-                  חיסכון ₪{formatPlanPrice(annualSavings.amount)} (
-                  {annualSavings.percent}%)
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.billingToggleRow}>
-            {(['monthly', 'yearly'] as const).map((period) => {
-              const active = billingPeriod === period;
-
-              return (
-                <Pressable
-                  key={period}
-                  onPress={() => onBillingPeriodChange(period)}
-                  style={[
-                    styles.billingToggleButton,
-                    active ? styles.billingToggleButtonActive : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.billingToggleText,
-                      active ? styles.billingToggleTextActive : null,
-                    ]}
-                  >
-                    {BILLING_PERIOD_LABELS[period]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.priceBlock}>
-            {selectedPlanCard.plan === 'starter' ? (
-              <>
-                <Text style={styles.priceHeadline}>חינם</Text>
-                <Text style={styles.priceSubline}>
-                  ללא עלות חודשית או שנתית
-                </Text>
-              </>
-            ) : billingPeriod === 'yearly' && equivalentMonthly ? (
-              <>
-                <View style={styles.priceHeadlineRow}>
-                  <Text style={styles.priceHeadline}>
-                    ₪{formatPlanPrice(equivalentMonthly)}
-                  </Text>
-                  <Text style={styles.pricePeriod}>לחודש</Text>
-                </View>
-                <Text style={styles.priceSubline}>
-                  ₪{formatPlanPrice(selectedPlanCard.pricing.yearly)} לשנה
-                </Text>
-              </>
-            ) : (
-              <>
-                <View style={styles.priceHeadlineRow}>
-                  <Text style={styles.priceHeadline}>
-                    ₪
-                    {formatPlanPrice(
-                      billingPeriod === 'monthly'
-                        ? selectedPlanCard.pricing.monthly
-                        : selectedPlanCard.pricing.yearly
-                    )}
-                  </Text>
-                  <Text style={styles.pricePeriod}>
-                    {billingPeriod === 'monthly' ? 'לחודש' : 'לשנה'}
-                  </Text>
-                </View>
-                <Text style={styles.priceSubline}>
-                  {billingPeriod === 'monthly'
-                    ? 'חיוב חודשי מתחדש'
-                    : 'חיוב שנתי מתחדש'}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {footerNote ? (
-            <Text
-              style={[
-                styles.footerNote,
-                footerNoteTone === 'error' ? styles.footerNoteError : null,
-              ]}
-            >
-              {footerNote}
-            </Text>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: ctaDisabled || ctaLoading }}
-            onPress={onPressCta}
-            disabled={ctaDisabled || ctaLoading}
+        {footerNote ? (
+          <Text
             style={[
-              styles.ctaButton,
-              ctaDisabled ? styles.ctaButtonDisabled : null,
+              styles.footerNote,
+              footerNoteTone === 'error' ? styles.footerNoteError : null,
             ]}
           >
-            {ctaLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.ctaText}>{ctaLabel}</Text>
-            )}
-          </Pressable>
+            {footerNote}
+          </Text>
+        ) : null}
 
-          {footerBottomSlot ? footerBottomSlot : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: ctaDisabled || ctaLoading }}
+          onPress={onPressCta}
+          disabled={ctaDisabled || ctaLoading}
+          style={[
+            styles.ctaButton,
+            ctaDisabled ? styles.ctaButtonDisabled : null,
+          ]}
+        >
+          {ctaLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.ctaText}>{ctaLabel}</Text>
+          )}
+        </Pressable>
+
+        {footerBottomSlot ? footerBottomSlot : null}
+      </View>
+    </View>
+  );
+
+  if (!isStickyFooter) {
+    return (
+      <View style={[styles.root, styles.rootInline]}>
+        <View style={styles.inlineContent}>
+          {showPlanSelector ? selectorSection : null}
+          <View style={styles.inlineTableWrap}>{comparisonTable}</View>
+          {footerSection}
         </View>
       </View>
+    );
+  }
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.content}>
+        {showPlanSelector ? selectorSection : null}
+        <View style={styles.tableWrap}>
+          <ScrollView
+            contentContainerStyle={styles.tableContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {comparisonTable}
+          </ScrollView>
+        </View>
+      </View>
+
+      {footerSection}
     </View>
   );
 }
@@ -312,8 +435,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  rootInline: {
+    flex: 0,
+    justifyContent: 'flex-start',
+  },
   content: {
     flex: 1,
+    minHeight: 0,
+    gap: 10,
+  },
+  inlineContent: {
     gap: 10,
   },
   selectorRow: {
@@ -376,8 +507,17 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
+  inlineTableWrap: {
+    gap: 0,
+  },
+  tableContent: {
+    paddingBottom: 10,
+  },
   footerWrap: {
     paddingTop: 2,
+  },
+  footerWrapInline: {
+    paddingTop: 0,
   },
   footerCard: {
     borderRadius: 24,
@@ -435,58 +575,102 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  billingToggleRow: {
+  billingOptionsRow: {
     flexDirection: IS_RTL ? 'row-reverse' : 'row',
     gap: 8,
   },
-  billingToggleButton: {
+  billingOptionCard: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 14,
+    minHeight: 86,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D7E4F8',
     backgroundColor: '#F8FBFF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 4,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  billingOptionCardActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EAF2FF',
+  },
+  billingOptionDiscountBadge: {
+    position: 'absolute',
+    top: -9,
+    alignSelf: 'center',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  billingOptionDiscountBadgeAnimated: {
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  billingOptionDiscountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  billingOptionHeader: {
+    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  billingOptionLabel: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+    textAlign: IS_RTL ? 'right' : 'left',
+  },
+  billingOptionLabelActive: {
+    color: '#1D4ED8',
+  },
+  billingOptionIndicator: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  billingToggleButtonActive: {
+  billingOptionIndicatorActive: {
     borderColor: '#2F6BFF',
-    backgroundColor: '#DCEBFF',
+    backgroundColor: '#2F6BFF',
   },
-  billingToggleText: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: '800',
+  billingOptionIndicatorText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
-  billingToggleTextActive: {
-    color: '#1D4ED8',
-  },
-  priceBlock: {
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
-    gap: 2,
-  },
-  priceHeadlineRow: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  priceHeadline: {
+  billingOptionPrice: {
     color: '#0F172A',
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     textAlign: IS_RTL ? 'right' : 'left',
   },
-  pricePeriod: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: IS_RTL ? 'right' : 'left',
+  billingOptionPriceActive: {
+    color: '#0B2A73',
   },
-  priceSubline: {
+  billingOptionSubline: {
     color: '#64748B',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 13,
     fontWeight: '700',
     textAlign: IS_RTL ? 'right' : 'left',
   },

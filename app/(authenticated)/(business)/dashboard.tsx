@@ -5,8 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
-  Pressable,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -26,17 +24,12 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
-const PLAN_LABELS = {
-  starter: 'סטארטר',
-  pro: 'פרו חכם',
-  premium: 'פרימיום חכם',
-} as const;
-
 type BusinessRoute =
   | '/(authenticated)/(business)/scanner'
   | '/(authenticated)/(business)/analytics'
   | '/(authenticated)/(business)/customers'
   | '/(authenticated)/(business)/cards'
+  | '/(authenticated)/(business)/qr'
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-subscription';
 
@@ -62,8 +55,48 @@ type KpiItem = {
   route: BusinessRoute;
 };
 
+const DASHBOARD_TEXT = {
+  joinQrTitle:
+    '\u200EQR\u200E \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  joinQrSubtitle:
+    '\u05e9\u05ea\u05e4\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d5\u05d3 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05de\u05d4\u05d9\u05e8\u05d4 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df',
+} as const;
+
 function localizeAiCtaLabel(label: string) {
   const normalized = label.trim().toLowerCase();
+  if (normalized === 'create first card') {
+    return 'יצירת כרטיס ראשון';
+  }
+  if (normalized === 'finish setup') {
+    return 'השלמת ההגדרה';
+  }
+  if (normalized === 'create first campaign') {
+    return 'יצירת קמפיין ראשון';
+  }
+  if (normalized === 'create welcome campaign') {
+    return 'יצירת קמפיין קבלת פנים';
+  }
+  if (normalized === 'add new-customer follow-up') {
+    return 'הוספת מעקב ללקוחות חדשים';
+  }
+  if (normalized === 'create winback campaign') {
+    return 'יצירת קמפיין החזרה';
+  }
+  if (normalized === 'view eligible customers') {
+    return 'צפייה בלקוחות מתאימים';
+  }
+  if (normalized === 'review card setup') {
+    return 'בדיקת הכרטיס';
+  }
+  if (normalized === 'add another card') {
+    return 'הוספת כרטיס נוסף';
+  }
+  if (normalized === 'view campaign result') {
+    return 'צפייה בתוצאות הקמפיין';
+  }
+  if (normalized === 'view insights') {
+    return 'צפייה בתובנות';
+  }
   if (normalized === 'create editable draft') {
     return 'יצירת טיוטה לעריכה';
   }
@@ -282,6 +315,76 @@ function getToneClasses(tone: AttentionItem['tone']) {
   };
 }
 
+function getRecommendationCardTheme(input: {
+  layer?: string;
+  statusTone?: string;
+}) {
+  if (input.statusTone === 'wait') {
+    return {
+      card: 'border-[#D6E4FF] bg-[#F8FBFF]',
+      badge: 'bg-[#E0F2FE] text-[#075985]',
+      title: 'text-[#0F294B]',
+      body: 'text-[#334155]',
+      support: 'text-[#64748B]',
+      chip: 'border-[#D6E4FF] bg-white text-[#1E3A8A]',
+      button: 'bg-[#1D4ED8]',
+    };
+  }
+  if (input.statusTone === 'stable') {
+    return {
+      card: 'border-[#BBF7D0] bg-[#F0FDF4]',
+      badge: 'bg-[#DCFCE7] text-[#166534]',
+      title: 'text-[#14532D]',
+      body: 'text-[#166534]',
+      support: 'text-[#3F6212]',
+      chip: 'border-[#BBF7D0] bg-white text-[#166534]',
+      button: 'bg-[#15803D]',
+    };
+  }
+  if (input.layer === 'foundation') {
+    return {
+      card: 'border-[#BFDBFE] bg-[#EFF6FF]',
+      badge: 'bg-[#DBEAFE] text-[#1D4ED8]',
+      title: 'text-[#1E3A8A]',
+      body: 'text-[#334155]',
+      support: 'text-[#475569]',
+      chip: 'border-[#BFDBFE] bg-white text-[#1D4ED8]',
+      button: 'bg-[#1D4ED8]',
+    };
+  }
+  if (input.layer === 'activation') {
+    return {
+      card: 'border-[#A7F3D0] bg-[#F0FDFA]',
+      badge: 'bg-[#CCFBF1] text-[#0F766E]',
+      title: 'text-[#115E59]',
+      body: 'text-[#334155]',
+      support: 'text-[#475569]',
+      chip: 'border-[#A7F3D0] bg-white text-[#0F766E]',
+      button: 'bg-[#0F766E]',
+    };
+  }
+  if (input.layer === 'optimization') {
+    return {
+      card: 'border-[#FDE68A] bg-[#FFFBEB]',
+      badge: 'bg-[#FEF3C7] text-[#B45309]',
+      title: 'text-[#92400E]',
+      body: 'text-[#44403C]',
+      support: 'text-[#57534E]',
+      chip: 'border-[#FDE68A] bg-white text-[#B45309]',
+      button: 'bg-[#B45309]',
+    };
+  }
+  return {
+    card: 'border-[#FECACA] bg-[#FFF1F2]',
+    badge: 'bg-[#FEE2E2] text-[#B42318]',
+    title: 'text-[#9F1239]',
+    body: 'text-[#475569]',
+    support: 'text-[#64748B]',
+    chip: 'border-[#FECACA] bg-white text-[#B42318]',
+    button: 'bg-[#B42318]',
+  };
+}
+
 function LoadingBlock({ height = 80 }: { height?: number }) {
   return (
     <View
@@ -301,14 +404,7 @@ export default function MerchantDashboardScreen() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
-  const {
-    businesses,
-    activeBusinessId,
-    activeBusiness,
-    isSwitchingBusiness,
-    setActiveBusinessId,
-  } = useActiveBusiness();
-  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -346,6 +442,7 @@ export default function MerchantDashboardScreen() {
   const executeRecommendationCta = useMutation(
     api.aiRecommendations.executeRecommendationPrimaryCta
   );
+  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const [isApplyingRecommendation, setIsApplyingRecommendation] =
     useState(false);
 
@@ -675,18 +772,194 @@ export default function MerchantDashboardScreen() {
     router.push(route);
   };
 
-  const localizedRecommendationTitle = aiRecommendation
-    ? localizeLegacyAiTitle(aiRecommendation.title)
+  const fallbackRecommendation = useMemo(() => {
+    if (businessSettings === undefined || programs === undefined) {
+      return null;
+    }
+
+    if (activePrograms.length === 0) {
+      return {
+        sectionTitle: 'הצעד הבא לעסק',
+        layer: 'foundation',
+        statusTone: 'setup_needed',
+        title: 'השלב הבא הוא להפעיל כרטיס נאמנות ראשון',
+        body: 'ברגע שתהיה כרטיסיה פעילה, יהיה קל יותר להפעיל קמפיינים ולבנות חזרת לקוחות.',
+        supportingText:
+          'המערכת מתחילה מהבסיס ותתן המלצות מדויקות יותר אחרי שתהיה תוכנית פעילה.',
+        evidenceTags: ['אין כרטיסיה פעילה'],
+        primaryCta: { kind: 'open_cards', label: 'יצירת כרטיס ראשון' },
+        packageNote: null,
+        showNoCtaReason: false,
+      };
+    }
+
+    if (
+      businessSettings?.profileCompletion &&
+      !businessSettings.profileCompletion.isComplete
+    ) {
+      return {
+        sectionTitle: 'הצעד הבא לעסק',
+        layer: 'foundation',
+        statusTone: 'setup_needed',
+        title: 'כדאי להשלים את הבסיס לפני מהלך שיווקי',
+        body: 'יש התחלה טובה, אבל עדיף לוודא שהפרטים המרכזיים של העסק מסודרים לפני הצעד הבא.',
+        supportingText:
+          'כשהבסיס ברור יותר, גם ההמלצות והקמפיינים הופכים מדויקים יותר.',
+        evidenceTags: [
+          'יש עוד פרטים להשלים',
+          `${activePrograms.length} כרטיסיה פעילה`,
+        ],
+        primaryCta: { kind: 'open_profile', label: 'השלמת ההגדרה' },
+        packageNote: null,
+        showNoCtaReason: false,
+      };
+    }
+
+    return {
+      sectionTitle: 'הצעד הבא לעסק',
+      layer: 'activation',
+      statusTone: 'opportunity',
+      title: 'הצעד הבא שכדאי להתחיל ממנו: קמפיין ראשון',
+      body: 'יש כבר בסיס ראשוני, ועכשיו קמפיין פשוט יעזור להבין מה מחזיר לקוחות לביקור הבא.',
+      supportingText:
+        'גם עם מעט נתונים המערכת יכולה לכוון לצעד המעשי הבא, בלי להמתין ל"מספיק דאטה".',
+      evidenceTags: [`${activePrograms.length} כרטיסיה פעילה`],
+      primaryCta: {
+        kind: 'open_campaign_draft',
+        label: 'יצירת קמפיין ראשון',
+        draftType: 'promo',
+      },
+      packageNote: null,
+      showNoCtaReason: false,
+    };
+  }, [activePrograms.length, businessSettings, programs]);
+
+  const recommendationCard =
+    aiRecommendation === undefined
+      ? fallbackRecommendation
+      : aiRecommendation
+        ? {
+            ...aiRecommendation,
+            sectionTitle: aiRecommendation.sectionTitle ?? 'הצעד הבא לעסק',
+            title: localizeLegacyAiTitle(aiRecommendation.title),
+            body: localizeLegacyAiMessage(aiRecommendation.body ?? ''),
+            supportingText: aiRecommendation.supportingText ?? '',
+            evidenceTags: aiRecommendation.evidenceTags ?? [],
+            primaryCta: aiRecommendation.primaryCta ?? {
+              kind: 'none',
+              label: 'ללא פעולה',
+            },
+            packageNote: aiRecommendation.packageNote ?? null,
+            showNoCtaReason:
+              aiRecommendation.showNoCtaReason ??
+              aiRecommendation.primaryCta?.kind === 'none',
+          }
+        : fallbackRecommendation;
+
+  const recommendationTheme = recommendationCard
+    ? getRecommendationCardTheme({
+        layer: recommendationCard.layer,
+        statusTone: recommendationCard.statusTone,
+      })
     : null;
-  const localizedRecommendationMessage = aiRecommendation
-    ? localizeLegacyAiMessage(aiRecommendation.message)
-    : null;
+  const hiddenLegacyHasCta = false;
+  const hiddenLegacyCtaLabel = '';
+  const localizedRecommendationTitle = recommendationCard?.title ?? '';
+  const localizedRecommendationMessage = recommendationCard?.body ?? '';
+  const recommendationHasCta = Boolean(
+    recommendationCard?.primaryCta?.kind &&
+      recommendationCard.primaryCta.kind !== 'none'
+  );
+
+  const openCustomersWithFilter = (
+    customerFilter?: 'near_reward' | 'at_risk' | 'new_customers' | null
+  ) => {
+    if (customerFilter) {
+      router.push({
+        pathname: '/(authenticated)/(business)/customers',
+        params: { filter: customerFilter },
+      });
+      return;
+    }
+
+    openRoute('/(authenticated)/(business)/customers');
+  };
+
+  const openLocalCampaignDraft = async (
+    draftType: 'promo' | 'welcome' | 'winback'
+  ) => {
+    if (!activeBusinessId) {
+      return;
+    }
+
+    const draft = await createCampaignDraft({
+      businessId: activeBusinessId,
+      type: draftType,
+      programId: activePrograms[0]?.loyaltyProgramId,
+      rules:
+        draftType === 'welcome'
+          ? { audience: 'new_customers', joinedWithinDays: 14 }
+          : draftType === 'winback'
+            ? { audience: 'inactive_days', daysInactive: 30 }
+            : { audience: 'all_active_members' },
+    });
+
+    router.push({
+      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      params: {
+        campaignId: String(draft.campaignId),
+        businessId: String(activeBusinessId),
+      },
+    });
+  };
+
+  const openRecommendationTarget = async (primaryCta: {
+    kind: string;
+    draftType?: string | null;
+    customerFilter?: string | null;
+  }) => {
+    switch (primaryCta.kind) {
+      case 'open_campaign_draft': {
+        const draftType =
+          primaryCta.draftType === 'welcome' ||
+          primaryCta.draftType === 'winback' ||
+          primaryCta.draftType === 'promo'
+            ? primaryCta.draftType
+            : 'promo';
+        await openLocalCampaignDraft(draftType);
+        return;
+      }
+      case 'view_customers':
+        openCustomersWithFilter(
+          primaryCta.customerFilter === 'near_reward' ||
+            primaryCta.customerFilter === 'at_risk' ||
+            primaryCta.customerFilter === 'new_customers'
+            ? primaryCta.customerFilter
+            : null
+        );
+        return;
+      case 'view_analytics':
+        openRoute('/(authenticated)/(business)/analytics');
+        return;
+      case 'open_cards':
+        openRoute('/(authenticated)/(business)/cards');
+        return;
+      case 'open_profile':
+        openRoute('/(authenticated)/(business)/settings-business-profile');
+        return;
+      case 'view_subscription':
+        openRoute('/(authenticated)/(business)/settings-business-subscription');
+        return;
+      default:
+        return;
+    }
+  };
 
   const handleRecommendationCta = async () => {
     if (
       !activeBusinessId ||
-      !aiRecommendation ||
-      aiRecommendation.ctaType === 'none' ||
+      !recommendationCard ||
+      !recommendationHasCta ||
       isApplyingRecommendation
     ) {
       return;
@@ -694,6 +967,11 @@ export default function MerchantDashboardScreen() {
 
     setIsApplyingRecommendation(true);
     try {
+      if (!aiRecommendation) {
+        await openRecommendationTarget(recommendationCard.primaryCta);
+        return;
+      }
+
       const result = await executeRecommendationCta({
         businessId: activeBusinessId,
         recommendationId: aiRecommendation.recommendationId,
@@ -709,26 +987,24 @@ export default function MerchantDashboardScreen() {
         });
         return;
       }
-      if (result.kind === 'view_insight') {
-        openRoute('/(authenticated)/(business)/customers');
+      if (result.kind === 'view_customers') {
+        openCustomersWithFilter(result.customerFilter ?? null);
         return;
       }
-      if (result.kind === 'view_summary') {
+      if (result.kind === 'view_analytics') {
+        openRoute('/(authenticated)/(business)/analytics');
+        return;
+      }
+      if (result.kind === 'open_cards') {
         openRoute('/(authenticated)/(business)/cards');
         return;
       }
-      if (result.kind === 'view_reason') {
-        if (
-          aiRecommendation.guardrailReason === 'PLAN_NOT_ELIGIBLE' ||
-          aiRecommendation.guardrailReason === 'QUOTA_EXHAUSTED' ||
-          aiRecommendation.guardrailReason === 'QUOTA_NEAR_LIMIT'
-        ) {
-          openRoute(
-            '/(authenticated)/(business)/settings-business-subscription'
-          );
-          return;
-        }
-        openRoute('/(authenticated)/(business)/analytics');
+      if (result.kind === 'open_profile') {
+        openRoute('/(authenticated)/(business)/settings-business-profile');
+        return;
+      }
+      if (result.kind === 'view_subscription') {
+        openRoute('/(authenticated)/(business)/settings-business-subscription');
       }
     } catch (error) {
       Alert.alert(
@@ -762,77 +1038,140 @@ export default function MerchantDashboardScreen() {
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
-        <View className="rounded-[28px] border border-[#BFD6FF] bg-[#EEF4FF] p-5">
-          <View className={`${tw.flexRow} items-center justify-between`}>
-            <TouchableOpacity
-              onPress={() => openRoute('/(authenticated)/(business)/scanner')}
-              className="rounded-xl bg-[#2563EB] px-4 py-2.5"
-            >
-              <Text className="text-sm font-bold text-white">סריקת לקוח</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsPickerVisible(true)}
-              disabled={isSwitchingBusiness}
-              className="rounded-full border border-[#C7D8F9] bg-white px-3 py-1.5"
-            >
-              {isSwitchingBusiness ? (
-                <ActivityIndicator size="small" color="#2F6BFF" />
-              ) : (
-                <View className={`${tw.flexRow} items-center gap-1`}>
-                  <Ionicons name="chevron-down" size={14} color="#2F6BFF" />
-                  <Text className="text-xs font-extrabold text-[#1D4ED8]">
-                    {activeBusiness?.name ?? 'בחירת עסק'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+        <BusinessScreenHeader
+          title={activeBusiness?.name ?? 'העסק שלי'}
+          subtitle="תמונת על מהירה על מצב העסק"
+        />
+
+        {businessSettings === undefined || programs === undefined ? (
+          <View className="mt-4">
+            <LoadingBlock height={52} />
           </View>
-
-          <BusinessScreenHeader
-            style={{ marginTop: 12 }}
-            title="מרכז ניהול"
-            subtitle="תמונת על מהירה על מצב העסק"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  openRoute(
-                    '/(authenticated)/(business)/settings-business-subscription'
-                  )
-                }
-                className="rounded-full border border-[#D9E7FF] bg-white px-3 py-1.5"
-              >
-                <Text className="text-[11px] font-black text-[#2F6BFF]">
-                  {PLAN_LABELS[entitlements?.plan ?? 'starter']}
-                </Text>
-              </TouchableOpacity>
-            }
-          />
-
-          {businessSettings === undefined || programs === undefined ? (
-            <View className="mt-4">
-              <LoadingBlock height={52} />
-            </View>
-          ) : heroStatus.route ? (
-            <TouchableOpacity
-              onPress={() => openRoute(heroStatus.route as BusinessRoute)}
-              className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3"
+        ) : heroStatus.route ? (
+          <TouchableOpacity
+            onPress={() => openRoute(heroStatus.route as BusinessRoute)}
+            className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3"
+          >
+            <Text
+              className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
             >
+              {heroStatus.message}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3">
+            <Text
+              className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
+            >
+              {heroStatus.message}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          onPress={() => openRoute('/(authenticated)/(business)/qr')}
+          className="mt-3 rounded-2xl border border-[#CFE0FF] bg-[#EEF4FF] px-4 py-3"
+        >
+          <View className={`${tw.flexRow} items-center gap-3`}>
+            <View className="h-10 w-10 items-center justify-center rounded-xl border border-[#BFD2FF] bg-white">
+              <Ionicons name="qr-code-outline" size={20} color="#1D4ED8" />
+            </View>
+            <View className="flex-1 items-end">
               <Text
-                className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
+                className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
               >
-                {heroStatus.message}
+                {DASHBOARD_TEXT.joinQrTitle}
               </Text>
-            </TouchableOpacity>
-          ) : (
-            <View className="mt-4 rounded-2xl border border-[#D8E5FF] bg-white px-4 py-3">
-              <Text
-                className={`text-sm font-semibold text-[#1E3A8A] ${tw.textStart}`}
-              >
-                {heroStatus.message}
+              <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
+                {DASHBOARD_TEXT.joinQrSubtitle}
               </Text>
             </View>
-          )}
-        </View>
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+          </View>
+        </TouchableOpacity>
+
+        {recommendationCard && recommendationTheme ? (
+          <View
+            className={`mt-4 rounded-3xl border p-5 ${recommendationTheme.card}`}
+          >
+            <View className="items-end">
+              <Text
+                className={`w-full text-xs font-black ${recommendationTheme.support} ${tw.textStart}`}
+              >
+                {recommendationCard.sectionTitle}
+              </Text>
+              <Text
+                className={`mt-2 w-full text-lg font-black ${recommendationTheme.title} ${tw.textStart}`}
+              >
+                {recommendationCard.title}
+              </Text>
+              <Text
+                className={`mt-2 w-full text-sm ${recommendationTheme.body} ${tw.textStart}`}
+              >
+                {recommendationCard.body}
+              </Text>
+            </View>
+
+            {recommendationCard.supportingText ? (
+              <Text
+                className={`mt-3 w-full text-xs ${recommendationTheme.support} ${tw.textStart}`}
+              >
+                {recommendationCard.supportingText}
+              </Text>
+            ) : null}
+
+            {recommendationCard.evidenceTags.length > 0 ? (
+              <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
+                {recommendationCard.evidenceTags.slice(0, 3).map((tag) => (
+                  <View
+                    key={tag}
+                    className={`rounded-full border px-3 py-1 ${recommendationTheme.chip}`}
+                  >
+                    <Text className="text-[11px] font-bold">{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {recommendationCard.packageNote ? (
+              <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
+                {recommendationCard.packageNote}
+              </Text>
+            ) : null}
+
+            {recommendationHasCta ? (
+              <TouchableOpacity
+                onPress={() => {
+                  void handleRecommendationCta();
+                }}
+                disabled={isApplyingRecommendation}
+                className={`mt-4 ${tw.selfStart} rounded-xl px-4 py-2.5 ${
+                  isApplyingRecommendation
+                    ? 'bg-[#CBD5E1]'
+                    : recommendationTheme.button
+                }`}
+              >
+                {isApplyingRecommendation ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-sm font-bold text-white">
+                    {localizeAiCtaLabel(recommendationCard.primaryCta.label)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <Text className={`mt-4 text-xs text-[#64748B] ${tw.textStart}`}>
+                {recommendationCard.statusTone === 'wait'
+                  ? 'כרגע עדיף לתת לשינוי האחרון לעבוד.'
+                  : 'כרגע אין צורך בפעולה נוספת.'}
+              </Text>
+            )}
+          </View>
+        ) : (
+          <View className="mt-4">
+            <LoadingBlock height={156} />
+          </View>
+        )}
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-4">
           <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
@@ -867,7 +1206,7 @@ export default function MerchantDashboardScreen() {
           )}
         </View>
 
-        {isAttentionLoading ? (
+        {!recommendationCard && isAttentionLoading ? (
           <View className="mt-4">
             <Text
               className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
@@ -879,7 +1218,7 @@ export default function MerchantDashboardScreen() {
               <LoadingBlock height={78} />
             </View>
           </View>
-        ) : attentionItems.length > 0 ? (
+        ) : !recommendationCard && attentionItems.length > 0 ? (
           <View className="mt-4">
             <Text
               className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
@@ -925,11 +1264,15 @@ export default function MerchantDashboardScreen() {
           </View>
         ) : null}
 
-        {aiRecommendation === undefined ? (
+        {!recommendationCard &&
+        aiRecommendation === null &&
+        aiRecommendation === undefined ? (
           <View className="mt-4">
             <LoadingBlock height={124} />
           </View>
-        ) : aiRecommendation ? (
+        ) : !recommendationCard &&
+          Boolean(aiRecommendation) &&
+          aiRecommendation === undefined ? (
           <View className="mt-4 items-end rounded-2xl border border-[#D6E2F8] bg-[#EEF3FF] p-4">
             <Text
               className={`w-full text-xs font-bold text-[#1D4ED8] ${tw.textStart}`}
@@ -946,7 +1289,7 @@ export default function MerchantDashboardScreen() {
             >
               {localizedRecommendationMessage}
             </Text>
-            {aiRecommendation.ctaType !== 'none' ? (
+            {hiddenLegacyHasCta ? (
               <TouchableOpacity
                 onPress={() => {
                   void handleRecommendationCta();
@@ -960,7 +1303,7 @@ export default function MerchantDashboardScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text className="text-xs font-bold text-white">
-                    {localizeAiCtaLabel(aiRecommendation.ctaLabel)}
+                    {localizeAiCtaLabel(hiddenLegacyCtaLabel)}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1262,106 +1605,6 @@ export default function MerchantDashboardScreen() {
           )}
         </View>
       </ScrollView>
-
-      <Modal
-        transparent={true}
-        visible={isPickerVisible}
-        animationType="fade"
-        onRequestClose={() => setIsPickerVisible(false)}
-      >
-        <Pressable
-          onPress={() => setIsPickerVisible(false)}
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(15,23,42,0.35)',
-            justifyContent: 'center',
-            paddingHorizontal: 20,
-          }}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={{
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: '#DCE6FF',
-              backgroundColor: '#FFFFFF',
-              padding: 14,
-              gap: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: '900',
-                color: '#111827',
-                textAlign: 'right',
-              }}
-            >
-              בחירת עסק פעיל
-            </Text>
-            {businesses.map((business) => {
-              const isActive = business.businessId === activeBusinessId;
-              return (
-                <Pressable
-                  key={business.businessId}
-                  onPress={() => {
-                    void setActiveBusinessId(business.businessId)
-                      .then(() => setIsPickerVisible(false))
-                      .catch(() => {});
-                  }}
-                  style={({ pressed }) => [
-                    {
-                      borderRadius: 14,
-                      borderWidth: 1,
-                      borderColor: isActive ? '#A9C7FF' : '#E3E9FF',
-                      backgroundColor: isActive ? '#EAF1FF' : '#FFFFFF',
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      opacity: pressed ? 0.86 : 1,
-                      flexDirection: 'row-reverse',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    style={{
-                      flex: 1,
-                      fontSize: 14,
-                      lineHeight: 18,
-                      fontWeight: isActive ? '800' : '700',
-                      color: '#1A2B4A',
-                      textAlign: 'right',
-                      includeFontPadding: false,
-                    }}
-                  >
-                    {business.name}
-                  </Text>
-                  <View
-                    style={{
-                      width: 22,
-                      height: 18,
-                      marginRight: 10,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {isActive ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={18}
-                        color="#2563EB"
-                      />
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }

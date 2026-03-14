@@ -30,6 +30,29 @@ type BusinessForStaff = {
   staffRole: 'owner' | 'manager' | 'staff';
 };
 
+async function ensureUserHasAnyActiveMembership(ctx: any, userId: Id<'users'>) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_userId', (q: any) => q.eq('userId', userId))
+    .filter((q: any) => q.eq(q.field('isActive'), true))
+    .collect();
+
+  for (const membership of memberships) {
+    try {
+      await requireBusinessAndProgram(
+        ctx,
+        membership.businessId,
+        membership.programId
+      );
+      return true;
+    } catch {
+      // Ignore stale memberships and keep searching.
+    }
+  }
+
+  return false;
+}
+
 export const myBusinesses = query({
   args: {},
   handler: async (ctx) => {
@@ -89,6 +112,28 @@ export const createScanToken = mutation({
       membership.businessId,
       membership.programId
     );
+
+    const { scanToken, payload } = await buildScanToken(user._id);
+    return {
+      scanToken,
+      customerId: payload.customerId,
+      timestamp: payload.timestamp,
+      signature: payload.signature,
+    };
+  },
+});
+
+export const createCustomerScanToken = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    const hasActiveMembership = await ensureUserHasAnyActiveMembership(
+      ctx,
+      user._id
+    );
+    if (!hasActiveMembership) {
+      throw new Error('MEMBERSHIP_NOT_FOUND');
+    }
 
     const { scanToken, payload } = await buildScanToken(user._id);
     return {

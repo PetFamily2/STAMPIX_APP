@@ -329,7 +329,7 @@ export default function PaywallScreen() {
           </Text>
           <Text style={styles.subtitle}>
             Starter מתאים להתחלה. Pro AI פותח Marketing Hub, תובנות לקוחות
-            ודוחות מתקדמים. Premium AI מוסיף בניית סגמנטים ושמירת קהלים.
+            ודוחות מתקדמים. Premium AI מוסיף בניית קהלים ושמירתם.
           </Text>
         </View>
 

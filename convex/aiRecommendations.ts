@@ -66,12 +66,56 @@ const RECOMMENDATION_TYPE_UNION = v.union(
   v.literal('recommendation_explanation')
 );
 
+const LAYER_UNION = v.union(
+  v.literal('foundation'),
+  v.literal('activation'),
+  v.literal('optimization'),
+  v.literal('performance')
+);
+
+const STATUS_TONE_UNION = v.union(
+  v.literal('setup_needed'),
+  v.literal('opportunity'),
+  v.literal('stable'),
+  v.literal('watch'),
+  v.literal('wait')
+);
+
+const SIGNAL_QUALITY_UNION = v.union(
+  v.literal('setup_only'),
+  v.literal('early_signal'),
+  v.literal('directional_signal'),
+  v.literal('performance_ready')
+);
+
 const CTA_TYPE_UNION = v.union(
   v.literal('open_draft'),
   v.literal('view_insight'),
   v.literal('view_summary'),
   v.literal('view_reason'),
   v.literal('none')
+);
+
+const PRIMARY_CTA_KIND_UNION = v.union(
+  v.literal('open_cards'),
+  v.literal('open_profile'),
+  v.literal('open_campaign_draft'),
+  v.literal('view_customers'),
+  v.literal('view_analytics'),
+  v.literal('view_subscription'),
+  v.literal('none')
+);
+
+const CAMPAIGN_DRAFT_TYPE_UNION = v.union(
+  v.literal('welcome'),
+  v.literal('winback'),
+  v.literal('promo')
+);
+
+const CUSTOMER_FILTER_UNION = v.union(
+  v.literal('near_reward'),
+  v.literal('at_risk'),
+  v.literal('new_customers')
 );
 
 type Goal =
@@ -87,6 +131,25 @@ type RecommendationType =
   | 'campaign_summary'
   | 'recommendation_explanation';
 
+type RecommendationLayer =
+  | 'foundation'
+  | 'activation'
+  | 'optimization'
+  | 'performance';
+
+type RecommendationStatusTone =
+  | 'setup_needed'
+  | 'opportunity'
+  | 'stable'
+  | 'watch'
+  | 'wait';
+
+type SignalQuality =
+  | 'setup_only'
+  | 'early_signal'
+  | 'directional_signal'
+  | 'performance_ready';
+
 type CtaType =
   | 'open_draft'
   | 'view_insight'
@@ -94,13 +157,38 @@ type CtaType =
   | 'view_reason'
   | 'none';
 
+type PrimaryCtaKind =
+  | 'open_cards'
+  | 'open_profile'
+  | 'open_campaign_draft'
+  | 'view_customers'
+  | 'view_analytics'
+  | 'view_subscription'
+  | 'none';
+
+type CampaignDraftType = 'welcome' | 'winback' | 'promo';
+type CustomerFilter = 'near_reward' | 'at_risk' | 'new_customers';
+
 type BusinessState =
+  | 'NO_ACTIVE_PROGRAM'
+  | 'FOUNDATION_NEEDS_SETUP'
+  | 'LOW_BEHAVIORAL_SIGNAL'
+  | 'LOW_FEATURE_ADOPTION'
+  | 'NO_WELCOME_CAMPAIGN'
+  | 'MISSING_NEW_CUSTOMER_FOLLOWUP'
+  | 'PROGRAM_STRUCTURE_REVIEW'
+  | 'SECOND_PROGRAM_OPPORTUNITY'
+  | 'WAIT_AFTER_RECENT_CHANGE'
+  | 'ACTIVITY_DROP'
+  | 'INACTIVE_CUSTOMERS_HIGH'
+  | 'CUSTOMERS_CLOSE_TO_REWARD_HIGH'
+  | 'CAMPAIGN_RESULT_READY'
+  | 'PERFORMANCE_MONITORING_READY'
+  | 'HEALTHY_CONTINUE_CURRENT_SETUP'
   | 'BUSINESS_TOO_NEW'
   | 'ACTIVITY_NORMAL'
   | 'ACTIVITY_DROP_MILD'
   | 'ACTIVITY_DROP_SHARP'
-  | 'INACTIVE_CUSTOMERS_HIGH'
-  | 'CUSTOMERS_CLOSE_TO_REWARD_HIGH'
   | 'REDEMPTION_RATE_LOW'
   | 'NO_RECENT_CAMPAIGN'
   | 'CAMPAIGN_COMPLETED'
@@ -148,6 +236,30 @@ type BusinessModel = 'service' | 'product' | 'mixed';
 
 type ProgramCandidate = Doc<'loyaltyPrograms'>;
 
+type RecommendationPrimaryCta = {
+  kind: PrimaryCtaKind;
+  label: string;
+  draftType?: CampaignDraftType;
+  customerFilter?: CustomerFilter;
+  routeTab?: string;
+  highlightTarget?: string;
+};
+
+type RecommendationDisplayPayload = {
+  sectionTitle: string;
+  layer: RecommendationLayer;
+  stateKey: BusinessState;
+  statusTone: RecommendationStatusTone;
+  signalQuality: SignalQuality;
+  title: string;
+  body: string;
+  supportingText: string;
+  evidenceTags: string[];
+  primaryCta: RecommendationPrimaryCta;
+  packageNote?: string;
+  showNoCtaReason: boolean;
+};
+
 type NormalizedBusinessProfile = {
   business_type: string;
   service_category: string;
@@ -182,6 +294,7 @@ type CoreMetrics = {
   activity_drop_pct_30d: number;
   joined_never_returned: number;
   previously_active_now_inactive: number;
+  active_primary_members: number;
 };
 
 type TrackedDates = {
@@ -198,6 +311,7 @@ type BusinessHealthSnapshot = {
   package_plan: 'starter' | 'pro' | 'premium';
   normalized_business_profile: NormalizedBusinessProfile;
   key_performance_metrics: CoreMetrics;
+  signal_quality: SignalQuality;
   customer_state: {
     total_customers: number;
     active_customers_30d: number;
@@ -212,8 +326,15 @@ type BusinessHealthSnapshot = {
     card_recently_changed: boolean;
     changed_card_days_ago: number | null;
     campaigns_30d: number;
+    campaigns_all_time: number;
     has_recent_campaign: boolean;
+    has_ever_sent_campaign: boolean;
+    has_ever_sent_welcome_campaign: boolean;
+    has_recent_welcome_campaign: boolean;
+    has_ready_campaign_summary: boolean;
     recommendation_usage_30d: number;
+    profile_basics_complete: boolean;
+    second_program_supported: boolean;
   };
   cooldown_quota_state: {
     card_change_cooldown_days: number;
@@ -252,10 +373,8 @@ type SweepDecision =
       goal: Goal;
       outputType: RecommendationType;
       template: PromptTemplateKind;
-      ctaType: CtaType;
-      ctaLabel: string;
-      title: string;
-      message: string;
+      primaryCta: RecommendationPrimaryCta;
+      packageNote?: string;
       guardrailReason?: string;
     }
   | {
@@ -264,10 +383,8 @@ type SweepDecision =
       goal: Goal;
       outputType: RecommendationType;
       template: PromptTemplateKind;
-      ctaType: CtaType;
-      ctaLabel: string;
-      title: string;
-      message: string;
+      primaryCta: RecommendationPrimaryCta;
+      packageNote?: string;
       guardrailReason?: string;
     }
   | {
@@ -276,8 +393,9 @@ type SweepDecision =
       goal: Goal;
       outputType: RecommendationType;
       template: PromptTemplateKind;
-      ctaType: CtaType;
-      ctaLabel: string;
+      primaryCta: RecommendationPrimaryCta;
+      packageNote?: string;
+      guardrailReason?: string;
     };
 
 type CachedGeneration = Doc<'aiGenerationCache'>;
@@ -303,14 +421,14 @@ type EvaluationResult =
       expectedLanguage: Language;
       goal: Goal;
       outputType: RecommendationType;
-      ctaType: CtaType;
-      ctaLabel: string;
+      primaryCta: RecommendationPrimaryCta;
       dedupeKey: string;
       prompt: string;
       promptHash: string;
       cacheKey: string;
       inputSignature: string;
       guardrailReason?: string;
+      packageNote?: string;
       relatedCampaignRunId?: Id<'campaignRuns'>;
     };
 
@@ -388,35 +506,59 @@ const SERVICE_DEFAULTS_BY_TYPE: Record<string, ServiceDefaults> = {
   },
 };
 
+// Activation-layer conflicts are resolved by specificity:
+// welcome setup beats generic adoption, and low-signal only appears when no
+// more concrete activation action is available.
+const ACTIVATION_STATE_PRECEDENCE: BusinessState[] = [
+  'NO_WELCOME_CAMPAIGN',
+  'MISSING_NEW_CUSTOMER_FOLLOWUP',
+  'LOW_FEATURE_ADOPTION',
+  'LOW_BEHAVIORAL_SIGNAL',
+];
+
 const PRIORITY_ORDER: BusinessState[] = [
-  'ACTIVITY_DROP_SHARP',
+  'WAIT_AFTER_RECENT_CHANGE',
+  'NO_ACTIVE_PROGRAM',
+  'FOUNDATION_NEEDS_SETUP',
+  'ACTIVITY_DROP',
   'INACTIVE_CUSTOMERS_HIGH',
+  ...ACTIVATION_STATE_PRECEDENCE,
+  'PROGRAM_STRUCTURE_REVIEW',
   'CUSTOMERS_CLOSE_TO_REWARD_HIGH',
-  'CARD_CHANGE_NO_IMPROVEMENT',
-  'NO_RECENT_CAMPAIGN',
-  'CAMPAIGN_COMPLETED',
-  'ACTIVITY_DROP_MILD',
-  'REDEMPTION_RATE_LOW',
-  'LOW_PRODUCT_USAGE',
-  'CARD_RECENTLY_CHANGED',
-  'WAIT_BEFORE_NEXT_ACTION',
-  'BUSINESS_TOO_NEW',
-  'ACTIVITY_NORMAL',
+  'SECOND_PROGRAM_OPPORTUNITY',
+  'CAMPAIGN_RESULT_READY',
+  'PERFORMANCE_MONITORING_READY',
+  'HEALTHY_CONTINUE_CURRENT_SETUP',
 ];
 
 const HIGH_PRIORITY_AI_STATES = new Set<BusinessState>([
-  'ACTIVITY_DROP_SHARP',
+  'ACTIVITY_DROP',
   'INACTIVE_CUSTOMERS_HIGH',
   'CUSTOMERS_CLOSE_TO_REWARD_HIGH',
-  'CAMPAIGN_COMPLETED',
+  'CAMPAIGN_RESULT_READY',
+  'NO_WELCOME_CAMPAIGN',
+  'MISSING_NEW_CUSTOMER_FOLLOWUP',
 ]);
 
-const CAMPAIGN_MESSAGE_STATES = new Set<BusinessState>([
-  'ACTIVITY_DROP_SHARP',
-  'INACTIVE_CUSTOMERS_HIGH',
-  'CUSTOMERS_CLOSE_TO_REWARD_HIGH',
-  'NO_RECENT_CAMPAIGN',
+const SECOND_PROGRAM_SUPPORTED_CATEGORIES = new Set<string>([
+  'cafe_restaurant',
+  'salon',
+  'massage_therapy',
+  'personal_training',
+  'retail',
 ]);
+
+const WELCOME_CAMPAIGN_LOOKBACK_DAYS = 45;
+const NO_WELCOME_CAMPAIGN_MIN_NEW_CUSTOMERS = 2;
+const MISSING_FOLLOW_UP_MIN_NEW_CUSTOMERS = 5;
+const MISSING_FOLLOW_UP_MIN_JOINED_NEVER_RETURNED = 3;
+const LOW_FEATURE_ADOPTION_MIN_CUSTOMERS = 8;
+const LOW_FEATURE_ADOPTION_MIN_VISITS = 4;
+const PROGRAM_STRUCTURE_REVIEW_MIN_PROGRAM_AGE_DAYS = 60;
+const SECOND_PROGRAM_MIN_TOTAL_CUSTOMERS = 60;
+const SECOND_PROGRAM_MIN_ACTIVE_PRIMARY_MEMBERS = 35;
+const SECOND_PROGRAM_MIN_VISITS_30D = 25;
+const SECOND_PROGRAM_MIN_SENT_CAMPAIGNS = 2;
 
 const MAX_WORDS_BY_OUTPUT_TYPE: Record<RecommendationType, number> = {
   campaign_message: 25,
@@ -638,61 +780,38 @@ function normalizeBusinessProfile(input: {
 
 function stateSpecForState(state: BusinessState): RecommendationSpec {
   switch (state) {
-    case 'ACTIVITY_DROP_SHARP':
+    case 'ACTIVITY_DROP':
     case 'INACTIVE_CUSTOMERS_HIGH':
-      return {
-        goal: 'bring_back_customers',
-        outputType: 'campaign_message',
-        template: 'campaign_recommendation',
-        aiPreferred: true,
-      };
+    case 'NO_WELCOME_CAMPAIGN':
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
     case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
       return {
-        goal: 'push_to_reward',
+        goal:
+          state === 'CUSTOMERS_CLOSE_TO_REWARD_HIGH'
+            ? 'push_to_reward'
+            : state === 'NO_WELCOME_CAMPAIGN' ||
+                state === 'MISSING_NEW_CUSTOMER_FOLLOWUP'
+              ? 'general_engagement'
+              : 'bring_back_customers',
         outputType: 'campaign_message',
         template: 'campaign_recommendation',
         aiPreferred: true,
       };
-    case 'NO_RECENT_CAMPAIGN':
-      return {
-        goal: 'general_engagement',
-        outputType: 'campaign_message',
-        template: 'campaign_recommendation',
-        aiPreferred: true,
-      };
-    case 'CAMPAIGN_COMPLETED':
+    case 'CAMPAIGN_RESULT_READY':
       return {
         goal: 'campaign_summary',
         outputType: 'campaign_summary',
         template: 'campaign_summary',
         aiPreferred: true,
       };
-    case 'CARD_CHANGE_NO_IMPROVEMENT':
-    case 'REDEMPTION_RATE_LOW':
+    case 'PROGRAM_STRUCTURE_REVIEW':
+    case 'PERFORMANCE_MONITORING_READY':
       return {
         goal: 'business_insight',
         outputType: 'business_insight',
         template: 'business_insight',
         aiPreferred: true,
       };
-    case 'LOW_PRODUCT_USAGE':
-      return {
-        goal: 'business_insight',
-        outputType: 'recommendation_explanation',
-        template: 'recommendation_explanation',
-        aiPreferred: false,
-      };
-    case 'ACTIVITY_DROP_MILD':
-      return {
-        goal: 'general_engagement',
-        outputType: 'business_insight',
-        template: 'business_insight',
-        aiPreferred: false,
-      };
-    case 'BUSINESS_TOO_NEW':
-    case 'CARD_RECENTLY_CHANGED':
-    case 'WAIT_BEFORE_NEXT_ACTION':
-    case 'ACTIVITY_NORMAL':
     default:
       return {
         goal: 'business_insight',
@@ -703,28 +822,387 @@ function stateSpecForState(state: BusinessState): RecommendationSpec {
   }
 }
 
-function ctaForRecommendationType(
-  type: RecommendationType,
-  state: BusinessState
-): { ctaType: CtaType; ctaLabel: string } {
-  if (type === 'campaign_message') {
-    return { ctaType: 'open_draft', ctaLabel: 'פתיחת טיוטה לעריכה' };
+function stateLayerForState(state: BusinessState): RecommendationLayer {
+  switch (state) {
+    case 'NO_ACTIVE_PROGRAM':
+    case 'FOUNDATION_NEEDS_SETUP':
+      return 'foundation';
+    case 'LOW_BEHAVIORAL_SIGNAL':
+    case 'LOW_FEATURE_ADOPTION':
+    case 'NO_WELCOME_CAMPAIGN':
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return 'activation';
+    case 'PROGRAM_STRUCTURE_REVIEW':
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+    case 'WAIT_AFTER_RECENT_CHANGE':
+    case 'INACTIVE_CUSTOMERS_HIGH':
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return 'optimization';
+    default:
+      return 'performance';
   }
-  if (type === 'business_insight') {
-    return { ctaType: 'view_insight', ctaLabel: 'צפייה בתובנה' };
+}
+
+function statusToneForState(state: BusinessState): RecommendationStatusTone {
+  switch (state) {
+    case 'NO_ACTIVE_PROGRAM':
+    case 'FOUNDATION_NEEDS_SETUP':
+      return 'setup_needed';
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      return 'wait';
+    case 'PERFORMANCE_MONITORING_READY':
+      return 'watch';
+    case 'HEALTHY_CONTINUE_CURRENT_SETUP':
+      return 'stable';
+    default:
+      return 'opportunity';
   }
-  if (type === 'campaign_summary') {
-    return { ctaType: 'view_summary', ctaLabel: 'צפייה בסיכום' };
+}
+
+function primaryCtaForState(input: {
+  state: BusinessState;
+  snapshot: BusinessHealthSnapshot;
+}): RecommendationPrimaryCta {
+  const { state, snapshot } = input;
+  switch (state) {
+    case 'NO_ACTIVE_PROGRAM':
+      return { kind: 'open_cards', label: 'יצירת כרטיס ראשון' };
+    case 'FOUNDATION_NEEDS_SETUP':
+      return snapshot.product_usage_state.profile_basics_complete
+        ? { kind: 'open_cards', label: 'בדיקת הכרטיס' }
+        : { kind: 'open_profile', label: 'השלמת ההגדרה' };
+    case 'LOW_BEHAVIORAL_SIGNAL':
+    case 'LOW_FEATURE_ADOPTION':
+      return {
+        kind: 'open_campaign_draft',
+        label: 'יצירת קמפיין ראשון',
+        draftType: 'promo',
+      };
+    case 'NO_WELCOME_CAMPAIGN':
+      return {
+        kind: 'open_campaign_draft',
+        label: 'יצירת קמפיין קבלת פנים',
+        draftType: 'welcome',
+      };
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return {
+        kind: 'open_campaign_draft',
+        label: 'הוספת follow-up ללקוחות חדשים',
+        draftType: 'welcome',
+      };
+    case 'ACTIVITY_DROP':
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      return {
+        kind: 'open_campaign_draft',
+        label: 'יצירת קמפיין החזרה',
+        draftType: 'winback',
+      };
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return {
+        kind: 'view_customers',
+        label: 'צפייה בלקוחות מתאימים',
+        customerFilter: 'near_reward',
+      };
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      return { kind: 'open_cards', label: 'בדיקת מבנה הכרטיס' };
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      return { kind: 'open_cards', label: 'הוספת כרטיס נוסף' };
+    case 'CAMPAIGN_RESULT_READY':
+      return {
+        kind: 'open_cards',
+        label: 'צפייה בתוצאות הקמפיין',
+        highlightTarget: 'campaign_results',
+      };
+    case 'PERFORMANCE_MONITORING_READY':
+      return { kind: 'view_analytics', label: 'צפייה בתובנות' };
+    default:
+      return { kind: 'none', label: 'ללא פעולה' };
   }
-  if (
-    state === 'ACTIVITY_NORMAL' ||
-    state === 'CARD_RECENTLY_CHANGED' ||
-    state === 'WAIT_BEFORE_NEXT_ACTION' ||
-    state === 'BUSINESS_TOO_NEW'
-  ) {
-    return { ctaType: 'none', ctaLabel: 'אין צורך בפעולה' };
+}
+
+function legacyCtaFromPrimaryCta(primaryCta: RecommendationPrimaryCta): {
+  ctaType: CtaType;
+  ctaLabel: string;
+} {
+  switch (primaryCta.kind) {
+    case 'open_campaign_draft':
+      return { ctaType: 'open_draft', ctaLabel: primaryCta.label };
+    case 'view_customers':
+    case 'view_analytics':
+      return { ctaType: 'view_insight', ctaLabel: primaryCta.label };
+    case 'open_cards':
+      return { ctaType: 'view_summary', ctaLabel: primaryCta.label };
+    case 'open_profile':
+    case 'view_subscription':
+      return { ctaType: 'view_reason', ctaLabel: primaryCta.label };
+    default:
+      return { ctaType: 'none', ctaLabel: primaryCta.label };
   }
-  return { ctaType: 'view_reason', ctaLabel: 'צפייה בהסבר' };
+}
+
+function packageNoteForReason(reason?: DecisionGuardrailReason) {
+  switch (reason) {
+    case 'PLAN_NOT_ELIGIBLE':
+      return 'ניסוח AI לא זמין במסלול הנוכחי, אבל עדיין אפשר לבצע את הצעד הזה ידנית.';
+    case 'QUOTA_EXHAUSTED':
+      return 'מכסת ה-AI החודשית נוצלה, אבל הצעד עצמו עדיין רלוונטי וניתן לביצוע ידני.';
+    case 'QUOTA_NEAR_LIMIT':
+      return 'המערכת שמרה את מכסת ה-AI למקרים דחופים יותר, ולכן מוצגת כאן המלצה קבועה.';
+    case 'DAILY_AI_LIMIT_REACHED':
+      return 'ניסוח ה-AI נדחה לסריקה הבאה, אבל הצעד העסקי עצמו עדיין מתאים עכשיו.';
+    case 'AI_REQUEST_FAILED':
+      return 'ניסוח ה-AI לא היה זמין כרגע, ולכן מוצגת המלצה קבועה של המערכת.';
+    default:
+      return undefined;
+  }
+}
+
+function buildEvidenceTags(input: {
+  state: BusinessState;
+  snapshot: BusinessHealthSnapshot;
+}) {
+  const metrics = input.snapshot.key_performance_metrics;
+  const usage = input.snapshot.product_usage_state;
+  const tags: string[] = [];
+
+  switch (input.state) {
+    case 'NO_ACTIVE_PROGRAM':
+      tags.push('אין כרטיסיה פעילה');
+      if (!usage.profile_basics_complete) {
+        tags.push('יש עוד פרטי עסק להשלים');
+      }
+      break;
+    case 'FOUNDATION_NEEDS_SETUP':
+      tags.push(
+        usage.profile_basics_complete
+          ? 'הכרטיס קיים אבל עדיין לא התחילה תנועה'
+          : 'הגדרת העסק עדיין חלקית'
+      );
+      if (metrics.total_customers > 0) {
+        tags.push(`${metrics.total_customers} לקוחות כבר הצטרפו`);
+      }
+      break;
+    case 'LOW_BEHAVIORAL_SIGNAL':
+      tags.push(`${metrics.total_customers} לקוחות במועדון`);
+      tags.push('עדיין לא נבנה בסיס פעולה קבוע');
+      if (!usage.has_ever_sent_campaign) {
+        tags.push('לא נשלח קמפיין עדיין');
+      }
+      break;
+    case 'LOW_FEATURE_ADOPTION':
+      tags.push(`${metrics.total_customers} לקוחות פעילים במערכת`);
+      tags.push('השימוש בקמפיינים עדיין נמוך');
+      tags.push(`${metrics.visits_30d} ביקורים ב-30 הימים האחרונים`);
+      break;
+    case 'NO_WELCOME_CAMPAIGN':
+      tags.push(`${metrics.new_customers_30d} לקוחות חדשים`);
+      tags.push('לא נשלח welcome אמיתי עדיין');
+      tags.push(`${usage.active_program_count} כרטיסיה פעילה`);
+      break;
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      tags.push(`${metrics.new_customers_30d} לקוחות חדשים`);
+      tags.push(`${metrics.joined_never_returned} עדיין לא חזרו`);
+      tags.push('אין follow-up עדכני ללקוחות חדשים');
+      break;
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      tags.push('בוצע שינוי לאחרונה');
+      if (usage.card_recently_changed) {
+        tags.push('מבנה הכרטיס עודכן לאחרונה');
+      }
+      if (usage.has_recent_campaign) {
+        tags.push('נשלח קמפיין לאחרונה');
+      }
+      break;
+    case 'ACTIVITY_DROP':
+      tags.push('יש ירידה בקצב הביקורים');
+      tags.push(`${metrics.visits_30d} ביקורים בחודש האחרון`);
+      tags.push(`${metrics.visits_prev_30d} ביקורים בחודש שלפניו`);
+      break;
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      tags.push(`${metrics.inactive_customers_dynamic} לקוחות לא חזרו`);
+      tags.push(`${metrics.previously_active_now_inactive} היו פעילים בעבר`);
+      break;
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      tags.push('יש לקוחות קרובים לפרס');
+      tags.push(`${metrics.customers_close_to_reward} כמעט משלימים כרטיס`);
+      break;
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      tags.push('מעט לקוחות מתקרבים לפרס');
+      tags.push('לא נרשמו מימושים לאחרונה');
+      tags.push('הכרטיס רץ כבר מספיק זמן לבדיקה');
+      break;
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      tags.push('התוכנית הראשית כבר פעילה');
+      tags.push(`${metrics.total_customers} לקוחות במועדון`);
+      break;
+    case 'CAMPAIGN_RESULT_READY':
+      tags.push('חלון התוצאות של הקמפיין נסגר');
+      if (usage.campaigns_all_time > 0) {
+        tags.push(`${usage.campaigns_all_time} קמפיינים נשלחו עד היום`);
+      }
+      break;
+    case 'PERFORMANCE_MONITORING_READY':
+      tags.push('יש בסיס פעילות עקבי');
+      tags.push(`${metrics.visits_30d} ביקורים ב-30 הימים האחרונים`);
+      break;
+    default:
+      if (usage.active_program_count > 0) {
+        tags.push(`${usage.active_program_count} כרטיסיה פעילה`);
+      }
+      tags.push('הפעילות נראית יציבה');
+      if (metrics.active_customers_30d > 0) {
+        tags.push(`${metrics.active_customers_30d} לקוחות פעילים החודש`);
+      }
+      break;
+  }
+
+  return tags.slice(0, 3);
+}
+
+function titleForState(state: BusinessState) {
+  switch (state) {
+    case 'NO_ACTIVE_PROGRAM':
+      return 'השלב הבא הוא להפעיל כרטיס נאמנות ראשון';
+    case 'FOUNDATION_NEEDS_SETUP':
+      return 'כדאי להשלים את הבסיס לפני מהלך שיווקי';
+    case 'LOW_BEHAVIORAL_SIGNAL':
+      return 'הצעד הבא שכדאי להתחיל ממנו: קמפיין ראשון';
+    case 'LOW_FEATURE_ADOPTION':
+      return 'כדאי להפעיל קמפיין ראשון מהמועדון';
+    case 'NO_WELCOME_CAMPAIGN':
+      return 'כדאי להפעיל קמפיין קבלת פנים ללקוחות חדשים';
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return 'זה זמן טוב לחיזוק לקוחות חדשים';
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      return 'אולי כדאי לבדוק שוב את מבנה הכרטיס';
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      return 'יש מקום לשקול כרטיסיה נוספת';
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      return 'כדאי לתת לשינוי האחרון עוד זמן';
+    case 'ACTIVITY_DROP':
+      return 'כדאי ליזום מהלך החזרה ללקוחות שלא הגיעו';
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      return 'יש קהל שכדאי להחזיר עכשיו';
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return 'יש לקוחות קרובים לפרס שכדאי לפנות אליהם';
+    case 'CAMPAIGN_RESULT_READY':
+      return 'תוצאות הקמפיין האחרון מוכנות לבדיקה';
+    case 'PERFORMANCE_MONITORING_READY':
+      return 'אפשר לעבור למעקב ביצועים רגוע';
+    default:
+      return 'ההגדרה הנוכחית נראית בריאה';
+  }
+}
+
+function bodyForState(input: {
+  state: BusinessState;
+  snapshot: BusinessHealthSnapshot;
+}) {
+  switch (input.state) {
+    case 'NO_ACTIVE_PROGRAM':
+      return 'ברגע שתהיה כרטיסיה פעילה, נוכל להכווין טוב יותר על קמפיינים ועל חזרת לקוחות.';
+    case 'FOUNDATION_NEEDS_SETUP':
+      return 'יש התחלה טובה, אבל לפני קמפיין נוסף עדיף לוודא שהכרטיס והפרטים המרכזיים מסודרים.';
+    case 'LOW_BEHAVIORAL_SIGNAL':
+      return 'יש כבר בסיס ראשוני, ועכשיו קמפיין פשוט יעזור להבין מה מניע חזרה של לקוחות.';
+    case 'LOW_FEATURE_ADOPTION':
+      return 'יש פעילות ראשונית, אבל עדיין אין מהלך שיווקי שייתן בסיס ברור לשיפור ושימור.';
+    case 'NO_WELCOME_CAMPAIGN':
+      return 'לקוחות חדשים כבר מצטרפים, והודעת קבלת פנים יכולה לעזור לחזק את הביקור השני שלהם.';
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return 'יש הצטרפויות חדשות, אבל חלק מהלקוחות עדיין לא חזרו. מסר קצר יכול להחזיר אותם מהר יותר.';
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      return 'לא חייבים לשנות מיד, אבל שווה לבדוק אם הדרך לפרס מרגישה ארוכה מדי או פחות ברורה ללקוחות.';
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      return 'התוכנית הראשית כבר עובדת, ולכן אפשר לשקול כרטיס נוסף לשימוש משלים או לקהל אחר.';
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      return 'שינוי נוסף עכשיו יקשה להבין מה באמת עובד. עדיף להמתין קצת לפני צעד חדש.';
+    case 'ACTIVITY_DROP':
+      return 'יש ירידה בפעילות האחרונה, וזה חלון טוב לפעולה פשוטה שמחזירה לקוחות לביקור הבא.';
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      return 'יותר מדי לקוחות שהיו פעילים הפסיקו להגיע. קמפיין winback יכול לעזור להחזיר חלק מהם.';
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return 'זה זמן טוב להזכיר להם את ההתקדמות שלהם ולעודד ביקור נוסף בזמן שהמוטיבציה גבוהה.';
+    case 'CAMPAIGN_RESULT_READY':
+      return 'כדאי לבדוק איך הקמפיין האחרון השפיע לפני שמתחילים מהלך חדש.';
+    case 'PERFORMANCE_MONITORING_READY':
+      return 'כבר יש מספיק פעילות כדי לקרוא את התמונה העסקית בלי למהר לשנות את ההגדרה.';
+    default:
+      return 'אין כרגע סימן שמצריך שינוי. עדיף להמשיך כרגיל ולעקוב במקום למהר לעדכן.';
+  }
+}
+
+function supportingTextForState(input: {
+  state: BusinessState;
+  snapshot: BusinessHealthSnapshot;
+}) {
+  switch (input.state) {
+    case 'NO_ACTIVE_PROGRAM':
+      return 'כרגע אין לעסק תוכנית נאמנות פעילה שעליה אפשר לבנות המלצה.';
+    case 'FOUNDATION_NEEDS_SETUP':
+      return 'כשהבסיס ברור יותר, ההמלצות והקמפיינים הופכים מדויקים יותר.';
+    case 'LOW_BEHAVIORAL_SIGNAL':
+      return 'ההמלצה מבוססת על ההגדרה הנוכחית של הכרטיס ועל הפעילות שנאספה עד עכשיו.';
+    case 'LOW_FEATURE_ADOPTION':
+      return 'זה מבוסס על שימוש נמוך בקמפיינים ביחס לכרטיס וללקוחות שכבר הצטרפו.';
+    case 'NO_WELCOME_CAMPAIGN':
+      return 'נמצאו לקוחות חדשים, אבל עוד לא נשלח קמפיין welcome אמיתי מהמועדון.';
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return 'ההמלצה מבוססת על לקוחות חדשים שנכנסו לאחרונה וללא follow-up עדכני.';
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      return 'יש כבר מספיק סימנים כדי לבצע בדיקה זהירה של מבנה הכרטיס וההטבה.';
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      return 'ההמלצה הזו נמוכה בעדיפות ומופיעה רק אחרי שיש שימוש משמעותי בתוכנית הקיימת.';
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      return 'זוהה שינוי בכרטיס או קמפיין שנשלח לאחרונה.';
+    case 'ACTIVITY_DROP':
+      return 'ההמלצה מבוססת על שינוי בקצב הביקורים לעומת התקופה הקודמת.';
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      return 'המערכת מזהה קבוצה משמעותית של לקוחות שלא חזרו בזמן שמתאים לעסק שלכם.';
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return 'זוהתה קבוצה משמעותית של לקוחות שכבר כמעט משלימים את הכרטיס.';
+    case 'CAMPAIGN_RESULT_READY':
+      return 'המערכת סיימה לאסוף את חלון התוצאות של הקמפיין שנשלח.';
+    case 'PERFORMANCE_MONITORING_READY':
+      return 'כדאי לעקוב אחרי הביצועים ולהתערב רק כשהמערכת מזהה הזדמנות ברורה.';
+    default:
+      return 'הפעילות, השימוש במערכת ותנועת הלקוחות נראים יציבים כרגע.';
+  }
+}
+
+function buildRecommendationDisplayPayload(input: {
+  state: BusinessState;
+  snapshot: BusinessHealthSnapshot;
+  bodyOverride?: string;
+  packageNote?: string;
+  primaryCtaOverride?: RecommendationPrimaryCta;
+}): RecommendationDisplayPayload {
+  const primaryCta =
+    input.primaryCtaOverride ??
+    primaryCtaForState({ state: input.state, snapshot: input.snapshot });
+
+  return {
+    sectionTitle: 'הצעד הבא לעסק',
+    layer: stateLayerForState(input.state),
+    stateKey: input.state,
+    statusTone: statusToneForState(input.state),
+    signalQuality: input.snapshot.signal_quality,
+    title: titleForState(input.state),
+    body:
+      normalizeWhitespace(input.bodyOverride ?? '') ||
+      bodyForState({ state: input.state, snapshot: input.snapshot }),
+    supportingText: supportingTextForState({
+      state: input.state,
+      snapshot: input.snapshot,
+    }),
+    evidenceTags: buildEvidenceTags({
+      state: input.state,
+      snapshot: input.snapshot,
+    }),
+    primaryCta,
+    packageNote: input.packageNote,
+    showNoCtaReason: primaryCta.kind === 'none',
+  };
 }
 
 function topStateFromDetectedStates(detected: BusinessState[]) {
@@ -734,59 +1212,57 @@ function topStateFromDetectedStates(detected: BusinessState[]) {
       return state;
     }
   }
-  return 'ACTIVITY_NORMAL' as const;
+  return 'HEALTHY_CONTINUE_CURRENT_SETUP' as const;
 }
 
 function buildStateSignal(input: {
   topState: BusinessState;
-  metrics: CoreMetrics;
-  profile: NormalizedBusinessProfile;
+  snapshot: BusinessHealthSnapshot;
   campaignRunId: string | null;
 }) {
-  const { topState, metrics, profile, campaignRunId } = input;
-  if (topState === 'ACTIVITY_DROP_SHARP' || topState === 'ACTIVITY_DROP_MILD') {
-    return `drop_${toPercent(metrics.activity_drop_pct_30d)}_v30_${metrics.visits_30d}_vp30_${metrics.visits_prev_30d}`;
+  const { topState, snapshot, campaignRunId } = input;
+  const metrics = snapshot.key_performance_metrics;
+  const usage = snapshot.product_usage_state;
+
+  switch (topState) {
+    case 'ACTIVITY_DROP':
+      return `drop_${toPercent(metrics.activity_drop_pct_30d)}_${metrics.visits_30d}_${metrics.visits_prev_30d}`;
+    case 'INACTIVE_CUSTOMERS_HIGH':
+      return `inactive_${toPercent(metrics.inactive_rate_dynamic)}_${metrics.inactive_customers_dynamic}`;
+    case 'CUSTOMERS_CLOSE_TO_REWARD_HIGH':
+      return `near_reward_${metrics.customers_close_to_reward}_${toPercent(metrics.close_to_reward_rate)}`;
+    case 'NO_WELCOME_CAMPAIGN':
+      return `welcome_missing_${metrics.new_customers_30d}_${usage.has_ever_sent_welcome_campaign ? 1 : 0}`;
+    case 'MISSING_NEW_CUSTOMER_FOLLOWUP':
+      return `followup_missing_${metrics.new_customers_30d}_${metrics.joined_never_returned}`;
+    case 'PROGRAM_STRUCTURE_REVIEW':
+      return `structure_review_${metrics.reward_redemptions_30d}_${toPercent(metrics.close_to_reward_rate)}`;
+    case 'SECOND_PROGRAM_OPPORTUNITY':
+      return `second_program_${metrics.total_customers}_${metrics.active_primary_members}`;
+    case 'CAMPAIGN_RESULT_READY':
+      return `campaign_result_ready_${campaignRunId ?? 'none'}`;
+    case 'WAIT_AFTER_RECENT_CHANGE':
+      return `wait_recent_change_${usage.changed_card_days_ago ?? 'nc'}_${snapshot.required_dates.last_campaign_at ?? 'none'}`;
+    case 'LOW_FEATURE_ADOPTION':
+      return `low_feature_adoption_${usage.campaigns_all_time}_${metrics.total_customers}_${metrics.visits_30d}`;
+    case 'LOW_BEHAVIORAL_SIGNAL':
+      return `low_behavioral_signal_${snapshot.signal_quality}_${metrics.total_customers}_${metrics.visits_30d}`;
+    case 'NO_ACTIVE_PROGRAM':
+      return 'no_active_program';
+    case 'FOUNDATION_NEEDS_SETUP':
+      return `foundation_setup_${usage.profile_basics_complete ? 1 : 0}_${metrics.total_customers}`;
+    case 'PERFORMANCE_MONITORING_READY':
+      return `performance_ready_${metrics.visits_30d}_${usage.campaigns_all_time}`;
+    default:
+      return `healthy_${metrics.visits_30d}_${metrics.active_customers_30d}`;
   }
-  if (topState === 'INACTIVE_CUSTOMERS_HIGH') {
-    return `inactive_${toPercent(metrics.inactive_rate_dynamic)}_${metrics.inactive_customers_dynamic}`;
-  }
-  if (topState === 'CUSTOMERS_CLOSE_TO_REWARD_HIGH') {
-    return `near_reward_${metrics.customers_close_to_reward}_${toPercent(metrics.close_to_reward_rate)}`;
-  }
-  if (topState === 'CAMPAIGN_COMPLETED' && campaignRunId) {
-    return `campaign_completed_${campaignRunId}`;
-  }
-  if (topState === 'CARD_CHANGE_NO_IMPROVEMENT') {
-    return `card_change_no_improvement_${toPercent(metrics.activity_drop_pct_30d)}`;
-  }
-  if (topState === 'REDEMPTION_RATE_LOW') {
-    return `redemption_low_${toPercent(metrics.redemption_rate_30d)}`;
-  }
-  if (topState === 'NO_RECENT_CAMPAIGN') {
-    return `no_recent_campaign_${profile.customer_cycle_days}_${metrics.campaigns_30d}`;
-  }
-  if (topState === 'LOW_PRODUCT_USAGE') {
-    return `low_usage_${metrics.visits_30d}_${metrics.campaigns_30d}`;
-  }
-  if (topState === 'CARD_RECENTLY_CHANGED') {
-    return `card_recently_changed`;
-  }
-  if (topState === 'WAIT_BEFORE_NEXT_ACTION') {
-    return `wait_before_next_action`;
-  }
-  if (topState === 'BUSINESS_TOO_NEW') {
-    return `business_too_new`;
-  }
-  return `activity_normal`;
 }
 
 function buildStateHash(input: {
   businessId: Id<'businesses'>;
   topState: BusinessState;
   stateSignal: string;
-  metrics: CoreMetrics;
-  profile: NormalizedBusinessProfile;
-  trackedDates: TrackedDates;
+  snapshot: BusinessHealthSnapshot;
   primaryProgramId: Id<'loyaltyPrograms'> | null;
 }) {
   return hashString(
@@ -794,25 +1270,31 @@ function buildStateHash(input: {
       businessId: String(input.businessId),
       topState: input.topState,
       stateSignal: input.stateSignal,
+      signalQuality: input.snapshot.signal_quality,
       metrics: {
-        visits_30d: input.metrics.visits_30d,
-        visits_prev_30d: input.metrics.visits_prev_30d,
-        inactive_dynamic: input.metrics.inactive_customers_dynamic,
-        close_to_reward: input.metrics.customers_close_to_reward,
-        campaigns_30d: input.metrics.campaigns_30d,
+        visits_30d: input.snapshot.key_performance_metrics.visits_30d,
+        visits_prev_30d: input.snapshot.key_performance_metrics.visits_prev_30d,
+        inactive_dynamic:
+          input.snapshot.key_performance_metrics.inactive_customers_dynamic,
+        close_to_reward:
+          input.snapshot.key_performance_metrics.customers_close_to_reward,
+        campaigns_30d: input.snapshot.key_performance_metrics.campaigns_30d,
       },
       profile: {
-        business_type: input.profile.business_type,
-        service_name: input.profile.service_name,
-        reward_threshold: input.profile.reward_threshold,
-        reward_type: input.profile.reward_type,
-        language: input.profile.language,
-        brand_style: input.profile.brand_style,
+        business_type: input.snapshot.normalized_business_profile.business_type,
+        service_name: input.snapshot.normalized_business_profile.service_name,
+        reward_threshold:
+          input.snapshot.normalized_business_profile.reward_threshold,
+        reward_type: input.snapshot.normalized_business_profile.reward_type,
+        language: input.snapshot.normalized_business_profile.language,
+        brand_style: input.snapshot.normalized_business_profile.brand_style,
       },
       trackedDates: {
-        last_campaign_at: input.trackedDates.last_campaign_at,
-        loyalty_card_updated_at: input.trackedDates.loyalty_card_updated_at,
-        last_ai_recommendation_at: input.trackedDates.last_ai_recommendation_at,
+        last_campaign_at: input.snapshot.required_dates.last_campaign_at,
+        loyalty_card_updated_at:
+          input.snapshot.required_dates.loyalty_card_updated_at,
+        last_ai_recommendation_at:
+          input.snapshot.required_dates.last_ai_recommendation_at,
       },
       primaryProgramId: input.primaryProgramId
         ? String(input.primaryProgramId)
@@ -826,7 +1308,7 @@ function fixedMessageForReason(input: {
   topState: BusinessState;
   metrics: CoreMetrics;
 }): { title: string; message: string } {
-  const { reason, metrics } = input;
+  const { reason, topState, metrics } = input;
   if (reason === 'NO_ACTIVE_PROGRAM') {
     return {
       title: 'צריך להפעיל קודם כרטיס נאמנות',
@@ -900,22 +1382,19 @@ function fixedMessageForReason(input: {
   if (reason === 'WEEKLY_RECOMMENDATION_LIMIT') {
     return {
       title: 'הגעתם למגבלת ההמלצות השבועית',
-      message:
-        'כבר הוצגו השבוע מספיק המלצות. המלצות חדשות יחזרו בשבוע הבא.',
+      message: 'כבר הוצגו השבוע מספיק המלצות. המלצות חדשות יחזרו בשבוע הבא.',
     };
   }
   if (reason === 'REPEATED_EVENT_COOLDOWN') {
     return {
       title: 'האירוע כבר טופל לאחרונה',
-      message:
-        'אותו אירוע עסקי כבר זוהה וטופל לאחרונה, ולא חל בו שינוי מהותי.',
+      message: 'אותו אירוע עסקי כבר זוהה וטופל לאחרונה, ולא חל בו שינוי מהותי.',
     };
   }
   if (reason === 'AI_REQUEST_FAILED') {
     return {
       title: 'תשובת הבינה המלאכותית לא זמינה כרגע',
-      message:
-        'הוצג הסבר קבוע של המערכת כי בקשת הבינה המלאכותית נכשלה.',
+      message: 'הוצג הסבר קבוע של המערכת כי בקשת הבינה המלאכותית נכשלה.',
     };
   }
   if (topState === 'CAMPAIGN_COMPLETED') {
@@ -1229,7 +1708,7 @@ function shouldIgnoreCacheForCardChange(input: {
   changedCardDaysAgo: number | null;
 }) {
   return (
-    input.topState === 'CARD_RECENTLY_CHANGED' ||
+    input.topState === 'WAIT_AFTER_RECENT_CHANGE' ||
     (input.changedCardDaysAgo !== null &&
       input.changedCardDaysAgo <= CARD_CHANGE_COOLDOWN_DAYS)
   );
@@ -1374,115 +1853,194 @@ async function callGeminiJson(input: {
   }
 }
 
+function detectSignalQuality(input: {
+  hasPrimaryProgram: boolean;
+  businessAgeDays: number;
+  metrics: CoreMetrics;
+}) {
+  if (
+    !input.hasPrimaryProgram ||
+    (input.metrics.total_customers < 5 && input.metrics.visits_30d < 5)
+  ) {
+    return 'setup_only' as const;
+  }
+
+  if (
+    input.businessAgeDays >= MIN_ACTIVITY_DAYS &&
+    input.metrics.total_customers >= MIN_CUSTOMERS &&
+    input.metrics.visits_30d >= MIN_VISITS_LAST_30D
+  ) {
+    return 'performance_ready' as const;
+  }
+
+  if (
+    input.metrics.total_customers >= 10 &&
+    input.metrics.visits_30d >= 6 &&
+    (input.metrics.active_customers_30d >= 5 ||
+      input.metrics.joined_never_returned >= 3 ||
+      input.metrics.campaigns_30d > 0)
+  ) {
+    return 'directional_signal' as const;
+  }
+
+  return 'early_signal' as const;
+}
+
 function detectStates(input: {
   businessAgeDays: number;
   metrics: CoreMetrics;
-  profile: NormalizedBusinessProfile;
+  signalQuality: SignalQuality;
+  hasPrimaryProgram: boolean;
+  profileBasicsComplete: boolean;
+  activeProgramCount: number;
   daysSinceCardChange: number | null;
   daysSinceLastCampaign: number | null;
-  daysSinceLastRecommendation: number | null;
+  hasEverSentCampaign: boolean;
+  hasEverSentWelcomeCampaign: boolean;
+  hasRecentWelcomeCampaign: boolean;
   hasReadyCampaignSummary: boolean;
-  recommendationUsage30d: number;
+  secondProgramSupported: boolean;
+  primaryProgramAgeDays: number | null;
+  campaignsAllTime: number;
 }) {
   const states: BusinessState[] = [];
-  const { metrics, profile } = input;
+  const { metrics } = input;
 
-  const activityDropSharp =
-    metrics.visits_prev_30d >= 10 &&
-    metrics.activity_drop_pct_30d >= 0.35 &&
-    metrics.visits_30d <= metrics.visits_prev_30d - 5;
-  const activityDropMild =
-    metrics.visits_prev_30d >= 10 &&
-    metrics.activity_drop_pct_30d >= 0.15 &&
-    metrics.activity_drop_pct_30d < 0.35;
-
-  if (input.businessAgeDays < MIN_ACTIVITY_DAYS) {
-    states.push('BUSINESS_TOO_NEW');
+  if (
+    (input.daysSinceCardChange !== null &&
+      input.daysSinceCardChange <= CARD_CHANGE_COOLDOWN_DAYS) ||
+    (input.daysSinceLastCampaign !== null &&
+      input.daysSinceLastCampaign < CAMPAIGN_COOLDOWN_DAYS)
+  ) {
+    states.push('WAIT_AFTER_RECENT_CHANGE');
   }
-  if (activityDropSharp) {
-    states.push('ACTIVITY_DROP_SHARP');
-  } else if (activityDropMild) {
-    states.push('ACTIVITY_DROP_MILD');
+
+  if (!input.hasPrimaryProgram) {
+    states.push('NO_ACTIVE_PROGRAM');
+  }
+
+  if (
+    input.hasPrimaryProgram &&
+    (!input.profileBasicsComplete ||
+      (metrics.total_customers === 0 && metrics.visits_30d === 0))
+  ) {
+    states.push('FOUNDATION_NEEDS_SETUP');
+  }
+
+  if (
+    input.signalQuality === 'performance_ready' &&
+    metrics.visits_prev_30d >= 10 &&
+    metrics.activity_drop_pct_30d >= 0.2 &&
+    metrics.visits_30d <= metrics.visits_prev_30d - 3
+  ) {
+    states.push('ACTIVITY_DROP');
   }
 
   if (
     metrics.inactive_customers_dynamic >=
       Math.max(8, Math.round(metrics.total_customers * 0.25)) &&
-    metrics.inactive_rate_dynamic >= 0.4
+    metrics.inactive_rate_dynamic >= 0.35 &&
+    metrics.previously_active_now_inactive >=
+      Math.max(4, metrics.total_customers * 0.1)
   ) {
     states.push('INACTIVE_CUSTOMERS_HIGH');
   }
 
   if (
+    metrics.new_customers_30d >= NO_WELCOME_CAMPAIGN_MIN_NEW_CUSTOMERS &&
+    !input.hasEverSentWelcomeCampaign
+  ) {
+    states.push('NO_WELCOME_CAMPAIGN');
+  }
+
+  if (
+    metrics.new_customers_30d >= MISSING_FOLLOW_UP_MIN_NEW_CUSTOMERS &&
+    metrics.joined_never_returned >=
+      MISSING_FOLLOW_UP_MIN_JOINED_NEVER_RETURNED &&
+    !input.hasRecentWelcomeCampaign
+  ) {
+    states.push('MISSING_NEW_CUSTOMER_FOLLOWUP');
+  }
+
+  if (
+    input.hasPrimaryProgram &&
+    metrics.total_customers >= LOW_FEATURE_ADOPTION_MIN_CUSTOMERS &&
+    metrics.visits_30d >= LOW_FEATURE_ADOPTION_MIN_VISITS &&
+    !input.hasEverSentCampaign &&
+    !states.includes('NO_WELCOME_CAMPAIGN') &&
+    !states.includes('MISSING_NEW_CUSTOMER_FOLLOWUP')
+  ) {
+    states.push('LOW_FEATURE_ADOPTION');
+  }
+
+  if (
+    input.signalQuality !== 'setup_only' &&
+    input.signalQuality !== 'early_signal' &&
+    input.primaryProgramAgeDays !== null &&
+    input.primaryProgramAgeDays >=
+      PROGRAM_STRUCTURE_REVIEW_MIN_PROGRAM_AGE_DAYS &&
+    metrics.total_customers >= 25 &&
+    metrics.visits_30d >= 20 &&
+    metrics.reward_redemptions_30d === 0 &&
+    metrics.close_to_reward_rate < 0.08 &&
+    input.campaignsAllTime >= 1
+  ) {
+    states.push('PROGRAM_STRUCTURE_REVIEW');
+  }
+
+  if (
     metrics.customers_close_to_reward >=
-      Math.max(5, Math.round(metrics.total_customers * 0.12)) &&
+      Math.max(5, Math.round(metrics.active_primary_members * 0.15)) &&
     metrics.close_to_reward_rate >= 0.2
   ) {
     states.push('CUSTOMERS_CLOSE_TO_REWARD_HIGH');
   }
 
   if (
-    metrics.visits_30d >= 20 &&
-    metrics.redemption_rate_30d <= 0.02 &&
-    metrics.customers_close_to_reward > 0
+    input.activeProgramCount === 1 &&
+    input.secondProgramSupported &&
+    input.signalQuality !== 'setup_only' &&
+    input.signalQuality !== 'early_signal' &&
+    metrics.total_customers >= SECOND_PROGRAM_MIN_TOTAL_CUSTOMERS &&
+    metrics.active_primary_members >=
+      SECOND_PROGRAM_MIN_ACTIVE_PRIMARY_MEMBERS &&
+    metrics.visits_30d >= SECOND_PROGRAM_MIN_VISITS_30D &&
+    input.campaignsAllTime >= SECOND_PROGRAM_MIN_SENT_CAMPAIGNS &&
+    !states.includes('FOUNDATION_NEEDS_SETUP') &&
+    !states.includes('LOW_FEATURE_ADOPTION') &&
+    !states.includes('NO_WELCOME_CAMPAIGN') &&
+    !states.includes('MISSING_NEW_CUSTOMER_FOLLOWUP')
   ) {
-    states.push('REDEMPTION_RATE_LOW');
-  }
-
-  const noCampaignThresholdDays = clamp(
-    profile.customer_cycle_days * 2,
-    21,
-    60
-  );
-  if (
-    (input.daysSinceLastCampaign === null ||
-      input.daysSinceLastCampaign >= noCampaignThresholdDays) &&
-    metrics.total_customers >= MIN_CUSTOMERS
-  ) {
-    states.push('NO_RECENT_CAMPAIGN');
+    states.push('SECOND_PROGRAM_OPPORTUNITY');
   }
 
   if (input.hasReadyCampaignSummary) {
-    states.push('CAMPAIGN_COMPLETED');
+    states.push('CAMPAIGN_RESULT_READY');
   }
 
   if (
-    input.daysSinceCardChange !== null &&
-    input.daysSinceCardChange <= CARD_CHANGE_COOLDOWN_DAYS
+    input.signalQuality === 'performance_ready' &&
+    !states.includes('ACTIVITY_DROP') &&
+    !states.includes('INACTIVE_CUSTOMERS_HIGH') &&
+    !states.includes('CAMPAIGN_RESULT_READY')
   ) {
-    states.push('CARD_RECENTLY_CHANGED');
+    states.push('PERFORMANCE_MONITORING_READY');
   }
 
   if (
-    input.daysSinceCardChange !== null &&
-    input.daysSinceCardChange > CARD_CHANGE_COOLDOWN_DAYS &&
-    input.daysSinceCardChange <= 30 &&
-    metrics.visits_prev_30d >= 10 &&
-    metrics.visits_30d <= Math.round(metrics.visits_prev_30d * 1.05)
+    input.hasPrimaryProgram &&
+    !states.includes('FOUNDATION_NEEDS_SETUP') &&
+    !states.includes('NO_WELCOME_CAMPAIGN') &&
+    !states.includes('MISSING_NEW_CUSTOMER_FOLLOWUP') &&
+    !states.includes('LOW_FEATURE_ADOPTION') &&
+    (input.signalQuality === 'setup_only' ||
+      input.signalQuality === 'early_signal')
   ) {
-    states.push('CARD_CHANGE_NO_IMPROVEMENT');
-  }
-
-  if (
-    metrics.campaigns_30d === 0 &&
-    metrics.visits_30d > 0 &&
-    input.recommendationUsage30d === 0 &&
-    metrics.active_customers_30d <= Math.round(metrics.total_customers * 0.35)
-  ) {
-    states.push('LOW_PRODUCT_USAGE');
-  }
-
-  if (
-    (input.daysSinceLastRecommendation !== null &&
-      input.daysSinceLastRecommendation < REPEATED_EVENT_COOLDOWN_DAYS) ||
-    (input.daysSinceLastCampaign !== null &&
-      input.daysSinceLastCampaign < CAMPAIGN_COOLDOWN_DAYS)
-  ) {
-    states.push('WAIT_BEFORE_NEXT_ACTION');
+    states.push('LOW_BEHAVIORAL_SIGNAL');
   }
 
   if (states.length === 0) {
-    states.push('ACTIVITY_NORMAL');
+    states.push('HEALTHY_CONTINUE_CURRENT_SETUP');
   }
 
   return states;
@@ -1721,6 +2279,7 @@ function computeCoreMetrics(input: {
       activity_drop_pct_30d: activityDropPct30d,
       joined_never_returned: joinedNeverReturned,
       previously_active_now_inactive: previouslyActiveNowInactive,
+      active_primary_members: activePrimaryMembers,
     } satisfies CoreMetrics,
     lastEventDetectedAt:
       activityEvents.length > 0
@@ -1739,10 +2298,7 @@ async function createRecommendationRecord(input: {
   source: 'fixed' | 'cache' | 'ai';
   action: 'show_fixed' | 'call_ai' | 'defer' | 'suppress';
   outputType: RecommendationType;
-  title: string;
-  message: string;
-  ctaType: CtaType;
-  ctaLabel: string;
+  display: RecommendationDisplayPayload;
   dedupeKey: string;
   promptHash?: string;
   cacheKey?: string;
@@ -1758,10 +2314,20 @@ async function createRecommendationRecord(input: {
     source: input.source,
     action: input.action,
     type: input.outputType,
-    title: input.title,
-    message: input.message,
-    ctaType: input.ctaType,
-    ctaLabel: input.ctaLabel,
+    sectionTitle: input.display.sectionTitle,
+    layer: input.display.layer,
+    statusTone: input.display.statusTone,
+    signalQuality: input.display.signalQuality,
+    title: input.display.title,
+    message: input.display.body,
+    body: input.display.body,
+    supportingText: input.display.supportingText,
+    evidenceTags: input.display.evidenceTags,
+    packageNote: input.display.packageNote,
+    showNoCtaReason: input.display.showNoCtaReason,
+    primaryCta: input.display.primaryCta,
+    ctaType: legacyCtaFromPrimaryCta(input.display.primaryCta).ctaType,
+    ctaLabel: legacyCtaFromPrimaryCta(input.display.primaryCta).ctaLabel,
     dedupeKey: input.dedupeKey,
     promptHash: input.promptHash,
     cacheKey: input.cacheKey,
@@ -1772,7 +2338,10 @@ async function createRecommendationRecord(input: {
     expiresAt: input.now + CACHE_TTL_MS,
   });
 
-  if (input.relatedCampaignRunId && input.stateKey === 'CAMPAIGN_COMPLETED') {
+  if (
+    input.relatedCampaignRunId &&
+    input.stateKey === 'CAMPAIGN_RESULT_READY'
+  ) {
     await input.ctx.db.patch(input.relatedCampaignRunId, {
       summaryStatus: 'summarized',
       summaryGeneratedAt: input.now,
@@ -1827,7 +2396,15 @@ function buildDecision(input: {
   cardChangeCooldownActive: boolean;
   quotaNearLimit: boolean;
   metrics: CoreMetrics;
-}): SweepDecision {
+}): any {
+  const display = undefined as any;
+  const CAMPAIGN_MESSAGE_STATES = new Set<BusinessState>([
+    'ACTIVITY_DROP',
+    'INACTIVE_CUSTOMERS_HIGH',
+    'CUSTOMERS_CLOSE_TO_REWARD_HIGH',
+    'NO_WELCOME_CAMPAIGN',
+    'MISSING_NEW_CUSTOMER_FOLLOWUP',
+  ]);
   if (!input.hasPrimaryProgram) {
     const fixed = fixedMessageForReason({
       reason: 'NO_ACTIVE_PROGRAM',
@@ -1842,7 +2419,7 @@ function buildDecision(input: {
       template: 'recommendation_explanation',
       ctaType: 'none',
       ctaLabel: 'אין צורך בפעולה',
-      title: fixed.title,
+      display,
       message: fixed.message,
       guardrailReason: 'NO_ACTIVE_PROGRAM',
     };
@@ -1862,7 +2439,7 @@ function buildDecision(input: {
       template: 'recommendation_explanation',
       ctaType: 'none',
       ctaLabel: 'אין צורך בפעולה',
-      title: fixed.title,
+      display,
       message: fixed.message,
       guardrailReason: 'NOT_ENOUGH_DATA',
     };
@@ -1882,7 +2459,7 @@ function buildDecision(input: {
       template: input.spec.template,
       ctaType: 'none',
       ctaLabel: 'אין צורך בפעולה',
-      title: fixed.title,
+      display,
       message: fixed.message,
     };
   }
@@ -1904,7 +2481,7 @@ function buildDecision(input: {
       template: 'recommendation_explanation',
       ctaType: 'none',
       ctaLabel: 'אין צורך בפעולה',
-      title: fixed.title,
+      display,
       message: fixed.message,
       guardrailReason: 'WAIT_CARD_CHANGE',
     };
@@ -1924,7 +2501,7 @@ function buildDecision(input: {
       template: 'recommendation_explanation',
       ctaType: 'none',
       ctaLabel: 'אין צורך בפעולה',
-      title: fixed.title,
+      display,
       message: fixed.message,
       guardrailReason: 'WAIT_COOLDOWN',
     };
@@ -1944,7 +2521,7 @@ function buildDecision(input: {
       template: input.spec.template,
       ctaType: input.ctaType,
       ctaLabel: input.ctaLabel,
-      title: fixed.title,
+      display,
       message: fixed.message,
       guardrailReason: 'REPEATED_EVENT_COOLDOWN',
     };
@@ -2024,8 +2601,6 @@ function buildDecision(input: {
       goal: input.spec.goal,
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
-      ctaType: 'view_reason',
-      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'PLAN_NOT_ELIGIBLE',
@@ -2044,8 +2619,6 @@ function buildDecision(input: {
       goal: input.spec.goal,
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
-      ctaType: 'view_reason',
-      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'QUOTA_EXHAUSTED',
@@ -2084,8 +2657,6 @@ function buildDecision(input: {
       goal: input.spec.goal,
       outputType: 'recommendation_explanation',
       template: 'recommendation_explanation',
-      ctaType: 'view_reason',
-      ctaLabel: 'צפייה בהסבר',
       title: fixed.title,
       message: fixed.message,
       guardrailReason: 'QUOTA_NEAR_LIMIT',
@@ -2100,6 +2671,115 @@ function buildDecision(input: {
     template: input.spec.template,
     ctaType: input.ctaType,
     ctaLabel: input.ctaLabel,
+  };
+}
+
+function buildDashboardDecision(input: {
+  topState: BusinessState;
+  spec: RecommendationSpec;
+  primaryCta: RecommendationPrimaryCta;
+  planEligibleForAi: boolean;
+  aiQuotaLimit: number;
+  aiQuotaUsedMonthly: number;
+  aiExecutionsToday: number;
+  recommendationsThisWeek: number;
+  repeatedEventCooldownActive: boolean;
+  quotaNearLimit: boolean;
+}): SweepDecision {
+  if (input.repeatedEventCooldownActive) {
+    return {
+      action: 'suppress',
+      reason: 'REPEATED_EVENT_COOLDOWN',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      guardrailReason: 'REPEATED_EVENT_COOLDOWN',
+    };
+  }
+
+  if (input.recommendationsThisWeek >= MAX_RECOMMENDATIONS_PER_WEEK) {
+    return {
+      action: 'suppress',
+      reason: 'WEEKLY_RECOMMENDATION_LIMIT',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      guardrailReason: 'WEEKLY_RECOMMENDATION_LIMIT',
+    };
+  }
+
+  if (!input.spec.aiPreferred) {
+    return {
+      action: 'show_fixed',
+      reason: 'SUPPRESSED_BY_RULE',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+    };
+  }
+
+  if (!input.planEligibleForAi || input.aiQuotaLimit <= 0) {
+    return {
+      action: 'show_fixed',
+      reason: 'PLAN_NOT_ELIGIBLE',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      packageNote: packageNoteForReason('PLAN_NOT_ELIGIBLE'),
+      guardrailReason: 'PLAN_NOT_ELIGIBLE',
+    };
+  }
+
+  if (input.aiQuotaUsedMonthly >= input.aiQuotaLimit) {
+    return {
+      action: 'show_fixed',
+      reason: 'QUOTA_EXHAUSTED',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      packageNote: packageNoteForReason('QUOTA_EXHAUSTED'),
+      guardrailReason: 'QUOTA_EXHAUSTED',
+    };
+  }
+
+  if (input.aiExecutionsToday >= MAX_AI_EXECUTIONS_PER_DAY) {
+    return {
+      action: 'show_fixed',
+      reason: 'DAILY_AI_LIMIT_REACHED',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      packageNote: packageNoteForReason('DAILY_AI_LIMIT_REACHED'),
+      guardrailReason: 'DAILY_AI_LIMIT_REACHED',
+    };
+  }
+
+  if (input.quotaNearLimit && !HIGH_PRIORITY_AI_STATES.has(input.topState)) {
+    return {
+      action: 'show_fixed',
+      reason: 'QUOTA_NEAR_LIMIT',
+      goal: input.spec.goal,
+      outputType: input.spec.outputType,
+      template: input.spec.template,
+      primaryCta: input.primaryCta,
+      packageNote: packageNoteForReason('QUOTA_NEAR_LIMIT'),
+      guardrailReason: 'QUOTA_NEAR_LIMIT',
+    };
+  }
+
+  return {
+    action: 'call_ai',
+    reason: 'AI_REQUIRED',
+    goal: input.spec.goal,
+    outputType: input.spec.outputType,
+    template: input.spec.template,
+    primaryCta: input.primaryCta,
   };
 }
 
@@ -2253,6 +2933,14 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     const lastCampaign = sortedCampaignRuns[0] ?? null;
     const readyCampaignRun =
       sortedCampaignRuns.find((run) => run.summaryStatus === 'ready') ?? null;
+    const sentWelcomeRuns = sortedCampaignRuns.filter(
+      (run) => run.campaignType === 'welcome'
+    );
+    const hasEverSentCampaign = sortedCampaignRuns.length > 0;
+    const hasEverSentWelcomeCampaign = sentWelcomeRuns.length > 0;
+    const hasRecentWelcomeCampaign = sentWelcomeRuns.some(
+      (run) => run.sentAt >= now - WELCOME_CAMPAIGN_LOOKBACK_DAYS * DAY_MS
+    );
     const latestRecommendation =
       [...aiHistory].sort(
         (left, right) => right.createdAt - left.createdAt
@@ -2272,6 +2960,10 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     };
 
     const businessAgeDays = Math.floor((now - business.createdAt) / DAY_MS);
+    const primaryProgramAgeDays =
+      primaryProgram !== null
+        ? Math.floor((now - primaryProgram.createdAt) / DAY_MS)
+        : null;
     const enoughDataReasons: string[] = [];
     if (metrics.total_customers < MIN_CUSTOMERS) {
       enoughDataReasons.push('min_customers');
@@ -2283,6 +2975,17 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       enoughDataReasons.push('min_visits_last_30d');
     }
     const enoughData = enoughDataReasons.length === 0;
+    const profileBasicsComplete =
+      Boolean(business.businessPhone?.trim()) &&
+      (business.serviceTypes?.length ?? 0) > 0;
+    const secondProgramSupported = SECOND_PROGRAM_SUPPORTED_CATEGORIES.has(
+      profile.service_category
+    );
+    const signalQuality = detectSignalQuality({
+      hasPrimaryProgram: primaryProgram !== null,
+      businessAgeDays,
+      metrics,
+    });
 
     const daysSinceCardChange =
       trackedDates.loyalty_card_updated_at !== null
@@ -2292,10 +2995,6 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       trackedDates.last_campaign_at !== null
         ? Math.floor((now - trackedDates.last_campaign_at) / DAY_MS)
         : null;
-    const daysSinceLastRecommendation =
-      trackedDates.last_ai_recommendation_at !== null
-        ? Math.floor((now - trackedDates.last_ai_recommendation_at) / DAY_MS)
-        : null;
     const recommendationUsage30d = aiHistory.filter(
       (row) => row.createdAt >= thirtyDaysAgo && row.action !== 'suppress'
     ).length;
@@ -2303,34 +3002,26 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     const detectedStates = detectStates({
       businessAgeDays,
       metrics,
-      profile,
+      signalQuality,
+      hasPrimaryProgram: primaryProgram !== null,
+      profileBasicsComplete,
+      activeProgramCount: programs.length,
       daysSinceCardChange,
       daysSinceLastCampaign,
-      daysSinceLastRecommendation,
+      hasEverSentCampaign,
+      hasEverSentWelcomeCampaign,
+      hasRecentWelcomeCampaign,
       hasReadyCampaignSummary: readyCampaignRun !== null,
-      recommendationUsage30d,
+      secondProgramSupported,
+      primaryProgramAgeDays,
+      campaignsAllTime: sortedCampaignRuns.length,
     });
     const topState = topStateFromDetectedStates(detectedStates);
-    const stateSignal = buildStateSignal({
-      topState,
-      metrics,
-      profile,
-      campaignRunId: readyCampaignRun ? String(readyCampaignRun._id) : null,
-    });
-    const stateHash = buildStateHash({
-      businessId,
-      topState,
-      stateSignal,
-      metrics,
-      profile,
-      trackedDates,
-      primaryProgramId: primaryProgram?._id ?? null,
-    });
-
-    const snapshot = {
+    let snapshot = {
       package_plan: plan,
       normalized_business_profile: profile,
       key_performance_metrics: metrics,
+      signal_quality: signalQuality,
       customer_state: {
         total_customers: metrics.total_customers,
         active_customers_30d: metrics.active_customers_30d,
@@ -2347,10 +3038,17 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
           daysSinceCardChange <= CARD_CHANGE_COOLDOWN_DAYS,
         changed_card_days_ago: daysSinceCardChange,
         campaigns_30d: metrics.campaigns_30d,
+        campaigns_all_time: sortedCampaignRuns.length,
         has_recent_campaign:
           daysSinceLastCampaign !== null &&
           daysSinceLastCampaign < CAMPAIGN_COOLDOWN_DAYS,
+        has_ever_sent_campaign: hasEverSentCampaign,
+        has_ever_sent_welcome_campaign: hasEverSentWelcomeCampaign,
+        has_recent_welcome_campaign: hasRecentWelcomeCampaign,
+        has_ready_campaign_summary: readyCampaignRun !== null,
         recommendation_usage_30d: recommendationUsage30d,
+        profile_basics_complete: profileBasicsComplete,
+        second_program_supported: secondProgramSupported,
       },
       cooldown_quota_state: {
         card_change_cooldown_days: CARD_CHANGE_COOLDOWN_DAYS,
@@ -2379,9 +3077,28 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       enough_data: enoughData,
       enough_data_reasons: enoughDataReasons,
       required_dates: trackedDates,
+      state_signal: '',
+      state_hash: '',
+    } satisfies BusinessHealthSnapshot;
+
+    const stateSignal = buildStateSignal({
+      topState,
+      snapshot,
+      campaignRunId: readyCampaignRun ? String(readyCampaignRun._id) : null,
+    });
+    const stateHash = buildStateHash({
+      businessId,
+      topState,
+      stateSignal,
+      snapshot,
+      primaryProgramId: primaryProgram?._id ?? null,
+    });
+
+    snapshot = {
+      ...snapshot,
       state_signal: stateSignal,
       state_hash: stateHash,
-    } satisfies BusinessHealthSnapshot;
+    };
 
     const snapshotId = await ctx.db.insert('aiBusinessSnapshots', {
       businessId,
@@ -2409,7 +3126,10 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     );
 
     const spec = stateSpecForState(topState);
-    const cta = ctaForRecommendationType(spec.outputType, topState);
+    const primaryCta = primaryCtaForState({
+      state: topState,
+      snapshot,
+    });
     const dedupeKey = `${topState}:${hashString(`${topState}|${stateSignal}`)}`;
     const dedupeHistory = await ctx.db
       .query('aiRecommendations')
@@ -2429,30 +3149,17 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
         row.action !== 'suppress' &&
         row.action !== 'defer'
     ).length;
-    const campaignCooldownActive =
-      daysSinceLastCampaign !== null &&
-      daysSinceLastCampaign < CAMPAIGN_COOLDOWN_DAYS;
-    const cardChangeCooldownActive =
-      daysSinceCardChange !== null &&
-      daysSinceCardChange <= CARD_CHANGE_COOLDOWN_DAYS;
-
-    const decision = buildDecision({
+    const decision = buildDashboardDecision({
       topState,
       spec,
-      ctaType: cta.ctaType,
-      ctaLabel: cta.ctaLabel,
-      enoughData,
-      hasPrimaryProgram: primaryProgram !== null,
+      primaryCta,
       planEligibleForAi,
       aiQuotaLimit,
       aiQuotaUsedMonthly,
       aiExecutionsToday,
       recommendationsThisWeek,
       repeatedEventCooldownActive,
-      campaignCooldownActive,
-      cardChangeCooldownActive,
       quotaNearLimit,
-      metrics,
     });
 
     if (decision.action !== 'call_ai') {
@@ -2466,6 +3173,12 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
         } as const;
       }
 
+      const display = buildRecommendationDisplayPayload({
+        state: topState,
+        snapshot,
+        packageNote: decision.packageNote,
+        primaryCtaOverride: decision.primaryCta,
+      });
       const recommendationId = await createRecommendationRecord({
         ctx,
         businessId,
@@ -2475,13 +3188,10 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
         source: 'fixed',
         action: decision.action,
         outputType: decision.outputType,
-        title: decision.title,
-        message: decision.message,
-        ctaType: decision.ctaType,
-        ctaLabel: decision.ctaLabel,
+        display,
         dedupeKey,
         relatedCampaignRunId:
-          topState === 'CAMPAIGN_COMPLETED' && readyCampaignRun
+          topState === 'CAMPAIGN_RESULT_READY' && readyCampaignRun
             ? readyCampaignRun._id
             : undefined,
         guardrailReason: decision.guardrailReason,
@@ -2490,7 +3200,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
 
       return {
         status: 'completed',
-        outcome: decision.action === 'defer' ? 'defer' : 'fixed',
+        outcome: 'fixed',
         businessId,
         topState,
         snapshotId,
@@ -2564,6 +3274,13 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
           expectedLanguage: profile.language,
         })
       ) {
+        const display = buildRecommendationDisplayPayload({
+          state: topState,
+          snapshot,
+          bodyOverride: validCache.responseJson.message,
+          packageNote: decision.packageNote,
+          primaryCtaOverride: decision.primaryCta,
+        });
         const recommendationId = await createRecommendationRecord({
           ctx,
           businessId,
@@ -2573,18 +3290,12 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
           source: 'cache',
           action: 'call_ai',
           outputType: decision.outputType,
-          title: validCache.responseJson.title,
-          message: truncateWords(
-            validCache.responseJson.message,
-            MAX_WORDS_BY_OUTPUT_TYPE[decision.outputType]
-          ),
-          ctaType: decision.ctaType,
-          ctaLabel: decision.ctaLabel,
+          display,
           dedupeKey,
           promptHash,
           cacheKey,
           relatedCampaignRunId:
-            topState === 'CAMPAIGN_COMPLETED' && readyCampaignRun
+            topState === 'CAMPAIGN_RESULT_READY' && readyCampaignRun
               ? readyCampaignRun._id
               : undefined,
           now,
@@ -2623,16 +3334,16 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       expectedLanguage: profile.language,
       goal: decision.goal,
       outputType: decision.outputType,
-      ctaType: decision.ctaType,
-      ctaLabel: decision.ctaLabel,
+      primaryCta: decision.primaryCta,
       dedupeKey,
       prompt,
       promptHash,
       cacheKey,
       inputSignature,
-      guardrailReason: undefined,
+      guardrailReason: decision.guardrailReason,
+      packageNote: decision.packageNote,
       relatedCampaignRunId:
-        topState === 'CAMPAIGN_COMPLETED' && readyCampaignRun
+        topState === 'CAMPAIGN_RESULT_READY' && readyCampaignRun
           ? readyCampaignRun._id
           : undefined,
     } as const;
@@ -2646,8 +3357,15 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
     stateKey: v.string(),
     goal: GOAL_UNION,
     outputType: RECOMMENDATION_TYPE_UNION,
-    ctaType: CTA_TYPE_UNION,
-    ctaLabel: v.string(),
+    primaryCta: v.object({
+      kind: PRIMARY_CTA_KIND_UNION,
+      label: v.string(),
+      draftType: v.optional(CAMPAIGN_DRAFT_TYPE_UNION),
+      customerFilter: v.optional(CUSTOMER_FILTER_UNION),
+      routeTab: v.optional(v.string()),
+      highlightTarget: v.optional(v.string()),
+    }),
+    packageNote: v.optional(v.string()),
     dedupeKey: v.string(),
     promptHash: v.string(),
     cacheKey: v.string(),
@@ -2661,6 +3379,21 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    const snapshotRow = await ctx.db.get(args.snapshotId);
+    if (!snapshotRow) {
+      throw new Error('SNAPSHOT_NOT_FOUND');
+    }
+    const snapshot = snapshotRow.snapshot as BusinessHealthSnapshot;
+    const display = buildRecommendationDisplayPayload({
+      state: args.stateKey as BusinessState,
+      snapshot,
+      bodyOverride: truncateWords(
+        normalizeWhitespace(args.message),
+        MAX_WORDS_BY_OUTPUT_TYPE[args.outputType]
+      ),
+      packageNote: args.packageNote,
+      primaryCtaOverride: args.primaryCta,
+    });
     const recommendationId = await createRecommendationRecord({
       ctx,
       businessId: args.businessId,
@@ -2670,13 +3403,7 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
       source: 'ai',
       action: 'call_ai',
       outputType: args.outputType,
-      title: truncateWords(normalizeWhitespace(args.title), 8).slice(0, 80),
-      message: truncateWords(
-        normalizeWhitespace(args.message),
-        MAX_WORDS_BY_OUTPUT_TYPE[args.outputType]
-      ),
-      ctaType: args.ctaType,
-      ctaLabel: normalizeWhitespace(args.ctaLabel) || 'צפייה',
+      display,
       dedupeKey: args.dedupeKey,
       promptHash: args.promptHash,
       cacheKey: args.cacheKey,
@@ -2730,6 +3457,15 @@ export const finalizeAiRecommendationFailureInternal = internalMutation({
     stateKey: v.string(),
     goal: GOAL_UNION,
     outputType: RECOMMENDATION_TYPE_UNION,
+    primaryCta: v.object({
+      kind: PRIMARY_CTA_KIND_UNION,
+      label: v.string(),
+      draftType: v.optional(CAMPAIGN_DRAFT_TYPE_UNION),
+      customerFilter: v.optional(CUSTOMER_FILTER_UNION),
+      routeTab: v.optional(v.string()),
+      highlightTarget: v.optional(v.string()),
+    }),
+    packageNote: v.optional(v.string()),
     dedupeKey: v.string(),
     reason: v.string(),
     inputTokens: v.number(),
@@ -2739,29 +3475,17 @@ export const finalizeAiRecommendationFailureInternal = internalMutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    const fixed = fixedMessageForReason({
-      reason: 'AI_REQUEST_FAILED',
-      topState: args.stateKey as BusinessState,
-      metrics: {
-        total_customers: 0,
-        active_customers_30d: 0,
-        inactive_customers_60d: 0,
-        new_customers_30d: 0,
-        visits_7d: 0,
-        visits_30d: 0,
-        visits_prev_30d: 0,
-        customers_close_to_reward: 0,
-        reward_redemptions_30d: 0,
-        avg_days_between_visits: 0,
-        campaigns_30d: 0,
-        inactive_customers_dynamic: 0,
-        inactive_rate_dynamic: 0,
-        close_to_reward_rate: 0,
-        redemption_rate_30d: 0,
-        activity_drop_pct_30d: 0,
-        joined_never_returned: 0,
-        previously_active_now_inactive: 0,
-      },
+    const snapshotRow = await ctx.db.get(args.snapshotId);
+    if (!snapshotRow) {
+      throw new Error('SNAPSHOT_NOT_FOUND');
+    }
+    const snapshot = snapshotRow.snapshot as BusinessHealthSnapshot;
+    const display = buildRecommendationDisplayPayload({
+      state: args.stateKey as BusinessState,
+      snapshot,
+      packageNote:
+        args.packageNote ?? packageNoteForReason('AI_REQUEST_FAILED'),
+      primaryCtaOverride: args.primaryCta,
     });
 
     const recommendationId = await createRecommendationRecord({
@@ -2773,10 +3497,7 @@ export const finalizeAiRecommendationFailureInternal = internalMutation({
       source: 'fixed',
       action: 'show_fixed',
       outputType: 'recommendation_explanation',
-      title: fixed.title,
-      message: `${fixed.message} (${args.reason.slice(0, 80)})`,
-      ctaType: 'view_reason',
-      ctaLabel: 'צפייה בהסבר',
+      display,
       dedupeKey: args.dedupeKey,
       relatedCampaignRunId: args.relatedCampaignRunId,
       guardrailReason: 'AI_REQUEST_FAILED',
@@ -2865,8 +3586,8 @@ export const runRecommendationSweepInternal = internalAction({
             stateKey: evaluation.topState,
             goal: evaluation.goal,
             outputType: evaluation.outputType,
-            ctaType: evaluation.ctaType,
-            ctaLabel: evaluation.ctaLabel,
+            primaryCta: evaluation.primaryCta,
+            packageNote: evaluation.packageNote,
             dedupeKey: evaluation.dedupeKey,
             promptHash: evaluation.promptHash,
             cacheKey: evaluation.cacheKey,
@@ -2890,6 +3611,8 @@ export const runRecommendationSweepInternal = internalAction({
             stateKey: evaluation.topState,
             goal: evaluation.goal,
             outputType: evaluation.outputType,
+            primaryCta: evaluation.primaryCta,
+            packageNote: evaluation.packageNote,
             dedupeKey: evaluation.dedupeKey,
             reason: aiResult.reason,
             inputTokens: aiResult.inputTokens,
@@ -2958,11 +3681,35 @@ export const getLatestRecommendationForBusiness = query({
     return {
       recommendationId: recommendation._id,
       stateKey: recommendation.stateKey,
+      sectionTitle: recommendation.sectionTitle ?? 'הצעד הבא לעסק',
+      layer: recommendation.layer ?? 'activation',
+      statusTone: recommendation.statusTone ?? 'opportunity',
+      signalQuality: recommendation.signalQuality ?? 'early_signal',
       goal: recommendation.goal,
       type: recommendation.type,
       source: recommendation.source,
       title: recommendation.title,
-      message: recommendation.message,
+      body: recommendation.body ?? recommendation.message,
+      supportingText: recommendation.supportingText ?? '',
+      evidenceTags: recommendation.evidenceTags ?? [],
+      primaryCta:
+        recommendation.primaryCta ??
+        ({
+          kind:
+            recommendation.ctaType === 'open_draft'
+              ? 'open_campaign_draft'
+              : recommendation.ctaType === 'view_summary'
+                ? 'open_cards'
+                : recommendation.ctaType === 'view_reason'
+                  ? 'view_subscription'
+                  : recommendation.ctaType === 'view_insight'
+                    ? 'view_analytics'
+                    : 'none',
+          label: recommendation.ctaLabel,
+        } satisfies RecommendationPrimaryCta),
+      packageNote: recommendation.packageNote ?? null,
+      showNoCtaReason:
+        recommendation.showNoCtaReason ?? recommendation.ctaType === 'none',
       ctaType: recommendation.ctaType,
       ctaLabel: recommendation.ctaLabel,
       guardrailReason: recommendation.guardrailReason ?? null,
@@ -2985,20 +3732,43 @@ export const executeRecommendationPrimaryCta = mutation({
     }
 
     const now = Date.now();
-    if (recommendation.ctaType === 'open_draft') {
+    const primaryCta =
+      recommendation.primaryCta ??
+      ({
+        kind:
+          recommendation.ctaType === 'open_draft'
+            ? 'open_campaign_draft'
+            : recommendation.ctaType === 'view_summary'
+              ? 'open_cards'
+              : recommendation.ctaType === 'view_reason'
+                ? 'view_subscription'
+                : recommendation.ctaType === 'view_insight'
+                  ? 'view_analytics'
+                  : 'none',
+        label: recommendation.ctaLabel,
+      } satisfies RecommendationPrimaryCta);
+
+    if (primaryCta.kind === 'open_campaign_draft') {
       await requireActorIsBusinessOwnerOrManager(ctx, businessId);
       const snapshot = recommendation.snapshotId
         ? await ctx.db.get(recommendation.snapshotId)
         : null;
       const defaultProgramId = snapshot?.primaryProgramId;
+      const draftType = primaryCta.draftType ?? 'promo';
+      const rules =
+        draftType === 'welcome'
+          ? ({ audience: 'new_customers', joinedWithinDays: 14 } as const)
+          : draftType === 'winback'
+            ? ({ audience: 'inactive_days', daysInactive: 30 } as const)
+            : ({ audience: 'all_active_members' } as const);
 
       const campaignId = await ctx.db.insert('campaigns', {
         businessId,
-        type: 'promo',
+        type: draftType,
         title: recommendation.title || 'Campaign draft',
         messageTitle: recommendation.title || 'Campaign draft',
-        messageBody: recommendation.message,
-        rules: { audience: 'all_active_members' as const },
+        messageBody: recommendation.body ?? recommendation.message,
+        rules,
         channels: ['in_app'],
         programId: defaultProgramId ?? undefined,
         status: 'draft',
@@ -3016,14 +3786,26 @@ export const executeRecommendationPrimaryCta = mutation({
     }
 
     await ctx.db.patch(recommendationId, { consumedAt: now });
-    if (recommendation.ctaType === 'view_insight') {
-      return { kind: 'view_insight' as const };
+    if (primaryCta.kind === 'view_customers') {
+      return {
+        kind: 'view_customers' as const,
+        customerFilter: primaryCta.customerFilter ?? null,
+      };
     }
-    if (recommendation.ctaType === 'view_summary') {
-      return { kind: 'view_summary' as const };
+    if (primaryCta.kind === 'view_analytics') {
+      return { kind: 'view_analytics' as const };
     }
-    if (recommendation.ctaType === 'view_reason') {
-      return { kind: 'view_reason' as const };
+    if (primaryCta.kind === 'open_cards') {
+      return {
+        kind: 'open_cards' as const,
+        highlightTarget: primaryCta.highlightTarget ?? null,
+      };
+    }
+    if (primaryCta.kind === 'open_profile') {
+      return { kind: 'open_profile' as const };
+    }
+    if (primaryCta.kind === 'view_subscription') {
+      return { kind: 'view_subscription' as const };
     }
 
     return { kind: 'none' as const };

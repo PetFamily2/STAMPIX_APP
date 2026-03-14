@@ -64,23 +64,27 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   team: 'ניהול צוות',
   advancedReports: 'דוחות מתקדמים',
-  marketingHub: 'מרכז שימור',
+  marketingHub:
+    '\u05de\u05e8\u05db\u05d6 \u05e9\u05d9\u05de\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   smartAnalytics: 'תובנות לקוחות',
-  segmentationBuilder: 'בונה סגמנטים',
-  savedSegments: 'סגמנטים שמורים',
+  segmentationBuilder:
+    '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd',
+  savedSegments:
+    '\u05e7\u05d4\u05dc\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
   team: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
   advancedReports:
     '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
-  marketingHub: '\u05de\u05e8\u05db\u05d6 \u05e9\u05d9\u05de\u05d5\u05e8',
+  marketingHub:
+    '\u05de\u05e8\u05db\u05d6 \u05e9\u05d9\u05de\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   smartAnalytics:
     '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   segmentationBuilder:
-    '\u05d1\u05d5\u05e0\u05d4 \u05e1\u05d2\u05de\u05e0\u05d8\u05d9\u05dd',
+    '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd',
   savedSegments:
-    '\u05e1\u05d2\u05de\u05e0\u05d8\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
+    '\u05e7\u05d4\u05dc\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
 };
 
 function isPlanId(value: unknown): value is PlanId {

@@ -282,6 +282,12 @@ export default function CustomerTabsLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="business/[businessId]"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

@@ -191,15 +191,22 @@ function quickSegment(status: CustomerStatus) {
 export default function BusinessCustomersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map, tab } = useLocalSearchParams<{
+  const { preview, map, tab, filter } = useLocalSearchParams<{
     preview?: string;
     map?: string;
     tab?: string;
+    filter?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const activeTopTab: ReportsTopTab =
     tab === 'reports' ? 'reports' : 'customers';
+  const activeFilter =
+    filter === 'near_reward' ||
+    filter === 'at_risk' ||
+    filter === 'new_customers'
+      ? filter
+      : null;
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const canManageSegments =
     activeBusiness?.staffRole === 'owner' ||
@@ -284,16 +291,27 @@ export default function BusinessCustomersScreen() {
 
   const filteredCustomers = useMemo(() => {
     const customers = snapshot?.customers ?? [];
+    const routeFilteredCustomers = activeFilter
+      ? customers.filter((customer) => {
+          if (activeFilter === 'near_reward') {
+            return customer.lifecycleStatus === 'NEAR_REWARD';
+          }
+          if (activeFilter === 'at_risk') {
+            return customer.lifecycleStatus === 'AT_RISK';
+          }
+          return customer.lifecycleStatus === 'NEW_CUSTOMER';
+        })
+      : customers;
     const normalizedSearch = search.trim().toLowerCase();
     if (!normalizedSearch) {
-      return customers;
+      return routeFilteredCustomers;
     }
-    return customers.filter((customer) =>
+    return routeFilteredCustomers.filter((customer) =>
       `${customer.name} ${customer.phone ?? ''}`
         .toLowerCase()
         .includes(normalizedSearch)
     );
-  }, [search, snapshot?.customers]);
+  }, [activeFilter, search, snapshot?.customers]);
 
   const updateCondition = (index: number, patch: Partial<SegmentCondition>) => {
     setSegmentRules((current) => ({
@@ -320,13 +338,13 @@ export default function BusinessCustomersScreen() {
         name: segmentName,
         rules: segmentRules,
       });
-      Alert.alert('נשמר', 'הסגמנט נשמר בהצלחה.');
+      Alert.alert('נשמר', 'הקהל נשמר בהצלחה.');
     } catch (error) {
       Alert.alert(
         'שגיאה',
         error instanceof Error && error.message
           ? error.message
-          : 'לא הצלחנו לשמור את הסגמנט.'
+          : 'לא הצלחנו לשמור את הקהל.'
       );
     } finally {
       setIsSavingSegment(false);
@@ -348,7 +366,7 @@ export default function BusinessCustomersScreen() {
         'שגיאה',
         error instanceof Error && error.message
           ? error.message
-          : 'לא הצלחנו למחוק את הסגמנט.'
+          : 'לא הצלחנו למחוק את הקהל.'
       );
     } finally {
       setActiveDeleteId(null);
@@ -541,6 +559,20 @@ export default function BusinessCustomersScreen() {
             </Text>
           ) : null}
         </View>
+
+        {!smartGate.isLocked && activeFilter ? (
+          <View
+            className={`${tw.selfStart} mt-2 rounded-full bg-[#E8F1FF] px-3 py-1`}
+          >
+            <Text className="text-[11px] font-bold text-[#1D4ED8]">
+              {activeFilter === 'near_reward'
+                ? 'מסונן: לקוחות קרובים לפרס'
+                : activeFilter === 'at_risk'
+                  ? 'מסונן: לקוחות בסיכון'
+                  : 'מסונן: לקוחות חדשים'}
+            </Text>
+          </View>
+        ) : null}
 
         <View className="mt-3 gap-3">
           {smartGate.isLocked ? (
@@ -822,7 +854,7 @@ export default function BusinessCustomersScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text className="text-center text-sm font-bold text-white">
-                      שמירת סגמנט
+                      שמירת קהל
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -831,7 +863,7 @@ export default function BusinessCustomersScreen() {
               <TextInput
                 value={segmentName}
                 onChangeText={setSegmentName}
-                placeholder="שם הסגמנט"
+                placeholder="שם הקהל"
                 placeholderTextColor="#94A3B8"
                 className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
               />
@@ -864,7 +896,7 @@ export default function BusinessCustomersScreen() {
                   <Text
                     className={`mt-2 text-sm text-[#64748B] ${tw.textStart}`}
                   >
-                    עדיין לא שמרתם סגמנטים.
+                    עדיין לא שמרתם קהלים.
                   </Text>
                 ) : (
                   <View className="mt-3 gap-2">

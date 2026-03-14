@@ -8,6 +8,7 @@ type BusinessScreenHeaderProps = {
   title: string;
   subtitle?: string;
   style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
@@ -19,6 +20,7 @@ export default function BusinessScreenHeader({
   title,
   subtitle,
   style,
+  contentStyle,
   titleStyle,
   subtitleStyle,
   titleAccessory,
@@ -30,6 +32,7 @@ export default function BusinessScreenHeader({
       <BrandPageHeader
         title={title}
         subtitle={subtitle}
+        style={contentStyle}
         titleStyle={titleStyle}
         subtitleStyle={subtitleStyle}
         titleAccessory={titleAccessory}

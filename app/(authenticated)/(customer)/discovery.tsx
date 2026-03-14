@@ -1,6 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -95,6 +96,13 @@ type NearbyBusinessQuery = {
   serviceTags?: string[];
 };
 
+type SavedBusinessQuery = {
+  businessId: string;
+  businessName: string;
+  joinedProgramCount: number;
+  redeemableCount: number;
+};
+
 function getMapDelta(radiusKm: number) {
   return Math.max(0.025, radiusKm * 0.03);
 }
@@ -158,6 +166,7 @@ export default function DiscoveryScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
   const [radiusKm, setRadiusKm] = useState(3);
   const [serviceTypeFilters, setServiceTypeFilters] = useState<
     BusinessServiceType[]
@@ -192,6 +201,10 @@ export default function DiscoveryScreen() {
         }
       : 'skip'
   );
+  const savedBusinessesQuery = useQuery(
+    api.memberships.byCustomerBusinesses,
+    isAuthenticated ? {} : 'skip'
+  );
 
   const nearbyBusinesses = useMemo(
     () =>
@@ -209,9 +222,20 @@ export default function DiscoveryScreen() {
       ),
     [nearbyBusinessesQuery]
   );
+  const savedBusinesses = useMemo(
+    () => (savedBusinessesQuery ?? []) as SavedBusinessQuery[],
+    [savedBusinessesQuery]
+  );
+  const savedBusinessIds = useMemo(
+    () =>
+      new Set(savedBusinesses.map((business) => String(business.businessId))),
+    [savedBusinesses]
+  );
 
   const isBusinessesLoading =
     Boolean(coords && isAuthenticated) && nearbyBusinessesQuery === undefined;
+  const isSavedBusinessesLoading =
+    isAuthenticated && savedBusinessesQuery === undefined;
   const isLoadingState =
     (isLocationLoading && !coords && !needsPermission) || isBusinessesLoading;
   const mapDelta = getMapDelta(deferredRadiusKm);
@@ -240,6 +264,63 @@ export default function DiscoveryScreen() {
       >
         <View style={styles.headerRow}>
           <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.radiusValue}>{savedBusinesses.length}</Text>
+            <Text style={styles.panelTitle}>עסקים שמורים</Text>
+          </View>
+
+          {isSavedBusinessesLoading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator color="#2F6BFF" />
+              <Text style={styles.statusText}>טוענים עסקים שמורים</Text>
+            </View>
+          ) : null}
+
+          {!isSavedBusinessesLoading && savedBusinesses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.cardSubtitle}>עדיין לא שמרת עסקים</Text>
+            </View>
+          ) : null}
+
+          {!isSavedBusinessesLoading && savedBusinesses.length > 0 ? (
+            <View style={styles.resultsList}>
+              {savedBusinesses.map((business) => (
+                <Pressable
+                  key={String(business.businessId)}
+                  onPress={() =>
+                    router.push({
+                      pathname:
+                        '/(authenticated)/(customer)/business/[businessId]',
+                      params: { businessId: String(business.businessId) },
+                    } as any)
+                  }
+                  style={({ pressed }) => [
+                    styles.businessCard,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <View style={styles.businessHeader}>
+                    <View style={styles.savedMetaBadge}>
+                      <Text style={styles.savedMetaBadgeText}>
+                        כרטיסיות: {business.joinedProgramCount}
+                      </Text>
+                    </View>
+                    <View style={styles.businessTextWrap}>
+                      <Text style={styles.businessName}>
+                        {business.businessName}
+                      </Text>
+                      <Text style={styles.businessAddress}>
+                        מוכנות למימוש: {business.redeemableCount}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         {needsPermission ? (
@@ -494,16 +575,37 @@ export default function DiscoveryScreen() {
                           )
                         : [TEXT.unclassified];
 
+                    const isSaved = savedBusinessIds.has(
+                      String(business.businessId)
+                    );
+
                     return (
-                      <View
+                      <Pressable
                         key={business.businessId}
-                        style={styles.businessCard}
+                        onPress={() =>
+                          router.push({
+                            pathname:
+                              '/(authenticated)/(customer)/business/[businessId]',
+                            params: { businessId: String(business.businessId) },
+                          } as any)
+                        }
+                        style={({ pressed }) => [
+                          styles.businessCard,
+                          pressed ? styles.pressed : null,
+                        ]}
                       >
                         <View style={styles.businessHeader}>
-                          <View style={styles.distanceBadge}>
-                            <Text style={styles.distanceText}>
-                              {formatDistance(business.distanceKm)}
-                            </Text>
+                          <View style={styles.badgesStack}>
+                            <View style={styles.distanceBadge}>
+                              <Text style={styles.distanceText}>
+                                {formatDistance(business.distanceKm)}
+                              </Text>
+                            </View>
+                            {isSaved ? (
+                              <View style={styles.savedBadge}>
+                                <Text style={styles.savedBadgeText}>שמור</Text>
+                              </View>
+                            ) : null}
                           </View>
 
                           <View style={styles.businessTextWrap}>
@@ -537,7 +639,7 @@ export default function DiscoveryScreen() {
                             </View>
                           ))}
                         </View>
-                      </View>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -748,10 +850,41 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#D4EDFF',
   },
+  badgesStack: {
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  savedBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#EAFBF1',
+    borderWidth: 1,
+    borderColor: '#9EDDB9',
+  },
+  savedBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0D7A3E',
+  },
   distanceText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+  },
+  savedMetaBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#EAF1FF',
+    borderWidth: 1,
+    borderColor: '#C8D8FF',
+  },
+  savedMetaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    textAlign: 'center',
   },
   metaChipsWrap: {
     marginTop: 10,

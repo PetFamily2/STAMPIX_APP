@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -15,35 +16,120 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { tw } from '@/lib/rtl';
+import { IS_RTL, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+
+const TEXT_START = IS_RTL ? 'right' : 'left';
+const TEXT_END = IS_RTL ? 'left' : 'right';
+const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
+const TEXT = {
+  savedTitle: '\u05E0\u05E9\u05DE\u05E8',
+  savedMessage:
+    '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05E0\u05D5\u05E6\u05E8\u05D4 \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4.',
+  upgradeRequired: '\u05E9\u05D3\u05E8\u05D5\u05D2 \u05E0\u05D3\u05E8\u05E9',
+  errorTitle: '\u05E9\u05D2\u05D9\u05D0\u05D4',
+  createFailed:
+    '\u05D9\u05E6\u05D9\u05E8\u05EA \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4.',
+  businessFallback: '\u05D4\u05E2\u05E1\u05E7 \u05E9\u05DC\u05DA',
+  screenTitle:
+    '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA',
+  screenSubtitle:
+    '\u05E0\u05D9\u05D4\u05D5\u05DC \u05EA\u05D5\u05DB\u05E0\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA \u05DC\u05E2\u05E1\u05E7 \u05D1\u05E6\u05D5\u05E8\u05D4 \u05E4\u05E9\u05D5\u05D8\u05D4 \u05D5\u05D1\u05E8\u05D5\u05E8\u05D4',
+  createNewCard:
+    '\u05E6\u05D5\u05E8 \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
+  createSectionTitle:
+    '\u05D9\u05E6\u05D9\u05E8\u05EA \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
+  placeholderCardName:
+    '\u05E9\u05DD \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4',
+  placeholderReward: '\u05D4\u05D8\u05D1\u05D4',
+  placeholderStamps: '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD',
+  placeholderIcon: '\u05D0\u05D9\u05D9\u05E7\u05D5\u05DF',
+  createCardButton:
+    '\u05E6\u05D5\u05E8 \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4',
+  usageTitle:
+    '\u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC',
+  cardsLabel: '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05DD',
+  inUseLabel: '\u05D1\u05E9\u05D9\u05DE\u05D5\u05E9',
+  customersLabel: '\u05DC\u05E7\u05D5\u05D7\u05D5\u05EA',
+  activeLabel: '\u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
+  redemptionsLabel: '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD',
+  days30Label: '30 \u05D9\u05D5\u05DD',
+  limitReached:
+    '\u05D4\u05D2\u05E2\u05EA\u05DD \u05DC\u05DE\u05D2\u05D1\u05DC\u05EA \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9.',
+  nearLimit:
+    '\u05D0\u05EA\u05DD \u05DE\u05EA\u05E7\u05E8\u05D1\u05D9\u05DD \u05DC\u05DE\u05D2\u05D1\u05DC\u05EA \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9.',
+  upgradePlan: '\u05E9\u05D3\u05E8\u05D5\u05D2 \u05DE\u05E1\u05DC\u05D5\u05DC',
+  activeCardsTitle:
+    '\u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA',
+  noCardsYet:
+    '\u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05D9\u05E6\u05E8\u05EA\u05DD \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA.',
+  noActiveCards:
+    '\u05D0\u05D9\u05DF \u05DB\u05E8\u05D2\u05E2 \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA.',
+  archivedCardsTitle:
+    '\u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
+  noArchivedCards:
+    '\u05D0\u05D9\u05DF \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',
+} as const;
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
-function formatLastActivity(value: number | null) {
+function formatLastActivityShort(value: number | null) {
   if (!value) {
-    return 'אין פעילות עדיין';
+    return '\u05DC\u05DC\u05D0';
   }
-  return new Date(value).toLocaleString('he-IL', {
+  return new Date(value).toLocaleDateString('he-IL', {
     day: '2-digit',
     month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
   });
+}
+
+function ProgramPerformanceTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.performanceTile}>
+      <Text style={styles.performanceLabel}>{label}</Text>
+      <Text style={styles.performanceValue}>{value}</Text>
+    </View>
+  );
+}
+
+function PlanUsageTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <View style={styles.usageChip}>
+      <Text style={styles.usageChipLabel}>{label}</Text>
+      <Text style={styles.usageChipValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.usageChipHint} numberOfLines={1}>
+        {hint}
+      </Text>
+    </View>
+  );
 }
 
 export default function BusinessCardsManagementScreen() {
@@ -87,6 +173,7 @@ export default function BusinessCardsManagementScreen() {
   const [maxStamps, setMaxStamps] = useState('10');
   const [stampIcon, setStampIcon] = useState('star');
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
 
   const activePrograms = useMemo(
     () => programs.filter((program) => program.lifecycle === 'active'),
@@ -143,12 +230,13 @@ export default function BusinessCardsManagementScreen() {
       setRewardName('');
       setMaxStamps('10');
       setStampIcon('star');
-      Alert.alert('נשמר', 'כרטיסיה חדשה נוצרה בהצלחה.');
+      setIsCreatePanelOpen(false);
+      Alert.alert(TEXT.savedTitle, TEXT.savedMessage);
     } catch (error) {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
         Alert.alert(
-          'שדרוג נדרש',
+          TEXT.upgradeRequired,
           entitlementErrorToHebrewMessage(entitlementError)
         );
         openSubscriptionComparison(router, {
@@ -164,8 +252,8 @@ export default function BusinessCardsManagementScreen() {
         return;
       }
       Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'יצירת כרטיסיה נכשלה.'
+        TEXT.errorTitle,
+        error instanceof Error ? error.message : TEXT.createFailed
       );
     } finally {
       setIsCreating(false);
@@ -180,6 +268,9 @@ export default function BusinessCardsManagementScreen() {
     (sum, program) => sum + program.metrics.redemptions30d,
     0
   );
+  const businessDisplayName =
+    activeBusiness?.name?.trim() || TEXT.businessFallback;
+  const canOpenCreatePanel = canManage && !isCreating;
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
@@ -192,8 +283,8 @@ export default function BusinessCardsManagementScreen() {
         }}
       >
         <BusinessScreenHeader
-          title="כרטיסיות נאמנות"
-          subtitle="ניהול תוכניות נאמנות לעסק בצורה פשוטה וברורה"
+          title={TEXT.screenTitle}
+          subtitle={TEXT.screenSubtitle}
           titleAccessory={
             <TouchableOpacity
               onPress={() =>
@@ -206,37 +297,131 @@ export default function BusinessCardsManagementScreen() {
           }
         />
 
+        <TouchableOpacity
+          disabled={!canOpenCreatePanel && !cardLimit.isAtLimit}
+          onPress={() => {
+            if (cardLimit.isAtLimit) {
+              openUpgradeForCards();
+              return;
+            }
+            if (!canOpenCreatePanel) {
+              return;
+            }
+            setIsCreatePanelOpen((current) => !current);
+          }}
+          className={`mt-4 rounded-3xl px-4 py-4 ${
+            !canOpenCreatePanel && !cardLimit.isAtLimit
+              ? 'bg-[#CBD5E1]'
+              : 'bg-[#2F6BFF]'
+          }`}
+        >
+          <View className={`${tw.flexRow} items-center justify-center gap-2`}>
+            <Ionicons name="add" size={20} color="#FFFFFF" />
+            <Text className="text-sm font-black text-white">
+              {TEXT.createNewCard}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {isCreatePanelOpen ? (
+          <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              {TEXT.createSectionTitle}
+            </Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              editable={canManage}
+              placeholder={TEXT.placeholderCardName}
+              placeholderTextColor="#94A3B8"
+              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+            />
+            <TextInput
+              value={rewardName}
+              onChangeText={setRewardName}
+              editable={canManage}
+              placeholder={TEXT.placeholderReward}
+              placeholderTextColor="#94A3B8"
+              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+            />
+            <View className={`${tw.flexRow} gap-2`}>
+              <TextInput
+                value={maxStamps}
+                onChangeText={setMaxStamps}
+                editable={canManage}
+                keyboardType="number-pad"
+                placeholder={TEXT.placeholderStamps}
+                placeholderTextColor="#94A3B8"
+                className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+              />
+              <TextInput
+                value={stampIcon}
+                onChangeText={setStampIcon}
+                editable={canManage}
+                placeholder={TEXT.placeholderIcon}
+                placeholderTextColor="#94A3B8"
+                className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+              />
+            </View>
+            <TouchableOpacity
+              disabled={!canCreate}
+              onPress={() => {
+                void handleCreate();
+              }}
+              className={`rounded-2xl px-4 py-3 ${
+                canCreate ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+              }`}
+            >
+              {isCreating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-center text-sm font-bold text-white">
+                  {TEXT.createCardButton}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            שימוש במסלול
+            {TEXT.usageTitle}
           </Text>
-          <Text className={`mt-2 text-sm text-[#334155] ${tw.textStart}`}>
-            כרטיסיות פעילות: {activePrograms.length}/{cardLimit.limitValue}
-          </Text>
-          <Text className={`mt-1 text-sm text-[#334155] ${tw.textStart}`}>
-            לקוחות פעילים: {formatNumber(totalCustomers)}
-          </Text>
-          <Text className={`mt-1 text-sm text-[#334155] ${tw.textStart}`}>
-            מימושים (30 יום): {formatNumber(totalRedemptions30d)}
-          </Text>
+          <View style={styles.usageStrip}>
+            <PlanUsageTile
+              label={TEXT.cardsLabel}
+              value={`${activePrograms.length}/${cardLimit.limitValue}`}
+              hint={TEXT.inUseLabel}
+            />
+            <PlanUsageTile
+              label={TEXT.customersLabel}
+              value={formatNumber(totalCustomers)}
+              hint={TEXT.activeLabel}
+            />
+            <PlanUsageTile
+              label={TEXT.redemptionsLabel}
+              value={formatNumber(totalRedemptions30d)}
+              hint={TEXT.days30Label}
+            />
+          </View>
 
           {cardLimit.isNearLimit || cardLimit.isAtLimit ? (
-            <View className="mt-3 rounded-2xl border border-[#F59E0B] bg-[#FFF7ED] p-3">
+            <View className="mt-4 rounded-2xl border border-[#F59E0B] bg-[#FFF7ED] p-3">
               <Text
                 className={`text-xs font-bold text-[#B45309] ${tw.textStart}`}
               >
-                {cardLimit.isAtLimit
-                  ? 'הגעתם למגבלת הכרטיסיות במסלול הנוכחי.'
-                  : 'אתם מתקרבים למגבלת הכרטיסיות במסלול הנוכחי.'}
+                {cardLimit.isAtLimit ? TEXT.limitReached : TEXT.nearLimit}
               </Text>
               <TouchableOpacity
                 onPress={openUpgradeForCards}
                 className="mt-2 self-start rounded-xl bg-[#1D4ED8] px-3 py-2"
               >
                 <Text className="text-xs font-bold text-white">
-                  שדרוג מסלול
+                  {TEXT.upgradePlan}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -247,115 +432,66 @@ export default function BusinessCardsManagementScreen() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            יצירת כרטיסיה חדשה
-          </Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            editable={canManage}
-            placeholder="שם הכרטיסיה"
-            placeholderTextColor="#94A3B8"
-            className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-          />
-          <TextInput
-            value={rewardName}
-            onChangeText={setRewardName}
-            editable={canManage}
-            placeholder="הטבה"
-            placeholderTextColor="#94A3B8"
-            className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-          />
-          <View className={`${tw.flexRow} gap-2`}>
-            <TextInput
-              value={maxStamps}
-              onChangeText={setMaxStamps}
-              editable={canManage}
-              keyboardType="number-pad"
-              placeholder="ניקובים"
-              placeholderTextColor="#94A3B8"
-              className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-            <TextInput
-              value={stampIcon}
-              onChangeText={setStampIcon}
-              editable={canManage}
-              placeholder="אייקון"
-              placeholderTextColor="#94A3B8"
-              className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-          </View>
-          <TouchableOpacity
-            disabled={!canCreate}
-            onPress={() => {
-              void handleCreate();
-            }}
-            className={`rounded-2xl px-4 py-3 ${
-              canCreate ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
-            }`}
-          >
-            {isCreating ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-center text-sm font-bold text-white">
-                צור כרטיסיה
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            כרטיסיות פעילות ({activePrograms.length})
+            {TEXT.activeCardsTitle} ({activePrograms.length})
           </Text>
           {activeBusinessId && programs.length === 0 ? (
             <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              עדיין לא יצרתם כרטיסיות נאמנות.
+              {TEXT.noCardsYet}
             </Text>
           ) : activePrograms.length === 0 ? (
             <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין כרגע כרטיסיות פעילות.
+              {TEXT.noActiveCards}
             </Text>
           ) : (
             activePrograms.map((program) => (
-              <TouchableOpacity
+              <View
                 key={program.loyaltyProgramId}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(authenticated)/(business)/cards/[programId]',
-                    params: {
-                      programId: program.loyaltyProgramId,
-                      businessId: activeBusinessId as Id<'businesses'>,
-                    },
-                  })
-                }
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
+                className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
               >
-                <View className={`${tw.flexRow} items-center justify-between`}>
-                  <View className="rounded-full bg-[#DBEAFE] px-3 py-1">
-                    <Text className="text-[11px] font-bold text-[#1D4ED8]">
-                      {program.maxStamps} ניקובים
-                    </Text>
-                  </View>
-                  <View className="flex-1 items-end px-3">
-                    <Text
-                      className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                    >
-                      {program.title}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                    >
-                      הטבה: {program.rewardName}
-                    </Text>
-                  </View>
+                <ProgramCustomerCardPreview
+                  businessName={businessDisplayName}
+                  rewardName={program.rewardName}
+                  maxStamps={program.maxStamps}
+                />
+
+                <View style={styles.performanceHeaderRow}>
+                  <Text style={styles.performanceHeaderLabel}>
+                    {
+                      '\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05D4'
+                    }
+                  </Text>
+                  <Text style={styles.performanceHeaderTitle} numberOfLines={1}>
+                    {program.title}
+                  </Text>
                 </View>
-                <Text className={`mt-2 text-xs text-[#64748B] ${tw.textStart}`}>
-                  לקוחות פעילים: {formatNumber(program.metrics.activeMembers)} ·
-                  ניקובים 7 ימים: {formatNumber(program.metrics.stamps7d)}
-                </Text>
-              </TouchableOpacity>
+
+                <View style={styles.performanceGrid}>
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05DC\u05E7\u05D5\u05D7\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD'
+                    }
+                    value={formatNumber(program.metrics.activeMembers)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05E1\u05D4\u05DB \u05DE\u05E6\u05D8\u05E8\u05E4\u05D9\u05DD'
+                    }
+                    value={formatNumber(program.metrics.totalMembers)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD 7 \u05D9\u05DE\u05D9\u05DD'
+                    }
+                    value={formatNumber(program.metrics.stamps7d)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD 30 \u05D9\u05D5\u05DD'
+                    }
+                    value={formatNumber(program.metrics.redemptions30d)}
+                  />
+                </View>
+              </View>
             ))
           )}
         </View>
@@ -364,60 +500,161 @@ export default function BusinessCardsManagementScreen() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            כרטיסיות בארכיון ({archivedPrograms.length})
+            {TEXT.archivedCardsTitle} ({archivedPrograms.length})
           </Text>
           {archivedPrograms.length === 0 ? (
             <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין כרטיסיות בארכיון.
+              {TEXT.noArchivedCards}
             </Text>
           ) : (
             archivedPrograms.map((program) => (
-              <TouchableOpacity
+              <View
                 key={program.loyaltyProgramId}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(authenticated)/(business)/cards/[programId]',
-                    params: {
-                      programId: program.loyaltyProgramId,
-                      businessId: activeBusinessId as Id<'businesses'>,
-                    },
-                  })
-                }
-                className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
+                className="rounded-[28px] border border-[#E2E8F0] bg-[#F8FAFC] p-3 gap-3"
               >
-                <Text
-                  className={`text-sm font-black text-[#334155] ${tw.textStart}`}
-                >
-                  {program.title}
-                </Text>
-                <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                  פעילות אחרונה:{' '}
-                  {formatLastActivity(program.metrics.lastActivityAt)}
-                </Text>
-              </TouchableOpacity>
+                <ProgramCustomerCardPreview
+                  businessName={businessDisplayName}
+                  rewardName={program.rewardName}
+                  maxStamps={program.maxStamps}
+                  previewCurrentStamps={0}
+                />
+                <View style={styles.performanceHeaderRow}>
+                  <Text style={styles.performanceHeaderLabel}>
+                    {
+                      '\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05D4'
+                    }
+                  </Text>
+                  <Text style={styles.performanceHeaderTitle} numberOfLines={1}>
+                    {program.title}
+                  </Text>
+                </View>
+
+                <View style={styles.performanceGrid}>
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05E1\u05D4\u05DB \u05DE\u05E6\u05D8\u05E8\u05E4\u05D9\u05DD'
+                    }
+                    value={formatNumber(program.metrics.totalMembers)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD 7 \u05D9\u05DE\u05D9\u05DD'
+                    }
+                    value={formatNumber(program.metrics.stamps7d)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD 30 \u05D9\u05D5\u05DD'
+                    }
+                    value={formatNumber(program.metrics.redemptions30d)}
+                  />
+                  <ProgramPerformanceTile
+                    label={
+                      '\u05E4\u05E2\u05D9\u05DC\u05D5\u05EA \u05D0\u05D7\u05E8\u05D5\u05E0\u05D4'
+                    }
+                    value={formatLastActivityShort(
+                      program.metrics.lastActivityAt
+                    )}
+                  />
+                </View>
+              </View>
             ))
           )}
-        </View>
-
-        <View className="mt-5 rounded-3xl border border-[#D6E2F8] bg-[#EEF3FF] p-5">
-          <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
-            פעולות שימור לקוחות
-          </Text>
-          <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
-            פעולות Push, In-app והצעות AI זמינות ממרכז הניהול במסך הראשי.
-          </Text>
-          <TouchableOpacity
-            onPress={() =>
-              router.replace('/(authenticated)/(business)/dashboard')
-            }
-            className="mt-3 self-start rounded-xl border border-[#2F6BFF] bg-white px-4 py-2.5"
-          >
-            <Text className="text-xs font-bold text-[#2F6BFF]">
-              פתיחת מרכז השימור
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  usageStrip: {
+    marginTop: 12,
+    flexDirection: ROW_DIRECTION,
+    gap: 8,
+  },
+  usageChip: {
+    flex: 1,
+    minHeight: 68,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DCE7F8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  usageChipLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  usageChipValue: {
+    color: '#0F172A',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
+    textAlign: TEXT_END,
+  },
+  usageChipHint: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: TEXT_END,
+  },
+  performanceHeaderRow: {
+    marginTop: 2,
+    paddingTop: 4,
+    flexDirection: ROW_DIRECTION,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  performanceHeaderLabel: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  performanceHeaderTitle: {
+    flex: 1,
+    marginStart: 8,
+    color: '#1A2B4A',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: TEXT_END,
+  },
+  performanceGrid: {
+    flexDirection: ROW_DIRECTION,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  performanceTile: {
+    width: '48%',
+    minHeight: 74,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D6E4FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    justifyContent: 'space-between',
+    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    gap: 4,
+  },
+  performanceLabel: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  performanceValue: {
+    color: '#0F172A',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
+    textAlign: TEXT_END,
+  },
+});

@@ -1,4 +1,5 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -26,13 +27,13 @@ import {
 const TEXT = {
   title: '\u05d4\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05d9',
   subtitle:
-    '\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d1\u05de\u05e7\u05d5\u05dd \u05d0\u05d7\u05d3',
-  loading:
-    '\u05d8\u05d5\u05e2\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
+    '\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d1\u05de\u05d1\u05e0\u05d4 \u05e0\u05d5\u05d7',
+  joinBusinessTitle: '\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05e2\u05e1\u05e7',
+  loading: '\u05d8\u05d5\u05e2\u05df \u05e2\u05e1\u05e7\u05d9\u05dd',
   noCards:
-    '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
+    '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
   noCardsHint:
-    '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
+    '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05e2\u05e1\u05e7 \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d4\u05e1\u05ea\u05db\u05dc \u05d1\u05d2\u05d9\u05dc\u05d5\u05d9',
   createDemo:
     '\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
   creating: '\u05d9\u05d5\u05e6\u05e8',
@@ -40,17 +41,21 @@ const TEXT = {
     '\u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5 \u05e0\u05d5\u05e6\u05e8 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4',
   demoFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
-  rewardPrefix: '\u05d4\u05d8\u05d1\u05d4:',
   businessFallback: '\u05e2\u05e1\u05e7',
-  rewardFallback: '\u05d4\u05d8\u05d1\u05d4',
+  joinedPrograms:
+    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05dc\u05d9',
+  redeemReady:
+    '\u05de\u05d5\u05db\u05e0\u05d5\u05ea \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
+  openBusiness: '\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7',
 };
 
-type WalletMembership = {
-  membershipId: string;
-  currentStamps?: number;
-  maxStamps?: number;
-  businessName?: string | null;
-  rewardName?: string | null;
+type WalletBusiness = {
+  businessId: string;
+  businessName: string;
+  businessLogoUrl: string | null;
+  joinedProgramCount: number;
+  redeemableCount: number;
+  lastActivityAt: number;
 };
 
 export default function WalletScreen() {
@@ -59,7 +64,6 @@ export default function WalletScreen() {
   const { isAuthenticated } = useConvexAuth();
   const pendingJoinChecked = useRef(false);
 
-  // Check for deferred deep link join after authentication
   useEffect(() => {
     if (!isAuthenticated || pendingJoinChecked.current) {
       return;
@@ -68,21 +72,20 @@ export default function WalletScreen() {
     void (async () => {
       const pending = await consumePendingJoin();
       if (pending?.biz) {
-        // Re-save so join screen can consume it
         await savePendingJoin(pending);
         router.push('/(authenticated)/join');
       }
     })();
   }, [isAuthenticated]);
 
-  const membershipsQuery = useQuery(
-    api.memberships.byCustomer,
+  const businessesQuery = useQuery(
+    api.memberships.byCustomerBusinesses,
     isAuthenticated ? {} : 'skip'
   );
-  const memberships = (membershipsQuery ?? []) as WalletMembership[];
+  const businesses = (businessesQuery ?? []) as WalletBusiness[];
 
   const seedMvp = useMutation(api.seed.seedMvp);
-  const isLoading = isAuthenticated && membershipsQuery === undefined;
+  const isLoading = isAuthenticated && businessesQuery === undefined;
 
   const [seedStatus, setSeedStatus] = useState<{
     type: 'success' | 'error';
@@ -130,13 +133,35 @@ export default function WalletScreen() {
           <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
         </View>
 
+        <View style={styles.joinBusinessRow}>
+          <Pressable
+            onPress={() => router.push('/(authenticated)/join')}
+            style={({ pressed }) => [
+              styles.joinBusinessButton,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={TEXT.joinBusinessTitle}
+          >
+            <View style={styles.joinBusinessButtonContent}>
+              <View style={styles.joinBusinessPlusCircle}>
+                <View style={styles.joinBusinessPlusHorizontal} />
+                <View style={styles.joinBusinessPlusVertical} />
+              </View>
+              <Text style={styles.joinBusinessTitle}>
+                {TEXT.joinBusinessTitle}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
         {isLoading ? (
           <View style={styles.cardContainer}>
             <Text style={styles.infoText}>{TEXT.loading}</Text>
           </View>
         ) : null}
 
-        {!isLoading && memberships.length === 0 ? (
+        {!isLoading && businesses.length === 0 ? (
           <View style={styles.cardContainer}>
             <Text style={styles.emptyTitle}>{TEXT.noCards}</Text>
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
@@ -170,40 +195,21 @@ export default function WalletScreen() {
 
         <View style={styles.cardList}>
           {!isLoading
-            ? memberships.map((membership) => {
-                const current = Number(membership.currentStamps ?? 0);
-                const goal = Math.max(
-                  1,
-                  Number(membership.maxStamps ?? 0) || 0
-                );
-                const dots = Math.min(goal, 20);
-                const membershipId = String(membership.membershipId);
-                const dotIds = Array.from(
-                  { length: dots },
-                  (_, index) => index + 1
-                );
-
+            ? businesses.map((business) => {
+                const businessId = String(business.businessId);
                 return (
                   <Pressable
-                    key={membershipId}
+                    key={businessId}
                     style={styles.cardContainer}
-                    onPress={() => router.push(`/card/${membershipId}`)}
+                    onPress={() =>
+                      router.push({
+                        pathname:
+                          '/(authenticated)/(customer)/business/[businessId]',
+                        params: { businessId },
+                      } as any)
+                    }
                   >
                     <View style={styles.cardTopRow}>
-                      <Text style={styles.progressLabel}>
-                        {current}/{goal}
-                      </Text>
-
-                      <View style={styles.cardTextColumn}>
-                        <Text style={styles.cardTitle}>
-                          {membership.businessName ?? TEXT.businessFallback}
-                        </Text>
-                        <Text style={styles.cardSubtitle}>
-                          {TEXT.rewardPrefix}{' '}
-                          {membership.rewardName ?? TEXT.rewardFallback}
-                        </Text>
-                      </View>
-
                       <View style={styles.imagePlaceholder}>
                         <Image
                           source={STAMPAIX_IMAGE_LOGO}
@@ -212,23 +218,23 @@ export default function WalletScreen() {
                           accessibilityLabel="StampAix logo"
                         />
                       </View>
+
+                      <View style={styles.cardTextColumn}>
+                        <Text style={styles.cardTitle}>
+                          {business.businessName ?? TEXT.businessFallback}
+                        </Text>
+                        <Text style={styles.cardSubtitle}>
+                          {TEXT.joinedPrograms}: {business.joinedProgramCount}
+                        </Text>
+                        <Text style={styles.cardSubtitle}>
+                          {TEXT.redeemReady}: {business.redeemableCount}
+                        </Text>
+                      </View>
                     </View>
 
-                    <View style={styles.stampRow}>
-                      {dotIds.map((dotId) => (
-                        <View
-                          key={`${membershipId}-dot-${dotId}`}
-                          style={[
-                            styles.stampDot,
-                            dotId <= current
-                              ? styles.stampDotActive
-                              : styles.stampDotEmpty,
-                          ]}
-                        />
-                      ))}
-                      {goal > 20 ? (
-                        <Text style={styles.moreText}>+{goal - 20}</Text>
-                      ) : null}
+                    <View style={styles.openRow}>
+                      <Ionicons name="chevron-back" size={14} color="#5B6475" />
+                      <Text style={styles.openText}>{TEXT.openBusiness}</Text>
                     </View>
                   </Pressable>
                 );
@@ -253,7 +259,53 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     alignItems: 'stretch',
-    marginBottom: 4,
+    marginBottom: 0,
+  },
+  joinBusinessRow: {
+    width: '100%',
+    direction: 'ltr',
+    alignItems: 'flex-start',
+    marginTop: 0,
+  },
+  joinBusinessButton: {
+    borderRadius: 16,
+    backgroundColor: '#DBEAFE',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#9CC0FF',
+  },
+  joinBusinessButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  joinBusinessPlusCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinBusinessPlusHorizontal: {
+    position: 'absolute',
+    width: 15,
+    height: 3.4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  joinBusinessPlusVertical: {
+    position: 'absolute',
+    width: 3.4,
+    height: 15,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  joinBusinessTitle: {
+    color: '#1E3A8A',
+    fontSize: 14,
+    fontWeight: '900',
   },
   cardList: {
     marginTop: 18,
@@ -313,20 +365,14 @@ const styles = StyleSheet.create({
     color: '#D92D20',
   },
   cardTopRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
   },
   cardTextColumn: {
     flex: 1,
     gap: 2,
-    marginHorizontal: 8,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2F6BFF',
+    alignItems: 'flex-end',
   },
   cardTitle: {
     fontSize: 18,
@@ -358,29 +404,16 @@ const styles = StyleSheet.create({
     color: '#5B6475',
     textAlign: 'right',
   },
-  stampRow: {
+  openRow: {
     marginTop: 12,
     flexDirection: 'row-reverse',
-    gap: 8,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
   },
-  stampDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-  },
-  stampDotActive: {
-    backgroundColor: '#2F6BFF',
-    borderColor: '#2F6BFF',
-  },
-  stampDotEmpty: {
-    borderColor: '#E5EAF5',
-    backgroundColor: '#E9EEF9',
-  },
-  moreText: {
-    fontSize: 11,
-    color: '#5B6475',
+  openText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#5B6475',
+    textAlign: 'right',
   },
 });

@@ -97,7 +97,7 @@ export default function OnboardingBusinessPlanScreen() {
           <Text style={styles.title}>בחירת מסלול לעסק</Text>
           <Text style={styles.subtitle}>
             Starter מתאים להתחלה. Pro AI פותח את המוצר המלא לרוב העסקים,
-            ו-Premium AI מוסיף בניית סגמנטים ושמירת קהלים לעבודה מדויקת יותר.
+            ו-Premium AI מוסיף בניית קהלים ושמירתם לעבודה מדויקת יותר.
           </Text>
         </View>
 

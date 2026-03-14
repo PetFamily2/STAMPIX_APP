@@ -1,4 +1,4 @@
-import { useMutation } from 'convex/react';
+import { useConvex } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -65,7 +65,7 @@ function getFriendlyError(error: unknown) {
 
 export default function JoinScreen() {
   const insets = useSafeAreaInsets();
-  const joinByBusinessQr = useMutation(api.memberships.joinByBusinessQr);
+  const convex = useConvex();
   const { user } = useUser();
 
   // Deep link query params
@@ -103,7 +103,7 @@ export default function JoinScreen() {
 
       try {
         setBusy(true);
-        const result = await joinByBusinessQr({
+        const result = await convex.query(api.memberships.resolveJoinBusiness, {
           qrData: data,
           source: source || undefined,
           campaign: campaign || undefined,
@@ -113,32 +113,20 @@ export default function JoinScreen() {
         setManual('');
         setScannerResetKey((prev) => prev + 1);
 
-        if (result.alreadyExisted) {
-          track(ANALYTICS_EVENTS.joinAlreadyMember, {
-            businessId: result.businessId,
-            src: source,
-            camp: campaign,
-          });
-          setFeedback({ type: 'info', message: TEXT.alreadyMember });
-        } else {
-          track(ANALYTICS_EVENTS.joinCompleted, {
-            businessId: result.businessId,
-            membershipId: result.membershipId,
-            src: source,
-            camp: campaign,
-          });
-        }
-
-        // Navigate to card in wallet
-        if (result.membershipId) {
-          router.replace(`/(authenticated)/card/${result.membershipId}` as any);
-        } else {
-          router.replace('/(authenticated)/(customer)/wallet');
-        }
+        router.replace({
+          pathname: '/(authenticated)/(customer)/business/[businessId]',
+          params: {
+            businessId: String(result.business.businessId),
+            join: 'true',
+            src: (result.source ?? source) || undefined,
+            camp: (result.campaign ?? campaign) || undefined,
+            entry: 'join',
+          },
+        } as any);
       } catch (error) {
         track(ANALYTICS_EVENTS.stampFailed, {
           error_code: error instanceof Error ? error.message : 'UNKNOWN',
-          context: 'joinByBusinessQr',
+          context: 'resolveJoinBusiness',
         });
         setFeedback({ type: 'error', message: getFriendlyError(error) });
         setScannerResetKey((prev) => prev + 1);
@@ -146,7 +134,7 @@ export default function JoinScreen() {
         setBusy(false);
       }
     },
-    [busy, joinByBusinessQr]
+    [busy, convex]
   );
 
   // Auto-join from deep link URL params or deferred join

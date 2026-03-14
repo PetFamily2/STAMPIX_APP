@@ -388,17 +388,6 @@ export default function ProgramDetailsScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-                className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
-              >
-                <Text className="text-center text-sm font-bold text-[#334155]">
-                  למרכז השימור
-                </Text>
-              </TouchableOpacity>
-
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
                 סטטוס נוכחי: {lifecycle === 'active' ? 'פעילה' : 'ישנה'}
               </Text>

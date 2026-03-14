@@ -19,42 +19,48 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
-import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 
 const TEXT = {
   title: '\u05d4-QR \u05e9\u05dc\u05d9',
   subtitle:
-    '\u05d4\u05e6\u05d2 \u05d0\u05ea \u05d4-QR \u05d4\u05d0\u05d9\u05e9\u05d9 \u05e9\u05dc\u05da \u05dc\u05e1\u05e8\u05d9\u05e7\u05d4',
+    '\u05de\u05e6\u05d9\u05d2\u05d9\u05dd QR \u05d0\u05d9\u05e9\u05d9 \u05d0\u05d7\u05d3 \u05dc\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
   loadingMemberships:
     '\u05d8\u05d5\u05e2\u05df \u05d0\u05ea \u05d4-QR \u05e9\u05dc\u05da',
   emptyTitle:
     '\u05d0\u05d9\u05df \u05db\u05e8\u05d8\u05d9\u05e1 \u05e4\u05e2\u05d9\u05dc',
   emptySubtitle:
-    '\u05db\u05e9\u05ea\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df, \u05d4-QR \u05d9\u05d5\u05e4\u05d9\u05e2 \u05db\u05d0\u05df',
+    '\u05db\u05d0\u05e9\u05e8 \u05ea\u05e6\u05d8\u05e8\u05e4\u05d5 \u05dc\u05dc\u05e4\u05d7\u05d5\u05ea \u05e2\u05e1\u05e7 \u05d0\u05d7\u05d3, \u05d4-QR \u05d9\u05d5\u05e4\u05d9\u05e2 \u05db\u05d0\u05df',
   qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
   qrCreateFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05d0\u05ea \u05d4-QR \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
+};
+
+type CustomerBusinessSummary = {
+  businessId: string;
 };
 
 export default function CustomerShowQrScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { isAuthenticated } = useConvexAuth();
-  const membershipsQuery = useQuery(
-    api.memberships.byCustomer,
+
+  const savedBusinessesQuery = useQuery(
+    api.memberships.byCustomerBusinesses,
     isAuthenticated ? {} : 'skip'
   );
-  const memberships = (membershipsQuery ?? []) as CustomerMembershipView[];
-  const activeMembership = memberships[0] ?? null;
+  const savedBusinesses = (savedBusinessesQuery ??
+    []) as CustomerBusinessSummary[];
+  const hasAnyMembership = savedBusinesses.length > 0;
 
-  const createScanToken = useMutation(api.scanner.createScanToken);
+  const createCustomerScanToken = useMutation(
+    api.scanner.createCustomerScanToken
+  );
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
 
   const refreshScanToken = useCallback(async () => {
-    if (!activeMembership?.membershipId) {
+    if (!hasAnyMembership) {
       setScanTokenPayload(null);
       setTokenError(null);
       setIsTokenLoading(false);
@@ -64,9 +70,7 @@ export default function CustomerShowQrScreen() {
     setIsTokenLoading(true);
     setTokenError(null);
     try {
-      const result = await createScanToken({
-        membershipId: activeMembership.membershipId as Id<'memberships'>,
-      });
+      const result = await createCustomerScanToken({});
       setScanTokenPayload(result.scanToken);
     } catch {
       setScanTokenPayload(null);
@@ -74,7 +78,7 @@ export default function CustomerShowQrScreen() {
     } finally {
       setIsTokenLoading(false);
     }
-  }, [activeMembership?.membershipId, createScanToken]);
+  }, [createCustomerScanToken, hasAnyMembership]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,7 +86,7 @@ export default function CustomerShowQrScreen() {
     }, [refreshScanToken])
   );
 
-  const isLoading = isAuthenticated && membershipsQuery === undefined;
+  const isLoading = isAuthenticated && savedBusinessesQuery === undefined;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -127,14 +131,14 @@ export default function CustomerShowQrScreen() {
             </View>
           ) : null}
 
-          {!isLoading && !activeMembership ? (
+          {!isLoading && !hasAnyMembership ? (
             <View style={styles.windowCard}>
               <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
               <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
             </View>
           ) : null}
 
-          {!isLoading && activeMembership ? (
+          {!isLoading && hasAnyMembership ? (
             <View style={styles.windowCard}>
               <View style={styles.qrWindow}>
                 {scanTokenPayload ? (

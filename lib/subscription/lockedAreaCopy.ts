@@ -61,8 +61,8 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: 'ניהול צוות',
   },
   marketingHub: {
-    sectionTitle: 'מרכז שימור',
-    lockedTitle: 'מרכז השימור זמין במסלול מתקדם יותר',
+    sectionTitle: 'מרכז שימור לקוחות',
+    lockedTitle: 'מרכז שימור הלקוחות זמין במסלול מתקדם יותר',
     lockedSubtitle: (requiredPlanLabel) =>
       `פעולות שימור מבוססות הזדמנויות זמינות במסלול ${requiredPlanLabel ?? 'מתקדם יותר'}.`,
     benefits: [
@@ -70,7 +70,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
       'פעולות Push והודעות בתוך האפליקציה',
       'הצעות ניסוח בעזרת AI',
     ],
-    upgradeAreaLabel: 'מרכז שימור',
+    upgradeAreaLabel: 'מרכז שימור לקוחות',
   },
   smartAnalytics: {
     sectionTitle: 'תובנות לקוחות',
@@ -97,8 +97,8 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: 'דוחות מתקדמים',
   },
   segmentationBuilder: {
-    sectionTitle: 'בונה סגמנטים',
-    lockedTitle: 'בונה הסגמנטים זמין במסלול Premium AI',
+    sectionTitle: 'בונה קהלים',
+    lockedTitle: 'בונה הקהלים זמין במסלול Premium AI',
     lockedSubtitle: () =>
       'אפשר ליצור קהלים לפי תנאים פשוטים, לצפות בתוצאה מראש ולשמור לשימוש חוזר.',
     benefits: [
@@ -106,19 +106,19 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
       'תצוגה מקדימה לפני שמירה',
       'שימוש חוזר בקהלים בפעולות שימור',
     ],
-    upgradeAreaLabel: 'בונה סגמנטים',
+    upgradeAreaLabel: 'בונה קהלים',
   },
   savedSegments: {
-    sectionTitle: 'סגמנטים שמורים',
-    lockedTitle: 'סגמנטים שמורים זמינים במסלול Premium AI',
+    sectionTitle: 'קהלים שמורים',
+    lockedTitle: 'קהלים שמורים זמינים במסלול Premium AI',
     lockedSubtitle: () =>
       'שמירת קהלים מאפשרת להפעיל פעולות שימור ממוקדות מהר יותר.',
     benefits: [
       'שמירת קהלים לשימוש עתידי',
-      'גישה מהירה לסגמנטים מוכנים',
+      'גישה מהירה לקהלים מוכנים',
       'חיבור ישיר לזרימות שימור',
     ],
-    upgradeAreaLabel: 'סגמנטים שמורים',
+    upgradeAreaLabel: 'קהלים שמורים',
   },
   maxCards: {
     sectionTitle: 'מגבלת כרטיסים',

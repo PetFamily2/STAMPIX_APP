@@ -436,6 +436,32 @@ export default defineSchema({
     businessId: v.id('businesses'),
     snapshotId: v.optional(v.id('aiBusinessSnapshots')),
     stateKey: v.string(),
+    sectionTitle: v.optional(v.string()),
+    layer: v.optional(
+      v.union(
+        v.literal('foundation'),
+        v.literal('activation'),
+        v.literal('optimization'),
+        v.literal('performance')
+      )
+    ),
+    statusTone: v.optional(
+      v.union(
+        v.literal('setup_needed'),
+        v.literal('opportunity'),
+        v.literal('stable'),
+        v.literal('watch'),
+        v.literal('wait')
+      )
+    ),
+    signalQuality: v.optional(
+      v.union(
+        v.literal('setup_only'),
+        v.literal('early_signal'),
+        v.literal('directional_signal'),
+        v.literal('performance_ready')
+      )
+    ),
     goal: v.union(
       v.literal('bring_back_customers'),
       v.literal('push_to_reward'),
@@ -458,6 +484,11 @@ export default defineSchema({
     ),
     title: v.string(),
     message: v.string(),
+    body: v.optional(v.string()),
+    supportingText: v.optional(v.string()),
+    evidenceTags: v.optional(v.array(v.string())),
+    packageNote: v.optional(v.string()),
+    showNoCtaReason: v.optional(v.boolean()),
     ctaType: v.union(
       v.literal('open_draft'),
       v.literal('view_insight'),
@@ -466,6 +497,36 @@ export default defineSchema({
       v.literal('none')
     ),
     ctaLabel: v.string(),
+    primaryCta: v.optional(
+      v.object({
+        kind: v.union(
+          v.literal('open_cards'),
+          v.literal('open_profile'),
+          v.literal('open_campaign_draft'),
+          v.literal('view_customers'),
+          v.literal('view_analytics'),
+          v.literal('view_subscription'),
+          v.literal('none')
+        ),
+        label: v.string(),
+        draftType: v.optional(
+          v.union(
+            v.literal('welcome'),
+            v.literal('winback'),
+            v.literal('promo')
+          )
+        ),
+        customerFilter: v.optional(
+          v.union(
+            v.literal('near_reward'),
+            v.literal('at_risk'),
+            v.literal('new_customers')
+          )
+        ),
+        routeTab: v.optional(v.string()),
+        highlightTarget: v.optional(v.string()),
+      })
+    ),
     dedupeKey: v.string(),
     promptHash: v.optional(v.string()),
     cacheKey: v.optional(v.string()),

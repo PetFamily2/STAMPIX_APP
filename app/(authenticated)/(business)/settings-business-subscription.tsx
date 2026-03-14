@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -87,18 +88,6 @@ function formatLimit(used: number, limit: number) {
   return `${used}/${limit}`;
 }
 
-function resolveNextPlan(plan: PlanId): 'pro' | 'premium' | null {
-  if (plan === 'starter') {
-    return 'pro';
-  }
-
-  if (plan === 'pro') {
-    return 'premium';
-  }
-
-  return null;
-}
-
 export default function BusinessSettingsSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -138,10 +127,6 @@ export default function BusinessSettingsSubscriptionScreen() {
   );
 
   const currentPlan = entitlements?.plan ?? 'starter';
-  const currentPlanLabel = PLAN_LABELS[currentPlan];
-  const nextPlan = resolveNextPlan(currentPlan);
-  const nextPlanLabel = nextPlan ? PLAN_LABELS[nextPlan] : null;
-
   const cardsStatus = limitStatus(
     'maxCards',
     usageSummary?.cardsUsed ?? entitlements?.limits.maxCards ?? 0
@@ -310,19 +295,21 @@ export default function BusinessSettingsSubscriptionScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      <View
-        style={[
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
           styles.content,
           {
-            paddingTop: (insets.top || 0) + 12,
+            paddingTop: insets.top || 0,
+            paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
         <BusinessScreenHeader
+          style={styles.headerTight}
+          contentStyle={styles.headerContentTight}
           title="מסלול וחיוב"
-          subtitle="תמונת מצב ברורה של המסלול, השימוש בפועל והאפשרויות לשדרוג"
           titleNumberOfLines={2}
-          subtitleNumberOfLines={2}
           titleAccessory={
             <Pressable
               onPress={() => router.back()}
@@ -335,21 +322,6 @@ export default function BusinessSettingsSubscriptionScreen() {
             </Pressable>
           }
         />
-
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroStatusBadge}>
-              <Text style={styles.heroStatusText}>{currentStatusLabel}</Text>
-            </View>
-            <Text style={styles.heroEyebrow}>המסלול הפעיל</Text>
-          </View>
-          <Text style={styles.heroTitle}>{currentPlanLabel}</Text>
-          <Text style={styles.heroSubtitle}>
-            {nextPlan && nextPlanLabel
-              ? `${currentPlanLabel} פעיל כרגע. שדרוג ל-${nextPlanLabel} יגדיל מכסות ויפתח יכולות נוספות לעסק.`
-              : 'אתם כבר במסלול הגבוה ביותר. כאן אפשר לעקוב אחרי השימוש ולנהל את המנוי.'}
-          </Text>
-        </View>
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
@@ -388,15 +360,17 @@ export default function BusinessSettingsSubscriptionScreen() {
             billingPeriod={comparisonBillingPeriod}
             currentPlan={currentPlan}
             context="settings"
+            footerMode="inline"
+            showPlanSelector={false}
             ctaLabel={comparisonCtaLabel}
             ctaDisabled={isLoading}
-            footerInsetBottom={tabBarHeight + 10}
+            footerInsetBottom={0}
             onSelectPlan={setComparisonSelectedPlan}
             onBillingPeriodChange={setComparisonBillingPeriod}
             onPressCta={() => openUpgrade(comparisonUpgradePlan)}
           />
         </View>
-      </View>
+      </ScrollView>
 
       <UpgradeModal
         visible={isUpgradeVisible}
@@ -420,7 +394,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 18,
     paddingBottom: 0,
-    gap: 10,
+    gap: 8,
+  },
+  headerTight: {
+    marginBottom: -2,
+  },
+  headerContentTight: {
+    minHeight: 30,
+    gap: 0,
   },
   emptyState: {
     flex: 1,
@@ -453,66 +434,19 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 18,
   },
-  heroCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#CFE0F7',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  heroTopRow: {
-    flexDirection: ROW_DIRECTION,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  heroStatusBadge: {
-    borderRadius: 999,
-    backgroundColor: '#E7F0FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  heroStatusText: {
-    color: '#1D4ED8',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  heroEyebrow: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: TEXT_START,
-  },
-  heroTitle: {
-    color: '#0F172A',
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '900',
-    textAlign: TEXT_START,
-  },
-  heroSubtitle: {
-    color: '#64748B',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    textAlign: TEXT_START,
-  },
   usageStrip: {
     flexDirection: ROW_DIRECTION,
     gap: 8,
   },
   usageChip: {
     flex: 1,
-    minHeight: 68,
+    minHeight: 76,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#DCE7F8',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: IS_RTL ? 'flex-end' : 'flex-start',
     justifyContent: 'center',
     gap: 2,
@@ -562,7 +496,6 @@ const styles = StyleSheet.create({
     textAlign: TEXT_START,
   },
   panelWrap: {
-    flex: 1,
-    minHeight: 0,
+    marginTop: 2,
   },
 });

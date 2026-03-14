@@ -345,6 +345,12 @@ export default function BusinessSettingsScreen() {
             }
           />
           <MenuRow
+            title="\u200EQR\u200E \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea"
+            subtitle="\u05de\u05e1\u05da \u05e9\u05d9\u05ea\u05d5\u05e3 \u05e7\u05d5\u05d3 \u200EQR\u200E \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df"
+            icon="qr-code-outline"
+            onPress={() => router.push('/(authenticated)/(business)/qr')}
+          />
+          <MenuRow
             title="פרטי חשבון"
             subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"
             icon="person-outline"

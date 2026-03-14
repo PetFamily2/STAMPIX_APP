@@ -20,7 +20,6 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
@@ -83,7 +82,9 @@ export default function CardDetailsScreen() {
     (entry) => entry.membershipId === membershipId
   );
 
-  const createScanToken = useMutation(api.scanner.createScanToken);
+  const createCustomerScanToken = useMutation(
+    api.scanner.createCustomerScanToken
+  );
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
@@ -102,9 +103,7 @@ export default function CardDetailsScreen() {
     setIsTokenLoading(true);
     setTokenError(null);
     try {
-      const result = await createScanToken({
-        membershipId: membershipIdForToken as Id<'memberships'>,
-      });
+      const result = await createCustomerScanToken({});
       setScanTokenPayload(result.scanToken);
     } catch {
       setScanTokenPayload(null);
@@ -112,7 +111,7 @@ export default function CardDetailsScreen() {
     } finally {
       setIsTokenLoading(false);
     }
-  }, [createScanToken, membershipIdForToken]);
+  }, [createCustomerScanToken, membershipIdForToken]);
 
   useEffect(() => {
     void refreshScanToken();
