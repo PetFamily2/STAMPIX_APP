@@ -768,7 +768,18 @@ export default function MerchantDashboardScreen() {
     });
   };
 
+  const openMarketingHub = (section: 'campaigns' | 'loyalty') => {
+    router.push({
+      pathname: '/(authenticated)/(business)/cards',
+      params: { section },
+    });
+  };
+
   const openRoute = (route: BusinessRoute) => {
+    if (route === '/(authenticated)/(business)/cards') {
+      openMarketingHub('loyalty');
+      return;
+    }
     router.push(route);
   };
 
@@ -895,7 +906,6 @@ export default function MerchantDashboardScreen() {
     const draft = await createCampaignDraft({
       businessId: activeBusinessId,
       type: draftType,
-      programId: activePrograms[0]?.loyaltyProgramId,
       rules:
         draftType === 'welcome'
           ? { audience: 'new_customers', joinedWithinDays: 14 }

@@ -79,8 +79,8 @@ export function PlanComparisonTable({
   );
 
   const featureColumnFlex =
-    orderedPlans.length <= 2 ? 1.55 : isNarrow ? 1.2 : 1.35;
-  const planColumnFlex = orderedPlans.length <= 2 ? 1.05 : 1;
+    orderedPlans.length <= 2 ? 1.55 : isNarrow ? 1.35 : 1.35;
+  const planColumnFlex = orderedPlans.length <= 2 ? 1.05 : isNarrow ? 0.95 : 1;
   const canSelectHeaders = headerSelectable && Boolean(onSelectPlan);
 
   return (
@@ -164,50 +164,56 @@ export function PlanComparisonTable({
         })}
       </View>
 
-      {comparisonRows.map((row) => (
-        <View key={row.id} style={styles.tableRow}>
-          <View style={[styles.featureCell, { flex: featureColumnFlex }]}>
-            <Text
-              style={[
-                styles.featureLabel,
-                isNarrow ? styles.featureLabelNarrow : null,
-              ]}
-              numberOfLines={2}
-            >
-              {isNarrow && row.compactLabel ? row.compactLabel : row.label}
-            </Text>
-          </View>
-          {orderedPlans.map((plan) => {
-            const { text, isPositive } = renderCellText(row, plan.plan);
-            const isBooleanCell = row.cells[plan.plan].type === 'boolean';
+      {comparisonRows.map((row) => {
+        const isMarketingHubRow = row.id === 'feature:marketingHub';
 
-            return (
-              <View
-                key={`${row.id}:${plan.plan}`}
+        return (
+          <View key={row.id} style={styles.tableRow}>
+            <View style={[styles.featureCell, { flex: featureColumnFlex }]}>
+              <Text
                 style={[
-                  styles.planCell,
-                  { flex: planColumnFlex },
-                  selectedPlan === plan.plan ? styles.selectedColumn : null,
+                  styles.featureLabel,
+                  isNarrow ? styles.featureLabelNarrow : null,
                 ]}
+                numberOfLines={isMarketingHubRow ? 1 : 2}
               >
-                <Text
+                {isNarrow && row.compactLabel ? row.compactLabel : row.label}
+              </Text>
+            </View>
+            {orderedPlans.map((plan) => {
+              const { text, isPositive } = renderCellText(row, plan.plan);
+              const isBooleanCell = row.cells[plan.plan].type === 'boolean';
+
+              return (
+                <View
+                  key={`${row.id}:${plan.plan}`}
                   style={[
-                    styles.cellText,
-                    isNarrow ? styles.cellTextNarrow : null,
-                    isBooleanCell && !isPositive ? styles.cellTextMuted : null,
-                    isBooleanCell && isPositive
-                      ? styles.cellTextPositive
-                      : null,
+                    styles.planCell,
+                    { flex: planColumnFlex },
+                    selectedPlan === plan.plan ? styles.selectedColumn : null,
                   ]}
-                  numberOfLines={2}
                 >
-                  {text}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      ))}
+                  <Text
+                    style={[
+                      styles.cellText,
+                      isNarrow ? styles.cellTextNarrow : null,
+                      isBooleanCell && !isPositive
+                        ? styles.cellTextMuted
+                        : null,
+                      isBooleanCell && isPositive
+                        ? styles.cellTextPositive
+                        : null,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {text}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        );
+      })}
     </View>
   );
 }

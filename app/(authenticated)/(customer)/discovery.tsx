@@ -19,6 +19,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -99,8 +100,14 @@ type NearbyBusinessQuery = {
 type SavedBusinessQuery = {
   businessId: string;
   businessName: string;
+  businessLogoUrl: string | null;
   joinedProgramCount: number;
   redeemableCount: number;
+  previewProgramTitle: string | null;
+  previewRewardName: string | null;
+  previewCardThemeId: string | null;
+  previewMaxStamps: number | null;
+  previewCurrentStamps: number | null;
 };
 
 function getMapDelta(radiusKm: number) {
@@ -302,17 +309,38 @@ export default function DiscoveryScreen() {
                     pressed ? styles.pressed : null,
                   ]}
                 >
-                  <View style={styles.businessHeader}>
+                  <ProgramCustomerCardPreview
+                    businessName={business.businessName}
+                    businessLogoUrl={business.businessLogoUrl}
+                    title={
+                      business.previewProgramTitle ?? business.businessName
+                    }
+                    rewardName={
+                      business.previewRewardName ??
+                      `כרטיסיות: ${business.joinedProgramCount}`
+                    }
+                    maxStamps={Math.max(
+                      1,
+                      Number(business.previewMaxStamps ?? 1)
+                    )}
+                    previewCurrentStamps={Number(
+                      business.previewCurrentStamps ?? 0
+                    )}
+                    cardThemeId={business.previewCardThemeId}
+                    status={
+                      business.redeemableCount > 0 ? 'redeemable' : 'default'
+                    }
+                    variant="compact"
+                  />
+
+                  <View style={styles.savedBusinessMetaRow}>
                     <View style={styles.savedMetaBadge}>
                       <Text style={styles.savedMetaBadgeText}>
                         כרטיסיות: {business.joinedProgramCount}
                       </Text>
                     </View>
-                    <View style={styles.businessTextWrap}>
-                      <Text style={styles.businessName}>
-                        {business.businessName}
-                      </Text>
-                      <Text style={styles.businessAddress}>
+                    <View style={styles.savedMetaBadge}>
+                      <Text style={styles.savedMetaBadgeText}>
                         מוכנות למימוש: {business.redeemableCount}
                       </Text>
                     </View>
@@ -885,6 +913,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1D4ED8',
     textAlign: 'center',
+  },
+  savedBusinessMetaRow: {
+    marginTop: 10,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   metaChipsWrap: {
     marginTop: 10,

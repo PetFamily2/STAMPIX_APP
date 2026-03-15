@@ -8,6 +8,7 @@ export type CustomerMembershipView = {
   programTitle: string;
   rewardName: string;
   stampIcon: string;
+  cardThemeId: string | null;
   currentStamps: number;
   maxStamps: number;
   lastStampAt: number;

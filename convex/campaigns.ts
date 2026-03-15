@@ -65,6 +65,21 @@ function normalizeText(value: string | undefined, fallback: string) {
   return normalized && normalized.length > 0 ? normalized : fallback;
 }
 
+function normalizeEditableManagementStatus(
+  value: unknown
+): 'draft' | 'active' | 'paused' | 'completed' | 'archived' {
+  if (
+    value === 'draft' ||
+    value === 'active' ||
+    value === 'paused' ||
+    value === 'completed' ||
+    value === 'archived'
+  ) {
+    return value === 'completed' ? 'draft' : value;
+  }
+  return 'draft';
+}
+
 function isAutomationEnabled(value: unknown): boolean {
   return value === true;
 }
@@ -683,7 +698,7 @@ export const listManagementCampaignsByBusiness = query({
           messageBody:
             campaign.messageBody ??
             buildDefaultDraftByType(campaign.type).messageBody,
-          status: campaign.status ?? 'draft',
+          status: normalizeEditableManagementStatus(campaign.status),
           rules: campaign.rules ?? buildDefaultDraftByType(campaign.type).rules,
           automationEnabled,
           lifecycle,
@@ -735,7 +750,7 @@ export const getManagementCampaignDraft = query({
       campaignId: campaign._id,
       businessId: campaign.businessId,
       type: campaign.type,
-      status: campaign.status ?? 'draft',
+      status: normalizeEditableManagementStatus(campaign.status),
       messageTitle: campaign.messageTitle ?? defaults.messageTitle,
       messageBody: campaign.messageBody ?? defaults.messageBody,
       rules: campaign.rules ?? defaults.rules,
@@ -951,9 +966,6 @@ export const updateCampaignDraft = mutation({
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
-    if ((campaign.status ?? 'draft') !== 'draft') {
-      throw new Error('CAMPAIGN_NOT_DRAFT');
-    }
     if (isAutomationEnabled(campaign.automationEnabled)) {
       if (rules !== undefined || programId !== undefined) {
         throw new Error('ACTIVE_CAMPAIGN_RULES_LOCKED');
@@ -1042,7 +1054,6 @@ export const sendCampaignNow = mutation({
     }
 
     await ctx.db.patch(campaign._id, {
-      status: 'completed',
       updatedAt: now,
     });
 

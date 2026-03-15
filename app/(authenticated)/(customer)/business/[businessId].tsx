@@ -16,6 +16,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
@@ -50,6 +51,7 @@ type ProgramRow = {
   rewardName: string;
   maxStamps: number;
   stampIcon: string;
+  cardThemeId: string | null;
   membershipId: string | null;
   currentStamps: number;
   canRedeem: boolean;
@@ -258,27 +260,37 @@ export default function CustomerBusinessDetailsScreen() {
                     key={key}
                     onPress={() => toggleProgramSelection(key)}
                     style={({ pressed }) => [
-                      styles.programRow,
-                      selected ? styles.programRowSelected : null,
+                      styles.programCard,
+                      selected ? styles.programCardSelected : null,
                       pressed ? styles.pressed : null,
                     ]}
                   >
-                    <View style={styles.programCheckbox}>
-                      <Ionicons
-                        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={22}
-                        color={selected ? '#2F6BFF' : '#9AA4B8'}
-                      />
-                    </View>
-                    <View style={styles.programMeta}>
-                      <Text style={styles.programTitle}>{program.title}</Text>
-                      <Text style={styles.programSubtitle}>
-                        {program.rewardName}
+                    <ProgramCustomerCardPreview
+                      businessName={business.name}
+                      businessLogoUrl={business.logoUrl}
+                      title={program.title}
+                      rewardName={program.rewardName}
+                      maxStamps={program.maxStamps}
+                      previewCurrentStamps={0}
+                      cardThemeId={program.cardThemeId}
+                      stampIcon={program.stampIcon}
+                      selected={selected}
+                      variant="list"
+                    />
+                    <View style={styles.programFooterRow}>
+                      <Text style={styles.programGoal}>
+                        {TEXT.goalPrefix} {program.maxStamps} {TEXT.stamps}
                       </Text>
+                      <View style={styles.programCheckbox}>
+                        <Ionicons
+                          name={
+                            selected ? 'checkmark-circle' : 'ellipse-outline'
+                          }
+                          size={22}
+                          color={selected ? '#2F6BFF' : '#9AA4B8'}
+                        />
+                      </View>
                     </View>
-                    <Text style={styles.programGoal}>
-                      {TEXT.goalPrefix} {program.maxStamps} {TEXT.stamps}
-                    </Text>
                   </Pressable>
                 );
               })}
@@ -310,7 +322,7 @@ export default function CustomerBusinessDetailsScreen() {
                 <Pressable
                   key={String(program.programId)}
                   style={({ pressed }) => [
-                    styles.programRow,
+                    styles.programCard,
                     pressed ? styles.pressed : null,
                   ]}
                   onPress={() => {
@@ -319,24 +331,32 @@ export default function CustomerBusinessDetailsScreen() {
                     }
                   }}
                 >
-                  <View style={styles.programMeta}>
-                    <Text style={styles.programTitle}>{program.title}</Text>
-                    <Text style={styles.programSubtitle}>
-                      {program.rewardName}
-                    </Text>
-                  </View>
-                  <View style={styles.joinedDetails}>
-                    {program.canRedeem ? (
-                      <View style={styles.redeemBadge}>
-                        <Text style={styles.redeemBadgeText}>
-                          {TEXT.redeemReady}
-                        </Text>
-                      </View>
-                    ) : null}
+                  <ProgramCustomerCardPreview
+                    businessName={business.name}
+                    businessLogoUrl={business.logoUrl}
+                    title={program.title}
+                    rewardName={program.rewardName}
+                    maxStamps={program.maxStamps}
+                    previewCurrentStamps={program.currentStamps}
+                    cardThemeId={program.cardThemeId}
+                    stampIcon={program.stampIcon}
+                    status={program.canRedeem ? 'redeemable' : 'default'}
+                    variant="list"
+                  />
+                  <View style={styles.programFooterRow}>
+                    <View style={styles.joinedDetails}>
+                      {program.canRedeem ? (
+                        <View style={styles.redeemBadge}>
+                          <Text style={styles.redeemBadgeText}>
+                            {TEXT.redeemReady}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.openCardText}>{TEXT.openCard}</Text>
+                    </View>
                     <Text style={styles.programProgress}>
                       {formatProgress(program.currentStamps, program.maxStamps)}
                     </Text>
-                    <Text style={styles.openCardText}>{TEXT.openCard}</Text>
                   </View>
                 </Pressable>
               ))}
@@ -432,45 +452,32 @@ const styles = StyleSheet.create({
   programList: {
     gap: 8,
   },
-  programRow: {
+  programCard: {
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E3E9FF',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
+    padding: 8,
+    gap: 8,
   },
-  programRowSelected: {
+  programCardSelected: {
     backgroundColor: '#EEF4FF',
     borderColor: '#9CC0FF',
   },
+  programFooterRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
   programCheckbox: {
-    width: 24,
+    minWidth: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  programMeta: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  programTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0B1220',
-    textAlign: 'right',
-  },
-  programSubtitle: {
-    marginTop: 3,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5B6475',
-    textAlign: 'right',
-  },
   programGoal: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#2F6BFF',
     textAlign: 'right',
   },
@@ -491,7 +498,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   joinedDetails: {
+    flexDirection: 'row-reverse',
     alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: 4,
   },
   programProgress: {

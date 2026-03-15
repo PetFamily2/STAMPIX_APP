@@ -1,23 +1,16 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -56,6 +49,11 @@ type WalletBusiness = {
   joinedProgramCount: number;
   redeemableCount: number;
   lastActivityAt: number;
+  previewProgramTitle: string | null;
+  previewRewardName: string | null;
+  previewCardThemeId: string | null;
+  previewMaxStamps: number | null;
+  previewCurrentStamps: number | null;
 };
 
 export default function WalletScreen() {
@@ -209,27 +207,39 @@ export default function WalletScreen() {
                       } as any)
                     }
                   >
-                    <View style={styles.cardTopRow}>
-                      <View style={styles.imagePlaceholder}>
-                        <Image
-                          source={STAMPAIX_IMAGE_LOGO}
-                          style={styles.cardImage}
-                          resizeMode="contain"
-                          accessibilityLabel="StampAix logo"
-                        />
-                      </View>
+                    <ProgramCustomerCardPreview
+                      businessName={
+                        business.businessName ?? TEXT.businessFallback
+                      }
+                      businessLogoUrl={business.businessLogoUrl}
+                      title={
+                        business.previewProgramTitle ?? TEXT.joinedPrograms
+                      }
+                      rewardName={
+                        business.previewRewardName ??
+                        `${TEXT.joinedPrograms}: ${business.joinedProgramCount}`
+                      }
+                      maxStamps={Math.max(
+                        1,
+                        Number(business.previewMaxStamps ?? 1)
+                      )}
+                      previewCurrentStamps={Number(
+                        business.previewCurrentStamps ?? 0
+                      )}
+                      cardThemeId={business.previewCardThemeId}
+                      status={
+                        business.redeemableCount > 0 ? 'redeemable' : 'default'
+                      }
+                      variant="compact"
+                    />
 
-                      <View style={styles.cardTextColumn}>
-                        <Text style={styles.cardTitle}>
-                          {business.businessName ?? TEXT.businessFallback}
-                        </Text>
-                        <Text style={styles.cardSubtitle}>
-                          {TEXT.joinedPrograms}: {business.joinedProgramCount}
-                        </Text>
-                        <Text style={styles.cardSubtitle}>
-                          {TEXT.redeemReady}: {business.redeemableCount}
-                        </Text>
-                      </View>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaText}>
+                        {TEXT.joinedPrograms}: {business.joinedProgramCount}
+                      </Text>
+                      <Text style={styles.metaText}>
+                        {TEXT.redeemReady}: {business.redeemableCount}
+                      </Text>
                     </View>
 
                     <View style={styles.openRow}>
@@ -364,45 +374,17 @@ const styles = StyleSheet.create({
   statusError: {
     color: '#D92D20',
   },
-  cardTopRow: {
+  metaRow: {
+    marginTop: 10,
     flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  cardTextColumn: {
-    flex: 1,
-    gap: 2,
-    alignItems: 'flex-end',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0B1220',
-    textAlign: 'right',
-  },
-  imagePlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D7E3FF',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#184399',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardImage: {
-    width: 36,
-    height: 36,
-  },
-  cardSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
+  metaText: {
+    fontSize: 12,
     color: '#5B6475',
     textAlign: 'right',
+    fontWeight: '700',
   },
   openRow: {
     marginTop: 12,

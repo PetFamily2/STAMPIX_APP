@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from 'convex/react';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -17,7 +16,8 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { CARD_THEMES, resolveCardTheme } from '@/constants/cardThemes';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import { CARD_THEMES } from '@/constants/cardThemes';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -25,31 +25,6 @@ import { tw } from '@/lib/rtl';
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
-
-function StampPreview({ maxStamps }: { maxStamps: number }) {
-  const dots = Math.min(12, Math.max(3, maxStamps));
-  const filled = Math.min(3, dots);
-
-  return (
-    <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
-      {Array.from({ length: dots }, (_, index) => index + 1).map((id) => (
-        <View
-          key={id}
-          className={`h-8 w-8 rounded-full border ${
-            id <= filled
-              ? 'border-white bg-white'
-              : 'border-white/50 bg-white/10'
-          }`}
-        />
-      ))}
-      {maxStamps > dots ? (
-        <Text className="self-center text-xs font-bold text-white">
-          +{maxStamps - dots}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 export default function ProgramDetailsScreen() {
   const insets = useSafeAreaInsets();
@@ -137,7 +112,6 @@ export default function ProgramDetailsScreen() {
     parsedMaxStamps > 0 &&
     !isSubmitting;
 
-  const selectedTheme = resolveCardTheme(cardThemeId);
   const lifecycle = details?.lifecycle ?? 'active';
 
   const handleSave = async () => {
@@ -220,37 +194,22 @@ export default function ProgramDetailsScreen() {
           </View>
         ) : (
           <>
-            <LinearGradient
-              colors={selectedTheme.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              className="mt-5 rounded-[28px] p-5"
-            >
-              <View
-                style={{ backgroundColor: selectedTheme.glow }}
-                className="absolute -left-8 -top-8 h-24 w-24 rounded-full"
+            <View className="mt-5">
+              <ProgramCustomerCardPreview
+                businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                title={title || details.title}
+                rewardName={rewardName || details.rewardName}
+                maxStamps={parsedMaxStamps || details.maxStamps}
+                previewCurrentStamps={Math.min(
+                  3,
+                  Math.max(1, parsedMaxStamps || details.maxStamps)
+                )}
+                cardThemeId={cardThemeId}
+                stampIcon={stampIcon || details.stampIcon}
+                variant="hero"
               />
-              <Text
-                className={`text-[11px] font-semibold ${tw.textStart}`}
-                style={{ color: selectedTheme.subtitleColor }}
-              >
-                תצוגה מקדימה
-              </Text>
-              <Text
-                className={`mt-2 text-xl font-black ${tw.textStart}`}
-                style={{ color: selectedTheme.titleColor }}
-              >
-                {title || details.title}
-              </Text>
-              <Text
-                className={`mt-1 text-xs ${tw.textStart}`}
-                style={{ color: selectedTheme.subtitleColor }}
-              >
-                הטבה: {rewardName || details.rewardName} ·{' '}
-                {parsedMaxStamps || details.maxStamps} ניקובים
-              </Text>
-              <StampPreview maxStamps={parsedMaxStamps || details.maxStamps} />
-            </LinearGradient>
+            </View>
 
             <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
               <Text

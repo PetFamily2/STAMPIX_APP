@@ -64,6 +64,7 @@ type CustomerMembershipRecord = {
   programTitle: string;
   rewardName: string;
   stampIcon: string;
+  cardThemeId: string | null;
   currentStamps: number;
   maxStamps: number;
   lastStampAt: number;
@@ -213,6 +214,7 @@ export const byCustomer = query({
           programTitle: program.title,
           rewardName: program.rewardName,
           stampIcon: program.stampIcon,
+          cardThemeId: program.cardThemeId ?? null,
           currentStamps: membership.currentStamps,
           maxStamps: program.maxStamps,
           lastStampAt,
@@ -254,6 +256,11 @@ export const byCustomerBusinesses = query({
         joinedProgramCount: number;
         redeemableCount: number;
         lastActivityAt: number;
+        previewProgramTitle: string | null;
+        previewRewardName: string | null;
+        previewCardThemeId: string | null;
+        previewMaxStamps: number | null;
+        previewCurrentStamps: number | null;
       }
     >();
 
@@ -291,6 +298,11 @@ export const byCustomerBusinesses = query({
           joinedProgramCount: 1,
           redeemableCount: redeemable ? 1 : 0,
           lastActivityAt,
+          previewProgramTitle: program.title,
+          previewRewardName: program.rewardName,
+          previewCardThemeId: program.cardThemeId ?? null,
+          previewMaxStamps: Number(program.maxStamps ?? 0),
+          previewCurrentStamps: Number(membership.currentStamps ?? 0),
         });
         continue;
       }
@@ -301,6 +313,11 @@ export const byCustomerBusinesses = query({
       }
       if (lastActivityAt > existing.lastActivityAt) {
         existing.lastActivityAt = lastActivityAt;
+        existing.previewProgramTitle = program.title;
+        existing.previewRewardName = program.rewardName;
+        existing.previewCardThemeId = program.cardThemeId ?? null;
+        existing.previewMaxStamps = Number(program.maxStamps ?? 0);
+        existing.previewCurrentStamps = Number(membership.currentStamps ?? 0);
       }
     }
 

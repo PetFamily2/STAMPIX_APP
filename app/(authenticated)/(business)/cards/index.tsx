@@ -1,6 +1,6 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,6 +33,11 @@ import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation
 const TEXT_START = IS_RTL ? 'right' : 'left';
 const TEXT_END = IS_RTL ? 'left' : 'right';
 const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
+type MarketingTopTab = 'campaigns' | 'loyalty';
+const TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
+  { key: 'campaigns', label: 'קמפיינים' },
+  { key: 'loyalty', label: 'כרטיסיות נאמנות' },
+];
 const TEXT = {
   savedTitle: '\u05E0\u05E9\u05DE\u05E8',
   savedMessage:
@@ -135,12 +140,28 @@ function PlanUsageTile({
 export default function BusinessCardsManagementScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, section } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    section?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const activeSection = section === 'loyalty' ? 'loyalty' : 'campaigns';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
+
+  if (activeSection === 'campaigns') {
+    return (
+      <Redirect
+        href={{
+          pathname: '/(authenticated)/(business)/cards/campaigns',
+          params: {
+            preview,
+            map,
+          },
+        }}
+      />
+    );
+  }
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const canManage =
@@ -296,6 +317,35 @@ export default function BusinessCardsManagementScreen() {
             </TouchableOpacity>
           }
         />
+        <View
+          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
+        >
+          {TOP_TABS.map((topTab) => {
+            const isActive = topTab.key === 'loyalty';
+            return (
+              <TouchableOpacity
+                key={topTab.key}
+                onPress={() => {
+                  if (topTab.key === 'loyalty') {
+                    return;
+                  }
+                  router.replace('/(authenticated)/(business)/cards/campaigns');
+                }}
+                className={`flex-1 rounded-full py-2.5 ${
+                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
+                }`}
+              >
+                <Text
+                  className={`text-center text-sm font-extrabold ${
+                    isActive ? 'text-white' : 'text-[#51617F]'
+                  }`}
+                >
+                  {topTab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <TouchableOpacity
           disabled={!canOpenCreatePanel && !cardLimit.isAtLimit}
@@ -450,8 +500,12 @@ export default function BusinessCardsManagementScreen() {
               >
                 <ProgramCustomerCardPreview
                   businessName={businessDisplayName}
+                  businessLogoUrl={activeBusiness?.logoUrl ?? null}
+                  title={program.title}
                   rewardName={program.rewardName}
                   maxStamps={program.maxStamps}
+                  cardThemeId={program.cardThemeId}
+                  variant="list"
                 />
 
                 <View style={styles.performanceHeaderRow}>
@@ -514,9 +568,14 @@ export default function BusinessCardsManagementScreen() {
               >
                 <ProgramCustomerCardPreview
                   businessName={businessDisplayName}
+                  businessLogoUrl={activeBusiness?.logoUrl ?? null}
+                  title={program.title}
                   rewardName={program.rewardName}
                   maxStamps={program.maxStamps}
                   previewCurrentStamps={0}
+                  cardThemeId={program.cardThemeId}
+                  status="archived"
+                  variant="list"
                 />
                 <View style={styles.performanceHeaderRow}>
                   <Text style={styles.performanceHeaderLabel}>

@@ -16,7 +16,7 @@ const TEXT = {
   analytics: 'דוחות',
   scanCustomer: 'סרוק לקוח',
   customers: 'לקוחות',
-  marketing: 'כרטיסים',
+  marketing: 'שיווק',
   settings: 'הגדרות',
 };
 

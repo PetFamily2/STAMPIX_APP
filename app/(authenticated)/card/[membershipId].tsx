@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
@@ -167,9 +168,6 @@ export default function CardDetailsScreen() {
   const goal = Math.max(1, Number(membership.maxStamps ?? 0) || 0);
   const remainingStamps = Math.max(0, goal - current);
   const isRedeemEligible = Boolean(membership.canRedeem || current >= goal);
-  const dots = Math.min(goal, 20);
-  const overflow = Math.max(0, goal - dots);
-  const dotIds = Array.from({ length: dots }, (_, index) => index + 1);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -212,26 +210,18 @@ export default function CardDetailsScreen() {
               : styles.progressCardPending,
           ]}
         >
-          <Text style={styles.progressText}>
-            {current}/{goal}
-          </Text>
-          <Text style={styles.rewardText}>{membership.rewardName}</Text>
-          <View style={styles.stampRow}>
-            {dotIds.map((dotId) => (
-              <View
-                key={`${membership.membershipId}-dot-${dotId}`}
-                style={[
-                  styles.stampDot,
-                  dotId <= current
-                    ? { backgroundColor: '#2F6BFF', borderColor: '#2F6BFF' }
-                    : styles.stampDotEmpty,
-                ]}
-              />
-            ))}
-            {overflow > 0 ? (
-              <Text style={styles.moreText}>+{overflow}</Text>
-            ) : null}
-          </View>
+          <ProgramCustomerCardPreview
+            businessName={membership.businessName}
+            businessLogoUrl={membership.businessLogoUrl}
+            title={membership.programTitle}
+            rewardName={membership.rewardName}
+            maxStamps={goal}
+            previewCurrentStamps={current}
+            cardThemeId={membership.cardThemeId}
+            stampIcon={membership.stampIcon}
+            status={isRedeemEligible ? 'redeemable' : 'default'}
+            variant="hero"
+          />
 
           <View
             style={[
@@ -425,41 +415,6 @@ const styles = StyleSheet.create({
   progressCardPending: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E3E9FF',
-  },
-  progressText: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#2F6BFF',
-    textAlign: 'right',
-  },
-  rewardText: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0B1220',
-    textAlign: 'right',
-  },
-  stampRow: {
-    marginTop: 12,
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
-  stampDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-  },
-  stampDotEmpty: {
-    borderColor: '#E5EAF5',
-    backgroundColor: '#E9EEF9',
-  },
-  moreText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5B6475',
   },
   redeemPanel: {
     marginTop: 14,
