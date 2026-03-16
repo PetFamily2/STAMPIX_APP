@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -25,6 +26,7 @@ import {
   PAYMENT_SYSTEM_ENABLED,
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
 } from '@/config/appConfig';
+import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -37,7 +39,6 @@ import {
 } from '@/lib/subscription/planComparison';
 
 export default function PaywallScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -286,6 +287,10 @@ export default function PaywallScreen() {
     }
   };
 
+  const handleOpenLegalDocument = () => {
+    void WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL);
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingSafeArea} edges={['top', 'bottom']}>
@@ -402,7 +407,7 @@ export default function PaywallScreen() {
                     <Text style={styles.footerLinkText}>שחזור רכישות</Text>
                   )}
                 </TouchableOpacity>
-                <Pressable onPress={() => router.push('/(auth)/legal')}>
+                <Pressable onPress={handleOpenLegalDocument}>
                   <Text style={styles.footerLinkText}>מסמך משפטי</Text>
                 </Pressable>
               </View>

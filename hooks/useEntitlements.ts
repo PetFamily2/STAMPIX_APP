@@ -16,7 +16,12 @@ type FeatureKey =
   | 'canUseSmartAnalytics'
   | 'canUseAdvancedSegmentation';
 
-type LimitKey = 'maxCards' | 'maxCustomers' | 'maxActiveRetentionActions';
+type LimitKey =
+  | 'maxCards'
+  | 'maxCustomers'
+  | 'maxActiveRetentionActions'
+  | 'maxCampaigns'
+  | 'maxAiExecutionsPerMonth';
 type BusinessPlan = 'starter' | 'pro' | 'premium';
 
 type GateResult = {
@@ -100,7 +105,11 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
             ? Math.max(0, Math.floor(currentValue))
             : limitKey === 'maxActiveRetentionActions'
               ? entitlements.usage.activeRetentionActions
-              : 0;
+              : limitKey === 'maxCampaigns'
+                ? entitlements.usage.activeManagementCampaigns
+                : limitKey === 'maxAiExecutionsPerMonth'
+                  ? entitlements.usage.aiExecutionsThisMonth
+                  : 0;
         const remaining = Math.max(0, limitValue - normalizedCurrent);
         const usageRatio = limitValue > 0 ? normalizedCurrent / limitValue : 1;
 

@@ -1,6 +1,20 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { Doc, Id } from './_generated/dataModel';
 
+function resolveProgramLifecycle(program: any) {
+  if (
+    program?.status === 'draft' ||
+    program?.status === 'active' ||
+    program?.status === 'archived'
+  ) {
+    return program.status;
+  }
+  if (program?.isArchived === true) {
+    return 'archived';
+  }
+  return 'active';
+}
+
 export async function getCurrentUserOrNull(
   ctx: any
 ): Promise<Doc<'users'> | null> {
@@ -33,9 +47,11 @@ export async function requireBusinessAndProgram(
   }
 
   const program = await ctx.db.get(programId);
+  const programLifecycle = resolveProgramLifecycle(program);
   if (
     !program ||
     program.isActive !== true ||
+    programLifecycle === 'draft' ||
     program.businessId !== businessId
   ) {
     throw new Error('PROGRAM_NOT_FOUND');

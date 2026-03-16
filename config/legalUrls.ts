@@ -1,23 +1,23 @@
-// ============================================================================
-// קישורים משפטיים
-// ============================================================================
-// קובץ זה מכיל את הקישורים למסמכים המשפטיים של האפליקציה
-// עדכן את הקישורים לפני הפצה לחנויות
+function normalizePublicUrl(value: string | undefined, fallbackUrl: string) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return fallbackUrl;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    return fallbackUrl;
+  }
+  return normalized;
+}
 
-/**
- * קישור למדיניות הפרטיות
- * ⚠️ חובה: עדכן את הקישור הזה לכתובת האמיתית של מדיניות הפרטיות שלך
- * הקישור חייב להיות נגיש בפומבי (לא רק בתוך האפליקציה)
- */
-export const PRIVACY_POLICY_URL =
-  process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ||
-  'https://yourdomain.com/privacy-policy';
+const DEFAULT_PRIVACY_POLICY_URL = 'https://stampix.app/legal/privacy';
+const DEFAULT_TERMS_OF_SERVICE_URL = 'https://stampix.app/legal/terms';
 
-/**
- * קישור לתנאי השימוש
- * ⚠️ חובה: עדכן את הקישור הזה לכתובת האמיתית של תנאי השימוש שלך
- * הקישור חייב להיות נגיש בפומבי (לא רק בתוך האפליקציה)
- */
-export const TERMS_OF_SERVICE_URL =
-  process.env.EXPO_PUBLIC_TERMS_OF_SERVICE_URL ||
-  'https://yourdomain.com/terms-of-service';
+export const PRIVACY_POLICY_URL = normalizePublicUrl(
+  process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL,
+  DEFAULT_PRIVACY_POLICY_URL
+);
+
+export const TERMS_OF_SERVICE_URL = normalizePublicUrl(
+  process.env.EXPO_PUBLIC_TERMS_OF_SERVICE_URL,
+  DEFAULT_TERMS_OF_SERVICE_URL
+);

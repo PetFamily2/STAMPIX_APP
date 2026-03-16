@@ -131,6 +131,7 @@ export default function CreateProgramScreen() {
         rewardName: programDraft.rewardName.trim(),
         maxStamps: maxStampsNumber,
         stampIcon: programDraft.stampIcon.trim() || 'star',
+        cardThemeId: programDraft.cardThemeId,
       });
 
       setProgramId(loyaltyProgramId);

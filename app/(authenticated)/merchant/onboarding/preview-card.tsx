@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
@@ -324,6 +325,10 @@ export default function PreviewCardScreen() {
   const completeBusinessOnboarding = useMutation(
     api.users.completeBusinessOnboarding
   );
+  const updateProgramForManagement = useMutation(
+    api.loyaltyPrograms.updateProgramForManagement
+  );
+  const publishProgram = useMutation(api.loyaltyPrograms.publishProgram);
   const saveBusinessOnboardingSnapshot = useMutation(
     api.business.saveBusinessOnboardingSnapshot
   );
@@ -410,6 +415,30 @@ export default function PreviewCardScreen() {
 
     setIsFinishing(true);
     try {
+      const normalizedTitle =
+        programDraft.title.trim() || programDraft.rewardName.trim();
+      const normalizedReward =
+        programDraft.rewardName.trim() || programDraft.title.trim();
+
+      await updateProgramForManagement({
+        businessId,
+        programId,
+        title: normalizedTitle,
+        description: undefined,
+        imageUrl: undefined,
+        rewardName: normalizedReward,
+        maxStamps: stampCount,
+        cardTerms: undefined,
+        rewardConditions: undefined,
+        stampIcon: programDraft.stampIcon.trim() || 'star',
+        cardThemeId: programDraft.cardThemeId,
+      });
+
+      await publishProgram({
+        businessId,
+        programId,
+      });
+
       await saveBusinessOnboardingSnapshot({
         businessId,
         discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
@@ -448,13 +477,18 @@ export default function PreviewCardScreen() {
         </View>
 
         <ScrollView
+          stickyHeaderIndices={[0]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.titleContainer}>
+          <StickyScrollHeader
+            topPadding={0}
+            backgroundColor="#F4F0E8"
+            style={styles.titleContainer}
+          >
             <Text style={styles.title}>{TEXT.title}</Text>
             <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
-          </View>
+          </StickyScrollHeader>
 
           <View style={styles.previewShell}>
             <LinearGradient

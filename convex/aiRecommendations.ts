@@ -8,7 +8,11 @@ import {
   mutation,
   query,
 } from './_generated/server';
-import { getBusinessEntitlementsForBusinessId } from './entitlements';
+import {
+  assertEntitlement,
+  countActiveManagementCampaignsForBusiness,
+  getBusinessEntitlementsForBusinessId,
+} from './entitlements';
 import {
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
@@ -44,12 +48,6 @@ const MAX_OUTPUT_TOKENS = 120;
 
 const AI_COST_INPUT_PER_1M_USD = 0.1;
 const AI_COST_OUTPUT_PER_1M_USD = 0.4;
-
-const AI_MONTHLY_QUOTA_BY_PLAN = {
-  starter: 0,
-  pro: 100,
-  premium: 300,
-} as const;
 
 const GOAL_UNION = v.union(
   v.literal('bring_back_customers'),
@@ -596,12 +594,6 @@ function truncateWords(value: string, maxWords: number) {
     return normalized;
   }
   return parts.slice(0, maxWords).join(' ');
-}
-
-function normalizePlan(plan: unknown): 'starter' | 'pro' | 'premium' {
-  if (plan === 'premium') return 'premium';
-  if (plan === 'pro') return 'pro';
-  return 'starter';
 }
 
 function inferRewardType(
@@ -2825,12 +2817,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       ctx.db
         .query('loyaltyPrograms')
         .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) =>
-          q.and(
-            q.eq(q.field('isActive'), true),
-            q.neq(q.field('isArchived'), true)
-          )
-        )
+        .filter((q: any) => q.eq(q.field('isActive'), true))
         .collect(),
       ctx.db
         .query('memberships')
@@ -2868,6 +2855,16 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       now,
     });
 
+    const activePrograms = programs.filter((program) => {
+      if (program.status === 'active') {
+        return true;
+      }
+      if (program.status === 'draft' || program.status === 'archived') {
+        return false;
+      }
+      return program.isArchived !== true;
+    });
+
     const stampEvents30d = events.filter(
       (event) =>
         event.type === 'STAMP_ADDED' && event.createdAt >= thirtyDaysAgo
@@ -2876,7 +2873,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       (membership) => membership.isActive === true
     );
     const primaryProgram = selectPrimaryProgram(
-      programs,
+      activePrograms,
       activeMemberships,
       stampEvents30d
     );
@@ -2909,11 +2906,8 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     });
     const metrics = secondMetricsPass.metrics;
 
-    const plan = normalizePlan(entitlements.plan);
-    const aiQuotaLimit = AI_MONTHLY_QUOTA_BY_PLAN[plan];
-    const aiQuotaUsedMonthly = usageMonth.filter(
-      (row) => row.status === 'success' && row.cacheHit !== true
-    ).length;
+    const aiQuotaLimit = entitlements.limits.maxAiExecutionsPerMonth;
+    const aiQuotaUsedMonthly = entitlements.usage.aiExecutionsThisMonth;
     const aiExecutionsToday = usageMonth.filter(
       (row) =>
         row.status === 'success' &&
@@ -3005,7 +2999,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       signalQuality,
       hasPrimaryProgram: primaryProgram !== null,
       profileBasicsComplete,
-      activeProgramCount: programs.length,
+      activeProgramCount: activePrograms.length,
       daysSinceCardChange,
       daysSinceLastCampaign,
       hasEverSentCampaign,
@@ -3018,7 +3012,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     });
     const topState = topStateFromDetectedStates(detectedStates);
     let snapshot = {
-      package_plan: plan,
+      package_plan: entitlements.plan,
       normalized_business_profile: profile,
       key_performance_metrics: metrics,
       signal_quality: signalQuality,
@@ -3032,7 +3026,7 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       },
       product_usage_state: {
         has_active_loyalty_card: primaryProgram !== null,
-        active_program_count: programs.length,
+        active_program_count: activePrograms.length,
         card_recently_changed:
           daysSinceCardChange !== null &&
           daysSinceCardChange <= CARD_CHANGE_COOLDOWN_DAYS,
@@ -3750,6 +3744,12 @@ export const executeRecommendationPrimaryCta = mutation({
 
     if (primaryCta.kind === 'open_campaign_draft') {
       await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+      const activeManagementCampaigns =
+        await countActiveManagementCampaignsForBusiness(ctx, businessId);
+      await assertEntitlement(ctx, businessId, {
+        limitKey: 'maxCampaigns',
+        currentValue: activeManagementCampaigns,
+      });
       const snapshot = recommendation.snapshotId
         ? await ctx.db.get(recommendation.snapshotId)
         : null;
@@ -3879,7 +3879,6 @@ export const getAiRecommendationAnalytics = query({
         row.createdAt < now - 7 * DAY_MS
     ).length;
 
-    const plan = normalizePlan(entitlements.plan);
     const monthKey = monthKeyFromTimestamp(now);
     const monthUsage = usageRows.filter(
       (row) =>
@@ -3887,7 +3886,7 @@ export const getAiRecommendationAnalytics = query({
         row.status === 'success' &&
         row.cacheHit !== true
     ).length;
-    const monthlyQuota = AI_MONTHLY_QUOTA_BY_PLAN[plan];
+    const monthlyQuota = entitlements.limits.maxAiExecutionsPerMonth;
 
     return {
       windowDays,

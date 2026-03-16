@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -28,6 +28,7 @@ export default function QrScanner({
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [internalBusy, setInternalBusy] = useState(false);
+  const scanLockRef = useRef(false);
 
   useEffect(() => {
     if (permission === null || permission === undefined) {
@@ -36,24 +37,33 @@ export default function QrScanner({
   }, [permission, requestPermission]);
 
   useEffect(() => {
+    void resetKey;
     setScanned(false);
     setInternalBusy(false);
+    scanLockRef.current = false;
   }, [resetKey]);
 
   const hasPermission = permission?.granted === true;
 
   const handleBarcode = useCallback(
     async ({ data }: { data: string }) => {
-      if (!data || scanned || isBusy || internalBusy || !hasPermission) {
+      if (
+        !data ||
+        scanned ||
+        isBusy ||
+        internalBusy ||
+        !hasPermission ||
+        scanLockRef.current
+      ) {
         return;
       }
+      scanLockRef.current = true;
       setScanned(true);
       setInternalBusy(true);
       try {
         await onScan(String(data));
-      } catch (error) {
-        console.log('[QrScanner] scan handler failed', error);
-        setScanned(false);
+      } catch {
+        // Keep scanner locked until parent issues a reset via resetKey.
       } finally {
         setInternalBusy(false);
       }
@@ -102,7 +112,9 @@ export default function QrScanner({
         {hasPermission ? (
           <CameraView
             style={styles.cameraView}
-            onBarcodeScanned={handleBarcode}
+            onBarcodeScanned={
+              scanned || isBusy || internalBusy ? undefined : handleBarcode
+            }
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           />
         ) : (

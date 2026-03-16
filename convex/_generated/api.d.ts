@@ -27,6 +27,7 @@ import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
 import type * as migrations_backfillBusinessSubscriptions from "../migrations/backfillBusinessSubscriptions.js";
+import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/backfillLoyaltyProgramLifecycle.js";
 import type * as migrations_backfillUserSubscriptionPlans from "../migrations/backfillUserSubscriptionPlans.js";
 import type * as migrations_migrateRetentionActionLimitModel from "../migrations/migrateRetentionActionLimitModel.js";
 import type * as migrations_migrateToOnboardingFlags from "../migrations/migrateToOnboardingFlags.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   memberships: typeof memberships;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
   "migrations/backfillBusinessSubscriptions": typeof migrations_backfillBusinessSubscriptions;
+  "migrations/backfillLoyaltyProgramLifecycle": typeof migrations_backfillLoyaltyProgramLifecycle;
   "migrations/backfillUserSubscriptionPlans": typeof migrations_backfillUserSubscriptionPlans;
   "migrations/migrateRetentionActionLimitModel": typeof migrations_migrateRetentionActionLimitModel;
   "migrations/migrateToOnboardingFlags": typeof migrations_migrateToOnboardingFlags;

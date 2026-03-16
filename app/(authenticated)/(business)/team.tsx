@@ -15,6 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -200,26 +201,31 @@ export default function BusinessTeamScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: 32,
         }}
       >
-        <BusinessScreenHeader
-          title="צוות"
-          subtitle="הזמנת עובדים וגישה משותפת לעסק"
-          titleAccessory={
-            <TouchableOpacity
-              onPress={() =>
-                router.replace('/(authenticated)/(business)/dashboard')
-              }
-              className="h-10 w-10 items-center justify-center rounded-full bg-white"
-            >
-              <Text className="text-lg text-[#1A2B4A]">←</Text>
-            </TouchableOpacity>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="צוות"
+            subtitle="הזמנת עובדים וגישה משותפת לעסק"
+            titleAccessory={
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+                className="h-10 w-10 items-center justify-center rounded-full bg-white"
+              >
+                <Text className="text-lg text-[#1A2B4A]">←</Text>
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
 
         <View className="mt-5">
           <FeatureGate

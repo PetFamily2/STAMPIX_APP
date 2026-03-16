@@ -118,17 +118,43 @@ async function resolveBusinessFromJoinInput(
     .first();
 }
 
+function resolveProgramLifecycle(
+  program: any
+): 'draft' | 'active' | 'archived' {
+  if (
+    program?.status === 'draft' ||
+    program?.status === 'active' ||
+    program?.status === 'archived'
+  ) {
+    return program.status;
+  }
+  if (program?.isArchived === true) {
+    return 'archived';
+  }
+  return 'active';
+}
+
+function isLifecycleJoinable(lifecycle: 'draft' | 'active' | 'archived') {
+  return lifecycle === 'active';
+}
+
+function isLifecycleOperational(lifecycle: 'draft' | 'active' | 'archived') {
+  return lifecycle === 'active' || lifecycle === 'archived';
+}
+
 async function listActiveProgramsForBusiness(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const programs = await ctx.db
+  const allPrograms = await ctx.db
     .query('loyaltyPrograms')
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-    .filter((q: any) =>
-      q.and(q.eq(q.field('isActive'), true), q.neq(q.field('isArchived'), true))
-    )
+    .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
+
+  const programs = allPrograms.filter((program: any) =>
+    isLifecycleJoinable(resolveProgramLifecycle(program))
+  );
 
   programs.sort((left: any, right: any) =>
     String(left.title ?? '').localeCompare(String(right.title ?? ''), 'he')
@@ -193,6 +219,7 @@ export const byCustomer = query({
         if (
           !program ||
           program.isActive !== true ||
+          !isLifecycleOperational(resolveProgramLifecycle(program)) ||
           program.businessId !== business._id
         ) {
           return null;
@@ -275,7 +302,7 @@ export const byCustomerBusinesses = query({
       if (
         !program ||
         program.isActive !== true ||
-        program.isArchived === true ||
+        !isLifecycleOperational(resolveProgramLifecycle(program)) ||
         program.businessId !== business._id
       ) {
         continue;
@@ -342,8 +369,12 @@ export const getCustomerBusiness = query({
       throw new Error('BUSINESS_NOT_FOUND');
     }
 
-    const [programs, memberships] = await Promise.all([
-      listActiveProgramsForBusiness(ctx, businessId),
+    const [allPrograms, memberships] = await Promise.all([
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
       ctx.db
         .query('memberships')
         .withIndex('by_userId_businessId', (q: any) =>
@@ -353,25 +384,71 @@ export const getCustomerBusiness = query({
         .collect(),
     ]);
 
-    const activeMembershipsByProgramId = new Map(
-      memberships.map((membership) => [
-        String(membership.programId),
-        membership,
-      ])
-    );
-    const rows = buildProgramSelectionRows(
-      programs,
-      activeMembershipsByProgramId
+    const programById = new Map(
+      allPrograms.map((program: any) => [String(program._id), program])
     );
 
-    const joinedPrograms = rows
-      .filter((row) => row.isJoined)
+    const joinedPrograms = memberships
+      .map((membership: any) => {
+        const program = programById.get(String(membership.programId));
+        if (
+          !program ||
+          !isLifecycleOperational(resolveProgramLifecycle(program))
+        ) {
+          return null;
+        }
+
+        const maxStamps = Number(program.maxStamps ?? 0);
+        const currentStamps = Number(membership.currentStamps ?? 0);
+        return {
+          programId: program._id,
+          title: program.title,
+          rewardName: program.rewardName,
+          maxStamps,
+          stampIcon: program.stampIcon,
+          cardThemeId: program.cardThemeId ?? null,
+          membershipId: membership._id,
+          isJoined: true,
+          currentStamps,
+          canRedeem: currentStamps >= maxStamps,
+          lastStampAt:
+            membership.lastStampAt ??
+            membership.updatedAt ??
+            membership.createdAt ??
+            null,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
       .sort((left, right) => {
         const leftAt = left.lastStampAt ?? 0;
         const rightAt = right.lastStampAt ?? 0;
         return rightAt - leftAt;
       });
-    const availablePrograms = rows.filter((row) => !row.isJoined);
+
+    const joinedProgramIdSet = new Set(
+      memberships.map((membership) => String(membership.programId))
+    );
+    const availablePrograms = allPrograms
+      .filter((program: any) =>
+        isLifecycleJoinable(resolveProgramLifecycle(program))
+      )
+      .filter((program: any) => !joinedProgramIdSet.has(String(program._id)))
+      .map((program: any) => ({
+        programId: program._id,
+        title: program.title,
+        rewardName: program.rewardName,
+        maxStamps: Number(program.maxStamps ?? 0),
+        stampIcon: program.stampIcon,
+        cardThemeId: program.cardThemeId ?? null,
+        membershipId: null,
+        isJoined: false,
+        currentStamps: 0,
+        canRedeem: false,
+        lastStampAt: null,
+      }))
+      .sort((left, right) =>
+        String(left.title ?? '').localeCompare(String(right.title ?? ''), 'he')
+      );
 
     return {
       business: {
@@ -563,7 +640,7 @@ export const joinSelectedPrograms = mutation({
       (program) =>
         !program ||
         program.isActive !== true ||
-        program.isArchived === true ||
+        !isLifecycleJoinable(resolveProgramLifecycle(program)) ||
         String(program.businessId) !== String(businessId)
     );
     if (invalidProgram) {
@@ -693,16 +770,16 @@ export const joinByBusinessQr = mutation({
     if (!business || business.isActive !== true)
       throw new Error('BUSINESS_NOT_FOUND');
 
-    const program = await ctx.db
+    const programs = await ctx.db
       .query('loyaltyPrograms')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', business._id))
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.neq(q.field('isArchived'), true)
-        )
-      )
-      .first();
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .collect();
+
+    const program =
+      programs.find((item: any) =>
+        isLifecycleJoinable(resolveProgramLifecycle(item))
+      ) ?? null;
 
     if (!program) throw new Error('PROGRAM_NOT_FOUND');
 

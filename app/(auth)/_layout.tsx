@@ -30,10 +30,6 @@ export default function AuthRoutesLayout() {
   const segmentStrings = segments as string[];
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const isPaywallRoute = segmentStrings.includes('paywall');
-  const isFlowMapRoute =
-    segmentStrings.includes('flow-map') ||
-    pathname === '/flow-map' ||
-    pathname.endsWith('/flow-map');
   const isOnboardingRoute =
     segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
     segmentStrings.includes('name-capture');
@@ -42,7 +38,6 @@ export default function AuthRoutesLayout() {
   const isAllowedForAuthenticated =
     isPaywallRoute ||
     isPreviewMode ||
-    isFlowMapRoute ||
     isOnboardingRoute ||
     isOAuthCallbackRoute ||
     !customerOnboarded;

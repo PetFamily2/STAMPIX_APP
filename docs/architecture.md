@@ -17,7 +17,7 @@ Last synced: 2026-02-18
 
 ## Routing and layout
 - Auth tree (`app/(auth)/*`):
-  - Welcome, sign-up, sign-up-email, sign-in alias, legal, paywall, flow-map,
+  - Welcome, sign-up, sign-up-email, sign-in alias, legal, paywall,
     onboarding steps, name-capture.
 - Authenticated tree (`app/(authenticated)/*`):
   - `/(customer)` tabs: wallet, rewards, discovery, settings.
@@ -30,7 +30,7 @@ Last synced: 2026-02-18
   - Email OTP, Password, Google OAuth, Apple OAuth.
 - `app/(auth)/_layout.tsx`:
   - Redirects authenticated users to `/(authenticated)/(customer)/wallet`.
-  - Exceptions: paywall, preview/map mode, flow-map, onboarding routes, name-capture.
+  - Exceptions: paywall, preview/map mode, onboarding routes, name-capture.
 - `app/(authenticated)/_layout.tsx`:
   - Guards unauthenticated access.
   - Loads user and appMode before routing.

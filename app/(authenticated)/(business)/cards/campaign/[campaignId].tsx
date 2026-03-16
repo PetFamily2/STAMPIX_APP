@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -29,6 +30,11 @@ type CampaignType =
   | 'winback'
   | 'promo';
 type CampaignCreateMode = 'template' | 'custom';
+type LoyaltyProgramOption = {
+  loyaltyProgramId: Id<'loyaltyPrograms'>;
+  title: string;
+  lifecycle: 'draft' | 'active' | 'archived';
+};
 
 const CAMPAIGN_TEMPLATES: Array<{
   type: CampaignType;
@@ -261,13 +267,15 @@ export default function CampaignDraftEditorScreen() {
   const canManagePrograms =
     selectedBusiness?.staffRole === 'owner' ||
     selectedBusiness?.staffRole === 'manager';
-  const programs =
-    useQuery(
-      api.loyaltyPrograms.listManagementByBusiness,
-      selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
-    ) ?? [];
+  const programs = (useQuery(
+    api.loyaltyPrograms.listManagementByBusiness,
+    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+  ) ?? []) as LoyaltyProgramOption[];
   const activePrograms = useMemo(
-    () => programs.filter((program) => program.lifecycle === 'active'),
+    () =>
+      programs.filter(
+        (program: LoyaltyProgramOption) => program.lifecycle === 'active'
+      ),
     [programs]
   );
 
@@ -420,24 +428,29 @@ export default function CampaignDraftEditorScreen() {
       <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <ScrollView
           className="flex-1"
+          stickyHeaderIndices={[0]}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: 28,
           }}
         >
-          <BusinessScreenHeader
-            title="יצירת קמפיין"
-            subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={goBackToCampaignList}
-                className="h-10 w-10 items-center justify-center rounded-full bg-white"
-              >
-                <Text className="text-lg text-[#1A2B4A]">←</Text>
-              </TouchableOpacity>
-            }
-          />
+          <StickyScrollHeader
+            topPadding={(insets.top || 0) + 12}
+            backgroundColor="#E9F0FF"
+          >
+            <BusinessScreenHeader
+              title="יצירת קמפיין"
+              subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
+              titleAccessory={
+                <TouchableOpacity
+                  onPress={goBackToCampaignList}
+                  className="h-10 w-10 items-center justify-center rounded-full bg-white"
+                >
+                  <Text className="text-lg text-[#1A2B4A]">←</Text>
+                </TouchableOpacity>
+              }
+            />
+          </StickyScrollHeader>
 
           {!canManagePrograms ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
@@ -827,23 +840,28 @@ export default function CampaignDraftEditorScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: 28,
         }}
       >
-        <BusinessScreenHeader
-          title="עריכת קמפיין"
-          titleAccessory={
-            <TouchableOpacity
-              onPress={goBackToCampaignList}
-              className="h-10 w-10 items-center justify-center rounded-full bg-white"
-            >
-              <Text className="text-lg text-[#1A2B4A]">←</Text>
-            </TouchableOpacity>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="עריכת קמפיין"
+            titleAccessory={
+              <TouchableOpacity
+                onPress={goBackToCampaignList}
+                className="h-10 w-10 items-center justify-center rounded-full bg-white"
+              >
+                <Text className="text-lg text-[#1A2B4A]">←</Text>
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
 
         {!canManagePrograms ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">

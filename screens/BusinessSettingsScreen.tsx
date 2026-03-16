@@ -18,6 +18,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
@@ -172,16 +173,18 @@ export default function BusinessSettingsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <ScrollView
+          stickyHeaderIndices={[0]}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: 24,
           }}
         >
-          <BusinessScreenHeader
-            title="הגדרות עסק"
-            subtitle="חיבור נתוני העסק והחשבון"
-          />
+          <StickyScrollHeader
+            topPadding={(insets.top || 0) + 12}
+            backgroundColor="#E9F0FF"
+          >
+            <BusinessScreenHeader title="הגדרות עסק" />
+          </StickyScrollHeader>
           <View className="mt-6 gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-5">
             <Text
               className={`text-base font-extrabold text-[#1A2B4A] ${tw.textStart}`}
@@ -208,17 +211,19 @@ export default function BusinessSettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: 30,
           gap: 12,
         }}
       >
-        <BusinessScreenHeader
-          title="הגדרות עסק"
-          subtitle="ניהול הגדרות העסק במסכים ייעודיים"
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader title="הגדרות עסק" />
+        </StickyScrollHeader>
 
         <BusinessModeCtaCard accentButton={true} />
 
@@ -336,7 +341,7 @@ export default function BusinessSettingsScreen() {
         <View className="gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
           <MenuRow
             title="פרופיל עסק"
-            subtitle="שם העסק, תיאור, טלפון, סוגי שירותים ותגיות"
+            subtitle="שם העסק, תיאור, טלפון וסוגי שירות"
             icon="business-outline"
             onPress={() =>
               router.push(
@@ -345,8 +350,8 @@ export default function BusinessSettingsScreen() {
             }
           />
           <MenuRow
-            title="\u200EQR\u200E \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea"
-            subtitle="\u05de\u05e1\u05da \u05e9\u05d9\u05ea\u05d5\u05e3 \u05e7\u05d5\u05d3 \u200EQR\u200E \u05dc\u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea \u05dc\u05de\u05d5\u05e2\u05d3\u05d5\u05df"
+            title="קוד QR להצטרפות לקוחות"
+            subtitle="מסך שיתוף קוד QR להצטרפות למועדון"
             icon="qr-code-outline"
             onPress={() => router.push('/(authenticated)/(business)/qr')}
           />

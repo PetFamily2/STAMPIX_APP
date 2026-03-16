@@ -215,9 +215,17 @@ export default defineSchema({
 
   loyaltyPrograms: defineTable({
     businessId: v.id('businesses'),
+    status: v.optional(
+      v.union(v.literal('draft'), v.literal('active'), v.literal('archived'))
+    ),
+    publishedAt: v.optional(v.number()),
     title: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
     rewardName: v.string(),
     maxStamps: v.number(),
+    cardTerms: v.optional(v.string()),
+    rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
     cardThemeId: v.optional(v.string()),
     lastStructureChangedAt: v.optional(v.number()),
@@ -230,6 +238,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_status', ['businessId', 'status'])
     .index('by_isActive', ['isActive']),
 
   memberships: defineTable({
@@ -245,6 +254,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_userId', ['userId'])
+    .index('by_programId', ['programId'])
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_userId_businessId', ['userId', 'businessId'])

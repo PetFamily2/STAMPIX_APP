@@ -17,12 +17,19 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
 import { IS_RTL, tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ManagementCampaignType =
   | 'welcome'
@@ -164,6 +171,11 @@ export default function CampaignsHubScreen() {
   const canManage =
     activeBusiness?.staffRole === 'owner' ||
     activeBusiness?.staffRole === 'manager';
+  const {
+    entitlements,
+    limitStatus,
+    isLoading: isEntitlementsLoading,
+  } = useEntitlements(activeBusinessId);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -193,13 +205,14 @@ export default function CampaignsHubScreen() {
   );
 
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
+  const [isInactiveExpanded, setIsInactiveExpanded] = useState(false);
 
   const programNameById = useMemo(() => {
-    const map = new Map<string, string>();
+    const mapById = new Map<string, string>();
     for (const program of programs) {
-      map.set(String(program.loyaltyProgramId), program.title);
+      mapById.set(String(program.loyaltyProgramId), program.title);
     }
-    return map;
+    return mapById;
   }, [programs]);
 
   const activeCampaigns = useMemo(
@@ -233,7 +246,15 @@ export default function CampaignsHubScreen() {
     (sum, campaign) => sum + campaign.reachedMessagesAllTime,
     0
   );
-  const canCreateCampaign = Boolean(activeBusinessId) && canManage;
+  const campaignLimit = limitStatus('maxCampaigns', activeCampaigns.length);
+  const requiredPlanForCampaigns =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxCampaigns ?? 'pro';
+  const canCreateCampaign =
+    Boolean(activeBusinessId) &&
+    canManage &&
+    !isEntitlementsLoading &&
+    !campaignLimit.isAtLimit;
 
   const openCampaignEditor = (campaignId: Id<'campaigns'>) => {
     if (!activeBusinessId) {
@@ -245,6 +266,20 @@ export default function CampaignsHubScreen() {
         campaignId: String(campaignId),
         businessId: String(activeBusinessId),
       },
+    });
+  };
+
+  const openCampaignsUpgrade = (
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForCampaigns
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCampaigns',
+      requiredPlan,
+      reason: 'limit_reached',
     });
   };
 
@@ -279,6 +314,17 @@ export default function CampaignsHubScreen() {
         campaignId,
       });
     } catch (error) {
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        Alert.alert(
+          'מגבלת מסלול',
+          entitlementErrorToHebrewMessage(entitlementError)
+        );
+        openCampaignsUpgrade(
+          entitlementError.requiredPlan ?? requiredPlanForCampaigns
+        );
+        return;
+      }
       Alert.alert(
         'שגיאה',
         error instanceof Error ? error.message : 'שחזור קמפיין נכשל.'
@@ -290,6 +336,10 @@ export default function CampaignsHubScreen() {
 
   const handleCreateCampaign = () => {
     if (!activeBusinessId || !canManage) {
+      return;
+    }
+    if (campaignLimit.isAtLimit) {
+      openCampaignsUpgrade();
       return;
     }
     router.push({
@@ -407,26 +457,32 @@ export default function CampaignsHubScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
-        <BusinessScreenHeader
-          title="קמפיינים"
-          subtitle="ניהול קמפיינים קלאסיים לעסק"
-          titleAccessory={
-            <TouchableOpacity
-              onPress={() =>
-                router.replace('/(authenticated)/(business)/dashboard')
-              }
-              className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-            >
-              <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-            </TouchableOpacity>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="קמפיינים"
+            subtitle="ניהול קמפיינים קלאסיים לעסק"
+            titleAccessory={
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
+              >
+                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
+
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
@@ -462,9 +518,7 @@ export default function CampaignsHubScreen() {
 
         <TouchableOpacity
           disabled={!canCreateCampaign}
-          onPress={() => {
-            handleCreateCampaign();
-          }}
+          onPress={handleCreateCampaign}
           className={`mt-4 rounded-3xl px-4 py-4 ${
             canCreateCampaign ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
           }`}
@@ -474,6 +528,46 @@ export default function CampaignsHubScreen() {
             <Text className="text-sm font-black text-white">צור קמפיין</Text>
           </View>
         </TouchableOpacity>
+
+        {!isEntitlementsLoading ? (
+          <View className="mt-3 rounded-2xl border border-[#DCE7F8] bg-white px-4 py-3">
+            <View
+              className={`${tw.flexRow} items-center justify-between gap-2`}
+            >
+              <Text
+                className={`text-xs font-bold text-[#1A2B4A] ${tw.textStart}`}
+              >
+                {'מכסת קמפיינים פעילים'}
+              </Text>
+              <Text className="text-xs font-black text-[#1D4ED8]">
+                {`${campaignLimit.currentValue}/${campaignLimit.limitValue}`}
+              </Text>
+            </View>
+            {campaignLimit.isAtLimit ? (
+              <View
+                className={`${tw.flexRow} mt-2 items-center justify-between gap-3`}
+              >
+                <Text
+                  className={`flex-1 text-xs text-[#B45309] ${tw.textStart}`}
+                >
+                  {'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג מסלול.'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => openCampaignsUpgrade()}
+                  className="rounded-full bg-[#1D4ED8] px-3 py-1.5"
+                >
+                  <Text className="text-xs font-black text-white">
+                    {'שדרוג'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : campaignLimit.isNearLimit ? (
+              <Text className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}>
+                {'מתקרבים למכסה הפעילה של הקמפיינים במסלול הנוכחי.'}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
@@ -504,25 +598,6 @@ export default function CampaignsHubScreen() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            קמפיינים לא פעילים ({inactiveCampaigns.length})
-          </Text>
-          {campaignsQuery === undefined ? (
-            <View className="py-4">
-              <ActivityIndicator color="#2F6BFF" />
-            </View>
-          ) : inactiveCampaigns.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין כרגע קמפיינים לא פעילים.
-            </Text>
-          ) : (
-            inactiveCampaigns.map((campaign) => renderCampaignCard(campaign))
-          )}
-        </View>
-
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
             קמפיינים פעילים ({liveCampaigns.length})
           </Text>
           {campaignsQuery === undefined ? (
@@ -534,115 +609,44 @@ export default function CampaignsHubScreen() {
               אין קמפיינים פעילים. לחצו על "צור קמפיין" כדי להתחיל.
             </Text>
           ) : (
-            liveCampaigns.map((campaign) => {
-              const isBusy = busyCampaignId === String(campaign.campaignId);
-              const isLiveCampaign = campaign.lifecycle === 'active';
-              const typeMeta = campaignTypeMeta(campaign.type);
-              const campaignProgram =
-                campaign.programId != null
-                  ? (programNameById.get(String(campaign.programId)) ??
-                    'תוכנית לא זמינה')
-                  : 'כל העסק';
-              return (
-                <View
-                  key={String(campaign.campaignId)}
-                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
-                >
-                  <View
-                    className={`${tw.flexRow} items-center justify-between gap-3`}
-                  >
-                    <View className={`${tw.flexRow} flex-1 items-center gap-3`}>
-                      <View
-                        className={`h-11 w-11 items-center justify-center rounded-xl ${typeMeta.iconBgClass}`}
-                      >
-                        <Ionicons
-                          name={typeMeta.icon}
-                          size={20}
-                          color={typeMeta.iconColor}
-                        />
-                      </View>
-                      <View className="flex-1 items-end">
-                        <Text
-                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                        >
-                          {campaign.title}
-                        </Text>
-                        <Text
-                          className={`mt-0.5 text-xs font-semibold ${tw.textStart}`}
-                          style={{ color: typeMeta.iconColor }}
-                        >
-                          {typeMeta.label}
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => openCampaignEditor(campaign.campaignId)}
-                      className={`rounded-full px-3 py-1.5 ${
-                        isLiveCampaign ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-extrabold ${
-                          isLiveCampaign ? 'text-white' : 'text-[#475569]'
-                        }`}
-                      >
-                        {isLiveCampaign ? 'פעיל' : 'לא פעיל'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => openCampaignEditor(campaign.campaignId)}
-                    className="mt-3 gap-1"
-                  >
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      {campaign.type} • סטטוס: {campaign.lifecycle} • אוטומציה:{' '}
-                      {campaign.automationEnabled ? 'פעילה' : 'כבויה'}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      שיוך: {campaignProgram}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      קהל מוערך: {formatNumber(campaign.estimatedAudience)} •
-                      הודעות שנשלחו:{' '}
-                      {formatNumber(campaign.reachedMessagesAllTime)}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      שליחה אחרונה: {formatDateTime(campaign.lastSentAt)}
-                    </Text>
-                  </TouchableOpacity>
-                  <View className={`${tw.flexRow} mt-3 gap-2`}>
-                    <TouchableOpacity
-                      onPress={() => openCampaignEditor(campaign.campaignId)}
-                      className="rounded-xl border border-[#BFDBFE] bg-white px-3 py-2"
-                    >
-                      <Text className="text-xs font-bold text-[#1D4ED8]">
-                        פתיחה
-                      </Text>
-                    </TouchableOpacity>
-                    {campaign.canArchive ? (
-                      <TouchableOpacity
-                        disabled={!canManage || isBusy}
-                        onPress={() => {
-                          void handleArchiveCampaign(campaign.campaignId);
-                        }}
-                        className={`rounded-xl px-3 py-2 ${
-                          !canManage || isBusy ? 'bg-[#CBD5E1]' : 'bg-[#F59E0B]'
-                        }`}
-                      >
-                        {isBusy ? (
-                          <ActivityIndicator color="#FFFFFF" size="small" />
-                        ) : (
-                          <Text className="text-xs font-bold text-white">
-                            ארכוב
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })
+            liveCampaigns.map((campaign) => renderCampaignCard(campaign))
           )}
+        </View>
+
+        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+          <TouchableOpacity
+            onPress={() => setIsInactiveExpanded((current) => !current)}
+            className={`${tw.flexRow} items-center justify-between`}
+          >
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              קמפיינים לא פעילים ({inactiveCampaigns.length})
+            </Text>
+            <Ionicons
+              name={isInactiveExpanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color="#64748B"
+            />
+          </TouchableOpacity>
+
+          {isInactiveExpanded ? (
+            <View className="mt-3 gap-3">
+              {campaignsQuery === undefined ? (
+                <View className="py-4">
+                  <ActivityIndicator color="#2F6BFF" />
+                </View>
+              ) : inactiveCampaigns.length === 0 ? (
+                <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                  אין כרגע קמפיינים לא פעילים.
+                </Text>
+              ) : (
+                inactiveCampaigns.map((campaign) =>
+                  renderCampaignCard(campaign)
+                )
+              )}
+            </View>
+          ) : null}
         </View>
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
@@ -658,6 +662,7 @@ export default function CampaignsHubScreen() {
           ) : (
             archivedCampaigns.map((campaign) => {
               const isBusy = busyCampaignId === String(campaign.campaignId);
+              const typeMeta = campaignTypeMeta(campaign.type);
               return (
                 <View
                   key={String(campaign.campaignId)}
@@ -671,7 +676,7 @@ export default function CampaignsHubScreen() {
                   <Text
                     className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                   >
-                    {campaign.type} • בארכיון מאז{' '}
+                    {typeMeta.label} • בארכיון מאז{' '}
                     {formatDateTime(campaign.archivedAt)}
                   </Text>
                   <View className={`${tw.flexRow} mt-3 gap-2`}>

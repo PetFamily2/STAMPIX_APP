@@ -2,6 +2,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { safeBack } from '@/lib/navigation';
 
 const LEGAL_BODY = `עודכן לאחרונה: ________
@@ -146,15 +147,20 @@ const LEGAL_BODY = `עודכן לאחרונה: ________
 export default function LegalScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <BackButton onPress={() => safeBack('/(auth)/sign-up')} />
+      <View style={styles.headerShell}>
+        <View style={styles.header}>
+          <BackButton onPress={() => safeBack('/(auth)/sign-up')} />
+        </View>
       </View>
 
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>מסמך משפטי מרוכז - STAMPAIX</Text>
+        <StickyScrollHeader backgroundColor="#F8F7F4" style={styles.titleShell}>
+          <Text style={styles.title}>מסמך משפטי מרוכז - STAMPAIX</Text>
+        </StickyScrollHeader>
         <Text style={styles.body}>{LEGAL_BODY}</Text>
       </ScrollView>
     </SafeAreaView>
@@ -166,10 +172,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F7F4',
   },
-  header: {
+  headerShell: {
     paddingHorizontal: 24,
     paddingTop: 8,
+  },
+  header: {
     alignItems: 'flex-end',
+  },
+  titleShell: {
+    paddingBottom: 12,
   },
   content: {
     paddingHorizontal: 24,

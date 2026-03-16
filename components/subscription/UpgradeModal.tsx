@@ -46,6 +46,10 @@ const PLAN_REASON_COPY: Record<string, string> = {
   onboarding_plan: 'אפשר להתחיל עם Starter או לבחור מסלול בתשלום כבר עכשיו.',
 };
 
+function buildRevenueCatBusinessAppUserId(businessId: Id<'businesses'>) {
+  return `business:${String(businessId)}`;
+}
+
 function buildFallbackPlans(): PlanCatalogItem[] {
   return normalizePlanCatalog([
     {
@@ -56,6 +60,8 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         maxCards: 5,
         maxCustomers: 2000,
         maxActiveRetentionActions: 5,
+        maxCampaigns: 5,
+        maxAiExecutionsPerMonth: 100,
       },
       features: {
         team: true,
@@ -74,6 +80,8 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         maxCards: 10,
         maxCustomers: 10000,
         maxActiveRetentionActions: 15,
+        maxCampaigns: 10,
+        maxAiExecutionsPerMonth: 300,
       },
       features: {
         team: true,
@@ -102,8 +110,7 @@ export function UpgradeModal({
   const syncBusinessSubscription = useMutation(
     api.entitlements.syncBusinessSubscription
   );
-  const { isConfigured, isExpoGo, purchasePackage, refreshPurchaserInfo } =
-    useRevenueCat();
+  const { isConfigured, isExpoGo, purchasePackage } = useRevenueCat();
 
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'premium'>(
     initialPlan
@@ -154,12 +161,13 @@ export function UpgradeModal({
           return;
         }
 
-        const purchased = await purchasePackage(rcPackageId);
+        const purchased = await purchasePackage(rcPackageId, {
+          appUserId: buildRevenueCatBusinessAppUserId(businessId),
+          syncUserSubscription: false,
+        });
         if (!purchased) {
           return;
         }
-
-        await refreshPurchaserInfo();
       }
 
       await syncBusinessSubscription({

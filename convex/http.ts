@@ -5,6 +5,30 @@ import { auth } from './auth';
 
 const http = httpRouter();
 
+const DEFAULT_APP_STORE_URL = 'https://apps.apple.com/us/search?term=STAMPAIX';
+const DEFAULT_PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.stampix.stampix';
+
+function resolveStoreUrl(value: string | undefined, fallbackUrl: string) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return fallbackUrl;
+  }
+  if (!/^https?:\/\//i.test(normalized)) {
+    return fallbackUrl;
+  }
+  return normalized;
+}
+
+const APP_STORE_URL = resolveStoreUrl(
+  process.env.APP_STORE_URL ?? process.env.EXPO_PUBLIC_APP_STORE_URL,
+  DEFAULT_APP_STORE_URL
+);
+const PLAY_STORE_URL = resolveStoreUrl(
+  process.env.PLAY_STORE_URL ?? process.env.EXPO_PUBLIC_PLAY_STORE_URL,
+  DEFAULT_PLAY_STORE_URL
+);
+
 // Register Convex auth routes so the client-side auth hooks work.
 auth.addHttpRoutes(http);
 
@@ -106,8 +130,8 @@ http.route({
     <p class="sub">הצטרפו למועדון הנאמנות ב-STAMPAIX</p>
     <a class="btn btn-primary" href="${escapeHtml(appDeepLink)}">פתח באפליקציה</a>
     <div class="stores">
-      <a href="https://apps.apple.com/app/stampix/id000000000" target="_blank">App Store</a>
-      <a href="https://play.google.com/store/apps/details?id=com.stampix.app" target="_blank">Google Play</a>
+      <a href="${escapeHtml(APP_STORE_URL)}" target="_blank" rel="noopener noreferrer">App Store</a>
+      <a href="${escapeHtml(PLAY_STORE_URL)}" target="_blank" rel="noopener noreferrer">Google Play</a>
     </div>
     ${
       joinCode

@@ -1,6 +1,7 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -93,6 +95,10 @@ export default function SignUpScreen() {
   const handleEmailOptionPress = async () => {
     trackChoice('auth_method', 'email', { method: 'email' });
     router.push('/(auth)/sign-up-email');
+  };
+
+  const openLegalDocument = () => {
+    void WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL);
   };
 
   const mapOAuthError = (provider: 'google' | 'apple', value: unknown) => {
@@ -287,7 +293,7 @@ export default function SignUpScreen() {
             <Text
               style={styles.termsLink}
               accessibilityRole="link"
-              onPress={() => router.push('/(auth)/legal')}
+              onPress={openLegalDocument}
             >
               {TEXT.legalLink}
             </Text>

@@ -11,8 +11,6 @@ import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
-const FLOW_MAP_ROUTE = '/(auth)/flow-map?map=true';
-
 export default function WelcomeScreen() {
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
@@ -25,8 +23,8 @@ export default function WelcomeScreen() {
   });
 
   const handleBack = useCallback(() => {
-    router.replace(FLOW_MAP_ROUTE);
-  }, [router]);
+    safeBack('/(auth)/sign-in');
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

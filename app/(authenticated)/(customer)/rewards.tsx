@@ -7,6 +7,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 
 const TEXT = {
@@ -35,17 +36,22 @@ export default function RewardsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
-        <View style={styles.headerRow}>
-          <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
-        </View>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+          </View>
+        </StickyScrollHeader>
 
         {isLoading ? (
           <View style={styles.emptyCard}>

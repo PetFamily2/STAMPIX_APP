@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
@@ -44,6 +45,8 @@ const TEXT = {
   redeemReady: 'מוכנה למימוש',
   openCard: 'פתח כרטיסיה',
 };
+
+const CUSTOMER_SCAN_BANNER_DURATION_MS = 5000;
 
 type ProgramRow = {
   programId: string;
@@ -110,6 +113,20 @@ export default function CustomerBusinessDetailsScreen() {
     type: 'error' | 'success';
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!feedback || feedback.type !== 'success') {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setFeedback(null);
+    }, CUSTOMER_SCAN_BANNER_DURATION_MS);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [feedback]);
 
   const selectedCount = selectedProgramIds.length;
   const hasBusinessId = businessIdParam.length > 0;
@@ -210,33 +227,38 @@ export default function CustomerBusinessDetailsScreen() {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         style={styles.scrollBackground}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
-        <View style={styles.headerRow}>
-          <BusinessScreenHeader
-            title={business.name}
-            subtitle={business.formattedAddress ?? ''}
-            titleAccessory={
-              <Pressable
-                onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed ? styles.pressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={TEXT.back}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#111827" />
-              </Pressable>
-            }
-          />
-        </View>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader
+              title={business.name}
+              subtitle={business.formattedAddress ?? ''}
+              titleAccessory={
+                <Pressable
+                  onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                  style={({ pressed }) => [
+                    styles.backButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={TEXT.back}
+                >
+                  <Ionicons name="chevron-forward" size={20} color="#111827" />
+                </Pressable>
+              }
+            />
+          </View>
+        </StickyScrollHeader>
 
         {joinMode ? (
           <View style={styles.infoCard}>
@@ -276,6 +298,7 @@ export default function CustomerBusinessDetailsScreen() {
                       stampIcon={program.stampIcon}
                       selected={selected}
                       variant="list"
+                      showAllStamps={true}
                     />
                     <View style={styles.programFooterRow}>
                       <Text style={styles.programGoal}>
@@ -342,6 +365,7 @@ export default function CustomerBusinessDetailsScreen() {
                     stampIcon={program.stampIcon}
                     status={program.canRedeem ? 'redeemable' : 'default'}
                     variant="list"
+                    showAllStamps={true}
                   />
                   <View style={styles.programFooterRow}>
                     <View style={styles.joinedDetails}>

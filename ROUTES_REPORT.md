@@ -5,7 +5,6 @@ Generated: 2026-02-18
 ## 1) All route files (current)
 
 - `app/(auth)/_layout.tsx`
-- `app/(auth)/flow-map.tsx`
 - `app/(auth)/index.tsx`
 - `app/(auth)/legal.tsx`
 - `app/(auth)/name-capture.tsx`

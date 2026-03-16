@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function AuthIndex() {
-  // Keep flow-map as a dev tool, but avoid booting into the heavy diagram on mobile.
+  // Auth entry always lands on welcome.
   return <Redirect href="/(auth)/welcome" />;
 }

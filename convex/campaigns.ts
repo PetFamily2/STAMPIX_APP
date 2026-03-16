@@ -1,7 +1,11 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
-import { getBusinessEntitlementsForBusinessId } from './entitlements';
+import {
+  assertEntitlement,
+  countActiveManagementCampaignsForBusiness,
+  getBusinessEntitlementsForBusinessId,
+} from './entitlements';
 import {
   getCurrentUserOrNull,
   requireActorIsBusinessOwnerOrManager,
@@ -237,6 +241,18 @@ function isManagementType(value: unknown): value is ManagementCampaignType {
   return MANAGEMENT_TYPES.includes(value as ManagementCampaignType);
 }
 
+async function assertManagementCampaignCapacity(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const activeManagementCampaigns =
+    await countActiveManagementCampaignsForBusiness(ctx, businessId);
+  await assertEntitlement(ctx, businessId, {
+    limitKey: 'maxCampaigns',
+    currentValue: activeManagementCampaigns,
+  });
+}
+
 async function getCampaignOrThrow(
   ctx: any,
   businessId: Id<'businesses'>,
@@ -274,10 +290,19 @@ async function validateProgramBelongsToBusiness(
     return;
   }
   const program = await ctx.db.get(programId);
+  const lifecycle =
+    program?.status === 'draft' ||
+    program?.status === 'active' ||
+    program?.status === 'archived'
+      ? program.status
+      : program?.isArchived === true
+        ? 'archived'
+        : 'active';
   if (
     !program ||
     program.businessId !== businessId ||
-    program.isActive !== true
+    program.isActive !== true ||
+    lifecycle !== 'active'
   ) {
     throw new Error('PROGRAM_NOT_FOUND');
   }
@@ -787,6 +812,7 @@ export const createCampaignDraft = mutation({
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     await validateProgramBelongsToBusiness(ctx, businessId, programId);
+    await assertManagementCampaignCapacity(ctx, businessId);
 
     const defaults = buildDefaultDraftByType(type);
     const now = Date.now();
@@ -816,6 +842,7 @@ export const createGeneralCampaignDraft = mutation({
   },
   handler: async (ctx, { businessId }) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await assertManagementCampaignCapacity(ctx, businessId);
 
     const defaults = buildDefaultDraftByType('promo');
     const now = Date.now();
@@ -922,6 +949,7 @@ export const restoreManagementCampaign = mutation({
     if (campaign.isActive === true) {
       throw new Error('CAMPAIGN_NOT_ARCHIVED');
     }
+    await assertManagementCampaignCapacity(ctx, businessId);
 
     const now = Date.now();
     await ctx.db.patch(campaign._id, {

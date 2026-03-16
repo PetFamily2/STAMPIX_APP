@@ -7,6 +7,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BrandPageHeader from '@/components/BrandPageHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
@@ -33,26 +34,28 @@ export default function BusinessJoinQrScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         style={styles.scrollBackground}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
-        <View style={styles.header}>
-          <BrandPageHeader
-            title="קוד הצטרפות"
-            subtitle="שתפו עם לקוחות QR להצטרפות מהירה למועדון."
-          />
-          <Text style={styles.headerTitle}>QR להצטרפות לקוחות</Text>
-          <Text style={styles.headerSubtitle}>
-            {selectedBusiness
-              ? 'הציגו ללקוח כדי להצטרף במהירות למועדון'
-              : 'טוען עסק'}
-          </Text>
-        </View>
+        <StickyScrollHeader topPadding={12} backgroundColor="#E9F0FF">
+          <View style={styles.header}>
+            <BrandPageHeader
+              title="קוד הצטרפות"
+              subtitle="שתפו עם לקוחות QR להצטרפות מהירה למועדון."
+            />
+            <Text style={styles.headerTitle}>QR להצטרפות לקוחות</Text>
+            <Text style={styles.headerSubtitle}>
+              {selectedBusiness
+                ? 'הציגו ללקוח כדי להצטרף במהירות למועדון'
+                : 'טוען עסק'}
+            </Text>
+          </View>
+        </StickyScrollHeader>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>קוד הצטרפות קבוע</Text>

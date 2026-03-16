@@ -1,6 +1,6 @@
 # STAMPAIX Docs
 
-Last synced: 2026-02-18
+Last synced: 2026-03-16
 
 ## What this project is
 - Single Expo/React Native app for both customer and business experiences.
@@ -41,21 +41,34 @@ Public app vars (Expo):
   - `EXPO_PUBLIC_CONVEX_URL_PROD`
   - `EXPO_PUBLIC_CONVEX_URL` (legacy fallback)
 - RevenueCat:
+  - `EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`
+  - `EXPO_PUBLIC_MOCK_PAYMENTS`
   - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
   - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
   - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` (legacy fallback)
   - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
   - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
   - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY` (legacy fallback)
+  - `EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY`
+  - `EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY`
+  - `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY`
+  - `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY`
 - Legal URLs:
   - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
   - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
+- Other public integration vars:
+  - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
 
 Convex server vars:
 - `SCAN_TOKEN_SECRET`
 - `RESEND_API_KEY` (for email OTP)
 - `RESEND_FROM_EMAIL` (for email OTP)
+- `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
+- `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET`
 - `CONVEX_SITE_URL` (auth redirect safety)
+- `APP_STORE_URL` (optional join landing override)
+- `PLAY_STORE_URL` (optional join landing override)
+- `REVENUECAT_WEBHOOK_SECRET` (for webhook verification)
 
 ## Quick start
 1. Install dependencies:

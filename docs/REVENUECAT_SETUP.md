@@ -1,6 +1,6 @@
 ﻿# RevenueCat Setup (iOS + Android)
 
-Last synced: 2026-02-18
+Last synced: 2026-03-16
 
 This guide documents the variables and integration points actually used in code.
 
@@ -25,6 +25,16 @@ EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD="appl_..."
 # RevenueCat Android
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV="goog_..."
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD="goog_..."
+
+# Billing gates
+EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED="true"
+EXPO_PUBLIC_MOCK_PAYMENTS="false"
+
+# Package mapping used by the upgrade/paywall flows
+EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY="pro_monthly"
+EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY="pro_yearly"
+EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY="premium_monthly"
+EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY="premium_yearly"
 
 # Optional webhook secret
 REVENUECAT_WEBHOOK_SECRET="whsec_..."
@@ -63,6 +73,7 @@ Behavior:
 - If running in Expo Go: preview packages (no native purchases).
 - If API keys are missing: preview packages.
 - If fully configured: native purchases and restore are enabled.
+- Business subscription upgrades are now purchased with RevenueCat `appUserId` scoped to business: `business:<businessId>`.
 
 Related config:
 - `config/appConfig.ts`:
@@ -77,6 +88,7 @@ Related config:
 3. Test purchase flow.
 4. Test restore purchases.
 5. Verify user subscription fields were updated in Convex.
+6. Verify business subscription fields (`businesses` + `subscriptions`) were synced after upgrade.
 
 ## 6) Common issues
 - Purchases unavailable in Expo Go: expected behavior.

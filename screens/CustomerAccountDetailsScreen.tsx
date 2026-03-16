@@ -19,6 +19,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 
@@ -234,16 +235,20 @@ export default function CustomerAccountDetailsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.headerRow}>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+          style={styles.headerRow}
+        >
           <BusinessScreenHeader
             title={TEXT.title}
             titleAccessory={
@@ -259,7 +264,7 @@ export default function CustomerAccountDetailsScreen() {
               </Pressable>
             }
           />
-        </View>
+        </StickyScrollHeader>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{TEXT.accountInfo}</Text>

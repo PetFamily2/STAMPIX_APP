@@ -11,6 +11,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -118,18 +119,23 @@ export default function WalletScreen() {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         style={styles.scrollBackground}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         alwaysBounceVertical={false}
       >
-        <View style={styles.headerRow}>
-          <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
-        </View>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+          </View>
+        </StickyScrollHeader>
 
         <View style={styles.joinBusinessRow}>
           <Pressable
@@ -231,6 +237,7 @@ export default function WalletScreen() {
                         business.redeemableCount > 0 ? 'redeemable' : 'default'
                       }
                       variant="compact"
+                      showAllStamps={true}
                     />
 
                     <View style={styles.metaRow}>

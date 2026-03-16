@@ -21,6 +21,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
@@ -260,18 +261,23 @@ export default function DiscoveryScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.contentContainer,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
-        </View>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+          </View>
+        </StickyScrollHeader>
 
         <View style={styles.panel}>
           <View style={styles.panelHeader}>
@@ -331,6 +337,7 @@ export default function DiscoveryScreen() {
                       business.redeemableCount > 0 ? 'redeemable' : 'default'
                     }
                     variant="compact"
+                    showAllStamps={true}
                   />
 
                   <View style={styles.savedBusinessMetaRow}>

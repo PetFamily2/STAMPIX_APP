@@ -30,7 +30,7 @@ const TEXT = {
   incompleteCode: 'אנא הזן את כל הקוד שקיבלת',
   editDetails: 'ערוך פרטים',
   continue: 'המשך',
-  invalidCode: 'הקוד לא תקין נסו שוב',
+  invalidCode: 'קוד לא תקין. בדקו את האימייל או שלחו שוב קוד אימות.',
   expiredCode: 'לא נמצא קוד פעיל בקשו קוד חדש',
   maxAttempts: 'חרגת ממספר הניסיונות בקשו קוד חדש',
   sendFailed: 'שליחת הקוד נכשלה נסו שוב',
@@ -55,6 +55,7 @@ export default function OnboardingOtpScreen() {
   const inputsRef = useRef<Array<TextInput | null>>([]);
   const isSendingRef = useRef(false);
   const otpSentRef = useRef(false);
+  const lastAutoSubmittedCodeRef = useRef<string | null>(null);
   const digitIndexes = useMemo(
     () => Array.from({ length: CODE_LENGTH }, (_, index) => index),
     []
@@ -199,9 +200,11 @@ export default function OnboardingOtpScreen() {
     () => digits.every((digit) => digit.length === 1),
     [digits]
   );
+  const otpCode = useMemo(() => digits.join(''), [digits]);
 
   const handleChange = (index: number, value: string) => {
     const sanitized = value.replace(/\D/g, '');
+    lastAutoSubmittedCodeRef.current = null;
 
     if (error) {
       setError('');
@@ -290,7 +293,7 @@ export default function OnboardingOtpScreen() {
   const postAuthResolutionRoute = '/(auth)/oauth-callback';
   const backRoute = '/(auth)/sign-up-email';
 
-  const handleContinue = async () => {
+  const handleContinue = useCallback(async () => {
     if (!isComplete || isVerifying) {
       if (!isComplete) {
         setError(TEXT.incompleteCode);
@@ -307,7 +310,7 @@ export default function OnboardingOtpScreen() {
       if (isEmailContact && contactValue) {
         const result = await signIn('email', {
           email: contactValue.trim().toLowerCase(),
-          code: digits.join(''),
+          code: otpCode,
         });
         if (!result.signingIn) {
           throw new Error('OTP_INVALID');
@@ -328,7 +331,32 @@ export default function OnboardingOtpScreen() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [
+    contactValue,
+    completeStep,
+    isComplete,
+    isEmailContact,
+    isVerifying,
+    mapOtpError,
+    otpCode,
+    signIn,
+    trackContinue,
+    trackError,
+    trackEvent,
+  ]);
+
+  useEffect(() => {
+    if (!isComplete || isVerifying || isSending) {
+      return;
+    }
+
+    if (lastAutoSubmittedCodeRef.current === otpCode) {
+      return;
+    }
+
+    lastAutoSubmittedCodeRef.current = otpCode;
+    void handleContinue();
+  }, [handleContinue, isComplete, isSending, isVerifying, otpCode]);
 
   return (
     <SafeAreaView style={styles.container}>

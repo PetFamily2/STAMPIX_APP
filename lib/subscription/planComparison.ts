@@ -4,7 +4,9 @@ export type PlanId = 'starter' | 'pro' | 'premium';
 export type LimitKey =
   | 'maxCards'
   | 'maxCustomers'
-  | 'maxActiveRetentionActions';
+  | 'maxActiveRetentionActions'
+  | 'maxCampaigns'
+  | 'maxAiExecutionsPerMonth';
 export type FeatureKey =
   | 'team'
   | 'advancedReports'
@@ -49,9 +51,15 @@ export type ComparisonRow = {
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
-  maxCards: 'כרטיסי נאמנות',
-  maxCustomers: 'לקוחות',
-  maxActiveRetentionActions: 'קמפייני שימור פעילים',
+  maxCards:
+    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9 \u05e0\u05d0\u05de\u05e0\u05d5\u05ea',
+  maxCustomers: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+  maxActiveRetentionActions:
+    '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9 \u05e9\u05d9\u05de\u05d5\u05e8 \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd',
+  maxCampaigns:
+    '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd',
+  maxAiExecutionsPerMonth:
+    '\u05e9\u05d9\u05de\u05d5\u05e9\u05d9 AI \u05d1\u05d7\u05d5\u05d3\u05e9',
 };
 
 const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
@@ -59,14 +67,18 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
   maxCustomers: '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   maxActiveRetentionActions:
     '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9 \u05e9\u05d9\u05de\u05d5\u05e8',
+  maxCampaigns: '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
+  maxAiExecutionsPerMonth: '\u05e9\u05d9\u05de\u05d5\u05e9\u05d9 AI',
 };
 
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
-  team: 'ניהול צוות',
-  advancedReports: 'דוחות מתקדמים',
+  team: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
+  advancedReports:
+    '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
   marketingHub:
     '\u05de\u05e8\u05db\u05d6 \u05e9\u05d9\u05de\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-  smartAnalytics: 'תובנות לקוחות',
+  smartAnalytics:
+    '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   segmentationBuilder:
     '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd',
   savedSegments:
@@ -124,6 +136,8 @@ function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
       maxCards: 0,
       maxCustomers: 0,
       maxActiveRetentionActions: 0,
+      maxCampaigns: 0,
+      maxAiExecutionsPerMonth: 0,
     },
     features: {
       team: false,
@@ -190,6 +204,14 @@ function normalizePlan(rawPlan: unknown): PlanCatalogItem | null {
       maxActiveRetentionActions: normalizeNumber(
         sourceLimits.maxActiveRetentionActions,
         fallback.limits.maxActiveRetentionActions
+      ),
+      maxCampaigns: normalizeNumber(
+        sourceLimits.maxCampaigns,
+        fallback.limits.maxCampaigns
+      ),
+      maxAiExecutionsPerMonth: normalizeNumber(
+        sourceLimits.maxAiExecutionsPerMonth,
+        fallback.limits.maxAiExecutionsPerMonth
       ),
     },
     features: {
@@ -294,7 +316,13 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   };
 
   const limitRows: ComparisonRow[] = (
-    ['maxCards', 'maxCustomers', 'maxActiveRetentionActions'] as LimitKey[]
+    [
+      'maxCards',
+      'maxCustomers',
+      'maxCampaigns',
+      'maxActiveRetentionActions',
+      'maxAiExecutionsPerMonth',
+    ] as LimitKey[]
   ).map((limitKey) => ({
     id: `limit:${limitKey}`,
     label: LIMIT_ROW_LABELS[limitKey],

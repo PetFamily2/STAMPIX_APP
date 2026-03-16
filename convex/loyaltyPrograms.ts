@@ -10,6 +10,17 @@ import { buildProgramStructureSignature } from './lib/recommendationUtils';
 const DEFAULT_THEME_ID = 'midnight-luxe';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const CARD_RULES_LOCKED_ERROR_MESSAGE =
+  'Card rules cannot be changed after the card is published.';
+
+type ProgramLifecycle = 'draft' | 'active' | 'archived';
+
+const LIFECYCLE_SORT_ORDER: Record<ProgramLifecycle, number> = {
+  active: 0,
+  draft: 1,
+  archived: 2,
+};
+
 function normalizeTitle(value: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -46,6 +57,70 @@ function normalizeThemeId(value: string | undefined) {
   return normalized && normalized.length > 0 ? normalized : DEFAULT_THEME_ID;
 }
 
+function normalizeOptionalText(value: string | undefined) {
+  const normalized = value?.trim();
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeStructureText(value: string | undefined) {
+  return normalizeOptionalText(value) ?? '';
+}
+
+function resolveProgramLifecycle(program: any): ProgramLifecycle {
+  if (
+    program?.status === 'draft' ||
+    program?.status === 'active' ||
+    program?.status === 'archived'
+  ) {
+    return program.status;
+  }
+
+  if (program?.isArchived === true) {
+    return 'archived';
+  }
+
+  return 'active';
+}
+
+function isLifecycleOperational(lifecycle: ProgramLifecycle) {
+  return lifecycle === 'active' || lifecycle === 'archived';
+}
+
+function isRuleLocked(lifecycle: ProgramLifecycle) {
+  return lifecycle !== 'draft';
+}
+
+function buildStructureSignature(input: {
+  rewardName: string;
+  maxStamps: number;
+  cardTerms: string;
+  rewardConditions: string;
+}) {
+  return buildProgramStructureSignature({
+    rewardName: input.rewardName,
+    maxStamps: input.maxStamps,
+    cardTerms: input.cardTerms,
+    rewardConditions: input.rewardConditions,
+  });
+}
+
+async function listBusinessPrograms(ctx: any, businessId: string) {
+  return await ctx.db
+    .query('loyaltyPrograms')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .filter((q: any) => q.eq(q.field('isActive'), true))
+    .collect();
+}
+
+async function getProgramMembershipCount(ctx: any, programId: string) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_programId', (q: any) => q.eq('programId', programId))
+    .collect();
+
+  return memberships.length;
+}
+
 async function getProgramOrThrow(
   ctx: any,
   businessId: string,
@@ -62,10 +137,6 @@ async function getProgramOrThrow(
   return program;
 }
 
-function getProgramLifecycle(isArchived: boolean | undefined) {
-  return isArchived === true ? 'archived' : 'active';
-}
-
 export const listByBusiness = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -76,23 +147,27 @@ export const listByBusiness = query({
     }
     await requireActorIsStaffForBusiness(ctx, businessId);
 
-    const programs = await ctx.db
-      .query('loyaltyPrograms')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
-      .collect();
+    const allPrograms = await listBusinessPrograms(ctx, businessId);
+    const programs = allPrograms.filter((program: any) =>
+      isLifecycleOperational(resolveProgramLifecycle(program))
+    );
 
-    return programs.map((program) => ({
-      loyaltyProgramId: program._id,
-      businessId: program.businessId,
-      title: program.title,
-      rewardName: program.rewardName,
-      maxStamps: program.maxStamps,
-      stampIcon: program.stampIcon,
-      cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-      isArchived: program.isArchived === true,
-      isActive: program.isActive,
-    }));
+    return programs.map((program: any) => {
+      const lifecycle = resolveProgramLifecycle(program);
+      return {
+        loyaltyProgramId: program._id,
+        businessId: program.businessId,
+        title: program.title,
+        rewardName: program.rewardName,
+        maxStamps: program.maxStamps,
+        stampIcon: program.stampIcon,
+        cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+        isArchived: lifecycle === 'archived',
+        isActive: program.isActive,
+        lifecycle,
+        status: lifecycle,
+      };
+    });
   },
 });
 
@@ -113,13 +188,7 @@ export const listManagementByBusiness = query({
 
     const [programs, activeMemberships, allMemberships, events] =
       await Promise.all([
-        ctx.db
-          .query('loyaltyPrograms')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .filter((q: any) => q.eq(q.field('isActive'), true))
-          .collect(),
+        listBusinessPrograms(ctx, businessId),
         ctx.db
           .query('memberships')
           .withIndex('by_businessId', (q: any) =>
@@ -142,8 +211,9 @@ export const listManagementByBusiness = query({
           .collect(),
       ]);
 
-    const mapped = programs.map((program) => {
+    const mapped = programs.map((program: any) => {
       const programId = String(program._id);
+      const lifecycle = resolveProgramLifecycle(program);
       const activeMembers = activeMemberships.filter(
         (membership) => String(membership.programId) === programId
       );
@@ -173,7 +243,12 @@ export const listManagementByBusiness = query({
         maxStamps: program.maxStamps,
         stampIcon: program.stampIcon,
         cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-        lifecycle: getProgramLifecycle(program.isArchived),
+        lifecycle,
+        status: lifecycle,
+        isArchived: lifecycle === 'archived',
+        isRuleLocked: isRuleLocked(lifecycle),
+        canDelete: totalMembers.length === 0,
+        membershipCount: totalMembers.length,
         metrics: {
           activeMembers: activeMembers.length,
           totalMembers: totalMembers.length,
@@ -184,9 +259,12 @@ export const listManagementByBusiness = query({
       };
     });
 
-    mapped.sort((a, b) => {
+    mapped.sort((a: any, b: any) => {
       if (a.lifecycle !== b.lifecycle) {
-        return a.lifecycle === 'active' ? -1 : 1;
+        return (
+          LIFECYCLE_SORT_ORDER[a.lifecycle as ProgramLifecycle] -
+          LIFECYCLE_SORT_ORDER[b.lifecycle as ProgramLifecycle]
+        );
       }
       const aLast = a.metrics.lastActivityAt ?? 0;
       const bLast = b.metrics.lastActivityAt ?? 0;
@@ -205,6 +283,7 @@ export const getProgramDetailsForManagement = query({
   handler: async (ctx, { businessId, programId }) => {
     await requireActorIsStaffForBusiness(ctx, businessId);
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    const lifecycle = resolveProgramLifecycle(program);
 
     const now = Date.now();
     const sevenDaysAgo = now - 7 * DAY_MS;
@@ -236,22 +315,33 @@ export const getProgramDetailsForManagement = query({
         ? Math.max(...programEvents.map((event) => event.createdAt))
         : null;
 
+    const membershipCount = allMemberships.filter(
+      (membership) => String(membership.programId) === programIdString
+    ).length;
+
     return {
       loyaltyProgramId: program._id,
       businessId: program.businessId,
       title: program.title,
+      description: program.description ?? null,
+      imageUrl: program.imageUrl ?? null,
       rewardName: program.rewardName,
       maxStamps: program.maxStamps,
+      cardTerms: program.cardTerms ?? null,
+      rewardConditions: program.rewardConditions ?? null,
       stampIcon: program.stampIcon,
       cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-      lifecycle: getProgramLifecycle(program.isArchived),
+      lifecycle,
+      status: lifecycle,
+      isArchived: lifecycle === 'archived',
+      isRuleLocked: isRuleLocked(lifecycle),
+      canDelete: membershipCount === 0,
+      membershipCount,
       metrics: {
         activeMembers: activeMemberships.filter(
           (membership) => String(membership.programId) === programIdString
         ).length,
-        totalMembers: allMemberships.filter(
-          (membership) => String(membership.programId) === programIdString
-        ).length,
+        totalMembers: membershipCount,
         stamps7d: programEvents.filter(
           (event) =>
             event.type === 'STAMP_ADDED' &&
@@ -262,6 +352,7 @@ export const getProgramDetailsForManagement = query({
         ).length,
         lastActivityAt,
       },
+      publishedAt: program.publishedAt ?? null,
       archivedAt: program.archivedAt ?? null,
     };
   },
@@ -271,53 +362,67 @@ export const createLoyaltyProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     title: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
     rewardName: v.string(),
     maxStamps: v.number(),
+    cardTerms: v.optional(v.string()),
+    rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
     cardThemeId: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { businessId, title, rewardName, maxStamps, stampIcon, cardThemeId }
+    {
+      businessId,
+      title,
+      description,
+      imageUrl,
+      rewardName,
+      maxStamps,
+      cardTerms,
+      rewardConditions,
+      stampIcon,
+      cardThemeId,
+    }
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
-    const existingPrograms = await ctx.db
-      .query('loyaltyPrograms')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.neq(q.field('isArchived'), true)
-        )
-      )
-      .collect();
-    await assertEntitlement(ctx, businessId, {
-      limitKey: 'maxCards',
-      currentValue: existingPrograms.length,
-    });
 
     const normalizedTitle = normalizeTitle(title);
+    const normalizedDescription = normalizeOptionalText(description);
+    const normalizedImageUrl = normalizeOptionalText(imageUrl);
     const normalizedReward = normalizeReward(rewardName);
-    const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
+    const normalizedCardTerms = normalizeOptionalText(cardTerms);
+    const normalizedRewardConditions = normalizeOptionalText(rewardConditions);
+    const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
-    const structureSignature = buildProgramStructureSignature({
-      title: normalizedTitle,
+    const structureSignature = buildStructureSignature({
       rewardName: normalizedReward,
       maxStamps: normalizedMaxStamps,
+      cardTerms: normalizeStructureText(normalizedCardTerms),
+      rewardConditions: normalizeStructureText(normalizedRewardConditions),
     });
 
     const now = Date.now();
     const loyaltyProgramId = await ctx.db.insert('loyaltyPrograms', {
       businessId,
+      status: 'draft',
+      publishedAt: undefined,
       title: normalizedTitle,
+      description: normalizedDescription,
+      imageUrl: normalizedImageUrl,
       rewardName: normalizedReward,
       maxStamps: normalizedMaxStamps,
+      cardTerms: normalizedCardTerms,
+      rewardConditions: normalizedRewardConditions,
       stampIcon: normalizedIcon,
       cardThemeId: normalizedThemeId,
       structureSignature,
       lastStructureChangedAt: now,
       isArchived: false,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -327,13 +432,61 @@ export const createLoyaltyProgram = mutation({
   },
 });
 
+export const publishProgram = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+  },
+  handler: async (ctx, { businessId, programId }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const program = await getProgramOrThrow(ctx, businessId, programId);
+    const lifecycle = resolveProgramLifecycle(program);
+
+    if (lifecycle === 'archived') {
+      throw new Error('PROGRAM_REACTIVATION_FORBIDDEN');
+    }
+    if (lifecycle === 'active') {
+      throw new Error('PROGRAM_ALREADY_PUBLISHED');
+    }
+
+    const allPrograms = await listBusinessPrograms(ctx, businessId);
+    const activeCountExcludingCurrent = allPrograms.filter((item: any) => {
+      if (String(item._id) === String(program._id)) {
+        return false;
+      }
+      return resolveProgramLifecycle(item) === 'active';
+    }).length;
+
+    await assertEntitlement(ctx, businessId, {
+      limitKey: 'maxCards',
+      currentValue: activeCountExcludingCurrent,
+    });
+
+    const now = Date.now();
+    await ctx.db.patch(program._id, {
+      status: 'active',
+      publishedAt: now,
+      isArchived: false,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
+      updatedAt: now,
+    });
+
+    return { ok: true };
+  },
+});
+
 export const updateProgramForManagement = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     title: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
     rewardName: v.string(),
     maxStamps: v.number(),
+    cardTerms: v.optional(v.string()),
+    rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
     cardThemeId: v.optional(v.string()),
   },
@@ -343,38 +496,77 @@ export const updateProgramForManagement = mutation({
       businessId,
       programId,
       title,
+      description,
+      imageUrl,
       rewardName,
       maxStamps,
+      cardTerms,
+      rewardConditions,
       stampIcon,
       cardThemeId,
     }
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    const lifecycle = resolveProgramLifecycle(program);
+    const ruleLocked = isRuleLocked(lifecycle);
+
     const normalizedTitle = normalizeTitle(title);
+    const normalizedDescription = normalizeOptionalText(description);
+    const normalizedImageUrl = normalizeOptionalText(imageUrl);
     const normalizedReward = normalizeReward(rewardName);
     const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
+    const normalizedCardTerms = normalizeOptionalText(cardTerms);
+    const normalizedRewardConditions = normalizeOptionalText(rewardConditions);
     const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
-    const nextStructureSignature = buildProgramStructureSignature({
-      title: normalizedTitle,
-      rewardName: normalizedReward,
-      maxStamps: normalizedMaxStamps,
-    });
+
+    const currentReward = normalizeReward(program.rewardName);
+    const currentMaxStamps = normalizeMaxStamps(program.maxStamps);
+    const currentCardTerms = normalizeOptionalText(program.cardTerms);
+    const currentRewardConditions = normalizeOptionalText(
+      program.rewardConditions
+    );
+
+    const lockedFieldsChanged =
+      normalizedReward !== currentReward ||
+      normalizedMaxStamps !== currentMaxStamps ||
+      normalizeStructureText(normalizedCardTerms) !==
+        normalizeStructureText(currentCardTerms) ||
+      normalizeStructureText(normalizedRewardConditions) !==
+        normalizeStructureText(currentRewardConditions);
+
+    if (ruleLocked && lockedFieldsChanged) {
+      throw new Error(CARD_RULES_LOCKED_ERROR_MESSAGE);
+    }
 
     const now = Date.now();
     const patchPayload: Record<string, unknown> = {
       title: normalizedTitle,
-      rewardName: normalizedReward,
-      maxStamps: normalizedMaxStamps,
+      description: normalizedDescription,
+      imageUrl: normalizedImageUrl,
       stampIcon: normalizedIcon,
       cardThemeId: normalizedThemeId,
       updatedAt: now,
     };
 
-    if (program.structureSignature !== nextStructureSignature) {
-      patchPayload.structureSignature = nextStructureSignature;
-      patchPayload.lastStructureChangedAt = now;
+    if (!ruleLocked) {
+      patchPayload.rewardName = normalizedReward;
+      patchPayload.maxStamps = normalizedMaxStamps;
+      patchPayload.cardTerms = normalizedCardTerms;
+      patchPayload.rewardConditions = normalizedRewardConditions;
+
+      const nextStructureSignature = buildStructureSignature({
+        rewardName: normalizedReward,
+        maxStamps: normalizedMaxStamps,
+        cardTerms: normalizeStructureText(normalizedCardTerms),
+        rewardConditions: normalizeStructureText(normalizedRewardConditions),
+      });
+
+      if (program.structureSignature !== nextStructureSignature) {
+        patchPayload.structureSignature = nextStructureSignature;
+        patchPayload.lastStructureChangedAt = now;
+      }
     }
 
     await ctx.db.patch(program._id, patchPayload);
@@ -394,9 +586,14 @@ export const archiveProgram = mutation({
       businessId
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
-    const now = Date.now();
+    const lifecycle = resolveProgramLifecycle(program);
+    if (lifecycle !== 'active') {
+      throw new Error('PROGRAM_CANNOT_BE_ARCHIVED');
+    }
 
+    const now = Date.now();
     await ctx.db.patch(program._id, {
+      status: 'archived',
       isArchived: true,
       archivedAt: now,
       archivedByUserId: actor._id,
@@ -412,38 +609,26 @@ export const unarchiveProgram = mutation({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
   },
+  handler: async () => {
+    throw new Error('PROGRAM_REACTIVATION_FORBIDDEN');
+  },
+});
+
+export const deleteProgram = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+  },
   handler: async (ctx, { businessId, programId }) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     const program = await getProgramOrThrow(ctx, businessId, programId);
-    const now = Date.now();
+    const membershipCount = await getProgramMembershipCount(ctx, program._id);
 
-    const activePrograms = await ctx.db
-      .query('loyaltyPrograms')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.neq(q.field('isArchived'), true)
-        )
-      )
-      .collect();
+    if (membershipCount > 0) {
+      throw new Error('PROGRAM_DELETE_FORBIDDEN_HAS_MEMBERSHIPS');
+    }
 
-    const activeCountExcludingCurrent = activePrograms.filter(
-      (item) => String(item._id) !== String(program._id)
-    ).length;
-
-    await assertEntitlement(ctx, businessId, {
-      limitKey: 'maxCards',
-      currentValue: activeCountExcludingCurrent,
-    });
-
-    await ctx.db.patch(program._id, {
-      isArchived: false,
-      archivedAt: undefined,
-      archivedByUserId: undefined,
-      updatedAt: now,
-    });
-
+    await ctx.db.delete(program._id);
     return { ok: true };
   },
 });

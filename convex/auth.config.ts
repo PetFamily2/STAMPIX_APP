@@ -1,12 +1,17 @@
-// קובץ קונפיגורציה לאימות של Convex
-// מגדיר את ספקי הזהות (Providers) שהאפליקציה תומכת בהם
+const resolvedAuthDomain = (
+  process.env.CONVEX_SITE_URL ?? process.env.SITE_URL
+)?.trim();
+
+if (!resolvedAuthDomain) {
+  throw new Error(
+    'Missing auth domain. Set CONVEX_SITE_URL (recommended) or SITE_URL.'
+  );
+}
 
 export default {
   providers: [
     {
-      // כתובת האתר של Convex (נלקחת ממשתני הסביבה)
-      // משמשת לאימות דומיין וקישור ל-Backend
-      domain: process.env.CONVEX_SITE_URL ?? process.env.SITE_URL,
+      domain: resolvedAuthDomain,
       applicationID: 'convex',
     },
   ],

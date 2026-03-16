@@ -60,6 +60,7 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
+      "expo-notifications",
       [
         "expo-localization",
         {

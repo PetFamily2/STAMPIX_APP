@@ -5,7 +5,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
 import { router, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,7 +25,13 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { useAppMode } from '@/contexts/AppModeContext';
+import {
+  LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+  NOTIFICATIONS_ENABLED_STORAGE_KEY,
+  usePushNotifications,
+} from '@/contexts/PushNotificationsContext';
 import { api } from '@/convex/_generated/api';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
@@ -33,11 +40,6 @@ const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
 // Legacy typo key kept for migration only.
 const LEGACY_APP_MODE_STORAGE_KEY = 'stamprix.appMode';
 const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
-const NOTIFICATIONS_ENABLED_STORAGE_KEY =
-  'stampaix.customerNotificationsEnabled';
-// Legacy typo key kept for migration only.
-const LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY =
-  'stamprix.customerNotificationsEnabled';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -88,8 +90,14 @@ const TEXT = {
     'STAMPAIX - \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9\u05ea \u05e4\u05e9\u05d5\u05d8\u05d4 \u05dc\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   helpCenterText:
     '\u05e6\u05e8\u05d9\u05db\u05d9\u05dd \u05e2\u05d6\u05e8\u05d4? \u05e4\u05e0\u05d5 \u05d0\u05dc\u05d9\u05e0\u05d5 \u05d3\u05e8\u05da \u05de\u05e8\u05db\u05d6 \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
+  legalOpenFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e4\u05ea\u05d5\u05d7 \u05d0\u05ea \u05d4\u05de\u05e1\u05de\u05da \u05d4\u05de\u05e9\u05e4\u05d8\u05d9',
   notificationsSaveFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  notificationsPermissionTitle:
+    '\u05d4\u05e8\u05e9\u05d0\u05ea \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05d3\u05e8\u05e9\u05ea',
+  notificationsPermissionMessage:
+    '\u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea, \u05d0\u05e9\u05e8\u05d5 \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea \u05d4\u05de\u05db\u05e9\u05d9\u05e8.',
   switchModeFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
   logoutFailed:
@@ -257,16 +265,21 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
   const { setAppMode } = useAppMode();
+  const {
+    isEnabled: notificationsEnabled,
+    isLoading: notificationsLoading,
+    isSyncing: notificationsSyncing,
+    setNotificationsEnabled,
+  } = usePushNotifications();
   const { signOut } = useAuthActions();
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [notificationBusy, setNotificationBusy] = useState(false);
 
   const isActionBusy = deleteBusy;
+  const notificationBusy = notificationsLoading || notificationsSyncing;
   const isDeleteConfirmationValid =
     deleteConfirmationText.trim().toUpperCase() === 'DELETE';
   const isDeleteFinalDisabled = deleteBusy || !isDeleteConfirmationValid;
@@ -283,8 +296,20 @@ export default function SettingsScreen() {
     router.push('/(authenticated)/(customer)/account-details');
   };
 
-  const openLegalScreen = () => {
-    router.push('/(auth)/legal');
+  const openLegalUrl = async (url: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch (error) {
+      Alert.alert(TEXT.errorTitle, toErrorMessage(error, TEXT.legalOpenFailed));
+    }
+  };
+
+  const openTermsOfService = () => {
+    void openLegalUrl(TERMS_OF_SERVICE_URL);
+  };
+
+  const openPrivacyPolicy = () => {
+    void openLegalUrl(PRIVACY_POLICY_URL);
   };
 
   const handleLogout = async () => {
@@ -409,70 +434,26 @@ export default function SettingsScreen() {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-
-    void (async () => {
-      try {
-        const storedPrimary = await AsyncStorage.getItem(
-          NOTIFICATIONS_ENABLED_STORAGE_KEY
-        );
-        const storedLegacy = storedPrimary
-          ? null
-          : await AsyncStorage.getItem(
-              LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
-            );
-        const storedValue = storedPrimary ?? storedLegacy;
-
-        if (!isMounted || storedValue == null) {
-          return;
-        }
-
-        setNotificationsEnabled(storedValue === '1');
-        if (storedLegacy !== null) {
-          await AsyncStorage.setItem(
-            NOTIFICATIONS_ENABLED_STORAGE_KEY,
-            storedLegacy
-          );
-          await AsyncStorage.removeItem(
-            LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
-          );
-        }
-      } catch {
-        if (isMounted) {
-          setNotificationsEnabled(true);
-        }
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const toggleNotifications = async () => {
     if (notificationBusy) {
       return;
     }
 
     const nextValue = !notificationsEnabled;
-    setNotificationsEnabled(nextValue);
-    setNotificationBusy(true);
 
     try {
-      await AsyncStorage.setItem(
-        NOTIFICATIONS_ENABLED_STORAGE_KEY,
-        nextValue ? '1' : '0'
-      );
-      await AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY);
+      const result = await setNotificationsEnabled(nextValue);
+      if (nextValue && !result.registered) {
+        Alert.alert(
+          TEXT.notificationsPermissionTitle,
+          TEXT.notificationsPermissionMessage
+        );
+      }
     } catch (error) {
-      setNotificationsEnabled(!nextValue);
       Alert.alert(
         TEXT.errorTitle,
         toErrorMessage(error, TEXT.notificationsSaveFailed)
       );
-    } finally {
-      setNotificationBusy(false);
     }
   };
 
@@ -540,13 +521,13 @@ export default function SettingsScreen() {
             title={TEXT.termsTitle}
             subtitle={TEXT.termsSubtitle}
             icon="document-text-outline"
-            onPress={openLegalScreen}
+            onPress={openTermsOfService}
           />
           <MenuRow
             title={TEXT.privacyTitle}
             subtitle={TEXT.privacySubtitle}
             icon="shield-checkmark-outline"
-            onPress={openLegalScreen}
+            onPress={openPrivacyPolicy}
           />
         </View>
 

@@ -18,6 +18,7 @@ type ProgramCustomerCardPreviewProps = {
   variant?: ProgramCardVariant;
   status?: ProgramCardStatus;
   selected?: boolean;
+  showAllStamps?: boolean;
 };
 
 const TEXT = {
@@ -53,14 +54,18 @@ export default function ProgramCustomerCardPreview({
   variant = 'list',
   status = 'default',
   selected = false,
+  showAllStamps = false,
 }: ProgramCustomerCardPreviewProps) {
   const goal = Math.max(1, Number(maxStamps || 0));
   const fallbackCurrent =
     variant === 'hero' ? Math.min(4, goal) : Math.min(2, goal);
   const current = clamp(previewCurrentStamps ?? fallbackCurrent, 0, goal);
-  const dots = Math.min(goal, variant === 'compact' ? 8 : 12);
-  const overflow = Math.max(0, goal - dots);
-  const dotIds = Array.from({ length: dots }, (_, index) => index + 1);
+  const defaultVisibleStamps = variant === 'compact' ? 8 : 12;
+  const visibleStamps = showAllStamps
+    ? goal
+    : Math.min(goal, defaultVisibleStamps);
+  const overflow = Math.max(0, goal - visibleStamps);
+  const dotIds = Array.from({ length: visibleStamps }, (_, index) => index + 1);
   const theme = resolveCardTheme(cardThemeId ?? undefined);
 
   const logoUri = businessLogoUrl?.trim() ? businessLogoUrl.trim() : null;

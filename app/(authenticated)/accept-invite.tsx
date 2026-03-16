@@ -9,9 +9,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
@@ -39,6 +43,7 @@ const ERROR_MAP: Record<string, string> = {
 };
 
 export default function AcceptInviteScreen() {
+  const insets = useSafeAreaInsets();
   const { inviteCode: paramCode } = useLocalSearchParams<{
     inviteCode?: string;
   }>();
@@ -85,25 +90,33 @@ export default function AcceptInviteScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="px-6 pt-6 pb-8">
-          <View className="flex-row-reverse items-center justify-between">
-            <BackButton
-              onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-            />
-            <Text
-              className={`text-2xl font-bold text-gray-900 ${tw.textStart}`}
-            >
-              {TEXT.title}
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View className="px-6 pt-6 pb-8">
+            <View className="flex-row-reverse items-center justify-between">
+              <BackButton
+                onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+              />
+              <Text
+                className={`text-2xl font-bold text-gray-900 ${tw.textStart}`}
+              >
+                {TEXT.title}
+              </Text>
+              <View className="w-11 h-11" />
+            </View>
+
+            <Text className={`text-sm text-zinc-500 mt-2 ${tw.textStart}`}>
+              {TEXT.subtitle}
             </Text>
-            <View className="w-11 h-11" />
           </View>
+        </StickyScrollHeader>
 
-          <Text className={`text-sm text-zinc-500 mt-2 ${tw.textStart}`}>
-            {TEXT.subtitle}
-          </Text>
-
+        <View className="px-6">
           {pendingInvites.length > 0 && !paramCode && !manualCode && (
             <View className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <Text

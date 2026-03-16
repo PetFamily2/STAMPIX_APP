@@ -7,6 +7,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { safeBack } from '@/lib/navigation';
 
 function range(n: number) {
@@ -48,36 +49,41 @@ export default function CardDetailsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#E9F0FF' }} edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: 28,
         }}
       >
-        <View
-          style={{
-            flexDirection: 'row-reverse',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
         >
-          <BackButton
-            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-          />
-
-          <Text
+          <View
             style={{
-              fontSize: 18,
-              fontWeight: '800',
-              color: '#0B1220',
-              textAlign: 'right',
+              flexDirection: 'row-reverse',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            פרטי כרטיסיה
-          </Text>
+            <BackButton
+              onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            />
 
-          <View style={{ width: 44 }} />
-        </View>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '800',
+                color: '#0B1220',
+                textAlign: 'right',
+              }}
+            >
+              פרטי כרטיסיה
+            </Text>
+
+            <View style={{ width: 44 }} />
+          </View>
+        </StickyScrollHeader>
 
         <View
           style={{

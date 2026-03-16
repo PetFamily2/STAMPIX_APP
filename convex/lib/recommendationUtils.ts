@@ -5,11 +5,12 @@ function normalizeText(value: string) {
 }
 
 export function buildProgramStructureSignature(input: {
-  title: string;
   rewardName: string;
   maxStamps: number;
+  cardTerms: string;
+  rewardConditions: string;
 }) {
-  const payload = `${normalizeText(input.title)}|${normalizeText(input.rewardName)}|${Math.floor(input.maxStamps)}`;
+  const payload = `${normalizeText(input.rewardName)}|${Math.floor(input.maxStamps)}|${normalizeText(input.cardTerms)}|${normalizeText(input.rewardConditions)}`;
   return hashString(payload);
 }
 

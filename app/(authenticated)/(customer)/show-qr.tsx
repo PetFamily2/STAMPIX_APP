@@ -3,12 +3,13 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
+  Vibration,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -17,8 +18,10 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
+import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 
 const TEXT = {
   title: '\u05d4-QR \u05e9\u05dc\u05d9',
@@ -33,6 +36,7 @@ const TEXT = {
   qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
   qrCreateFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05d0\u05ea \u05d4-QR \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
+  stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
 };
 
 type CustomerBusinessSummary = {
@@ -51,6 +55,14 @@ export default function CustomerShowQrScreen() {
   const savedBusinesses = (savedBusinessesQuery ??
     []) as CustomerBusinessSummary[];
   const hasAnyMembership = savedBusinesses.length > 0;
+  const memberships = useQuery(
+    api.memberships.byCustomer,
+    isAuthenticated ? {} : 'skip'
+  ) as CustomerMembershipView[] | undefined;
+
+  const previousStampCountsRef = useRef<Map<string, number>>(new Map());
+  const isStampTrackerReadyRef = useRef(false);
+  const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
 
   const createCustomerScanToken = useMutation(
     api.scanner.createCustomerScanToken
@@ -86,10 +98,55 @@ export default function CustomerShowQrScreen() {
     }, [refreshScanToken])
   );
 
+  useEffect(() => {
+    if (!isAuthenticated || memberships === undefined) {
+      return;
+    }
+
+    const nextCounts = new Map<string, number>();
+    for (const membership of memberships) {
+      nextCounts.set(
+        membership.membershipId,
+        Number(membership.currentStamps ?? 0)
+      );
+    }
+
+    if (!isStampTrackerReadyRef.current) {
+      previousStampCountsRef.current = nextCounts;
+      isStampTrackerReadyRef.current = true;
+      return;
+    }
+
+    let hasStampIncrease = false;
+    for (const [membershipId, nextCount] of nextCounts.entries()) {
+      const previousCount =
+        previousStampCountsRef.current.get(membershipId) ?? 0;
+      if (nextCount > previousCount) {
+        hasStampIncrease = true;
+        break;
+      }
+    }
+
+    previousStampCountsRef.current = nextCounts;
+
+    if (hasStampIncrease) {
+      Vibration.vibrate(120);
+      setCustomerStampBannerKey((current) => current + 1);
+    }
+  }, [isAuthenticated, memberships]);
+
   const isLoading = isAuthenticated && savedBusinessesQuery === undefined;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
+      <AnimatedActionBanner
+        eventKey={customerStampBannerKey}
+        message={TEXT.stampSuccessBanner}
+        topOffset={(insets.top || 0) + 8}
+        durationMs={5000}
+        variant="success"
+        showFireworks={true}
+      />
       <View
         style={[
           styles.screen,

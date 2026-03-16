@@ -46,6 +46,11 @@ export type PackageInfo = {
   packageType: 'monthly' | 'annual' | 'lifetime' | 'unknown';
 };
 
+type PurchasePackageOptions = {
+  appUserId?: string;
+  syncUserSubscription?: boolean;
+};
+
 // מבנה הקונטקסט
 type RevenueCatContextType = {
   // מצב
@@ -59,7 +64,10 @@ type RevenueCatContextType = {
   packages: PackageInfo[];
 
   // פעולות
-  purchasePackage: (packageId: string) => Promise<boolean>;
+  purchasePackage: (
+    packageId: string,
+    options?: PurchasePackageOptions
+  ) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
   refreshPurchaserInfo: () => Promise<void>;
 };
@@ -152,7 +160,7 @@ export function RevenueCatProvider({
         // ignore failures
       }
     },
-    [PAYMENT_SYSTEM_ENABLED, updateSubscriptionPlan, user]
+    [updateSubscriptionPlan, user]
   );
 
   const handleCustomerInfo = useCallback(
@@ -294,7 +302,10 @@ export function RevenueCatProvider({
   // ============================================================================
 
   const purchasePackage = useCallback(
-    async (packageId: string): Promise<boolean> => {
+    async (
+      packageId: string,
+      options?: PurchasePackageOptions
+    ): Promise<boolean> => {
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -324,6 +335,11 @@ export function RevenueCatProvider({
 
       try {
         const Purchases = (await import('react-native-purchases')).default;
+        const overrideAppUserId = options?.appUserId?.trim();
+        if (overrideAppUserId) {
+          await Purchases.logIn(overrideAppUserId);
+          setLastIdentifiedUserId(overrideAppUserId);
+        }
         const offerings = await Purchases.getOfferings();
         const packageToPurchase = offerings.current?.availablePackages.find(
           (pkg) => pkg.identifier === packageId
@@ -335,7 +351,11 @@ export function RevenueCatProvider({
 
         const { customerInfo } =
           await Purchases.purchasePackage(packageToPurchase);
-        const plan = await handleCustomerInfo(customerInfo);
+        const shouldSyncUserSubscription =
+          options?.syncUserSubscription !== false;
+        const plan = shouldSyncUserSubscription
+          ? await handleCustomerInfo(customerInfo)
+          : planFromRevenueCatSubscriber(customerInfo);
         return plan !== 'starter';
       } catch (error: unknown) {
         const errorMessage =

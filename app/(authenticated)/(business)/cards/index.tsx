@@ -1,4 +1,4 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -18,121 +17,148 @@ import {
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import {
-  entitlementErrorToHebrewMessage,
-  getEntitlementError,
-} from '@/lib/entitlements/errors';
-import { IS_RTL, tw } from '@/lib/rtl';
-import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { tw } from '@/lib/rtl';
 
-const TEXT_START = IS_RTL ? 'right' : 'left';
-const TEXT_END = IS_RTL ? 'left' : 'right';
-const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 type MarketingTopTab = 'campaigns' | 'loyalty';
+type ProgramLifecycle = 'draft' | 'active' | 'archived';
+
+type ManagementProgram = {
+  loyaltyProgramId: Id<'loyaltyPrograms'>;
+  title: string;
+  rewardName: string;
+  maxStamps: number;
+  stampIcon: string;
+  cardThemeId: string;
+  lifecycle: ProgramLifecycle;
+  status: ProgramLifecycle;
+  isRuleLocked: boolean;
+  canDelete: boolean;
+  membershipCount: number;
+  metrics: {
+    activeMembers: number;
+    totalMembers: number;
+    stamps7d: number;
+    redemptions30d: number;
+    lastActivityAt: number | null;
+  };
+};
+
 const TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
   { key: 'campaigns', label: 'קמפיינים' },
   { key: 'loyalty', label: 'כרטיסיות נאמנות' },
 ];
+
 const TEXT = {
-  savedTitle: '\u05E0\u05E9\u05DE\u05E8',
-  savedMessage:
-    '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4 \u05E0\u05D5\u05E6\u05E8\u05D4 \u05D1\u05D4\u05E6\u05DC\u05D7\u05D4.',
-  upgradeRequired: '\u05E9\u05D3\u05E8\u05D5\u05D2 \u05E0\u05D3\u05E8\u05E9',
-  errorTitle: '\u05E9\u05D2\u05D9\u05D0\u05D4',
-  createFailed:
-    '\u05D9\u05E6\u05D9\u05E8\u05EA \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05E0\u05DB\u05E9\u05DC\u05D4.',
-  businessFallback: '\u05D4\u05E2\u05E1\u05E7 \u05E9\u05DC\u05DA',
-  screenTitle:
-    '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA',
-  screenSubtitle:
-    '\u05E0\u05D9\u05D4\u05D5\u05DC \u05EA\u05D5\u05DB\u05E0\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA \u05DC\u05E2\u05E1\u05E7 \u05D1\u05E6\u05D5\u05E8\u05D4 \u05E4\u05E9\u05D5\u05D8\u05D4 \u05D5\u05D1\u05E8\u05D5\u05E8\u05D4',
-  createNewCard:
-    '\u05E6\u05D5\u05E8 \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
-  createSectionTitle:
-    '\u05D9\u05E6\u05D9\u05E8\u05EA \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4 \u05D7\u05D3\u05E9\u05D4',
-  placeholderCardName:
-    '\u05E9\u05DD \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4',
-  placeholderReward: '\u05D4\u05D8\u05D1\u05D4',
-  placeholderStamps: '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD',
-  placeholderIcon: '\u05D0\u05D9\u05D9\u05E7\u05D5\u05DF',
-  createCardButton:
-    '\u05E6\u05D5\u05E8 \u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D4',
-  usageTitle:
-    '\u05E9\u05D9\u05DE\u05D5\u05E9 \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC',
-  cardsLabel: '\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05DD',
-  inUseLabel: '\u05D1\u05E9\u05D9\u05DE\u05D5\u05E9',
-  customersLabel: '\u05DC\u05E7\u05D5\u05D7\u05D5\u05EA',
-  activeLabel: '\u05E4\u05E2\u05D9\u05DC\u05D9\u05DD',
-  redemptionsLabel: '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD',
-  days30Label: '30 \u05D9\u05D5\u05DD',
-  limitReached:
-    '\u05D4\u05D2\u05E2\u05EA\u05DD \u05DC\u05DE\u05D2\u05D1\u05DC\u05EA \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9.',
-  nearLimit:
-    '\u05D0\u05EA\u05DD \u05DE\u05EA\u05E7\u05E8\u05D1\u05D9\u05DD \u05DC\u05DE\u05D2\u05D1\u05DC\u05EA \u05D4\u05DB\u05E8\u05D8\u05D9\u05E1\u05D9\u05D5\u05EA \u05D1\u05DE\u05E1\u05DC\u05D5\u05DC \u05D4\u05E0\u05D5\u05DB\u05D7\u05D9.',
-  upgradePlan: '\u05E9\u05D3\u05E8\u05D5\u05D2 \u05DE\u05E1\u05DC\u05D5\u05DC',
-  activeCardsTitle:
-    '\u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA',
-  noCardsYet:
-    '\u05E2\u05D3\u05D9\u05D9\u05DF \u05DC\u05D0 \u05D9\u05E6\u05E8\u05EA\u05DD \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E0\u05D0\u05DE\u05E0\u05D5\u05EA.',
-  noActiveCards:
-    '\u05D0\u05D9\u05DF \u05DB\u05E8\u05D2\u05E2 \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D5\u05EA.',
-  archivedCardsTitle:
-    '\u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
-  noArchivedCards:
-    '\u05D0\u05D9\u05DF \u05DB\u05E8\u05D8\u05D9\u05D5\u05EA \u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF.',
+  savedTitle: 'נשמר',
+  savedMessage: 'כרטיסיה חדשה נוצרה כטיוטה.',
+  errorTitle: 'שגיאה',
+  createFailed: 'יצירת כרטיסיה נכשלה.',
+  businessFallback: 'העסק שלך',
+  screenTitle: 'כרטיסיות נאמנות',
+  screenSubtitle: 'יצירה וניהול כרטיסי נאמנות במצב טיוטה, פעיל או ארכיון',
+  createNewCard: 'צור כרטיסיה חדשה',
+  createSectionTitle: 'יצירת טיוטת כרטיסיה',
+  placeholderCardName: 'שם הכרטיסיה',
+  placeholderReward: 'הטבה',
+  placeholderStamps: 'ניקובים',
+  placeholderIcon: 'אייקון',
+  createCardButton: 'צור טיוטה',
+  usageTitle: 'שימוש במסלול',
+  cardsLabel: 'כרטיסים פעילים',
+  inUseLabel: 'נספרים במגבלה',
+  customersLabel: 'לקוחות פעילים',
+  activeLabel: 'בכרטיסים פעילים',
+  redemptionsLabel: 'מימושים',
+  days30Label: '30 יום',
+  limitReached: 'הגעתם למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
+  nearLimit: 'אתם מתקרבים למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
+  draftCardsTitle: 'טיוטות',
+  noDraftCards: 'אין כרגע כרטיסים במצב טיוטה.',
+  activeCardsTitle: 'כרטיסים פעילים',
+  noActiveCards: 'אין כרגע כרטיסים פעילים.',
+  archivedCardsTitle: 'כרטיסים בארכיון',
+  noArchivedCards: 'אין כרגע כרטיסים בארכיון.',
+  openDetails: 'פתח לעריכה',
 } as const;
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
-function formatLastActivityShort(value: number | null) {
-  if (!value) {
-    return '\u05DC\u05DC\u05D0';
-  }
-  return new Date(value).toLocaleDateString('he-IL', {
-    day: '2-digit',
-    month: '2-digit',
-  });
-}
-
-function ProgramPerformanceTile({
-  label,
-  value,
+function ProgramListSection({
+  title,
+  emptyText,
+  programs,
+  businessName,
+  businessLogoUrl,
+  onOpenProgram,
 }: {
-  label: string;
-  value: string;
+  title: string;
+  emptyText: string;
+  programs: ManagementProgram[];
+  businessName: string;
+  businessLogoUrl: string | null;
+  onOpenProgram: (program: ManagementProgram) => void;
 }) {
   return (
-    <View style={styles.performanceTile}>
-      <Text style={styles.performanceLabel}>{label}</Text>
-      <Text style={styles.performanceValue}>{value}</Text>
-    </View>
-  );
-}
+    <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+      <Text
+        className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+      >
+        {title} ({programs.length})
+      </Text>
 
-function PlanUsageTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <View style={styles.usageChip}>
-      <Text style={styles.usageChipLabel}>{label}</Text>
-      <Text style={styles.usageChipValue} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={styles.usageChipHint} numberOfLines={1}>
-        {hint}
-      </Text>
+      {programs.length === 0 ? (
+        <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+          {emptyText}
+        </Text>
+      ) : (
+        programs.map((program) => (
+          <TouchableOpacity
+            key={String(program.loyaltyProgramId)}
+            onPress={() => onOpenProgram(program)}
+            className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
+          >
+            <ProgramCustomerCardPreview
+              businessName={businessName}
+              businessLogoUrl={businessLogoUrl}
+              title={program.title}
+              rewardName={program.rewardName}
+              maxStamps={program.maxStamps}
+              stampIcon={program.stampIcon}
+              cardThemeId={program.cardThemeId}
+              status={program.lifecycle === 'archived' ? 'archived' : 'default'}
+              variant="list"
+            />
+
+            <View className={`${tw.flexRow} items-center justify-between`}>
+              <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
+                <Text className="text-[11px] font-bold text-[#1D4ED8]">
+                  {program.lifecycle === 'draft'
+                    ? 'טיוטה'
+                    : program.lifecycle === 'archived'
+                      ? 'בארכיון'
+                      : 'פעיל'}
+                </Text>
+              </View>
+
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                לקוחות: {formatNumber(program.metrics.totalMembers)}
+              </Text>
+
+              <Text className="text-xs font-bold text-[#334155]">
+                {TEXT.openDetails}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
     </View>
   );
 }
@@ -154,10 +180,7 @@ export default function BusinessCardsManagementScreen() {
       <Redirect
         href={{
           pathname: '/(authenticated)/(business)/cards/campaigns',
-          params: {
-            preview,
-            map,
-          },
+          params: { preview, map },
         }}
       />
     );
@@ -167,8 +190,7 @@ export default function BusinessCardsManagementScreen() {
   const canManage =
     activeBusiness?.staffRole === 'owner' ||
     activeBusiness?.staffRole === 'manager';
-
-  const { entitlements, limitStatus } = useEntitlements(activeBusinessId);
+  const { limitStatus } = useEntitlements(activeBusinessId);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -179,11 +201,10 @@ export default function BusinessCardsManagementScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  const programs =
-    useQuery(
-      api.loyaltyPrograms.listManagementByBusiness,
-      activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-    ) ?? [];
+  const programs = (useQuery(
+    api.loyaltyPrograms.listManagementByBusiness,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  ) ?? []) as ManagementProgram[];
 
   const createLoyaltyProgram = useMutation(
     api.loyaltyPrograms.createLoyaltyProgram
@@ -196,6 +217,10 @@ export default function BusinessCardsManagementScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
 
+  const draftPrograms = useMemo(
+    () => programs.filter((program) => program.lifecycle === 'draft'),
+    [programs]
+  );
   const activePrograms = useMemo(
     () => programs.filter((program) => program.lifecycle === 'active'),
     [programs]
@@ -206,18 +231,6 @@ export default function BusinessCardsManagementScreen() {
   );
 
   const cardLimit = limitStatus('maxCards', activePrograms.length);
-  const requiredPlanForCards =
-    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
-      ?.maxCards ?? 'pro';
-
-  const openUpgradeForCards = () => {
-    openSubscriptionComparison(router, {
-      featureKey: 'maxCards',
-      requiredPlan: requiredPlanForCards,
-      reason: 'limit_reached',
-    });
-  };
-
   const parsedMaxStamps = Number(maxStamps);
   const canCreate =
     Boolean(activeBusinessId) &&
@@ -233,14 +246,10 @@ export default function BusinessCardsManagementScreen() {
     if (!activeBusinessId || !canCreate) {
       return;
     }
-    if (cardLimit.isAtLimit) {
-      openUpgradeForCards();
-      return;
-    }
 
     setIsCreating(true);
     try {
-      await createLoyaltyProgram({
+      const result = await createLoyaltyProgram({
         businessId: activeBusinessId,
         title: title.trim(),
         rewardName: rewardName.trim(),
@@ -252,26 +261,16 @@ export default function BusinessCardsManagementScreen() {
       setMaxStamps('10');
       setStampIcon('star');
       setIsCreatePanelOpen(false);
+
       Alert.alert(TEXT.savedTitle, TEXT.savedMessage);
+      router.push({
+        pathname: '/(authenticated)/(business)/cards/[programId]',
+        params: {
+          programId: String(result.loyaltyProgramId),
+          businessId: String(activeBusinessId),
+        },
+      });
     } catch (error) {
-      const entitlementError = getEntitlementError(error);
-      if (entitlementError) {
-        Alert.alert(
-          TEXT.upgradeRequired,
-          entitlementErrorToHebrewMessage(entitlementError)
-        );
-        openSubscriptionComparison(router, {
-          featureKey: entitlementError.limitKey ?? 'maxCards',
-          requiredPlan: entitlementError.requiredPlan ?? requiredPlanForCards,
-          reason:
-            entitlementError.code === 'PLAN_LIMIT_REACHED'
-              ? 'limit_reached'
-              : entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-                ? 'subscription_inactive'
-                : 'feature_locked',
-        });
-        return;
-      }
       Alert.alert(
         TEXT.errorTitle,
         error instanceof Error ? error.message : TEXT.createFailed
@@ -291,32 +290,50 @@ export default function BusinessCardsManagementScreen() {
   );
   const businessDisplayName =
     activeBusiness?.name?.trim() || TEXT.businessFallback;
-  const canOpenCreatePanel = canManage && !isCreating;
+
+  const openProgramDetails = (program: ManagementProgram) => {
+    if (!activeBusinessId) {
+      return;
+    }
+    router.push({
+      pathname: '/(authenticated)/(business)/cards/[programId]',
+      params: {
+        programId: String(program.loyaltyProgramId),
+        businessId: String(activeBusinessId),
+      },
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
-        <BusinessScreenHeader
-          title={TEXT.screenTitle}
-          subtitle={TEXT.screenSubtitle}
-          titleAccessory={
-            <TouchableOpacity
-              onPress={() =>
-                router.replace('/(authenticated)/(business)/dashboard')
-              }
-              className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-            >
-              <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-            </TouchableOpacity>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title={TEXT.screenTitle}
+            subtitle={TEXT.screenSubtitle}
+            titleAccessory={
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
+              >
+                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
+
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
@@ -348,21 +365,15 @@ export default function BusinessCardsManagementScreen() {
         </View>
 
         <TouchableOpacity
-          disabled={!canOpenCreatePanel && !cardLimit.isAtLimit}
+          disabled={!canManage || isCreating}
           onPress={() => {
-            if (cardLimit.isAtLimit) {
-              openUpgradeForCards();
-              return;
-            }
-            if (!canOpenCreatePanel) {
+            if (!canManage || isCreating) {
               return;
             }
             setIsCreatePanelOpen((current) => !current);
           }}
           className={`mt-4 rounded-3xl px-4 py-4 ${
-            !canOpenCreatePanel && !cardLimit.isAtLimit
-              ? 'bg-[#CBD5E1]'
-              : 'bg-[#2F6BFF]'
+            !canManage || isCreating ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
           }`}
         >
           <View className={`${tw.flexRow} items-center justify-center gap-2`}>
@@ -380,6 +391,7 @@ export default function BusinessCardsManagementScreen() {
             >
               {TEXT.createSectionTitle}
             </Text>
+
             <TextInput
               value={title}
               onChangeText={setTitle}
@@ -396,6 +408,7 @@ export default function BusinessCardsManagementScreen() {
               placeholderTextColor="#94A3B8"
               className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
             />
+
             <View className={`${tw.flexRow} gap-2`}>
               <TextInput
                 value={maxStamps}
@@ -415,6 +428,7 @@ export default function BusinessCardsManagementScreen() {
                 className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
               />
             </View>
+
             <TouchableOpacity
               disabled={!canCreate}
               onPress={() => {
@@ -441,22 +455,49 @@ export default function BusinessCardsManagementScreen() {
           >
             {TEXT.usageTitle}
           </Text>
-          <View style={styles.usageStrip}>
-            <PlanUsageTile
-              label={TEXT.cardsLabel}
-              value={`${activePrograms.length}/${cardLimit.limitValue}`}
-              hint={TEXT.inUseLabel}
-            />
-            <PlanUsageTile
-              label={TEXT.customersLabel}
-              value={formatNumber(totalCustomers)}
-              hint={TEXT.activeLabel}
-            />
-            <PlanUsageTile
-              label={TEXT.redemptionsLabel}
-              value={formatNumber(totalRedemptions30d)}
-              hint={TEXT.days30Label}
-            />
+
+          <View className={`${tw.flexRow} mt-3 gap-2`}>
+            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
+              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
+                {TEXT.cardsLabel}
+              </Text>
+              <Text
+                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
+              >
+                {activePrograms.length}/{cardLimit.limitValue}
+              </Text>
+              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
+                {TEXT.inUseLabel}
+              </Text>
+            </View>
+
+            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
+              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
+                {TEXT.customersLabel}
+              </Text>
+              <Text
+                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
+              >
+                {formatNumber(totalCustomers)}
+              </Text>
+              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
+                {TEXT.activeLabel}
+              </Text>
+            </View>
+
+            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
+              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
+                {TEXT.redemptionsLabel}
+              </Text>
+              <Text
+                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
+              >
+                {formatNumber(totalRedemptions30d)}
+              </Text>
+              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
+                {TEXT.days30Label}
+              </Text>
+            </View>
           </View>
 
           {cardLimit.isNearLimit || cardLimit.isAtLimit ? (
@@ -466,254 +507,37 @@ export default function BusinessCardsManagementScreen() {
               >
                 {cardLimit.isAtLimit ? TEXT.limitReached : TEXT.nearLimit}
               </Text>
-              <TouchableOpacity
-                onPress={openUpgradeForCards}
-                className="mt-2 self-start rounded-xl bg-[#1D4ED8] px-3 py-2"
-              >
-                <Text className="text-xs font-bold text-white">
-                  {TEXT.upgradePlan}
-                </Text>
-              </TouchableOpacity>
             </View>
           ) : null}
         </View>
 
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            {TEXT.activeCardsTitle} ({activePrograms.length})
-          </Text>
-          {activeBusinessId && programs.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              {TEXT.noCardsYet}
-            </Text>
-          ) : activePrograms.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              {TEXT.noActiveCards}
-            </Text>
-          ) : (
-            activePrograms.map((program) => (
-              <View
-                key={program.loyaltyProgramId}
-                className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
-              >
-                <ProgramCustomerCardPreview
-                  businessName={businessDisplayName}
-                  businessLogoUrl={activeBusiness?.logoUrl ?? null}
-                  title={program.title}
-                  rewardName={program.rewardName}
-                  maxStamps={program.maxStamps}
-                  cardThemeId={program.cardThemeId}
-                  variant="list"
-                />
+        <ProgramListSection
+          title={TEXT.draftCardsTitle}
+          emptyText={TEXT.noDraftCards}
+          programs={draftPrograms}
+          businessName={businessDisplayName}
+          businessLogoUrl={activeBusiness?.logoUrl ?? null}
+          onOpenProgram={openProgramDetails}
+        />
 
-                <View style={styles.performanceHeaderRow}>
-                  <Text style={styles.performanceHeaderLabel}>
-                    {
-                      '\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05D4'
-                    }
-                  </Text>
-                  <Text style={styles.performanceHeaderTitle} numberOfLines={1}>
-                    {program.title}
-                  </Text>
-                </View>
+        <ProgramListSection
+          title={TEXT.activeCardsTitle}
+          emptyText={TEXT.noActiveCards}
+          programs={activePrograms}
+          businessName={businessDisplayName}
+          businessLogoUrl={activeBusiness?.logoUrl ?? null}
+          onOpenProgram={openProgramDetails}
+        />
 
-                <View style={styles.performanceGrid}>
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05DC\u05E7\u05D5\u05D7\u05D5\u05EA \u05E4\u05E2\u05D9\u05DC\u05D9\u05DD'
-                    }
-                    value={formatNumber(program.metrics.activeMembers)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05E1\u05D4\u05DB \u05DE\u05E6\u05D8\u05E8\u05E4\u05D9\u05DD'
-                    }
-                    value={formatNumber(program.metrics.totalMembers)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD 7 \u05D9\u05DE\u05D9\u05DD'
-                    }
-                    value={formatNumber(program.metrics.stamps7d)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD 30 \u05D9\u05D5\u05DD'
-                    }
-                    value={formatNumber(program.metrics.redemptions30d)}
-                  />
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            {TEXT.archivedCardsTitle} ({archivedPrograms.length})
-          </Text>
-          {archivedPrograms.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              {TEXT.noArchivedCards}
-            </Text>
-          ) : (
-            archivedPrograms.map((program) => (
-              <View
-                key={program.loyaltyProgramId}
-                className="rounded-[28px] border border-[#E2E8F0] bg-[#F8FAFC] p-3 gap-3"
-              >
-                <ProgramCustomerCardPreview
-                  businessName={businessDisplayName}
-                  businessLogoUrl={activeBusiness?.logoUrl ?? null}
-                  title={program.title}
-                  rewardName={program.rewardName}
-                  maxStamps={program.maxStamps}
-                  previewCurrentStamps={0}
-                  cardThemeId={program.cardThemeId}
-                  status="archived"
-                  variant="list"
-                />
-                <View style={styles.performanceHeaderRow}>
-                  <Text style={styles.performanceHeaderLabel}>
-                    {
-                      '\u05D1\u05D9\u05E6\u05D5\u05E2\u05D9 \u05D4\u05DB\u05E8\u05D8\u05D9\u05D4'
-                    }
-                  </Text>
-                  <Text style={styles.performanceHeaderTitle} numberOfLines={1}>
-                    {program.title}
-                  </Text>
-                </View>
-
-                <View style={styles.performanceGrid}>
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05E1\u05D4\u05DB \u05DE\u05E6\u05D8\u05E8\u05E4\u05D9\u05DD'
-                    }
-                    value={formatNumber(program.metrics.totalMembers)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05E0\u05D9\u05E7\u05D5\u05D1\u05D9\u05DD 7 \u05D9\u05DE\u05D9\u05DD'
-                    }
-                    value={formatNumber(program.metrics.stamps7d)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05DE\u05D9\u05DE\u05D5\u05E9\u05D9\u05DD 30 \u05D9\u05D5\u05DD'
-                    }
-                    value={formatNumber(program.metrics.redemptions30d)}
-                  />
-                  <ProgramPerformanceTile
-                    label={
-                      '\u05E4\u05E2\u05D9\u05DC\u05D5\u05EA \u05D0\u05D7\u05E8\u05D5\u05E0\u05D4'
-                    }
-                    value={formatLastActivityShort(
-                      program.metrics.lastActivityAt
-                    )}
-                  />
-                </View>
-              </View>
-            ))
-          )}
-        </View>
+        <ProgramListSection
+          title={TEXT.archivedCardsTitle}
+          emptyText={TEXT.noArchivedCards}
+          programs={archivedPrograms}
+          businessName={businessDisplayName}
+          businessLogoUrl={activeBusiness?.logoUrl ?? null}
+          onOpenProgram={openProgramDetails}
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  usageStrip: {
-    marginTop: 12,
-    flexDirection: ROW_DIRECTION,
-    gap: 8,
-  },
-  usageChip: {
-    flex: 1,
-    minHeight: 68,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#DCE7F8',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  usageChipLabel: {
-    color: '#64748B',
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: TEXT_START,
-  },
-  usageChipValue: {
-    color: '#0F172A',
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '900',
-    textAlign: TEXT_END,
-  },
-  usageChipHint: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: TEXT_END,
-  },
-  performanceHeaderRow: {
-    marginTop: 2,
-    paddingTop: 4,
-    flexDirection: ROW_DIRECTION,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  performanceHeaderLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: TEXT_START,
-  },
-  performanceHeaderTitle: {
-    flex: 1,
-    marginStart: 8,
-    color: '#1A2B4A',
-    fontSize: 13,
-    fontWeight: '900',
-    textAlign: TEXT_END,
-  },
-  performanceGrid: {
-    flexDirection: ROW_DIRECTION,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  performanceTile: {
-    width: '48%',
-    minHeight: 74,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D6E4FF',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    justifyContent: 'space-between',
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
-    gap: 4,
-  },
-  performanceLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    textAlign: TEXT_START,
-  },
-  performanceValue: {
-    color: '#0F172A',
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '900',
-    textAlign: TEXT_END,
-  },
-});

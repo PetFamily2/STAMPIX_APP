@@ -16,6 +16,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
@@ -135,10 +136,22 @@ export default function BusinessSettingsSubscriptionScreen() {
     'maxCustomers',
     usageSummary?.customersUsed ?? 0
   );
-  const aiStatus = limitStatus(
+  const campaignsStatus = limitStatus(
+    'maxCampaigns',
+    usageSummary?.activeManagementCampaignsUsed ??
+      entitlements?.usage.activeManagementCampaigns ??
+      0
+  );
+  const retentionStatus = limitStatus(
     'maxActiveRetentionActions',
     usageSummary?.activeRetentionActionsUsed ??
       entitlements?.usage.activeRetentionActions ??
+      0
+  );
+  const aiExecutionsStatus = limitStatus(
+    'maxAiExecutionsPerMonth',
+    usageSummary?.aiExecutionsThisMonthUsed ??
+      entitlements?.usage.aiExecutionsThisMonth ??
       0
   );
 
@@ -155,14 +168,40 @@ export default function BusinessSettingsSubscriptionScreen() {
         `לקוחות ${formatLimit(customersStatus.currentValue, customersStatus.limitValue)}`
       );
     }
-    if (aiStatus.isNearLimit || aiStatus.isAtLimit) {
+    if (campaignsStatus.isNearLimit || campaignsStatus.isAtLimit) {
       warnings.push(
-        `שימור ${formatLimit(aiStatus.currentValue, aiStatus.limitValue)}`
+        `קמפיינים ${formatLimit(
+          campaignsStatus.currentValue,
+          campaignsStatus.limitValue
+        )}`
+      );
+    }
+    if (retentionStatus.isNearLimit || retentionStatus.isAtLimit) {
+      warnings.push(
+        `שימור ${formatLimit(
+          retentionStatus.currentValue,
+          retentionStatus.limitValue
+        )}`
+      );
+    }
+
+    if (aiExecutionsStatus.isNearLimit || aiExecutionsStatus.isAtLimit) {
+      warnings.push(
+        `AI ${formatLimit(
+          aiExecutionsStatus.currentValue,
+          aiExecutionsStatus.limitValue
+        )}`
       );
     }
 
     return warnings;
-  }, [aiStatus, cardsStatus, customersStatus]);
+  }, [
+    aiExecutionsStatus,
+    campaignsStatus,
+    cardsStatus,
+    customersStatus,
+    retentionStatus,
+  ]);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'premium'>('pro');
@@ -287,9 +326,25 @@ export default function BusinessSettingsSubscriptionScreen() {
       label: 'שימור',
       value: formatLimit(
         usageSummary?.activeRetentionActionsUsed ?? 0,
-        aiStatus.limitValue
+        retentionStatus.limitValue
       ),
       hint: 'קמפיינים',
+    },
+    {
+      label: 'קמפיינים',
+      value: formatLimit(
+        usageSummary?.activeManagementCampaignsUsed ?? 0,
+        campaignsStatus.limitValue
+      ),
+      hint: 'פעילים',
+    },
+    {
+      label: 'AI',
+      value: formatLimit(
+        usageSummary?.aiExecutionsThisMonthUsed ?? 0,
+        aiExecutionsStatus.limitValue
+      ),
+      hint: 'חודשי',
     },
   ];
 
@@ -297,31 +352,34 @@ export default function BusinessSettingsSubscriptionScreen() {
     <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top || 0,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
-        <BusinessScreenHeader
-          style={styles.headerTight}
-          contentStyle={styles.headerContentTight}
-          title="מסלול וחיוב"
-          titleNumberOfLines={2}
-          titleAccessory={
-            <Pressable
-              onPress={() => router.back()}
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed ? styles.backButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </Pressable>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="מסלול וחיוב"
+            titleNumberOfLines={2}
+            titleAccessory={
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed ? styles.backButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </Pressable>
+            }
+          />
+        </StickyScrollHeader>
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
@@ -346,7 +404,7 @@ export default function BusinessSettingsSubscriptionScreen() {
         {usageWarnings.length > 0 ? (
           <View style={styles.warningStrip}>
             <Text style={styles.warningStripTitle}>שימו לב:</Text>
-            <Text style={styles.warningStripText} numberOfLines={2}>
+            <Text style={styles.warningStripText} numberOfLines={3}>
               {usageWarnings.join(' • ')}
             </Text>
           </View>
@@ -396,13 +454,6 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     gap: 8,
   },
-  headerTight: {
-    marginBottom: -2,
-  },
-  headerContentTight: {
-    minHeight: 30,
-    gap: 0,
-  },
   emptyState: {
     flex: 1,
     backgroundColor: '#E9F0FF',
@@ -436,10 +487,11 @@ const styles = StyleSheet.create({
   },
   usageStrip: {
     flexDirection: ROW_DIRECTION,
+    flexWrap: 'wrap',
     gap: 8,
   },
   usageChip: {
-    flex: 1,
+    width: '31%',
     minHeight: 76,
     borderRadius: 18,
     borderWidth: 1,

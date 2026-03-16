@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Vibration,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -16,9 +17,11 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
@@ -50,8 +53,6 @@ const TEXT = {
   retry: '\u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
   loading: '\u05d8\u05d5\u05e2\u05df',
   refreshQr: '\u05e8\u05e2\u05e0\u05df QR',
-  hidePayload: '\u05d4\u05e1\u05ea\u05e8 Payload',
-  showPayload: '\u05d4\u05e6\u05d2 Payload',
   cardReadyTitle:
     '\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05dc\u05d0 - \u05de\u05d7\u05db\u05d4 \u05dc\u05da \u05de\u05ea\u05e0\u05d4',
   cardReadySubtitle:
@@ -64,6 +65,7 @@ const TEXT = {
   redeemButtonReady: '\u05d4\u05e6\u05d2 \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
   redeemButtonLocked:
     '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
+  stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
 };
 
 export default function CardDetailsScreen() {
@@ -89,7 +91,9 @@ export default function CardDetailsScreen() {
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
-  const [showPayload, setShowPayload] = useState(false);
+  const previousStampCountsRef = useRef<Map<string, number>>(new Map());
+  const isStampTrackerReadyRef = useRef(false);
+  const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
 
   const membershipIdForToken = membership?.membershipId;
 
@@ -117,6 +121,42 @@ export default function CardDetailsScreen() {
   useEffect(() => {
     void refreshScanToken();
   }, [refreshScanToken]);
+
+  useEffect(() => {
+    if (memberships === undefined) {
+      return;
+    }
+
+    const nextCounts = new Map<string, number>();
+    for (const membershipEntry of memberships) {
+      nextCounts.set(
+        membershipEntry.membershipId,
+        Number(membershipEntry.currentStamps ?? 0)
+      );
+    }
+
+    if (!isStampTrackerReadyRef.current) {
+      previousStampCountsRef.current = nextCounts;
+      isStampTrackerReadyRef.current = true;
+      return;
+    }
+
+    let hasStampIncrease = false;
+    for (const [entryId, nextCount] of nextCounts.entries()) {
+      const previousCount = previousStampCountsRef.current.get(entryId) ?? 0;
+      if (nextCount > previousCount) {
+        hasStampIncrease = true;
+        break;
+      }
+    }
+
+    previousStampCountsRef.current = nextCounts;
+
+    if (hasStampIncrease) {
+      Vibration.vibrate(120);
+      setCustomerStampBannerKey((currentValue) => currentValue + 1);
+    }
+  }, [memberships]);
 
   // Track QR presented event when scan token is ready
   useEffect(() => {
@@ -171,36 +211,49 @@ export default function CardDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
+      <AnimatedActionBanner
+        eventKey={customerStampBannerKey}
+        message={TEXT.stampSuccessBanner}
+        topOffset={(insets.top || 0) + 8}
+        durationMs={5000}
+        variant="success"
+        showFireworks={true}
+      />
       <ScrollView
         style={styles.scrollBackground}
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: (insets.bottom || 0) + 24,
           },
         ]}
       >
-        <View style={styles.headerRow}>
-          <BusinessScreenHeader
-            title={TEXT.cardDetails}
-            subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
-            titleAccessory={
-              <Pressable
-                onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed ? styles.pressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="\u05d7\u05d6\u05e8\u05d4"
-              >
-                <Ionicons name="chevron-forward" size={20} color="#111827" />
-              </Pressable>
-            }
-          />
-        </View>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader
+              title={TEXT.cardDetails}
+              subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
+              titleAccessory={
+                <Pressable
+                  onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.backButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="\u05d7\u05d6\u05e8\u05d4"
+                >
+                  <Ionicons name="chevron-forward" size={20} color="#111827" />
+                </Pressable>
+              }
+            />
+          </View>
+        </StickyScrollHeader>
 
         <View
           style={[
@@ -221,6 +274,7 @@ export default function CardDetailsScreen() {
             stampIcon={membership.stampIcon}
             status={isRedeemEligible ? 'redeemable' : 'default'}
             variant="hero"
+            showAllStamps={true}
           />
 
           <View
@@ -309,10 +363,6 @@ export default function CardDetailsScreen() {
             )}
           </View>
 
-          {scanTokenPayload ? (
-            <Text style={styles.qrPayloadText}>{scanTokenPayload}</Text>
-          ) : null}
-
           {tokenError ? (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>{TEXT.genericError}</Text>
@@ -340,29 +390,6 @@ export default function CardDetailsScreen() {
             </Pressable>
           )}
         </View>
-
-        {process.env.NODE_ENV !== 'production' ? (
-          <View style={styles.devSection}>
-            <Pressable
-              onPress={() => setShowPayload((prev) => !prev)}
-              style={({ pressed }) => [
-                styles.devToggle,
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.devToggleText}>
-                {showPayload ? TEXT.hidePayload : TEXT.showPayload}
-              </Text>
-            </Pressable>
-            {showPayload ? (
-              <View style={styles.payloadBox}>
-                <Text style={styles.payloadText}>
-                  {scanTokenPayload ?? TEXT.qrLoading}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -502,12 +529,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qrPayloadText: {
-    marginTop: 8,
-    fontSize: 11,
-    color: '#5B6475',
-    textAlign: 'center',
-  },
   qrPlaceholder: {
     flex: 1,
     alignItems: 'center',
@@ -542,32 +563,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#D92D20',
     textAlign: 'right',
-  },
-  devSection: {
-    gap: 8,
-  },
-  devToggle: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#D4EDFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  devToggleText: {
-    color: '#2F6BFF',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  payloadBox: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  payloadText: {
-    fontSize: 11,
-    color: '#5B6475',
   },
   centerMessage: {
     flex: 1,

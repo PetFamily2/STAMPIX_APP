@@ -30,6 +30,22 @@ type BusinessForStaff = {
   staffRole: 'owner' | 'manager' | 'staff';
 };
 
+function resolveProgramLifecycle(
+  program: any
+): 'draft' | 'active' | 'archived' {
+  if (
+    program?.status === 'draft' ||
+    program?.status === 'active' ||
+    program?.status === 'archived'
+  ) {
+    return program.status;
+  }
+  if (program?.isArchived === true) {
+    return 'archived';
+  }
+  return 'active';
+}
+
 async function ensureUserHasAnyActiveMembership(ctx: any, userId: Id<'users'>) {
   const memberships = await ctx.db
     .query('memberships')
@@ -309,7 +325,7 @@ export const addStamp = mutation({
 
     // Decide MVP rule: cap at maxStamps (prevents overflow)
     if (!existing) {
-      if (program.isArchived === true) {
+      if (resolveProgramLifecycle(program) !== 'active') {
         throw new Error('PROGRAM_ARCHIVED');
       }
 

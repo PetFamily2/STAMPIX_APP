@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -365,13 +366,18 @@ export default function CreateBusinessScreen() {
 
         <ScrollView
           style={styles.body}
+          stickyHeaderIndices={[0]}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.titleContainer}>
+          <StickyScrollHeader
+            topPadding={0}
+            backgroundColor="#FBFAF7"
+            style={styles.titleContainer}
+          >
             <Text style={styles.title}>{TEXT.title}</Text>
             <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
-          </View>
+          </StickyScrollHeader>
 
           <View style={styles.searchSection}>
             <Text style={styles.label}>{TEXT.searchLabel}</Text>

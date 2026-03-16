@@ -19,6 +19,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { ContinueButton } from '@/components/ContinueButton';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 
 const SUPPORT_MESSAGE_MAX_LENGTH = 1200;
@@ -150,16 +151,20 @@ export default function CustomerHelpSupportScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 12,
             paddingBottom: tabBarHeight + 24,
           },
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.headerRow}>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+          style={styles.headerRow}
+        >
           <BusinessScreenHeader
             title={TEXT.title}
             titleAccessory={
@@ -175,7 +180,7 @@ export default function CustomerHelpSupportScreen() {
               </Pressable>
             }
           />
-        </View>
+        </StickyScrollHeader>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{TEXT.sectionFaq}</Text>

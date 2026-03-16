@@ -30,7 +30,6 @@ Last synced: 2026-02-18
 - `/(auth)/onboarding-business-usage-area`
 - `/(auth)/legal`
 - `/(auth)/paywall`
-- `/(auth)/flow-map` (dev/preview tool)
 - `/(auth)/sign-in` (legacy alias redirect to `/(auth)/sign-up`)
 
 ## Authenticated customer routes (`app/(authenticated)/(customer)`)

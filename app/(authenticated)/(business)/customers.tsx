@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -377,26 +378,31 @@ export default function BusinessCustomersScreen() {
     <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
-        <BusinessScreenHeader
-          title="לקוחות"
-          subtitle="מצב הלקוחות, תובנות lifecycle ובניית קהלים"
-          titleAccessory={
-            <TouchableOpacity
-              onPress={() =>
-                router.replace('/(authenticated)/(business)/dashboard')
-              }
-              className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-            >
-              <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-            </TouchableOpacity>
-          }
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#F6F7FB"
+        >
+          <BusinessScreenHeader
+            title="לקוחות"
+            subtitle="מצב הלקוחות, תובנות lifecycle ובניית קהלים"
+            titleAccessory={
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
+              >
+                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >

@@ -16,6 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -85,12 +86,14 @@ export default function AdminSupportInboxScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: (insets.top || 0) + 8 },
-        ]}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
       >
-        <View style={styles.headerRow}>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 8}
+          backgroundColor="#F3F3F1"
+          style={styles.headerRow}
+        >
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
@@ -104,7 +107,7 @@ export default function AdminSupportInboxScreen() {
           <View style={styles.headerTextWrap}>
             <Text style={styles.pageTitle}>{TEXT.title}</Text>
           </View>
-        </View>
+        </StickyScrollHeader>
 
         {!isAdmin ? (
           <View style={styles.emptyCard}>
@@ -198,7 +201,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
     gap: 16,
   },
   pressed: { opacity: 0.88 },

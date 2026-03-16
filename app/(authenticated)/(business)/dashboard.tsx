@@ -16,11 +16,16 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -53,6 +58,19 @@ type KpiItem = {
   label: string;
   value: string;
   route: BusinessRoute;
+};
+
+type LoyaltyProgramSummary = {
+  loyaltyProgramId: string;
+  title: string;
+  lifecycle: 'draft' | 'active' | 'archived';
+  metrics: {
+    activeMembers: number;
+    totalMembers: number;
+    stamps7d: number;
+    redemptions30d: number;
+    lastActivityAt: number | null;
+  };
 };
 
 const DASHBOARD_TEXT = {
@@ -430,7 +448,7 @@ export default function MerchantDashboardScreen() {
   const programs = useQuery(
     api.loyaltyPrograms.listManagementByBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
+  ) as LoyaltyProgramSummary[] | undefined;
   const recentActivity = useQuery(
     api.events.getRecentActivity,
     activeBusinessId ? { businessId: activeBusinessId, limit: 3 } : 'skip'
@@ -465,7 +483,10 @@ export default function MerchantDashboardScreen() {
   );
 
   const activePrograms = useMemo(
-    () => (programs ?? []).filter((program) => program.lifecycle === 'active'),
+    () =>
+      (programs ?? []).filter(
+        (program: LoyaltyProgramSummary) => program.lifecycle === 'active'
+      ),
     [programs]
   );
 
@@ -480,14 +501,27 @@ export default function MerchantDashboardScreen() {
 
   const cardsUsed = usageSummary?.cardsUsed ?? 0;
   const customersUsed = usageSummary?.customersUsed ?? 0;
+  const activeCampaignsUsed =
+    usageSummary?.activeManagementCampaignsUsed ??
+    entitlements?.usage.activeManagementCampaigns ??
+    0;
   const activeRetentionActionsUsed =
     usageSummary?.activeRetentionActionsUsed ?? 0;
+  const aiExecutionsUsed =
+    usageSummary?.aiExecutionsThisMonthUsed ??
+    entitlements?.usage.aiExecutionsThisMonth ??
+    0;
 
   const cardsLimit = limitStatus('maxCards', cardsUsed);
   const customersLimit = limitStatus('maxCustomers', customersUsed);
+  const campaignsLimit = limitStatus('maxCampaigns', activeCampaignsUsed);
   const retentionLimit = limitStatus(
     'maxActiveRetentionActions',
     activeRetentionActionsUsed
+  );
+  const aiExecutionsLimit = limitStatus(
+    'maxAiExecutionsPerMonth',
+    aiExecutionsUsed
   );
 
   const atLimitEntry = useMemo(() => {
@@ -497,11 +531,23 @@ export default function MerchantDashboardScreen() {
     if (customersLimit.isAtLimit) {
       return { label: 'לקוחות', status: customersLimit };
     }
+    if (campaignsLimit.isAtLimit) {
+      return { label: 'קמפיינים', status: campaignsLimit };
+    }
     if (retentionLimit.isAtLimit) {
       return { label: 'פעולות שימור', status: retentionLimit };
     }
+    if (aiExecutionsLimit.isAtLimit) {
+      return { label: 'AI חודשי', status: aiExecutionsLimit };
+    }
     return null;
-  }, [cardsLimit, customersLimit, retentionLimit]);
+  }, [
+    aiExecutionsLimit,
+    campaignsLimit,
+    cardsLimit,
+    customersLimit,
+    retentionLimit,
+  ]);
 
   const nearLimitEntry = useMemo(() => {
     if (cardsLimit.isNearLimit) {
@@ -510,11 +556,23 @@ export default function MerchantDashboardScreen() {
     if (customersLimit.isNearLimit) {
       return { label: 'לקוחות', status: customersLimit };
     }
+    if (campaignsLimit.isNearLimit) {
+      return { label: 'קמפיינים', status: campaignsLimit };
+    }
     if (retentionLimit.isNearLimit) {
       return { label: 'פעולות שימור', status: retentionLimit };
     }
+    if (aiExecutionsLimit.isNearLimit) {
+      return { label: 'AI חודשי', status: aiExecutionsLimit };
+    }
     return null;
-  }, [cardsLimit, customersLimit, retentionLimit]);
+  }, [
+    aiExecutionsLimit,
+    campaignsLimit,
+    cardsLimit,
+    customersLimit,
+    retentionLimit,
+  ]);
 
   const heroStatus = useMemo<HeroStatus>(() => {
     const missingFieldsCount =
@@ -1017,6 +1075,27 @@ export default function MerchantDashboardScreen() {
         openRoute('/(authenticated)/(business)/settings-business-subscription');
       }
     } catch (error) {
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        Alert.alert(
+          'מגבלת מסלול',
+          entitlementErrorToHebrewMessage(entitlementError)
+        );
+        openSubscriptionComparison(router, {
+          featureKey:
+            entitlementError.limitKey ??
+            entitlementError.featureKey ??
+            'business_subscription',
+          requiredPlan: entitlementError.requiredPlan ?? null,
+          reason:
+            entitlementError.code === 'PLAN_LIMIT_REACHED'
+              ? 'limit_reached'
+              : entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+                ? 'subscription_inactive'
+                : 'feature_locked',
+        });
+        return;
+      }
       Alert.alert(
         'שגיאה',
         error instanceof Error
@@ -1042,16 +1121,21 @@ export default function MerchantDashboardScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
+        stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: (insets.top || 0) + 12,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
-        <BusinessScreenHeader
-          title={activeBusiness?.name ?? 'העסק שלי'}
-          subtitle="תמונת על מהירה על מצב העסק"
-        />
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title={activeBusiness?.name ?? 'העסק שלי'}
+            subtitle="תמונת על מהירה על מצב העסק"
+          />
+        </StickyScrollHeader>
 
         {businessSettings === undefined || programs === undefined ? (
           <View className="mt-4">

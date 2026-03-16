@@ -250,6 +250,31 @@ export const disablePushToken = mutation({
   },
 });
 
+export const disableAllMyPushTokens = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    const tokens = await ctx.db
+      .query('pushTokens')
+      .withIndex('by_userId', (q: any) => q.eq('userId', user._id))
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .collect();
+
+    const now = Date.now();
+    for (const token of tokens) {
+      await ctx.db.patch(token._id, {
+        isActive: false,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      ok: true,
+      disabledCount: tokens.length,
+    };
+  },
+});
+
 export const getMyPushTokenState = query({
   args: {},
   handler: async (ctx) => {
