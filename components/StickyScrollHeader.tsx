@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     zIndex: 10,
-    elevation: 6,
+    overflow: 'visible',
     flexShrink: 0,
   },
 });

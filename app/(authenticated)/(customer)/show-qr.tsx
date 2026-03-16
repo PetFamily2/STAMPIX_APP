@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -38,6 +38,7 @@ const TEXT = {
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05d0\u05ea \u05d4-QR \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
   stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
 };
+const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 
 type CustomerBusinessSummary = {
   businessId: string;
@@ -46,6 +47,7 @@ type CustomerBusinessSummary = {
 export default function CustomerShowQrScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation();
   const { isAuthenticated } = useConvexAuth();
 
   const savedBusinessesQuery = useQuery(
@@ -60,8 +62,7 @@ export default function CustomerShowQrScreen() {
     isAuthenticated ? {} : 'skip'
   ) as CustomerMembershipView[] | undefined;
 
-  const previousStampCountsRef = useRef<Map<string, number>>(new Map());
-  const isStampTrackerReadyRef = useRef(false);
+  const lastCelebratedStampAtRef = useRef(0);
   const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
 
   const createCustomerScanToken = useMutation(
@@ -99,40 +100,41 @@ export default function CustomerShowQrScreen() {
   );
 
   useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      if (navigation.isFocused()) {
+        void refreshScanToken();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, refreshScanToken]);
+
+  useEffect(() => {
     if (!isAuthenticated || memberships === undefined) {
       return;
     }
 
-    const nextCounts = new Map<string, number>();
-    for (const membership of memberships) {
-      nextCounts.set(
-        membership.membershipId,
-        Number(membership.currentStamps ?? 0)
-      );
-    }
+    const latestStampAt = memberships.reduce((latest, membership) => {
+      const stampAt = Number(membership.lastStampAt ?? 0);
+      return Math.max(latest, stampAt);
+    }, 0);
 
-    if (!isStampTrackerReadyRef.current) {
-      previousStampCountsRef.current = nextCounts;
-      isStampTrackerReadyRef.current = true;
+    if (!latestStampAt) {
       return;
     }
 
-    let hasStampIncrease = false;
-    for (const [membershipId, nextCount] of nextCounts.entries()) {
-      const previousCount =
-        previousStampCountsRef.current.get(membershipId) ?? 0;
-      if (nextCount > previousCount) {
-        hasStampIncrease = true;
-        break;
-      }
+    if (latestStampAt <= lastCelebratedStampAtRef.current) {
+      return;
     }
 
-    previousStampCountsRef.current = nextCounts;
+    lastCelebratedStampAtRef.current = latestStampAt;
 
-    if (hasStampIncrease) {
-      Vibration.vibrate(120);
-      setCustomerStampBannerKey((current) => current + 1);
+    if (Date.now() - latestStampAt > CUSTOMER_STAMP_BANNER_DURATION_MS) {
+      return;
     }
+
+    Vibration.vibrate(120);
+    setCustomerStampBannerKey((current) => current + 1);
   }, [isAuthenticated, memberships]);
 
   const isLoading = isAuthenticated && savedBusinessesQuery === undefined;
@@ -143,9 +145,13 @@ export default function CustomerShowQrScreen() {
         eventKey={customerStampBannerKey}
         message={TEXT.stampSuccessBanner}
         topOffset={(insets.top || 0) + 8}
-        durationMs={5000}
+        durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
         showFireworks={true}
+        showConfetti={true}
+        placement="center"
+        emphasis="large"
+        fullScreenCelebration={true}
       />
       <View
         style={[

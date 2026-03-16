@@ -15,6 +15,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -47,6 +48,7 @@ const TEXT = {
 };
 
 const CUSTOMER_SCAN_BANNER_DURATION_MS = 5000;
+const CUSTOMER_SUCCESS_BANNER_MESSAGE = 'ההצטרפות בוצעה בהצלחה';
 
 type ProgramRow = {
   programId: string;
@@ -113,6 +115,7 @@ export default function CustomerBusinessDetailsScreen() {
     type: 'error' | 'success';
     message: string;
   } | null>(null);
+  const [customerSuccessBannerKey, setCustomerSuccessBannerKey] = useState(0);
 
   useEffect(() => {
     if (!feedback || feedback.type !== 'success') {
@@ -168,7 +171,11 @@ export default function CustomerBusinessDetailsScreen() {
         campaign: joinCampaign,
       });
       setSelectedProgramIds([]);
-      setFeedback({ type: 'success', message: TEXT.joinSuccess });
+      setFeedback({
+        type: 'success',
+        message: CUSTOMER_SUCCESS_BANNER_MESSAGE,
+      });
+      setCustomerSuccessBannerKey((currentValue) => currentValue + 1);
       track(ANALYTICS_EVENTS.joinCompleted, {
         businessId: businessIdParam,
         selected_program_count: selectedCount,
@@ -225,6 +232,18 @@ export default function CustomerBusinessDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
+      <AnimatedActionBanner
+        eventKey={customerSuccessBannerKey}
+        message={CUSTOMER_SUCCESS_BANNER_MESSAGE}
+        topOffset={(insets.top || 0) + 8}
+        durationMs={CUSTOMER_SCAN_BANNER_DURATION_MS}
+        variant="success"
+        showFireworks={true}
+        showConfetti={true}
+        placement="center"
+        emphasis="large"
+        fullScreenCelebration={true}
+      />
       <ScrollView
         style={styles.scrollBackground}
         stickyHeaderIndices={[0]}

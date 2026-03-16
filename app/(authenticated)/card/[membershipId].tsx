@@ -50,9 +50,7 @@ const TEXT = {
   qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
   genericError:
     '\u05de\u05e9\u05d4\u05d5 \u05d4\u05e9\u05ea\u05d1\u05e9 \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
-  retry: '\u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
   loading: '\u05d8\u05d5\u05e2\u05df',
-  refreshQr: '\u05e8\u05e2\u05e0\u05df QR',
   cardReadyTitle:
     '\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05dc\u05d0 - \u05de\u05d7\u05db\u05d4 \u05dc\u05da \u05de\u05ea\u05e0\u05d4',
   cardReadySubtitle:
@@ -67,6 +65,7 @@ const TEXT = {
     '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
   stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
 };
+const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 
 export default function CardDetailsScreen() {
   const { membershipId, preview, map } = useLocalSearchParams<{
@@ -91,8 +90,7 @@ export default function CardDetailsScreen() {
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
-  const previousStampCountsRef = useRef<Map<string, number>>(new Map());
-  const isStampTrackerReadyRef = useRef(false);
+  const lastCelebratedStampAtRef = useRef(0);
   const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
 
   const membershipIdForToken = membership?.membershipId;
@@ -127,35 +125,27 @@ export default function CardDetailsScreen() {
       return;
     }
 
-    const nextCounts = new Map<string, number>();
-    for (const membershipEntry of memberships) {
-      nextCounts.set(
-        membershipEntry.membershipId,
-        Number(membershipEntry.currentStamps ?? 0)
-      );
-    }
+    const latestStampAt = memberships.reduce((latest, membershipEntry) => {
+      const stampAt = Number(membershipEntry.lastStampAt ?? 0);
+      return Math.max(latest, stampAt);
+    }, 0);
 
-    if (!isStampTrackerReadyRef.current) {
-      previousStampCountsRef.current = nextCounts;
-      isStampTrackerReadyRef.current = true;
+    if (!latestStampAt) {
       return;
     }
 
-    let hasStampIncrease = false;
-    for (const [entryId, nextCount] of nextCounts.entries()) {
-      const previousCount = previousStampCountsRef.current.get(entryId) ?? 0;
-      if (nextCount > previousCount) {
-        hasStampIncrease = true;
-        break;
-      }
+    if (latestStampAt <= lastCelebratedStampAtRef.current) {
+      return;
     }
 
-    previousStampCountsRef.current = nextCounts;
+    lastCelebratedStampAtRef.current = latestStampAt;
 
-    if (hasStampIncrease) {
-      Vibration.vibrate(120);
-      setCustomerStampBannerKey((currentValue) => currentValue + 1);
+    if (Date.now() - latestStampAt > CUSTOMER_STAMP_BANNER_DURATION_MS) {
+      return;
     }
+
+    Vibration.vibrate(120);
+    setCustomerStampBannerKey((currentValue) => currentValue + 1);
   }, [memberships]);
 
   // Track QR presented event when scan token is ready
@@ -215,9 +205,13 @@ export default function CardDetailsScreen() {
         eventKey={customerStampBannerKey}
         message={TEXT.stampSuccessBanner}
         topOffset={(insets.top || 0) + 8}
-        durationMs={5000}
+        durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
         showFireworks={true}
+        showConfetti={true}
+        placement="center"
+        emphasis="large"
+        fullScreenCelebration={true}
       />
       <ScrollView
         style={styles.scrollBackground}
@@ -366,29 +360,8 @@ export default function CardDetailsScreen() {
           {tokenError ? (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>{TEXT.genericError}</Text>
-              <Pressable
-                onPress={() => void refreshScanToken()}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>{TEXT.retry}</Text>
-              </Pressable>
             </View>
-          ) : (
-            <Pressable
-              onPress={() => void refreshScanToken()}
-              disabled={isTokenLoading || !membershipIdForToken}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (pressed || isTokenLoading || !membershipIdForToken) && {
-                  opacity: 0.7,
-                },
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isTokenLoading ? TEXT.loading : TEXT.refreshQr}
-              </Text>
-            </Pressable>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -540,19 +513,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B6475',
     textAlign: 'center',
-  },
-  primaryButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#2F6BFF',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 12,
   },
   errorRow: {
     marginTop: 10,

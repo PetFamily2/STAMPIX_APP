@@ -225,7 +225,7 @@ export default function CustomerTabsLayout() {
                       isActive && styles.qrTabLabelFocused,
                     ]}
                   >
-                    {'הצג '}
+                    {'\u05d4\u05e6\u05d2 '}
                     <Text
                       style={[
                         styles.qrTabLabelQr,

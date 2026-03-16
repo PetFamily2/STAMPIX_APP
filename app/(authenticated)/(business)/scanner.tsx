@@ -1,8 +1,8 @@
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -54,7 +54,8 @@ type ScanResultBanner = {
   maxStamps: number;
 };
 
-const BUSINESS_SUCCESS_BANNER_DURATION_MS = 3000;
+const BUSINESS_SUCCESS_BANNER_DURATION_MS = 5000;
+const BUSINESS_SUCCESS_BANNER_MESSAGE = 'ניקוב בוצע בהצלחה';
 const SCANNER_HEADER_TITLE = 'סריקת לקוח';
 const SCANNER_HEADER_SUBTITLE = 'סרקו QR של הלקוח כדי להוסיף ניקוב.';
 
@@ -154,6 +155,7 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -184,6 +186,9 @@ export default function ScannerScreen() {
 
   const [programIndex, setProgramIndex] = useState(0);
   const selectedProgram = programs[programIndex];
+  const scannerResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   useEffect(() => {
     if (programs.length === 0) {
@@ -200,7 +205,6 @@ export default function ScannerScreen() {
   const [isResolving, setIsResolving] = useState(false);
   const [isStamping, setIsStamping] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [resultBanner, setResultBanner] = useState<ScanResultBanner | null>(
     null
@@ -222,11 +226,48 @@ export default function ScannerScreen() {
   );
 
   const resetScanner = useCallback(() => {
+    if (scannerResetTimeoutRef.current) {
+      clearTimeout(scannerResetTimeoutRef.current);
+      scannerResetTimeoutRef.current = null;
+    }
     setScannerResetKey((current) => current + 1);
-    setStatusMessage(null);
     setScanError(null);
     setResultBanner(null);
   }, []);
+
+  const queueScannerReset = useCallback((delayMs = 1200) => {
+    if (scannerResetTimeoutRef.current) {
+      clearTimeout(scannerResetTimeoutRef.current);
+    }
+    scannerResetTimeoutRef.current = setTimeout(() => {
+      setScannerResetKey((current) => current + 1);
+      scannerResetTimeoutRef.current = null;
+    }, delayMs);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetScanner();
+    }, [resetScanner])
+  );
+
+  useEffect(() => {
+    return () => {
+      if (scannerResetTimeoutRef.current) {
+        clearTimeout(scannerResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      if (navigation.isFocused()) {
+        resetScanner();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, resetScanner]);
 
   useEffect(() => {
     if (!resultBanner) {
@@ -234,7 +275,6 @@ export default function ScannerScreen() {
     }
 
     const timeout = setTimeout(() => {
-      setStatusMessage(null);
       setResultBanner(null);
     }, BUSINESS_SUCCESS_BANNER_DURATION_MS);
 
@@ -288,7 +328,6 @@ export default function ScannerScreen() {
       }
       const isFirstStampForCustomer = !resolvedScan.membership;
       setIsStamping(true);
-      setStatusMessage(null);
       setScanError(null);
       try {
         const stampResult = await addStamp({
@@ -305,9 +344,6 @@ export default function ScannerScreen() {
           currentStamps: stampResult.currentStamps,
           maxStamps: stampResult.maxStamps,
         });
-        setStatusMessage(
-          `\u05e0\u05d9\u05e7\u05d5\u05d1 \u05d1\u05d5\u05e6\u05e2 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4: ${stampResult.currentStamps}/${stampResult.maxStamps}`
-        );
         Vibration.vibrate(120);
         setBusinessSuccessBannerKey((current) => current + 1);
 
@@ -393,9 +429,6 @@ export default function ScannerScreen() {
       }
 
       setIsResolving(true);
-      setStatusMessage(
-        '\u05de\u05d0\u05de\u05ea \u05d0\u05ea \u05e4\u05e8\u05d8\u05d9 \u05d4\u05dc\u05e7\u05d5\u05d7...'
-      );
       setScanError(null);
 
       try {
@@ -407,16 +440,15 @@ export default function ScannerScreen() {
         if (!resolvedScan) {
           return;
         }
-        setStatusMessage(
-          '\u05de\u05d1\u05e6\u05e2 \u05e0\u05d9\u05e7\u05d5\u05d1...'
-        );
         await stampResolvedCustomer(resolvedScan);
       } finally {
         setIsResolving(false);
+        queueScannerReset();
       }
     },
     [
       isBusy,
+      queueScannerReset,
       resolveByToken,
       selectedBusiness?.businessId,
       stampResolvedCustomer,
@@ -435,7 +467,7 @@ export default function ScannerScreen() {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <AnimatedActionBanner
         eventKey={businessSuccessBannerKey}
-        message="\u05e0\u05d9\u05e7\u05d5\u05d1 \u05d1\u05d5\u05e6\u05e2 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4"
+        message={BUSINESS_SUCCESS_BANNER_MESSAGE}
         topOffset={(insets.top || 0) + 8}
         durationMs={BUSINESS_SUCCESS_BANNER_DURATION_MS}
         variant="success"
@@ -501,12 +533,6 @@ export default function ScannerScreen() {
           </View>
         ) : null}
 
-        {statusMessage ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.statusText}>{statusMessage}</Text>
-          </View>
-        ) : null}
-
         {resultBanner ? (
           <View style={styles.resultBanner}>
             <Text style={styles.resultBannerTitle}>
@@ -533,23 +559,6 @@ export default function ScannerScreen() {
             </View>
           </View>
         ) : null}
-
-        <Pressable
-          onPress={resetScanner}
-          disabled={!canScan || isBusy}
-          style={({ pressed }) => [
-            styles.scanButton,
-            (!canScan || isBusy) && styles.scanButtonDisabled,
-            pressed && canScan && !isBusy ? { opacity: 0.9 } : null,
-          ]}
-        >
-          {isBusy ? <ActivityIndicator color="#FFFFFF" /> : null}
-          <Text style={styles.scanButtonText}>
-            {isBusy
-              ? '\u05de\u05e2\u05d1\u05d3 \u05e1\u05e8\u05d9\u05e7\u05d4...'
-              : '\u05e1\u05e8\u05d5\u05e7 \u05dc\u05e7\u05d5\u05d7'}
-          </Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -607,11 +616,6 @@ const styles = StyleSheet.create({
     borderColor: '#E3E9FF',
     padding: 14,
   },
-  statusText: {
-    color: '#1A2B4A',
-    fontWeight: '700',
-    textAlign: 'right',
-  },
   errorText: {
     color: '#D92D20',
     fontWeight: '700',
@@ -652,21 +656,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0B1220',
     textAlign: 'right',
-  },
-  scanButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingVertical: 12,
-    backgroundColor: '#2F6BFF',
-  },
-  scanButtonDisabled: {
-    backgroundColor: '#8FB3FF',
-  },
-  scanButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
   },
 });

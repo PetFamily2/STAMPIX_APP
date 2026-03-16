@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -363,10 +364,11 @@ export default function BusinessSettingsSubscriptionScreen() {
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
+          style={styles.stickyHeader}
         >
           <BusinessScreenHeader
             title="מסלול וחיוב"
-            titleNumberOfLines={2}
+            titleNumberOfLines={1}
             titleAccessory={
               <Pressable
                 onPress={() => router.back()}
@@ -375,7 +377,7 @@ export default function BusinessSettingsSubscriptionScreen() {
                   pressed ? styles.backButtonPressed : null,
                 ]}
               >
-                <Text style={styles.backButtonText}>←</Text>
+                <Ionicons name="chevron-forward" size={20} color="#0F172A" />
               </Pressable>
             }
           />
@@ -449,10 +451,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingBottom: 0,
-    gap: 8,
+    gap: 10,
+  },
+  stickyHeader: {
+    paddingBottom: 8,
   },
   emptyState: {
     flex: 1,
@@ -480,12 +484,8 @@ const styles = StyleSheet.create({
   backButtonPressed: {
     opacity: 0.82,
   },
-  backButtonText: {
-    fontSize: 16,
-    color: '#0F172A',
-    lineHeight: 18,
-  },
   usageStrip: {
+    marginTop: 4,
     flexDirection: ROW_DIRECTION,
     flexWrap: 'wrap',
     gap: 8,
