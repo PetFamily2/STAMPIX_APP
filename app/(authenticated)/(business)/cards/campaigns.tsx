@@ -197,15 +197,13 @@ export default function CampaignsHubScreen() {
       activeBusinessId ? { businessId: activeBusinessId } : 'skip'
     ) ?? [];
 
-  const archiveManagementCampaign = useMutation(
-    api.campaigns.archiveManagementCampaign
-  );
   const restoreManagementCampaign = useMutation(
     api.campaigns.restoreManagementCampaign
   );
 
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
   const [isInactiveExpanded, setIsInactiveExpanded] = useState(false);
+  const [isArchivedExpanded, setIsArchivedExpanded] = useState(false);
 
   const programNameById = useMemo(() => {
     const mapById = new Map<string, string>();
@@ -283,26 +281,6 @@ export default function CampaignsHubScreen() {
     });
   };
 
-  const handleArchiveCampaign = async (campaignId: Id<'campaigns'>) => {
-    if (!activeBusinessId || !canManage || busyCampaignId) {
-      return;
-    }
-    setBusyCampaignId(String(campaignId));
-    try {
-      await archiveManagementCampaign({
-        businessId: activeBusinessId,
-        campaignId,
-      });
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'ארכוב קמפיין נכשל.'
-      );
-    } finally {
-      setBusyCampaignId(null);
-    }
-  };
-
   const handleRestoreCampaign = async (campaignId: Id<'campaigns'>) => {
     if (!activeBusinessId || !canManage || busyCampaignId) {
       return;
@@ -352,7 +330,6 @@ export default function CampaignsHubScreen() {
   };
 
   const renderCampaignCard = (campaign: ManagementCampaign) => {
-    const isBusy = busyCampaignId === String(campaign.campaignId);
     const isLiveCampaign = campaign.lifecycle === 'active';
     const typeMeta = campaignTypeMeta(campaign.type);
     const campaignProgram =
@@ -431,23 +408,6 @@ export default function CampaignsHubScreen() {
           >
             <Text className="text-xs font-bold text-[#1D4ED8]">פתיחה</Text>
           </TouchableOpacity>
-          {campaign.canArchive ? (
-            <TouchableOpacity
-              disabled={!canManage || isBusy}
-              onPress={() => {
-                void handleArchiveCampaign(campaign.campaignId);
-              }}
-              className={`rounded-xl px-3 py-2 ${
-                !canManage || isBusy ? 'bg-[#CBD5E1]' : 'bg-[#F59E0B]'
-              }`}
-            >
-              {isBusy ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text className="text-xs font-bold text-white">ארכוב</Text>
-              )}
-            </TouchableOpacity>
-          ) : null}
         </View>
       </View>
     );
@@ -550,7 +510,9 @@ export default function CampaignsHubScreen() {
                 <Text
                   className={`flex-1 text-xs text-[#B45309] ${tw.textStart}`}
                 >
-                  {'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג מסלול.'}
+                  {
+                    'הגעתם למכסה הפעילה. אפשר להעביר קמפיין קיים לארכיון או לשדרג מסלול.'
+                  }
                 </Text>
                 <TouchableOpacity
                   onPress={() => openCampaignsUpgrade()}
@@ -599,6 +561,9 @@ export default function CampaignsHubScreen() {
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             קמפיינים פעילים ({liveCampaigns.length})
+          </Text>
+          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+            העברה לארכיון זמינה רק מתוך דף עריכת הקמפיין.
           </Text>
           {campaignsQuery === undefined ? (
             <View className="py-4">
@@ -649,59 +614,76 @@ export default function CampaignsHubScreen() {
           ) : null}
         </View>
 
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+          <TouchableOpacity
+            onPress={() => setIsArchivedExpanded((current) => !current)}
+            className={`${tw.flexRow} items-center justify-between`}
           >
-            קמפיינים בארכיון ({archivedCampaigns.length})
-          </Text>
-          {archivedCampaigns.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין קמפיינים בארכיון.
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              קמפיינים בארכיון ({archivedCampaigns.length})
             </Text>
-          ) : (
-            archivedCampaigns.map((campaign) => {
-              const isBusy = busyCampaignId === String(campaign.campaignId);
-              const typeMeta = campaignTypeMeta(campaign.type);
-              return (
-                <View
-                  key={String(campaign.campaignId)}
-                  className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
-                >
-                  <Text
-                    className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                  >
-                    {campaign.title}
-                  </Text>
-                  <Text
-                    className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                  >
-                    {typeMeta.label} • בארכיון מאז{' '}
-                    {formatDateTime(campaign.archivedAt)}
-                  </Text>
-                  <View className={`${tw.flexRow} mt-3 gap-2`}>
-                    <TouchableOpacity
-                      disabled={!canManage || isBusy}
-                      onPress={() => {
-                        void handleRestoreCampaign(campaign.campaignId);
-                      }}
-                      className={`rounded-xl px-3 py-2 ${
-                        !canManage || isBusy ? 'bg-[#CBD5E1]' : 'bg-[#0F766E]'
-                      }`}
+            <Ionicons
+              name={isArchivedExpanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color="#64748B"
+            />
+          </TouchableOpacity>
+
+          {isArchivedExpanded ? (
+            <View className="mt-3 gap-3">
+              {archivedCampaigns.length === 0 ? (
+                <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                  אין קמפיינים בארכיון.
+                </Text>
+              ) : (
+                archivedCampaigns.map((campaign) => {
+                  const isBusy = busyCampaignId === String(campaign.campaignId);
+                  const typeMeta = campaignTypeMeta(campaign.type);
+                  return (
+                    <View
+                      key={String(campaign.campaignId)}
+                      className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
                     >
-                      {isBusy ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <Text className="text-xs font-bold text-white">
-                          שחזור
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })
-          )}
+                      <Text
+                        className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                      >
+                        {campaign.title}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        {typeMeta.label} • בארכיון מאז{' '}
+                        {formatDateTime(campaign.archivedAt)}
+                      </Text>
+                      <View className={`${tw.flexRow} mt-3 gap-2`}>
+                        <TouchableOpacity
+                          disabled={!canManage || isBusy}
+                          onPress={() => {
+                            void handleRestoreCampaign(campaign.campaignId);
+                          }}
+                          className={`rounded-xl px-3 py-2 ${
+                            !canManage || isBusy
+                              ? 'bg-[#CBD5E1]'
+                              : 'bg-[#0F766E]'
+                          }`}
+                        >
+                          {isBusy ? (
+                            <ActivityIndicator color="#FFFFFF" size="small" />
+                          ) : (
+                            <Text className="text-xs font-bold text-white">
+                              שחזור
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

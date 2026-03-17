@@ -205,13 +205,25 @@ export default defineSchema({
       v.literal('manager'),
       v.literal('staff')
     ),
+    status: v.optional(
+      v.union(v.literal('active'), v.literal('suspended'), v.literal('removed'))
+    ),
     isActive: v.boolean(),
+    joinedAt: v.optional(v.number()),
+    statusChangedAt: v.optional(v.number()),
+    statusChangedByUserId: v.optional(v.id('users')),
+    roleChangedAt: v.optional(v.number()),
+    roleChangedByUserId: v.optional(v.id('users')),
+    removedAt: v.optional(v.number()),
+    removedByUserId: v.optional(v.id('users')),
+    lastSeenAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
   })
     .index('by_businessId', ['businessId'])
     .index('by_userId', ['userId'])
-    .index('by_businessId_userId', ['businessId', 'userId']),
+    .index('by_businessId_userId', ['businessId', 'userId'])
+    .index('by_businessId_status', ['businessId', 'status']),
 
   loyaltyPrograms: defineTable({
     businessId: v.id('businesses'),
@@ -269,6 +281,33 @@ export default defineSchema({
     membershipId: v.optional(v.id('memberships')),
     actorUserId: v.id('users'),
     customerUserId: v.id('users'),
+    source: v.optional(
+      v.union(
+        v.literal('scanner_commit'),
+        v.literal('scanner_undo'),
+        v.literal('manual_adjustment')
+      )
+    ),
+    revertsEventId: v.optional(v.id('events')),
+    reversalEventId: v.optional(v.id('events')),
+    reasonCode: v.optional(v.string()),
+    reasonNote: v.optional(v.string()),
+    scannerRuntimeSessionId: v.optional(v.string()),
+    deviceId: v.optional(v.string()),
+    membershipStateBefore: v.optional(
+      v.object({
+        currentStamps: v.number(),
+        lastStampAt: v.optional(v.number()),
+        isActive: v.optional(v.boolean()),
+      })
+    ),
+    membershipStateAfter: v.optional(
+      v.object({
+        currentStamps: v.number(),
+        lastStampAt: v.optional(v.number()),
+        isActive: v.optional(v.boolean()),
+      })
+    ),
     metadata: v.optional(v.any()),
     createdAt: v.number(),
   })
@@ -281,6 +320,13 @@ export default defineSchema({
     ])
     .index('by_actorUserId', ['actorUserId'])
     .index('by_customerUserId', ['customerUserId'])
+    .index('by_membershipId_createdAt', ['membershipId', 'createdAt'])
+    .index('by_revertsEventId', ['revertsEventId'])
+    .index('by_reversalEventId', ['reversalEventId'])
+    .index('by_scannerRuntimeSessionId_createdAt', [
+      'scannerRuntimeSessionId',
+      'createdAt',
+    ])
     .index('by_createdAt', ['createdAt']),
 
   scanSessions: defineTable({
@@ -288,6 +334,8 @@ export default defineSchema({
     programId: v.id('loyaltyPrograms'),
     customerId: v.id('users'),
     actorUserId: v.id('users'),
+    scannerRuntimeSessionId: v.optional(v.string()),
+    deviceId: v.optional(v.string()),
     actionType: v.union(v.literal('stamp'), v.literal('redeem')),
     tokenVersion: v.number(),
     tokenSignature: v.string(),
@@ -310,6 +358,11 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_customerId', ['customerId'])
     .index('by_actorUserId', ['actorUserId'])
+    .index('by_scannerRuntimeSessionId', ['scannerRuntimeSessionId'])
+    .index('by_scannerRuntimeSessionId_createdAt', [
+      'scannerRuntimeSessionId',
+      'createdAt',
+    ])
     .index('by_tokenNonce', ['tokenNonce'])
     .index('by_status', ['status']),
 
@@ -728,6 +781,7 @@ export default defineSchema({
     invitedEmail: v.string(),
     invitedUserId: v.optional(v.id('users')),
     invitedByUserId: v.id('users'),
+    targetRole: v.optional(v.union(v.literal('manager'), v.literal('staff'))),
     inviteCode: v.string(),
     status: v.union(
       v.literal('pending'),
@@ -737,12 +791,58 @@ export default defineSchema({
     ),
     expiresAt: v.number(),
     createdAt: v.number(),
+    cancelledAt: v.optional(v.number()),
+    cancelledByUserId: v.optional(v.id('users')),
     acceptedAt: v.optional(v.number()),
+    acceptedByUserId: v.optional(v.id('users')),
   })
     .index('by_inviteCode', ['inviteCode'])
     .index('by_businessId', ['businessId'])
     .index('by_invitedEmail', ['invitedEmail'])
     .index('by_invitedUserId', ['invitedUserId'])
     .index('by_invitedByUserId', ['invitedByUserId'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    .index('by_businessId_invitedEmail_status', [
+      'businessId',
+      'invitedEmail',
+      'status',
+    ])
+    .index('by_businessId_status', ['businessId', 'status']),
+
+  staffEvents: defineTable({
+    businessId: v.id('businesses'),
+    actorUserId: v.optional(v.id('users')),
+    targetUserId: v.optional(v.id('users')),
+    targetInviteId: v.optional(v.id('staffInvites')),
+    eventType: v.union(
+      v.literal('invite_created'),
+      v.literal('invite_cancelled'),
+      v.literal('invite_accepted'),
+      v.literal('invite_expired'),
+      v.literal('role_changed'),
+      v.literal('suspended'),
+      v.literal('reactivated'),
+      v.literal('removed'),
+      v.literal('auto_disabled_by_plan'),
+      v.literal('auto_invites_cancelled_by_plan'),
+      v.literal('reinvited_after_removal')
+    ),
+    fromRole: v.optional(
+      v.union(v.literal('owner'), v.literal('manager'), v.literal('staff'))
+    ),
+    toRole: v.optional(
+      v.union(v.literal('owner'), v.literal('manager'), v.literal('staff'))
+    ),
+    fromStatus: v.optional(
+      v.union(v.literal('active'), v.literal('suspended'), v.literal('removed'))
+    ),
+    toStatus: v.optional(
+      v.union(v.literal('active'), v.literal('suspended'), v.literal('removed'))
+    ),
+    reasonCode: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_targetUserId', ['targetUserId'])
+    .index('by_targetInviteId', ['targetInviteId']),
 });

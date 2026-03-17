@@ -14,6 +14,10 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
+import {
+  getActiveMembershipByBusinessId,
+  resolveActiveBusinessShell,
+} from '@/lib/activeBusinessShell';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
@@ -179,10 +183,13 @@ export default function AuthenticatedLayout() {
     const shouldForceBusinessOnboarding =
       appMode === 'business' && !businessOnboarded;
     const bizList = sessionContext?.businesses ?? [];
-    const hasOwnerOrManager = bizList.some(
-      (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
+    const activeBusinessId = sessionContext?.activeBusinessId ?? null;
+    const activeMembership = getActiveMembershipByBusinessId(
+      bizList,
+      activeBusinessId
     );
-    const hasAnyBizAccess = bizList.length > 0;
+    const activeMembershipRole = activeMembership?.staffRole ?? null;
+    const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
 
     void setAppMode(activeMode);
 
@@ -197,20 +204,27 @@ export default function AuthenticatedLayout() {
     }
 
     if (activeMode === 'business') {
-      if (!hasOwnerOrManager) {
-        if (hasAnyBizAccess) {
-          safeReplace(staffTarget);
-        } else if (!inMerchant) {
-          safeReplace(merchantOnboardingTarget);
-        }
+      if (activeShell === 'none') {
+        safeReplace(customerTarget);
         return;
       }
-      if (!businessOnboarded && !inMerchant) {
+      if (activeShell === 'business' && !businessOnboarded && !inMerchant) {
         safeReplace(merchantOnboardingTarget);
         return;
       }
-      if (inCustomerGroup) {
-        safeReplace(businessTarget);
+      if (activeShell === 'business') {
+        if (inCustomerGroup || inStaffGroup) {
+          safeReplace(businessTarget);
+          return;
+        }
+        return;
+      }
+      if (inCustomerGroup || inBusinessGroup) {
+        safeReplace(staffTarget);
+        return;
+      }
+      if (!inStaffGroup) {
+        safeReplace(staffTarget);
         return;
       }
       return;
@@ -281,15 +295,19 @@ export default function AuthenticatedLayout() {
     const activeMode = sessionContext.activeMode ?? appMode;
     if (activeMode === 'business') {
       const businesses = sessionContext.businesses ?? [];
-      const hasOwnerOrManager = businesses.some(
-        (business) =>
-          business.staffRole === 'owner' || business.staffRole === 'manager'
+      const activeBusinessId = sessionContext.activeBusinessId ?? null;
+      const activeMembership = getActiveMembershipByBusinessId(
+        businesses,
+        activeBusinessId
       );
+      const activeMembershipRole = activeMembership?.staffRole ?? null;
 
-      if (!hasOwnerOrManager) {
-        return businesses.length > 0
-          ? TEXT.loadingSubtitleStaff
-          : TEXT.loadingSubtitleBusinessOnboarding;
+      if (!activeMembershipRole) {
+        return TEXT.loadingSubtitleDefault;
+      }
+
+      if (activeMembershipRole === 'staff') {
+        return TEXT.loadingSubtitleStaff;
       }
 
       return user.businessOnboardedAt == null

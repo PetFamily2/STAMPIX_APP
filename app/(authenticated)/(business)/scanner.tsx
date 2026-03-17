@@ -73,9 +73,33 @@ type ResolvedSession = {
 type PendingRetrySession = ResolvedSession;
 
 type CommitActionResult = {
+  membershipId: string;
   currentStamps: number;
   maxStamps: number;
   canRedeemNow: boolean;
+  eventId: string;
+  eventType: 'STAMP_ADDED' | 'REWARD_REDEEMED';
+  eventCreatedAt: number;
+  undoAvailableUntil: number;
+};
+
+type UndoActionState = {
+  eventId: string;
+  availableUntil: number;
+  customerDisplayName: string;
+  actionMode: ScanActionMode;
+};
+
+type UndoActionResult = {
+  status: 'reverted' | 'already_reverted';
+  reversalEventId: string | null;
+  membership: {
+    membershipId: string;
+    currentStamps: number;
+    maxStamps: number;
+    canRedeemNow: boolean;
+    isActive?: boolean;
+  } | null;
 };
 
 type ScanResultBanner = {
@@ -90,6 +114,13 @@ const BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP = 'ניקוב בוצע בהצלחה'
 const BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM = 'מימוש הושלם בהצלחה';
 const SCANNER_HEADER_TITLE = 'סריקת לקוח';
 const SCANNER_HEADER_SUBTITLE = 'בחרו תוכנית ואז סרקו QR של הלקוח לניקוב מהיר.';
+const BUSINESS_SUCCESS_BANNER_MESSAGE_UNDO = 'הפעולה בוטלה';
+const SCANNER_DEVICE_ID_STORAGE_KEY = 'scanner:deviceId';
+const STAFF_ROLE_BADGE_LABEL: Record<'owner' | 'manager' | 'staff', string> = {
+  owner: 'בעלים',
+  manager: 'מנהל',
+  staff: 'עובד',
+};
 
 const KNOWN_SCAN_ERROR_CODES = [
   'INVALID_QR',
@@ -189,6 +220,14 @@ function isTechnicalCommitError(code: string) {
   return !NON_RETRYABLE_COMMIT_CODES.has(code);
 }
 
+function generateRuntimeSessionId() {
+  return `runtime_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function generateScannerDeviceId() {
+  return `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -201,6 +240,9 @@ export default function ScannerScreen() {
   const { user } = useUser();
   const { activeBusinessId, activeBusiness: selectedBusiness } =
     useActiveBusiness();
+  const scannerHeaderSubtitle = selectedBusiness
+    ? `${selectedBusiness.name} · ${STAFF_ROLE_BADGE_LABEL[selectedBusiness.staffRole]}`
+    : SCANNER_HEADER_SUBTITLE;
 
   useEffect(() => {
     if (isPreviewMode) {
@@ -235,12 +277,18 @@ export default function ScannerScreen() {
     programs.find(
       (program) => program.loyaltyProgramId === selectedProgramId
     ) ?? null;
+  const [scannerRuntimeSessionId, setScannerRuntimeSessionId] = useState(() =>
+    generateRuntimeSessionId()
+  );
+  const [scannerDeviceId, setScannerDeviceId] = useState<string | null>(null);
 
   const resolveScan = useMutation(api.scanner.resolveScan);
   const commitStamp = useMutation(api.scanner.commitStamp);
   const commitRedeem = useMutation(api.scanner.commitRedeem);
+  const undoLastScannerAction = useMutation(api.scanner.undoLastScannerAction);
   const [isResolving, setIsResolving] = useState(false);
   const [isStamping, setIsStamping] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
   const [resultBanner, setResultBanner] = useState<ScanResultBanner | null>(
@@ -249,6 +297,7 @@ export default function ScannerScreen() {
   const [retrySession, setRetrySession] = useState<PendingRetrySession | null>(
     null
   );
+  const [undoState, setUndoState] = useState<UndoActionState | null>(null);
   const [businessSuccessBannerKey, setBusinessSuccessBannerKey] = useState(0);
   const [successBannerMessage, setSuccessBannerMessage] = useState(
     BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
@@ -257,6 +306,39 @@ export default function ScannerScreen() {
   const storageKey = activeBusinessId
     ? `scanner:lastProgram:${String(activeBusinessId)}`
     : null;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const hydrateDeviceId = async () => {
+      try {
+        const existing = await AsyncStorage.getItem(
+          SCANNER_DEVICE_ID_STORAGE_KEY
+        );
+        if (isCancelled) {
+          return;
+        }
+        if (existing) {
+          setScannerDeviceId(existing);
+          return;
+        }
+        const generated = generateScannerDeviceId();
+        await AsyncStorage.setItem(SCANNER_DEVICE_ID_STORAGE_KEY, generated);
+        if (!isCancelled) {
+          setScannerDeviceId(generated);
+        }
+      } catch {
+        if (!isCancelled) {
+          setScannerDeviceId(generateScannerDeviceId());
+        }
+      }
+    };
+
+    void hydrateDeviceId();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -297,14 +379,16 @@ export default function ScannerScreen() {
     };
   }, [programs, storageKey]);
 
-  const isSelectionLocked = isResolving || isStamping || retrySession !== null;
+  const isSelectionLocked =
+    isResolving || isStamping || isUndoing || retrySession !== null;
   const canScan = Boolean(
     selectedBusiness &&
       selectedProgram &&
+      scannerDeviceId &&
       isProgramSelectionReady &&
       programs.length > 0
   );
-  const isBusy = isResolving || isStamping;
+  const isBusy = isResolving || isStamping || isUndoing;
 
   const openUpgrade = useCallback(
     (
@@ -326,6 +410,7 @@ export default function ScannerScreen() {
     setScanError(null);
     setResultBanner(null);
     setRetrySession(null);
+    setUndoState(null);
   }, []);
 
   const queueScannerReset = useCallback((delayMs = 1200) => {
@@ -340,6 +425,7 @@ export default function ScannerScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setScannerRuntimeSessionId(generateRuntimeSessionId());
       resetScanner();
     }, [resetScanner])
   );
@@ -366,6 +452,23 @@ export default function ScannerScreen() {
     };
   }, [resultBanner]);
 
+  useEffect(() => {
+    if (!undoState) {
+      return;
+    }
+    const remaining = undoState.availableUntil - Date.now();
+    if (remaining <= 0) {
+      setUndoState(null);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setUndoState(null);
+    }, remaining);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [undoState]);
+
   const setSelectedProgram = useCallback(
     async (programId: string) => {
       if (!storageKey) {
@@ -386,7 +489,7 @@ export default function ScannerScreen() {
     async (token: string, showErrors = true) => {
       const businessId = selectedBusiness?.businessId;
       const programId = selectedProgram?.loyaltyProgramId;
-      if (!canScan || !businessId || !programId) {
+      if (!canScan || !businessId || !programId || !scannerDeviceId) {
         if (showErrors) {
           setScanError('יש לבחור תוכנית פעילה לפני סריקה.');
         }
@@ -398,6 +501,8 @@ export default function ScannerScreen() {
           businessId,
           programId: programId as Id<'loyaltyPrograms'>,
           actionType: selectedActionMode,
+          scannerRuntimeSessionId,
+          deviceId: scannerDeviceId as string,
         })) as ResolvedScan;
         if (!result.scanSessionId) {
           throw new Error('INVALID_SCAN_SESSION');
@@ -428,6 +533,8 @@ export default function ScannerScreen() {
     [
       canScan,
       resolveScan,
+      scannerDeviceId,
+      scannerRuntimeSessionId,
       selectedActionMode,
       selectedBusiness,
       selectedProgram,
@@ -455,6 +562,12 @@ export default function ScannerScreen() {
 
         const isRedeem = session.actionMode === 'redeem';
         setRetrySession(null);
+        setUndoState({
+          eventId: result.eventId,
+          availableUntil: result.undoAvailableUntil,
+          customerDisplayName: session.customerDisplayName,
+          actionMode: session.actionMode,
+        });
         setSuccessBannerMessage(
           isRedeem
             ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
@@ -584,6 +697,7 @@ export default function ScannerScreen() {
       setIsResolving(true);
       setScanError(null);
       setRetrySession(null);
+      setUndoState(null);
 
       let shouldQueueReset = true;
       try {
@@ -637,6 +751,55 @@ export default function ScannerScreen() {
     }
   }, [commitFromSession, isBusy, queueScannerReset, retrySession]);
 
+  const handleUndoLastAction = useCallback(async () => {
+    if (!undoState || !scannerDeviceId || isBusy) {
+      return;
+    }
+    if (Date.now() > undoState.availableUntil) {
+      setUndoState(null);
+      return;
+    }
+
+    setIsUndoing(true);
+    setScanError(null);
+    try {
+      const response = (await undoLastScannerAction({
+        eventId: undoState.eventId as Id<'events'>,
+        scannerRuntimeSessionId,
+        deviceId: scannerDeviceId,
+      })) as UndoActionResult;
+
+      const membership = response.membership;
+      if (membership) {
+        setResultBanner({
+          customerDisplayName: undoState.customerDisplayName,
+          statusLabel: 'הפעולה בוטלה',
+          currentStamps: membership.currentStamps,
+          maxStamps: membership.maxStamps,
+        });
+      } else {
+        setResultBanner(null);
+      }
+      setSuccessBannerMessage(BUSINESS_SUCCESS_BANNER_MESSAGE_UNDO);
+      setBusinessSuccessBannerKey((current) => current + 1);
+      setRetrySession(null);
+      setUndoState(null);
+      queueScannerReset();
+    } catch {
+      setScanError('לא ניתן לבטל את הפעולה כרגע.');
+      setUndoState(null);
+    } finally {
+      setIsUndoing(false);
+    }
+  }, [
+    isBusy,
+    queueScannerReset,
+    scannerDeviceId,
+    scannerRuntimeSessionId,
+    undoLastScannerAction,
+    undoState,
+  ]);
+
   const handleProgramPress = useCallback(
     (programId: string) => {
       if (isSelectionLocked || programId === selectedProgramId) {
@@ -687,7 +850,7 @@ export default function ScannerScreen() {
           <View style={styles.header}>
             <BusinessScreenHeader
               title={SCANNER_HEADER_TITLE}
-              subtitle={SCANNER_HEADER_SUBTITLE}
+              subtitle={scannerHeaderSubtitle}
             />
           </View>
         </StickyScrollHeader>
@@ -880,6 +1043,19 @@ export default function ScannerScreen() {
                 {resultBanner.currentStamps}/{resultBanner.maxStamps}
               </Text>
             </View>
+            {undoState?.eventId && undoState.availableUntil > Date.now() ? (
+              <Pressable
+                onPress={handleUndoLastAction}
+                disabled={isBusy}
+                style={({ pressed }) => [
+                  styles.undoButton,
+                  pressed ? styles.undoButtonPressed : null,
+                  isBusy ? styles.undoButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.undoButtonText}>בטל פעולה</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -1070,6 +1246,27 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  undoButton: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    backgroundColor: '#EEF4FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C7DBFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  undoButtonPressed: {
+    opacity: 0.9,
+  },
+  undoButtonDisabled: {
+    opacity: 0.6,
+  },
+  undoButtonText: {
+    color: '#1A2B4A',
     fontWeight: '900',
     fontSize: 12,
   },

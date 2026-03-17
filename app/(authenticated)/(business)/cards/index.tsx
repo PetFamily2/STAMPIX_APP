@@ -98,6 +98,9 @@ function ProgramListSection({
   businessName,
   businessLogoUrl,
   onOpenProgram,
+  isCollapsible = false,
+  isExpanded = true,
+  onToggleExpand,
 }: {
   title: string;
   emptyText: string;
@@ -105,60 +108,87 @@ function ProgramListSection({
   businessName: string;
   businessLogoUrl: string | null;
   onOpenProgram: (program: ManagementProgram) => void;
+  isCollapsible?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }) {
+  const shouldRenderContent = !isCollapsible || isExpanded;
+
   return (
     <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-      <Text
-        className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-      >
-        {title} ({programs.length})
-      </Text>
-
-      {programs.length === 0 ? (
-        <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-          {emptyText}
-        </Text>
-      ) : (
-        programs.map((program) => (
-          <TouchableOpacity
-            key={String(program.loyaltyProgramId)}
-            onPress={() => onOpenProgram(program)}
-            className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
+      {isCollapsible ? (
+        <TouchableOpacity
+          onPress={onToggleExpand}
+          className={`${tw.flexRow} items-center justify-between`}
+        >
+          <Text
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            <ProgramCustomerCardPreview
-              businessName={businessName}
-              businessLogoUrl={businessLogoUrl}
-              title={program.title}
-              rewardName={program.rewardName}
-              maxStamps={program.maxStamps}
-              stampIcon={program.stampIcon}
-              cardThemeId={program.cardThemeId}
-              status={program.lifecycle === 'archived' ? 'archived' : 'default'}
-              variant="list"
-            />
+            {title} ({programs.length})
+          </Text>
+          <Ionicons
+            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color="#64748B"
+          />
+        </TouchableOpacity>
+      ) : (
+        <Text
+          className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+        >
+          {title} ({programs.length})
+        </Text>
+      )}
 
-            <View className={`${tw.flexRow} items-center justify-between`}>
-              <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
-                <Text className="text-[11px] font-bold text-[#1D4ED8]">
-                  {program.lifecycle === 'draft'
-                    ? 'טיוטה'
-                    : program.lifecycle === 'archived'
-                      ? 'בארכיון'
-                      : 'פעיל'}
+      {shouldRenderContent ? (
+        programs.length === 0 ? (
+          <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+            {emptyText}
+          </Text>
+        ) : (
+          programs.map((program) => (
+            <TouchableOpacity
+              key={String(program.loyaltyProgramId)}
+              onPress={() => onOpenProgram(program)}
+              className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
+            >
+              <ProgramCustomerCardPreview
+                businessName={businessName}
+                businessLogoUrl={businessLogoUrl}
+                title={program.title}
+                rewardName={program.rewardName}
+                maxStamps={program.maxStamps}
+                stampIcon={program.stampIcon}
+                cardThemeId={program.cardThemeId}
+                status={
+                  program.lifecycle === 'archived' ? 'archived' : 'default'
+                }
+                variant="list"
+              />
+
+              <View className={`${tw.flexRow} items-center justify-between`}>
+                <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
+                  <Text className="text-[11px] font-bold text-[#1D4ED8]">
+                    {program.lifecycle === 'draft'
+                      ? 'טיוטה'
+                      : program.lifecycle === 'archived'
+                        ? 'בארכיון'
+                        : 'פעיל'}
+                  </Text>
+                </View>
+
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  לקוחות: {formatNumber(program.metrics.totalMembers)}
+                </Text>
+
+                <Text className="text-xs font-bold text-[#334155]">
+                  {TEXT.openDetails}
                 </Text>
               </View>
-
-              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                לקוחות: {formatNumber(program.metrics.totalMembers)}
-              </Text>
-
-              <Text className="text-xs font-bold text-[#334155]">
-                {TEXT.openDetails}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))
-      )}
+            </TouchableOpacity>
+          ))
+        )
+      ) : null}
     </View>
   );
 }
@@ -205,6 +235,10 @@ export default function BusinessCardsManagementScreen() {
     api.loyaltyPrograms.listManagementByBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   ) ?? []) as ManagementProgram[];
+  const rewardEligibilitySummary = useQuery(
+    api.memberships.getBusinessRewardEligibilitySummary,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
 
   const createLoyaltyProgram = useMutation(
     api.loyaltyPrograms.createLoyaltyProgram
@@ -216,6 +250,7 @@ export default function BusinessCardsManagementScreen() {
   const [stampIcon, setStampIcon] = useState('star');
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [isArchivedCardsExpanded, setIsArchivedCardsExpanded] = useState(false);
 
   const draftPrograms = useMemo(
     () => programs.filter((program) => program.lifecycle === 'draft'),
@@ -288,6 +323,9 @@ export default function BusinessCardsManagementScreen() {
     (sum, program) => sum + program.metrics.redemptions30d,
     0
   );
+  const redeemableCustomersCount =
+    rewardEligibilitySummary?.redeemableCustomers ?? 0;
+  const redeemableCardsCount = rewardEligibilitySummary?.redeemableCards ?? 0;
   const businessDisplayName =
     activeBusiness?.name?.trim() || TEXT.businessFallback;
 
@@ -499,6 +537,12 @@ export default function BusinessCardsManagementScreen() {
               </Text>
             </View>
           </View>
+          <Text
+            className={`mt-3 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+          >
+            לקוחות זכאים להטבה: {formatNumber(redeemableCustomersCount)} ·
+            כרטיסיות מלאות: {formatNumber(redeemableCardsCount)}
+          </Text>
 
           {cardLimit.isNearLimit || cardLimit.isAtLimit ? (
             <View className="mt-4 rounded-2xl border border-[#F59E0B] bg-[#FFF7ED] p-3">
@@ -536,6 +580,11 @@ export default function BusinessCardsManagementScreen() {
           businessName={businessDisplayName}
           businessLogoUrl={activeBusiness?.logoUrl ?? null}
           onOpenProgram={openProgramDetails}
+          isCollapsible={true}
+          isExpanded={isArchivedCardsExpanded}
+          onToggleExpand={() =>
+            setIsArchivedCardsExpanded((current) => !current)
+          }
         />
       </ScrollView>
     </SafeAreaView>

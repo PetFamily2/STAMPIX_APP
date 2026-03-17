@@ -45,6 +45,7 @@ export type SessionContext = {
     businessId: import('@/convex/_generated/dataModel').Id<'businesses'>;
     businessName: string;
     inviteCode: string;
+    targetRole?: 'manager' | 'staff';
   }>;
   activeMode: 'customer' | 'business';
   activeBusinessId:

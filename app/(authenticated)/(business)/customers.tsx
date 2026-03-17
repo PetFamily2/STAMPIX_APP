@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -223,11 +224,19 @@ export default function BusinessCustomersScreen() {
     'segmentationBuilder',
     segmentationRequiredPlan
   );
+  const customerList = useQuery(
+    api.customerCards.listBusinessCustomersBase,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
   const snapshot = useQuery(
     api.events.getCustomerManagementSnapshot,
     activeBusinessId && entitlements && !smartGate.isLocked
       ? { businessId: activeBusinessId }
       : 'skip'
+  );
+  const rewardEligibilitySummary = useQuery(
+    api.memberships.getBusinessRewardEligibilitySummary,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const savedSegments = useQuery(
     api.segments.listSegments,
@@ -289,9 +298,12 @@ export default function BusinessCustomersScreen() {
     vipCustomers: 0,
     newCustomers: 0,
   };
+  const rewardEligibleCustomers =
+    rewardEligibilitySummary?.redeemableCustomers ?? 0;
+  const rewardEligibleCards = rewardEligibilitySummary?.redeemableCards ?? 0;
 
   const filteredCustomers = useMemo(() => {
-    const customers = snapshot?.customers ?? [];
+    const customers = customerList ?? [];
     const routeFilteredCustomers = activeFilter
       ? customers.filter((customer) => {
           if (activeFilter === 'near_reward') {
@@ -312,7 +324,7 @@ export default function BusinessCustomersScreen() {
         .toLowerCase()
         .includes(normalizedSearch)
     );
-  }, [activeFilter, search, snapshot?.customers]);
+  }, [activeFilter, customerList, search]);
 
   const updateCondition = (index: number, patch: Partial<SegmentCondition>) => {
     setSegmentRules((current) => ({
@@ -372,6 +384,13 @@ export default function BusinessCustomersScreen() {
     } finally {
       setActiveDeleteId(null);
     }
+  };
+
+  const openCustomerCard = (customerUserId: string) => {
+    router.push({
+      pathname: '/(authenticated)/(business)/customer/[customerUserId]',
+      params: { customerUserId },
+    });
   };
 
   return (
@@ -499,6 +518,16 @@ export default function BusinessCustomersScreen() {
                   </Text>
                 </View>
               </View>
+              <Text
+                className={`mt-3 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                לקוחות זכאים להטבה:{' '}
+                {smartGate.isLocked
+                  ? '--'
+                  : formatNumber(rewardEligibleCustomers)}{' '}
+                · כרטיסיות מלאות:{' '}
+                {smartGate.isLocked ? '--' : formatNumber(rewardEligibleCards)}
+              </Text>
 
               <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-[#182F4E] px-5 py-5">
                 <Text
@@ -555,18 +584,16 @@ export default function BusinessCustomersScreen() {
 
         <View className={`${tw.flexRow} mt-4 items-center justify-between`}>
           <Text className="text-xs font-semibold text-[#64748B]">
-            {smartGate.isLocked
-              ? 'נתוני הלקוחות נעולים במסלול הנוכחי'
-              : `${formatNumber(filteredCustomers.length)} לקוחות`}
+            {`${formatNumber(filteredCustomers.length)} לקוחות`}
           </Text>
-          {!smartGate.isLocked && snapshot ? (
+          {customerList ? (
             <Text className="text-xs font-semibold text-[#64748B]">
-              {formatNumber(snapshot.summary.totalCustomers)} סה״כ
+              {formatNumber(customerList.length)} סה״כ
             </Text>
           ) : null}
         </View>
 
-        {!smartGate.isLocked && activeFilter ? (
+        {activeFilter ? (
           <View
             className={`${tw.selfStart} mt-2 rounded-full bg-[#E8F1FF] px-3 py-1`}
           >
@@ -581,23 +608,7 @@ export default function BusinessCustomersScreen() {
         ) : null}
 
         <View className="mt-3 gap-3">
-          {smartGate.isLocked ? (
-            ['1', '2', '3'].map((id) => (
-              <View
-                key={id}
-                className="rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] px-4 py-4"
-              >
-                <Text
-                  className={`text-base font-bold text-[#64748B] ${tw.textStart}`}
-                >
-                  לקוח לדוגמה
-                </Text>
-                <Text className={`mt-1 text-xs text-[#94A3B8] ${tw.textStart}`}>
-                  --
-                </Text>
-              </View>
-            ))
-          ) : snapshot === undefined ? (
+          {customerList === undefined ? (
             <View className="items-center justify-center py-8">
               <ActivityIndicator color="#2F6BFF" />
             </View>
@@ -609,8 +620,9 @@ export default function BusinessCustomersScreen() {
             </View>
           ) : (
             filteredCustomers.map((customer) => (
-              <View
+              <Pressable
                 key={customer.primaryMembershipId}
+                onPress={() => openCustomerCard(String(customer.customerId))}
                 className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
               >
                 <View className={`${tw.flexRow} items-start justify-between`}>
@@ -665,7 +677,7 @@ export default function BusinessCustomersScreen() {
                     <Ionicons name="person-outline" size={20} color="#2F6BFF" />
                   </View>
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
         </View>

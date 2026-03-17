@@ -24,10 +24,12 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
+import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -40,16 +42,15 @@ const TEXT = {
   cardNotFoundSubtitle:
     '\u05e0\u05e1\u05d4 \u05dc\u05d7\u05d6\u05d5\u05e8 \u05dc\u05de\u05e1\u05da \u05d4\u05d0\u05e8\u05e0\u05e7 \u05d5\u05dc\u05d1\u05d7\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05d4\u05e8\u05e9\u05d9\u05de\u05d4',
   cardDetails: '\u05e4\u05e8\u05d8\u05d9 \u05db\u05e8\u05d8\u05d9\u05e1',
-  personalQr: 'QR \u05d0\u05d9\u05e9\u05d9',
+  personalQr: '\u05e7\u05d5\u05d3 QR \u05dc\u05e7\u05d5\u05d7',
   personalQrSubtitle:
-    '\u05d4\u05e8\u05d0\u05d4 \u05dc\u05e6\u05d5\u05d5\u05ea \u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05e0\u05d9\u05e7\u05d5\u05d1',
+    '\u05d4\u05e8\u05d0\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d5\u05d3 \u05d1\u05e7\u05d5\u05e4\u05d4. \u05d4\u05e2\u05e1\u05e7 \u05d1\u05d5\u05d7\u05e8 \u05d0\u05ea \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05dc\u05e4\u05e2\u05d5\u05dc\u05d4.',
   personalQrRedeemSubtitle:
-    '\u05d4\u05e8\u05d0\u05d4 \u05dc\u05e6\u05d5\u05d5\u05ea \u05db\u05d3\u05d9 \u05dc\u05de\u05de\u05e9 \u05d0\u05ea \u05d4\u05de\u05ea\u05e0\u05d4 \u05d1\u05e2\u05e1\u05e7\u05d4 \u05e0\u05e4\u05e8\u05d3\u05ea',
-  qrCreateTokenError:
-    '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d9\u05e6\u05d5\u05e8 QR',
+    '\u05d4\u05e7\u05d5\u05d3 \u05d4\u05d6\u05d4 \u05db\u05dc\u05dc\u05d9 \u05dc\u05dc\u05e7\u05d5\u05d7. \u05d1\u05d1\u05d9\u05d6\u05e0\u05e1 \u05d1\u05d5\u05d7\u05e8\u05d9\u05dd \u05d0\u05ea \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05dc\u05e0\u05d9\u05e7\u05d5\u05d1 \u05d0\u05d5 \u05dc\u05de\u05d9\u05de\u05d5\u05e9.',
+  qrExpired:
+    '\u05ea\u05d5\u05e7\u05e3 \u05d4-QR \u05e4\u05d2. \u05e8\u05e2\u05e0\u05e0\u05d5 \u05e7\u05d5\u05d3 \u05d7\u05d3\u05e9.',
   qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
-  genericError:
-    '\u05de\u05e9\u05d4\u05d5 \u05d4\u05e9\u05ea\u05d1\u05e9 \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
+  refreshCta: '\u05e8\u05e2\u05e0\u05d5\u05df QR',
   loading: '\u05d8\u05d5\u05e2\u05df',
   cardReadyTitle:
     '\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05dc\u05d0 - \u05de\u05d7\u05db\u05d4 \u05dc\u05da \u05de\u05ea\u05e0\u05d4',
@@ -63,9 +64,21 @@ const TEXT = {
   redeemButtonReady: '\u05d4\u05e6\u05d2 \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
   redeemButtonLocked:
     '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
-  stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
+  stampSuccessBanner: '✅ קיבלת ניקוב!',
 };
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
+const CUSTOMER_ACTIVITY_TITLE = 'פעילות בכרטיס';
+const CUSTOMER_ACTIVITY_EMPTY = 'עדיין אין פעילות בכרטיס הזה.';
+
+function formatDateTime(timestamp: number) {
+  return new Date(timestamp).toLocaleString('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function CardDetailsScreen() {
   const { membershipId, preview, map } = useLocalSearchParams<{
@@ -88,16 +101,35 @@ export default function CardDetailsScreen() {
     api.scanner.createCustomerScanToken
   );
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const lastCelebratedStampAtRef = useRef(0);
   const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
+  const [stampSuccessBannerMessage, setStampSuccessBannerMessage] = useState(
+    TEXT.stampSuccessBanner
+  );
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const celebrationResetTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const [isCelebrationCardMode, setIsCelebrationCardMode] = useState(false);
 
   const membershipIdForToken = membership?.membershipId;
+  const membershipActivity = useQuery(
+    api.memberships.getMembershipActivity,
+    membershipIdForToken
+      ? {
+          membershipId: membershipIdForToken as Id<'memberships'>,
+          limit: 20,
+        }
+      : 'skip'
+  );
 
   const refreshScanToken = useCallback(async () => {
     if (!membershipIdForToken) {
       setScanTokenPayload(null);
+      setTokenExpiresAt(null);
       setTokenError(null);
       setIsTokenLoading(false);
       return;
@@ -108,27 +140,85 @@ export default function CardDetailsScreen() {
     try {
       const result = await createCustomerScanToken({});
       setScanTokenPayload(result.scanToken);
+      setTokenExpiresAt(Number(result.expiresAt));
     } catch {
-      setScanTokenPayload(null);
-      setTokenError(TEXT.qrCreateFailed);
+      const now = Date.now();
+      const hasValidToken =
+        Boolean(scanTokenPayload) &&
+        typeof tokenExpiresAt === 'number' &&
+        now < tokenExpiresAt;
+      if (!hasValidToken) {
+        setScanTokenPayload(null);
+        setTokenExpiresAt(null);
+        setTokenError(TEXT.qrCreateFailed);
+      }
     } finally {
       setIsTokenLoading(false);
     }
-  }, [createCustomerScanToken, membershipIdForToken]);
+  }, [
+    createCustomerScanToken,
+    membershipIdForToken,
+    scanTokenPayload,
+    tokenExpiresAt,
+  ]);
 
   useEffect(() => {
+    if (!membershipIdForToken || scanTokenPayload || tokenError) {
+      return;
+    }
     void refreshScanToken();
-  }, [refreshScanToken]);
+  }, [membershipIdForToken, refreshScanToken, scanTokenPayload, tokenError]);
+
+  useEffect(() => {
+    if (!scanTokenPayload || !tokenExpiresAt) {
+      return;
+    }
+    const expiryDelayMs = tokenExpiresAt - Date.now();
+    if (expiryDelayMs <= 0) {
+      setScanTokenPayload(null);
+      setTokenExpiresAt(null);
+      setTokenError(TEXT.qrExpired);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setScanTokenPayload(null);
+      setTokenExpiresAt(null);
+      setTokenError(TEXT.qrExpired);
+    }, expiryDelayMs + 150);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scanTokenPayload, tokenExpiresAt]);
+
+  useEffect(() => {
+    return () => {
+      if (celebrationResetTimeoutRef.current) {
+        clearTimeout(celebrationResetTimeoutRef.current);
+        celebrationResetTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (memberships === undefined) {
       return;
     }
 
-    const latestStampAt = memberships.reduce((latest, membershipEntry) => {
-      const stampAt = Number(membershipEntry.lastStampAt ?? 0);
-      return Math.max(latest, stampAt);
-    }, 0);
+    const latestStamped = memberships.reduce<{
+      stampAt: number;
+      membership: CustomerMembershipView | null;
+    }>(
+      (latest, membershipEntry) => {
+        const stampAt = Number(membershipEntry.lastStampAt ?? 0);
+        if (stampAt > latest.stampAt) {
+          return { stampAt, membership: membershipEntry };
+        }
+        return latest;
+      },
+      { stampAt: 0, membership: null }
+    );
+    const latestStampAt = latestStamped.stampAt;
+    const latestMembership = latestStamped.membership;
 
     if (!latestStampAt) {
       return;
@@ -144,7 +234,23 @@ export default function CardDetailsScreen() {
       return;
     }
 
+    if (celebrationResetTimeoutRef.current) {
+      clearTimeout(celebrationResetTimeoutRef.current);
+      celebrationResetTimeoutRef.current = null;
+    }
+    setIsCelebrationCardMode(true);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    celebrationResetTimeoutRef.current = setTimeout(() => {
+      setIsCelebrationCardMode(false);
+      celebrationResetTimeoutRef.current = null;
+    }, CUSTOMER_STAMP_BANNER_DURATION_MS);
+
     Vibration.vibrate(120);
+    if (latestMembership) {
+      setStampSuccessBannerMessage(
+        `${TEXT.stampSuccessBanner}\n${buildRewardProgressLine(latestMembership)}`
+      );
+    }
     setCustomerStampBannerKey((currentValue) => currentValue + 1);
   }, [memberships]);
 
@@ -152,6 +258,7 @@ export default function CardDetailsScreen() {
   useEffect(() => {
     if (scanTokenPayload && membershipId) {
       track(ANALYTICS_EVENTS.qrPresentedCustomer, {
+        sourceScreen: 'card_detail',
         membershipId,
       });
     }
@@ -199,11 +306,31 @@ export default function CardDetailsScreen() {
   const remainingStamps = Math.max(0, goal - current);
   const isRedeemEligible = Boolean(membership.canRedeem || current >= goal);
 
+  const formatActivityMessage = (item: {
+    actionType: string;
+    businessName: string;
+    programName: string;
+  }) => {
+    if (item.actionType === 'stamp_reverted') {
+      return `בוצע תיקון בכרטיס שלך בעסק ${item.businessName} - ניקוב בוטל`;
+    }
+    if (item.actionType === 'reward_redeem_reverted') {
+      return `בוצע תיקון בכרטיס שלך בעסק ${item.businessName} - מימוש בוטל`;
+    }
+    if (item.actionType === 'reward_redeemed') {
+      return `מומשה הטבה בכרטיס ${item.programName}`;
+    }
+    return `נוסף ניקוב בכרטיס ${item.programName}`;
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <AnimatedActionBanner
         eventKey={customerStampBannerKey}
-        message={TEXT.stampSuccessBanner}
+        message={stampSuccessBannerMessage}
+        bannerStyle={styles.stampCelebrationBanner}
+        messageStyle={styles.stampCelebrationMessage}
+        iconStyle={styles.stampCelebrationIcon}
         topOffset={(insets.top || 0) + 8}
         durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
@@ -214,6 +341,7 @@ export default function CardDetailsScreen() {
         fullScreenCelebration={true}
       />
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
         contentContainerStyle={[
@@ -332,36 +460,81 @@ export default function CardDetailsScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
-          <Text style={styles.cardSubtitle}>
-            {isRedeemEligible
-              ? TEXT.personalQrRedeemSubtitle
-              : TEXT.personalQrSubtitle}
-          </Text>
-          <View style={styles.qrFrame}>
-            {scanTokenPayload ? (
-              <QRCode
-                value={scanTokenPayload}
-                size={200}
-                color="#1A2B4A"
-                backgroundColor="#FFFFFF"
-              />
-            ) : (
-              <View style={styles.qrPlaceholder}>
-                {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
-                <Text style={styles.qrPlaceholderText}>
-                  {tokenError ? TEXT.qrCreateTokenError : TEXT.qrLoading}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {tokenError ? (
-            <View style={styles.errorRow}>
-              <Text style={styles.errorText}>{TEXT.genericError}</Text>
+        {!isCelebrationCardMode ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
+            <Text style={styles.cardSubtitle}>
+              {isRedeemEligible
+                ? TEXT.personalQrRedeemSubtitle
+                : TEXT.personalQrSubtitle}
+            </Text>
+            <View style={styles.qrFrame}>
+              {scanTokenPayload ? (
+                <QRCode
+                  value={scanTokenPayload}
+                  size={200}
+                  color="#1A2B4A"
+                  backgroundColor="#FFFFFF"
+                />
+              ) : (
+                <View style={styles.qrPlaceholder}>
+                  {isTokenLoading ? (
+                    <ActivityIndicator color="#2F6BFF" />
+                  ) : null}
+                  <Text style={styles.qrPlaceholderText}>
+                    {tokenError ? tokenError : TEXT.qrLoading}
+                  </Text>
+                </View>
+              )}
             </View>
-          ) : null}
+            <Pressable
+              onPress={() => void refreshScanToken()}
+              disabled={isTokenLoading || !membershipIdForToken}
+              style={({ pressed }) => [
+                styles.refreshButton,
+                isTokenLoading || !membershipIdForToken
+                  ? styles.refreshButtonDisabled
+                  : null,
+                pressed ? styles.refreshButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.refreshButtonText}>
+                {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
+              </Text>
+            </Pressable>
+
+            {tokenError ? (
+              <View style={styles.errorRow}>
+                <Text style={styles.errorText}>{tokenError}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{CUSTOMER_ACTIVITY_TITLE}</Text>
+          {membershipActivity === undefined ? (
+            <View style={styles.activityLoadingRow}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : membershipActivity.length === 0 ? (
+            <Text style={styles.activityEmptyText}>
+              {CUSTOMER_ACTIVITY_EMPTY}
+            </Text>
+          ) : (
+            <View style={styles.activityList}>
+              {membershipActivity.map((item) => (
+                <View key={String(item.id)} style={styles.activityItem}>
+                  <Text style={styles.activityMessage}>
+                    {formatActivityMessage(item)}
+                  </Text>
+                  <Text style={styles.activityMeta}>
+                    {item.programName} • {formatDateTime(item.createdAt)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -513,6 +686,81 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5B6475',
     textAlign: 'center',
+  },
+  refreshButton: {
+    marginTop: 10,
+    alignSelf: 'flex-end',
+    borderRadius: 10,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  refreshButtonPressed: {
+    opacity: 0.9,
+  },
+  refreshButtonDisabled: {
+    opacity: 0.6,
+  },
+  refreshButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  activityLoadingRow: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityEmptyText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  activityList: {
+    marginTop: 10,
+    gap: 8,
+  },
+  activityItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3E9FA',
+    backgroundColor: '#FAFCFF',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 2,
+  },
+  activityMessage: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#14253E',
+    textAlign: 'right',
+  },
+  activityMeta: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  stampCelebrationBanner: {
+    backgroundColor: '#E8FFF4',
+    borderColor: '#88D7AB',
+    borderWidth: 2.5,
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+  },
+  stampCelebrationMessage: {
+    color: '#0A5C35',
+    fontSize: 24,
+    lineHeight: 34,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  stampCelebrationIcon: {
+    color: '#0A8F4E',
+    fontSize: 26,
   },
   errorRow: {
     marginTop: 10,

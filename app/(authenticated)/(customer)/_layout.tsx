@@ -288,6 +288,12 @@ export default function CustomerTabsLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="customer-card/[membershipId]"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

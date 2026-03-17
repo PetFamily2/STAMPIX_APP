@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
+  getBusinessStaffStatus,
   requireActorIsBusinessOwner,
   requireActorIsStaffForBusiness,
 } from './guards';
@@ -36,7 +37,8 @@ export type LimitKey =
   | 'maxCustomers'
   | 'maxActiveRetentionActions'
   | 'maxCampaigns'
-  | 'maxAiExecutionsPerMonth';
+  | 'maxAiExecutionsPerMonth'
+  | 'maxTeamSeats';
 
 type CanonicalFeatureConfig = Record<CanonicalFeatureKey, boolean>;
 type FeatureConfig = CanonicalFeatureConfig & Record<LegacyFeatureKey, boolean>;
@@ -78,6 +80,7 @@ export type BusinessEntitlements = {
     activeRetentionActionsRemaining: number;
     activeManagementCampaigns: number;
     activeManagementCampaignsRemaining: number;
+    activeManagementCampaignsOverLimit: boolean;
     aiExecutionsThisMonth: number;
     aiExecutionsThisMonthRemaining: number;
   };
@@ -142,15 +145,8 @@ const LIMIT_KEYS: LimitKey[] = [
   'maxActiveRetentionActions',
   'maxCampaigns',
   'maxAiExecutionsPerMonth',
+  'maxTeamSeats',
 ];
-
-const MANAGEMENT_CAMPAIGN_TYPES = new Set([
-  'welcome',
-  'birthday',
-  'anniversary',
-  'winback',
-  'promo',
-]);
 
 function expandFeatureConfig(features: CanonicalFeatureConfig): FeatureConfig {
   return {
@@ -206,6 +202,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       maxActiveRetentionActions: 0,
       maxCampaigns: 1,
       maxAiExecutionsPerMonth: 0,
+      maxTeamSeats: 0,
     },
     features: {
       team: false,
@@ -229,6 +226,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       maxActiveRetentionActions: 5,
       maxCampaigns: 5,
       maxAiExecutionsPerMonth: 100,
+      maxTeamSeats: 5,
     },
     features: {
       team: true,
@@ -252,6 +250,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       maxActiveRetentionActions: 15,
       maxCampaigns: 10,
       maxAiExecutionsPerMonth: 300,
+      maxTeamSeats: 20,
     },
     features: {
       team: true,
@@ -410,6 +409,7 @@ export function buildBusinessEntitlementsFromBusiness(
   now = Date.now(),
   options?: {
     activeRetentionActions?: number;
+    activeCampaigns?: number;
     activeManagementCampaigns?: number;
     aiExecutionsThisMonth?: number;
   }
@@ -425,15 +425,18 @@ export function buildBusinessEntitlementsFromBusiness(
     0,
     config.limits.maxActiveRetentionActions - activeRetentionActions
   );
-  const activeManagementCampaigns = Number.isFinite(
-    options?.activeManagementCampaigns
-  )
-    ? Math.max(0, Math.floor(Number(options?.activeManagementCampaigns)))
+  const activeCampaignsSource = Number.isFinite(options?.activeCampaigns)
+    ? options?.activeCampaigns
+    : options?.activeManagementCampaigns;
+  const activeManagementCampaigns = Number.isFinite(activeCampaignsSource)
+    ? Math.max(0, Math.floor(Number(activeCampaignsSource)))
     : 0;
   const activeManagementCampaignsRemaining = Math.max(
     0,
     config.limits.maxCampaigns - activeManagementCampaigns
   );
+  const activeManagementCampaignsOverLimit =
+    activeManagementCampaigns > config.limits.maxCampaigns;
   const aiExecutionsThisMonth = Number.isFinite(options?.aiExecutionsThisMonth)
     ? Math.max(0, Math.floor(Number(options?.aiExecutionsThisMonth)))
     : 0;
@@ -458,6 +461,7 @@ export function buildBusinessEntitlementsFromBusiness(
       activeRetentionActionsRemaining: remaining,
       activeManagementCampaigns,
       activeManagementCampaignsRemaining,
+      activeManagementCampaignsOverLimit,
       aiExecutionsThisMonth,
       aiExecutionsThisMonthRemaining,
     },
@@ -550,17 +554,17 @@ export async function getBusinessEntitlementsForBusinessId(
   const [
     business,
     activeRetentionActions,
-    activeManagementCampaigns,
+    activeCampaigns,
     aiExecutionsThisMonth,
   ] = await Promise.all([
     getBusinessOrThrow(ctx, businessId),
     countActiveRetentionActionsForBusiness(ctx, businessId),
-    countActiveManagementCampaignsForBusiness(ctx, businessId),
+    countActiveCampaignsForBusiness(ctx, businessId),
     countAiExecutionsForBusinessInMonth(ctx, businessId, monthKey),
   ]);
   return buildBusinessEntitlementsFromBusiness(business, Date.now(), {
     activeRetentionActions,
-    activeManagementCampaigns,
+    activeCampaigns,
     aiExecutionsThisMonth,
   });
 }
@@ -656,15 +660,116 @@ export async function countActiveManagementCampaignsForBusiness(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
+  return countActiveCampaignsForBusiness(ctx, businessId);
+}
+
+export async function countActiveCampaignsForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
   const campaigns = await ctx.db
     .query('campaigns')
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
 
-  return campaigns.filter((campaign: any) =>
-    MANAGEMENT_CAMPAIGN_TYPES.has(campaign.type)
-  ).length;
+  return campaigns.length;
+}
+
+export async function assertCampaignsNotOverLimit(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const entitlements = await getBusinessEntitlementsForBusinessId(
+    ctx,
+    businessId
+  );
+  const currentValue = entitlements.usage.activeManagementCampaigns;
+  const limitValue = entitlements.limits.maxCampaigns;
+  if (currentValue > limitValue) {
+    throwEntitlementError({
+      code: 'PLAN_LIMIT_REACHED',
+      businessId: String(entitlements.businessId),
+      requiredPlan:
+        REQUIRED_PLAN_BY_LIMIT_FROM_CURRENT_PLAN[entitlements.plan]
+          .maxCampaigns ?? undefined,
+      limitKey: 'maxCampaigns',
+      limitValue,
+      currentValue,
+      planKey: entitlements.plan,
+      subscriptionStatus: entitlements.subscriptionStatus,
+    });
+  }
+  return entitlements;
+}
+
+type CampaignLimitRemediationResult = {
+  overLimit: boolean;
+  activeCampaigns: number;
+  campaignLimit: number;
+  patchedCampaigns: number;
+  pausedRetentionActions: number;
+};
+
+export async function enforceCampaignLimitForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+): Promise<CampaignLimitRemediationResult> {
+  const entitlements = await getBusinessEntitlementsForBusinessId(
+    ctx,
+    businessId
+  );
+  const activeCampaigns = entitlements.usage.activeManagementCampaigns;
+  const campaignLimit = entitlements.limits.maxCampaigns;
+  if (activeCampaigns <= campaignLimit) {
+    return {
+      overLimit: false,
+      activeCampaigns,
+      campaignLimit,
+      patchedCampaigns: 0,
+      pausedRetentionActions: 0,
+    };
+  }
+
+  const campaigns = await ctx.db
+    .query('campaigns')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .filter((q: any) => q.eq(q.field('isActive'), true))
+    .collect();
+
+  const now = Date.now();
+  let patchedCampaigns = 0;
+  let pausedRetentionActions = 0;
+
+  for (const campaign of campaigns) {
+    const patchPayload: Record<string, unknown> = { updatedAt: now };
+    let shouldPatch = false;
+
+    if (campaign.automationEnabled === true) {
+      patchPayload.automationEnabled = false;
+      shouldPatch = true;
+    }
+
+    if (campaign.type === 'retention_action' && campaign.status === 'active') {
+      patchPayload.status = 'paused';
+      shouldPatch = true;
+      pausedRetentionActions += 1;
+    }
+
+    if (!shouldPatch) {
+      continue;
+    }
+    await ctx.db.patch(campaign._id, patchPayload);
+    patchedCampaigns += 1;
+  }
+
+  return {
+    overLimit: true,
+    activeCampaigns,
+    campaignLimit,
+    patchedCampaigns,
+    pausedRetentionActions,
+  };
 }
 
 export async function countAiExecutionsForBusinessInMonth(
@@ -691,7 +796,7 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
     programs,
     activeCustomers,
     activeRetentionActions,
-    activeManagementCampaigns,
+    activeCampaigns,
     aiExecutionsThisMonth,
   ] = await Promise.all([
     getBusinessOrThrow(ctx, businessId),
@@ -702,7 +807,7 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
       .collect(),
     countActiveCustomersForBusiness(ctx, businessId),
     countActiveRetentionActionsForBusiness(ctx, businessId),
-    countActiveManagementCampaignsForBusiness(ctx, businessId),
+    countActiveCampaignsForBusiness(ctx, businessId),
     countAiExecutionsForBusinessInMonth(ctx, businessId, monthKey),
   ]);
 
@@ -711,7 +816,7 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
     Date.now(),
     {
       activeRetentionActions,
-      activeManagementCampaigns,
+      activeCampaigns,
       aiExecutionsThisMonth,
     }
   );
@@ -780,6 +885,116 @@ export const getPlanCatalog = query({
     }));
   },
 });
+
+type StaffRole = 'owner' | 'manager' | 'staff';
+
+export function isTeamDisabledByPlanOrStatus(
+  plan: BusinessPlan,
+  status: BusinessSubscriptionStatus
+) {
+  return plan === 'starter' || !isPaidPlanSubscriptionActive(plan, status);
+}
+
+async function writePlanTeamEvent(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    targetUserId?: Id<'users'>;
+    targetInviteId?: Id<'staffInvites'>;
+    eventType: 'auto_disabled_by_plan' | 'auto_invites_cancelled_by_plan';
+    fromStatus?: 'active' | 'suspended' | 'removed';
+    toStatus?: 'active' | 'suspended' | 'removed';
+    reasonCode: string;
+    now: number;
+  }
+) {
+  await ctx.db.insert('staffEvents', {
+    businessId: args.businessId,
+    actorUserId: undefined,
+    targetUserId: args.targetUserId,
+    targetInviteId: args.targetInviteId,
+    eventType: args.eventType,
+    fromRole: undefined,
+    toRole: undefined,
+    fromStatus: args.fromStatus,
+    toStatus: args.toStatus,
+    reasonCode: args.reasonCode,
+    createdAt: args.now,
+  });
+}
+
+export async function enforceTeamAccessForPlanState(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    plan: BusinessPlan;
+    status: BusinessSubscriptionStatus;
+    now: number;
+  }
+) {
+  if (!isTeamDisabledByPlanOrStatus(args.plan, args.status)) {
+    return;
+  }
+
+  const reasonCode =
+    args.plan === 'starter'
+      ? 'team_disabled_on_starter'
+      : 'team_disabled_on_inactive_subscription';
+
+  const staffRows = await ctx.db
+    .query('businessStaff')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
+    .collect();
+
+  for (const staff of staffRows) {
+    const staffRole = staff.staffRole as StaffRole;
+    const currentStatus = getBusinessStaffStatus(staff);
+    if (staffRole === 'owner' || currentStatus !== 'active') {
+      continue;
+    }
+
+    await ctx.db.patch(staff._id, {
+      status: 'suspended',
+      isActive: false,
+      statusChangedAt: args.now,
+      statusChangedByUserId: undefined,
+      updatedAt: args.now,
+    });
+
+    await writePlanTeamEvent(ctx, {
+      businessId: args.businessId,
+      targetUserId: staff.userId,
+      eventType: 'auto_disabled_by_plan',
+      fromStatus: 'active',
+      toStatus: 'suspended',
+      reasonCode,
+      now: args.now,
+    });
+  }
+
+  const pendingInvites = await ctx.db
+    .query('staffInvites')
+    .withIndex('by_businessId_status', (q: any) =>
+      q.eq('businessId', args.businessId).eq('status', 'pending')
+    )
+    .collect();
+
+  for (const invite of pendingInvites) {
+    await ctx.db.patch(invite._id, {
+      status: 'cancelled',
+      cancelledAt: args.now,
+      cancelledByUserId: undefined,
+    });
+
+    await writePlanTeamEvent(ctx, {
+      businessId: args.businessId,
+      targetInviteId: invite._id,
+      eventType: 'auto_invites_cancelled_by_plan',
+      reasonCode,
+      now: args.now,
+    });
+  }
+}
 
 export const syncBusinessSubscription = mutation({
   args: {
@@ -859,6 +1074,13 @@ export const syncBusinessSubscription = mutation({
       });
     }
 
+    await enforceTeamAccessForPlanState(ctx, {
+      businessId: args.businessId,
+      plan,
+      status,
+      now,
+    });
+    await enforceCampaignLimitForBusiness(ctx, args.businessId);
     return await getBusinessEntitlementsForBusinessId(ctx, args.businessId);
   },
 });

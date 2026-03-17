@@ -1,8 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+﻿import { Ionicons } from '@expo/vector-icons';
+import {
+  type BottomTabNavigationProp,
+  useBottomTabBarHeight,
+} from '@react-navigation/bottom-tabs';
+import { type ParamListBase, useNavigation } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,42 +24,37 @@ import {
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
+import { track } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
+import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 
 const TEXT = {
-  title: '\u05d4-QR \u05e9\u05dc\u05d9',
-  subtitle:
-    '\u05de\u05e6\u05d9\u05d2\u05d9\u05dd QR \u05d0\u05d9\u05e9\u05d9 \u05d0\u05d7\u05d3 \u05dc\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea',
-  loadingMemberships:
-    '\u05d8\u05d5\u05e2\u05df \u05d0\u05ea \u05d4-QR \u05e9\u05dc\u05da',
-  emptyTitle:
-    '\u05d0\u05d9\u05df \u05db\u05e8\u05d8\u05d9\u05e1 \u05e4\u05e2\u05d9\u05dc',
-  emptySubtitle:
-    '\u05db\u05d0\u05e9\u05e8 \u05ea\u05e6\u05d8\u05e8\u05e4\u05d5 \u05dc\u05dc\u05e4\u05d7\u05d5\u05ea \u05e2\u05e1\u05e7 \u05d0\u05d7\u05d3, \u05d4-QR \u05d9\u05d5\u05e4\u05d9\u05e2 \u05db\u05d0\u05df',
-  qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
-  qrCreateFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05d0\u05ea \u05d4-QR \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1',
-  stampSuccessBanner: 'ניקוב נוסף בהצלחה לכרטיס שלך',
+  title: 'ה-QR שלי',
+  subtitle: 'קוד לקוח אישי אחד לכל העסקים',
+  helper:
+    'מציגים את הקוד בקופה כדי לצבור ניקובים או לממש הטבה לפי התוכנית שהעסק בוחר.',
+  qrLoading: 'טוען QR',
+  qrIdle: 'לחצו על רענון QR להצגת קוד',
+  qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
+  qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
+  refreshCta: 'רענון QR',
+  stampSuccessBanner: '✅ קיבלת ניקוב!',
 };
+
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 
-type CustomerBusinessSummary = {
-  businessId: string;
+type ScanTokenResult = {
+  scanToken: string;
+  expiresAt: number;
 };
 
 export default function CustomerShowQrScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const navigation = useNavigation();
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const { isAuthenticated } = useConvexAuth();
 
-  const savedBusinessesQuery = useQuery(
-    api.memberships.byCustomerBusinesses,
-    isAuthenticated ? {} : 'skip'
-  );
-  const savedBusinesses = (savedBusinessesQuery ??
-    []) as CustomerBusinessSummary[];
-  const hasAnyMembership = savedBusinesses.length > 0;
   const memberships = useQuery(
     api.memberships.byCustomer,
     isAuthenticated ? {} : 'skip'
@@ -64,17 +62,24 @@ export default function CustomerShowQrScreen() {
 
   const lastCelebratedStampAtRef = useRef(0);
   const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
+  const [stampSuccessBannerMessage, setStampSuccessBannerMessage] = useState(
+    TEXT.stampSuccessBanner
+  );
+  const didInitialQrLoadRef = useRef(false);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const createCustomerScanToken = useMutation(
     api.scanner.createCustomerScanToken
   );
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
 
   const refreshScanToken = useCallback(async () => {
-    if (!hasAnyMembership) {
+    if (!isAuthenticated) {
       setScanTokenPayload(null);
+      setTokenExpiresAt(null);
       setTokenError(null);
       setIsTokenLoading(false);
       return;
@@ -83,67 +88,151 @@ export default function CustomerShowQrScreen() {
     setIsTokenLoading(true);
     setTokenError(null);
     try {
-      const result = await createCustomerScanToken({});
+      const result = (await createCustomerScanToken({})) as ScanTokenResult;
       setScanTokenPayload(result.scanToken);
+      setTokenExpiresAt(Number(result.expiresAt));
     } catch {
-      setScanTokenPayload(null);
-      setTokenError(TEXT.qrCreateFailed);
+      const now = Date.now();
+      const hasValidToken =
+        Boolean(scanTokenPayload) &&
+        typeof tokenExpiresAt === 'number' &&
+        now < tokenExpiresAt;
+      if (!hasValidToken) {
+        setScanTokenPayload(null);
+        setTokenExpiresAt(null);
+        setTokenError(TEXT.qrCreateFailed);
+      }
     } finally {
       setIsTokenLoading(false);
     }
-  }, [createCustomerScanToken, hasAnyMembership]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void refreshScanToken();
-    }, [refreshScanToken])
-  );
+  }, [
+    createCustomerScanToken,
+    isAuthenticated,
+    scanTokenPayload,
+    tokenExpiresAt,
+  ]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('tabPress', () => {
-      if (navigation.isFocused()) {
-        void refreshScanToken();
-      }
-    });
+    if (!isAuthenticated) {
+      didInitialQrLoadRef.current = false;
+      return;
+    }
+    if (didInitialQrLoadRef.current) {
+      return;
+    }
+    didInitialQrLoadRef.current = true;
+    void refreshScanToken();
+  }, [isAuthenticated, refreshScanToken]);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      void refreshScanToken();
+    });
     return unsubscribe;
-  }, [navigation, refreshScanToken]);
+  }, [isAuthenticated, navigation, refreshScanToken]);
+
+  useEffect(() => {
+    if (!scanTokenPayload || !tokenExpiresAt) {
+      return;
+    }
+    const expiryDelayMs = tokenExpiresAt - Date.now();
+    if (expiryDelayMs <= 0) {
+      setScanTokenPayload(null);
+      setTokenExpiresAt(null);
+      setTokenError(TEXT.qrExpired);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setScanTokenPayload(null);
+      setTokenExpiresAt(null);
+      setTokenError(TEXT.qrExpired);
+    }, expiryDelayMs + 150);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [scanTokenPayload, tokenExpiresAt]);
 
   useEffect(() => {
     if (!isAuthenticated || memberships === undefined) {
       return;
     }
 
-    const latestStampAt = memberships.reduce((latest, membership) => {
-      const stampAt = Number(membership.lastStampAt ?? 0);
-      return Math.max(latest, stampAt);
-    }, 0);
+    const latestStamped = memberships.reduce<{
+      stampAt: number;
+      membership: CustomerMembershipView | null;
+    }>(
+      (latest, membership) => {
+        const stampAt = Number(membership.lastStampAt ?? 0);
+        if (stampAt > latest.stampAt) {
+          return { stampAt, membership };
+        }
+        return latest;
+      },
+      { stampAt: 0, membership: null }
+    );
 
-    if (!latestStampAt) {
-      return;
-    }
-
-    if (latestStampAt <= lastCelebratedStampAtRef.current) {
+    const latestStampAt = latestStamped.stampAt;
+    const latestMembership = latestStamped.membership;
+    const latestMembershipId = String(latestMembership?.membershipId ?? '');
+    if (!latestStampAt || latestStampAt <= lastCelebratedStampAtRef.current) {
       return;
     }
 
     lastCelebratedStampAtRef.current = latestStampAt;
-
     if (Date.now() - latestStampAt > CUSTOMER_STAMP_BANNER_DURATION_MS) {
       return;
     }
 
     Vibration.vibrate(120);
+    if (latestMembership) {
+      setStampSuccessBannerMessage(
+        `${TEXT.stampSuccessBanner}\n${buildRewardProgressLine(latestMembership)}`
+      );
+    }
     setCustomerStampBannerKey((current) => current + 1);
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = null;
+    }
+    if (latestMembershipId) {
+      redirectTimeoutRef.current = setTimeout(() => {
+        router.replace(`/customer-card/${latestMembershipId}` as Href);
+        redirectTimeoutRef.current = null;
+      }, 350);
+    }
   }, [isAuthenticated, memberships]);
 
-  const isLoading = isAuthenticated && savedBusinessesQuery === undefined;
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!scanTokenPayload) {
+      return;
+    }
+    track(ANALYTICS_EVENTS.qrPresentedCustomer, {
+      sourceScreen: 'customer_qr',
+    });
+  }, [scanTokenPayload]);
+
+  const isLoading = isAuthenticated && isTokenLoading && !scanTokenPayload;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <AnimatedActionBanner
         eventKey={customerStampBannerKey}
-        message={TEXT.stampSuccessBanner}
+        message={stampSuccessBannerMessage}
+        bannerStyle={styles.stampCelebrationBanner}
+        messageStyle={styles.stampCelebrationMessage}
+        iconStyle={styles.stampCelebrationIcon}
         topOffset={(insets.top || 0) + 8}
         durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
@@ -153,6 +242,7 @@ export default function CustomerShowQrScreen() {
         emphasis="large"
         fullScreenCelebration={true}
       />
+
       <View
         style={[
           styles.screen,
@@ -190,19 +280,13 @@ export default function CustomerShowQrScreen() {
           {isLoading ? (
             <View style={styles.windowCard}>
               <ActivityIndicator color="#2F6BFF" />
-              <Text style={styles.statusText}>{TEXT.loadingMemberships}</Text>
+              <Text style={styles.statusText}>{TEXT.qrLoading}</Text>
             </View>
           ) : null}
 
-          {!isLoading && !hasAnyMembership ? (
+          {!isLoading ? (
             <View style={styles.windowCard}>
-              <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
-              <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
-            </View>
-          ) : null}
-
-          {!isLoading && hasAnyMembership ? (
-            <View style={styles.windowCard}>
+              <Text style={styles.helperText}>{TEXT.helper}</Text>
               <View style={styles.qrWindow}>
                 {scanTokenPayload ? (
                   <QRCode
@@ -217,11 +301,28 @@ export default function CustomerShowQrScreen() {
                       <ActivityIndicator color="#2F6BFF" />
                     ) : null}
                     <Text style={styles.qrPlaceholderText}>
-                      {tokenError ? tokenError : TEXT.qrLoading}
+                      {tokenError
+                        ? tokenError
+                        : isTokenLoading
+                          ? TEXT.qrLoading
+                          : TEXT.qrIdle}
                     </Text>
                   </View>
                 )}
               </View>
+              <Pressable
+                onPress={() => void refreshScanToken()}
+                disabled={isTokenLoading}
+                style={({ pressed }) => [
+                  styles.refreshButton,
+                  isTokenLoading ? styles.refreshButtonDisabled : null,
+                  pressed ? styles.refreshButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.refreshButtonText}>
+                  {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -290,14 +391,8 @@ const styles = StyleSheet.create({
     color: '#5B6475',
     textAlign: 'center',
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    marginTop: 8,
+  helperText: {
+    marginBottom: 10,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 22,
@@ -329,5 +424,44 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#5B6475',
     textAlign: 'center',
+  },
+  refreshButton: {
+    marginTop: 12,
+    borderRadius: 10,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshButtonPressed: {
+    opacity: 0.9,
+  },
+  refreshButtonDisabled: {
+    opacity: 0.65,
+  },
+  refreshButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  stampCelebrationBanner: {
+    backgroundColor: '#E8FFF4',
+    borderColor: '#88D7AB',
+    borderWidth: 2.5,
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+  },
+  stampCelebrationMessage: {
+    color: '#0A5C35',
+    fontSize: 24,
+    lineHeight: 34,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  stampCelebrationIcon: {
+    color: '#0A8F4E',
+    fontSize: 26,
   },
 });

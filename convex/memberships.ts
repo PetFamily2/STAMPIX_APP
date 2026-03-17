@@ -5,7 +5,11 @@ import {
   assertEntitlement,
   countActiveCustomersForBusiness,
 } from './entitlements';
-import { getCurrentUserOrNull, requireCurrentUser } from './guards';
+import {
+  getCurrentUserOrNull,
+  requireActorIsStaffForBusiness,
+  requireCurrentUser,
+} from './guards';
 
 // ---------------------------------------------------------------------------
 // Public resolve queries (no auth required -- used by landing page & join flow)
@@ -260,6 +264,75 @@ export const byCustomer = query({
   },
 });
 
+export const getMembershipActivity = query({
+  args: {
+    membershipId: v.id('memberships'),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { membershipId, limit }) => {
+    const user = await requireCurrentUser(ctx);
+    const membership = await ctx.db.get(membershipId);
+    if (!membership || String(membership.userId) !== String(user._id)) {
+      throw new Error('MEMBERSHIP_NOT_FOUND');
+    }
+
+    const [business, program] = await Promise.all([
+      ctx.db.get(membership.businessId),
+      ctx.db.get(membership.programId),
+    ]);
+    if (
+      !business ||
+      business.isActive !== true ||
+      !program ||
+      program.isActive !== true
+    ) {
+      return [];
+    }
+
+    const safeLimit = Math.max(1, Math.min(limit ?? 20, 50));
+    const events = await ctx.db
+      .query('events')
+      .withIndex('by_membershipId_createdAt', (q: any) =>
+        q.eq('membershipId', membershipId)
+      )
+      .collect();
+
+    const visibleEvents = events
+      .filter((event: any) =>
+        [
+          'STAMP_ADDED',
+          'REWARD_REDEEMED',
+          'STAMP_REVERTED',
+          'REWARD_REDEEM_REVERTED',
+        ].includes(event.type)
+      )
+      .sort((left: any, right: any) => right.createdAt - left.createdAt)
+      .slice(0, safeLimit);
+
+    return visibleEvents.map((event: any) => {
+      const actionType =
+        event.type === 'STAMP_ADDED'
+          ? 'stamp_added'
+          : event.type === 'REWARD_REDEEMED'
+            ? 'reward_redeemed'
+            : event.type === 'STAMP_REVERTED'
+              ? 'stamp_reverted'
+              : 'reward_redeem_reverted';
+
+      return {
+        id: event._id,
+        eventType: event.type,
+        actionType,
+        businessName: business.name,
+        programName: program.title,
+        reasonCode: event.reasonCode ?? null,
+        reasonNote: event.reasonNote ?? null,
+        createdAt: event.createdAt,
+      };
+    });
+  },
+});
+
 export const byCustomerBusinesses = query({
   args: {},
   handler: async (ctx) => {
@@ -354,6 +427,71 @@ export const byCustomerBusinesses = query({
       }
       return left.businessName.localeCompare(right.businessName, 'he');
     });
+  },
+});
+
+export const getBusinessRewardEligibilitySummary = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return {
+        redeemableCustomers: 0,
+        redeemableCards: 0,
+      };
+    }
+
+    await requireActorIsStaffForBusiness(ctx, businessId);
+
+    const [memberships, programs] = await Promise.all([
+      ctx.db
+        .query('memberships')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+
+    const programById = new Map(
+      programs
+        .filter((program: any) =>
+          isLifecycleOperational(resolveProgramLifecycle(program))
+        )
+        .map((program: any) => [String(program._id), program])
+    );
+
+    let redeemableCards = 0;
+    const redeemableCustomers = new Set<string>();
+
+    for (const membership of memberships) {
+      const program = programById.get(String(membership.programId));
+      if (!program) {
+        continue;
+      }
+
+      const maxStamps = Number(program.maxStamps ?? 0);
+      if (maxStamps <= 0) {
+        continue;
+      }
+
+      const currentStamps = Number(membership.currentStamps ?? 0);
+      if (currentStamps < maxStamps) {
+        continue;
+      }
+
+      redeemableCards += 1;
+      redeemableCustomers.add(String(membership.userId));
+    }
+
+    return {
+      redeemableCustomers: redeemableCustomers.size,
+      redeemableCards,
+    };
   },
 });
 

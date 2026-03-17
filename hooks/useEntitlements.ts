@@ -36,6 +36,7 @@ type LimitStatus = {
   currentValue: number;
   remaining: number;
   isAtLimit: boolean;
+  isOverLimit: boolean;
   usageRatio: number;
   isNearLimit: boolean;
 };
@@ -94,6 +95,7 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
             currentValue: currentValue ?? 0,
             remaining: 0,
             isAtLimit: false,
+            isOverLimit: false,
             usageRatio: 0,
             isNearLimit: false,
           };
@@ -118,6 +120,7 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
           currentValue: normalizedCurrent,
           remaining,
           isAtLimit: normalizedCurrent >= limitValue,
+          isOverLimit: normalizedCurrent > limitValue,
           usageRatio,
           isNearLimit: normalizedCurrent < limitValue && usageRatio >= 0.8,
         };

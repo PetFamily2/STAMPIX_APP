@@ -449,6 +449,10 @@ export default function MerchantDashboardScreen() {
     api.loyaltyPrograms.listManagementByBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   ) as LoyaltyProgramSummary[] | undefined;
+  const rewardEligibilitySummary = useQuery(
+    api.memberships.getBusinessRewardEligibilitySummary,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
   const recentActivity = useQuery(
     api.events.getRecentActivity,
     activeBusinessId ? { businessId: activeBusinessId, limit: 3 } : 'skip'
@@ -811,8 +815,10 @@ export default function MerchantDashboardScreen() {
         (sum, program) => sum + program.metrics.redemptions30d,
         0
       ),
+      redeemableCustomers: rewardEligibilitySummary?.redeemableCustomers ?? 0,
+      redeemableCards: rewardEligibilitySummary?.redeemableCards ?? 0,
     }),
-    [activePrograms]
+    [activePrograms, rewardEligibilitySummary]
   );
 
   const openSmartUpgrade = () => {
@@ -1583,6 +1589,13 @@ export default function MerchantDashboardScreen() {
               >
                 מימושים ב-30 ימים:{' '}
                 {formatNumber(programsSummary.redemptions30d)}
+              </Text>
+              <Text
+                className={`mt-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                לקוחות זכאים להטבה:{' '}
+                {formatNumber(programsSummary.redeemableCustomers)} · כרטיסיות
+                מלאות: {formatNumber(programsSummary.redeemableCards)}
               </Text>
 
               <View className="mt-3 gap-2">

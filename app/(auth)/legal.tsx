@@ -158,7 +158,11 @@ export default function LegalScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <StickyScrollHeader backgroundColor="#F8F7F4" style={styles.titleShell}>
+        <StickyScrollHeader
+          topPadding={0}
+          backgroundColor="#F8F7F4"
+          style={styles.titleShell}
+        >
           <Text style={styles.title}>מסמך משפטי מרוכז - STAMPAIX</Text>
         </StickyScrollHeader>
         <Text style={styles.body}>{LEGAL_BODY}</Text>

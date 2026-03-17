@@ -2,8 +2,9 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
+  assertCampaignsNotOverLimit,
   assertEntitlement,
-  countActiveManagementCampaignsForBusiness,
+  countActiveCampaignsForBusiness,
   getBusinessEntitlementsForBusinessId,
 } from './entitlements';
 import {
@@ -241,15 +242,22 @@ function isManagementType(value: unknown): value is ManagementCampaignType {
   return MANAGEMENT_TYPES.includes(value as ManagementCampaignType);
 }
 
-async function assertManagementCampaignCapacity(
-  ctx: any,
-  businessId: Id<'businesses'>
-) {
-  const activeManagementCampaigns =
-    await countActiveManagementCampaignsForBusiness(ctx, businessId);
+function isCampaignLimitReachedError(error: unknown) {
+  const payload = (error as { data?: any } | null)?.data;
+  return (
+    payload?.code === 'PLAN_LIMIT_REACHED' &&
+    payload?.limitKey === 'maxCampaigns'
+  );
+}
+
+async function assertCampaignCapacity(ctx: any, businessId: Id<'businesses'>) {
+  const activeCampaigns = await countActiveCampaignsForBusiness(
+    ctx,
+    businessId
+  );
   await assertEntitlement(ctx, businessId, {
     limitKey: 'maxCampaigns',
-    currentValue: activeManagementCampaigns,
+    currentValue: activeCampaigns,
   });
 }
 
@@ -577,10 +585,10 @@ export const listAiCampaignsByBusiness = query({
       businessId
     );
     const usage = {
-      used: entitlements.usage.activeRetentionActions,
-      limit: entitlements.limits.maxActiveRetentionActions,
-      remaining: entitlements.usage.activeRetentionActionsRemaining,
-      limitType: 'active_retention_actions' as const,
+      used: entitlements.usage.activeManagementCampaigns,
+      limit: entitlements.limits.maxCampaigns,
+      remaining: entitlements.usage.activeManagementCampaignsRemaining,
+      isOverLimit: entitlements.usage.activeManagementCampaignsOverLimit,
       isFeatureEnabled:
         entitlements.features.canUseMarketingHubAI &&
         entitlements.isSubscriptionActive,
@@ -628,6 +636,7 @@ export const createAiCampaign = mutation({
   },
   handler: async (ctx, { businessId, title, prompt, rules, channels }) => {
     await requireActorIsStaffForBusiness(ctx, businessId);
+    await assertCampaignCapacity(ctx, businessId);
 
     const normalizedPrompt = prompt.trim();
     const normalizedTitle = title?.trim() || 'AI Campaign';
@@ -665,9 +674,10 @@ export const createAiCampaign = mutation({
     return {
       campaignId,
       usage: {
-        used: entitlements.usage.activeRetentionActions,
-        limit: entitlements.limits.maxActiveRetentionActions,
-        limitType: 'active_retention_actions' as const,
+        used: entitlements.usage.activeManagementCampaigns,
+        limit: entitlements.limits.maxCampaigns,
+        remaining: entitlements.usage.activeManagementCampaignsRemaining,
+        isOverLimit: entitlements.usage.activeManagementCampaignsOverLimit,
       },
     };
   },
@@ -686,49 +696,70 @@ export const listManagementCampaignsByBusiness = query({
     const campaigns = await ctx.db
       .query('campaigns')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) => q.neq(q.field('type'), 'ai_marketing'))
       .collect();
 
     const result = await Promise.all(
       campaigns.map(async (campaign) => {
-        if (!isManagementType(campaign.type)) {
-          return null;
-        }
-        const [estimate, logs, missingBirthdayCount] = await Promise.all([
-          estimateAudienceForCampaign(ctx, campaign),
-          getCampaignLogs(ctx, campaign._id),
-          campaign.type === 'birthday'
-            ? countMissingBirthdayForCampaign(ctx, campaign)
-            : Promise.resolve(null),
-        ]);
-        const deliveryStats = buildCampaignDeliveryStats(logs);
         const automationEnabled = isAutomationEnabled(
           campaign.automationEnabled
         );
-        const lifecycle = campaign.isActive
-          ? automationEnabled
-            ? 'active'
-            : 'inactive'
-          : 'archived';
+        const isCountedTowardLimit = campaign.isActive === true;
+        const lifecycle =
+          campaign.isActive !== true
+            ? 'archived'
+            : campaign.type === 'retention_action'
+              ? campaign.status === 'active' && automationEnabled
+                ? 'active'
+                : 'inactive'
+              : automationEnabled
+                ? 'active'
+                : 'inactive';
+        const family =
+          campaign.type === 'retention_action'
+            ? 'retention'
+            : campaign.type === 'ai_marketing' ||
+                campaign.type === 'ai_retention'
+              ? 'ai'
+              : 'management';
+        const [logs, managementEstimate, missingBirthdayCount] =
+          await Promise.all([
+            getCampaignLogs(ctx, campaign._id),
+            isManagementType(campaign.type)
+              ? estimateAudienceForCampaign(ctx, campaign)
+              : Promise.resolve(null),
+            campaign.type === 'birthday'
+              ? countMissingBirthdayForCampaign(ctx, campaign)
+              : Promise.resolve(null),
+          ]);
+        const deliveryStats = buildCampaignDeliveryStats(logs);
+        const estimatedAudience = isManagementType(campaign.type)
+          ? (managementEstimate?.total ?? 0)
+          : typeof campaign.rules?.audienceCount === 'number'
+            ? Number(campaign.rules.audienceCount)
+            : 0;
+        const messageTitle = campaign.messageTitle ?? campaign.title ?? '';
+        const messageBody = campaign.messageBody ?? '';
+        const defaultStatus = campaign.isActive ? 'draft' : 'archived';
 
         return {
           campaignId: campaign._id,
           businessId: campaign.businessId,
           programId: campaign.programId ?? null,
           type: campaign.type,
-          title: campaign.title ?? buildDefaultDraftByType(campaign.type).title,
-          messageTitle:
-            campaign.messageTitle ??
-            buildDefaultDraftByType(campaign.type).messageTitle,
-          messageBody:
-            campaign.messageBody ??
-            buildDefaultDraftByType(campaign.type).messageBody,
-          status: normalizeEditableManagementStatus(campaign.status),
-          rules: campaign.rules ?? buildDefaultDraftByType(campaign.type).rules,
+          family,
+          isEditable: isManagementType(campaign.type),
+          isCountedTowardLimit,
+          title: campaign.title ?? messageTitle,
+          messageTitle,
+          messageBody,
+          status: normalizeEditableManagementStatus(
+            campaign.status ?? defaultStatus
+          ),
+          rules: campaign.rules ?? null,
           automationEnabled,
           lifecycle,
           canArchive: lifecycle === 'inactive',
-          estimatedAudience: estimate.total,
+          estimatedAudience,
           reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
           reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
           lastSentAt: deliveryStats.lastSentAt,
@@ -812,7 +843,7 @@ export const createCampaignDraft = mutation({
   ) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
     await validateProgramBelongsToBusiness(ctx, businessId, programId);
-    await assertManagementCampaignCapacity(ctx, businessId);
+    await assertCampaignCapacity(ctx, businessId);
 
     const defaults = buildDefaultDraftByType(type);
     const now = Date.now();
@@ -842,7 +873,7 @@ export const createGeneralCampaignDraft = mutation({
   },
   handler: async (ctx, { businessId }) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
-    await assertManagementCampaignCapacity(ctx, businessId);
+    await assertCampaignCapacity(ctx, businessId);
 
     const defaults = buildDefaultDraftByType('promo');
     const now = Date.now();
@@ -877,6 +908,9 @@ export const setCampaignAutomationEnabled = mutation({
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
+    if (enabled) {
+      await assertCampaignsNotOverLimit(ctx, businessId);
+    }
 
     await ctx.db.patch(campaign._id, {
       automationEnabled: enabled,
@@ -905,23 +939,30 @@ export const archiveManagementCampaign = mutation({
       businessId,
       campaignId
     );
-    if (!isManagementType(campaign.type)) {
-      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
-    }
     if (campaign.isActive !== true) {
       throw new Error('CAMPAIGN_ALREADY_ARCHIVED');
     }
-    if (isAutomationEnabled(campaign.automationEnabled)) {
-      throw new Error('CAMPAIGN_AUTOMATION_MUST_BE_DISABLED');
+    const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
+    const isLiveCampaign =
+      campaign.type === 'retention_action'
+        ? campaign.status === 'active' && automationEnabled
+        : automationEnabled;
+    if (isLiveCampaign) {
+      throw new Error('CAMPAIGN_MUST_BE_DISABLED_BEFORE_ARCHIVE');
     }
 
     const now = Date.now();
-    await ctx.db.patch(campaign._id, {
+    const patchPayload: Record<string, unknown> = {
       isActive: false,
+      automationEnabled: false,
       archivedAt: now,
       archivedByUserId: actor._id,
       updatedAt: now,
-    });
+    };
+    if (campaign.type === 'retention_action') {
+      patchPayload.status = 'archived';
+    }
+    await ctx.db.patch(campaign._id, patchPayload);
 
     return {
       ok: true,
@@ -943,21 +984,23 @@ export const restoreManagementCampaign = mutation({
       businessId,
       campaignId
     );
-    if (!isManagementType(campaign.type)) {
-      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
-    }
     if (campaign.isActive === true) {
       throw new Error('CAMPAIGN_NOT_ARCHIVED');
     }
-    await assertManagementCampaignCapacity(ctx, businessId);
+    await assertCampaignCapacity(ctx, businessId);
 
     const now = Date.now();
-    await ctx.db.patch(campaign._id, {
+    const patchPayload: Record<string, unknown> = {
       isActive: true,
+      automationEnabled: false,
       archivedAt: undefined,
       archivedByUserId: undefined,
       updatedAt: now,
-    });
+    };
+    if (campaign.type === 'retention_action') {
+      patchPayload.status = 'paused';
+    }
+    await ctx.db.patch(campaign._id, patchPayload);
 
     return {
       ok: true,
@@ -1047,6 +1090,7 @@ export const sendCampaignNow = mutation({
   },
   handler: async (ctx, { businessId, campaignId }) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
@@ -1136,9 +1180,27 @@ export const runAutomationSweepInternal = internalMutation({
     let processedCampaigns = 0;
     let sentCount = 0;
     let skippedCount = 0;
+    const overLimitByBusiness = new Map<string, boolean>();
 
     for (const campaign of campaigns) {
       if (!isManagementType(campaign.type)) {
+        continue;
+      }
+      const businessKey = String(campaign.businessId);
+      let isBlocked = overLimitByBusiness.get(businessKey);
+      if (isBlocked === undefined) {
+        try {
+          await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+          isBlocked = false;
+        } catch (error) {
+          if (!isCampaignLimitReachedError(error)) {
+            throw error;
+          }
+          isBlocked = true;
+        }
+        overLimitByBusiness.set(businessKey, isBlocked);
+      }
+      if (isBlocked) {
         continue;
       }
       processedCampaigns += 1;

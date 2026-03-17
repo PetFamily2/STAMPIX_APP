@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -369,7 +369,9 @@ export default function CustomerBusinessDetailsScreen() {
                   ]}
                   onPress={() => {
                     if (program.membershipId) {
-                      router.push(`/card/${program.membershipId}`);
+                      router.push(
+                        `/customer-card/${program.membershipId}` as Href
+                      );
                     }
                   }}
                 >

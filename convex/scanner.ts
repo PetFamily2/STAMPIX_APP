@@ -6,6 +6,7 @@ import {
   countActiveCustomersForBusiness,
 } from './entitlements';
 import {
+  getBusinessStaffStatus,
   getCurrentUserOrNull,
   requireActorIsStaffForBusiness,
   requireBusinessAndProgram,
@@ -22,6 +23,15 @@ import {
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
+const UNDO_WINDOW_MS = 30_000;
+const ALLOW_REDEEM_UNDO = true;
+
+const BALANCE_EVENT_TYPES = new Set([
+  'STAMP_ADDED',
+  'REWARD_REDEEMED',
+  'STAMP_REVERTED',
+  'REWARD_REDEEM_REVERTED',
+]);
 
 const COMMIT_BUSINESS_ERROR_CODES = new Set([
   'PROGRAM_NOT_SCANNER_ELIGIBLE',
@@ -59,6 +69,20 @@ type BusinessForStaff = {
   colors: unknown | null;
   staffRole: 'owner' | 'manager' | 'staff';
 };
+
+type MembershipStateSnapshot = {
+  currentStamps: number;
+  lastStampAt?: number;
+  isActive: boolean;
+};
+
+type ReversalReasonCode =
+  | 'mistake'
+  | 'wrong_program'
+  | 'wrong_customer'
+  | 'duplicate'
+  | 'customer_service'
+  | 'other';
 
 function resolveProgramLifecycle(
   program: any
@@ -227,6 +251,60 @@ function buildMembershipSummary(membership: any, maxStamps: number) {
   };
 }
 
+function captureMembershipState(membership: any): MembershipStateSnapshot {
+  return {
+    currentStamps: Math.max(0, Number(membership?.currentStamps ?? 0)),
+    lastStampAt:
+      typeof membership?.lastStampAt === 'number'
+        ? membership.lastStampAt
+        : undefined,
+    isActive: membership?.isActive === true,
+  };
+}
+
+function sanitizeSnapshot(snapshot: any): MembershipStateSnapshot | null {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return null;
+  }
+  if (typeof snapshot.currentStamps !== 'number') {
+    return null;
+  }
+  return {
+    currentStamps: Math.max(0, Math.floor(snapshot.currentStamps)),
+    lastStampAt:
+      typeof snapshot.lastStampAt === 'number'
+        ? snapshot.lastStampAt
+        : undefined,
+    isActive: snapshot.isActive !== false,
+  };
+}
+
+function toMembershipPatch(
+  snapshot: MembershipStateSnapshot,
+  updatedAt: number
+) {
+  return {
+    currentStamps: snapshot.currentStamps,
+    lastStampAt: snapshot.lastStampAt,
+    isActive: snapshot.isActive,
+    updatedAt,
+  };
+}
+
+function mapReversalType(eventType: string) {
+  if (eventType === 'STAMP_ADDED') {
+    return 'STAMP_REVERTED';
+  }
+  if (eventType === 'REWARD_REDEEMED') {
+    return 'REWARD_REDEEM_REVERTED';
+  }
+  throw new Error('EVENT_NOT_REVERSIBLE');
+}
+
+function isReversibleEventType(eventType: string) {
+  return eventType === 'STAMP_ADDED' || eventType === 'REWARD_REDEEMED';
+}
+
 async function getActiveMembershipForProgram(
   ctx: any,
   userId: Id<'users'>,
@@ -324,6 +402,141 @@ async function consumeTokenEvent(
   });
 }
 
+async function findReversalEvent(ctx: any, originalEventId: Id<'events'>) {
+  return await ctx.db
+    .query('events')
+    .withIndex('by_revertsEventId', (q: any) =>
+      q.eq('revertsEventId', originalEventId)
+    )
+    .first();
+}
+
+async function getExistingReversalForOriginalEvent(
+  ctx: any,
+  originalEvent: any
+) {
+  const reversalId = originalEvent.reversalEventId as Id<'events'> | undefined;
+  if (reversalId) {
+    const reversalEvent = await ctx.db.get(reversalId);
+    if (reversalEvent) {
+      return reversalEvent;
+    }
+  }
+
+  const reversalByLink = await findReversalEvent(ctx, originalEvent._id);
+  if (reversalByLink && !reversalId) {
+    await ctx.db.patch(originalEvent._id, {
+      reversalEventId: reversalByLink._id,
+    });
+  }
+  return reversalByLink;
+}
+
+async function getLatestBalanceEventForMembership(
+  ctx: any,
+  membershipId: Id<'memberships'>
+) {
+  const events = await ctx.db
+    .query('events')
+    .withIndex('by_membershipId_createdAt', (q: any) =>
+      q.eq('membershipId', membershipId)
+    )
+    .collect();
+
+  const balanceEvents = events.filter((event: any) =>
+    BALANCE_EVENT_TYPES.has(event.type)
+  );
+  if (balanceEvents.length === 0) {
+    return null;
+  }
+
+  balanceEvents.sort((left: any, right: any) => {
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt - left.createdAt;
+    }
+    return String(right._id).localeCompare(String(left._id));
+  });
+  return balanceEvents[0];
+}
+
+async function getLatestSessionCommitEvent(
+  ctx: any,
+  scannerRuntimeSessionId: string
+) {
+  const sessionEvents = await ctx.db
+    .query('events')
+    .withIndex('by_scannerRuntimeSessionId_createdAt', (q: any) =>
+      q.eq('scannerRuntimeSessionId', scannerRuntimeSessionId)
+    )
+    .collect();
+
+  const commits = sessionEvents.filter(
+    (event: any) =>
+      event.source === 'scanner_commit' &&
+      (event.type === 'STAMP_ADDED' || event.type === 'REWARD_REDEEMED')
+  );
+  if (commits.length === 0) {
+    return null;
+  }
+  commits.sort((left: any, right: any) => {
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt - left.createdAt;
+    }
+    return String(right._id).localeCompare(String(left._id));
+  });
+  return commits[0];
+}
+
+async function hasNewerScanInRuntimeSession(
+  ctx: any,
+  params: {
+    scannerRuntimeSessionId: string;
+    createdAfter: number;
+    actorUserId: Id<'users'>;
+    businessId: Id<'businesses'>;
+  }
+) {
+  const sessions = await ctx.db
+    .query('scanSessions')
+    .withIndex('by_scannerRuntimeSessionId_createdAt', (q: any) =>
+      q.eq('scannerRuntimeSessionId', params.scannerRuntimeSessionId)
+    )
+    .collect();
+
+  return sessions.some(
+    (session: any) =>
+      session.createdAt > params.createdAfter &&
+      String(session.actorUserId) === String(params.actorUserId) &&
+      String(session.businessId) === String(params.businessId)
+  );
+}
+
+async function loadMembershipForEventOrThrow(ctx: any, targetEvent: any) {
+  const membershipId = targetEvent.membershipId as
+    | Id<'memberships'>
+    | undefined;
+  if (!membershipId) {
+    throw new Error('EVENT_NOT_REVERSIBLE');
+  }
+
+  const membership = await ctx.db.get(membershipId);
+  if (!membership || membership.isActive !== true) {
+    throw new Error('MEMBERSHIP_NOT_FOUND');
+  }
+
+  if (String(membership.businessId) !== String(targetEvent.businessId)) {
+    throw new Error('EVENT_BUSINESS_MISMATCH');
+  }
+  if (String(membership.programId) !== String(targetEvent.programId)) {
+    throw new Error('EVENT_PROGRAM_MISMATCH');
+  }
+  if (String(membership.userId) !== String(targetEvent.customerUserId)) {
+    throw new Error('EVENT_CUSTOMER_MISMATCH');
+  }
+
+  return membership;
+}
+
 async function applyStamp(
   ctx: any,
   params: {
@@ -331,6 +544,9 @@ async function applyStamp(
     businessId: Id<'businesses'>;
     program: any;
     customerUserId: Id<'users'>;
+    source: 'scanner_commit' | 'scanner_undo' | 'manual_adjustment';
+    scannerRuntimeSessionId?: string;
+    deviceId?: string;
   }
 ) {
   if (String(params.actorUserId) === String(params.customerUserId)) {
@@ -392,14 +608,34 @@ async function applyStamp(
       updatedAt: now,
     });
 
-    await ctx.db.insert('events', {
+    const membershipStateBefore: MembershipStateSnapshot = {
+      currentStamps: 0,
+      lastStampAt: undefined,
+      isActive: false,
+    };
+    const membershipStateAfter: MembershipStateSnapshot = {
+      currentStamps: 1,
+      lastStampAt: now,
+      isActive: true,
+    };
+
+    const eventId = await ctx.db.insert('events', {
       type: 'STAMP_ADDED',
       businessId: params.businessId,
       programId: params.program._id,
       membershipId,
       actorUserId: params.actorUserId,
       customerUserId: customer._id,
-      metadata: { source: 'scanner' },
+      source: params.source,
+      scannerRuntimeSessionId: params.scannerRuntimeSessionId,
+      deviceId: params.deviceId,
+      membershipStateBefore,
+      membershipStateAfter,
+      metadata: {
+        source: params.source,
+        previous: 0,
+        next: 1,
+      },
       createdAt: now,
     });
 
@@ -409,9 +645,13 @@ async function applyStamp(
       maxStamps: params.program.maxStamps,
       canRedeemNow: 1 >= params.program.maxStamps,
       customerDisplayName: buildCustomerDisplayName(customer),
+      eventId,
+      eventType: 'STAMP_ADDED' as const,
+      eventCreatedAt: now,
     };
   }
 
+  const membershipStateBefore = captureMembershipState(existingMembership);
   const nextStamps = Math.min(
     existingMembership.currentStamps + 1,
     params.program.maxStamps
@@ -423,15 +663,26 @@ async function applyStamp(
     updatedAt: now,
   });
 
-  await ctx.db.insert('events', {
+  const membershipStateAfter: MembershipStateSnapshot = {
+    currentStamps: nextStamps,
+    lastStampAt: now,
+    isActive: true,
+  };
+
+  const eventId = await ctx.db.insert('events', {
     type: 'STAMP_ADDED',
     businessId: params.businessId,
     programId: params.program._id,
     membershipId: existingMembership._id,
     actorUserId: params.actorUserId,
     customerUserId: customer._id,
+    source: params.source,
+    scannerRuntimeSessionId: params.scannerRuntimeSessionId,
+    deviceId: params.deviceId,
+    membershipStateBefore,
+    membershipStateAfter,
     metadata: {
-      source: 'scanner',
+      source: params.source,
       previous: existingMembership.currentStamps,
       next: nextStamps,
     },
@@ -444,6 +695,9 @@ async function applyStamp(
     maxStamps: params.program.maxStamps,
     canRedeemNow: nextStamps >= params.program.maxStamps,
     customerDisplayName: buildCustomerDisplayName(customer),
+    eventId,
+    eventType: 'STAMP_ADDED' as const,
+    eventCreatedAt: now,
   };
 }
 
@@ -454,6 +708,9 @@ async function applyRedeem(
     businessId: Id<'businesses'>;
     program: any;
     customerUserId: Id<'users'>;
+    source: 'scanner_commit' | 'scanner_undo' | 'manual_adjustment';
+    scannerRuntimeSessionId?: string;
+    deviceId?: string;
   }
 ) {
   const customer = await ctx.db.get(params.customerUserId);
@@ -474,19 +731,34 @@ async function applyRedeem(
   }
 
   const now = Date.now();
+  const membershipStateBefore = captureMembershipState(membership);
   await ctx.db.patch(membership._id, {
     currentStamps: 0,
     updatedAt: now,
   });
 
-  await ctx.db.insert('events', {
+  const membershipStateAfter: MembershipStateSnapshot = {
+    currentStamps: 0,
+    lastStampAt:
+      typeof membership.lastStampAt === 'number'
+        ? membership.lastStampAt
+        : undefined,
+    isActive: true,
+  };
+
+  const eventId = await ctx.db.insert('events', {
     type: 'REWARD_REDEEMED',
     businessId: params.businessId,
     programId: params.program._id,
     membershipId: membership._id,
     actorUserId: params.actorUserId,
     customerUserId: customer._id,
-    metadata: { source: 'scanner', redeemedFrom: membership.currentStamps },
+    source: params.source,
+    scannerRuntimeSessionId: params.scannerRuntimeSessionId,
+    deviceId: params.deviceId,
+    membershipStateBefore,
+    membershipStateAfter,
+    metadata: { source: params.source, redeemedFrom: membership.currentStamps },
     createdAt: now,
   });
 
@@ -497,6 +769,115 @@ async function applyRedeem(
     canRedeemNow: false,
     redeemedAt: now,
     customerDisplayName: buildCustomerDisplayName(customer),
+    eventId,
+    eventType: 'REWARD_REDEEMED' as const,
+    eventCreatedAt: now,
+  };
+}
+
+function buildProgramSummary(program: any) {
+  return {
+    programId: program._id,
+    title: program.title,
+    rewardName: program.rewardName,
+    maxStamps: program.maxStamps,
+    stampIcon: program.stampIcon,
+  };
+}
+
+async function createReversalForEvent(
+  ctx: any,
+  params: {
+    originalEvent: any;
+    actorUserId: Id<'users'>;
+    source: 'scanner_undo' | 'manual_adjustment';
+    scannerRuntimeSessionId?: string;
+    deviceId?: string;
+    reasonCode?: ReversalReasonCode;
+    reasonNote?: string;
+  }
+) {
+  // Exactly-once guard: lock reversals on the original event document.
+  // Convex OCC retries make this deterministic under concurrent requests.
+  const originalEvent = await ctx.db.get(params.originalEvent._id);
+  if (!originalEvent) {
+    throw new Error('EVENT_NOT_FOUND');
+  }
+
+  const existingReversal = await getExistingReversalForOriginalEvent(
+    ctx,
+    originalEvent
+  );
+  if (existingReversal) {
+    const membership = await loadMembershipForEventOrThrow(ctx, originalEvent);
+    const program = await ctx.db.get(originalEvent.programId);
+    if (!program) {
+      throw new Error('PROGRAM_NOT_FOUND');
+    }
+    return {
+      idempotent: true,
+      reversalEvent: existingReversal,
+      membership,
+      program,
+    };
+  }
+
+  const membership = await loadMembershipForEventOrThrow(ctx, originalEvent);
+  const program = await ctx.db.get(originalEvent.programId);
+  if (
+    !program ||
+    String(program.businessId) !== String(originalEvent.businessId)
+  ) {
+    throw new Error('PROGRAM_NOT_FOUND');
+  }
+
+  const restoreSnapshot = sanitizeSnapshot(originalEvent.membershipStateBefore);
+  if (!restoreSnapshot) {
+    throw new Error('EVENT_NOT_REVERSIBLE');
+  }
+
+  const membershipStateBefore = captureMembershipState(membership);
+  const now = Date.now();
+  await ctx.db.patch(membership._id, toMembershipPatch(restoreSnapshot, now));
+
+  const reversalType = mapReversalType(originalEvent.type);
+  const reversalEventId = await ctx.db.insert('events', {
+    type: reversalType,
+    businessId: originalEvent.businessId,
+    programId: originalEvent.programId,
+    membershipId: membership._id,
+    actorUserId: params.actorUserId,
+    customerUserId: membership.userId,
+    source: params.source,
+    revertsEventId: originalEvent._id,
+    reasonCode: params.reasonCode,
+    reasonNote: params.reasonNote,
+    scannerRuntimeSessionId: params.scannerRuntimeSessionId,
+    deviceId: params.deviceId,
+    membershipStateBefore,
+    membershipStateAfter: restoreSnapshot,
+    metadata: {
+      source: params.source,
+      originalEventType: originalEvent.type,
+    },
+    createdAt: now,
+  });
+
+  await ctx.db.patch(originalEvent._id, {
+    reversalEventId,
+  });
+
+  const updatedMembership = await ctx.db.get(membership._id);
+  if (!updatedMembership) {
+    throw new Error('MEMBERSHIP_NOT_FOUND');
+  }
+  const reversalEvent = await ctx.db.get(reversalEventId);
+
+  return {
+    idempotent: false,
+    reversalEvent,
+    membership: updatedMembership,
+    program,
   };
 }
 
@@ -578,12 +959,18 @@ async function resolveScanSessionCommit(
             businessId: session.businessId,
             program,
             customerUserId: session.customerId,
+            source: 'scanner_commit',
+            scannerRuntimeSessionId: session.scannerRuntimeSessionId,
+            deviceId: session.deviceId,
           })
         : await applyRedeem(ctx, {
             actorUserId: actor._id,
             businessId: session.businessId,
             program,
             customerUserId: session.customerId,
+            source: 'scanner_commit',
+            scannerRuntimeSessionId: session.scannerRuntimeSessionId,
+            deviceId: session.deviceId,
           });
 
     await consumeTokenEvent(ctx, {
@@ -601,11 +988,17 @@ async function resolveScanSessionCommit(
     await ctx.db.patch(session._id, {
       status: 'committed',
       failedCode: undefined,
-      result,
+      result: {
+        ...result,
+        undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
+      },
       committedAt: Date.now(),
     });
 
-    return result;
+    return {
+      ...result,
+      undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
+    };
   } catch (error) {
     const code = toErrorCode(error);
     if (COMMIT_BUSINESS_ERROR_CODES.has(code)) {
@@ -638,11 +1031,13 @@ export const myBusinesses = query({
     const staffEntries = await ctx.db
       .query('businessStaff')
       .withIndex('by_userId', (q: any) => q.eq('userId', actor._id))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect();
 
     const businesses: Array<BusinessForStaff | null> = await Promise.all(
       staffEntries.map(async (staff): Promise<BusinessForStaff | null> => {
+        if (getBusinessStaffStatus(staff) !== 'active') {
+          return null;
+        }
         const business = await ctx.db.get(staff.businessId);
         if (!business || business.isActive !== true) {
           return null;
@@ -729,6 +1124,8 @@ export const resolveScan = mutation({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     actionType: v.union(v.literal('stamp'), v.literal('redeem')),
+    scannerRuntimeSessionId: v.string(),
+    deviceId: v.string(),
   },
   handler: async (ctx, args) => {
     const { actor } = await requireActorIsStaffForBusiness(
@@ -793,6 +1190,8 @@ export const resolveScan = mutation({
       programId: args.programId,
       customerId: customer._id,
       actorUserId: actor._id,
+      scannerRuntimeSessionId: args.scannerRuntimeSessionId,
+      deviceId: args.deviceId,
       actionType,
       tokenVersion: tokenIdentity.version,
       tokenSignature: tokenIdentity.signature,
@@ -842,6 +1241,121 @@ export const commitRedeem = mutation({
   },
 });
 
+export const undoLastScannerAction = mutation({
+  args: {
+    eventId: v.id('events'),
+    scannerRuntimeSessionId: v.string(),
+    deviceId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const targetEvent = await ctx.db.get(args.eventId);
+    if (!targetEvent) {
+      throw new Error('EVENT_NOT_FOUND');
+    }
+    if (!isReversibleEventType(targetEvent.type)) {
+      throw new Error('EVENT_NOT_REVERSIBLE');
+    }
+    if (targetEvent.source !== 'scanner_commit') {
+      throw new Error('UNDO_NOT_ALLOWED');
+    }
+
+    const { actor } = await requireActorIsStaffForBusiness(
+      ctx,
+      targetEvent.businessId
+    );
+    if (String(actor._id) !== String(targetEvent.actorUserId)) {
+      throw new Error('UNDO_PERMISSION_DENIED');
+    }
+
+    if (
+      targetEvent.scannerRuntimeSessionId !== args.scannerRuntimeSessionId ||
+      targetEvent.deviceId !== args.deviceId
+    ) {
+      throw new Error('UNDO_SESSION_MISMATCH');
+    }
+
+    const existingReversal = await getExistingReversalForOriginalEvent(
+      ctx,
+      targetEvent
+    );
+    if (existingReversal) {
+      const membership = await loadMembershipForEventOrThrow(ctx, targetEvent);
+      const program = await ctx.db.get(targetEvent.programId);
+      if (!program) {
+        throw new Error('PROGRAM_NOT_FOUND');
+      }
+      return {
+        status: 'already_reverted' as const,
+        reversalEventId: existingReversal._id,
+        membership: buildMembershipSummary(membership, program.maxStamps),
+        program: buildProgramSummary(program),
+      };
+    }
+
+    if (Date.now() - targetEvent.createdAt > UNDO_WINDOW_MS) {
+      throw new Error('UNDO_EXPIRED');
+    }
+
+    const membership = await loadMembershipForEventOrThrow(ctx, targetEvent);
+
+    const latestMembershipEvent = await getLatestBalanceEventForMembership(
+      ctx,
+      membership._id
+    );
+    if (
+      !latestMembershipEvent ||
+      String(latestMembershipEvent._id) !== String(targetEvent._id)
+    ) {
+      throw new Error('UNDO_NOT_LAST_MEMBERSHIP_EVENT');
+    }
+
+    const latestSessionEvent = await getLatestSessionCommitEvent(
+      ctx,
+      args.scannerRuntimeSessionId
+    );
+    if (
+      !latestSessionEvent ||
+      String(latestSessionEvent._id) !== String(args.eventId)
+    ) {
+      throw new Error('UNDO_NOT_LAST_SESSION_EVENT');
+    }
+
+    const hasNewerScan = await hasNewerScanInRuntimeSession(ctx, {
+      scannerRuntimeSessionId: args.scannerRuntimeSessionId,
+      createdAfter: targetEvent.createdAt,
+      actorUserId: actor._id,
+      businessId: targetEvent.businessId,
+    });
+    if (hasNewerScan) {
+      throw new Error('UNDO_SESSION_CONTINUITY_BROKEN');
+    }
+
+    if (targetEvent.type === 'REWARD_REDEEMED' && !ALLOW_REDEEM_UNDO) {
+      throw new Error('UNDO_REDEEM_DISABLED');
+    }
+
+    const reversalResult = await createReversalForEvent(ctx, {
+      originalEvent: targetEvent,
+      actorUserId: actor._id,
+      source: 'scanner_undo',
+      scannerRuntimeSessionId: args.scannerRuntimeSessionId,
+      deviceId: args.deviceId,
+    });
+
+    return {
+      status: reversalResult.idempotent
+        ? ('already_reverted' as const)
+        : ('reverted' as const),
+      reversalEventId: reversalResult.reversalEvent?._id ?? null,
+      membership: buildMembershipSummary(
+        reversalResult.membership,
+        reversalResult.program.maxStamps
+      ),
+      program: buildProgramSummary(reversalResult.program),
+    };
+  },
+});
+
 /**
  * Legacy endpoint kept for migration safety.
  * New scanner flow should use resolveScan + commitStamp.
@@ -868,6 +1382,7 @@ export const addStamp = mutation({
       businessId: args.businessId,
       program,
       customerUserId: args.customerUserId,
+      source: 'scanner_commit',
     });
 
     return {
@@ -905,6 +1420,7 @@ export const redeemReward = mutation({
       businessId: args.businessId,
       program,
       customerUserId: args.customerUserId,
+      source: 'scanner_commit',
     });
 
     return {

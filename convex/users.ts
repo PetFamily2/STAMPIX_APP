@@ -3,7 +3,11 @@ import { v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { getCurrentUserOrNull, requireCurrentUser } from './guards';
+import {
+  getBusinessStaffStatus,
+  getCurrentUserOrNull,
+  requireCurrentUser,
+} from './guards';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
   v.literal('starter'),
@@ -663,16 +667,19 @@ export const getSessionContext = query({
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx);
     if (!user) return null;
+    const now = Date.now();
 
     const staffEntries = await ctx.db
       .query('businessStaff')
       .withIndex('by_userId', (q: any) => q.eq('userId', user._id))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect();
 
     const businesses = (
       await Promise.all(
         staffEntries.map(async (staff) => {
+          if (getBusinessStaffStatus(staff) !== 'active') {
+            return null;
+          }
           const biz = await ctx.db.get(staff.businessId);
           if (!biz || !biz.isActive) return null;
           return {
@@ -696,7 +703,7 @@ export const getSessionContext = query({
                 .filter((q: any) => q.eq(q.field('status'), 'pending'))
                 .collect()
             ).map(async (invite) => {
-              if (invite.expiresAt < Date.now()) return null;
+              if (invite.expiresAt <= now) return null;
               const biz = await ctx.db.get(invite.businessId);
               if (!biz || !biz.isActive) return null;
               return {
@@ -704,6 +711,7 @@ export const getSessionContext = query({
                 businessId: biz._id,
                 businessName: biz.name,
                 inviteCode: invite.inviteCode,
+                targetRole: invite.targetRole,
               };
             })
           )
@@ -723,13 +731,14 @@ export const getSessionContext = query({
         (business) => String(business.id) === String(user.activeBusinessId)
       )
         ? user.activeBusinessId
-        : (businesses[0]?.id ?? null);
+        : null;
+    const activeMembership =
+      businesses.find(
+        (business) => String(business.id) === String(activeBusinessId)
+      ) ?? null;
 
     const activeMode: ActiveMode =
-      user.activeMode === 'business' &&
-      businesses.some(
-        (b) => b.staffRole === 'owner' || b.staffRole === 'manager'
-      )
+      user.activeMode === 'business' && activeMembership
         ? 'business'
         : 'customer';
 
@@ -794,7 +803,10 @@ export const setActiveBusiness = mutation({
       )
       .first();
 
-    if (!staffRecord || staffRecord.isActive !== true) {
+    if (!staffRecord) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+    if (getBusinessStaffStatus(staffRecord) !== 'active') {
       throw new Error('NOT_AUTHORIZED');
     }
 

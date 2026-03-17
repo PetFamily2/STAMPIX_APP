@@ -74,6 +74,12 @@ export function entitlementErrorToHebrewMessage(
         payload.limitKey === 'maxCampaigns' &&
         typeof payload.limitValue === 'number'
       ) {
+        if (
+          typeof payload.currentValue === 'number' &&
+          payload.currentValue > payload.limitValue
+        ) {
+          return `יש חריגה ממכסת הקמפיינים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב קמפיינים או לשדרג כדי להפעיל שוב.`;
+        }
         return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05de\u05e1\u05e4\u05e8 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc\u05d9\u05dd \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
       }
       if (

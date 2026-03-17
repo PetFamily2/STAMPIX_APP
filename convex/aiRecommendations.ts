@@ -10,7 +10,7 @@ import {
 } from './_generated/server';
 import {
   assertEntitlement,
-  countActiveManagementCampaignsForBusiness,
+  countActiveCampaignsForBusiness,
   getBusinessEntitlementsForBusinessId,
 } from './entitlements';
 import {
@@ -3744,11 +3744,13 @@ export const executeRecommendationPrimaryCta = mutation({
 
     if (primaryCta.kind === 'open_campaign_draft') {
       await requireActorIsBusinessOwnerOrManager(ctx, businessId);
-      const activeManagementCampaigns =
-        await countActiveManagementCampaignsForBusiness(ctx, businessId);
+      const activeCampaigns = await countActiveCampaignsForBusiness(
+        ctx,
+        businessId
+      );
       await assertEntitlement(ctx, businessId, {
         limitKey: 'maxCampaigns',
-        currentValue: activeManagementCampaigns,
+        currentValue: activeCampaigns,
       });
       const snapshot = recommendation.snapshotId
         ? await ctx.db.get(recommendation.snapshotId)

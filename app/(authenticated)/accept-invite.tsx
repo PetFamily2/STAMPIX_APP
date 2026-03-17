@@ -42,6 +42,13 @@ const ERROR_MAP: Record<string, string> = {
   EMAIL_MISMATCH: TEXT.emailMismatch,
 };
 
+function nextRouteByStaffRole(staffRole: 'manager' | 'staff' | 'owner' | null) {
+  if (staffRole === 'owner' || staffRole === 'manager') {
+    return '/(authenticated)/(business)/dashboard';
+  }
+  return '/(authenticated)/(staff)/scanner';
+}
+
 export default function AcceptInviteScreen() {
   const insets = useSafeAreaInsets();
   const { inviteCode: paramCode } = useLocalSearchParams<{
@@ -74,8 +81,8 @@ export default function AcceptInviteScreen() {
     setError(null);
     setBusy(true);
     try {
-      await acceptStaffInvite({ inviteCode: code });
-      router.replace('/(authenticated)/(staff)/scanner');
+      const result = await acceptStaffInvite({ inviteCode: code });
+      router.replace(nextRouteByStaffRole(result?.staffRole ?? null));
     } catch (e) {
       const msg = ERROR_MAP[(e as Error).message] ?? TEXT.errorGeneric;
       setError(msg);
@@ -133,8 +140,12 @@ export default function AcceptInviteScreen() {
                   setError(null);
                   setBusy(true);
                   try {
-                    await acceptStaffInvite({ inviteCode: code });
-                    router.replace('/(authenticated)/(staff)/scanner');
+                    const result = await acceptStaffInvite({
+                      inviteCode: code,
+                    });
+                    router.replace(
+                      nextRouteByStaffRole(result?.staffRole ?? null)
+                    );
                   } catch (e) {
                     setError(
                       ERROR_MAP[(e as Error).message] ?? TEXT.errorGeneric

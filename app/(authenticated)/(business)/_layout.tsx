@@ -9,6 +9,7 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { api } from '@/convex/_generated/api';
+import { resolveActiveBusinessShell } from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
@@ -117,16 +118,22 @@ export default function BusinessTabsLayout() {
   }
 
   const bizList = sessionContext?.businesses ?? [];
-  const hasOwnerOrManager = bizList.some(
-    (business) =>
-      business.staffRole === 'owner' || business.staffRole === 'manager'
-  );
-  const hasAnyBizAccess = bizList.length > 0;
+  const activeBusinessId = sessionContext?.activeBusinessId ?? null;
+  const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
 
-  if (!isPreviewMode && !hasOwnerOrManager) {
-    if (hasAnyBizAccess) {
-      return <Redirect href="/(authenticated)/(staff)/scanner" />;
-    }
+  if (!isPreviewMode && activeShell === 'none') {
+    return <Redirect href="/(authenticated)/(customer)/wallet" />;
+  }
+
+  if (!isPreviewMode && activeShell === 'staff') {
+    return <Redirect href="/(authenticated)/(staff)/scanner" />;
+  }
+
+  if (
+    !isPreviewMode &&
+    activeShell === 'business' &&
+    sessionContext?.user.businessOnboardedAt == null
+  ) {
     return <Redirect href={BUSINESS_ONBOARDING_ROUTES.role} />;
   }
 
@@ -137,13 +144,14 @@ export default function BusinessTabsLayout() {
     segmentStrings[segmentStrings.length - 1] ?? 'dashboard';
   const isCardsRoute = segmentStrings.includes('cards');
   const isCustomersRoute = segmentStrings.includes('customers');
+  const isCustomerCardRoute = segmentStrings.includes('customer');
   const isSettingsSubRoute =
     currentLeafSegment.startsWith('settings-business-');
   const activeTabName = DASHBOARD_ROUTE_NAMES.has(currentLeafSegment)
     ? 'dashboard'
     : isCardsRoute
       ? 'cards'
-      : isCustomersRoute
+      : isCustomersRoute || isCustomerCardRoute
         ? 'analytics'
         : isSettingsSubRoute
           ? 'settings'
@@ -319,6 +327,12 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="customers"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="customer/[customerUserId]"
         options={{
           href: null,
         }}

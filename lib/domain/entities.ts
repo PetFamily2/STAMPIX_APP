@@ -58,7 +58,9 @@ export type Membership = {
 
 export type EventType =
   | 'STAMP_ADDED'
+  | 'STAMP_REVERTED'
   | 'REWARD_REDEEMED'
+  | 'REWARD_REDEEM_REVERTED'
   | 'PROGRAM_UPDATED'
   | 'BUSINESS_UPDATED'
   | 'STAFF_ADDED'
@@ -71,9 +73,19 @@ export type AuditEvent = {
   businessId?: Id<'businesses'>;
   membershipId?: Id<'memberships'>;
   programId?: Id<'loyaltyPrograms'>;
+  revertsEventId?: Id<'events'>;
+  reversalEventId?: Id<'events'>;
+  reasonCode?: string;
+  reasonNote?: string;
   stampCount?: number;
   note?: string;
-  source: 'app' | 'admin' | 'api';
+  source:
+    | 'app'
+    | 'admin'
+    | 'api'
+    | 'scanner_commit'
+    | 'scanner_undo'
+    | 'manual_adjustment';
   correlationId?: string;
   createdAt: number;
 };

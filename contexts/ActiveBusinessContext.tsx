@@ -91,7 +91,7 @@ export function ActiveBusinessProvider({
       return sessionContext.activeBusinessId;
     }
 
-    return businesses[0]?.businessId ?? null;
+    return null;
   }, [businesses, localBusinessIdOverride, sessionContext?.activeBusinessId]);
 
   const activeBusiness = useMemo(

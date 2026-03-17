@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
+import { resolveActiveBusinessShell } from '@/lib/activeBusinessShell';
 
 const TEXT = {
   scanner: '\u05e1\u05d5\u05e8\u05e7',
@@ -20,7 +21,9 @@ export default function StaffTabsLayout() {
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const sessionContext = useQuery(api.users.getSessionContext);
   const isLoading = sessionContext === undefined;
-  const hasBizAccess = (sessionContext?.businesses?.length ?? 0) > 0;
+  const businesses = sessionContext?.businesses ?? [];
+  const activeBusinessId = sessionContext?.activeBusinessId ?? null;
+  const activeShell = resolveActiveBusinessShell(businesses, activeBusinessId);
 
   if (isLoading) {
     return <FullScreenLoading />;
@@ -30,8 +33,12 @@ export default function StaffTabsLayout() {
     return <Redirect href="/(auth)/sign-up" />;
   }
 
-  if (!isPreviewMode && !hasBizAccess) {
+  if (!isPreviewMode && activeShell === 'none') {
     return <Redirect href="/(authenticated)/(customer)/wallet" />;
+  }
+
+  if (!isPreviewMode && activeShell === 'business') {
+    return <Redirect href="/(authenticated)/(business)/dashboard" />;
   }
 
   return (
@@ -75,6 +82,12 @@ export default function StaffTabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="customer/[customerUserId]"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

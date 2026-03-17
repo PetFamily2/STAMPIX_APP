@@ -14,6 +14,7 @@ import type * as auth from "../auth.js";
 import type * as business from "../business.js";
 import type * as campaigns from "../campaigns.js";
 import type * as crons from "../crons.js";
+import type * as customerCards from "../customerCards.js";
 import type * as customerLifecycle from "../customerLifecycle.js";
 import type * as debug from "../debug.js";
 import type * as entitlements from "../entitlements.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   business: typeof business;
   campaigns: typeof campaigns;
   crons: typeof crons;
+  customerCards: typeof customerCards;
   customerLifecycle: typeof customerLifecycle;
   debug: typeof debug;
   entitlements: typeof entitlements;

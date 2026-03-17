@@ -123,6 +123,7 @@ export const getRecentActivity = query({
       .slice(0, safeLimit);
 
     const activity: RecentActivityItem[] = [];
+    const programCache = new Map<string, Doc<'loyaltyPrograms'> | null>();
 
     for (const event of sorted) {
       const customer = await ctx.db.get(event.customerUserId);
@@ -130,19 +131,51 @@ export const getRecentActivity = query({
         continue;
       }
 
+      const programIdKey = String(event.programId);
+      let program = programCache.get(programIdKey);
+      if (program === undefined) {
+        program =
+          (await ctx.db.get(
+            event.programId as Doc<'loyaltyPrograms'>['_id']
+          )) ?? null;
+        programCache.set(programIdKey, program);
+      }
+
       const metadata = event.metadata as Record<string, unknown> | undefined;
+      const previousPunchCount =
+        typeof metadata?.previous === 'number' ? metadata.previous : undefined;
       const nextPunchCount =
         typeof metadata?.next === 'number' ? metadata.next : undefined;
       const redeemedFrom =
         typeof metadata?.redeemedFrom === 'number'
           ? metadata.redeemedFrom
           : undefined;
+      const maxStamps =
+        typeof program?.maxStamps === 'number' ? program.maxStamps : null;
+      const unlockedRewardByCompletion =
+        event.type === 'STAMP_ADDED' &&
+        typeof previousPunchCount === 'number' &&
+        typeof nextPunchCount === 'number' &&
+        typeof maxStamps === 'number' &&
+        previousPunchCount < maxStamps &&
+        nextPunchCount >= maxStamps;
       const detail =
         event.type === 'STAMP_ADDED'
           ? `קיבל ניקוב${nextPunchCount ? ` ${nextPunchCount}` : ''}`
           : redeemedFrom
             ? `מימש ${redeemedFrom} ניקובים`
             : 'מימש הטבה';
+
+      const displayDetail =
+        unlockedRewardByCompletion && event.type === 'STAMP_ADDED'
+          ? program?.rewardName
+            ? `השלים כרטיסיה וזכאי ל${program.rewardName}`
+            : 'השלים כרטיסיה וזכאי להטבה'
+          : detail;
+      const activityType: RecentActivityItem['type'] =
+        event.type === 'REWARD_REDEEMED' || unlockedRewardByCompletion
+          ? 'reward'
+          : 'punch';
 
       const timeLabel = new Date(event.createdAt).toLocaleTimeString('he-IL', {
         hour: '2-digit',
@@ -151,10 +184,10 @@ export const getRecentActivity = query({
 
       activity.push({
         id: String(event._id),
-        type: event.type === 'STAMP_ADDED' ? 'punch' : 'reward',
+        type: activityType,
         customer:
           customer.fullName ?? customer.email ?? customer.externalId ?? 'לקוח',
-        detail,
+        detail: displayDetail,
         time: timeLabel,
       });
     }

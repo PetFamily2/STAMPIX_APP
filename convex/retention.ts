@@ -7,7 +7,9 @@ import {
   type RetentionOpportunityKey,
 } from './customerLifecycle';
 import {
+  assertCampaignsNotOverLimit,
   assertEntitlement,
+  countActiveCampaignsForBusiness,
   countActiveRetentionActionsForBusiness,
   getBusinessEntitlementsForBusinessId,
 } from './entitlements';
@@ -258,6 +260,25 @@ async function assertSavedSegmentAccessIfNeeded(
   });
 }
 
+async function assertCampaignCapacity(ctx: any, businessId: Id<'businesses'>) {
+  const activeCampaigns = await countActiveCampaignsForBusiness(
+    ctx,
+    businessId
+  );
+  await assertEntitlement(ctx, businessId, {
+    limitKey: 'maxCampaigns',
+    currentValue: activeCampaigns,
+  });
+}
+
+function isCampaignLimitReachedError(error: unknown) {
+  const payload = (error as { data?: any } | null)?.data;
+  return (
+    payload?.code === 'PLAN_LIMIT_REACHED' &&
+    payload?.limitKey === 'maxCampaigns'
+  );
+}
+
 async function assertRetentionActionCanBeActivated(
   ctx: any,
   businessId: Id<'businesses'>
@@ -313,6 +334,7 @@ async function createRetentionActionInternal(
   await assertEntitlement(ctx, businessId, {
     featureKey: 'marketingHub',
   });
+  await assertCampaignCapacity(ctx, businessId);
   await assertSavedSegmentAccessIfNeeded(ctx, businessId, targetType);
 
   const normalizedTitle = title.trim();
@@ -460,6 +482,7 @@ export const createAiRetentionSuggestion = mutation({
     await assertEntitlement(ctx, businessId, {
       featureKey: 'marketingHub',
     });
+    await assertCampaignCapacity(ctx, businessId);
     await assertSavedSegmentAccessIfNeeded(ctx, businessId, targetType);
 
     const target = buildRetentionTarget(targetType, segmentId);
@@ -542,6 +565,11 @@ export const setRetentionActionStatus = mutation({
     const now = Date.now();
 
     if (status === 'active' && (campaign.status ?? 'draft') !== 'active') {
+      if (campaign.isActive === true) {
+        await assertCampaignsNotOverLimit(ctx, businessId);
+      } else {
+        await assertCampaignCapacity(ctx, businessId);
+      }
       await assertRetentionActionCanBeActivated(ctx, businessId);
     }
 
@@ -612,8 +640,27 @@ export const runRetentionActionSweepInternal = internalMutation({
     let pushFailed = 0;
     let pushSkipped = 0;
     let dedupedUsers = 0;
+    const overLimitByBusiness = new Map<string, boolean>();
 
     for (const campaign of campaigns) {
+      const businessKey = String(campaign.businessId);
+      let isBlocked = overLimitByBusiness.get(businessKey);
+      if (isBlocked === undefined) {
+        try {
+          await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+          isBlocked = false;
+        } catch (error) {
+          if (!isCampaignLimitReachedError(error)) {
+            throw error;
+          }
+          isBlocked = true;
+        }
+        overLimitByBusiness.set(businessKey, isBlocked);
+      }
+      if (isBlocked) {
+        continue;
+      }
+
       const target = parseRetentionTargetFromRules(campaign.rules);
       if (!target) {
         continue;

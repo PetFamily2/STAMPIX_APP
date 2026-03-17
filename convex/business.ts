@@ -1,9 +1,13 @@
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
-  requireActorIsBusinessOwner,
+  getBusinessStaffStatus,
+  requireActorCanInviteRole,
+  requireActorCanManageTargetStaff,
+  requireActorCanManageTeamForBusiness,
+  requireActorIsActiveStaffForBusiness,
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
   requireCurrentUser,
@@ -270,13 +274,19 @@ async function ensureBusinessStaffRecord(
     .first();
 
   if (existingStaff) {
-    const patchData: Record<string, unknown> = {
-      isActive: true,
-      updatedAt: timestamp,
-    };
+    const patchData: Record<string, unknown> = { updatedAt: timestamp };
     if (existingStaff.staffRole !== staffRole) {
       patchData.staffRole = staffRole;
+      patchData.roleChangedAt = timestamp;
+      patchData.roleChangedByUserId = userId;
     }
+    patchData.status = 'active';
+    patchData.isActive = true;
+    patchData.statusChangedAt = timestamp;
+    patchData.statusChangedByUserId = userId;
+    patchData.joinedAt = timestamp;
+    patchData.removedAt = undefined;
+    patchData.removedByUserId = undefined;
     await ctx.db.patch(existingStaff._id, patchData);
     return existingStaff._id;
   }
@@ -285,7 +295,11 @@ async function ensureBusinessStaffRecord(
     businessId,
     userId,
     staffRole,
+    status: 'active',
     isActive: true,
+    joinedAt: timestamp,
+    statusChangedAt: timestamp,
+    statusChangedByUserId: userId,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -1194,68 +1208,245 @@ type BusinessStaffView = {
   staffId: Id<'businessStaff'>;
   userId: Id<'users'>;
   staffRole: 'owner' | 'manager' | 'staff';
+  status: 'active' | 'suspended' | 'removed';
   isActive: boolean;
+  joinedAt: number;
+  statusChangedAt: number | null;
+  statusChangedByUserId: Id<'users'> | null;
+  roleChangedAt: number | null;
+  roleChangedByUserId: Id<'users'> | null;
+  removedAt: number | null;
+  removedByUserId: Id<'users'> | null;
+  lastSeenAt: number | null;
   createdAt: number;
   updatedAt: number | null;
   displayName: string;
   email: string | null;
-  role: 'staff' | 'merchant' | 'customer' | 'admin' | null;
+  isSelf: boolean;
 };
 
-export const listBusinessStaff = query({
+type StaffRole = 'owner' | 'manager' | 'staff';
+type StaffStatus = 'active' | 'suspended' | 'removed';
+type InviteTargetRole = 'manager' | 'staff';
+
+const TEAM_INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const STAFF_ROLE_SORT_ORDER: Record<StaffRole, number> = {
+  owner: 0,
+  manager: 1,
+  staff: 2,
+};
+
+type TeamPendingInviteView = {
+  inviteId: Id<'staffInvites'>;
+  businessId: Id<'businesses'>;
+  invitedEmail: string;
+  invitedUserId: Id<'users'> | null;
+  invitedByUserId: Id<'users'>;
+  invitedByDisplayName: string;
+  targetRole: InviteTargetRole;
+  status: 'pending';
+  inviteCode: string;
+  expiresAt: number;
+  createdAt: number;
+};
+
+type TeamSummary = {
+  activeStaffCount: number;
+  pendingInvitesCount: number;
+  suspendedCount: number;
+  managersCount: number;
+  usedSeats: number;
+  maxSeats: number;
+};
+
+type TeamSeatStaffRow = {
+  staffRole: StaffRole;
+  status?: StaffStatus;
+};
+
+type TeamSeatInviteRow = {
+  status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+  expiresAt: number;
+};
+
+function resolveStaffStatus(staff: any): StaffStatus {
+  return getBusinessStaffStatus(staff);
+}
+
+function resolveInviteTargetRole(invite: any): InviteTargetRole {
+  return invite?.targetRole === 'manager' ? 'manager' : 'staff';
+}
+
+export function calculateTeamSeatsUsed(args: {
+  staffRows: TeamSeatStaffRow[];
+  invites: TeamSeatInviteRow[];
+  now: number;
+}) {
+  const activeNonOwnerCount = args.staffRows.filter((staff) => {
+    const status =
+      staff.status === 'active' ||
+      staff.status === 'suspended' ||
+      staff.status === 'removed'
+        ? staff.status
+        : 'active';
+    return status === 'active' && staff.staffRole !== 'owner';
+  }).length;
+
+  const pendingNonExpiredCount = args.invites.filter(
+    (invite) => invite.status === 'pending' && invite.expiresAt > args.now
+  ).length;
+
+  return activeNonOwnerCount + pendingNonExpiredCount;
+}
+
+export function buildReinviteAfterRemovalPatch(args: {
+  existingRole: StaffRole;
+  acceptedRole: InviteTargetRole;
+  actorUserId: Id<'users'>;
+  now: number;
+}) {
+  const patchData: Record<string, unknown> = {
+    status: 'active',
+    isActive: true,
+    joinedAt: args.now,
+    statusChangedAt: args.now,
+    statusChangedByUserId: args.actorUserId,
+    removedAt: undefined,
+    removedByUserId: undefined,
+    updatedAt: args.now,
+  };
+  if (args.existingRole !== args.acceptedRole) {
+    patchData.staffRole = args.acceptedRole;
+    patchData.roleChangedAt = args.now;
+    patchData.roleChangedByUserId = args.actorUserId;
+  }
+  return patchData;
+}
+
+async function requireTeamFeatureEnabled(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  await assertEntitlement(ctx, businessId, { featureKey: 'team' });
+}
+
+async function writeStaffEvent(
+  ctx: any,
   args: {
-    businessId: v.optional(v.id('businesses')),
-  },
-  handler: async (ctx, { businessId }) => {
-    if (!businessId) {
-      return [];
-    }
+    businessId: Id<'businesses'>;
+    actorUserId?: Id<'users'>;
+    targetUserId?: Id<'users'>;
+    targetInviteId?: Id<'staffInvites'>;
+    eventType:
+      | 'invite_created'
+      | 'invite_cancelled'
+      | 'invite_accepted'
+      | 'invite_expired'
+      | 'role_changed'
+      | 'suspended'
+      | 'reactivated'
+      | 'removed'
+      | 'auto_disabled_by_plan'
+      | 'auto_invites_cancelled_by_plan'
+      | 'reinvited_after_removal';
+    fromRole?: StaffRole;
+    toRole?: StaffRole;
+    fromStatus?: StaffStatus;
+    toStatus?: StaffStatus;
+    reasonCode?: string;
+    createdAt?: number;
+  }
+) {
+  await ctx.db.insert('staffEvents', {
+    businessId: args.businessId,
+    actorUserId: args.actorUserId,
+    targetUserId: args.targetUserId,
+    targetInviteId: args.targetInviteId,
+    eventType: args.eventType,
+    fromRole: args.fromRole,
+    toRole: args.toRole,
+    fromStatus: args.fromStatus,
+    toStatus: args.toStatus,
+    reasonCode: args.reasonCode,
+    createdAt: args.createdAt ?? Date.now(),
+  });
+}
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
-    await assertEntitlement(ctx, businessId, {
-      featureKey: 'canManageTeam',
-    });
-
-    const staffRecords = await ctx.db
+async function getSeatUsageForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  now = Date.now()
+) {
+  const [staffRows, pendingInvites] = await Promise.all([
+    ctx.db
       .query('businessStaff')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
-      .collect();
+      .collect(),
+    ctx.db
+      .query('staffInvites')
+      .withIndex('by_businessId_status', (q: any) =>
+        q.eq('businessId', businessId).eq('status', 'pending')
+      )
+      .collect(),
+  ]);
 
-    const populated: Array<BusinessStaffView | null> = await Promise.all(
-      staffRecords.map(async (record): Promise<BusinessStaffView | null> => {
-        const user = await ctx.db.get(record.userId);
-        if (!user || user.isActive !== true) {
-          return null;
-        }
-        const displayName =
-          user.fullName ?? user.email ?? user.externalId ?? 'עובד';
-        return {
-          staffId: record._id,
-          userId: record.userId,
-          staffRole: record.staffRole,
-          isActive: record.isActive,
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt ?? null,
-          displayName,
-          email: user.email ?? null,
-          role:
-            record.staffRole === 'owner' || record.staffRole === 'manager'
-              ? 'merchant'
-              : 'staff',
-        };
-      })
-    );
+  const usedSeats = calculateTeamSeatsUsed({
+    staffRows: staffRows.map((staff: any) => ({
+      staffRole: staff.staffRole,
+      status: resolveStaffStatus(staff),
+    })),
+    invites: pendingInvites.map((invite: any) => ({
+      status: invite.status,
+      expiresAt: invite.expiresAt,
+    })),
+    now,
+  });
 
-    return populated
-      .filter((entry): entry is BusinessStaffView => entry !== null)
-      .sort((a, b) => {
-        if (a.staffRole === 'owner' && b.staffRole !== 'owner') return -1;
-        if (b.staffRole === 'owner' && a.staffRole !== 'owner') return 1;
-        return b.createdAt - a.createdAt;
-      });
-  },
-});
+  return {
+    usedSeats,
+  };
+}
+
+async function requireAvailableTeamSeat(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  now = Date.now()
+) {
+  const usage = await getSeatUsageForBusiness(ctx, businessId, now);
+  const entitlements = await assertEntitlement(ctx, businessId, {
+    limitKey: 'maxTeamSeats',
+    currentValue: usage.usedSeats,
+  });
+  return { usage, maxSeats: entitlements.limits.maxTeamSeats };
+}
+
+async function getStaffMembershipByIdOrThrow(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  staffId: Id<'businessStaff'>
+) {
+  const staff = await ctx.db.get(staffId);
+  if (!staff || staff.businessId !== businessId) {
+    throw new Error('STAFF_NOT_FOUND');
+  }
+  return staff;
+}
+
+async function expireInviteIfNeeded(ctx: any, invite: any, now: number) {
+  if (invite.status !== 'pending' || invite.expiresAt > now) {
+    return false;
+  }
+  await ctx.db.patch(invite._id, {
+    status: 'expired',
+  });
+  await writeStaffEvent(ctx, {
+    businessId: invite.businessId,
+    targetInviteId: invite._id,
+    eventType: 'invite_expired',
+    createdAt: now,
+  });
+  return true;
+}
 
 /**
  * Generate a unique invite code with retry on collision.
@@ -1275,36 +1466,329 @@ async function generateUniqueInviteCode(
   throw new Error('FAILED_TO_GENERATE_INVITE_CODE');
 }
 
+export const listBusinessStaff = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return [];
+    }
+
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    const staffRecords = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .collect();
+
+    const visibleStaff = staffRecords.filter((record: any) =>
+      actorRole === 'owner' ? true : record.staffRole === 'staff'
+    );
+
+    const populated: Array<BusinessStaffView | null> = await Promise.all(
+      visibleStaff.map(async (record): Promise<BusinessStaffView | null> => {
+        const user = await ctx.db.get(record.userId);
+        if (!user) {
+          return null;
+        }
+        const status = resolveStaffStatus(record);
+        const displayName =
+          user.fullName ?? user.email ?? user.externalId ?? 'עובד';
+        const joinedAt = record.joinedAt ?? record.createdAt;
+        return {
+          staffId: record._id,
+          userId: record.userId,
+          staffRole: record.staffRole,
+          status,
+          isActive: status === 'active',
+          joinedAt,
+          statusChangedAt: record.statusChangedAt ?? null,
+          statusChangedByUserId: record.statusChangedByUserId ?? null,
+          roleChangedAt: record.roleChangedAt ?? null,
+          roleChangedByUserId: record.roleChangedByUserId ?? null,
+          removedAt: record.removedAt ?? null,
+          removedByUserId: record.removedByUserId ?? null,
+          lastSeenAt: record.lastSeenAt ?? null,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt ?? null,
+          displayName,
+          email: user.email ?? null,
+          isSelf: String(actor._id) === String(record.userId),
+        };
+      })
+    );
+
+    return populated
+      .filter((entry): entry is BusinessStaffView => entry !== null)
+      .sort((a, b) => {
+        const roleDelta =
+          STAFF_ROLE_SORT_ORDER[a.staffRole] -
+          STAFF_ROLE_SORT_ORDER[b.staffRole];
+        if (roleDelta !== 0) {
+          return roleDelta;
+        }
+        return b.joinedAt - a.joinedAt;
+      });
+  },
+});
+
+export const listPendingStaffInvites = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }): Promise<TeamPendingInviteView[]> => {
+    if (!businessId) {
+      return [];
+    }
+
+    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
+      ctx,
+      businessId
+    );
+    await requireTeamFeatureEnabled(ctx, businessId);
+    const now = Date.now();
+
+    const pendingInvites = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_businessId_status', (q: any) =>
+        q.eq('businessId', businessId).eq('status', 'pending')
+      )
+      .collect();
+
+    const visibleInvites = pendingInvites.filter((invite: any) => {
+      if (invite.expiresAt <= now) {
+        return false;
+      }
+      if (actorRole === 'owner') {
+        return true;
+      }
+      return resolveInviteTargetRole(invite) === 'staff';
+    });
+
+    const populated = await Promise.all(
+      visibleInvites.map(
+        async (invite: any): Promise<TeamPendingInviteView> => {
+          const inviter = (await ctx.db.get(
+            invite.invitedByUserId
+          )) as Doc<'users'> | null;
+          return {
+            inviteId: invite._id,
+            businessId: invite.businessId,
+            invitedEmail: invite.invitedEmail,
+            invitedUserId: invite.invitedUserId ?? null,
+            invitedByUserId: invite.invitedByUserId,
+            invitedByDisplayName:
+              inviter?.fullName ??
+              inviter?.email ??
+              inviter?.externalId ??
+              'צוות',
+            targetRole: resolveInviteTargetRole(invite),
+            status: 'pending',
+            inviteCode: invite.inviteCode,
+            expiresAt: invite.expiresAt,
+            createdAt: invite.createdAt,
+          };
+        }
+      )
+    );
+
+    return populated.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const getBusinessTeamSummary = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }): Promise<TeamSummary | null> => {
+    if (!businessId) {
+      return null;
+    }
+
+    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
+      ctx,
+      businessId
+    );
+    await requireTeamFeatureEnabled(ctx, businessId);
+    const now = Date.now();
+
+    const [staffRows, invites, entitlements] = await Promise.all([
+      ctx.db
+        .query('businessStaff')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+      ctx.db
+        .query('staffInvites')
+        .withIndex('by_businessId_status', (q: any) =>
+          q.eq('businessId', businessId).eq('status', 'pending')
+        )
+        .collect(),
+      assertEntitlement(ctx, businessId, { featureKey: 'team' }),
+    ]);
+
+    const visibleStaffRows = staffRows.filter((staff: any) =>
+      actorRole === 'owner' ? true : staff.staffRole === 'staff'
+    );
+    const visiblePendingInvites = invites.filter((invite: any) => {
+      if (invite.expiresAt <= now) {
+        return false;
+      }
+      if (actorRole === 'owner') {
+        return true;
+      }
+      return resolveInviteTargetRole(invite) === 'staff';
+    });
+
+    const activeStaffCount = visibleStaffRows.filter((staff: any) => {
+      const status = resolveStaffStatus(staff);
+      return status === 'active' && staff.staffRole !== 'owner';
+    }).length;
+    const suspendedCount = visibleStaffRows.filter((staff: any) => {
+      const status = resolveStaffStatus(staff);
+      return status === 'suspended' && staff.staffRole !== 'owner';
+    }).length;
+    const managersCount =
+      actorRole === 'owner'
+        ? visibleStaffRows.filter(
+            (staff: any) =>
+              staff.staffRole === 'manager' &&
+              resolveStaffStatus(staff) === 'active'
+          ).length
+        : 0;
+
+    const seatUsage = await getSeatUsageForBusiness(ctx, businessId, now);
+
+    return {
+      activeStaffCount,
+      pendingInvitesCount: visiblePendingInvites.length,
+      suspendedCount,
+      managersCount,
+      usedSeats: seatUsage.usedSeats,
+      maxSeats: entitlements.limits.maxTeamSeats,
+    };
+  },
+});
+
+export const getMyBusinessMemberships = query({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await requireCurrentUser(ctx);
+    const memberships = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_userId', (q: any) => q.eq('userId', actor._id))
+      .collect();
+
+    const rows = await Promise.all(
+      memberships.map(async (membership: any) => {
+        const business = (await ctx.db.get(
+          membership.businessId
+        )) as Doc<'businesses'> | null;
+        if (!business || business.isActive !== true) {
+          return null;
+        }
+        const status = resolveStaffStatus(membership);
+        return {
+          staffId: membership._id,
+          businessId: membership.businessId,
+          businessName: business.name,
+          staffRole: membership.staffRole as StaffRole,
+          status,
+          isActive: status === 'active',
+          joinedAt: membership.joinedAt ?? membership.createdAt,
+          updatedAt: membership.updatedAt ?? null,
+        };
+      })
+    );
+
+    return rows
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+      .sort((a, b) => b.joinedAt - a.joinedAt);
+  },
+});
+
+export const getMyStaffProfileForBusiness = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return null;
+    }
+
+    const { actor, membership, staffRole } =
+      await requireActorIsActiveStaffForBusiness(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const permissionsByRole: Record<StaffRole, string[]> = {
+      owner: [
+        'manage_subscription',
+        'manage_team',
+        'manage_business_settings',
+        'scanner_access',
+      ],
+      manager: [
+        'manage_staff_only',
+        'manage_business_settings',
+        'scanner_access',
+      ],
+      staff: ['scanner_access'],
+    };
+
+    return {
+      userId: actor._id,
+      businessId,
+      businessName: business.name,
+      staffRole,
+      status: resolveStaffStatus(membership),
+      permissions: permissionsByRole[staffRole],
+      joinedAt: membership.joinedAt ?? membership.createdAt,
+      canManageTeam: staffRole === 'owner' || staffRole === 'manager',
+    };
+  },
+});
+
 export const inviteBusinessStaff = mutation({
   args: {
     businessId: v.id('businesses'),
     email: v.string(),
+    role: v.union(v.literal('manager'), v.literal('staff')),
   },
-  handler: async (ctx, { businessId, email }) => {
-    const actor = await requireActorIsBusinessOwner(ctx, businessId);
-    await assertEntitlement(ctx, businessId, {
-      featureKey: 'canManageTeam',
-    });
+  handler: async (ctx, { businessId, email, role }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    requireActorCanInviteRole(actorRole, role);
+
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
       throw new Error('EMAIL_REQUIRED');
     }
+    if (normalizedEmail === actor.email?.toLowerCase()) {
+      throw new Error('CANNOT_INVITE_SELF');
+    }
 
-    const existing = await ctx.db
+    const now = Date.now();
+    const existingPendingInvites = await ctx.db
       .query('staffInvites')
-      .withIndex('by_invitedEmail', (q: any) =>
-        q.eq('invitedEmail', normalizedEmail)
+      .withIndex('by_businessId_invitedEmail_status', (q: any) =>
+        q
+          .eq('businessId', businessId)
+          .eq('invitedEmail', normalizedEmail)
+          .eq('status', 'pending')
       )
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('businessId'), businessId),
-          q.eq(q.field('status'), 'pending')
-        )
-      )
-      .first();
+      .collect();
 
-    if (existing && existing.expiresAt >= Date.now()) {
-      return { inviteCode: existing.inviteCode, alreadyPending: true };
+    for (const invite of existingPendingInvites) {
+      const didExpire = await expireInviteIfNeeded(ctx, invite, now);
+      if (!didExpire) {
+        throw new Error('INVITE_ALREADY_PENDING');
+      }
     }
 
     const targetUser = await ctx.db
@@ -1312,37 +1796,101 @@ export const inviteBusinessStaff = mutation({
       .withIndex('by_email', (q: any) => q.eq('email', normalizedEmail))
       .first();
 
-    if (targetUser && String(targetUser._id) === String(actor._id)) {
-      throw new Error('CANNOT_INVITE_SELF');
-    }
-
-    if (targetUser && targetUser.isActive) {
-      const alreadyStaff = await ctx.db
+    if (targetUser) {
+      const existingMembership = await ctx.db
         .query('businessStaff')
         .withIndex('by_businessId_userId', (q: any) =>
           q.eq('businessId', businessId).eq('userId', targetUser._id)
         )
         .first();
-      if (alreadyStaff?.isActive) {
-        throw new Error('ALREADY_STAFF');
+
+      if (existingMembership) {
+        if (existingMembership.staffRole === 'owner') {
+          throw new Error('OWNER_CANNOT_BE_INVITED');
+        }
+        const membershipStatus = resolveStaffStatus(existingMembership);
+        if (membershipStatus === 'active') {
+          throw new Error('ALREADY_STAFF');
+        }
+        if (membershipStatus === 'suspended') {
+          throw new Error('SUSPENDED_MEMBER_CANNOT_REINVITE');
+        }
       }
     }
 
-    const inviteCode = await generateUniqueInviteCode(ctx);
-    const now = Date.now();
+    await requireAvailableTeamSeat(ctx, businessId, now);
 
-    await ctx.db.insert('staffInvites', {
+    const inviteCode = await generateUniqueInviteCode(ctx);
+    const inviteId = await ctx.db.insert('staffInvites', {
       businessId,
       invitedEmail: normalizedEmail,
       invitedUserId: targetUser?._id,
       invitedByUserId: actor._id,
+      targetRole: role,
       inviteCode,
       status: 'pending',
-      expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+      expiresAt: now + TEAM_INVITE_EXPIRY_MS,
       createdAt: now,
     });
 
-    return { inviteCode, alreadyPending: false };
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetInviteId: inviteId,
+      eventType: 'invite_created',
+      toRole: role,
+      createdAt: now,
+    });
+
+    return { inviteCode, inviteId, alreadyPending: false };
+  },
+});
+
+export const cancelStaffInvite = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    inviteId: v.id('staffInvites'),
+  },
+  handler: async (ctx, { businessId, inviteId }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    const now = Date.now();
+
+    const invite = await ctx.db.get(inviteId);
+    if (!invite || invite.businessId !== businessId) {
+      throw new Error('INVITE_NOT_FOUND');
+    }
+
+    if (invite.status !== 'pending') {
+      throw new Error('INVITE_NOT_PENDING');
+    }
+    if (invite.expiresAt <= now) {
+      await expireInviteIfNeeded(ctx, invite, now);
+      throw new Error('INVITE_EXPIRED');
+    }
+    if (
+      actorRole === 'manager' &&
+      resolveInviteTargetRole(invite) !== 'staff'
+    ) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+
+    await ctx.db.patch(inviteId, {
+      status: 'cancelled',
+      cancelledAt: now,
+      cancelledByUserId: actor._id,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetInviteId: inviteId,
+      eventType: 'invite_cancelled',
+      createdAt: now,
+    });
+
+    return { inviteId, status: 'cancelled' as const };
   },
 });
 
@@ -1361,10 +1909,14 @@ export const acceptStaffInvite = mutation({
       )
       .first();
 
-    if (!invite) throw new Error('INVITE_NOT_FOUND');
-    if (invite.status !== 'pending') throw new Error('INVITE_NOT_PENDING');
-    if (invite.expiresAt < now) {
-      await ctx.db.patch(invite._id, { status: 'expired' });
+    if (!invite) {
+      throw new Error('INVITE_NOT_FOUND');
+    }
+    if (invite.status !== 'pending') {
+      throw new Error('INVITE_NOT_PENDING');
+    }
+    if (invite.expiresAt <= now) {
+      await expireInviteIfNeeded(ctx, invite, now);
       throw new Error('INVITE_EXPIRED');
     }
 
@@ -1374,35 +1926,317 @@ export const acceptStaffInvite = mutation({
     ) {
       throw new Error('EMAIL_MISMATCH');
     }
-    await assertEntitlement(ctx, invite.businessId, {
-      featureKey: 'canManageTeam',
-    });
 
-    const staffId = await ensureBusinessStaffRecord(
-      ctx,
-      invite.businessId,
-      user._id,
-      'staff',
-      now
-    );
+    await requireTeamFeatureEnabled(ctx, invite.businessId);
+
+    const existingMembership = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId_userId', (q: any) =>
+        q.eq('businessId', invite.businessId).eq('userId', user._id)
+      )
+      .first();
+
+    let staffId: Id<'businessStaff'>;
+    const acceptedRole: InviteTargetRole = resolveInviteTargetRole(invite);
+    let reusedRemovedMembership = false;
+    let previousRole: StaffRole | undefined;
+
+    if (existingMembership) {
+      const membershipStatus = resolveStaffStatus(existingMembership);
+      previousRole = existingMembership.staffRole as StaffRole;
+      if (membershipStatus === 'active') {
+        throw new Error('ALREADY_STAFF');
+      }
+      if (membershipStatus === 'suspended') {
+        throw new Error('SUSPENDED_MEMBER_CANNOT_ACCEPT_INVITE');
+      }
+      if (existingMembership.staffRole === 'owner') {
+        throw new Error('OWNER_CANNOT_BE_INVITED');
+      }
+
+      const patchData = buildReinviteAfterRemovalPatch({
+        existingRole: existingMembership.staffRole,
+        acceptedRole,
+        actorUserId: user._id,
+        now,
+      });
+
+      await ctx.db.patch(existingMembership._id, patchData);
+      staffId = existingMembership._id;
+      reusedRemovedMembership = true;
+    } else {
+      staffId = await ctx.db.insert('businessStaff', {
+        businessId: invite.businessId,
+        userId: user._id,
+        staffRole: acceptedRole,
+        status: 'active',
+        isActive: true,
+        joinedAt: now,
+        statusChangedAt: now,
+        statusChangedByUserId: user._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     await ctx.db.patch(invite._id, {
       status: 'accepted',
       invitedUserId: user._id,
       acceptedAt: now,
+      acceptedByUserId: user._id,
     });
 
+    await writeStaffEvent(ctx, {
+      businessId: invite.businessId,
+      actorUserId: user._id,
+      targetUserId: user._id,
+      targetInviteId: invite._id,
+      eventType: 'invite_accepted',
+      toRole: acceptedRole,
+      toStatus: 'active',
+      createdAt: now,
+    });
+
+    if (reusedRemovedMembership) {
+      await writeStaffEvent(ctx, {
+        businessId: invite.businessId,
+        actorUserId: user._id,
+        targetUserId: user._id,
+        targetInviteId: invite._id,
+        eventType: 'reinvited_after_removal',
+        fromRole: previousRole,
+        toRole: acceptedRole,
+        fromStatus: 'removed',
+        toStatus: 'active',
+        createdAt: now,
+      });
+    }
+
     const currentUser = await ctx.db.get(user._id);
-    if (
-      currentUser &&
-      (!currentUser.activeMode || currentUser.activeMode === 'customer')
-    ) {
+    if (currentUser) {
       await ctx.db.patch(user._id, {
         activeMode: 'business',
+        activeBusinessId: invite.businessId,
         updatedAt: now,
       });
     }
 
-    return { staffId, businessId: invite.businessId };
+    return {
+      staffId,
+      businessId: invite.businessId,
+      staffRole: acceptedRole,
+      reusedRemovedMembership,
+    };
+  },
+});
+
+export const updateBusinessStaffRole = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    staffId: v.id('businessStaff'),
+    role: v.union(v.literal('manager'), v.literal('staff')),
+  },
+  handler: async (ctx, { businessId, staffId, role }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    if (actorRole !== 'owner') {
+      throw new Error('NOT_AUTHORIZED');
+    }
+
+    const target = await getStaffMembershipByIdOrThrow(
+      ctx,
+      businessId,
+      staffId
+    );
+    requireActorCanManageTargetStaff({
+      actorUserId: actor._id,
+      actorRole,
+      targetUserId: target.userId,
+      targetRole: target.staffRole,
+    });
+
+    if (target.staffRole === role) {
+      return { staffId: target._id, staffRole: target.staffRole };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(target._id, {
+      staffRole: role,
+      roleChangedAt: now,
+      roleChangedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetUserId: target.userId,
+      eventType: 'role_changed',
+      fromRole: target.staffRole,
+      toRole: role,
+      createdAt: now,
+    });
+
+    return { staffId: target._id, staffRole: role };
+  },
+});
+
+export const suspendBusinessStaff = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    staffId: v.id('businessStaff'),
+  },
+  handler: async (ctx, { businessId, staffId }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    const target = await getStaffMembershipByIdOrThrow(
+      ctx,
+      businessId,
+      staffId
+    );
+    requireActorCanManageTargetStaff({
+      actorUserId: actor._id,
+      actorRole,
+      targetUserId: target.userId,
+      targetRole: target.staffRole,
+    });
+
+    const currentStatus = resolveStaffStatus(target);
+    if (currentStatus === 'removed') {
+      throw new Error('REMOVED_CANNOT_BE_SUSPENDED');
+    }
+    if (currentStatus === 'suspended') {
+      return { staffId: target._id, status: 'suspended' as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(target._id, {
+      status: 'suspended',
+      isActive: false,
+      statusChangedAt: now,
+      statusChangedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetUserId: target.userId,
+      eventType: 'suspended',
+      fromStatus: 'active',
+      toStatus: 'suspended',
+      createdAt: now,
+    });
+
+    return { staffId: target._id, status: 'suspended' as const };
+  },
+});
+
+export const reactivateBusinessStaff = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    staffId: v.id('businessStaff'),
+  },
+  handler: async (ctx, { businessId, staffId }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    const target = await getStaffMembershipByIdOrThrow(
+      ctx,
+      businessId,
+      staffId
+    );
+    requireActorCanManageTargetStaff({
+      actorUserId: actor._id,
+      actorRole,
+      targetUserId: target.userId,
+      targetRole: target.staffRole,
+    });
+
+    const currentStatus = resolveStaffStatus(target);
+    if (currentStatus === 'removed') {
+      throw new Error('REMOVED_REQUIRES_NEW_INVITE');
+    }
+    if (currentStatus === 'active') {
+      return { staffId: target._id, status: 'active' as const };
+    }
+
+    await requireAvailableTeamSeat(ctx, businessId, Date.now());
+    const now = Date.now();
+    await ctx.db.patch(target._id, {
+      status: 'active',
+      isActive: true,
+      statusChangedAt: now,
+      statusChangedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetUserId: target.userId,
+      eventType: 'reactivated',
+      fromStatus: 'suspended',
+      toStatus: 'active',
+      createdAt: now,
+    });
+
+    return { staffId: target._id, status: 'active' as const };
+  },
+});
+
+export const removeBusinessStaff = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    staffId: v.id('businessStaff'),
+  },
+  handler: async (ctx, { businessId, staffId }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    const target = await getStaffMembershipByIdOrThrow(
+      ctx,
+      businessId,
+      staffId
+    );
+    requireActorCanManageTargetStaff({
+      actorUserId: actor._id,
+      actorRole,
+      targetUserId: target.userId,
+      targetRole: target.staffRole,
+    });
+
+    const previousStatus = resolveStaffStatus(target);
+    if (previousStatus === 'removed') {
+      return { staffId: target._id, status: 'removed' as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(target._id, {
+      status: 'removed',
+      isActive: false,
+      statusChangedAt: now,
+      statusChangedByUserId: actor._id,
+      removedAt: now,
+      removedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetUserId: target.userId,
+      eventType: 'removed',
+      fromStatus: previousStatus,
+      toStatus: 'removed',
+      createdAt: now,
+    });
+
+    return { staffId: target._id, status: 'removed' as const };
   },
 });
