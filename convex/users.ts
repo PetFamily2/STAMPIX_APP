@@ -134,6 +134,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'messageLog',
   'campaigns',
   'subscriptions',
+  'scanSessions',
   'scanTokenEvents',
   'events',
   'memberships',
@@ -172,6 +173,7 @@ type DeleteStats = {
   memberships: number;
   events: number;
   scanTokenEvents: number;
+  scanSessions: number;
   campaigns: number;
   subscriptions: number;
   messageLog: number;
@@ -223,6 +225,7 @@ function emptyDeleteStats(): DeleteStats {
     memberships: 0,
     events: 0,
     scanTokenEvents: 0,
+    scanSessions: 0,
     campaigns: 0,
     subscriptions: 0,
     messageLog: 0,
@@ -253,6 +256,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     messageLog: 0,
     campaigns: 0,
     subscriptions: 0,
+    scanSessions: 0,
     scanTokenEvents: 0,
     events: 0,
     memberships: 0,
@@ -400,6 +404,13 @@ async function deleteBusinessGraph(
     'businessId',
     businessId
   );
+  deleted.scanSessions += await deleteByIndexInBatches(
+    ctx,
+    'scanSessions',
+    'by_businessId',
+    'businessId',
+    businessId
+  );
   deleted.events += await deleteByIndexInBatches(
     ctx,
     'events',
@@ -481,6 +492,20 @@ async function deleteUserScopedBusinessData(
     'scanTokenEvents',
     'by_customerId',
     'customerId',
+    userId
+  );
+  deleted.scanSessions += await deleteByIndexInBatches(
+    ctx,
+    'scanSessions',
+    'by_customerId',
+    'customerId',
+    userId
+  );
+  deleted.scanSessions += await deleteByIndexInBatches(
+    ctx,
+    'scanSessions',
+    'by_actorUserId',
+    'actorUserId',
     userId
   );
   deleted.events += await deleteByIndexInBatches(

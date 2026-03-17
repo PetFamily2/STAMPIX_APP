@@ -1,5 +1,39 @@
 const SCAN_TOKEN_PREFIX = 'scanToken:';
 const SCAN_TOKEN_VALID_MS = 2 * 60 * 1000; // Tokens expire after two minutes.
+const SCAN_TOKEN_MAX_FUTURE_SKEW_MS = 1_000;
+
+export type ScanTokenPayloadV1 = {
+  customerId: string;
+  timestamp: number;
+  signature: string;
+};
+
+export type ScanTokenPayloadV2 = {
+  v: 2;
+  customerId: string;
+  iat: number;
+  exp: number;
+  nonce: string;
+  kid: string;
+  sig: string;
+};
+
+export type ScanTokenPayload = ScanTokenPayloadV1 | ScanTokenPayloadV2;
+
+export type ScanTokenIdentity = {
+  customerId: string;
+  signature: string;
+  nonce: string | null;
+  issuedAt: number;
+  expiresAt: number;
+  version: 1 | 2;
+};
+
+function isScanTokenPayloadV2(
+  payload: ScanTokenPayload
+): payload is ScanTokenPayloadV2 {
+  return (payload as ScanTokenPayloadV2).v === 2;
+}
 
 function getScanTokenSecret() {
   const secret = process.env.SCAN_TOKEN_SECRET;
@@ -9,18 +43,19 @@ function getScanTokenSecret() {
   return secret;
 }
 
-export type ScanTokenPayload = {
-  customerId: string;
-  timestamp: number;
-  signature: string;
-};
+function getScanTokenKid() {
+  const kid = process.env.SCAN_TOKEN_KID?.trim();
+  return kid && kid.length > 0 ? kid : 'v1';
+}
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 function base64UrlEncode(bytes: Uint8Array) {
   let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
+  for (const b of bytes) {
+    bin += String.fromCharCode(b);
+  }
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -37,9 +72,21 @@ function base64UrlDecode(encoded: string) {
   return bytes;
 }
 
-async function buildSignature(customerId: string, timestamp: number) {
+function formatPayload(payload: ScanTokenPayload) {
+  const body = JSON.stringify(payload);
+  const encoded = base64UrlEncode(encoder.encode(body));
+  return `${SCAN_TOKEN_PREFIX}${encoded}`;
+}
+
+function buildCanonicalSignaturePayload(payload: ScanTokenPayload) {
+  if (isScanTokenPayloadV2(payload)) {
+    return `v2|${payload.customerId}|${payload.iat}|${payload.exp}|${payload.nonce}|${payload.kid}`;
+  }
+  return `${payload.customerId}:${payload.timestamp}`;
+}
+
+async function buildSignature(payload: ScanTokenPayload) {
   const secret = getScanTokenSecret();
-  const payload = `${customerId}:${timestamp}`;
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -50,32 +97,102 @@ async function buildSignature(customerId: string, timestamp: number) {
   const signature = await crypto.subtle.sign(
     'HMAC',
     key,
-    encoder.encode(payload)
+    encoder.encode(buildCanonicalSignaturePayload(payload))
   );
   return base64UrlEncode(new Uint8Array(signature));
 }
 
-function formatPayload(payload: ScanTokenPayload) {
-  const body = JSON.stringify(payload);
-  const encoded = base64UrlEncode(encoder.encode(body));
-  return `${SCAN_TOKEN_PREFIX}${encoded}`;
+function buildNonce(bytesLength = 16) {
+  const bytes = new Uint8Array(bytesLength);
+  crypto.getRandomValues(bytes);
+  return base64UrlEncode(bytes);
 }
 
 export async function buildScanToken(
   customerId: string,
-  timestamp = Date.now()
+  issuedAt = Date.now()
 ) {
-  const normalizedTimestamp = Math.floor(timestamp);
-  const signature = await buildSignature(customerId, normalizedTimestamp);
-  const payload: ScanTokenPayload = {
+  const normalizedIssuedAt = Math.floor(issuedAt);
+  const payloadWithoutSig: Omit<ScanTokenPayloadV2, 'sig'> = {
+    v: 2,
     customerId,
-    timestamp: normalizedTimestamp,
-    signature,
+    iat: normalizedIssuedAt,
+    exp: normalizedIssuedAt + SCAN_TOKEN_VALID_MS,
+    nonce: buildNonce(),
+    kid: getScanTokenKid(),
+  };
+  const sig = await buildSignature({
+    ...payloadWithoutSig,
+    sig: '',
+  });
+  const payload: ScanTokenPayloadV2 = {
+    ...payloadWithoutSig,
+    sig,
   };
   return {
     scanToken: formatPayload(payload),
     payload,
   };
+}
+
+function parseV1Token(obj: Record<string, unknown>): ScanTokenPayloadV1 {
+  const keys = Object.keys(obj);
+  if (
+    keys.length !== 3 ||
+    !keys.includes('customerId') ||
+    !keys.includes('timestamp') ||
+    !keys.includes('signature')
+  ) {
+    throw new Error('INVALID_SCAN_TOKEN');
+  }
+
+  const customerId = obj.customerId;
+  const timestamp = obj.timestamp;
+  const signature = obj.signature;
+  if (
+    typeof customerId !== 'string' ||
+    typeof timestamp !== 'number' ||
+    typeof signature !== 'string'
+  ) {
+    throw new Error('INVALID_SCAN_TOKEN');
+  }
+  return { customerId, timestamp, signature };
+}
+
+function parseV2Token(obj: Record<string, unknown>): ScanTokenPayloadV2 {
+  const keys = Object.keys(obj);
+  if (
+    keys.length !== 7 ||
+    !keys.includes('v') ||
+    !keys.includes('customerId') ||
+    !keys.includes('iat') ||
+    !keys.includes('exp') ||
+    !keys.includes('nonce') ||
+    !keys.includes('kid') ||
+    !keys.includes('sig')
+  ) {
+    throw new Error('INVALID_SCAN_TOKEN');
+  }
+
+  const v = obj.v;
+  const customerId = obj.customerId;
+  const iat = obj.iat;
+  const exp = obj.exp;
+  const nonce = obj.nonce;
+  const kid = obj.kid;
+  const sig = obj.sig;
+  if (
+    v !== 2 ||
+    typeof customerId !== 'string' ||
+    typeof iat !== 'number' ||
+    typeof exp !== 'number' ||
+    typeof nonce !== 'string' ||
+    typeof kid !== 'string' ||
+    typeof sig !== 'string'
+  ) {
+    throw new Error('INVALID_SCAN_TOKEN');
+  }
+  return { v: 2, customerId, iat, exp, nonce, kid, sig };
 }
 
 export function parseScanToken(qrData: string): ScanTokenPayload {
@@ -86,45 +203,75 @@ export function parseScanToken(qrData: string): ScanTokenPayload {
   let decoded: string;
   try {
     decoded = decoder.decode(base64UrlDecode(encoded));
-  } catch (error) {
+  } catch {
     throw new Error('INVALID_SCAN_TOKEN');
   }
 
   let obj: Record<string, unknown>;
   try {
     obj = JSON.parse(decoded) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     throw new Error('INVALID_SCAN_TOKEN');
   }
 
-  const customerId = obj.customerId;
-  const timestamp = obj.timestamp;
-  const signature = obj.signature;
-
-  if (
-    typeof customerId !== 'string' ||
-    typeof timestamp !== 'number' ||
-    typeof signature !== 'string'
-  ) {
-    throw new Error('INVALID_SCAN_TOKEN');
+  if (obj.v === 2) {
+    return parseV2Token(obj);
   }
-
-  return { customerId, timestamp, signature };
+  return parseV1Token(obj);
 }
 
 export async function assertScanTokenSignature(payload: ScanTokenPayload) {
-  const expected = await buildSignature(payload.customerId, payload.timestamp);
+  if (isScanTokenPayloadV2(payload)) {
+    const expected = await buildSignature({
+      ...payload,
+      sig: '',
+    });
+    if (expected !== payload.sig) {
+      throw new Error('INVALID_SCAN_TOKEN');
+    }
+    return;
+  }
+
+  const expected = await buildSignature(payload);
   if (expected !== payload.signature) {
     throw new Error('INVALID_SCAN_TOKEN');
   }
 }
 
-export function isScanTokenExpired(timestamp: number, now = Date.now()) {
-  if (!Number.isFinite(timestamp)) {
+export function getScanTokenIdentity(
+  payload: ScanTokenPayload
+): ScanTokenIdentity {
+  if (isScanTokenPayloadV2(payload)) {
+    return {
+      customerId: payload.customerId,
+      signature: payload.sig,
+      nonce: payload.nonce,
+      issuedAt: payload.iat,
+      expiresAt: payload.exp,
+      version: 2,
+    };
+  }
+
+  return {
+    customerId: payload.customerId,
+    signature: payload.signature,
+    nonce: null,
+    issuedAt: payload.timestamp,
+    expiresAt: payload.timestamp + SCAN_TOKEN_VALID_MS,
+    version: 1,
+  };
+}
+
+export function isScanTokenExpired(
+  payload: ScanTokenPayload,
+  now = Date.now()
+) {
+  const token = getScanTokenIdentity(payload);
+  if (!Number.isFinite(token.issuedAt) || !Number.isFinite(token.expiresAt)) {
     return true;
   }
-  if (timestamp > now + 1000) {
+  if (token.issuedAt > now + SCAN_TOKEN_MAX_FUTURE_SKEW_MS) {
     return true;
   }
-  return now - timestamp > SCAN_TOKEN_VALID_MS;
+  return now > token.expiresAt;
 }

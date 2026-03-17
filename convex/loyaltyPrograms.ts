@@ -82,6 +82,13 @@ function resolveProgramLifecycle(program: any): ProgramLifecycle {
   return 'active';
 }
 
+function isProgramScannerEligible(program: any) {
+  if (!program || program.isActive !== true) {
+    return false;
+  }
+  return resolveProgramLifecycle(program) === 'active';
+}
+
 function isLifecycleOperational(lifecycle: ProgramLifecycle) {
   return lifecycle === 'active' || lifecycle === 'archived';
 }
@@ -110,6 +117,40 @@ async function listBusinessPrograms(ctx: any, businessId: string) {
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
+}
+
+function sortProgramsForScanner(programs: any[]) {
+  return [...programs].sort((a, b) => {
+    const aPos = Number.isFinite(a.posSortOrder)
+      ? Number(a.posSortOrder)
+      : null;
+    const bPos = Number.isFinite(b.posSortOrder)
+      ? Number(b.posSortOrder)
+      : null;
+    if (aPos !== null && bPos !== null && aPos !== bPos) {
+      return aPos - bPos;
+    }
+    if (aPos !== null && bPos === null) {
+      return -1;
+    }
+    if (aPos === null && bPos !== null) {
+      return 1;
+    }
+
+    const aPublishedAt = Number(a.publishedAt ?? 0);
+    const bPublishedAt = Number(b.publishedAt ?? 0);
+    if (aPublishedAt !== bPublishedAt) {
+      return aPublishedAt - bPublishedAt;
+    }
+
+    const aCreatedAt = Number(a.createdAt ?? 0);
+    const bCreatedAt = Number(b.createdAt ?? 0);
+    if (aCreatedAt !== bCreatedAt) {
+      return aCreatedAt - bCreatedAt;
+    }
+
+    return String(a._id).localeCompare(String(b._id));
+  });
 }
 
 async function getProgramMembershipCount(ctx: any, programId: string) {
@@ -164,10 +205,49 @@ export const listByBusiness = query({
         cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
         isArchived: lifecycle === 'archived',
         isActive: program.isActive,
+        posSortOrder:
+          typeof program.posSortOrder === 'number'
+            ? program.posSortOrder
+            : null,
+        allowPosEnroll: program.allowPosEnroll !== false,
         lifecycle,
         status: lifecycle,
       };
     });
+  },
+});
+
+export const listScannerPrograms = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return [];
+    }
+    await requireActorIsStaffForBusiness(ctx, businessId);
+
+    const allPrograms = await listBusinessPrograms(ctx, businessId);
+    const eligiblePrograms = sortProgramsForScanner(
+      allPrograms.filter((program: any) => isProgramScannerEligible(program))
+    );
+
+    return eligiblePrograms.map((program: any) => ({
+      loyaltyProgramId: program._id,
+      businessId: program.businessId,
+      title: program.title,
+      rewardName: program.rewardName,
+      maxStamps: program.maxStamps,
+      stampIcon: program.stampIcon,
+      cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+      posSortOrder:
+        typeof program.posSortOrder === 'number' ? program.posSortOrder : null,
+      allowPosEnroll: program.allowPosEnroll !== false,
+      lifecycle: 'active' as const,
+      status: 'active' as const,
+      isArchived: false,
+      isActive: true,
+    }));
   },
 });
 
@@ -397,6 +477,17 @@ export const createLoyaltyProgram = mutation({
     const normalizedRewardConditions = normalizeOptionalText(rewardConditions);
     const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
+    const existingPrograms = await listBusinessPrograms(ctx, businessId);
+    const maxPosSortOrder = existingPrograms.reduce(
+      (highest: number, program: any) => {
+        if (typeof program.posSortOrder !== 'number') {
+          return highest;
+        }
+        return Math.max(highest, program.posSortOrder);
+      },
+      -1
+    );
+    const posSortOrder = maxPosSortOrder + 1;
     const structureSignature = buildStructureSignature({
       rewardName: normalizedReward,
       maxStamps: normalizedMaxStamps,
@@ -418,6 +509,8 @@ export const createLoyaltyProgram = mutation({
       rewardConditions: normalizedRewardConditions,
       stampIcon: normalizedIcon,
       cardThemeId: normalizedThemeId,
+      posSortOrder,
+      allowPosEnroll: true,
       structureSignature,
       lastStructureChangedAt: now,
       isArchived: false,

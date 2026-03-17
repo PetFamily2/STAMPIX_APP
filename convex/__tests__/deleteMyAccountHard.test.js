@@ -174,6 +174,22 @@ describe('deleteMyAccountHardImpl', () => {
           customerId: 'u_owner',
         },
       ],
+      scanSessions: [
+        {
+          _id: 'ss_customer',
+          businessId: 'b_owner',
+          programId: 'p_owner',
+          customerId: 'u_customer',
+          actorUserId: 'u_owner',
+        },
+        {
+          _id: 'ss_actor_customer',
+          businessId: 'b_owner',
+          programId: 'p_owner',
+          customerId: 'u_owner',
+          actorUserId: 'u_customer',
+        },
+      ],
       messageLog: [
         { _id: 'ml_customer', businessId: 'b_owner', toUserId: 'u_customer' },
         { _id: 'ml_owner', businessId: 'b_owner', toUserId: 'u_owner' },
@@ -226,6 +242,14 @@ describe('deleteMyAccountHardImpl', () => {
       ctx.db
         .rows('scanTokenEvents')
         .some((row) => row.customerId === 'u_customer')
+    ).toBe(false);
+    expect(
+      ctx.db
+        .rows('scanSessions')
+        .some(
+          (row) =>
+            row.customerId === 'u_customer' || row.actorUserId === 'u_customer'
+        )
     ).toBe(false);
     expect(
       ctx.db.rows('messageLog').some((row) => row.toUserId === 'u_customer')
@@ -339,6 +363,22 @@ describe('deleteMyAccountHardImpl', () => {
           customerId: 'u_owner',
         },
       ],
+      scanSessions: [
+        {
+          _id: 'ss_owned',
+          businessId: 'b_owned',
+          programId: 'p_owned_1',
+          customerId: 'u_customer',
+          actorUserId: 'u_owner',
+        },
+        {
+          _id: 'ss_other_owner',
+          businessId: 'b_other',
+          programId: 'p_other',
+          customerId: 'u_owner',
+          actorUserId: 'u_staff',
+        },
+      ],
       campaigns: [
         { _id: 'camp_owned', businessId: 'b_owned' },
         { _id: 'camp_other', businessId: 'b_other' },
@@ -409,6 +449,9 @@ describe('deleteMyAccountHardImpl', () => {
       ctx.db.rows('scanTokenEvents').some((row) => row.businessId === 'b_owned')
     ).toBe(false);
     expect(
+      ctx.db.rows('scanSessions').some((row) => row.businessId === 'b_owned')
+    ).toBe(false);
+    expect(
       ctx.db.rows('campaigns').some((row) => row.businessId === 'b_owned')
     ).toBe(false);
     expect(
@@ -437,6 +480,13 @@ describe('deleteMyAccountHardImpl', () => {
     ).toBe(false);
     expect(
       ctx.db.rows('scanTokenEvents').some((row) => row.customerId === 'u_owner')
+    ).toBe(false);
+    expect(
+      ctx.db
+        .rows('scanSessions')
+        .some(
+          (row) => row.customerId === 'u_owner' || row.actorUserId === 'u_owner'
+        )
     ).toBe(false);
     expect(
       ctx.db.rows('messageLog').some((row) => row.toUserId === 'u_owner')

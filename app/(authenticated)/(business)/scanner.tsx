@@ -1,4 +1,5 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -36,7 +37,20 @@ import {
 } from '@/lib/entitlements/errors';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
+type ScannerProgram = {
+  loyaltyProgramId: string;
+  title: string;
+  rewardName: string;
+  maxStamps: number;
+  stampIcon: string;
+  allowPosEnroll: boolean;
+};
+
+type ScanActionMode = 'stamp' | 'redeem';
+
 type ResolvedScan = {
+  scanSessionId: string;
+  sessionExpiresAt: number;
   customerUserId: string;
   customerDisplayName: string;
   membership: {
@@ -47,6 +61,23 @@ type ResolvedScan = {
   } | null;
 };
 
+type ResolvedSession = {
+  scanSessionId: string;
+  customerUserId: string;
+  customerDisplayName: string;
+  membership: ResolvedScan['membership'];
+  sessionExpiresAt: number;
+  actionMode: ScanActionMode;
+};
+
+type PendingRetrySession = ResolvedSession;
+
+type CommitActionResult = {
+  currentStamps: number;
+  maxStamps: number;
+  canRedeemNow: boolean;
+};
+
 type ScanResultBanner = {
   customerDisplayName: string;
   statusLabel: string;
@@ -54,10 +85,11 @@ type ScanResultBanner = {
   maxStamps: number;
 };
 
-const BUSINESS_SUCCESS_BANNER_DURATION_MS = 5000;
-const BUSINESS_SUCCESS_BANNER_MESSAGE = 'ניקוב בוצע בהצלחה';
+const BUSINESS_SUCCESS_BANNER_DURATION_MS = 15000;
+const BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP = 'ניקוב בוצע בהצלחה';
+const BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM = 'מימוש הושלם בהצלחה';
 const SCANNER_HEADER_TITLE = 'סריקת לקוח';
-const SCANNER_HEADER_SUBTITLE = 'סרקו QR של הלקוח כדי להוסיף ניקוב.';
+const SCANNER_HEADER_SUBTITLE = 'בחרו תוכנית ואז סרקו QR של הלקוח לניקוב מהיר.';
 
 const KNOWN_SCAN_ERROR_CODES = [
   'INVALID_QR',
@@ -69,8 +101,39 @@ const KNOWN_SCAN_ERROR_CODES = [
   'MEMBERSHIP_NOT_FOUND',
   'NOT_AUTHORIZED',
   'PROGRAM_ARCHIVED',
+  'PROGRAM_NOT_SCANNER_ELIGIBLE',
+  'POS_ENROLL_DISABLED',
   'NOT_ENOUGH_STAMPS',
+  'INVALID_SCAN_SESSION',
+  'SCAN_SESSION_EXPIRED',
+  'SCAN_SESSION_FAILED',
+  'INVALID_SCAN_ACTION',
+  'FEATURE_NOT_AVAILABLE',
+  'PLAN_LIMIT_REACHED',
+  'SUBSCRIPTION_INACTIVE',
 ] as const;
+
+const NON_RETRYABLE_COMMIT_CODES = new Set([
+  'POS_ENROLL_DISABLED',
+  'PROGRAM_NOT_SCANNER_ELIGIBLE',
+  'PROGRAM_ARCHIVED',
+  'MEMBERSHIP_NOT_FOUND',
+  'NOT_ENOUGH_STAMPS',
+  'SELF_STAMP',
+  'RATE_LIMITED',
+  'TOKEN_ALREADY_USED',
+  'EXPIRED_TOKEN',
+  'INVALID_SCAN_SESSION',
+  'SCAN_SESSION_EXPIRED',
+  'SCAN_SESSION_FAILED',
+  'INVALID_SCAN_ACTION',
+  'NOT_AUTHORIZED',
+  'CUSTOMER_NOT_FOUND',
+  'INVALID_QR',
+  'FEATURE_NOT_AVAILABLE',
+  'PLAN_LIMIT_REACHED',
+  'SUBSCRIPTION_INACTIVE',
+]);
 
 const resolveScanErrorCode = (error: unknown): string => {
   if (!(error instanceof Error)) {
@@ -85,77 +148,50 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
   const code = resolveScanErrorCode(error);
   switch (code) {
     case 'INVALID_QR':
-      return {
-        message: '\u05e7\u05d5\u05d3 QR \u05dc\u05d0 \u05ea\u05e7\u05d9\u05df.',
-        code,
-      };
+      return { message: 'קוד QR לא תקין.', code };
     case 'EXPIRED_TOKEN':
-      return {
-        message:
-          '\u05e4\u05d2 \u05ea\u05d5\u05e7\u05e3 QR. \u05d1\u05e7\u05e9 \u05de\u05d4\u05dc\u05e7\u05d5\u05d7 \u05dc\u05e8\u05e2\u05e0\u05df \u05e7\u05d5\u05d3.',
-        code,
-      };
+      return { message: 'פג תוקף ה-QR. בקשו מהלקוח לרענן קוד.', code };
     case 'TOKEN_ALREADY_USED':
-      return {
-        message:
-          'QR \u05db\u05d1\u05e8 \u05e0\u05e1\u05e8\u05e7. \u05d9\u05e9 \u05dc\u05d1\u05e7\u05e9 \u05de\u05d4\u05dc\u05e7\u05d5\u05d7 \u05dc\u05e8\u05e2\u05e0\u05df QR \u05d7\u05d3\u05e9.',
-        code,
-      };
+      return { message: 'QR כבר נסרק. יש לרענן קוד חדש.', code };
     case 'SELF_STAMP':
-      return {
-        message:
-          '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05e0\u05e7\u05d1 \u05dc\u05e2\u05e6\u05de\u05da.',
-        code,
-      };
+      return { message: 'לא ניתן לנקב לעצמכם.', code };
     case 'RATE_LIMITED':
-      return {
-        message:
-          '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d1\u05e6\u05e2 \u05e0\u05d9\u05e7\u05d5\u05d1 \u05e0\u05d5\u05e1\u05e3 \u05dc\u05d0\u05d5\u05ea\u05d5 \u05dc\u05e7\u05d5\u05d7 \u05e8\u05e7 \u05d0\u05d7\u05e8\u05d9 30 \u05e9\u05e0\u05d9\u05d5\u05ea.',
-        code,
-      };
+      return { message: 'אפשר לנקב שוב לאותו לקוח רק אחרי 30 שניות.', code };
     case 'CUSTOMER_NOT_FOUND':
-      return {
-        message:
-          '\u05d4\u05dc\u05e7\u05d5\u05d7 \u05dc\u05d0 \u05e0\u05de\u05e6\u05d0.',
-        code,
-      };
+      return { message: 'הלקוח לא נמצא.', code };
     case 'MEMBERSHIP_NOT_FOUND':
-      return {
-        message:
-          '\u05db\u05e8\u05d8\u05d9\u05e1 \u05d4\u05dc\u05e7\u05d5\u05d7 \u05dc\u05d0 \u05e0\u05de\u05e6\u05d0 \u05d1\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05d4\u05d6\u05d5.',
-        code,
-      };
+      return { message: 'ללקוח אין כרטיס פעיל בתוכנית שנבחרה.', code };
     case 'NOT_AUTHORIZED':
-      return {
-        message:
-          '\u05d0\u05d9\u05df \u05d4\u05e8\u05e9\u05d0\u05d4 \u05dc\u05e4\u05e2\u05d5\u05dc\u05d4 \u05d4\u05d6\u05d5.',
-        code,
-      };
+      return { message: 'אין הרשאה לפעולה הזו.', code };
     case 'PROGRAM_ARCHIVED':
-      return {
-        message:
-          '\u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05d1\u05d0\u05e8\u05db\u05d9\u05d5\u05df \u05d5\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05e6\u05e8\u05e3 \u05d0\u05dc\u05d9\u05d4 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d3\u05e9\u05d9\u05dd.',
-        code,
-      };
+    case 'PROGRAM_NOT_SCANNER_ELIGIBLE':
+      return { message: 'התוכנית שנבחרה אינה זמינה לסריקה.', code };
+    case 'POS_ENROLL_DISABLED':
+      return { message: 'לא ניתן לצרף לקוח חדש לתוכנית הזו מהסורק.', code };
     case 'NOT_ENOUGH_STAMPS':
-      return {
-        message:
-          '\u05d0\u05d9\u05df \u05de\u05e1\u05e4\u05d9\u05e7 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05db\u05d3\u05d9 \u05dc\u05de\u05de\u05e9 \u05d4\u05d8\u05d1\u05d4.',
-        code,
-      };
+      return { message: 'אין מספיק ניקובים למימוש הטבה.', code };
+    case 'INVALID_SCAN_SESSION':
+    case 'SCAN_SESSION_EXPIRED':
+      return { message: 'הסריקה פגה. יש לסרוק מחדש.', code };
+    case 'SCAN_SESSION_FAILED':
+      return { message: 'הסריקה הקודמת נדחתה. יש לסרוק מחדש.', code };
+    case 'INVALID_SCAN_ACTION':
+      return { message: 'פעולת הסריקה אינה תקינה.', code };
     default:
-      return {
-        message:
-          '\u05d0\u05d9\u05e8\u05e2\u05d4 \u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05dc\u05ea\u05d9 \u05e6\u05e4\u05d5\u05d9\u05d4. \u05e0\u05e1\u05d4 \u05e9\u05d5\u05d1.',
-        code,
-      };
+      return { message: 'אירעה שגיאה בלתי צפויה. נסו שוב.', code };
   }
 };
+
+function isTechnicalCommitError(code: string) {
+  if (!code || code === 'UNKNOWN') {
+    return true;
+  }
+  return !NON_RETRYABLE_COMMIT_CODES.has(code);
+}
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const navigation = useNavigation();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -179,29 +215,30 @@ export default function ScannerScreen() {
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const programs =
-    useQuery(
-      api.loyaltyPrograms.listByBusiness,
+    (useQuery(
+      api.loyaltyPrograms.listScannerPrograms,
       activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-    ) ?? [];
+    ) as ScannerProgram[] | undefined) ?? [];
 
-  const [programIndex, setProgramIndex] = useState(0);
-  const selectedProgram = programs[programIndex];
   const scannerResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
-  useEffect(() => {
-    if (programs.length === 0) {
-      setProgramIndex(0);
-      return;
-    }
-    if (programIndex >= programs.length) {
-      setProgramIndex(0);
-    }
-  }, [programIndex, programs.length]);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
+    null
+  );
+  const [isProgramSelectionReady, setIsProgramSelectionReady] = useState(false);
+  const [selectedActionMode, setSelectedActionMode] =
+    useState<ScanActionMode>('stamp');
+  const selectedProgram =
+    programs.find(
+      (program) => program.loyaltyProgramId === selectedProgramId
+    ) ?? null;
 
   const resolveScan = useMutation(api.scanner.resolveScan);
-  const addStamp = useMutation(api.scanner.addStamp);
+  const commitStamp = useMutation(api.scanner.commitStamp);
+  const commitRedeem = useMutation(api.scanner.commitRedeem);
   const [isResolving, setIsResolving] = useState(false);
   const [isStamping, setIsStamping] = useState(false);
   const [scannerResetKey, setScannerResetKey] = useState(0);
@@ -209,9 +246,64 @@ export default function ScannerScreen() {
   const [resultBanner, setResultBanner] = useState<ScanResultBanner | null>(
     null
   );
+  const [retrySession, setRetrySession] = useState<PendingRetrySession | null>(
+    null
+  );
   const [businessSuccessBannerKey, setBusinessSuccessBannerKey] = useState(0);
+  const [successBannerMessage, setSuccessBannerMessage] = useState(
+    BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
+  );
 
-  const canScan = Boolean(selectedBusiness && selectedProgram);
+  const storageKey = activeBusinessId
+    ? `scanner:lastProgram:${String(activeBusinessId)}`
+    : null;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const hydrateSelection = async () => {
+      if (!storageKey || programs.length === 0) {
+        setSelectedProgramId(programs[0]?.loyaltyProgramId ?? null);
+        setIsProgramSelectionReady(true);
+        return;
+      }
+
+      try {
+        const storedProgramId = await AsyncStorage.getItem(storageKey);
+        if (isCancelled) {
+          return;
+        }
+        const nextProgramId = programs.some(
+          (program) => program.loyaltyProgramId === storedProgramId
+        )
+          ? storedProgramId
+          : (programs[0]?.loyaltyProgramId ?? null);
+        setSelectedProgramId(nextProgramId);
+      } catch {
+        if (!isCancelled) {
+          setSelectedProgramId(programs[0]?.loyaltyProgramId ?? null);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsProgramSelectionReady(true);
+        }
+      }
+    };
+
+    setIsProgramSelectionReady(false);
+    void hydrateSelection();
+    return () => {
+      isCancelled = true;
+    };
+  }, [programs, storageKey]);
+
+  const isSelectionLocked = isResolving || isStamping || retrySession !== null;
+  const canScan = Boolean(
+    selectedBusiness &&
+      selectedProgram &&
+      isProgramSelectionReady &&
+      programs.length > 0
+  );
   const isBusy = isResolving || isStamping;
 
   const openUpgrade = useCallback(
@@ -233,6 +325,7 @@ export default function ScannerScreen() {
     setScannerResetKey((current) => current + 1);
     setScanError(null);
     setResultBanner(null);
+    setRetrySession(null);
   }, []);
 
   const queueScannerReset = useCallback((delayMs = 1200) => {
@@ -260,16 +353,6 @@ export default function ScannerScreen() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('tabPress', () => {
-      if (navigation.isFocused()) {
-        resetScanner();
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, resetScanner]);
-
-  useEffect(() => {
     if (!resultBanner) {
       return;
     }
@@ -283,15 +366,29 @@ export default function ScannerScreen() {
     };
   }, [resultBanner]);
 
+  const setSelectedProgram = useCallback(
+    async (programId: string) => {
+      if (!storageKey) {
+        setSelectedProgramId(programId);
+        return;
+      }
+      setSelectedProgramId(programId);
+      try {
+        await AsyncStorage.setItem(storageKey, programId);
+      } catch {
+        // Selection still updates locally even if persistence fails.
+      }
+    },
+    [storageKey]
+  );
+
   const resolveByToken = useCallback(
     async (token: string, showErrors = true) => {
       const businessId = selectedBusiness?.businessId;
       const programId = selectedProgram?.loyaltyProgramId;
       if (!canScan || !businessId || !programId) {
         if (showErrors) {
-          setScanError(
-            '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05dc\u05e4\u05e0\u05d9 \u05e1\u05e8\u05d9\u05e7\u05d4.'
-          );
+          setScanError('יש לבחור תוכנית פעילה לפני סריקה.');
         }
         return null;
       }
@@ -299,80 +396,114 @@ export default function ScannerScreen() {
         const result = (await resolveScan({
           qrData: token,
           businessId,
-          programId,
+          programId: programId as Id<'loyaltyPrograms'>,
+          actionType: selectedActionMode,
         })) as ResolvedScan;
+        if (!result.scanSessionId) {
+          throw new Error('INVALID_SCAN_SESSION');
+        }
         setScanError(null);
-        return result;
+        return {
+          scanSessionId: result.scanSessionId,
+          sessionExpiresAt: result.sessionExpiresAt,
+          customerUserId: result.customerUserId,
+          customerDisplayName: result.customerDisplayName,
+          membership: result.membership,
+          actionMode: selectedActionMode,
+        } satisfies ResolvedSession;
       } catch (error) {
         if (showErrors) {
           setResultBanner(null);
           const mapped = mapScanError(error);
-          setScanError(
-            `\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05db\u05e9\u05dc\u05d4: ${mapped.message}`
-          );
+          setScanError(`סריקה נכשלה: ${mapped.message}`);
           track(ANALYTICS_EVENTS.stampFailed, {
             error_code: mapped.code,
             context: 'resolveScan',
+            action_mode: selectedActionMode,
           });
         }
         return null;
       }
     },
-    [canScan, resolveScan, selectedBusiness, selectedProgram]
+    [
+      canScan,
+      resolveScan,
+      selectedActionMode,
+      selectedBusiness,
+      selectedProgram,
+    ]
   );
 
-  const stampResolvedCustomer = useCallback(
-    async (resolvedScan: ResolvedScan) => {
+  const commitFromSession = useCallback(
+    async (session: PendingRetrySession | ResolvedSession) => {
       if (!selectedBusiness || !selectedProgram) {
-        return;
+        return 'business' as const;
       }
-      const isFirstStampForCustomer = !resolvedScan.membership;
+      const isFirstStampForCustomer = !session.membership;
       setIsStamping(true);
       setScanError(null);
       try {
-        const stampResult = await addStamp({
-          businessId: selectedBusiness.businessId,
-          programId: selectedProgram.loyaltyProgramId,
-          customerUserId: resolvedScan.customerUserId as Id<'users'>,
-        });
+        const result = (
+          session.actionMode === 'redeem'
+            ? await commitRedeem({
+                scanSessionId: session.scanSessionId as Id<'scanSessions'>,
+              })
+            : await commitStamp({
+                scanSessionId: session.scanSessionId as Id<'scanSessions'>,
+              })
+        ) as CommitActionResult;
 
+        const isRedeem = session.actionMode === 'redeem';
+        setRetrySession(null);
+        setSuccessBannerMessage(
+          isRedeem
+            ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
+            : BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
+        );
         setResultBanner({
-          customerDisplayName: resolvedScan.customerDisplayName,
-          statusLabel: stampResult.canRedeemNow
-            ? '\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9 \u05d4\u05d8\u05d1\u05d4'
-            : '\u05d1\u05ea\u05d4\u05dc\u05d9\u05da \u05e6\u05d1\u05d9\u05e8\u05ea \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd',
-          currentStamps: stampResult.currentStamps,
-          maxStamps: stampResult.maxStamps,
+          customerDisplayName: session.customerDisplayName,
+          statusLabel: isRedeem
+            ? 'הטבה מומשה בהצלחה'
+            : result.canRedeemNow
+              ? 'זכאי למימוש הטבה'
+              : 'בתהליך צבירת ניקובים',
+          currentStamps: result.currentStamps,
+          maxStamps: result.maxStamps,
         });
         Vibration.vibrate(120);
         setBusinessSuccessBannerKey((current) => current + 1);
 
         track(ANALYTICS_EVENTS.stampSuccess, {
           businessId: selectedBusiness.businessId,
-          customerUserId: resolvedScan.customerUserId,
+          customerUserId: session.customerUserId,
+          action_mode: session.actionMode,
         });
 
-        if (user?._id) {
-          void trackActivationOnce(
-            ANALYTICS_EVENTS.firstScanCompleted,
-            user._id,
-            { role: 'business', userId: user._id }
-          );
+        if (session.actionMode === 'stamp') {
+          if (user?._id) {
+            void trackActivationOnce(
+              ANALYTICS_EVENTS.firstScanCompleted,
+              user._id,
+              { role: 'business', userId: user._id }
+            );
+          }
+          if (isFirstStampForCustomer) {
+            void trackActivationEvent(
+              ANALYTICS_EVENTS.customerFirstStampReceived,
+              {
+                role: 'client',
+                userId: session.customerUserId,
+              }
+            );
+          }
         }
-        if (isFirstStampForCustomer) {
-          void trackActivationEvent(
-            ANALYTICS_EVENTS.customerFirstStampReceived,
-            {
-              role: 'client',
-              userId: resolvedScan.customerUserId,
-            }
-          );
-        }
+        return 'success' as const;
       } catch (error) {
         const entitlementError = getEntitlementError(error);
         if (entitlementError) {
+          setRetrySession(null);
           setScanError(
-            `\u05e0\u05d9\u05e7\u05d5\u05d1 \u05e0\u05db\u05e9\u05dc: ${entitlementErrorToHebrewMessage(entitlementError)}`
+            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} נכשל: ${entitlementErrorToHebrewMessage(entitlementError)}`
           );
           openUpgrade(
             entitlementError.featureKey ??
@@ -387,93 +518,159 @@ export default function ScannerScreen() {
           );
           track(ANALYTICS_EVENTS.stampFailed, {
             error_code: entitlementError.code,
-            context: 'addStamp',
+            context: 'commitAction',
+            action_mode: session.actionMode,
           });
-          return;
+          return 'business' as const;
         }
 
         const mapped = mapScanError(error);
-        setScanError(
-          `\u05e0\u05d9\u05e7\u05d5\u05d1 \u05e0\u05db\u05e9\u05dc: ${mapped.message}`
-        );
+        const technicalError = isTechnicalCommitError(mapped.code);
+        if (technicalError) {
+          setRetrySession({
+            scanSessionId: session.scanSessionId,
+            customerDisplayName: session.customerDisplayName,
+            customerUserId: session.customerUserId,
+            membership: session.membership,
+            sessionExpiresAt: session.sessionExpiresAt,
+            actionMode: session.actionMode,
+          });
+          setScanError(
+            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} מושהה: ${mapped.message} ניתן לנסות שוב בלי לסרוק מחדש.`
+          );
+        } else {
+          setRetrySession(null);
+          setScanError(
+            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} נכשל: ${mapped.message}`
+          );
+        }
         track(ANALYTICS_EVENTS.stampFailed, {
           error_code: mapped.code,
-          context: 'addStamp',
+          context: 'commitAction',
+          action_mode: session.actionMode,
         });
+        return technicalError ? ('technical' as const) : ('business' as const);
       } finally {
         setIsStamping(false);
       }
     },
-    [addStamp, openUpgrade, selectedBusiness, selectedProgram, user?._id]
+    [
+      commitRedeem,
+      commitStamp,
+      openUpgrade,
+      selectedBusiness,
+      selectedProgram,
+      user?._id,
+    ]
   );
 
   const handleScan = useCallback(
     async (rawData: string) => {
-      if (isBusy) {
+      if (isBusy || isSelectionLocked) {
         return;
       }
 
       const data = rawData?.trim();
       if (!data) {
-        setScanError(
-          '\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05db\u05e9\u05dc\u05d4: \u05e7\u05d5\u05d3 QR \u05d7\u05e1\u05e8.'
-        );
+        setScanError('סריקה נכשלה: קוד QR חסר.');
         return;
       }
       if (!data.startsWith('scanToken:')) {
-        setScanError(
-          '\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05db\u05e9\u05dc\u05d4: \u05d6\u05d4 \u05dc\u05d0 QR \u05dc\u05e7\u05d5\u05d7 \u05ea\u05e7\u05d9\u05df.'
-        );
+        setScanError('סריקה נכשלה: זה לא QR לקוח תקין.');
         setResultBanner(null);
         return;
       }
 
       setIsResolving(true);
       setScanError(null);
+      setRetrySession(null);
 
+      let shouldQueueReset = true;
       try {
         track(ANALYTICS_EVENTS.qrScannedCustomer, {
           businessId: selectedBusiness?.businessId,
+          action_mode: selectedActionMode,
         });
 
         const resolvedScan = await resolveByToken(data);
         if (!resolvedScan) {
           return;
         }
-        await stampResolvedCustomer(resolvedScan);
+
+        const commitState = await commitFromSession(resolvedScan);
+        if (commitState === 'technical') {
+          shouldQueueReset = false;
+        }
       } finally {
         setIsResolving(false);
-        queueScannerReset();
+        if (shouldQueueReset) {
+          queueScannerReset();
+        }
       }
     },
     [
+      commitFromSession,
       isBusy,
+      isSelectionLocked,
       queueScannerReset,
       resolveByToken,
+      selectedActionMode,
       selectedBusiness?.businessId,
-      stampResolvedCustomer,
     ]
   );
 
-  const cycleProgram = () => {
-    if (programs.length <= 1) {
+  const handleRetryCommit = useCallback(async () => {
+    if (!retrySession || isBusy) {
       return;
     }
-    setProgramIndex((prev) => (prev + 1) % programs.length);
-    resetScanner();
-  };
+
+    if (Date.now() > retrySession.sessionExpiresAt) {
+      setRetrySession(null);
+      setScanError('פג תוקף הסריקה. יש לסרוק מחדש.');
+      queueScannerReset();
+      return;
+    }
+
+    const commitState = await commitFromSession(retrySession);
+    if (commitState !== 'technical') {
+      queueScannerReset();
+    }
+  }, [commitFromSession, isBusy, queueScannerReset, retrySession]);
+
+  const handleProgramPress = useCallback(
+    (programId: string) => {
+      if (isSelectionLocked || programId === selectedProgramId) {
+        return;
+      }
+      void setSelectedProgram(programId);
+      resetScanner();
+    },
+    [isSelectionLocked, resetScanner, selectedProgramId, setSelectedProgram]
+  );
+
+  const handleActionModePress = useCallback(
+    (mode: ScanActionMode) => {
+      if (isSelectionLocked || mode === selectedActionMode) {
+        return;
+      }
+      setSelectedActionMode(mode);
+      resetScanner();
+    },
+    [isSelectionLocked, resetScanner, selectedActionMode]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <AnimatedActionBanner
         eventKey={businessSuccessBannerKey}
-        message={BUSINESS_SUCCESS_BANNER_MESSAGE}
+        message={successBannerMessage}
         topOffset={(insets.top || 0) + 8}
         durationMs={BUSINESS_SUCCESS_BANNER_DURATION_MS}
         variant="success"
       />
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
         contentContainerStyle={[
@@ -495,64 +692,190 @@ export default function ScannerScreen() {
           </View>
         </StickyScrollHeader>
 
-        <View style={styles.row}>
-          <Pressable
-            onPress={cycleProgram}
-            style={({ pressed }) => [
-              styles.selectorCard,
-              { opacity: pressed ? 0.85 : 1 },
-              !selectedProgram && styles.selectorCardDisabled,
-            ]}
-          >
-            <Text style={styles.selectorTitle}>
-              {selectedProgram
-                ? selectedProgram.title
-                : '\u05d1\u05d7\u05e8 \u05ea\u05d5\u05db\u05e0\u05d9\u05ea'}
-            </Text>
-            <Text style={styles.selectorSubtitle}>
-              {selectedProgram?.isArchived
-                ? '\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05d1\u05d0\u05e8\u05db\u05d9\u05d5\u05df (\u05e8\u05e7 \u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e7\u05d9\u05d9\u05de\u05d9\u05dd)'
-                : programs.length > 1
-                  ? '\u05dc\u05d7\u05e5 \u05db\u05d3\u05d9 \u05dc\u05d4\u05d7\u05dc\u05d9\u05e3 \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d4'
-                  : '\u05d1\u05d7\u05e8 \u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05db\u05d3\u05d9 \u05dc\u05d4\u05ea\u05d7\u05d9\u05dc'}
-            </Text>
-          </Pressable>
+        <View style={styles.carouselWrap}>
+          <View style={styles.actionModeRow}>
+            <Pressable
+              onPress={() => handleActionModePress('stamp')}
+              disabled={isSelectionLocked}
+              style={({ pressed }) => [
+                styles.actionModeButton,
+                selectedActionMode === 'stamp'
+                  ? styles.actionModeButtonSelected
+                  : null,
+                pressed ? styles.actionModeButtonPressed : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.actionModeLabel,
+                  selectedActionMode === 'stamp'
+                    ? styles.actionModeLabelSelected
+                    : null,
+                ]}
+              >
+                ניקוב
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleActionModePress('redeem')}
+              disabled={isSelectionLocked}
+              style={({ pressed }) => [
+                styles.actionModeButton,
+                selectedActionMode === 'redeem'
+                  ? styles.actionModeButtonSelected
+                  : null,
+                pressed ? styles.actionModeButtonPressed : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.actionModeLabel,
+                  selectedActionMode === 'redeem'
+                    ? styles.actionModeLabelSelected
+                    : null,
+                ]}
+              >
+                מימוש הטבה
+              </Text>
+            </Pressable>
+          </View>
+
+          {programs.length === 0 ? (
+            <View style={styles.emptyProgramsCard}>
+              <Text style={styles.emptyProgramsTitle}>
+                אין תוכנית פעילה לסריקה
+              </Text>
+              <Text style={styles.emptyProgramsSubtitle}>
+                כדי להתחיל, הפעילו לפחות תוכנית נאמנות אחת.
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(authenticated)/(business)/cards')}
+                style={({ pressed }) => [
+                  styles.emptyProgramsButton,
+                  pressed ? styles.emptyProgramsButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.emptyProgramsButtonText}>
+                  מעבר לניהול כרטיסים
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <ScrollView
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselContent}
+              >
+                {programs.map((program) => {
+                  const isSelected =
+                    program.loyaltyProgramId ===
+                    selectedProgram?.loyaltyProgramId;
+                  return (
+                    <Pressable
+                      key={program.loyaltyProgramId}
+                      onPress={() =>
+                        handleProgramPress(program.loyaltyProgramId)
+                      }
+                      disabled={isSelectionLocked}
+                      style={({ pressed }) => [
+                        styles.programCard,
+                        isSelected ? styles.programCardSelected : null,
+                        isSelectionLocked ? styles.programCardLocked : null,
+                        pressed ? styles.programCardPressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.programIcon,
+                          isSelected ? styles.programIconSelected : null,
+                        ]}
+                      >
+                        {program.stampIcon}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.programTitle,
+                          isSelected ? styles.programTitleSelected : null,
+                        ]}
+                      >
+                        {program.title}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.programSubtitle,
+                          isSelected ? styles.programSubtitleSelected : null,
+                        ]}
+                      >
+                        {program.maxStamps} ניקובים · {program.rewardName}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.selectionLabelCard}>
+                <Text style={styles.selectionLabel}>
+                  {selectedProgram
+                    ? selectedActionMode === 'redeem'
+                      ? `מממשים ב: ${selectedProgram.title}`
+                      : `מחתימים אל: ${selectedProgram.title}`
+                    : 'בחרו תוכנית לסריקה'}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.scannerBox}>
           <QrScanner
             onScan={handleScan}
             resetKey={scannerResetKey}
-            isBusy={isBusy}
+            isBusy={isBusy || !canScan || Boolean(retrySession)}
+            caption={
+              !canScan
+                ? 'אין תוכנית פעילה לסריקה'
+                : retrySession
+                  ? 'הסריקה ממתינה לניסיון חוזר'
+                  : selectedActionMode === 'redeem'
+                    ? 'סרקו QR כדי לממש הטבה'
+                    : undefined
+            }
           />
         </View>
 
         {scanError ? (
           <View style={styles.messageCard}>
             <Text style={styles.errorText}>{scanError}</Text>
+            {retrySession ? (
+              <Pressable
+                onPress={handleRetryCommit}
+                disabled={isBusy}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed ? styles.retryButtonPressed : null,
+                  isBusy ? styles.retryButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.retryButtonText}>נסה שוב</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
         {resultBanner ? (
           <View style={styles.resultBanner}>
-            <Text style={styles.resultBannerTitle}>
-              {
-                '\u05e4\u05e8\u05d8\u05d9 \u05d4\u05e0\u05d9\u05e7\u05d5\u05d1 \u05d4\u05d0\u05d7\u05e8\u05d5\u05df'
-              }
-            </Text>
+            <Text style={styles.resultBannerTitle}>פרטי הפעולה האחרונה</Text>
             <Text style={styles.resultCustomerName}>
               {resultBanner.customerDisplayName}
             </Text>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>
-                {'\u05de\u05e2\u05de\u05d3'}
-              </Text>
+              <Text style={styles.resultLabel}>מעמד</Text>
               <Text style={styles.resultValue}>{resultBanner.statusLabel}</Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>
-                {'\u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd'}
-              </Text>
+              <Text style={styles.resultLabel}>ניקובים</Text>
               <Text style={styles.resultValue}>
                 {resultBanner.currentStamps}/{resultBanner.maxStamps}
               </Text>
@@ -579,31 +902,141 @@ const styles = StyleSheet.create({
   header: {
     gap: 6,
   },
-  row: {
-    flexDirection: 'row-reverse',
+  carouselWrap: {
     gap: 10,
   },
-  selectorCard: {
+  actionModeRow: {
+    flexDirection: 'row-reverse',
+    gap: 8,
+  },
+  actionModeButton: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D5E3FF',
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionModeButtonSelected: {
+    backgroundColor: '#2F6BFF',
+    borderColor: '#1F57DC',
+  },
+  actionModeButtonPressed: {
+    opacity: 0.9,
+  },
+  actionModeLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#1A2B4A',
+  },
+  actionModeLabelSelected: {
+    color: '#FFFFFF',
+  },
+  carouselContent: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  programCard: {
+    minWidth: 160,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 12,
+    borderColor: '#D5E3FF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 4,
   },
-  selectorCardDisabled: {
-    backgroundColor: '#F0F4FF',
+  programCardSelected: {
+    backgroundColor: '#2F6BFF',
+    borderColor: '#1F57DC',
+    shadowColor: '#2F6BFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 6,
   },
-  selectorTitle: {
+  programCardPressed: {
+    opacity: 0.9,
+  },
+  programCardLocked: {
+    opacity: 0.8,
+  },
+  programIcon: {
+    fontSize: 18,
+    color: '#1F2A44',
+    textAlign: 'right',
+  },
+  programIconSelected: {
+    color: '#FFFFFF',
+  },
+  programTitle: {
+    fontSize: 14,
     fontWeight: '900',
     color: '#0B1220',
-    textAlign: 'center',
+    textAlign: 'right',
   },
-  selectorSubtitle: {
-    marginTop: 4,
+  programTitleSelected: {
+    color: '#FFFFFF',
+  },
+  programSubtitle: {
     fontSize: 11,
+    fontWeight: '700',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
+  },
+  programSubtitleSelected: {
+    color: '#DDE9FF',
+  },
+  selectionLabelCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D5E3FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  selectionLabel: {
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1A2B4A',
+  },
+  emptyProgramsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D5E3FF',
+    padding: 14,
+    gap: 6,
+  },
+  emptyProgramsTitle: {
+    color: '#1A2B4A',
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  emptyProgramsSubtitle: {
+    color: '#5B6475',
+    fontWeight: '600',
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  emptyProgramsButton: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    backgroundColor: '#2F6BFF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  emptyProgramsButtonPressed: {
+    opacity: 0.9,
+  },
+  emptyProgramsButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
   },
   scannerBox: {
     flex: 1,
@@ -615,11 +1048,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E9FF',
     padding: 14,
+    gap: 10,
   },
   errorText: {
     color: '#D92D20',
     fontWeight: '700',
     textAlign: 'right',
+  },
+  retryButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2F6BFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  retryButtonPressed: {
+    opacity: 0.9,
+  },
+  retryButtonDisabled: {
+    opacity: 0.6,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
   },
   resultBanner: {
     backgroundColor: '#FFFFFF',

@@ -228,6 +228,8 @@ export default defineSchema({
     rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
     cardThemeId: v.optional(v.string()),
+    posSortOrder: v.optional(v.number()),
+    allowPosEnroll: v.optional(v.boolean()),
     lastStructureChangedAt: v.optional(v.number()),
     structureSignature: v.optional(v.string()),
     isArchived: v.optional(v.boolean()),
@@ -281,15 +283,53 @@ export default defineSchema({
     .index('by_customerUserId', ['customerUserId'])
     .index('by_createdAt', ['createdAt']),
 
+  scanSessions: defineTable({
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+    customerId: v.id('users'),
+    actorUserId: v.id('users'),
+    actionType: v.union(v.literal('stamp'), v.literal('redeem')),
+    tokenVersion: v.number(),
+    tokenSignature: v.string(),
+    tokenNonce: v.optional(v.string()),
+    tokenIssuedAt: v.number(),
+    tokenExpiresAt: v.number(),
+    resolvedMembershipId: v.optional(v.id('memberships')),
+    status: v.union(
+      v.literal('ready'),
+      v.literal('committed'),
+      v.literal('failed_business'),
+      v.literal('expired')
+    ),
+    failedCode: v.optional(v.string()),
+    result: v.optional(v.any()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    committedAt: v.optional(v.number()),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_customerId', ['customerId'])
+    .index('by_actorUserId', ['actorUserId'])
+    .index('by_tokenNonce', ['tokenNonce'])
+    .index('by_status', ['status']),
+
   scanTokenEvents: defineTable({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     customerId: v.id('users'),
     signature: v.string(),
+    nonce: v.optional(v.string()),
+    tokenVersion: v.optional(v.number()),
+    actionType: v.optional(v.union(v.literal('stamp'), v.literal('redeem'))),
+    membershipId: v.optional(v.id('memberships')),
+    actorUserId: v.optional(v.id('users')),
+    scanSessionId: v.optional(v.id('scanSessions')),
     tokenTimestamp: v.number(),
+    consumedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_signature', ['signature'])
+    .index('by_nonce', ['nonce'])
     .index('by_businessId', ['businessId'])
     .index('by_businessProgram', ['businessId', 'programId'])
     .index('by_customerId', ['customerId']),
