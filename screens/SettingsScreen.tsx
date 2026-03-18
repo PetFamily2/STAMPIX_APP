@@ -529,7 +529,7 @@ export default function SettingsScreen() {
       await setActiveBusiness({ businessId });
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');
-      router.replace('/(authenticated)/(staff)/scanner');
+      router.navigate('/(authenticated)/(staff)/scanner');
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,

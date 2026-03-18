@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -17,6 +18,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { tw } from '@/lib/rtl';
 
@@ -33,7 +35,7 @@ const STATUS_LABEL: Record<'active' | 'suspended' | 'removed', string> = {
 };
 
 const PERMISSION_LABELS: Record<string, string> = {
-  scanner_access: 'סריקת לקוחות',
+  scanner_access: 'סריקת לקוחות, חיפוש לקוחות וצפייה במבצעים',
   manage_staff_only: 'ניהול עובדים (עובדים בלבד)',
   manage_business_settings: 'ניהול הגדרות עסק',
   manage_team: 'ניהול צוות מלא',
@@ -42,7 +44,7 @@ const PERMISSION_LABELS: Record<string, string> = {
 
 type MyBusinessMembershipRow = {
   staffId: string;
-  businessId: string;
+  businessId: Id<'businesses'>;
   businessName: string;
   staffRole: 'owner' | 'manager' | 'staff';
   status: 'active' | 'suspended' | 'removed';
@@ -53,13 +55,11 @@ export default function StaffSettingsScreen() {
   const router = useRouter();
   const { setAppMode } = useAppMode();
   const setActiveMode = useMutation(api.users.setActiveMode);
-  const {
-    activeBusinessId,
-    activeBusiness,
-    businesses,
-    isSwitchingBusiness,
-    setActiveBusinessId,
-  } = useActiveBusiness();
+  const selfRemoveFromBusiness = useMutation(
+    api.business.selfRemoveFromBusiness
+  );
+  const { activeBusinessId, isSwitchingBusiness, setActiveBusinessId } =
+    useActiveBusiness();
 
   const profile = useQuery(
     api.business.getMyStaffProfileForBusiness,
@@ -71,9 +71,7 @@ export default function StaffSettingsScreen() {
       | undefined) ?? [];
 
   const [busyBusinessId, setBusyBusinessId] = useState<string | null>(null);
-  const canOpenBusinessShell =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const permissionLabels = useMemo(
     () =>
@@ -83,13 +81,13 @@ export default function StaffSettingsScreen() {
     [profile?.permissions]
   );
 
-  const switchBusiness = async (businessId: string) => {
+  const switchBusiness = async (businessId: Id<'businesses'>) => {
     if (busyBusinessId || isSwitchingBusiness) {
       return;
     }
-    setBusyBusinessId(businessId);
+    setBusyBusinessId(String(businessId));
     try {
-      await setActiveBusinessId(businessId as any);
+      await setActiveBusinessId(businessId);
     } finally {
       setBusyBusinessId(null);
     }
@@ -98,17 +96,29 @@ export default function StaffSettingsScreen() {
   const goToPrivateArea = async () => {
     await setActiveMode({ mode: 'customer' });
     await setAppMode('customer');
-    router.replace('/(authenticated)/(customer)/wallet');
+    router.navigate('/(authenticated)/(customer)/wallet');
   };
 
-  const goToBusinessShell = async () => {
-    await setActiveMode({ mode: 'business' });
-    await setAppMode('business');
-    if (canOpenBusinessShell) {
-      router.replace('/(authenticated)/(business)/dashboard');
-      return;
-    }
-    router.replace('/(authenticated)/(staff)/scanner');
+  const handleDeleteUser = () => {
+    Alert.alert('מחק משתמש', 'האם למחוק את הפרופיל שלך מהעסק?', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'מחק',
+        style: 'destructive',
+        onPress: async () => {
+          if (!activeBusinessId || isRemoving) {
+            return;
+          }
+          setIsRemoving(true);
+          try {
+            await selfRemoveFromBusiness({ businessId: activeBusinessId });
+            await goToPrivateArea();
+          } finally {
+            setIsRemoving(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -127,9 +137,17 @@ export default function StaffSettingsScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="הגדרות צוות"
-            subtitle="פרופיל עובד, הרשאות ועסק פעיל"
+            title="הגדרות קופאי"
+            subtitle="פרופיל קופאי, הרשאות ועסק פעיל"
           />
+          <TouchableOpacity
+            onPress={() => void goToPrivateArea()}
+            className="mt-3 rounded-2xl bg-[#2F6BFF] px-4 py-3"
+          >
+            <Text className="text-center text-sm font-bold text-white">
+              חזרה לארנק האישי
+            </Text>
+          </TouchableOpacity>
         </StickyScrollHeader>
 
         <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
@@ -242,49 +260,19 @@ export default function StaffSettingsScreen() {
           </View>
         </View>
 
-        <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            מצב אפליקציה
-          </Text>
-
+        <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
           <TouchableOpacity
-            onPress={() => {
-              void goToBusinessShell();
-            }}
-            className="mt-3 rounded-2xl border border-[#D6E3FF] bg-[#EFF4FF] px-4 py-3"
+            onPress={handleDeleteUser}
+            disabled={isRemoving}
+            className="items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
           >
-            <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-              מעבר למצב עסק
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              void goToPrivateArea();
-            }}
-            className="mt-3 rounded-2xl border border-[#D6E3FF] bg-white px-4 py-3"
-          >
-            <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-              מעבר לאזור פרטי
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            הסורק
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.replace('/(authenticated)/(staff)/scanner')}
-            className="mt-3 rounded-2xl bg-[#2F6BFF] px-4 py-3"
-          >
-            <Text className="text-center text-sm font-bold text-white">
-              חזרה לסורק
-            </Text>
+            {isRemoving ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-center text-sm font-bold text-white">
+                מחק משתמש
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

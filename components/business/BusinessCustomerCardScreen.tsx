@@ -169,7 +169,7 @@ export default function BusinessCustomerCardScreen() {
 
   const goBack = () => {
     if (isStaffRoute) {
-      router.replace('/(authenticated)/(staff)/scanner');
+      router.back();
       return;
     }
     router.replace({

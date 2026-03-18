@@ -285,7 +285,8 @@ export default function BusinessCardsManagementScreen() {
         maxStamps: 10,
         stampIcon: 'star',
         cardTerms: 'ניקוב אחד לכל קנייה מזכה. אין כפל מבצעים.',
-        rewardConditions: 'מימוש בהצגת הכרטיסיה בסניף, עד 30 יום מהשלמת הכרטיסיה.',
+        rewardConditions:
+          'מימוש בהצגת הכרטיסיה בסניף, עד 30 יום מהשלמת הכרטיסיה.',
       });
       router.push({
         pathname: '/(authenticated)/(business)/cards/[programId]',

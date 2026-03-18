@@ -299,7 +299,9 @@ export default function ProgramCustomerCardPreview({
                           styles.stampDot,
                           variant === 'compact' ? styles.stampDotCompact : null,
                           getStampShapeStyle(stampShape, variant),
-                          isFilled ? styles.stampDotFilled : styles.stampDotEmpty,
+                          isFilled
+                            ? styles.stampDotFilled
+                            : styles.stampDotEmpty,
                         ]}
                       >
                         {shouldShowIcon ? (

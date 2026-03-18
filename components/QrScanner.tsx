@@ -1,4 +1,4 @@
-﻿import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ type QrScannerProps = {
   caption?: string;
   showStatus?: boolean;
   cameraMinHeight?: number;
+  onTapWhileScanned?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -27,6 +28,7 @@ export default function QrScanner({
   caption,
   showStatus = true,
   cameraMinHeight = 300,
+  onTapWhileScanned,
   style,
 }: QrScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -142,6 +144,14 @@ export default function QrScanner({
             <View style={[styles.corner, styles.cornerBottomRight]} />
           </View>
         ) : null}
+        {scanned && onTapWhileScanned ? (
+          <Pressable
+            style={styles.tapToResetOverlay}
+            onPress={onTapWhileScanned}
+            accessibilityRole="button"
+            accessibilityLabel="סרוק שוב"
+          />
+        ) : null}
       </View>
       {showStatus ? (
         <View style={styles.statusRow}>
@@ -218,6 +228,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderBottomRightRadius: 14,
+  },
+  tapToResetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
   },
   permissionFallback: {
     flex: 1,

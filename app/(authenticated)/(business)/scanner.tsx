@@ -1,6 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import {
+  type ParamListBase,
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -579,7 +584,7 @@ export default function ScannerScreen() {
     setUndoState(null);
   }, []);
 
-  const queueScannerReset = useCallback((delayMs = 1200) => {
+  const queueScannerReset = useCallback((delayMs = 30000) => {
     if (scannerResetTimeoutRef.current) {
       clearTimeout(scannerResetTimeoutRef.current);
     }
@@ -589,12 +594,21 @@ export default function ScannerScreen() {
     }, delayMs);
   }, []);
 
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+
   useFocusEffect(
     useCallback(() => {
       setScannerRuntimeSessionId(generateRuntimeSessionId());
       resetScanner();
     }, [resetScanner])
   );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      resetScanner();
+    });
+    return unsubscribe;
+  }, [navigation, resetScanner]);
 
   useEffect(() => {
     return () => {
@@ -1325,28 +1339,71 @@ export default function ScannerScreen() {
               Boolean(retrySession) ||
               Boolean(pendingRedeemSession)
             }
+            onTapWhileScanned={resetScanner}
           />
         </View>
 
         {pendingRedeemSession ? (
-          <View style={styles.redeemReadyCard}>
-            <Text style={styles.redeemReadyTitle}>הלקוח זכאי למימוש</Text>
-            <Text style={styles.redeemReadySubtitle}>
-              {pendingRedeemSession.customerDisplayName}
-            </Text>
-            <Pressable
-              onPress={handleRedeemCommit}
-              disabled={isBusy}
-              style={({ pressed }) => [
-                styles.redeemReadyButton,
-                pressed ? styles.redeemReadyButtonPressed : null,
-                isBusy ? styles.redeemReadyButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.redeemReadyButtonText}>
-                {isStamping ? 'מממשים...' : 'ממש'}
+          <View style={styles.redeemRow}>
+            <View style={styles.redeemInfoCard}>
+              <Text style={styles.redeemInfoTitle}>הלקוח זכאי למימוש</Text>
+              <Text style={styles.resultCustomerName}>
+                {pendingRedeemSession.customerDisplayName}
               </Text>
-            </Pressable>
+              {pendingRedeemSession.membership ? (
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>ניקובים</Text>
+                  <Text style={styles.resultValue}>
+                    {pendingRedeemSession.membership.currentStamps}/
+                    {pendingRedeemSession.membership.maxStamps}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.redeemButtonsColumn}>
+              <View style={styles.redeemSideBox}>
+                <Pressable
+                  onPress={handleRedeemCommit}
+                  disabled={isBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="ממש הטבה"
+                  style={({ pressed }) => [
+                    styles.redeemSideButton,
+                    pressed ? styles.redeemSideButtonPressed : null,
+                    isBusy ? styles.redeemSideButtonDisabled : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="gift-outline"
+                    size={24}
+                    color="#16A34A"
+                    style={{ marginRight: 10 }}
+                  />
+                  <Text style={styles.redeemSideButtonLabel}>
+                    {isStamping ? 'מממשים...' : 'ממש הטבה'}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={styles.cancelSideBox}>
+                <Pressable
+                  onPress={resetScanner}
+                  accessibilityRole="button"
+                  accessibilityLabel="ביטול"
+                  style={({ pressed }) => [
+                    styles.cancelSideButton,
+                    pressed ? styles.cancelSideButtonPressed : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="close-outline"
+                    size={24}
+                    color="#DC2626"
+                    style={{ marginRight: 10 }}
+                  />
+                  <Text style={styles.cancelSideButtonLabel}>ביטול</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -1370,41 +1427,50 @@ export default function ScannerScreen() {
         ) : null}
 
         {resultBanner ? (
-          <View style={styles.resultBanner}>
-            <Text style={styles.resultCustomerName}>
-              {resultBanner.customerDisplayName}
-            </Text>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>מעמד</Text>
-              <Text style={styles.resultValue}>{resultBanner.statusLabel}</Text>
-            </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>ניקובים</Text>
-              <Text style={styles.resultValue}>
-                {resultBanner.currentStamps}/{resultBanner.maxStamps}
+          <View style={styles.resultBannerRow}>
+            <View style={styles.resultBanner}>
+              <Text style={styles.resultCustomerName}>
+                {resultBanner.customerDisplayName}
               </Text>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>מעמד</Text>
+                <Text style={styles.resultValue}>
+                  {resultBanner.statusLabel}
+                </Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>ניקובים</Text>
+                <Text style={styles.resultValue}>
+                  {resultBanner.currentStamps}/{resultBanner.maxStamps}
+                </Text>
+              </View>
             </View>
             {undoActionActive && undoPresentation ? (
-              <Pressable
-                onPress={handleUndoLastAction}
-                disabled={isBusy || !undoState?.eventId}
-                accessibilityRole="button"
-                accessibilityLabel={undoPresentation.buttonLabel ?? 'בטל פעולה'}
-                style={({ pressed }) => [
-                  styles.undoCompactAction,
-                  pressed ? styles.undoCompactActionPressed : null,
-                  isBusy || !undoState?.eventId
-                    ? styles.undoCompactActionDisabled
-                    : null,
-                ]}
-              >
-                <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
-                <Text style={styles.undoCompactLabel}>בטל פעולה</Text>
-                <Text style={styles.undoCompactDot}>:</Text>
-                <Text style={styles.undoCompactTimer}>
-                  {undoPresentation.countdownLabel}
-                </Text>
-              </Pressable>
+              <View style={styles.undoSideBox}>
+                <Pressable
+                  onPress={handleUndoLastAction}
+                  disabled={isBusy || !undoState?.eventId}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    undoPresentation.buttonLabel ?? 'בטל פעולה'
+                  }
+                  style={({ pressed }) => [
+                    styles.undoSideButton,
+                    pressed ? styles.undoSideButtonPressed : null,
+                    isBusy || !undoState?.eventId
+                      ? styles.undoSideButtonDisabled
+                      : null,
+                  ]}
+                >
+                  <Ionicons
+                    name="arrow-undo-outline"
+                    size={24}
+                    color="#DC2626"
+                    style={{ marginRight: 10 }}
+                  />
+                  <Text style={styles.undoSideButtonLabel}>ביטול</Text>
+                </Pressable>
+              </View>
             ) : null}
           </View>
         ) : null}
@@ -1566,43 +1632,88 @@ const styles = StyleSheet.create({
     marginTop: -10,
     minHeight: 220,
   },
-  redeemReadyCard: {
+  redeemRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  redeemInfoCard: {
+    flex: 3,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#C7DBFF',
-    padding: 14,
+    padding: 16,
     gap: 10,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 22,
+    elevation: 3,
   },
-  redeemReadyTitle: {
+  redeemInfoTitle: {
     color: '#1A2B4A',
     fontWeight: '900',
     fontSize: 16,
     textAlign: 'right',
   },
-  redeemReadySubtitle: {
-    color: '#475569',
-    fontWeight: '700',
-    fontSize: 13,
-    textAlign: 'right',
+  redeemButtonsColumn: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 8,
   },
-  redeemReadyButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#2F6BFF',
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+  redeemSideBox: {
+    flex: 1,
+    backgroundColor: '#DCFCE7',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#16A34A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  redeemReadyButtonPressed: {
-    opacity: 0.9,
+  redeemSideButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  redeemReadyButtonDisabled: {
-    opacity: 0.6,
+  redeemSideButtonPressed: {
+    opacity: 0.7,
   },
-  redeemReadyButtonText: {
-    color: '#FFFFFF',
+  redeemSideButtonDisabled: {
+    opacity: 0.5,
+  },
+  redeemSideButtonLabel: {
+    color: '#16A34A',
+    fontSize: 14,
     fontWeight: '900',
-    fontSize: 13,
+    textAlign: 'center',
+  },
+  cancelSideBox: {
+    flex: 1,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelSideButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  cancelSideButtonPressed: {
+    opacity: 0.7,
+  },
+  cancelSideButtonLabel: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   messageCard: {
     backgroundColor: '#FFFFFF',
@@ -1664,7 +1775,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
+  resultBannerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  undoSideBox: {
+    flex: 1,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  undoSideButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  undoSideButtonPressed: {
+    opacity: 0.7,
+  },
+  undoSideButtonDisabled: {
+    opacity: 0.5,
+  },
+  undoSideButtonLabel: {
+    color: '#DC2626',
+    fontSize: 15,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   resultBanner: {
+    flex: 3,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
@@ -1694,6 +1839,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1A2B4A',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   resultRow: {
     flexDirection: 'row-reverse',
@@ -1822,4 +1968,3 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 });
-

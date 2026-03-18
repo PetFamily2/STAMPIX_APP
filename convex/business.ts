@@ -2631,3 +2631,46 @@ export const removeBusinessStaff = mutation({
     return { staffId: target._id, status: 'removed' as const };
   },
 });
+
+export const selfRemoveFromBusiness = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const { actor, membership, staffRole } =
+      await requireActorIsActiveStaffForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    if (staffRole === 'owner') {
+      throw new Error('OWNER_CANNOT_SELF_REMOVE');
+    }
+
+    const previousStatus = resolveStaffStatus(membership);
+    if (previousStatus === 'removed') {
+      return { staffId: membership._id, status: 'removed' as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(membership._id, {
+      status: 'removed',
+      isActive: false,
+      statusChangedAt: now,
+      statusChangedByUserId: actor._id,
+      removedAt: now,
+      removedByUserId: actor._id,
+      updatedAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetUserId: actor._id,
+      eventType: 'removed',
+      fromStatus: previousStatus,
+      toStatus: 'removed',
+      createdAt: now,
+    });
+
+    return { staffId: membership._id, status: 'removed' as const };
+  },
+});

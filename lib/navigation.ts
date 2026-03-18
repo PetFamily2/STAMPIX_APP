@@ -15,7 +15,7 @@ export const safeBack = (fallback?: string) => {
   }
 
   try {
-    router.replace(fallback as Href);
+    router.navigate(fallback as Href);
   } catch {
     // No navigation context; ignore to avoid crash.
   }

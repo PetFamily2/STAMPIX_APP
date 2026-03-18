@@ -1,19 +1,26 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
-import { Redirect, Tabs, useLocalSearchParams } from 'expo-router';
+import { Redirect, Tabs, useLocalSearchParams, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ScannerTabButton,
+  StandardTabButton,
+  TAB_BAR_CONTENT_HEIGHT,
+} from '@/components/BusinessTabBar';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { resolveActiveBusinessShell } from '@/lib/activeBusinessShell';
 
 const TEXT = {
-  scanner: '\u05e1\u05d5\u05e8\u05e7',
-  settings: '\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea',
+  scanner: 'סורק',
+  customers: 'לקוחות',
+  promotions: 'מבצעים',
+  settings: 'הגדרות',
 };
 
 export default function StaffTabsLayout() {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -24,6 +31,23 @@ export default function StaffTabsLayout() {
   const businesses = sessionContext?.businesses ?? [];
   const activeBusinessId = sessionContext?.activeBusinessId ?? null;
   const activeShell = resolveActiveBusinessShell(businesses, activeBusinessId);
+
+  const segmentStrings = (
+    Array.isArray(segments) ? segments.filter(Boolean) : []
+  ) as string[];
+  const currentLeafSegment = segmentStrings[segmentStrings.length - 1] ?? '';
+  const activeTabName =
+    currentLeafSegment === 'scanner'
+      ? 'scanner'
+      : currentLeafSegment === 'customers'
+        ? 'customers'
+        : currentLeafSegment === 'promotions'
+          ? 'promotions'
+          : currentLeafSegment === 'settings'
+            ? 'settings'
+            : segmentStrings.includes('customer')
+              ? 'customers'
+              : 'scanner';
 
   if (isLoading) {
     return <FullScreenLoading />;
@@ -49,38 +73,86 @@ export default function StaffTabsLayout() {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
+          overflow: 'visible',
           elevation: 8,
           shadowColor: '#2F6BFF',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
-          height: 60 + (insets.bottom || 0),
+          height: 72 + (insets.bottom || 0),
+          minHeight: 72 + (insets.bottom || 0),
           paddingBottom: 8 + (insets.bottom || 0),
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#2F6BFF',
+        tabBarItemStyle: {
+          height: TAB_BAR_CONTENT_HEIGHT,
+          overflow: 'visible',
+        },
+        tabBarActiveTintColor: '#111827',
         tabBarInactiveTintColor: '#9AA4B8',
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          marginTop: 2,
+          fontSize: 12,
+          lineHeight: 14,
+          fontWeight: '700',
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
       }}
     >
       <Tabs.Screen
-        name="scanner"
+        name="settings"
         options={{
-          title: TEXT.scanner,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="qr-code-outline" size={size} color={color} />
+          title: TEXT.settings,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.settings}
+              icon="settings-outline"
+              isActive={activeTabName === 'settings'}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="promotions"
         options={{
-          title: TEXT.settings,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          title: TEXT.promotions,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.promotions}
+              icon="megaphone-outline"
+              isActive={activeTabName === 'promotions'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scanner"
+        options={{
+          title: TEXT.scanner,
+          tabBarButton: (props) => (
+            <ScannerTabButton
+              props={props}
+              title={TEXT.scanner}
+              isActive={activeTabName === 'scanner'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="customers"
+        options={{
+          title: TEXT.customers,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.customers}
+              icon="people-outline"
+              isActive={activeTabName === 'customers'}
+            />
           ),
         }}
       />
