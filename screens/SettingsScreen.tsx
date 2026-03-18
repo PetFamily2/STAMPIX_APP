@@ -6,7 +6,7 @@ import { useMutation } from 'convex/react';
 import { router, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +32,9 @@ import {
   NOTIFICATIONS_ENABLED_STORAGE_KEY,
   usePushNotifications,
 } from '@/contexts/PushNotificationsContext';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 
@@ -59,6 +61,10 @@ const TEXT = {
   notificationsToggleTitle: '\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea',
   notificationsToggleSubtitle:
     '\u05e7\u05d1\u05dc\u05ea \u05e2\u05d3\u05db\u05d5\u05e0\u05d9\u05dd \u05d5\u05d4\u05d8\u05d1\u05d5\u05ea',
+  marketingToggleTitle:
+    '\u05d3\u05d9\u05d5\u05d5\u05e8 \u05e9\u05d9\u05d5\u05d5\u05e7\u05d9',
+  marketingToggleSubtitle:
+    '\u05d4\u05e1\u05db\u05de\u05d4 \u05dc\u05e7\u05d1\u05dc\u05ea \u05de\u05d1\u05e6\u05e2\u05d9\u05dd \u05d5\u05d4\u05d8\u05d1\u05d5\u05ea',
   sectionSupport:
     '\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05de\u05e1\u05de\u05db\u05d9\u05dd',
   helpTitle: '\u05e2\u05d6\u05e8\u05d4 \u05d5\u05ea\u05de\u05d9\u05db\u05d4',
@@ -94,12 +100,20 @@ const TEXT = {
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e4\u05ea\u05d5\u05d7 \u05d0\u05ea \u05d4\u05de\u05e1\u05de\u05da \u05d4\u05de\u05e9\u05e4\u05d8\u05d9',
   notificationsSaveFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  marketingSaveFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d3\u05d9\u05d5\u05d5\u05e8 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
   notificationsPermissionTitle:
     '\u05d4\u05e8\u05e9\u05d0\u05ea \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05d3\u05e8\u05e9\u05ea',
   notificationsPermissionMessage:
     '\u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea, \u05d0\u05e9\u05e8\u05d5 \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea \u05d4\u05de\u05db\u05e9\u05d9\u05e8.',
   switchModeFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  staffBusinessesTitle:
+    '\u05d4\u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05d1\u05d4\u05dd \u05d0\u05e0\u05d9 \u05e2\u05d5\u05d1\u05d3',
+  staffBusinessSubtitle:
+    '\u05db\u05e0\u05d9\u05e1\u05d4 \u05d9\u05e9\u05d9\u05e8\u05d4 \u05dc\u05e1\u05d5\u05e8\u05e7 \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7',
+  staffBusinessAction: '\u05e4\u05ea\u05d7 \u05e1\u05d5\u05e8\u05e7',
+  staffBusinessActive: '\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc',
   logoutFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d1\u05e6\u05e2 \u05d9\u05e6\u05d9\u05d0\u05d4 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
   deleteModalTitle:
@@ -249,8 +263,8 @@ function NotificationToggleRow({
                 ? styles.notificationSwitchThumbEnabled
                 : styles.notificationSwitchThumbDisabled,
               enabled
-                ? styles.notificationSwitchThumbRight
-                : styles.notificationSwitchThumbLeft,
+                ? styles.notificationSwitchThumbLeft
+                : styles.notificationSwitchThumbRight,
             ]}
           />
         </View>
@@ -263,7 +277,12 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const tabBarHeight = useBottomTabBarHeight();
+  const sessionContext = useSessionContext();
+  const user = sessionContext?.user;
   const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
+  const setActiveBusiness = useMutation(api.users.setActiveBusiness);
+  const setActiveMode = useMutation(api.users.setActiveMode);
+  const setMyMarketingProfile = useMutation(api.users.setMyMarketingProfile);
   const { setAppMode } = useAppMode();
   const {
     isEnabled: notificationsEnabled,
@@ -277,6 +296,13 @@ export default function SettingsScreen() {
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [marketingEnabled, setMarketingEnabled] = useState(
+    user?.marketingOptIn === true
+  );
+  const [marketingBusy, setMarketingBusy] = useState(false);
+  const [staffBusinessBusyId, setStaffBusinessBusyId] = useState<string | null>(
+    null
+  );
 
   const isActionBusy = deleteBusy;
   const notificationBusy = notificationsLoading || notificationsSyncing;
@@ -287,6 +313,14 @@ export default function SettingsScreen() {
   const isBusinessSettingsScreen = (
     Array.isArray(segments) ? (segments as string[]) : []
   ).includes('(business)');
+  const staffBusinesses =
+    sessionContext?.businesses.filter(
+      (business) => business.staffRole === 'staff'
+    ) ?? [];
+
+  useEffect(() => {
+    setMarketingEnabled(user?.marketingOptIn === true);
+  }, [user?.marketingOptIn]);
 
   const openHelpCenter = () => {
     router.push('/(authenticated)/(customer)/help-support');
@@ -457,6 +491,55 @@ export default function SettingsScreen() {
     }
   };
 
+  const toggleMarketing = async () => {
+    if (marketingBusy || !user) {
+      return;
+    }
+
+    const nextValue = !marketingEnabled;
+    setMarketingEnabled(nextValue);
+    setMarketingBusy(true);
+
+    try {
+      await setMyMarketingProfile({
+        marketingOptIn: nextValue,
+        birthdayMonth: user.birthdayMonth,
+        birthdayDay: user.birthdayDay,
+        anniversaryMonth: user.anniversaryMonth,
+        anniversaryDay: user.anniversaryDay,
+      });
+    } catch (error) {
+      setMarketingEnabled(user.marketingOptIn === true);
+      Alert.alert(
+        TEXT.errorTitle,
+        toErrorMessage(error, TEXT.marketingSaveFailed)
+      );
+    } finally {
+      setMarketingBusy(false);
+    }
+  };
+
+  const openStaffBusinessScanner = async (businessId: Id<'businesses'>) => {
+    if (staffBusinessBusyId) {
+      return;
+    }
+
+    try {
+      setStaffBusinessBusyId(String(businessId));
+      await setActiveBusiness({ businessId });
+      await setActiveMode({ mode: 'business' });
+      await setAppMode('business');
+      router.replace('/(authenticated)/(staff)/scanner');
+    } catch (error) {
+      Alert.alert(
+        TEXT.errorTitle,
+        toErrorMessage(error, TEXT.switchModeFailed)
+      );
+    } finally {
+      setStaffBusinessBusyId(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <View
@@ -489,6 +572,80 @@ export default function SettingsScreen() {
           },
         ]}
       >
+        {staffBusinesses.length > 0 ? (
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>{TEXT.staffBusinessesTitle}</Text>
+            {staffBusinesses.map((business) => {
+              const businessId = business.id;
+              const businessKey = String(businessId);
+              const isActive =
+                String(sessionContext?.activeBusinessId ?? '') === businessKey;
+              const isBusy = staffBusinessBusyId === businessKey;
+
+              return (
+                <Pressable
+                  key={businessKey}
+                  onPress={() => {
+                    void openStaffBusinessScanner(businessId);
+                  }}
+                  disabled={deleteBusy || Boolean(staffBusinessBusyId)}
+                  style={({ pressed }) => [
+                    styles.staffBusinessButton,
+                    isActive ? styles.staffBusinessButtonActive : null,
+                    pressed ? styles.pressed : null,
+                    deleteBusy || Boolean(staffBusinessBusyId)
+                      ? styles.disabled
+                      : null,
+                  ]}
+                >
+                  <View style={styles.staffBusinessButtonInner}>
+                    <View style={styles.staffBusinessIconShell}>
+                      <Ionicons
+                        name="qr-code-outline"
+                        size={22}
+                        color="#1D4ED8"
+                      />
+                    </View>
+                    <View style={styles.staffBusinessTextWrap}>
+                      <View style={styles.staffBusinessTitleRow}>
+                        {isActive ? (
+                          <View style={styles.staffBusinessActiveBadge}>
+                            <Text style={styles.staffBusinessActiveBadgeText}>
+                              {TEXT.staffBusinessActive}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <Text style={styles.staffBusinessTitle}>
+                          {business.name}
+                        </Text>
+                      </View>
+                      <Text style={styles.staffBusinessSubtitle}>
+                        {TEXT.staffBusinessSubtitle}
+                      </Text>
+                    </View>
+                    {isBusy ? (
+                      <ActivityIndicator color="#1D4ED8" />
+                    ) : (
+                      <View style={styles.staffBusinessAction}>
+                        <Text style={styles.staffBusinessActionText}>
+                          {TEXT.staffBusinessAction}
+                        </Text>
+                        <Ionicons
+                          name="chevron-back"
+                          size={14}
+                          color="#1D4ED8"
+                        />
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {staffBusinesses.length > 0 ? <View style={styles.divider} /> : null}
+
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
           <MenuRow
@@ -504,6 +661,13 @@ export default function SettingsScreen() {
             enabled={notificationsEnabled}
             disabled={notificationBusy}
             onPress={toggleNotifications}
+          />
+          <NotificationToggleRow
+            title={TEXT.marketingToggleTitle}
+            subtitle={TEXT.marketingToggleSubtitle}
+            enabled={marketingEnabled}
+            disabled={marketingBusy}
+            onPress={toggleMarketing}
           />
         </View>
 
@@ -669,6 +833,82 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: 'stretch',
     marginBottom: 4,
+  },
+  staffBusinessButton: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#1D4ED8',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  staffBusinessButtonActive: {
+    borderColor: '#60A5FA',
+    backgroundColor: '#EFF6FF',
+  },
+  staffBusinessButtonInner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  staffBusinessIconShell: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffBusinessTextWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  staffBusinessTitleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  staffBusinessTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    textAlign: 'right',
+  },
+  staffBusinessActiveBadge: {
+    borderRadius: 999,
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  staffBusinessActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center',
+  },
+  staffBusinessSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+    color: '#475569',
+    textAlign: 'right',
+  },
+  staffBusinessAction: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+  },
+  staffBusinessActionText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'right',
   },
   pageTitle: {
     textAlign: 'right',

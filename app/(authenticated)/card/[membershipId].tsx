@@ -23,6 +23,7 @@ import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCar
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
@@ -394,6 +395,7 @@ export default function CardDetailsScreen() {
             previewCurrentStamps={current}
             cardThemeId={membership.cardThemeId}
             stampIcon={membership.stampIcon}
+            stampShape={normalizeStampShape(membership.stampShape)}
             status={isRedeemEligible ? 'redeemable' : 'default'}
             variant="hero"
             showAllStamps={true}

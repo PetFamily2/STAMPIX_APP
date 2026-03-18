@@ -20,6 +20,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -360,6 +361,7 @@ export default function BusinessCustomerCardScreen() {
                       previewCurrentStamps={program.currentStamps}
                       title={program.programTitle}
                       stampIcon={program.stampIcon}
+                      stampShape={normalizeStampShape(program.stampShape)}
                       cardThemeId={program.cardThemeId}
                       variant="compact"
                       status={program.canRedeem ? 'redeemable' : 'default'}

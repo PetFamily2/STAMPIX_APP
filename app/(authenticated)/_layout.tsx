@@ -180,16 +180,13 @@ export default function AuthenticatedLayout() {
     const customerOnboarded = user?.customerOnboardedAt != null;
     const businessOnboarded = user?.businessOnboardedAt != null;
     const activeMode = sessionContext?.activeMode ?? 'customer';
-    const shouldForceBusinessOnboarding =
-      appMode === 'business' && !businessOnboarded;
     const bizList = sessionContext?.businesses ?? [];
     const activeBusinessId = sessionContext?.activeBusinessId ?? null;
-    const activeMembership = getActiveMembershipByBusinessId(
-      bizList,
-      activeBusinessId
-    );
-    const activeMembershipRole = activeMembership?.staffRole ?? null;
     const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
+    const shouldForceBusinessOnboarding =
+      activeMode === 'business' &&
+      activeShell !== 'staff' &&
+      !businessOnboarded;
 
     void setAppMode(activeMode);
 
@@ -249,7 +246,6 @@ export default function AuthenticatedLayout() {
     segments,
     sessionContext,
     user,
-    appMode,
     isPreviewMode,
     setAppMode,
   ]);

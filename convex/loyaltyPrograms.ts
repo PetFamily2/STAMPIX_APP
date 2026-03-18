@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
@@ -8,6 +9,14 @@ import {
 import { buildProgramStructureSignature } from './lib/recommendationUtils';
 
 const DEFAULT_THEME_ID = 'midnight-luxe';
+const DEFAULT_STAMP_SHAPE = 'circle';
+const STAMP_SHAPE_SET = new Set([
+  'circle',
+  'roundedSquare',
+  'square',
+  'hexagon',
+  'icon',
+]);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const CARD_RULES_LOCKED_ERROR_MESSAGE =
@@ -55,6 +64,14 @@ function normalizeMaxStamps(value: number) {
 function normalizeThemeId(value: string | undefined) {
   const normalized = value?.trim();
   return normalized && normalized.length > 0 ? normalized : DEFAULT_THEME_ID;
+}
+
+function normalizeStampShape(value: string | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return DEFAULT_STAMP_SHAPE;
+  }
+  return STAMP_SHAPE_SET.has(normalized) ? normalized : DEFAULT_STAMP_SHAPE;
 }
 
 function normalizeOptionalText(value: string | undefined) {
@@ -117,6 +134,17 @@ async function listBusinessPrograms(ctx: any, businessId: string) {
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
+}
+
+async function resolveProgramImageUrl(ctx: any, program: any) {
+  const storageId = program.imageStorageId as Id<'_storage'> | undefined;
+  if (storageId) {
+    const url = await ctx.storage.getUrl(storageId);
+    if (url) {
+      return url;
+    }
+  }
+  return program.imageUrl ?? null;
 }
 
 function sortProgramsForScanner(programs: any[]) {
@@ -193,27 +221,31 @@ export const listByBusiness = query({
       isLifecycleOperational(resolveProgramLifecycle(program))
     );
 
-    return programs.map((program: any) => {
-      const lifecycle = resolveProgramLifecycle(program);
-      return {
-        loyaltyProgramId: program._id,
-        businessId: program.businessId,
-        title: program.title,
-        rewardName: program.rewardName,
-        maxStamps: program.maxStamps,
-        stampIcon: program.stampIcon,
-        cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-        isArchived: lifecycle === 'archived',
-        isActive: program.isActive,
-        posSortOrder:
-          typeof program.posSortOrder === 'number'
-            ? program.posSortOrder
-            : null,
-        allowPosEnroll: program.allowPosEnroll !== false,
-        lifecycle,
-        status: lifecycle,
-      };
-    });
+    return await Promise.all(
+      programs.map(async (program: any) => {
+        const lifecycle = resolveProgramLifecycle(program);
+        return {
+          loyaltyProgramId: program._id,
+          businessId: program.businessId,
+          title: program.title,
+          imageUrl: await resolveProgramImageUrl(ctx, program),
+          rewardName: program.rewardName,
+          maxStamps: program.maxStamps,
+          stampIcon: program.stampIcon,
+          stampShape: normalizeStampShape(program.stampShape),
+          cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+          isArchived: lifecycle === 'archived',
+          isActive: program.isActive,
+          posSortOrder:
+            typeof program.posSortOrder === 'number'
+              ? program.posSortOrder
+              : null,
+          allowPosEnroll: program.allowPosEnroll !== false,
+          lifecycle,
+          status: lifecycle,
+        };
+      })
+    );
   },
 });
 
@@ -232,22 +264,28 @@ export const listScannerPrograms = query({
       allPrograms.filter((program: any) => isProgramScannerEligible(program))
     );
 
-    return eligiblePrograms.map((program: any) => ({
-      loyaltyProgramId: program._id,
-      businessId: program.businessId,
-      title: program.title,
-      rewardName: program.rewardName,
-      maxStamps: program.maxStamps,
-      stampIcon: program.stampIcon,
-      cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-      posSortOrder:
-        typeof program.posSortOrder === 'number' ? program.posSortOrder : null,
-      allowPosEnroll: program.allowPosEnroll !== false,
-      lifecycle: 'active' as const,
-      status: 'active' as const,
-      isArchived: false,
-      isActive: true,
-    }));
+    return await Promise.all(
+      eligiblePrograms.map(async (program: any) => ({
+        loyaltyProgramId: program._id,
+        businessId: program.businessId,
+        title: program.title,
+        imageUrl: await resolveProgramImageUrl(ctx, program),
+        rewardName: program.rewardName,
+        maxStamps: program.maxStamps,
+        stampIcon: program.stampIcon,
+        stampShape: normalizeStampShape(program.stampShape),
+        cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+        posSortOrder:
+          typeof program.posSortOrder === 'number'
+            ? program.posSortOrder
+            : null,
+        allowPosEnroll: program.allowPosEnroll !== false,
+        lifecycle: 'active' as const,
+        status: 'active' as const,
+        isArchived: false,
+        isActive: true,
+      }))
+    );
   },
 });
 
@@ -291,53 +329,57 @@ export const listManagementByBusiness = query({
           .collect(),
       ]);
 
-    const mapped = programs.map((program: any) => {
-      const programId = String(program._id);
-      const lifecycle = resolveProgramLifecycle(program);
-      const activeMembers = activeMemberships.filter(
-        (membership) => String(membership.programId) === programId
-      );
-      const totalMembers = allMemberships.filter(
-        (membership) => String(membership.programId) === programId
-      );
-      const programEvents = events.filter(
-        (event) => String(event.programId) === programId
-      );
-      const lastActivityAt =
-        programEvents.length > 0
-          ? Math.max(...programEvents.map((event) => event.createdAt))
-          : null;
-      const stamps7d = programEvents.filter(
-        (event) =>
-          event.type === 'STAMP_ADDED' &&
-          Number(event.createdAt) >= sevenDaysAgo
-      ).length;
-      const redemptions30d = programEvents.filter(
-        (event) => event.type === 'REWARD_REDEEMED'
-      ).length;
+    const mapped = await Promise.all(
+      programs.map(async (program: any) => {
+        const programId = String(program._id);
+        const lifecycle = resolveProgramLifecycle(program);
+        const activeMembers = activeMemberships.filter(
+          (membership) => String(membership.programId) === programId
+        );
+        const totalMembers = allMemberships.filter(
+          (membership) => String(membership.programId) === programId
+        );
+        const programEvents = events.filter(
+          (event) => String(event.programId) === programId
+        );
+        const lastActivityAt =
+          programEvents.length > 0
+            ? Math.max(...programEvents.map((event) => event.createdAt))
+            : null;
+        const stamps7d = programEvents.filter(
+          (event) =>
+            event.type === 'STAMP_ADDED' &&
+            Number(event.createdAt) >= sevenDaysAgo
+        ).length;
+        const redemptions30d = programEvents.filter(
+          (event) => event.type === 'REWARD_REDEEMED'
+        ).length;
 
-      return {
-        loyaltyProgramId: program._id,
-        title: program.title,
-        rewardName: program.rewardName,
-        maxStamps: program.maxStamps,
-        stampIcon: program.stampIcon,
-        cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
-        lifecycle,
-        status: lifecycle,
-        isArchived: lifecycle === 'archived',
-        isRuleLocked: isRuleLocked(lifecycle),
-        canDelete: totalMembers.length === 0,
-        membershipCount: totalMembers.length,
-        metrics: {
-          activeMembers: activeMembers.length,
-          totalMembers: totalMembers.length,
-          stamps7d,
-          redemptions30d,
-          lastActivityAt,
-        },
-      };
-    });
+        return {
+          loyaltyProgramId: program._id,
+          title: program.title,
+          imageUrl: await resolveProgramImageUrl(ctx, program),
+          rewardName: program.rewardName,
+          maxStamps: program.maxStamps,
+          stampIcon: program.stampIcon,
+          stampShape: normalizeStampShape(program.stampShape),
+          cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+          lifecycle,
+          status: lifecycle,
+          isArchived: lifecycle === 'archived',
+          isRuleLocked: isRuleLocked(lifecycle),
+          canDelete: totalMembers.length === 0,
+          membershipCount: totalMembers.length,
+          metrics: {
+            activeMembers: activeMembers.length,
+            totalMembers: totalMembers.length,
+            stamps7d,
+            redemptions30d,
+            lastActivityAt,
+          },
+        };
+      })
+    );
 
     mapped.sort((a: any, b: any) => {
       if (a.lifecycle !== b.lifecycle) {
@@ -404,12 +446,14 @@ export const getProgramDetailsForManagement = query({
       businessId: program.businessId,
       title: program.title,
       description: program.description ?? null,
-      imageUrl: program.imageUrl ?? null,
+      imageUrl: await resolveProgramImageUrl(ctx, program),
+      imageStorageId: program.imageStorageId ?? null,
       rewardName: program.rewardName,
       maxStamps: program.maxStamps,
       cardTerms: program.cardTerms ?? null,
       rewardConditions: program.rewardConditions ?? null,
       stampIcon: program.stampIcon,
+      stampShape: normalizeStampShape(program.stampShape),
       cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
       lifecycle,
       status: lifecycle,
@@ -438,17 +482,30 @@ export const getProgramDetailsForManagement = query({
   },
 });
 
+export const generateProgramImageUploadUrl = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return { uploadUrl };
+  },
+});
+
 export const createLoyaltyProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     title: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id('_storage')),
     rewardName: v.string(),
     maxStamps: v.number(),
     cardTerms: v.optional(v.string()),
     rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
+    stampShape: v.optional(v.string()),
     cardThemeId: v.optional(v.string()),
   },
   handler: async (
@@ -458,11 +515,13 @@ export const createLoyaltyProgram = mutation({
       title,
       description,
       imageUrl,
+      imageStorageId,
       rewardName,
       maxStamps,
       cardTerms,
       rewardConditions,
       stampIcon,
+      stampShape,
       cardThemeId,
     }
   ) => {
@@ -471,11 +530,13 @@ export const createLoyaltyProgram = mutation({
     const normalizedTitle = normalizeTitle(title);
     const normalizedDescription = normalizeOptionalText(description);
     const normalizedImageUrl = normalizeOptionalText(imageUrl);
+    const normalizedImageStorageId = imageStorageId;
     const normalizedReward = normalizeReward(rewardName);
     const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
     const normalizedCardTerms = normalizeOptionalText(cardTerms);
     const normalizedRewardConditions = normalizeOptionalText(rewardConditions);
     const normalizedIcon = normalizeIcon(stampIcon);
+    const normalizedStampShape = normalizeStampShape(stampShape);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
     const existingPrograms = await listBusinessPrograms(ctx, businessId);
     const maxPosSortOrder = existingPrograms.reduce(
@@ -503,11 +564,13 @@ export const createLoyaltyProgram = mutation({
       title: normalizedTitle,
       description: normalizedDescription,
       imageUrl: normalizedImageUrl,
+      imageStorageId: normalizedImageStorageId,
       rewardName: normalizedReward,
       maxStamps: normalizedMaxStamps,
       cardTerms: normalizedCardTerms,
       rewardConditions: normalizedRewardConditions,
       stampIcon: normalizedIcon,
+      stampShape: normalizedStampShape,
       cardThemeId: normalizedThemeId,
       posSortOrder,
       allowPosEnroll: true,
@@ -576,11 +639,13 @@ export const updateProgramForManagement = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id('_storage')),
     rewardName: v.string(),
     maxStamps: v.number(),
     cardTerms: v.optional(v.string()),
     rewardConditions: v.optional(v.string()),
     stampIcon: v.string(),
+    stampShape: v.optional(v.string()),
     cardThemeId: v.optional(v.string()),
   },
   handler: async (
@@ -591,11 +656,13 @@ export const updateProgramForManagement = mutation({
       title,
       description,
       imageUrl,
+      imageStorageId,
       rewardName,
       maxStamps,
       cardTerms,
       rewardConditions,
       stampIcon,
+      stampShape,
       cardThemeId,
     }
   ) => {
@@ -607,11 +674,13 @@ export const updateProgramForManagement = mutation({
     const normalizedTitle = normalizeTitle(title);
     const normalizedDescription = normalizeOptionalText(description);
     const normalizedImageUrl = normalizeOptionalText(imageUrl);
+    const normalizedImageStorageId = imageStorageId;
     const normalizedReward = normalizeReward(rewardName);
     const normalizedMaxStamps = normalizeMaxStamps(maxStamps);
     const normalizedCardTerms = normalizeOptionalText(cardTerms);
     const normalizedRewardConditions = normalizeOptionalText(rewardConditions);
     const normalizedIcon = normalizeIcon(stampIcon);
+    const normalizedStampShape = normalizeStampShape(stampShape);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
 
     const currentReward = normalizeReward(program.rewardName);
@@ -638,7 +707,9 @@ export const updateProgramForManagement = mutation({
       title: normalizedTitle,
       description: normalizedDescription,
       imageUrl: normalizedImageUrl,
+      imageStorageId: normalizedImageStorageId,
       stampIcon: normalizedIcon,
+      stampShape: normalizedStampShape,
       cardThemeId: normalizedThemeId,
       updatedAt: now,
     };

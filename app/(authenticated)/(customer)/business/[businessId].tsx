@@ -19,6 +19,7 @@ import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
@@ -56,6 +57,7 @@ type ProgramRow = {
   rewardName: string;
   maxStamps: number;
   stampIcon: string;
+  stampShape: string;
   cardThemeId: string | null;
   membershipId: string | null;
   currentStamps: number;
@@ -315,6 +317,7 @@ export default function CustomerBusinessDetailsScreen() {
                       previewCurrentStamps={0}
                       cardThemeId={program.cardThemeId}
                       stampIcon={program.stampIcon}
+                      stampShape={normalizeStampShape(program.stampShape)}
                       selected={selected}
                       variant="list"
                       showAllStamps={true}
@@ -384,6 +387,7 @@ export default function CustomerBusinessDetailsScreen() {
                     previewCurrentStamps={program.currentStamps}
                     cardThemeId={program.cardThemeId}
                     stampIcon={program.stampIcon}
+                    stampShape={normalizeStampShape(program.stampShape)}
                     status={program.canRedeem ? 'redeemable' : 'default'}
                     variant="list"
                     showAllStamps={true}

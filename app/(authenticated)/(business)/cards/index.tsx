@@ -7,7 +7,6 @@ import {
   Alert,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +18,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import type { StampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -32,9 +32,11 @@ type ProgramLifecycle = 'draft' | 'active' | 'archived';
 type ManagementProgram = {
   loyaltyProgramId: Id<'loyaltyPrograms'>;
   title: string;
+  imageUrl: string | null;
   rewardName: string;
   maxStamps: number;
   stampIcon: string;
+  stampShape: string;
   cardThemeId: string;
   lifecycle: ProgramLifecycle;
   status: ProgramLifecycle;
@@ -56,20 +58,12 @@ const TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
 ];
 
 const TEXT = {
-  savedTitle: 'נשמר',
-  savedMessage: 'כרטיסיה חדשה נוצרה כטיוטה.',
   errorTitle: 'שגיאה',
   createFailed: 'יצירת כרטיסיה נכשלה.',
   businessFallback: 'העסק שלך',
   screenTitle: 'כרטיסיות נאמנות',
   screenSubtitle: 'יצירה וניהול כרטיסי נאמנות במצב טיוטה, פעיל או ארכיון',
   createNewCard: 'צור כרטיסיה חדשה',
-  createSectionTitle: 'יצירת טיוטת כרטיסיה',
-  placeholderCardName: 'שם הכרטיסיה',
-  placeholderReward: 'הטבה',
-  placeholderStamps: 'ניקובים',
-  placeholderIcon: 'אייקון',
-  createCardButton: 'צור טיוטה',
   usageTitle: 'שימוש במסלול',
   cardsLabel: 'כרטיסים פעילים',
   inUseLabel: 'נספרים במגבלה',
@@ -90,6 +84,19 @@ const TEXT = {
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
+
+const toStampShape = (value: string): StampShape => {
+  if (
+    value === 'circle' ||
+    value === 'roundedSquare' ||
+    value === 'square' ||
+    value === 'hexagon' ||
+    value === 'icon'
+  ) {
+    return value;
+  }
+  return 'circle';
+};
 
 function ProgramListSection({
   title,
@@ -155,10 +162,12 @@ function ProgramListSection({
               <ProgramCustomerCardPreview
                 businessName={businessName}
                 businessLogoUrl={businessLogoUrl}
+                programImageUrl={program.imageUrl}
                 title={program.title}
                 rewardName={program.rewardName}
                 maxStamps={program.maxStamps}
                 stampIcon={program.stampIcon}
+                stampShape={toStampShape(program.stampShape)}
                 cardThemeId={program.cardThemeId}
                 status={
                   program.lifecycle === 'archived' ? 'archived' : 'default'
@@ -192,7 +201,6 @@ function ProgramListSection({
     </View>
   );
 }
-
 export default function BusinessCardsManagementScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -244,12 +252,7 @@ export default function BusinessCardsManagementScreen() {
     api.loyaltyPrograms.createLoyaltyProgram
   );
 
-  const [title, setTitle] = useState('');
-  const [rewardName, setRewardName] = useState('');
-  const [maxStamps, setMaxStamps] = useState('10');
-  const [stampIcon, setStampIcon] = useState('star');
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [isArchivedCardsExpanded, setIsArchivedCardsExpanded] = useState(false);
 
   const draftPrograms = useMemo(
@@ -266,16 +269,7 @@ export default function BusinessCardsManagementScreen() {
   );
 
   const cardLimit = limitStatus('maxCards', activePrograms.length);
-  const parsedMaxStamps = Number(maxStamps);
-  const canCreate =
-    Boolean(activeBusinessId) &&
-    canManage &&
-    title.trim().length > 0 &&
-    rewardName.trim().length > 0 &&
-    stampIcon.trim().length > 0 &&
-    Number.isFinite(parsedMaxStamps) &&
-    parsedMaxStamps > 0 &&
-    !isCreating;
+  const canCreate = Boolean(activeBusinessId) && canManage && !isCreating;
 
   const handleCreate = async () => {
     if (!activeBusinessId || !canCreate) {
@@ -286,18 +280,13 @@ export default function BusinessCardsManagementScreen() {
     try {
       const result = await createLoyaltyProgram({
         businessId: activeBusinessId,
-        title: title.trim(),
-        rewardName: rewardName.trim(),
-        maxStamps: parsedMaxStamps,
-        stampIcon: stampIcon.trim(),
+        title: 'כרטיסיית קפה לדוגמה',
+        rewardName: 'קפה מתנה',
+        maxStamps: 10,
+        stampIcon: 'star',
+        cardTerms: 'ניקוב אחד לכל קנייה מזכה. אין כפל מבצעים.',
+        rewardConditions: 'מימוש בהצגת הכרטיסיה בסניף, עד 30 יום מהשלמת הכרטיסיה.',
       });
-      setTitle('');
-      setRewardName('');
-      setMaxStamps('10');
-      setStampIcon('star');
-      setIsCreatePanelOpen(false);
-
-      Alert.alert(TEXT.savedTitle, TEXT.savedMessage);
       router.push({
         pathname: '/(authenticated)/(business)/cards/[programId]',
         params: {
@@ -403,89 +392,28 @@ export default function BusinessCardsManagementScreen() {
         </View>
 
         <TouchableOpacity
-          disabled={!canManage || isCreating}
+          disabled={!canCreate}
           onPress={() => {
-            if (!canManage || isCreating) {
+            if (!canCreate) {
               return;
             }
-            setIsCreatePanelOpen((current) => !current);
+            void handleCreate();
           }}
           className={`mt-4 rounded-3xl px-4 py-4 ${
-            !canManage || isCreating ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
+            !canCreate ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
           }`}
         >
-          <View className={`${tw.flexRow} items-center justify-center gap-2`}>
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text className="text-sm font-black text-white">
-              {TEXT.createNewCard}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {isCreatePanelOpen ? (
-          <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              {TEXT.createSectionTitle}
-            </Text>
-
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              editable={canManage}
-              placeholder={TEXT.placeholderCardName}
-              placeholderTextColor="#94A3B8"
-              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-            <TextInput
-              value={rewardName}
-              onChangeText={setRewardName}
-              editable={canManage}
-              placeholder={TEXT.placeholderReward}
-              placeholderTextColor="#94A3B8"
-              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-
-            <View className={`${tw.flexRow} gap-2`}>
-              <TextInput
-                value={maxStamps}
-                onChangeText={setMaxStamps}
-                editable={canManage}
-                keyboardType="number-pad"
-                placeholder={TEXT.placeholderStamps}
-                placeholderTextColor="#94A3B8"
-                className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
-              <TextInput
-                value={stampIcon}
-                onChangeText={setStampIcon}
-                editable={canManage}
-                placeholder={TEXT.placeholderIcon}
-                placeholderTextColor="#94A3B8"
-                className="flex-1 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
+          {isCreating ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <View className={`${tw.flexRow} items-center justify-center gap-2`}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Text className="text-sm font-black text-white">
+                {TEXT.createNewCard}
+              </Text>
             </View>
-
-            <TouchableOpacity
-              disabled={!canCreate}
-              onPress={() => {
-                void handleCreate();
-              }}
-              className={`rounded-2xl px-4 py-3 ${
-                canCreate ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
-              }`}
-            >
-              {isCreating ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-center text-sm font-bold text-white">
-                  {TEXT.createCardButton}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : null}
+          )}
+        </TouchableOpacity>
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text

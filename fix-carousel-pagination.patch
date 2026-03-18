@@ -1,0 +1,43 @@
+*** Begin Patch
+*** Update File: components/ProgramCarousel.tsx
+
+@@
++ // NEW: handle scroll for live pagination updates
++ const handleProgramSliderScroll = useCallback(
++   (event: NativeSyntheticEvent<NativeScrollEvent>) => {
++     if (programs.length <= 1) return;
++     const rawIndex = event.nativeEvent.contentOffset.x / ITEM_STRIDE;
++     const nextIndex = Math.min(
++       programs.length - 1,
++       Math.max(0, Math.round(rawIndex))
++     );
++     setVisibleProgramIndex(nextIndex);
++   },
++   [ITEM_STRIDE, programs.length]
++ );
+
+@@
+   <FlatList
+     horizontal
+     ...
++    onScroll={handleProgramSliderScroll}
++    scrollEventThrottle={16}
+     onMomentumScrollEnd={handleProgramSliderMomentumEnd}
+   />
+
+@@
+   programDot: {
+     width: 8,
+     height: 8,
+     borderRadius: 999,
+     backgroundColor: '#C2D3F8',
+   },
+   programDotActive: {
+-    backgroundColor: '#2F6BFF',
++    width: 22,
++    height: 8,
++    borderRadius: 999,
++    backgroundColor: '#2F6BFF',
+   },
+
+*** End Patch

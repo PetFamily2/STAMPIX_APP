@@ -355,6 +355,14 @@ export default function BusinessSettingsScreen() {
             icon="qr-code-outline"
             onPress={() => router.push('/(authenticated)/(business)/qr')}
           />
+          {canEditBusiness ? (
+            <MenuRow
+              title="ניהול עובדים"
+              subtitle="הצג את צוות העסק ונהלי הרשאות"
+              icon="people-outline"
+              onPress={() => router.push('/(authenticated)/(business)/team')}
+            />
+          ) : null}
           <MenuRow
             title="פרטי חשבון"
             subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"

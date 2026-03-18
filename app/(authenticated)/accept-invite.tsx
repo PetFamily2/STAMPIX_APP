@@ -62,6 +62,10 @@ export default function AcceptInviteScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const pendingInvites = sessionContext?.pendingInvites ?? [];
+  const hasParamCode = Boolean(paramCode?.trim());
+  const hasPendingInvite = pendingInvites.length > 0;
+  const showPendingInviteCard = hasPendingInvite && !hasParamCode;
+  const showManualCodeCard = !hasPendingInvite || hasParamCode;
   const effectiveCode =
     (paramCode ?? manualCode).trim() || pendingInvites[0]?.inviteCode;
 
@@ -124,7 +128,7 @@ export default function AcceptInviteScreen() {
         </StickyScrollHeader>
 
         <View className="px-6">
-          {pendingInvites.length > 0 && !paramCode && !manualCode && (
+          {showPendingInviteCard && (
             <View className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <Text
                 className={`text-xs font-semibold text-blue-800 ${tw.textStart}`}
@@ -165,51 +169,58 @@ export default function AcceptInviteScreen() {
                   </Text>
                 )}
               </Pressable>
+              {error && (
+                <Text className={`mt-3 text-sm text-rose-600 ${tw.textStart}`}>
+                  {error}
+                </Text>
+              )}
             </View>
           )}
 
-          <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-            <Text
-              className={`text-xs font-semibold text-zinc-500 ${tw.textStart}`}
-            >
-              קוד הזמנה
-            </Text>
-            <TextInput
-              value={manualCode}
-              onChangeText={(t) => {
-                setManualCode(t);
-                setError(null);
-              }}
-              placeholder={TEXT.manualPlaceholder}
-              placeholderTextColor="#9ca3af"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              editable={!busy}
-              className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-gray-900"
-            />
-            {error && (
-              <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>
-                {error}
+          {showManualCodeCard ? (
+            <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
+              <Text
+                className={`text-xs font-semibold text-zinc-500 ${tw.textStart}`}
+              >
+                קוד הזמנה
               </Text>
-            )}
-            <Pressable
-              onPress={handleAccept}
-              disabled={!canAccept}
-              className={`mt-4 rounded-xl px-4 py-3 items-center ${
-                canAccept ? 'bg-blue-600' : 'bg-zinc-300'
-              }`}
-            >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text
-                  className={`text-sm font-bold ${canAccept ? 'text-white' : 'text-zinc-500'}`}
-                >
-                  {TEXT.accept}
+              <TextInput
+                value={manualCode}
+                onChangeText={(t) => {
+                  setManualCode(t);
+                  setError(null);
+                }}
+                placeholder={TEXT.manualPlaceholder}
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                editable={!busy}
+                className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-gray-900"
+              />
+              {error && (
+                <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>
+                  {error}
                 </Text>
               )}
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={handleAccept}
+                disabled={!canAccept}
+                className={`mt-4 rounded-xl px-4 py-3 items-center ${
+                  canAccept ? 'bg-blue-600' : 'bg-zinc-300'
+                }`}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    className={`text-sm font-bold ${canAccept ? 'text-white' : 'text-zinc-500'}`}
+                  >
+                    {TEXT.accept}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

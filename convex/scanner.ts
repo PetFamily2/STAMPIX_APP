@@ -70,6 +70,8 @@ type BusinessForStaff = {
   staffRole: 'owner' | 'manager' | 'staff';
 };
 
+type ResolveScanOutcome = 'AUTO_STAMP' | 'REDEEM_AVAILABLE' | 'JOIN_AND_STAMP';
+
 type MembershipStateSnapshot = {
   currentStamps: number;
   lastStampAt?: number;
@@ -782,6 +784,7 @@ function buildProgramSummary(program: any) {
     rewardName: program.rewardName,
     maxStamps: program.maxStamps,
     stampIcon: program.stampIcon,
+    stampShape: program.stampShape ?? 'circle',
   };
 }
 
@@ -1123,7 +1126,6 @@ export const resolveScan = mutation({
     qrData: v.string(),
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
-    actionType: v.union(v.literal('stamp'), v.literal('redeem')),
     scannerRuntimeSessionId: v.string(),
     deviceId: v.string(),
   },
@@ -1132,7 +1134,6 @@ export const resolveScan = mutation({
       ctx,
       args.businessId
     );
-    const actionType = args.actionType;
 
     const { program } = await requireScannerEligibleProgram(
       ctx,
@@ -1179,6 +1180,19 @@ export const resolveScan = mutation({
       businessMemberships.find(
         (entry: any) => String(entry.programId) === String(program._id)
       ) ?? null;
+    const canRedeemNow =
+      membership !== null && membership.currentStamps >= program.maxStamps;
+
+    let resolution: ResolveScanOutcome;
+    if (membership) {
+      resolution = canRedeemNow ? 'REDEEM_AVAILABLE' : 'AUTO_STAMP';
+    } else if (program.allowPosEnroll === false) {
+      throw new Error('POS_ENROLL_DISABLED');
+    } else {
+      resolution = 'JOIN_AND_STAMP';
+    }
+
+    const actionType = resolution === 'REDEEM_AVAILABLE' ? 'redeem' : 'stamp';
 
     const now = Date.now();
     const sessionExpiresAt = Math.min(
@@ -1213,6 +1227,7 @@ export const resolveScan = mutation({
       customerUserId: customer._id,
       customerDisplayName: buildCustomerDisplayName(customer),
       membership: buildMembershipSummary(membership, program.maxStamps),
+      resolution,
     };
   },
 });

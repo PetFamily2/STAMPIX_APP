@@ -83,7 +83,9 @@ class FakeQuery {
 
   async unique() {
     const docs = this.docs();
-    if (docs.length === 0) return null;
+    if (docs.length === 0) {
+      return null;
+    }
     if (docs.length > 1) {
       throw new Error(`Expected unique result in ${this.tableName}`);
     }
@@ -120,7 +122,9 @@ class FakeDb {
   async get(id) {
     for (const tableName of Object.keys(this.tables)) {
       const row = this.rows(tableName).find((doc) => doc._id === id);
-      if (row) return row;
+      if (row) {
+        return row;
+      }
     }
     return null;
   }
@@ -265,12 +269,12 @@ describe('scanner flow', () => {
       qrData,
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
 
     expect(typeof resolved.scanSessionId).toBe('string');
+    expect(resolved.resolution).toBe('AUTO_STAMP');
     expect(ctx.db.rows('scanTokenEvents')).toHaveLength(0);
 
     const committed = await commitStamp._handler(ctx, {
@@ -312,10 +316,10 @@ describe('scanner flow', () => {
       qrData,
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
+    expect(resolved.resolution).toBe('AUTO_STAMP');
 
     ctx.db.failNextScanTokenLookup = true;
     await expect(
@@ -336,10 +340,8 @@ describe('scanner flow', () => {
     expect(ctx.db.rows('scanSessions')[0].status).toBe('committed');
   });
 
-  test('business failure marks session failed_business and blocks retry on same session', async () => {
-    const tables = baseTables({
-      loyaltyPrograms: [buildProgram({ allowPosEnroll: false })],
-    });
+  test('resolve returns JOIN_AND_STAMP for non-member and commitStamp creates membership', async () => {
+    const tables = baseTables();
     const ctx = buildCtx(tables);
     const qrData = await createToken();
 
@@ -347,27 +349,39 @@ describe('scanner flow', () => {
       qrData,
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
 
+    expect(resolved.resolution).toBe('JOIN_AND_STAMP');
+    expect(resolved.membership).toBeNull();
+
+    const committed = await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    expect(committed.currentStamps).toBe(1);
+    expect(ctx.db.rows('scanTokenEvents')).toHaveLength(1);
+  });
+
+  test('resolve blocks enrollment when customer is not a member and POS enroll is disabled', async () => {
+    const tables = baseTables({
+      loyaltyPrograms: [buildProgram({ allowPosEnroll: false })],
+    });
+    const ctx = buildCtx(tables);
+    const qrData = await createToken();
+
     await expect(
-      commitStamp._handler(ctx, {
-        scanSessionId: resolved.scanSessionId,
+      resolveScan._handler(ctx, {
+        qrData,
+        businessId: 'business_1',
+        programId: 'program_1',
+        scannerRuntimeSessionId: 'runtime_1',
+        deviceId: 'device_1',
       })
     ).rejects.toThrow('POS_ENROLL_DISABLED');
 
-    const session = ctx.db.rows('scanSessions')[0];
-    expect(session.status).toBe('failed_business');
-    expect(session.failedCode).toBe('POS_ENROLL_DISABLED');
+    expect(ctx.db.rows('scanSessions')).toHaveLength(0);
     expect(ctx.db.rows('scanTokenEvents')).toHaveLength(0);
-
-    await expect(
-      commitStamp._handler(ctx, {
-        scanSessionId: resolved.scanSessionId,
-      })
-    ).rejects.toThrow('POS_ENROLL_DISABLED');
   });
 
   test('entitlement failure is terminal business failure and does not consume token', async () => {
@@ -393,7 +407,6 @@ describe('scanner flow', () => {
       qrData,
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -432,7 +445,6 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -489,7 +501,6 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -533,7 +544,6 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -543,12 +553,15 @@ describe('scanner flow', () => {
     const targetEvent = ctx.db
       .rows('events')
       .find((event) => event.type === 'STAMP_ADDED');
+    const membershipRow = ctx.db
+      .rows('memberships')
+      .find((membership) => membership._id === 'membership_1');
+    membershipRow.lastStampAt = Date.now() - 61_000;
 
     await resolveScan._handler(ctx, {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -584,7 +597,6 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -603,7 +615,6 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'stamp',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
@@ -643,10 +654,17 @@ describe('scanner flow', () => {
       qrData: await createToken(),
       businessId: 'business_1',
       programId: 'program_1',
-      actionType: 'redeem',
       scannerRuntimeSessionId: 'runtime_1',
       deviceId: 'device_1',
     });
+    expect(resolved.resolution).toBe('REDEEM_AVAILABLE');
+
+    await expect(
+      commitStamp._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      })
+    ).rejects.toThrow('INVALID_SCAN_ACTION');
+
     const committed = await commitRedeem._handler(ctx, {
       scanSessionId: resolved.scanSessionId,
     });

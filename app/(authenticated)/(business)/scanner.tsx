@@ -1,13 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   Vibration,
   View,
 } from 'react-native';
@@ -17,6 +23,7 @@ import {
 } from 'react-native-safe-area-context';
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -40,19 +47,25 @@ import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation
 type ScannerProgram = {
   loyaltyProgramId: string;
   title: string;
+  imageUrl?: string | null;
   rewardName: string;
   maxStamps: number;
   stampIcon: string;
+  stampShape?: 'circle' | 'roundedSquare' | 'square' | 'hexagon' | 'icon';
+  cardThemeId?: string | null;
   allowPosEnroll: boolean;
 };
 
-type ScanActionMode = 'stamp' | 'redeem';
+type CommitActionMode = 'stamp' | 'redeem';
+
+type ResolveDecision = 'AUTO_STAMP' | 'REDEEM_AVAILABLE' | 'JOIN_AND_STAMP';
 
 type ResolvedScan = {
   scanSessionId: string;
   sessionExpiresAt: number;
   customerUserId: string;
   customerDisplayName: string;
+  resolution: ResolveDecision;
   membership: {
     membershipId: string;
     currentStamps: number;
@@ -61,16 +74,18 @@ type ResolvedScan = {
   } | null;
 };
 
-type ResolvedSession = {
+type PendingRedeemSession = {
   scanSessionId: string;
   customerUserId: string;
   customerDisplayName: string;
   membership: ResolvedScan['membership'];
   sessionExpiresAt: number;
-  actionMode: ScanActionMode;
 };
 
-type PendingRetrySession = ResolvedSession;
+type PendingRetrySession = PendingRedeemSession & {
+  actionMode: CommitActionMode;
+  isFirstStampForCustomer: boolean;
+};
 
 type CommitActionResult = {
   membershipId: string;
@@ -80,14 +95,14 @@ type CommitActionResult = {
   eventId: string;
   eventType: 'STAMP_ADDED' | 'REWARD_REDEEMED';
   eventCreatedAt: number;
-  undoAvailableUntil: number;
+  undoAvailableUntil?: number;
 };
 
 type UndoActionState = {
   eventId: string;
   availableUntil: number;
   customerDisplayName: string;
-  actionMode: ScanActionMode;
+  actionMode: CommitActionMode;
 };
 
 type UndoActionResult = {
@@ -109,18 +124,19 @@ type ScanResultBanner = {
   maxStamps: number;
 };
 
-const BUSINESS_SUCCESS_BANNER_DURATION_MS = 15000;
+const BUSINESS_SUCCESS_BANNER_DURATION_MS = 30000;
 const BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP = 'ניקוב בוצע בהצלחה';
 const BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM = 'מימוש הושלם בהצלחה';
 const SCANNER_HEADER_TITLE = 'סריקת לקוח';
-const SCANNER_HEADER_SUBTITLE = 'בחרו תוכנית ואז סרקו QR של הלקוח לניקוב מהיר.';
-const BUSINESS_SUCCESS_BANNER_MESSAGE_UNDO = 'הפעולה בוטלה';
 const SCANNER_DEVICE_ID_STORAGE_KEY = 'scanner:deviceId';
-const STAFF_ROLE_BADGE_LABEL: Record<'owner' | 'manager' | 'staff', string> = {
-  owner: 'בעלים',
-  manager: 'מנהל',
-  staff: 'עובד',
-};
+const FALLBACK_UNDO_WINDOW_MS = 30_000;
+const PROGRAM_DOT_SLOT_WIDTH = 20;
+const PROGRAM_DOT_SLOT_HEIGHT = 12;
+const PROGRAM_DOT_SIZE = 6;
+const PROGRAM_DOT_ACTIVE_WIDTH = 18;
+const CARD_GAP = 12;
+const CARD_SIDE_PEEK_MIN = 44;
+const CARD_SIDE_PEEK_MAX = 56;
 
 const KNOWN_SCAN_ERROR_CODES = [
   'INVALID_QR',
@@ -165,6 +181,42 @@ const NON_RETRYABLE_COMMIT_CODES = new Set([
   'PLAN_LIMIT_REACHED',
   'SUBSCRIPTION_INACTIVE',
 ]);
+
+const getUndoPresentation = (actionMode: CommitActionMode) =>
+  actionMode === 'redeem'
+    ? {
+        badgeLabel: 'מימוש אחרון',
+        title: 'אפשר לבטל עכשיו את המימוש האחרון',
+        description: 'הביטול ישחזר את מצב הכרטיס כפי שהיה לפני המימוש.',
+        confirmationText:
+          'אישור הביטול יחזיר את ההטבה לזמינות, בהתאם למצב הניקובים המעודכן.',
+        buttonLabel: 'בטל מימוש אחרון',
+        busyLabel: 'מבטלים מימוש...',
+        successMessage: 'המימוש בוטל',
+        resultStatusLabel: 'המימוש בוטל',
+        alreadyRevertedLabel: 'המימוש כבר בוטל',
+        errorLabel: 'לא ניתן לבטל את המימוש כרגע.',
+      }
+    : {
+        badgeLabel: 'ניקוב אחרון',
+        title: 'אפשר לבטל עכשיו את הניקוב האחרון',
+        description: 'הביטול ישחזר את מצב הכרטיס כפי שהיה לפני הניקוב.',
+        confirmationText:
+          'אישור הביטול יחזיר את מספר הניקובים למצב הקודם של הלקוח.',
+        buttonLabel: 'בטל ניקוב אחרון',
+        busyLabel: 'מבטלים ניקוב...',
+        successMessage: 'הניקוב בוטל',
+        resultStatusLabel: 'הניקוב בוטל',
+        alreadyRevertedLabel: 'הניקוב כבר בוטל',
+        errorLabel: 'לא ניתן לבטל את הניקוב כרגע.',
+      };
+
+const formatUndoCountdownLabel = (remainingMs: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
 
 const resolveScanErrorCode = (error: unknown): string => {
   if (!(error instanceof Error)) {
@@ -240,9 +292,6 @@ export default function ScannerScreen() {
   const { user } = useUser();
   const { activeBusinessId, activeBusiness: selectedBusiness } =
     useActiveBusiness();
-  const scannerHeaderSubtitle = selectedBusiness
-    ? `${selectedBusiness.name} · ${STAFF_ROLE_BADGE_LABEL[selectedBusiness.staffRole]}`
-    : SCANNER_HEADER_SUBTITLE;
 
   useEffect(() => {
     if (isPreviewMode) {
@@ -266,17 +315,61 @@ export default function ScannerScreen() {
     null
   );
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const programCarouselRef = useRef<FlatList<ScannerProgram> | null>(null);
+  const shouldAutoAlignProgramCarouselRef = useRef(true);
+  const lastProgramCarouselLayoutKeyRef = useRef('');
+  const { width: windowWidth } = useWindowDimensions();
+  const [programSliderMeasuredWidth, setProgramSliderMeasuredWidth] =
+    useState(0);
+  const programSliderViewportWidth = useMemo(() => {
+    if (programSliderMeasuredWidth > 0) {
+      return programSliderMeasuredWidth;
+    }
+    return Math.max(240, windowWidth);
+  }, [programSliderMeasuredWidth, windowWidth]);
+  const CARD_SIDE_PEEK = useMemo(
+    () =>
+      Math.min(
+        CARD_SIDE_PEEK_MAX,
+        Math.max(
+          CARD_SIDE_PEEK_MIN,
+          Math.round(programSliderViewportWidth * 0.13)
+        )
+      ),
+    [programSliderViewportWidth]
+  );
+  const CARD_WIDTH = useMemo(
+    () => Math.max(240, programSliderViewportWidth - CARD_SIDE_PEEK * 2),
+    [CARD_SIDE_PEEK, programSliderViewportWidth]
+  );
+  const ITEM_STRIDE = useMemo(() => CARD_WIDTH + CARD_GAP, [CARD_WIDTH]);
+  const SIDE_PADDING = useMemo(
+    () => Math.max(0, (programSliderViewportWidth - CARD_WIDTH) / 2),
+    [CARD_WIDTH, programSliderViewportWidth]
+  );
 
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
     null
   );
   const [isProgramSelectionReady, setIsProgramSelectionReady] = useState(false);
-  const [selectedActionMode, setSelectedActionMode] =
-    useState<ScanActionMode>('stamp');
   const selectedProgram =
     programs.find(
       (program) => program.loyaltyProgramId === selectedProgramId
     ) ?? null;
+  const selectedProgramIndex = useMemo(
+    () =>
+      programs.findIndex(
+        (program) => program.loyaltyProgramId === selectedProgramId
+      ),
+    [programs, selectedProgramId]
+  );
+  const [visibleProgramIndex, setVisibleProgramIndex] = useState(0);
+  const activeProgramDotIndex =
+    programs.length > 0
+      ? Math.min(programs.length - 1, Math.max(0, visibleProgramIndex))
+      : 0;
+  const dotsTrackWidth =
+    programs.length > 0 ? programs.length * PROGRAM_DOT_SLOT_WIDTH : 0;
   const [scannerRuntimeSessionId, setScannerRuntimeSessionId] = useState(() =>
     generateRuntimeSessionId()
   );
@@ -294,10 +387,13 @@ export default function ScannerScreen() {
   const [resultBanner, setResultBanner] = useState<ScanResultBanner | null>(
     null
   );
+  const [pendingRedeemSession, setPendingRedeemSession] =
+    useState<PendingRedeemSession | null>(null);
   const [retrySession, setRetrySession] = useState<PendingRetrySession | null>(
     null
   );
   const [undoState, setUndoState] = useState<UndoActionState | null>(null);
+  const [undoNow, setUndoNow] = useState(() => Date.now());
   const [businessSuccessBannerKey, setBusinessSuccessBannerKey] = useState(0);
   const [successBannerMessage, setSuccessBannerMessage] = useState(
     BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
@@ -379,8 +475,63 @@ export default function ScannerScreen() {
     };
   }, [programs, storageKey]);
 
+  useEffect(() => {
+    const layoutKey = [
+      isProgramSelectionReady ? 'ready' : 'loading',
+      programs.length,
+      CARD_WIDTH,
+      ITEM_STRIDE,
+      SIDE_PADDING,
+    ].join(':');
+    if (lastProgramCarouselLayoutKeyRef.current !== layoutKey) {
+      lastProgramCarouselLayoutKeyRef.current = layoutKey;
+      shouldAutoAlignProgramCarouselRef.current = true;
+    }
+    if (programs.length === 0) {
+      return;
+    }
+    if (ITEM_STRIDE <= 0) {
+      return;
+    }
+    if (!isProgramSelectionReady || selectedProgramIndex < 0) {
+      return;
+    }
+    if (!shouldAutoAlignProgramCarouselRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      programCarouselRef.current?.scrollToOffset({
+        offset: selectedProgramIndex * ITEM_STRIDE,
+        animated: false,
+      });
+      shouldAutoAlignProgramCarouselRef.current = false;
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [
+    isProgramSelectionReady,
+    programs.length,
+    CARD_WIDTH,
+    ITEM_STRIDE,
+    SIDE_PADDING,
+    selectedProgramIndex,
+  ]);
+
+  useEffect(() => {
+    if (selectedProgramIndex >= 0) {
+      setVisibleProgramIndex(selectedProgramIndex);
+    }
+  }, [selectedProgramIndex]);
+
   const isSelectionLocked =
-    isResolving || isStamping || isUndoing || retrySession !== null;
+    isResolving ||
+    isStamping ||
+    isUndoing ||
+    retrySession !== null ||
+    pendingRedeemSession !== null;
   const canScan = Boolean(
     selectedBusiness &&
       selectedProgram &&
@@ -389,6 +540,20 @@ export default function ScannerScreen() {
       programs.length > 0
   );
   const isBusy = isResolving || isStamping || isUndoing;
+  const undoTimeRemainingMs = undoState
+    ? Math.max(0, undoState.availableUntil - undoNow)
+    : 0;
+  const undoActionActive = Boolean(undoState && undoTimeRemainingMs > 0);
+  const undoPresentation = useMemo(() => {
+    if (!undoState) {
+      return null;
+    }
+
+    return {
+      ...getUndoPresentation(undoState.actionMode),
+      countdownLabel: formatUndoCountdownLabel(undoTimeRemainingMs),
+    };
+  }, [undoState, undoTimeRemainingMs]);
 
   const openUpgrade = useCallback(
     (
@@ -409,6 +574,7 @@ export default function ScannerScreen() {
     setScannerResetKey((current) => current + 1);
     setScanError(null);
     setResultBanner(null);
+    setPendingRedeemSession(null);
     setRetrySession(null);
     setUndoState(null);
   }, []);
@@ -469,6 +635,21 @@ export default function ScannerScreen() {
     };
   }, [undoState]);
 
+  useEffect(() => {
+    if (!undoState) {
+      return;
+    }
+
+    setUndoNow(Date.now());
+    const interval = setInterval(() => {
+      setUndoNow(Date.now());
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [undoState]);
+
   const setSelectedProgram = useCallback(
     async (programId: string) => {
       if (!storageKey) {
@@ -483,6 +664,79 @@ export default function ScannerScreen() {
       }
     },
     [storageKey]
+  );
+
+  const applyCommitOutcome = useCallback(
+    (params: {
+      session: PendingRedeemSession;
+      result: CommitActionResult;
+      actionMode: CommitActionMode;
+      isFirstStampForCustomer: boolean;
+    }) => {
+      const isRedeem = params.actionMode === 'redeem';
+      const now = Date.now();
+      const undoAvailableUntil =
+        typeof params.result.undoAvailableUntil === 'number' &&
+        Number.isFinite(params.result.undoAvailableUntil) &&
+        params.result.undoAvailableUntil > now
+          ? params.result.undoAvailableUntil
+          : now + FALLBACK_UNDO_WINDOW_MS;
+      setPendingRedeemSession(null);
+      setRetrySession(null);
+      setUndoNow(now);
+      setUndoState({
+        eventId: params.result.eventId,
+        availableUntil: undoAvailableUntil,
+        customerDisplayName: params.session.customerDisplayName,
+        actionMode: params.actionMode,
+      });
+      setSuccessBannerMessage(
+        isRedeem
+          ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
+          : BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
+      );
+      setResultBanner({
+        customerDisplayName: params.session.customerDisplayName,
+        statusLabel: isRedeem
+          ? 'הטבה מומשה בהצלחה'
+          : params.result.canRedeemNow
+            ? 'זכאי למימוש הטבה'
+            : 'בתהליך צבירת ניקובים',
+        currentStamps: params.result.currentStamps,
+        maxStamps: params.result.maxStamps,
+      });
+      Vibration.vibrate(120);
+      setBusinessSuccessBannerKey((current) => current + 1);
+
+      track(ANALYTICS_EVENTS.stampSuccess, {
+        businessId: selectedBusiness?.businessId ?? null,
+        customerUserId: params.session.customerUserId,
+        action_mode: params.actionMode,
+      });
+
+      if (params.actionMode === 'stamp') {
+        if (user?._id) {
+          void trackActivationOnce(
+            ANALYTICS_EVENTS.firstScanCompleted,
+            user._id,
+            {
+              role: 'business',
+              userId: user._id,
+            }
+          );
+        }
+        if (params.isFirstStampForCustomer) {
+          void trackActivationEvent(
+            ANALYTICS_EVENTS.customerFirstStampReceived,
+            {
+              role: 'client',
+              userId: params.session.customerUserId,
+            }
+          );
+        }
+      }
+    },
+    [selectedBusiness?.businessId, user?._id]
   );
 
   const resolveByToken = useCallback(
@@ -500,7 +754,6 @@ export default function ScannerScreen() {
           qrData: token,
           businessId,
           programId: programId as Id<'loyaltyPrograms'>,
-          actionType: selectedActionMode,
           scannerRuntimeSessionId,
           deviceId: scannerDeviceId as string,
         })) as ResolvedScan;
@@ -508,14 +761,7 @@ export default function ScannerScreen() {
           throw new Error('INVALID_SCAN_SESSION');
         }
         setScanError(null);
-        return {
-          scanSessionId: result.scanSessionId,
-          sessionExpiresAt: result.sessionExpiresAt,
-          customerUserId: result.customerUserId,
-          customerDisplayName: result.customerDisplayName,
-          membership: result.membership,
-          actionMode: selectedActionMode,
-        } satisfies ResolvedSession;
+        return result;
       } catch (error) {
         if (showErrors) {
           setResultBanner(null);
@@ -524,7 +770,6 @@ export default function ScannerScreen() {
           track(ANALYTICS_EVENTS.stampFailed, {
             error_code: mapped.code,
             context: 'resolveScan',
-            action_mode: selectedActionMode,
           });
         }
         return null;
@@ -535,88 +780,44 @@ export default function ScannerScreen() {
       resolveScan,
       scannerDeviceId,
       scannerRuntimeSessionId,
-      selectedActionMode,
       selectedBusiness,
       selectedProgram,
     ]
   );
 
   const commitFromSession = useCallback(
-    async (session: PendingRetrySession | ResolvedSession) => {
+    async (params: {
+      session: PendingRedeemSession;
+      actionMode: CommitActionMode;
+      isFirstStampForCustomer: boolean;
+    }) => {
       if (!selectedBusiness || !selectedProgram) {
         return 'business' as const;
       }
-      const isFirstStampForCustomer = !session.membership;
+
+      const actionLabel = params.actionMode === 'redeem' ? 'מימוש' : 'ניקוב';
       setIsStamping(true);
       setScanError(null);
       try {
-        const result = (
-          session.actionMode === 'redeem'
-            ? await commitRedeem({
-                scanSessionId: session.scanSessionId as Id<'scanSessions'>,
-              })
-            : await commitStamp({
-                scanSessionId: session.scanSessionId as Id<'scanSessions'>,
-              })
-        ) as CommitActionResult;
-
-        const isRedeem = session.actionMode === 'redeem';
-        setRetrySession(null);
-        setUndoState({
-          eventId: result.eventId,
-          availableUntil: result.undoAvailableUntil,
-          customerDisplayName: session.customerDisplayName,
-          actionMode: session.actionMode,
+        const commitMutation =
+          params.actionMode === 'stamp' ? commitStamp : commitRedeem;
+        const result = (await commitMutation({
+          scanSessionId: params.session.scanSessionId as Id<'scanSessions'>,
+        })) as CommitActionResult;
+        applyCommitOutcome({
+          session: params.session,
+          result,
+          actionMode: params.actionMode,
+          isFirstStampForCustomer: params.isFirstStampForCustomer,
         });
-        setSuccessBannerMessage(
-          isRedeem
-            ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
-            : BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
-        );
-        setResultBanner({
-          customerDisplayName: session.customerDisplayName,
-          statusLabel: isRedeem
-            ? 'הטבה מומשה בהצלחה'
-            : result.canRedeemNow
-              ? 'זכאי למימוש הטבה'
-              : 'בתהליך צבירת ניקובים',
-          currentStamps: result.currentStamps,
-          maxStamps: result.maxStamps,
-        });
-        Vibration.vibrate(120);
-        setBusinessSuccessBannerKey((current) => current + 1);
-
-        track(ANALYTICS_EVENTS.stampSuccess, {
-          businessId: selectedBusiness.businessId,
-          customerUserId: session.customerUserId,
-          action_mode: session.actionMode,
-        });
-
-        if (session.actionMode === 'stamp') {
-          if (user?._id) {
-            void trackActivationOnce(
-              ANALYTICS_EVENTS.firstScanCompleted,
-              user._id,
-              { role: 'business', userId: user._id }
-            );
-          }
-          if (isFirstStampForCustomer) {
-            void trackActivationEvent(
-              ANALYTICS_EVENTS.customerFirstStampReceived,
-              {
-                role: 'client',
-                userId: session.customerUserId,
-              }
-            );
-          }
-        }
         return 'success' as const;
       } catch (error) {
         const entitlementError = getEntitlementError(error);
         if (entitlementError) {
+          setPendingRedeemSession(null);
           setRetrySession(null);
           setScanError(
-            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} נכשל: ${entitlementErrorToHebrewMessage(entitlementError)}`
+            `${actionLabel} נכשל: ${entitlementErrorToHebrewMessage(entitlementError)}`
           );
           openUpgrade(
             entitlementError.featureKey ??
@@ -632,7 +833,7 @@ export default function ScannerScreen() {
           track(ANALYTICS_EVENTS.stampFailed, {
             error_code: entitlementError.code,
             context: 'commitAction',
-            action_mode: session.actionMode,
+            action_mode: params.actionMode,
           });
           return 'business' as const;
         }
@@ -640,27 +841,24 @@ export default function ScannerScreen() {
         const mapped = mapScanError(error);
         const technicalError = isTechnicalCommitError(mapped.code);
         if (technicalError) {
+          setPendingRedeemSession(null);
           setRetrySession({
-            scanSessionId: session.scanSessionId,
-            customerDisplayName: session.customerDisplayName,
-            customerUserId: session.customerUserId,
-            membership: session.membership,
-            sessionExpiresAt: session.sessionExpiresAt,
-            actionMode: session.actionMode,
+            ...params.session,
+            actionMode: params.actionMode,
+            isFirstStampForCustomer: params.isFirstStampForCustomer,
           });
           setScanError(
-            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} מושהה: ${mapped.message} ניתן לנסות שוב בלי לסרוק מחדש.`
+            `${actionLabel} מושהה: ${mapped.message} ניתן לנסות שוב בלי לסרוק מחדש.`
           );
         } else {
+          setPendingRedeemSession(null);
           setRetrySession(null);
-          setScanError(
-            `${session.actionMode === 'redeem' ? 'מימוש' : 'ניקוב'} נכשל: ${mapped.message}`
-          );
+          setScanError(`${actionLabel} נכשל: ${mapped.message}`);
         }
         track(ANALYTICS_EVENTS.stampFailed, {
           error_code: mapped.code,
           context: 'commitAction',
-          action_mode: session.actionMode,
+          action_mode: params.actionMode,
         });
         return technicalError ? ('technical' as const) : ('business' as const);
       } finally {
@@ -668,12 +866,12 @@ export default function ScannerScreen() {
       }
     },
     [
+      applyCommitOutcome,
       commitRedeem,
       commitStamp,
       openUpgrade,
       selectedBusiness,
       selectedProgram,
-      user?._id,
     ]
   );
 
@@ -696,6 +894,7 @@ export default function ScannerScreen() {
 
       setIsResolving(true);
       setScanError(null);
+      setPendingRedeemSession(null);
       setRetrySession(null);
       setUndoState(null);
 
@@ -703,7 +902,6 @@ export default function ScannerScreen() {
       try {
         track(ANALYTICS_EVENTS.qrScannedCustomer, {
           businessId: selectedBusiness?.businessId,
-          action_mode: selectedActionMode,
         });
 
         const resolvedScan = await resolveByToken(data);
@@ -711,7 +909,26 @@ export default function ScannerScreen() {
           return;
         }
 
-        const commitState = await commitFromSession(resolvedScan);
+        const resolvedSession: PendingRedeemSession = {
+          scanSessionId: resolvedScan.scanSessionId,
+          sessionExpiresAt: resolvedScan.sessionExpiresAt,
+          customerUserId: resolvedScan.customerUserId,
+          customerDisplayName: resolvedScan.customerDisplayName,
+          membership: resolvedScan.membership,
+        };
+
+        if (resolvedScan.resolution === 'REDEEM_AVAILABLE') {
+          setPendingRedeemSession(resolvedSession);
+          setResultBanner(null);
+          shouldQueueReset = false;
+          return;
+        }
+
+        const commitState = await commitFromSession({
+          session: resolvedSession,
+          actionMode: 'stamp',
+          isFirstStampForCustomer: resolvedScan.resolution === 'JOIN_AND_STAMP',
+        });
         if (commitState === 'technical') {
           shouldQueueReset = false;
         }
@@ -728,10 +945,32 @@ export default function ScannerScreen() {
       isSelectionLocked,
       queueScannerReset,
       resolveByToken,
-      selectedActionMode,
       selectedBusiness?.businessId,
     ]
   );
+
+  const handleRedeemCommit = useCallback(async () => {
+    if (!pendingRedeemSession || isBusy) {
+      return;
+    }
+
+    if (Date.now() > pendingRedeemSession.sessionExpiresAt) {
+      setPendingRedeemSession(null);
+      setRetrySession(null);
+      setScanError('פג תוקף הסריקה. יש לסרוק מחדש.');
+      queueScannerReset();
+      return;
+    }
+
+    const commitState = await commitFromSession({
+      session: pendingRedeemSession,
+      actionMode: 'redeem',
+      isFirstStampForCustomer: false,
+    });
+    if (commitState !== 'technical') {
+      queueScannerReset();
+    }
+  }, [commitFromSession, isBusy, pendingRedeemSession, queueScannerReset]);
 
   const handleRetryCommit = useCallback(async () => {
     if (!retrySession || isBusy) {
@@ -745,14 +984,18 @@ export default function ScannerScreen() {
       return;
     }
 
-    const commitState = await commitFromSession(retrySession);
+    const commitState = await commitFromSession({
+      session: retrySession,
+      actionMode: retrySession.actionMode,
+      isFirstStampForCustomer: retrySession.isFirstStampForCustomer,
+    });
     if (commitState !== 'technical') {
       queueScannerReset();
     }
   }, [commitFromSession, isBusy, queueScannerReset, retrySession]);
 
   const handleUndoLastAction = useCallback(async () => {
-    if (!undoState || !scannerDeviceId || isBusy) {
+    if (!undoState?.eventId || !scannerDeviceId || isBusy) {
       return;
     }
     if (Date.now() > undoState.availableUntil) {
@@ -760,6 +1003,7 @@ export default function ScannerScreen() {
       return;
     }
 
+    const undoCopy = getUndoPresentation(undoState.actionMode);
     setIsUndoing(true);
     setScanError(null);
     try {
@@ -770,23 +1014,31 @@ export default function ScannerScreen() {
       })) as UndoActionResult;
 
       const membership = response.membership;
+      const undoStatusLabel =
+        response.status === 'already_reverted'
+          ? undoCopy.alreadyRevertedLabel
+          : undoCopy.resultStatusLabel;
       if (membership) {
         setResultBanner({
           customerDisplayName: undoState.customerDisplayName,
-          statusLabel: 'הפעולה בוטלה',
+          statusLabel: undoStatusLabel,
           currentStamps: membership.currentStamps,
           maxStamps: membership.maxStamps,
         });
       } else {
         setResultBanner(null);
       }
-      setSuccessBannerMessage(BUSINESS_SUCCESS_BANNER_MESSAGE_UNDO);
+      setSuccessBannerMessage(
+        response.status === 'already_reverted'
+          ? undoCopy.alreadyRevertedLabel
+          : undoCopy.successMessage
+      );
       setBusinessSuccessBannerKey((current) => current + 1);
       setRetrySession(null);
       setUndoState(null);
       queueScannerReset();
     } catch {
-      setScanError('לא ניתן לבטל את הפעולה כרגע.');
+      setScanError(undoCopy.errorLabel);
       setUndoState(null);
     } finally {
       setIsUndoing(false);
@@ -801,26 +1053,96 @@ export default function ScannerScreen() {
   ]);
 
   const handleProgramPress = useCallback(
-    (programId: string) => {
-      if (isSelectionLocked || programId === selectedProgramId) {
+    (programId: string, index?: number) => {
+      if (isSelectionLocked) {
+        return;
+      }
+      if (
+        typeof index === 'number' &&
+        index >= 0 &&
+        index < programs.length &&
+        index !== selectedProgramIndex
+      ) {
+        setVisibleProgramIndex(index);
+        programCarouselRef.current?.scrollToOffset({
+          offset: index * ITEM_STRIDE,
+          animated: true,
+        });
+        return;
+      }
+      if (programId === selectedProgramId) {
         return;
       }
       void setSelectedProgram(programId);
       resetScanner();
     },
-    [isSelectionLocked, resetScanner, selectedProgramId, setSelectedProgram]
+    [
+      isSelectionLocked,
+      ITEM_STRIDE,
+      programs.length,
+      resetScanner,
+      selectedProgramId,
+      selectedProgramIndex,
+      setSelectedProgram,
+    ]
   );
 
-  const handleActionModePress = useCallback(
-    (mode: ScanActionMode) => {
-      if (isSelectionLocked || mode === selectedActionMode) {
+  const handleProgramSliderMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (isSelectionLocked || programs.length <= 1) {
         return;
       }
-      setSelectedActionMode(mode);
+
+      const rawIndex = event.nativeEvent.contentOffset.x / ITEM_STRIDE;
+      const nextIndex = Math.min(
+        programs.length - 1,
+        Math.max(0, Math.round(rawIndex))
+      );
+      setVisibleProgramIndex(nextIndex);
+      const nextProgram = programs[nextIndex];
+      if (!nextProgram || nextProgram.loyaltyProgramId === selectedProgramId) {
+        return;
+      }
+
+      void setSelectedProgram(nextProgram.loyaltyProgramId);
       resetScanner();
     },
-    [isSelectionLocked, resetScanner, selectedActionMode]
+    [
+      isSelectionLocked,
+      ITEM_STRIDE,
+      programs,
+      resetScanner,
+      selectedProgramId,
+      setSelectedProgram,
+    ]
   );
+  const handleProgramDotPress = useCallback(
+    (index: number) => {
+      const targetProgram = programs[index];
+      if (!targetProgram) {
+        return;
+      }
+      handleProgramPress(targetProgram.loyaltyProgramId, index);
+    },
+    [handleProgramPress, programs]
+  );
+  const getProgramItemLayout = useCallback(
+    (_: ArrayLike<ScannerProgram> | null | undefined, index: number) => ({
+      length: ITEM_STRIDE,
+      offset: ITEM_STRIDE * index,
+      index,
+    }),
+    [ITEM_STRIDE]
+  );
+  const handleProgramSliderLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredWidth = Math.round(event.nativeEvent.layout.width);
+    setProgramSliderMeasuredWidth((current) => {
+      if (Math.abs(current - measuredWidth) <= 1) {
+        return current;
+      }
+      return measuredWidth;
+    });
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -844,65 +1166,19 @@ export default function ScannerScreen() {
         ]}
       >
         <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
+          topPadding={(insets.top || 0) + 4}
           backgroundColor="#E9F0FF"
         >
           <View style={styles.header}>
             <BusinessScreenHeader
               title={SCANNER_HEADER_TITLE}
-              subtitle={scannerHeaderSubtitle}
+              style={styles.scannerHeaderCompact}
+              contentStyle={styles.scannerHeaderContentCompact}
             />
           </View>
         </StickyScrollHeader>
 
-        <View style={styles.carouselWrap}>
-          <View style={styles.actionModeRow}>
-            <Pressable
-              onPress={() => handleActionModePress('stamp')}
-              disabled={isSelectionLocked}
-              style={({ pressed }) => [
-                styles.actionModeButton,
-                selectedActionMode === 'stamp'
-                  ? styles.actionModeButtonSelected
-                  : null,
-                pressed ? styles.actionModeButtonPressed : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.actionModeLabel,
-                  selectedActionMode === 'stamp'
-                    ? styles.actionModeLabelSelected
-                    : null,
-                ]}
-              >
-                ניקוב
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => handleActionModePress('redeem')}
-              disabled={isSelectionLocked}
-              style={({ pressed }) => [
-                styles.actionModeButton,
-                selectedActionMode === 'redeem'
-                  ? styles.actionModeButtonSelected
-                  : null,
-                pressed ? styles.actionModeButtonPressed : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.actionModeLabel,
-                  selectedActionMode === 'redeem'
-                    ? styles.actionModeLabelSelected
-                    : null,
-                ]}
-              >
-                מימוש הטבה
-              </Text>
-            </Pressable>
-          </View>
-
+        <View style={[styles.carouselWrap, { width: windowWidth }]}>
           {programs.length === 0 ? (
             <View style={styles.emptyProgramsCard}>
               <Text style={styles.emptyProgramsTitle}>
@@ -925,67 +1201,113 @@ export default function ScannerScreen() {
             </View>
           ) : (
             <>
-              <ScrollView
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselContent}
+              <View
+                style={styles.programSliderViewport}
+                onLayout={handleProgramSliderLayout}
               >
-                {programs.map((program) => {
-                  const isSelected =
-                    program.loyaltyProgramId ===
-                    selectedProgram?.loyaltyProgramId;
-                  return (
-                    <Pressable
-                      key={program.loyaltyProgramId}
-                      onPress={() =>
-                        handleProgramPress(program.loyaltyProgramId)
-                      }
-                      disabled={isSelectionLocked}
-                      style={({ pressed }) => [
-                        styles.programCard,
-                        isSelected ? styles.programCardSelected : null,
-                        isSelectionLocked ? styles.programCardLocked : null,
-                        pressed ? styles.programCardPressed : null,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.programIcon,
-                          isSelected ? styles.programIconSelected : null,
-                        ]}
+                <FlatList
+                  ref={programCarouselRef}
+                  horizontal={true}
+                  bounces={false}
+                  data={programs}
+                  keyExtractor={(program) => program.loyaltyProgramId}
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={!isSelectionLocked && programs.length > 1}
+                  snapToAlignment="start"
+                  snapToInterval={ITEM_STRIDE}
+                  decelerationRate="fast"
+                  disableIntervalMomentum={true}
+                  inverted={false}
+                  removeClippedSubviews={false}
+                  style={styles.programSlider}
+                  contentContainerStyle={[
+                    styles.programSliderContent,
+                    { paddingHorizontal: SIDE_PADDING },
+                  ]}
+                  ItemSeparatorComponent={() => (
+                    <View style={{ width: CARD_GAP }} />
+                  )}
+                  getItemLayout={getProgramItemLayout}
+                  onMomentumScrollEnd={handleProgramSliderMomentumEnd}
+                  renderItem={({ item, index }) => {
+                    const isActive =
+                      item.loyaltyProgramId ===
+                      selectedProgram?.loyaltyProgramId;
+                    return (
+                      <View
+                        style={[styles.programSlide, { width: CARD_WIDTH }]}
                       >
-                        {program.stampIcon}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.programTitle,
-                          isSelected ? styles.programTitleSelected : null,
-                        ]}
+                        <Pressable
+                          onPress={() =>
+                            handleProgramPress(item.loyaltyProgramId, index)
+                          }
+                          disabled={isSelectionLocked}
+                          style={({ pressed }) => [
+                            styles.programSlidePressable,
+                            isActive
+                              ? styles.programSlidePressableActive
+                              : styles.programSlidePressableInactive,
+                            isSelectionLocked ? styles.programCardLocked : null,
+                            pressed ? styles.programCardPressed : null,
+                          ]}
+                        >
+                          <ProgramCustomerCardPreview
+                            businessName={selectedBusiness?.name ?? item.title}
+                            rewardName={item.rewardName}
+                            maxStamps={item.maxStamps}
+                            title={item.title}
+                            programImageUrl={item.imageUrl ?? null}
+                            stampIcon={item.stampIcon}
+                            stampShape={item.stampShape ?? 'circle'}
+                            cardThemeId={item.cardThemeId ?? null}
+                            businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                            variant="hero"
+                            selected={isActive}
+                          />
+                        </Pressable>
+                      </View>
+                    );
+                  }}
+                />
+              </View>
+              <View style={styles.programDotsViewport}>
+                <View
+                  style={[styles.programDotsTrack, { width: dotsTrackWidth }]}
+                >
+                  {programs.map((program, index) => {
+                    const isActive = index === activeProgramDotIndex;
+                    return (
+                      <View
+                        key={`${program.loyaltyProgramId}:dot`}
+                        style={styles.programDotSlot}
                       >
-                        {program.title}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.programSubtitle,
-                          isSelected ? styles.programSubtitleSelected : null,
-                        ]}
-                      >
-                        {program.maxStamps} ניקובים · {program.rewardName}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <View style={styles.selectionLabelCard}>
-                <Text style={styles.selectionLabel}>
-                  {selectedProgram
-                    ? selectedActionMode === 'redeem'
-                      ? `מממשים ב: ${selectedProgram.title}`
-                      : `מחתימים אל: ${selectedProgram.title}`
-                    : 'בחרו תוכנית לסריקה'}
-                </Text>
+                        <Pressable
+                          onPress={() => handleProgramDotPress(index)}
+                          disabled={isSelectionLocked}
+                          hitSlop={6}
+                          style={({ pressed }) => [
+                            styles.programDotButton,
+                            pressed ? styles.programDotButtonPressed : null,
+                            isSelectionLocked
+                              ? styles.programDotButtonDisabled
+                              : null,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select card ${program.title}`}
+                        >
+                          <View style={styles.programDotInner}>
+                            <View
+                              style={[
+                                styles.programDot,
+                                isActive ? styles.programDotActive : null,
+                              ]}
+                            />
+                          </View>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             </>
           )}
@@ -995,18 +1317,38 @@ export default function ScannerScreen() {
           <QrScanner
             onScan={handleScan}
             resetKey={scannerResetKey}
-            isBusy={isBusy || !canScan || Boolean(retrySession)}
-            caption={
-              !canScan
-                ? 'אין תוכנית פעילה לסריקה'
-                : retrySession
-                  ? 'הסריקה ממתינה לניסיון חוזר'
-                  : selectedActionMode === 'redeem'
-                    ? 'סרקו QR כדי לממש הטבה'
-                    : undefined
+            showStatus={false}
+            cameraMinHeight={240}
+            isBusy={
+              isBusy ||
+              !canScan ||
+              Boolean(retrySession) ||
+              Boolean(pendingRedeemSession)
             }
           />
         </View>
+
+        {pendingRedeemSession ? (
+          <View style={styles.redeemReadyCard}>
+            <Text style={styles.redeemReadyTitle}>הלקוח זכאי למימוש</Text>
+            <Text style={styles.redeemReadySubtitle}>
+              {pendingRedeemSession.customerDisplayName}
+            </Text>
+            <Pressable
+              onPress={handleRedeemCommit}
+              disabled={isBusy}
+              style={({ pressed }) => [
+                styles.redeemReadyButton,
+                pressed ? styles.redeemReadyButtonPressed : null,
+                isBusy ? styles.redeemReadyButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.redeemReadyButtonText}>
+                {isStamping ? 'מממשים...' : 'ממש'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {scanError ? (
           <View style={styles.messageCard}>
@@ -1029,7 +1371,6 @@ export default function ScannerScreen() {
 
         {resultBanner ? (
           <View style={styles.resultBanner}>
-            <Text style={styles.resultBannerTitle}>פרטי הפעולה האחרונה</Text>
             <Text style={styles.resultCustomerName}>
               {resultBanner.customerDisplayName}
             </Text>
@@ -1043,17 +1384,26 @@ export default function ScannerScreen() {
                 {resultBanner.currentStamps}/{resultBanner.maxStamps}
               </Text>
             </View>
-            {undoState?.eventId && undoState.availableUntil > Date.now() ? (
+            {undoActionActive && undoPresentation ? (
               <Pressable
                 onPress={handleUndoLastAction}
-                disabled={isBusy}
+                disabled={isBusy || !undoState?.eventId}
+                accessibilityRole="button"
+                accessibilityLabel={undoPresentation.buttonLabel ?? 'בטל פעולה'}
                 style={({ pressed }) => [
-                  styles.undoButton,
-                  pressed ? styles.undoButtonPressed : null,
-                  isBusy ? styles.undoButtonDisabled : null,
+                  styles.undoCompactAction,
+                  pressed ? styles.undoCompactActionPressed : null,
+                  isBusy || !undoState?.eventId
+                    ? styles.undoCompactActionDisabled
+                    : null,
                 ]}
               >
-                <Text style={styles.undoButtonText}>בטל פעולה</Text>
+                <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
+                <Text style={styles.undoCompactLabel}>בטל פעולה</Text>
+                <Text style={styles.undoCompactDot}>:</Text>
+                <Text style={styles.undoCompactTimer}>
+                  {undoPresentation.countdownLabel}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -1073,111 +1423,108 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 8,
   },
   header: {
-    gap: 6,
+    gap: 2,
+  },
+  scannerHeaderCompact: {
+    marginBottom: 0,
+  },
+  scannerHeaderContentCompact: {
+    minHeight: 42,
+    gap: 2,
   },
   carouselWrap: {
     gap: 10,
+    borderRadius: 22,
+    marginHorizontal: -20,
+    paddingTop: 16,
+    paddingBottom: 14,
+    overflow: 'hidden',
   },
-  actionModeRow: {
-    flexDirection: 'row-reverse',
-    gap: 8,
+  programSliderViewport: {
+    width: '100%',
+    overflow: 'hidden',
+    direction: 'ltr',
   },
-  actionModeButton: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D5E3FF',
-    paddingVertical: 9,
+  programSlider: {
+    width: '100%',
+    direction: 'ltr',
+  },
+  programSliderContent: {
+    paddingVertical: 8,
+    direction: 'ltr',
+    flexDirection: 'row',
+  },
+  programSlide: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionModeButtonSelected: {
-    backgroundColor: '#2F6BFF',
-    borderColor: '#1F57DC',
+  programSlidePressable: {
+    width: '100%',
+    paddingVertical: 0,
   },
-  actionModeButtonPressed: {
-    opacity: 0.9,
+  programSlidePressableActive: {
+    opacity: 1,
+    transform: [{ scale: 1 }],
   },
-  actionModeLabel: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#1A2B4A',
+  programSlidePressableInactive: {
+    opacity: 0.7,
+    transform: [{ scale: 0.93 }],
   },
-  actionModeLabelSelected: {
-    color: '#FFFFFF',
+  programDotsViewport: {
+    alignSelf: 'stretch',
+    height: 16,
+    marginTop: -2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  carouselContent: {
-    gap: 10,
-    paddingVertical: 2,
+  programDotsTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  programCard: {
-    minWidth: 160,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D5E3FF',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 4,
+  programDotSlot: {
+    width: PROGRAM_DOT_SLOT_WIDTH,
+    height: PROGRAM_DOT_SLOT_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  programCardSelected: {
-    backgroundColor: '#2F6BFF',
-    borderColor: '#1F57DC',
-    shadowColor: '#2F6BFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    elevation: 6,
+  programDotButton: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programDotButtonPressed: {
+    opacity: 0.75,
+  },
+  programDotButtonDisabled: {
+    opacity: 0.6,
+  },
+  programDotInner: {
+    width: PROGRAM_DOT_ACTIVE_WIDTH,
+    height: PROGRAM_DOT_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programDot: {
+    width: PROGRAM_DOT_SIZE,
+    height: PROGRAM_DOT_SIZE,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.36)',
+  },
+  programDotActive: {
+    width: PROGRAM_DOT_ACTIVE_WIDTH,
+    backgroundColor: '#000000',
   },
   programCardPressed: {
-    opacity: 0.9,
+    opacity: 0.88,
   },
   programCardLocked: {
     opacity: 0.8,
-  },
-  programIcon: {
-    fontSize: 18,
-    color: '#1F2A44',
-    textAlign: 'right',
-  },
-  programIconSelected: {
-    color: '#FFFFFF',
-  },
-  programTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0B1220',
-    textAlign: 'right',
-  },
-  programTitleSelected: {
-    color: '#FFFFFF',
-  },
-  programSubtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5B6475',
-    textAlign: 'right',
-  },
-  programSubtitleSelected: {
-    color: '#DDE9FF',
-  },
-  selectionLabelCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D5E3FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  selectionLabel: {
-    textAlign: 'right',
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1A2B4A',
   },
   emptyProgramsCard: {
     backgroundColor: '#FFFFFF',
@@ -1216,7 +1563,46 @@ const styles = StyleSheet.create({
   },
   scannerBox: {
     flex: 1,
-    minHeight: 240,
+    marginTop: -10,
+    minHeight: 220,
+  },
+  redeemReadyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#C7DBFF',
+    padding: 14,
+    gap: 10,
+  },
+  redeemReadyTitle: {
+    color: '#1A2B4A',
+    fontWeight: '900',
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  redeemReadySubtitle: {
+    color: '#475569',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  redeemReadyButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2F6BFF',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  redeemReadyButtonPressed: {
+    opacity: 0.9,
+  },
+  redeemReadyButtonDisabled: {
+    opacity: 0.6,
+  },
+  redeemReadyButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
   },
   messageCard: {
     backgroundColor: '#FFFFFF',
@@ -1250,25 +1636,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   undoButton: {
-    marginTop: 4,
-    alignSelf: 'flex-end',
-    backgroundColor: '#EEF4FF',
-    borderRadius: 10,
+    marginTop: 2,
+    backgroundColor: '#C2410C',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#C7DBFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: '#9A3412',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#9A3412',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 3,
   },
   undoButtonPressed: {
-    opacity: 0.9,
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
   },
   undoButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   undoButtonText: {
-    color: '#1A2B4A',
+    color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 12,
+    fontSize: 14,
+    textAlign: 'center',
   },
   resultBanner: {
     backgroundColor: '#FFFFFF',
@@ -1276,13 +1670,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C7DBFF',
     padding: 16,
-    gap: 8,
+    gap: 10,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 22,
+    elevation: 3,
   },
-  resultBannerTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2F6BFF',
-    textAlign: 'right',
+  resultBannerUndoBadge: {
+    backgroundColor: '#E0EAFF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  resultBannerUndoBadgeText: {
+    color: '#1E4ED8',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   resultCustomerName: {
     fontSize: 20,
@@ -1306,4 +1711,115 @@ const styles = StyleSheet.create({
     color: '#0B1220',
     textAlign: 'right',
   },
+  undoCompactAction: {
+    marginTop: 2,
+    alignSelf: 'flex-end',
+    minWidth: 132,
+    backgroundColor: '#EAF1FF',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#2F6BFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#2F6BFF',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  undoCompactActionPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  undoCompactActionDisabled: {
+    opacity: 0.65,
+  },
+  undoCompactLabel: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  undoCompactDot: {
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+  undoCompactTimer: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  undoCard: {
+    marginTop: 4,
+    backgroundColor: '#F7F9FF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7E4FF',
+    padding: 14,
+    gap: 10,
+  },
+  undoCardTopRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  undoBadge: {
+    backgroundColor: '#E5EDFF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  undoBadgeText: {
+    color: '#1E3A8A',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  undoCountdownBadge: {
+    backgroundColor: '#FFF4DB',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  undoCountdownText: {
+    color: '#9A3412',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  undoCardTitle: {
+    color: '#102A56',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  undoCardDescription: {
+    color: '#475569',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  undoConfirmationBox: {
+    backgroundColor: '#FFF8EA',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#F4D8A8',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  undoConfirmationText: {
+    color: '#7C2D12',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
 });
+

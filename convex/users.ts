@@ -646,27 +646,31 @@ export async function updateSubscriptionPlanByExternalId(
   return user._id;
 }
 
-// ׳©׳׳™׳₪׳× ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™ ׳”׳׳—׳•׳‘׳¨
-// ׳׳—׳–׳™׳¨ null ׳׳ ׳”׳׳©׳×׳׳© ׳׳ ׳׳—׳•׳‘׳¨
+// שליפת המשתמש הנוכחי המחובר
+// מחזיר null אם המשתמש לא מחובר
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     const authUserId = await getAuthUserId(ctx);
-    if (!authUserId) return null;
+    if (!authUserId) {
+      return null;
+    }
 
     const user = await ctx.db.get(authUserId);
     return user ?? null;
   },
 });
 
-// ׳©׳׳™׳₪׳× ׳׳©׳×׳׳© ׳׳₪׳™ ׳׳–׳”׳” (ID)
+// שליפת משתמש לפי מזהה (ID)
 type ActiveMode = 'customer' | 'business';
 
 export const getSessionContext = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx);
-    if (!user) return null;
+    if (!user) {
+      return null;
+    }
     const now = Date.now();
 
     const staffEntries = await ctx.db
@@ -681,7 +685,9 @@ export const getSessionContext = query({
             return null;
           }
           const biz = await ctx.db.get(staff.businessId);
-          if (!biz || !biz.isActive) return null;
+          if (!biz || !biz.isActive) {
+            return null;
+          }
           return {
             id: biz._id,
             name: biz.name,
@@ -691,32 +697,53 @@ export const getSessionContext = query({
       )
     ).filter((b): b is NonNullable<typeof b> => b !== null);
 
-    const pendingInvites = user.email
-      ? (
-          await Promise.all(
-            (
-              await ctx.db
-                .query('staffInvites')
-                .withIndex('by_invitedEmail', (q: any) =>
-                  q.eq('invitedEmail', user.email!)
-                )
-                .filter((q: any) => q.eq(q.field('status'), 'pending'))
-                .collect()
-            ).map(async (invite) => {
-              if (invite.expiresAt <= now) return null;
-              const biz = await ctx.db.get(invite.businessId);
-              if (!biz || !biz.isActive) return null;
-              return {
-                inviteId: invite._id,
-                businessId: biz._id,
-                businessName: biz.name,
-                inviteCode: invite.inviteCode,
-                targetRole: invite.targetRole,
-              };
-            })
-          )
-        ).filter((i): i is NonNullable<typeof i> => i !== null)
-      : [];
+    const [pendingByEmail, pendingByUserId] = await Promise.all([
+      user.email
+        ? ctx.db
+            .query('staffInvites')
+            .withIndex('by_invitedEmail', (q: any) =>
+              q.eq('invitedEmail', user.email!)
+            )
+            .filter((q: any) => q.eq(q.field('status'), 'pending'))
+            .collect()
+        : Promise.resolve([]),
+      ctx.db
+        .query('staffInvites')
+        .withIndex('by_invitedUserId', (q: any) =>
+          q.eq('invitedUserId', user._id)
+        )
+        .filter((q: any) => q.eq(q.field('status'), 'pending'))
+        .collect(),
+    ]);
+
+    const pendingInviteMap = new Map<string, any>();
+    for (const invite of pendingByEmail) {
+      pendingInviteMap.set(String(invite._id), invite);
+    }
+    for (const invite of pendingByUserId) {
+      pendingInviteMap.set(String(invite._id), invite);
+    }
+
+    const pendingInvites = (
+      await Promise.all(
+        Array.from(pendingInviteMap.values()).map(async (invite) => {
+          if (invite.expiresAt <= now) {
+            return null;
+          }
+          const biz = await ctx.db.get(invite.businessId as Id<'businesses'>);
+          if (!biz || !biz.isActive) {
+            return null;
+          }
+          return {
+            inviteId: invite._id,
+            businessId: biz._id,
+            businessName: biz.name,
+            inviteCode: invite.inviteCode,
+            targetRole: invite.targetRole,
+          };
+        })
+      )
+    ).filter((i): i is NonNullable<typeof i> => i !== null);
 
     const roles = {
       owner: businesses.some((b) => b.staffRole === 'owner'),
@@ -871,7 +898,7 @@ export const getById = query({
   },
 });
 
-// ׳©׳׳™׳₪׳× ׳¨׳©׳™׳׳× ׳›׳ ׳”׳׳©׳×׳׳©׳™׳ ׳”׳₪׳¢׳™׳׳™׳
+// שליפת רשימת כל המשתמשים הפעילים
 export const listActive = query({
   args: {},
   handler: async (ctx) => {
@@ -882,7 +909,7 @@ export const listActive = query({
   },
 });
 
-// ׳¢׳“׳›׳•׳ ׳₪׳¨׳•׳₪׳™׳ ׳”׳׳©׳×׳׳© (׳׳׳©׳, ׳©׳™׳ ׳•׳™ ׳©׳)
+// עדכון פרופיל המשתמש (למשל, שינוי שם)
 export const updateProfile = mutation({
   args: {
     userId: v.id('users'),
@@ -1024,7 +1051,7 @@ export const setMyMarketingProfile = mutation({
   },
 });
 
-// ׳¢׳“׳›׳•׳ ׳×׳•׳›׳ ׳™׳× ׳׳ ׳•׳™ ׳¢׳‘׳•׳¨ ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™
+// עדכון תוכנית מנוי עבור המשתמש הנוכחי
 export const updateSubscriptionPlan = mutation({
   args: {
     plan: SUBSCRIPTION_PLAN_UNION,
@@ -1041,7 +1068,7 @@ export const updateSubscriptionPlan = mutation({
   },
 });
 
-// ׳׳—׳™׳§׳× ׳׳©׳×׳׳© (׳₪׳¢׳•׳׳” ׳׳׳ ׳”׳׳™׳ ׳׳• ׳׳׳©׳×׳׳© ׳¢׳¦׳׳• - ׳›׳׳ ׳׳™׳•׳©׳ ׳›׳׳—׳™׳§׳” ׳₪׳™׳–׳™׳×)
+// מחיקת משתמש (פעולה למנהלים או למשתמש עצמו - כאן מיושם כמחיקה פיזית)
 export const remove = mutation({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
@@ -1054,8 +1081,8 @@ export const remove = mutation({
   },
 });
 
-// ׳׳—׳™׳§׳× ׳—׳©׳‘׳•׳ ׳”׳׳©׳×׳׳© ׳”׳ ׳•׳›׳—׳™ ׳•׳›׳ ׳”׳ ׳×׳•׳ ׳™׳ ׳”׳׳©׳•׳™׳›׳™׳ ׳׳׳™׳•
-// ג ן¸ ׳׳–׳”׳¨׳”: ׳₪׳¢׳•׳׳” ׳–׳• ׳‘׳׳×׳™ ׳”׳₪׳™׳›׳” ׳•׳×׳׳—׳§ ׳׳× ׳›׳ ׳”׳ ׳×׳•׳ ׳™׳ ׳׳¦׳׳™׳×׳•׳×!
+// מחיקת חשבון המשתמש הנוכחי וכל הנתונים המשויכים אליו
+// ⚠️ אזהרה: פעולה זו בלתי הפיכה ותמחק את כל הנתונים לצמיתות!
 export async function deleteMyAccountHardImpl(
   ctx: any
 ): Promise<DeleteMyAccountHardResult> {

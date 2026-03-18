@@ -1,0 +1,360 @@
+﻿import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import QrScanner from '@/components/QrScanner';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
+import { IS_DEV_MODE } from '@/config/appConfig';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { api } from '@/convex/_generated/api';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import {
+  mapTeamInviteErrorToMessage,
+  TEAM_INVITE_ERROR_MESSAGES,
+} from '@/lib/domain/teamInviteErrors';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
+import { tw } from '@/lib/rtl';
+import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+
+type InviteTargetRole = 'manager' | 'staff';
+
+type ScannedStaffDetails = {
+  name: string;
+  phone: string | null;
+  email: string | null;
+};
+
+export default function AddBusinessStaffScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const isOwner = activeBusiness?.staffRole === 'owner';
+  const isManager = activeBusiness?.staffRole === 'manager';
+  const canManageTeam = isOwner || isManager;
+
+  const { gate } = useEntitlements(activeBusinessId);
+  const teamGate = gate('team');
+  const teamCopy = getLockedAreaCopy('team', teamGate.requiredPlan);
+
+  const inviteStaffByScanToken = useMutation(
+    api.business.inviteBusinessStaffByScanToken
+  );
+
+  const [inviteRole, setInviteRole] = useState<InviteTargetRole>('staff');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [scannedStaffDetails, setScannedStaffDetails] =
+    useState<ScannedStaffDetails | null>(null);
+  const [isInvitingByScan, setIsInvitingByScan] = useState(false);
+  const [scannerResetKey, setScannerResetKey] = useState(0);
+
+  useEffect(() => {
+    if (isPreviewMode || isAppModeLoading) {
+      return;
+    }
+    if (appMode !== 'business') {
+      router.replace('/(authenticated)/(customer)/wallet');
+    }
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
+
+  useEffect(() => {
+    if (!isOwner) {
+      setInviteRole('staff');
+    }
+  }, [isOwner]);
+
+  const openUpgrade = (
+    featureKey: string,
+    requiredPlan: 'starter' | 'pro' | 'premium' | null,
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'feature_locked'
+  ) => {
+    openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
+  };
+
+  const handleMutationError = (error: unknown) => {
+    const entitlementError = getEntitlementError(error);
+    if (entitlementError) {
+      setInviteError(entitlementErrorToHebrewMessage(entitlementError));
+      openUpgrade(
+        entitlementError.featureKey ?? 'team',
+        entitlementError.requiredPlan ?? 'pro',
+        entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+          ? 'subscription_inactive'
+          : entitlementError.code === 'PLAN_LIMIT_REACHED'
+            ? 'limit_reached'
+            : 'feature_locked'
+      );
+      return;
+    }
+
+    const mappedErrorMessage = mapTeamInviteErrorToMessage(error);
+    if (mappedErrorMessage) {
+      setInviteError(mappedErrorMessage);
+      return;
+    }
+
+    setInviteError('אירעה שגיאה.');
+  };
+
+  const handleInviteByScan = async (rawData: string) => {
+    if (!activeBusinessId) {
+      setInviteError('לא נבחר עסק פעיל.');
+      setScannerResetKey((current) => current + 1);
+      return;
+    }
+    if (!canManageTeam || isInvitingByScan) {
+      return;
+    }
+
+    const token = rawData.trim();
+    if (!token) {
+      setInviteError(TEAM_INVITE_ERROR_MESSAGES.INVALID_SCAN_TOKEN);
+      setScannerResetKey((current) => current + 1);
+      return;
+    }
+
+    setInviteError(null);
+    setInviteSuccess(null);
+    setScannedStaffDetails(null);
+    setIsInvitingByScan(true);
+    try {
+      const result = await inviteStaffByScanToken({
+        businessId: activeBusinessId,
+        scanToken: token,
+        role: isOwner ? inviteRole : 'staff',
+      });
+
+      setScannedStaffDetails(result.invitedUser);
+      setInviteSuccess('העובד נוסף בהצלחה לרשימת ההזמנות הממתינות.');
+    } catch (error) {
+      handleMutationError(error);
+      setScannerResetKey((current) => current + 1);
+    } finally {
+      setIsInvitingByScan(false);
+    }
+  };
+
+  const handleScanAgain = () => {
+    if (isInvitingByScan) {
+      return;
+    }
+    setInviteError(null);
+    setInviteSuccess(null);
+    setScannedStaffDetails(null);
+    setScannerResetKey((current) => current + 1);
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+      <ScrollView
+        className="flex-1"
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: (insets.bottom || 0) + 30,
+        }}
+      >
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="הוסף עובד"
+            subtitle="בחירת תפקיד וסריקת QR אישי להוספה מהירה"
+            titleAccessory={
+              <TouchableOpacity
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/team')
+                }
+                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
+              >
+                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
+              </TouchableOpacity>
+            }
+          />
+        </StickyScrollHeader>
+
+        <FeatureGate
+          isLocked={teamGate.isLocked}
+          requiredPlan={teamGate.requiredPlan}
+          onUpgradeClick={() =>
+            openUpgrade(
+              'team',
+              teamGate.requiredPlan,
+              teamGate.reason === 'subscription_inactive'
+                ? 'subscription_inactive'
+                : 'feature_locked'
+            )
+          }
+          title={teamCopy.lockedTitle}
+          subtitle={teamCopy.lockedSubtitle}
+          benefits={teamCopy.benefits}
+        >
+          <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-4">
+            <View className="gap-2">
+              <Text
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                1. תפקיד עובד
+              </Text>
+              <View className="flex-row-reverse gap-2">
+                <TouchableOpacity
+                  onPress={() => setInviteRole('staff')}
+                  className={`rounded-xl border px-4 py-2 ${
+                    inviteRole === 'staff'
+                      ? 'border-[#1D4ED8] bg-[#EFF4FF]'
+                      : 'border-[#D6E3FF] bg-white'
+                  }`}
+                >
+                  <Text className="text-xs font-bold text-[#1D4ED8]">עובד</Text>
+                </TouchableOpacity>
+                {isOwner ? (
+                  <TouchableOpacity
+                    onPress={() => setInviteRole('manager')}
+                    className={`rounded-xl border px-4 py-2 ${
+                      inviteRole === 'manager'
+                        ? 'border-[#1D4ED8] bg-[#EFF4FF]'
+                        : 'border-[#D6E3FF] bg-white'
+                    }`}
+                  >
+                    <Text className="text-xs font-bold text-[#1D4ED8]">
+                      מנהל
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            <View className="gap-2">
+              <Text
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                2. סריקת QR אישי
+              </Text>
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                הסריקה שומרת אוטומטית את העובד כהזמנה ממתינה.
+              </Text>
+              <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
+                <QrScanner
+                  onScan={handleInviteByScan}
+                  resetKey={scannerResetKey}
+                  isBusy={isInvitingByScan}
+                  caption={
+                    isInvitingByScan
+                      ? 'שומר עובד...'
+                      : scannedStaffDetails
+                        ? 'העובד נשמר. ניתן לסרוק שוב.'
+                        : 'מוכנים לסריקת QR אישי'
+                  }
+                />
+              </View>
+            </View>
+
+            {inviteError ? (
+              <Text
+                className={`text-xs font-semibold text-rose-600 ${tw.textStart}`}
+              >
+                {inviteError}
+              </Text>
+            ) : null}
+
+            {inviteSuccess ? (
+              <Text
+                className={`text-xs font-semibold text-emerald-700 ${tw.textStart}`}
+              >
+                {inviteSuccess}
+              </Text>
+            ) : null}
+
+            {scannedStaffDetails ? (
+              <View className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <Text
+                  className={`text-xs font-bold text-emerald-700 ${tw.textStart}`}
+                >
+                  פרטי העובד שנשמר
+                </Text>
+                <Text
+                  className={`mt-2 text-xs text-emerald-700 ${tw.textStart}`}
+                >
+                  שם: {scannedStaffDetails.name}
+                </Text>
+                <Text
+                  className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
+                >
+                  טלפון: {scannedStaffDetails.phone ?? 'לא הוגדר'}
+                </Text>
+                <Text
+                  className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
+                >
+                  אימייל: {scannedStaffDetails.email ?? 'לא הוגדר'}
+                </Text>
+                <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
+                  <Text className="text-[11px] font-bold text-emerald-700">
+                    תפקיד מבוקש: {inviteRole === 'manager' ? 'מנהל' : 'עובד'}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          <View className="mt-4 gap-2">
+            <TouchableOpacity
+              disabled={isInvitingByScan}
+              onPress={handleScanAgain}
+              className={`rounded-2xl border px-4 py-3 ${
+                isInvitingByScan
+                  ? 'border-[#CBD5E1] bg-[#F1F5F9]'
+                  : 'border-[#C7DBFF] bg-[#EEF4FF]'
+              }`}
+            >
+              {isInvitingByScan ? (
+                <ActivityIndicator color="#94A3B8" />
+              ) : (
+                <Text className="text-center text-sm font-bold text-[#1D4ED8]">
+                  סרוק שוב
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.replace('/(authenticated)/(business)/team')}
+              className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
+            >
+              <Text className="text-center text-sm font-bold text-[#334155]">
+                חזרה לניהול עובדים
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </FeatureGate>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}

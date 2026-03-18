@@ -34,6 +34,7 @@ type BusinessRoute =
   | '/(authenticated)/(business)/analytics'
   | '/(authenticated)/(business)/customers'
   | '/(authenticated)/(business)/cards'
+  | '/(authenticated)/(business)/team'
   | '/(authenticated)/(business)/qr'
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-subscription';
@@ -423,6 +424,9 @@ export default function MerchantDashboardScreen() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const canManageTeam =
+    activeBusiness?.staffRole === 'owner' ||
+    activeBusiness?.staffRole === 'manager';
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -1189,6 +1193,30 @@ export default function MerchantDashboardScreen() {
             <Ionicons name="chevron-back" size={18} color="#94A3B8" />
           </View>
         </TouchableOpacity>
+
+        {canManageTeam ? (
+          <TouchableOpacity
+            onPress={() => openRoute('/(authenticated)/(business)/team')}
+            className="mt-3 rounded-2xl border border-[#DCE6FF] bg-white px-4 py-3"
+          >
+            <View className={`${tw.flexRow} items-center gap-3`}>
+              <View className="h-10 w-10 items-center justify-center rounded-xl border border-[#D1DFFB] bg-[#F5F8FF]">
+                <Ionicons name="people-outline" size={20} color="#1D4ED8" />
+              </View>
+              <View className="flex-1 items-end">
+                <Text
+                  className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                >
+                  ניהול עובדים
+                </Text>
+                <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
+                  חזרה להוראות גישה וניהול צוות
+                </Text>
+              </View>
+              <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+            </View>
+          </TouchableOpacity>
+        ) : null}
 
         {recommendationCard && recommendationTheme ? (
           <View

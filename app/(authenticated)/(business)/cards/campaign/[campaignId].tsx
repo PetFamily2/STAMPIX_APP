@@ -49,28 +49,28 @@ const CAMPAIGN_TEMPLATES: Array<{
 }> = [
   {
     type: 'birthday',
-    title: '׳™׳•׳ ׳”׳•׳׳“׳×',
-    subtitle: '׳”׳˜׳‘׳” ׳׳™׳©׳™׳× ׳‘׳™׳•׳ ׳”׳”׳•׳׳“׳× ׳©׳ ׳”׳׳§׳•׳—',
+    title: 'יום הולדת',
+    subtitle: 'הטבה אישית ביום ההולדת של הלקוח',
   },
   {
     type: 'anniversary',
-    title: '׳™׳•׳ ׳ ׳™׳©׳•׳׳™׳',
-    subtitle: '׳׳¡׳¨ ׳™׳™׳¢׳•׳“׳™ ׳‘׳™׳•׳ ׳”׳ ׳™׳©׳•׳׳™׳',
+    title: 'יום נישואין',
+    subtitle: 'מסר ייעודי ביום הנישואין',
   },
   {
     type: 'welcome',
-    title: '׳‘׳¨׳•׳›׳™׳ ׳”׳‘׳׳™׳',
-    subtitle: '׳”׳•׳“׳¢׳× ׳₪׳×׳™׳—׳” ׳׳׳¦׳˜׳¨׳₪׳™׳ ׳—׳“׳©׳™׳',
+    title: 'ברוכים הבאים',
+    subtitle: 'הודעת פתיחה למצטרפים חדשים',
   },
   {
     type: 'winback',
-    title: '׳”׳©׳‘׳× ׳׳§׳•׳—׳•׳×',
-    subtitle: '׳₪׳ ׳™׳™׳” ׳׳׳§׳•׳—׳•׳× ׳©׳׳ ׳‘׳™׳§׳¨׳• ׳׳׳—׳¨׳•׳ ׳”',
+    title: 'השבת לקוחות',
+    subtitle: 'פנייה ללקוחות שלא ביקרו לאחרונה',
   },
   {
     type: 'promo',
-    title: '׳׳‘׳¦׳¢ ׳›׳׳׳™',
-    subtitle: '׳§׳׳₪׳™׳™׳ ׳©׳™׳•׳•׳§׳™ ׳׳›׳ ׳”׳׳§׳•׳—׳•׳× ׳”׳₪׳¢׳™׳׳™׳',
+    title: 'מבצע כללי',
+    subtitle: 'קמפיין שיווקי לכל הלקוחות הפעילים',
   },
 ];
 
@@ -130,38 +130,35 @@ function audienceCopy(type: CampaignType): {
   switch (type) {
     case 'welcome':
       return {
-        title: '׳׳§׳•׳—׳•׳× ׳—׳“׳©׳™׳',
-        subtitle:
-          '׳ ׳©׳׳— ׳׳׳§׳•׳—׳•׳× ׳—׳“׳©׳™׳ ׳׳₪׳™ ׳˜׳•׳•׳— ׳™׳׳™׳ ׳׳”׳”׳¦׳˜׳¨׳₪׳•׳×.',
-        daysLabel: '׳×׳•׳ ׳›׳׳” ׳™׳׳™׳ ׳׳”׳”׳¦׳˜׳¨׳₪׳•׳×',
+        title: 'לקוחות חדשים',
+        subtitle: 'נשלח ללקוחות חדשים לפי טווח ימים מההצטרפות.',
+        daysLabel: 'תוך כמה ימים מההצטרפות',
       };
     case 'winback':
       return {
-        title: '׳׳§׳•׳—׳•׳× ׳׳ ׳₪׳¢׳™׳׳™׳',
-        subtitle:
-          '׳ ׳©׳׳— ׳׳׳§׳•׳—׳•׳× ׳©׳׳ ׳”׳’׳™׳¢׳• ׳‘׳₪׳¨׳§ ׳”׳–׳׳ ׳©׳ ׳‘׳—׳¨.',
-        daysLabel: '׳›׳׳” ׳™׳׳™׳ ׳׳׳ ׳‘׳™׳§׳•׳¨',
+        title: 'לקוחות לא פעילים',
+        subtitle: 'נשלח ללקוחות שלא הגיעו בפרק הזמן שנבחר.',
+        daysLabel: 'כמה ימים ללא ביקור',
       };
     case 'birthday':
       return {
-        title: '׳™׳•׳ ׳”׳•׳׳“׳× ׳”׳™׳•׳',
-        subtitle: '׳§׳”׳ ׳§׳‘׳•׳¢ ׳׳₪׳™ ׳™׳•׳ ׳”׳”׳•׳׳“׳× ׳©׳ ׳”׳׳§׳•׳—.',
+        title: 'יום הולדת היום',
+        subtitle: 'קהל קבוע לפי יום ההולדת של הלקוח.',
       };
     case 'anniversary':
       return {
-        title: '׳™׳•׳ ׳ ׳™׳©׳•׳׳™׳ ׳”׳™׳•׳',
-        subtitle: '׳§׳”׳ ׳§׳‘׳•׳¢ ׳׳₪׳™ ׳™׳•׳ ׳”׳ ׳™׳©׳•׳׳™׳ ׳©׳ ׳”׳׳§׳•׳—.',
+        title: 'יום נישואין היום',
+        subtitle: 'קהל קבוע לפי יום הנישואין של הלקוח.',
       };
     case 'promo':
       return {
-        title: '׳›׳ ׳”׳׳§׳•׳—׳•׳× ׳”׳₪׳¢׳™׳׳™׳',
-        subtitle:
-          '׳§׳”׳ ׳§׳‘׳•׳¢ ׳©׳ ׳›׳ ׳—׳‘׳¨׳™ ׳”׳׳•׳¢׳“׳•׳ ׳”׳₪׳¢׳™׳׳™׳ ׳¢׳ Opt-in.',
+        title: 'כל הלקוחות הפעילים',
+        subtitle: 'קהל קבוע של כל חברי המועדון הפעילים עם Opt-in.',
       };
     default:
       return {
-        title: '׳§׳”׳ ׳™׳¢׳“',
-        subtitle: '׳§׳”׳ ׳§׳‘׳•׳¢ ׳׳₪׳™ ׳¡׳•׳’ ׳”׳§׳׳₪׳™׳™׳.',
+        title: 'קהל יעד',
+        subtitle: 'קהל קבוע לפי סוג הקמפיין.',
       };
   }
 }
@@ -176,48 +173,48 @@ function campaignMeta(type: CampaignType): {
   switch (type) {
     case 'welcome':
       return {
-        title: '׳§׳׳₪׳™׳™׳ ׳‘׳¨׳•׳›׳™׳ ׳”׳‘׳׳™׳',
-        subtitle: '׳”׳•׳“׳¢׳× ׳₪׳×׳™׳—׳” ׳׳׳¦׳˜׳¨׳₪׳™׳ ׳—׳“׳©׳™׳',
+        title: 'קמפיין ברוכים הבאים',
+        subtitle: 'הודעת פתיחה למצטרפים חדשים',
         icon: 'hand-left-outline',
         accentClass: 'text-[#1D4ED8]',
         accentBgClass: 'bg-[#DBEAFE]',
       };
     case 'birthday':
       return {
-        title: '׳§׳׳₪׳™׳™׳ ׳™׳•׳ ׳”׳•׳׳“׳×',
-        subtitle: '׳”׳˜׳‘׳” ׳׳™׳©׳™׳× ׳‘׳™׳•׳ ׳”׳”׳•׳׳“׳×',
+        title: 'קמפיין יום הולדת',
+        subtitle: 'הטבה אישית ביום ההולדת',
         icon: 'gift-outline',
         accentClass: 'text-[#C2410C]',
         accentBgClass: 'bg-[#FFEDD5]',
       };
     case 'anniversary':
       return {
-        title: '׳§׳׳₪׳™׳™׳ ׳™׳•׳ ׳ ׳™׳©׳•׳׳™׳',
-        subtitle: '׳”׳•׳“׳¢׳” ׳™׳™׳¢׳•׳“׳™׳× ׳׳™׳•׳ ׳”׳ ׳™׳©׳•׳׳™׳',
+        title: 'קמפיין יום נישואין',
+        subtitle: 'הודעה ייעודית ליום הנישואין',
         icon: 'heart-outline',
         accentClass: 'text-[#9D174D]',
         accentBgClass: 'bg-[#FCE7F3]',
       };
     case 'winback':
       return {
-        title: '׳§׳׳₪׳™׳™׳ ׳”׳©׳‘׳× ׳׳§׳•׳—׳•׳×',
-        subtitle: '׳₪׳ ׳™׳™׳” ׳׳׳§׳•׳—׳•׳× ׳©׳׳ ׳‘׳™׳§׳¨׳• ׳׳׳—׳¨׳•׳ ׳”',
+        title: 'קמפיין השבת לקוחות',
+        subtitle: 'פנייה ללקוחות שלא ביקרו לאחרונה',
         icon: 'refresh-outline',
         accentClass: 'text-[#0F766E]',
         accentBgClass: 'bg-[#CCFBF1]',
       };
     case 'promo':
       return {
-        title: '׳§׳׳₪׳™׳™׳ ׳׳‘׳¦׳¢ ׳›׳׳׳™',
-        subtitle: '׳׳¡׳¨ ׳©׳™׳•׳•׳§׳™ ׳׳›׳ ׳”׳׳§׳•׳—׳•׳× ׳”׳₪׳¢׳™׳׳™׳',
+        title: 'קמפיין מבצע כללי',
+        subtitle: 'מסר שיווקי לכל הלקוחות הפעילים',
         icon: 'megaphone-outline',
         accentClass: 'text-[#4C1D95]',
         accentBgClass: 'bg-[#EDE9FE]',
       };
     default:
       return {
-        title: '׳§׳׳₪׳™׳™׳',
-        subtitle: '׳ ׳™׳”׳•׳ ׳§׳׳₪׳™׳™׳',
+        title: 'קמפיין',
+        subtitle: 'ניהול קמפיין',
         icon: 'megaphone-outline',
         accentClass: 'text-[#1D4ED8]',
         accentBgClass: 'bg-[#DBEAFE]',
@@ -383,7 +380,7 @@ export default function CampaignDraftEditorScreen() {
       return false;
     }
     Alert.alert(
-      '׳׳’׳‘׳׳× ׳׳¡׳׳•׳',
+      'מגבלת מסלול',
       entitlementErrorToHebrewMessage(entitlementError)
     );
     if (
@@ -417,10 +414,8 @@ export default function CampaignDraftEditorScreen() {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳™׳¦׳™׳¨׳× ׳§׳׳₪׳™׳™׳ ׳ ׳›׳©׳׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
       );
     } finally {
       setIsCreatingDraft(null);
@@ -440,9 +435,9 @@ export default function CampaignDraftEditorScreen() {
       const created = await createCampaignDraft({
         businessId: selectedBusinessId,
         type: 'promo',
-        title: '׳§׳׳₪׳™׳™׳ ׳׳•׳×׳׳ ׳׳™׳©׳™׳×',
-        messageTitle: '׳¢׳“׳›׳•׳ ׳׳”׳¢׳¡׳§',
-        messageBody: '׳›׳×׳‘׳• ׳›׳׳ ׳׳× ׳×׳•׳›׳ ׳”׳”׳•׳“׳¢׳” ׳׳׳§׳•׳—׳•׳×.',
+        title: 'קמפיין מותאם אישית',
+        messageTitle: 'עדכון מהעסק',
+        messageBody: 'כתבו כאן את תוכן ההודעה ללקוחות.',
       });
       openDraftEditor(created.campaignId);
     } catch (error) {
@@ -450,10 +445,8 @@ export default function CampaignDraftEditorScreen() {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳™׳¦׳™׳¨׳× ׳§׳׳₪׳™׳™׳ ׳ ׳›׳©׳׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין נכשלה.'
       );
     } finally {
       setIsCreatingDraft(null);
@@ -463,16 +456,16 @@ export default function CampaignDraftEditorScreen() {
   const confirmSendNow = (totalRecipients: number): Promise<boolean> =>
     new Promise((resolve) => {
       Alert.alert(
-        '׳׳™׳©׳•׳¨ ׳©׳׳™׳—׳”',
-        `׳”׳§׳׳₪׳™׳™׳ ׳™׳©׳׳— ׳-${totalRecipients} ׳׳§׳•׳—׳•׳×. ׳׳”׳׳©׳™׳?`,
+        'אישור שליחה',
+        `הקמפיין ישלח ל-${totalRecipients} לקוחות. להמשיך?`,
         [
           {
-            text: '׳‘׳™׳˜׳•׳',
+            text: 'ביטול',
             style: 'cancel',
             onPress: () => resolve(false),
           },
           {
-            text: '׳©׳׳— ׳¢׳›׳©׳™׳•',
+            text: 'שלח עכשיו',
             style: 'default',
             onPress: () => resolve(true),
           },
@@ -485,15 +478,13 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
         <Text className="text-center text-sm text-[#64748B]">
-          ׳—׳¡׳¨׳™׳ ׳₪׳¨׳˜׳™ ׳¢׳¡׳§.
+          חסרים פרטי עסק.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
           className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
         >
-          <Text className="text-sm font-bold text-white">
-            ׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳”
-          </Text>
+          <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -515,14 +506,14 @@ export default function CampaignDraftEditorScreen() {
             backgroundColor="#E9F0FF"
           >
             <BusinessScreenHeader
-              title="׳™׳¦׳™׳¨׳× ׳§׳׳₪׳™׳™׳"
-              subtitle="׳‘׳—׳¨׳• ׳×׳‘׳ ׳™׳× ׳׳•׳›׳ ׳” ׳׳• ׳¦׳¨׳• ׳§׳׳₪׳™׳™׳ ׳׳•׳×׳׳ ׳׳™׳©׳™׳×"
+              title="יצירת קמפיין"
+              subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
               titleAccessory={
                 <TouchableOpacity
                   onPress={goBackToCampaignList}
                   className="h-10 w-10 items-center justify-center rounded-full bg-white"
                 >
-                  <Text className="text-lg text-[#1A2B4A]">ג†</Text>
+                  <Text className="text-lg text-[#1A2B4A]">{'\u2190'}</Text>
                 </TouchableOpacity>
               }
             />
@@ -531,31 +522,30 @@ export default function CampaignDraftEditorScreen() {
           {!canManagePrograms ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
               <Text className="text-right text-sm font-semibold text-red-700">
-                ׳¨׳§ ׳‘׳¢׳׳™׳ ׳׳• ׳׳ ׳”׳ ׳™׳›׳•׳׳™׳ ׳׳™׳¦׳•׳¨ ׳§׳׳₪׳™׳™׳ ׳™׳.
+                רק בעלים או מנהל יכולים ליצור קמפיינים.
               </Text>
             </View>
           ) : null}
           {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
               <Text className="text-right text-sm font-semibold text-red-700">
-                ׳™׳© ׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳ ׳‘׳׳¡׳׳•׳
-                ׳”׳ ׳•׳›׳—׳™. ׳™׳¦׳™׳¨׳” ׳׳• ׳”׳₪׳¢׳׳” ׳—׳¡׳•׳׳•׳× ׳¢׳“
-                ׳©׳—׳•׳–׳¨׳™׳ ׳׳׳›׳¡׳” ׳׳• ׳׳©׳“׳¨׳’׳™׳.
+                יש חריגה ממכסת הקמפיינים במסלול הנוכחי. יצירה או הפעלה חסומות עד
+                שחוזרים למכסה או משדרגים.
               </Text>
               <TouchableOpacity
                 onPress={() => openCampaignsUpgrade()}
                 className="mt-3 self-end rounded-full bg-red-600 px-3 py-1.5"
               >
                 <Text className="text-xs font-black text-white">
-                  ׳©׳“׳¨׳•׳’ ׳׳¡׳׳•׳
+                  שדרוג מסלול
                 </Text>
               </TouchableOpacity>
             </View>
           ) : !isEntitlementsLoading && campaignLimit.isAtLimit ? (
             <View className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
               <Text className="text-right text-sm font-semibold text-amber-700">
-                ׳”׳’׳¢׳×׳ ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳. ׳›׳“׳™ ׳׳™׳¦׳•׳¨ ׳§׳׳₪׳™׳™׳
-                ׳—׳“׳© ׳™׳© ׳׳׳¨׳›׳‘ ׳§׳׳₪׳™׳™׳ ׳§׳™׳™׳ ׳׳• ׳׳©׳“׳¨׳’.
+                הגעתם למכסת הקמפיינים. כדי ליצור קמפיין חדש יש לארכב קמפיין קיים
+                או לשדרג.
               </Text>
             </View>
           ) : null}
@@ -564,8 +554,8 @@ export default function CampaignDraftEditorScreen() {
             className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
           >
             {[
-              { key: 'template' as const, label: '׳׳×׳‘׳ ׳™׳×' },
-              { key: 'custom' as const, label: '׳׳•׳×׳׳ ׳׳™׳©׳™׳×' },
+              { key: 'template' as const, label: 'מתבנית' },
+              { key: 'custom' as const, label: 'מותאם אישית' },
             ].map((option) => {
               const isActive = createMode === option.key;
               return (
@@ -593,11 +583,10 @@ export default function CampaignDraftEditorScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ׳×׳‘׳ ׳™׳•׳× ׳§׳׳₪׳™׳™׳
+                תבניות קמפיין
               </Text>
               <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                ׳‘׳—׳™׳¨׳× ׳×׳‘׳ ׳™׳× ׳×׳™׳¦׳•׳¨ ׳˜׳™׳•׳˜׳” ׳׳•׳›׳ ׳” ׳©׳׳₪׳©׳¨
-                ׳׳¢׳¨׳•׳ ׳׳₪׳ ׳™ ׳©׳׳™׳¨׳” ׳•׳©׳׳™׳—׳”.
+                בחירת תבנית תיצור טיוטה מוכנה שאפשר לערוך לפני שמירה ושליחה.
               </Text>
               <View className="mt-3 gap-2">
                 {CAMPAIGN_TEMPLATES.map((template) => {
@@ -658,11 +647,10 @@ export default function CampaignDraftEditorScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ׳§׳׳₪׳™׳™׳ ׳׳•׳×׳׳ ׳׳™׳©׳™׳×
+                קמפיין מותאם אישית
               </Text>
               <Text className={`mt-1 text-sm text-[#475569] ${tw.textStart}`}>
-                ׳ ׳™׳¦׳•׳¨ ׳˜׳™׳•׳˜׳” ׳₪׳×׳•׳—׳” ׳׳¢׳¨׳™׳›׳” ׳׳׳׳” ׳©׳ ׳˜׳§׳¡׳˜,
-                ׳§׳”׳ ׳™׳¢׳“ ׳•׳©׳™׳•׳ ׳׳×׳•׳›׳ ׳™׳×.
+                ניצור טיוטה פתוחה לעריכה מלאה של טקסט, קהל יעד ושיוך לתוכנית.
               </Text>
               <TouchableOpacity
                 disabled={
@@ -685,7 +673,7 @@ export default function CampaignDraftEditorScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text className="text-center text-sm font-bold text-white">
-                    ׳”׳×׳—׳ ׳§׳׳₪׳™׳™׳ ׳׳•׳×׳׳ ׳׳™׳©׳™׳×
+                    התחל קמפיין מותאם אישית
                   </Text>
                 )}
               </TouchableOpacity>
@@ -700,15 +688,13 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
         <Text className="text-center text-sm text-[#64748B]">
-          ׳—׳¡׳¨׳™׳ ׳₪׳¨׳˜׳™ ׳§׳׳₪׳™׳™׳ ׳׳¢׳¨׳™׳›׳”.
+          חסרים פרטי קמפיין לעריכה.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
           className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
         >
-          <Text className="text-sm font-bold text-white">
-            ׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳”
-          </Text>
+          <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -726,15 +712,13 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
         <Text className="text-center text-sm text-[#64748B]">
-          ׳׳ ׳ ׳׳¦׳׳” ׳˜׳™׳•׳˜׳× ׳§׳׳₪׳™׳™׳.
+          לא נמצאה טיוטת קמפיין.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
           className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
         >
-          <Text className="text-sm font-bold text-white">
-            ׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳”
-          </Text>
+          <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -759,19 +743,16 @@ export default function CampaignDraftEditorScreen() {
   };
   const selectedProgramLabel =
     selectedProgramId === 'all'
-      ? '׳›׳ ׳”׳¢׳¡׳§'
+      ? 'כל העסק'
       : (activePrograms.find(
           (program) => String(program.loyaltyProgramId) === selectedProgramId
-        )?.title ?? '׳×׳•׳›׳ ׳™׳× ׳׳ ׳–׳׳™׳ ׳”');
+        )?.title ?? 'תוכנית לא זמינה');
 
   const buildRulesPayload = (): EditableCampaignRules | null => {
     if (campaignType === 'welcome') {
       const days = parsePositiveInt(daysInput);
       if (!days) {
-        Alert.alert(
-          '׳ ׳×׳•׳ ׳—׳¡׳¨',
-          '׳™׳© ׳׳”׳–׳™׳ ׳׳¡׳₪׳¨ ׳™׳׳™׳ ׳—׳™׳•׳‘׳™ ׳¢׳‘׳•׳¨ ׳׳§׳•׳—׳•׳× ׳—׳“׳©׳™׳.'
-        );
+        Alert.alert('נתון חסר', 'יש להזין מספר ימים חיובי עבור לקוחות חדשים.');
         return null;
       }
       return {
@@ -784,8 +765,8 @@ export default function CampaignDraftEditorScreen() {
       const days = parsePositiveInt(daysInput);
       if (!days) {
         Alert.alert(
-          '׳ ׳×׳•׳ ׳—׳¡׳¨',
-          '׳™׳© ׳׳”׳–׳™׳ ׳׳¡׳₪׳¨ ׳™׳׳™׳ ׳—׳™׳•׳‘׳™ ׳¢׳‘׳•׳¨ ׳׳§׳•׳—׳•׳× ׳׳ ׳₪׳¢׳™׳׳™׳.'
+          'נתון חסר',
+          'יש להזין מספר ימים חיובי עבור לקוחות לא פעילים.'
         );
         return null;
       }
@@ -806,11 +787,11 @@ export default function CampaignDraftEditorScreen() {
 
   const validateContent = (): boolean => {
     if (messageTitle.trim().length === 0) {
-      Alert.alert('׳ ׳×׳•׳ ׳—׳¡׳¨', '׳™׳© ׳׳”׳–׳™׳ ׳›׳•׳×׳¨׳× ׳”׳•׳“׳¢׳”.');
+      Alert.alert('נתון חסר', 'יש להזין כותרת הודעה.');
       return false;
     }
     if (messageBody.trim().length === 0) {
-      Alert.alert('׳ ׳×׳•׳ ׳—׳¡׳¨', '׳™׳© ׳׳”׳–׳™׳ ׳×׳•׳›׳ ׳”׳•׳“׳¢׳”.');
+      Alert.alert('נתון חסר', 'יש להזין תוכן הודעה.');
       return false;
     }
     return true;
@@ -853,8 +834,8 @@ export default function CampaignDraftEditorScreen() {
       campaignLimit.isOverLimit
     ) {
       Alert.alert(
-        '׳—׳¨׳™׳’׳” ׳׳”׳׳›׳¡׳”',
-        '׳׳ ׳ ׳™׳×׳ ׳׳”׳₪׳¢׳™׳ ׳׳•׳˜׳•׳׳¦׳™׳” ׳׳§׳׳₪׳™׳™׳ ׳›׳©׳›׳‘׳¨ ׳§׳™׳™׳׳× ׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳.'
+        'חריגה מהמכסה',
+        'לא ניתן להפעיל אוטומציה לקמפיין כשכבר קיימת חריגה ממכסת הקמפיינים.'
       );
       return;
     }
@@ -870,10 +851,8 @@ export default function CampaignDraftEditorScreen() {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳׳ ׳”׳¦׳׳—׳ ׳• ׳׳¢׳“׳›׳ ׳׳¦׳‘ ׳׳•׳˜׳•׳׳¦׳™׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'לא הצלחנו לעדכן מצב אוטומציה.'
       );
     } finally {
       setIsTogglingAutomation(false);
@@ -900,18 +879,16 @@ export default function CampaignDraftEditorScreen() {
     setIsSubmitting(true);
     try {
       await saveDraftMutation(rulesPayload);
-      Alert.alert('׳ ׳©׳׳¨', '׳”׳˜׳™׳•׳˜׳” ׳ ׳©׳׳¨׳” ׳‘׳”׳¦׳׳—׳”.', [
-        { text: '׳׳™׳©׳•׳¨', onPress: goBackToCampaignList },
+      Alert.alert('נשמר', 'הטיוטה נשמרה בהצלחה.', [
+        { text: 'אישור', onPress: goBackToCampaignList },
       ]);
     } catch (error) {
       if (handleEntitlementError(error)) {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳©׳׳™׳¨׳× ׳˜׳™׳•׳˜׳” ׳ ׳›׳©׳׳”.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'שמירת טיוטה נכשלה.'
       );
     } finally {
       setIsSubmitting(false);
@@ -924,8 +901,8 @@ export default function CampaignDraftEditorScreen() {
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
       Alert.alert(
-        '׳—׳¨׳™׳’׳” ׳׳”׳׳›׳¡׳”',
-        '׳׳ ׳ ׳™׳×׳ ׳׳©׳׳•׳— ׳§׳׳₪׳™׳™׳ ׳›׳׳©׳¨ ׳§׳™׳™׳׳× ׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳ ׳”׳₪׳¢׳™׳׳™׳.'
+        'חריגה מהמכסה',
+        'לא ניתן לשלוח קמפיין כאשר קיימת חריגה ממכסת הקמפיינים הפעילים.'
       );
       openCampaignsUpgrade();
       return;
@@ -953,10 +930,7 @@ export default function CampaignDraftEditorScreen() {
       });
 
       if (estimate.total === 0) {
-        Alert.alert(
-          '׳׳™׳ ׳ ׳׳¢׳ ׳™׳',
-          '׳׳ ׳ ׳׳¦׳׳• ׳׳§׳•׳—׳•׳× ׳–׳›׳׳™׳ (Opt-in) ׳׳§׳׳₪׳™׳™׳ ׳–׳”.'
-        );
+        Alert.alert('אין נמענים', 'לא נמצאו לקוחות זכאים (Opt-in) לקמפיין זה.');
         return;
       }
 
@@ -971,19 +945,17 @@ export default function CampaignDraftEditorScreen() {
       });
 
       Alert.alert(
-        '׳ ׳©׳׳—',
-        `׳ ׳©׳׳—׳• ${result.sentCount} ׳”׳•׳“׳¢׳•׳×. ׳“׳•׳׳’׳• ${result.skippedCount}.`,
-        [{ text: '׳׳™׳©׳•׳¨', onPress: goBackToCampaignList }]
+        'נשלח',
+        `נשלחו ${result.sentCount} הודעות. דולגו ${result.skippedCount}.`,
+        [{ text: 'אישור', onPress: goBackToCampaignList }]
       );
     } catch (error) {
       if (handleEntitlementError(error)) {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error
-          ? error.message
-          : '׳©׳׳™׳¨׳” ׳׳• ׳©׳׳™׳—׳” ׳ ׳›׳©׳׳•.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'שמירה או שליחה נכשלו.'
       );
     } finally {
       setIsSubmitting(false);
@@ -1001,60 +973,52 @@ export default function CampaignDraftEditorScreen() {
     }
     if (automationEnabled) {
       Alert.alert(
-        '׳׳ ׳ ׳™׳×׳ ׳׳”׳¢׳‘׳™׳¨ ׳׳׳¨׳›׳™׳•׳',
-        '׳™׳© ׳׳›׳‘׳•׳× ׳׳•׳˜׳•׳׳¦׳™׳” ׳׳₪׳ ׳™ ׳”׳¢׳‘׳¨׳” ׳׳׳¨׳›׳™׳•׳.'
+        'לא ניתן להעביר לארכיון',
+        'יש לכבות אוטומציה לפני העברה לארכיון.'
       );
       return;
     }
 
-    Alert.alert(
-      '׳”׳¢׳‘׳¨׳” ׳׳׳¨׳›׳™׳•׳',
-      '׳׳”׳¢׳‘׳™׳¨ ׳׳× ׳”׳§׳׳₪׳™׳™׳ ׳׳׳¨׳›׳™׳•׳?',
-      [
-        { text: '׳‘׳™׳˜׳•׳', style: 'cancel' },
-        {
-          text: '׳”׳¢׳‘׳¨ ׳׳׳¨׳›׳™׳•׳',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setIsArchiving(true);
-              try {
-                await archiveManagementCampaign({
-                  businessId: selectedBusinessId,
-                  campaignId,
-                });
+    Alert.alert('העברה לארכיון', 'להעביר את הקמפיין לארכיון?', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'העבר לארכיון',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setIsArchiving(true);
+            try {
+              await archiveManagementCampaign({
+                businessId: selectedBusinessId,
+                campaignId,
+              });
+              Alert.alert('הועבר לארכיון', 'הקמפיין הועבר לארכיון בהצלחה.', [
+                { text: 'אישור', onPress: goBackToCampaignList },
+              ]);
+            } catch (error) {
+              if (
+                error instanceof Error &&
+                error.message.includes(
+                  'CAMPAIGN_MUST_BE_DISABLED_BEFORE_ARCHIVE'
+                )
+              ) {
                 Alert.alert(
-                  '׳”׳•׳¢׳‘׳¨ ׳׳׳¨׳›׳™׳•׳',
-                  '׳”׳§׳׳₪׳™׳™׳ ׳”׳•׳¢׳‘׳¨ ׳׳׳¨׳›׳™׳•׳ ׳‘׳”׳¦׳׳—׳”.',
-                  [{ text: '׳׳™׳©׳•׳¨', onPress: goBackToCampaignList }]
+                  'לא ניתן להעביר לארכיון',
+                  'יש לכבות קודם את הקמפיין ורק לאחר מכן להעביר לארכיון.'
                 );
-              } catch (error) {
-                if (
-                  error instanceof Error &&
-                  error.message.includes(
-                    'CAMPAIGN_MUST_BE_DISABLED_BEFORE_ARCHIVE'
-                  )
-                ) {
-                  Alert.alert(
-                    '׳׳ ׳ ׳™׳×׳ ׳׳”׳¢׳‘׳™׳¨ ׳׳׳¨׳›׳™׳•׳',
-                    '׳™׳© ׳׳›׳‘׳•׳× ׳§׳•׳“׳ ׳׳× ׳”׳§׳׳₪׳™׳™׳ ׳•׳¨׳§ ׳׳׳—׳¨ ׳׳›׳ ׳׳”׳¢׳‘׳™׳¨ ׳׳׳¨׳›׳™׳•׳.'
-                  );
-                  return;
-                }
-                Alert.alert(
-                  '׳©׳’׳™׳׳”',
-                  error instanceof Error
-                    ? error.message
-                    : '׳”׳¢׳‘׳¨׳” ׳׳׳¨׳›׳™׳•׳ ׳ ׳›׳©׳׳”.'
-                );
-              } finally {
-                setIsArchiving(false);
+                return;
               }
-            })();
-          },
+              Alert.alert(
+                'שגיאה',
+                error instanceof Error ? error.message : 'העברה לארכיון נכשלה.'
+              );
+            } finally {
+              setIsArchiving(false);
+            }
+          })();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -1072,13 +1036,13 @@ export default function CampaignDraftEditorScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="׳¢׳¨׳™׳›׳× ׳§׳׳₪׳™׳™׳"
+            title="עריכת קמפיין"
             titleAccessory={
               <TouchableOpacity
                 onPress={goBackToCampaignList}
                 className="h-10 w-10 items-center justify-center rounded-full bg-white"
               >
-                <Text className="text-lg text-[#1A2B4A]">ג†</Text>
+                <Text className="text-lg text-[#1A2B4A]">{'\u2190'}</Text>
               </TouchableOpacity>
             }
           />
@@ -1087,8 +1051,7 @@ export default function CampaignDraftEditorScreen() {
         {!canManagePrograms ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
             <Text className="text-right text-sm font-semibold text-red-700">
-              ׳¨׳§ ׳‘׳¢׳׳™׳ ׳׳• ׳׳ ׳”׳ ׳™׳›׳•׳׳™׳ ׳׳¢׳¨׳•׳ ׳•׳׳©׳׳•׳—
-              ׳§׳׳₪׳™׳™׳ ׳™׳.
+              רק בעלים או מנהל יכולים לערוך ולשלוח קמפיינים.
             </Text>
           </View>
         ) : null}
@@ -1096,24 +1059,21 @@ export default function CampaignDraftEditorScreen() {
         {isRulesLocked ? (
           <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
             <Text className="text-right text-sm font-semibold text-blue-700">
-              ׳§׳׳₪׳™׳™׳ ׳₪׳¢׳™׳: ׳—׳•׳§׳™׳ ׳•׳§׳”׳ ׳™׳¢׳“ ׳ ׳¢׳•׳׳™׳. ׳ ׳™׳×׳
-              ׳׳¢׳¨׳•׳ ׳˜׳§׳¡׳˜ ׳‘׳׳‘׳“.
+              קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
             </Text>
           </View>
         ) : null}
         {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
             <Text className="text-right text-sm font-semibold text-red-700">
-              ׳”׳¢׳¡׳§ ׳›׳¨׳’׳¢ ׳‘׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳§׳׳₪׳™׳™׳ ׳™׳. ׳©׳׳™׳—׳”
-              ׳׳• ׳”׳₪׳¢׳׳” ׳©׳ ׳§׳׳₪׳™׳™׳ ׳—׳¡׳•׳׳•׳× ׳¢׳“ ׳׳—׳–׳¨׳” ׳׳׳›׳¡׳”.
+              העסק כרגע בחריגה ממכסת קמפיינים. שליחה או הפעלה של קמפיין חסומות
+              עד לחזרה למכסה.
             </Text>
             <TouchableOpacity
               onPress={() => openCampaignsUpgrade()}
               className="mt-3 self-end rounded-full bg-red-600 px-3 py-1.5"
             >
-              <Text className="text-xs font-black text-white">
-                ׳©׳“׳¨׳•׳’ ׳׳¡׳׳•׳
-              </Text>
+              <Text className="text-xs font-black text-white">שדרוג מסלול</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -1147,12 +1107,12 @@ export default function CampaignDraftEditorScreen() {
           <View className={`${tw.flexRow} mt-4 flex-wrap gap-2`}>
             <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
               <Text className="text-xs font-bold text-[#1D4ED8]">
-                ׳§׳”׳ ׳™׳¢׳“: {audience.title}
+                קהל יעד: {audience.title}
               </Text>
             </View>
             <View className="rounded-full bg-[#F1F5F9] px-3 py-1">
               <Text className="text-xs font-bold text-[#475569]">
-                ׳©׳™׳•׳: {selectedProgramLabel}
+                שיוך: {selectedProgramLabel}
               </Text>
             </View>
             <View
@@ -1165,7 +1125,7 @@ export default function CampaignDraftEditorScreen() {
                   automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
                 }`}
               >
-                ׳׳•׳˜׳•׳׳¦׳™׳”: {automationEnabled ? '׳₪׳¢׳™׳׳”' : '׳›׳‘׳•׳™׳”'}
+                אוטומציה: {automationEnabled ? 'פעילה' : 'כבויה'}
               </Text>
             </View>
           </View>
@@ -1176,20 +1136,20 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳”׳₪׳¢׳׳” ׳׳•׳˜׳•׳׳˜׳™׳×
+              הפעלה אוטומטית
             </Text>
             <Text
               className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
             >
-              ׳©׳׳™׳—׳” ׳™׳•׳׳™׳× ׳‘-09:00 (׳™׳©׳¨׳׳)
+              שליחה יומית ב-09:00 (ישראל)
             </Text>
             <View
               className={`${tw.flexRow} items-center justify-between gap-3`}
             >
               <Text className={`flex-1 text-xs text-[#64748B] ${tw.textStart}`}>
                 {automationEnabled
-                  ? '׳”׳§׳׳₪׳™׳™׳ ׳™׳¨׳•׳¥ ׳׳•׳˜׳•׳׳˜׳™׳× ׳‘׳›׳ ׳™׳•׳.'
-                  : '׳”׳§׳׳₪׳™׳™׳ ׳׳ ׳™׳¨׳•׳¥ ׳׳•׳˜׳•׳׳˜׳™׳× ׳¢׳“ ׳׳”׳₪׳¢׳׳”.'}
+                  ? 'הקמפיין ירוץ אוטומטית בכל יום.'
+                  : 'הקמפיין לא ירוץ אוטומטית עד להפעלה.'}
               </Text>
               <TouchableOpacity
                 disabled={
@@ -1214,7 +1174,7 @@ export default function CampaignDraftEditorScreen() {
                       automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
                     }`}
                   >
-                    {automationEnabled ? '׳₪׳¢׳™׳' : '׳›׳‘׳•׳™'}
+                    {automationEnabled ? 'פעיל' : 'כבוי'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1227,28 +1187,28 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳ ׳×׳•׳ ׳™׳ ׳•׳×׳•׳¦׳׳•׳×
+              נתונים ותוצאות
             </Text>
             <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
               <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                ׳§׳”׳ ׳–׳›׳׳™ ׳¢׳›׳©׳™׳•: {stats.eligibleAudienceNow}
+                קהל זכאי עכשיו: {stats.eligibleAudienceNow}
               </Text>
               <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                ׳”׳’׳™׳¢ ׳׳™׳™׳—׳•׳“׳™׳™׳: {stats.reachedUniqueAllTime}
+                הגיע לייחודיים: {stats.reachedUniqueAllTime}
               </Text>
               <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                ׳¡׳”"׳› ׳”׳•׳“׳¢׳•׳×: {stats.reachedMessagesAllTime}
+                סה"כ הודעות: {stats.reachedMessagesAllTime}
               </Text>
               <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                ׳ ׳©׳׳— ׳׳׳—׳¨׳•׳ ׳”:{' '}
+                נשלח לאחרונה:{' '}
                 {typeof stats.lastSentAt === 'number'
                   ? formatDateTime(stats.lastSentAt)
-                  : '׳˜׳¨׳ ׳ ׳©׳׳—'}
+                  : 'טרם נשלח'}
               </Text>
               {campaignType === 'birthday' &&
               typeof stats.missingBirthdayCount === 'number' ? (
                 <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                  ׳—׳¡׳¨ ׳™׳•׳ ׳”׳•׳׳“׳×: {stats.missingBirthdayCount}
+                  חסר יום הולדת: {stats.missingBirthdayCount}
                 </Text>
               ) : null}
             </View>
@@ -1260,13 +1220,13 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳×׳•׳›׳ ׳”׳”׳•׳“׳¢׳”
+              תוכן ההודעה
             </Text>
             <TextInput
               value={messageTitle}
               onChangeText={setMessageTitle}
               editable={canEditContent}
-              placeholder="׳›׳•׳×׳¨׳× ׳”׳”׳•׳“׳¢׳”"
+              placeholder="כותרת ההודעה"
               placeholderTextColor="#94A3B8"
               className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
             />
@@ -1276,7 +1236,7 @@ export default function CampaignDraftEditorScreen() {
               editable={canEditContent}
               multiline={true}
               textAlignVertical="top"
-              placeholder="׳׳” ׳”׳׳×׳ ׳”? ׳›׳×׳‘׳• ׳›׳׳ ׳׳× ׳×׳•׳›׳ ׳”׳”׳˜׳‘׳” ׳׳׳§׳•׳—"
+              placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
               placeholderTextColor="#94A3B8"
               className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
             />
@@ -1288,7 +1248,7 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳§׳”׳ ׳™׳¢׳“
+              קהל יעד
             </Text>
             <Text
               className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
@@ -1314,11 +1274,10 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`mt-2 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳©׳™׳•׳ ׳׳×׳•׳›׳ ׳™׳× ׳ ׳׳׳ ׳•׳×
+              שיוך לתוכנית נאמנות
             </Text>
             <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-              ׳‘׳¨׳™׳¨׳× ׳׳—׳“׳: ׳›׳ ׳”׳¢׳¡׳§. ׳׳₪׳©׳¨ ׳׳©׳™׳™׳ ׳׳§׳׳₪׳™׳™׳
-              ׳×׳•׳›׳ ׳™׳× ׳¡׳₪׳¦׳™׳₪׳™׳×.
+              ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
             </Text>
             <View className={`${tw.flexRow} flex-wrap gap-2`}>
               <TouchableOpacity
@@ -1337,7 +1296,7 @@ export default function CampaignDraftEditorScreen() {
                       : 'text-[#475569]'
                   }`}
                 >
-                  ׳›׳ ׳”׳¢׳¡׳§
+                  כל העסק
                 </Text>
               </TouchableOpacity>
               {activePrograms.map((program) => {
@@ -1384,7 +1343,7 @@ export default function CampaignDraftEditorScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text className="text-center text-sm font-bold text-white">
-                ׳©׳׳•׳¨ ׳˜׳™׳•׳˜׳”
+                שמור טיוטה
               </Text>
             )}
           </TouchableOpacity>
@@ -1409,7 +1368,7 @@ export default function CampaignDraftEditorScreen() {
             }`}
           >
             <Text className="text-center text-sm font-bold text-white">
-              ׳©׳׳•׳¨ ׳•׳©׳׳— ׳¢׳›׳©׳™׳•
+              שמור ושלח עכשיו
             </Text>
           </TouchableOpacity>
 
@@ -1426,7 +1385,7 @@ export default function CampaignDraftEditorScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text className="text-center text-sm font-bold text-white">
-                העבר לארכיון
+                ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½
               </Text>
             )}
           </TouchableOpacity>

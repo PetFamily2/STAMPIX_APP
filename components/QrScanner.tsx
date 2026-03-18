@@ -1,4 +1,4 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+﻿import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +15,8 @@ type QrScannerProps = {
   resetKey?: number;
   isBusy?: boolean;
   caption?: string;
+  showStatus?: boolean;
+  cameraMinHeight?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -23,6 +25,8 @@ export default function QrScanner({
   resetKey = 0,
   isBusy = false,
   caption,
+  showStatus = true,
+  cameraMinHeight = 300,
   style,
 }: QrScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -72,10 +76,16 @@ export default function QrScanner({
   );
 
   const statusLabel = useMemo(() => {
-    if (caption) return caption;
-    if (isBusy || internalBusy) return 'מעדכן נתונים';
-    if (scanned) return 'הקוד נסרק';
-    return 'סמן את ה-QR בתוך המסגרת';
+    if (caption) {
+      return caption;
+    }
+    if (isBusy || internalBusy) {
+      return '\u05de\u05e2\u05d3\u05db\u05df \u05e0\u05ea\u05d5\u05e0\u05d9\u05dd';
+    }
+    if (scanned) {
+      return '\u05d4\u05e7\u05d5\u05d3 \u05e0\u05e1\u05e8\u05e7';
+    }
+    return '\u05e1\u05de\u05df \u05d0\u05ea \u05d4-QR \u05d1\u05ea\u05d5\u05da \u05d4\u05de\u05e1\u05d2\u05e8\u05ea';
   }, [caption, internalBusy, isBusy, scanned]);
 
   const renderPermissionFallback = () => {
@@ -83,7 +93,9 @@ export default function QrScanner({
       return (
         <View style={styles.permissionFallback}>
           <ActivityIndicator color="#2F6BFF" />
-          <Text style={styles.permissionTitle}>טוען הרשאות מצלמה</Text>
+          <Text style={styles.permissionTitle}>
+            ׳˜׳•׳¢׳ ׳”׳¨׳©׳׳•׳× ׳׳¦׳׳׳”
+          </Text>
         </View>
       );
     }
@@ -91,13 +103,15 @@ export default function QrScanner({
     if (!permission.granted) {
       return (
         <View style={styles.permissionFallback}>
-          <Text style={styles.permissionTitle}>אין הרשאת מצלמה</Text>
-          <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק</Text>
+          <Text style={styles.permissionTitle}>׳׳™׳ ׳”׳¨׳©׳׳× ׳׳¦׳׳׳”</Text>
+          <Text style={styles.permissionText}>
+            ׳‘׳§׳© ׳”׳¨׳©׳׳” ׳›׳“׳™ ׳׳”׳×׳—׳™׳ ׳׳¡׳¨׳•׳§
+          </Text>
           <Pressable
             onPress={requestPermission}
             style={styles.permissionButton}
           >
-            <Text style={styles.permissionButtonText}>תן הרשאה</Text>
+            <Text style={styles.permissionButtonText}>׳×׳ ׳”׳¨׳©׳׳”</Text>
           </Pressable>
         </View>
       );
@@ -108,10 +122,10 @@ export default function QrScanner({
 
   return (
     <View style={[styles.wrapper, style]}>
-      <View style={styles.cameraShell}>
+      <View style={[styles.cameraShell, { minHeight: cameraMinHeight }]}>
         {hasPermission ? (
           <CameraView
-            style={styles.cameraView}
+            style={[styles.cameraView, { minHeight: cameraMinHeight }]}
             onBarcodeScanned={
               scanned || isBusy || internalBusy ? undefined : handleBarcode
             }
@@ -120,18 +134,27 @@ export default function QrScanner({
         ) : (
           renderPermissionFallback()
         )}
-        {hasPermission && <View pointerEvents="none" style={styles.overlay} />}
+        {hasPermission ? (
+          <View pointerEvents="none" style={styles.overlay}>
+            <View style={[styles.corner, styles.cornerTopLeft]} />
+            <View style={[styles.corner, styles.cornerTopRight]} />
+            <View style={[styles.corner, styles.cornerBottomLeft]} />
+            <View style={[styles.corner, styles.cornerBottomRight]} />
+          </View>
+        ) : null}
       </View>
-      <View style={styles.statusRow}>
-        <Text style={styles.statusText}>{statusLabel}</Text>
-        {(internalBusy || isBusy) && (
-          <ActivityIndicator
-            size="small"
-            color="#2F6BFF"
-            style={{ marginLeft: 6 }}
-          />
-        )}
-      </View>
+      {showStatus ? (
+        <View style={styles.statusRow}>
+          <Text style={styles.statusText}>{statusLabel}</Text>
+          {(internalBusy || isBusy) && (
+            <ActivityIndicator
+              size="small"
+              color="#2F6BFF"
+              style={{ marginLeft: 6 }}
+            />
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -161,8 +184,40 @@ const styles = StyleSheet.create({
     top: 30,
     bottom: 30,
     borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(47,107,255,0.85)',
+  },
+  corner: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderColor: 'rgba(255,255,255,0.95)',
+  },
+  cornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 14,
+  },
+  cornerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 14,
+  },
+  cornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 14,
+  },
+  cornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 14,
   },
   permissionFallback: {
     flex: 1,

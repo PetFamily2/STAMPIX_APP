@@ -13,8 +13,13 @@ type ProgramDraft = {
   title: string;
   rewardName: string;
   maxStamps: string;
+  cardTerms: string;
+  rewardConditions: string;
   stampIcon: string;
+  stampShape: 'circle' | 'roundedSquare' | 'square' | 'hexagon' | 'icon';
   cardThemeId: string;
+  imageStorageId: Id<'_storage'> | null;
+  imagePreviewUri: string | null;
 };
 
 type BusinessOnboardingDraft = {
@@ -59,8 +64,13 @@ const defaultProgramDraft: ProgramDraft = {
   title: '',
   rewardName: '',
   maxStamps: '10',
+  cardTerms: '',
+  rewardConditions: '',
   stampIcon: 'star',
+  stampShape: 'circle',
   cardThemeId: 'midnight-luxe',
+  imageStorageId: null,
+  imagePreviewUri: null,
 };
 
 const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {

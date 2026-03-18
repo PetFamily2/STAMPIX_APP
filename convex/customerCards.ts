@@ -336,6 +336,7 @@ export const getBusinessCustomerCard = query({
           programTitle: program.title,
           rewardName: program.rewardName,
           stampIcon: program.stampIcon,
+          stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
           currentStamps,
           maxStamps,

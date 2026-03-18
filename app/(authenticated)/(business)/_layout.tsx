@@ -326,6 +326,18 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="team/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="team/add"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="customers"
         options={{
           href: null,

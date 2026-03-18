@@ -69,6 +69,7 @@ export default function BusinessModeCtaCard({
   accentButton = false,
 }: BusinessModeCtaCardProps) {
   const setActiveMode = useMutation(api.users.setActiveMode);
+  const setActiveBusiness = useMutation(api.users.setActiveBusiness);
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
   const sessionContext = useSessionContext();
   const [modeSwitchBusy, setModeSwitchBusy] = useState(false);
@@ -80,6 +81,16 @@ export default function BusinessModeCtaCard({
       (business) =>
         business.staffRole === 'owner' || business.staffRole === 'manager'
     ) ?? null;
+  const activeManagedBusiness =
+    (sessionContext?.activeBusinessId
+      ? bizList.find(
+          (business) =>
+            String(business.id) === String(sessionContext.activeBusinessId) &&
+            (business.staffRole === 'owner' || business.staffRole === 'manager')
+        )
+      : null) ?? null;
+  const targetBusinessForBusinessMode =
+    activeManagedBusiness ?? manageableBusiness;
   const hasOwnerOrManager = manageableBusiness != null;
   const manageableBusinessName = manageableBusiness?.name.trim() ?? '';
   const hasNamedManagedBusiness = manageableBusinessName.length > 0;
@@ -143,6 +154,12 @@ export default function BusinessModeCtaCard({
 
     try {
       setModeSwitchBusy(true);
+
+      if (targetBusinessForBusinessMode) {
+        await setActiveBusiness({
+          businessId: targetBusinessForBusinessMode.id,
+        });
+      }
 
       if (shouldStartBusinessOnboarding) {
         await setAppMode('business');

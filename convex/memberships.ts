@@ -68,6 +68,7 @@ type CustomerMembershipRecord = {
   programTitle: string;
   rewardName: string;
   stampIcon: string;
+  stampShape: string;
   cardThemeId: string | null;
   currentStamps: number;
   maxStamps: number;
@@ -81,6 +82,7 @@ type CustomerProgramSelection = {
   rewardName: string;
   maxStamps: number;
   stampIcon: string;
+  stampShape: string;
   cardThemeId: string | null;
   membershipId: Id<'memberships'> | null;
   isJoined: boolean;
@@ -182,6 +184,7 @@ function buildProgramSelectionRows(
       rewardName: program.rewardName,
       maxStamps,
       stampIcon: program.stampIcon,
+      stampShape: program.stampShape ?? 'circle',
       cardThemeId: program.cardThemeId ?? null,
       membershipId: membership?._id ?? null,
       isJoined: membership !== null,
@@ -245,6 +248,7 @@ export const byCustomer = query({
           programTitle: program.title,
           rewardName: program.rewardName,
           stampIcon: program.stampIcon,
+          stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
           currentStamps: membership.currentStamps,
           maxStamps: program.maxStamps,
@@ -361,6 +365,7 @@ export const byCustomerBusinesses = query({
         previewCardThemeId: string | null;
         previewMaxStamps: number | null;
         previewCurrentStamps: number | null;
+        previewStampShape: string | null;
       }
     >();
 
@@ -403,6 +408,7 @@ export const byCustomerBusinesses = query({
           previewCardThemeId: program.cardThemeId ?? null,
           previewMaxStamps: Number(program.maxStamps ?? 0),
           previewCurrentStamps: Number(membership.currentStamps ?? 0),
+          previewStampShape: program.stampShape ?? 'circle',
         });
         continue;
       }
@@ -418,6 +424,7 @@ export const byCustomerBusinesses = query({
         existing.previewCardThemeId = program.cardThemeId ?? null;
         existing.previewMaxStamps = Number(program.maxStamps ?? 0);
         existing.previewCurrentStamps = Number(membership.currentStamps ?? 0);
+        existing.previewStampShape = program.stampShape ?? 'circle';
       }
     }
 
@@ -544,6 +551,7 @@ export const getCustomerBusiness = query({
           rewardName: program.rewardName,
           maxStamps,
           stampIcon: program.stampIcon,
+          stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
           membershipId: membership._id,
           isJoined: true,
@@ -577,6 +585,7 @@ export const getCustomerBusiness = query({
         rewardName: program.rewardName,
         maxStamps: Number(program.maxStamps ?? 0),
         stampIcon: program.stampIcon,
+        stampShape: program.stampShape ?? 'circle',
         cardThemeId: program.cardThemeId ?? null,
         membershipId: null,
         isJoined: false,

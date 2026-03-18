@@ -426,11 +426,13 @@ export default function PreviewCardScreen() {
         title: normalizedTitle,
         description: undefined,
         imageUrl: undefined,
+        imageStorageId: programDraft.imageStorageId ?? undefined,
         rewardName: normalizedReward,
         maxStamps: stampCount,
-        cardTerms: undefined,
-        rewardConditions: undefined,
+        cardTerms: programDraft.cardTerms.trim() || undefined,
+        rewardConditions: programDraft.rewardConditions.trim() || undefined,
         stampIcon: programDraft.stampIcon.trim() || 'star',
+        stampShape: programDraft.stampShape,
         cardThemeId: programDraft.cardThemeId,
       });
 

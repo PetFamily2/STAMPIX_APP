@@ -12,6 +12,8 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { normalizeStampShape } from '@/constants/stampOptions';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import {
   consumePendingJoin,
@@ -41,6 +43,8 @@ const TEXT = {
   redeemReady:
     '\u05de\u05d5\u05db\u05e0\u05d5\u05ea \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
   openBusiness: '\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7',
+  pendingInviteTitle: 'יש לך הזמנה ממתינה לצוות',
+  pendingInviteAction: 'לצפייה ואישור',
 };
 
 type WalletBusiness = {
@@ -55,12 +59,14 @@ type WalletBusiness = {
   previewCardThemeId: string | null;
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
+  previewStampShape: string | null;
 };
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { isAuthenticated } = useConvexAuth();
+  const sessionContext = useSessionContext();
   const pendingJoinChecked = useRef(false);
 
   useEffect(() => {
@@ -82,6 +88,8 @@ export default function WalletScreen() {
     isAuthenticated ? {} : 'skip'
   );
   const businesses = (businessesQuery ?? []) as WalletBusiness[];
+  const pendingStaffInvites = sessionContext?.pendingInvites ?? [];
+  const firstPendingStaffInvite = pendingStaffInvites[0] ?? null;
 
   const seedMvp = useMutation(api.seed.seedMvp);
   const isLoading = isAuthenticated && businessesQuery === undefined;
@@ -159,6 +167,36 @@ export default function WalletScreen() {
           </Pressable>
         </View>
 
+        {pendingStaffInvites.length > 0 ? (
+          <View style={styles.pendingInviteCard}>
+            <Text style={styles.pendingInviteTitle}>
+              {TEXT.pendingInviteTitle}
+            </Text>
+            <Text style={styles.pendingInviteSubtitle}>
+              {firstPendingStaffInvite
+                ? `${firstPendingStaffInvite.businessName} · תפקיד: ${
+                    firstPendingStaffInvite.targetRole === 'manager'
+                      ? 'מנהל'
+                      : 'עובד'
+                  }`
+                : `כמות הזמנות: ${pendingStaffInvites.length}`}
+            </Text>
+            <Pressable
+              onPress={() => router.push('/(authenticated)/accept-invite')}
+              style={({ pressed }) => [
+                styles.pendingInviteButton,
+                pressed ? styles.pressed : null,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.pendingInviteAction}
+            >
+              <Text style={styles.pendingInviteButtonText}>
+                {TEXT.pendingInviteAction}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {isLoading ? (
           <View style={styles.cardContainer}>
             <Text style={styles.infoText}>{TEXT.loading}</Text>
@@ -233,6 +271,9 @@ export default function WalletScreen() {
                         business.previewCurrentStamps ?? 0
                       )}
                       cardThemeId={business.previewCardThemeId}
+                      stampShape={normalizeStampShape(
+                        business.previewStampShape
+                      )}
                       status={
                         business.redeemableCount > 0 ? 'redeemable' : 'default'
                       }
@@ -323,6 +364,45 @@ const styles = StyleSheet.create({
     color: '#1E3A8A',
     fontSize: 14,
     fontWeight: '900',
+  },
+  pendingInviteCard: {
+    marginTop: 12,
+    backgroundColor: '#FFF7E8',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F5D5A0',
+    padding: 14,
+    gap: 8,
+  },
+  pendingInviteTitle: {
+    color: '#9A3412',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  pendingInviteSubtitle: {
+    color: '#7C2D12',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  pendingInviteButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#DBEAFE',
+    borderRadius: 999,
+    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#9CC0FF',
+  },
+  pendingInviteButtonText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   cardList: {
     marginTop: 18,

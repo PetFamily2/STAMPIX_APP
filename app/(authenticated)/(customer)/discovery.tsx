@@ -22,6 +22,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
@@ -109,6 +110,7 @@ type SavedBusinessQuery = {
   previewCardThemeId: string | null;
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
+  previewStampShape: string | null;
 };
 
 function getMapDelta(radiusKm: number) {
@@ -333,6 +335,7 @@ export default function DiscoveryScreen() {
                       business.previewCurrentStamps ?? 0
                     )}
                     cardThemeId={business.previewCardThemeId}
+                    stampShape={normalizeStampShape(business.previewStampShape)}
                     status={
                       business.redeemableCount > 0 ? 'redeemable' : 'default'
                     }

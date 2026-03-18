@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -19,6 +20,12 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
+import {
+  DEFAULT_STAMP_SHAPE,
+  MAX_STAMP_OPTIONS,
+  STAMP_SHAPE_OPTIONS,
+  type StampShape,
+} from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -32,50 +39,67 @@ type ProgramDetails = {
   title: string;
   description: string | null;
   imageUrl: string | null;
+  imageStorageId: Id<'_storage'> | null;
   rewardName: string;
   maxStamps: number;
   cardTerms: string | null;
   rewardConditions: string | null;
   stampIcon: string;
+  stampShape: string;
   cardThemeId: string;
   lifecycle: ProgramLifecycle;
   status: ProgramLifecycle;
   isRuleLocked: boolean;
   canDelete: boolean;
-  membershipCount: number;
-  metrics: {
-    activeMembers: number;
-    totalMembers: number;
-    stamps7d: number;
-    redemptions30d: number;
-    lastActivityAt: number | null;
-  };
 };
-
-const formatNumber = (value: number) =>
-  new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(value);
 
 const TEXT = {
   missingData: 'נתוני כרטיסיה חסרים.',
-  savedTitle: 'נשמר',
-  savedMessage: 'שינויי הכרטיסיה נשמרו בהצלחה.',
+  saveDoneTitle: 'נשמר',
+  saveDoneMessage: 'השינויים נשמרו בהצלחה.',
   errorTitle: 'שגיאה',
-  saveFailed: 'שמירה נכשלה.',
+  saveFailed: 'לא הצלחנו לשמור את הכרטיסיה.',
   publishDoneTitle: 'הכרטיסיה פורסמה',
-  publishDoneMessage: 'הכרטיסיה עברה למצב פעיל והחוקים ננעלו.',
+  publishDoneMessage: 'הכרטיסיה פעילה ללקוחות.',
   archiveDoneTitle: 'הכרטיסיה הועברה לארכיון',
-  archiveDoneMessage: 'הכרטיסיה זמינה רק להמשך צבירה ללקוחות קיימים.',
+  archiveDoneMessage: 'הכרטיסיה זמינה רק לצבירה ללקוחות קיימים.',
   deleteConfirmTitle: 'מחיקת כרטיסיה',
   deleteConfirmMessage: 'הכרטיסיה תימחק לצמיתות. להמשיך?',
   deleteDoneTitle: 'הכרטיסיה נמחקה',
   deleteDoneMessage: 'הכרטיסיה הוסרה בהצלחה.',
-  lockDraft: 'טיוטה: שדות חוקי הכרטיס ניתנים לעריכה.',
-  lockActive: 'פעיל: שדות חוקי הכרטיס נעולים לאחר פרסום.',
-  lockArchived: 'ארכיון: שדות חוקי הכרטיס נשארים נעולים.',
-  statusDraft: 'טיוטה',
-  statusActive: 'פעיל',
-  statusArchived: 'בארכיון',
-} as const;
+  imagePermissionTitle: 'נדרשת הרשאה',
+  imagePermissionMessage: 'צריך הרשאה לגלריה כדי להעלות תמונה.',
+  imageUploadFailed: 'העלאת התמונה נכשלה. נסו שוב.',
+  uploadImage: 'העלה תמונה',
+  uploadingImage: 'מעלה תמונה...',
+  sectionTitle: 'שם הכרטיסיה',
+  sectionReward: 'הטבה',
+  sectionMaxStamps: 'כמות לצבירה',
+  sectionMaxStampsHint: 'כמה ביקורים לקבלת פרס?',
+  recommended: 'מומלץ',
+  sectionCardTerms: 'תנאי הכרטיס',
+  sectionRewardTerms: 'תנאי מימוש ההטבה',
+  sectionStampShape: 'בחירת צורה לחותמת',
+  sectionTheme: 'בחירת רקע',
+  iconInput: 'אייקון לחותמת',
+  save: 'שמור שינויים',
+  publish: 'פרסם כרטיסיה',
+  archive: 'העבר לארכיון',
+  delete: 'מחק כרטיסיה',
+};
+
+function toStampShape(value: string | undefined): StampShape {
+  if (
+    value === 'circle' ||
+    value === 'roundedSquare' ||
+    value === 'square' ||
+    value === 'hexagon' ||
+    value === 'icon'
+  ) {
+    return value;
+  }
+  return DEFAULT_STAMP_SHAPE;
+}
 
 export default function ProgramDetailsScreen() {
   const insets = useSafeAreaInsets();
@@ -84,6 +108,7 @@ export default function ProgramDetailsScreen() {
     programId?: string;
     businessId?: string;
   }>();
+
   const programId = params.programId as Id<'loyaltyPrograms'> | undefined;
   const businessIdFromParams = params.businessId as
     | Id<'businesses'>
@@ -127,16 +152,23 @@ export default function ProgramDetailsScreen() {
   const publishProgram = useMutation(api.loyaltyPrograms.publishProgram);
   const archiveProgram = useMutation(api.loyaltyPrograms.archiveProgram);
   const deleteProgram = useMutation(api.loyaltyPrograms.deleteProgram);
+  const generateProgramImageUploadUrl = useMutation(
+    api.loyaltyPrograms.generateProgramImageUploadUrl
+  );
 
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
   const [rewardName, setRewardName] = useState('');
   const [maxStamps, setMaxStamps] = useState('10');
   const [cardTerms, setCardTerms] = useState('');
   const [rewardConditions, setRewardConditions] = useState('');
   const [stampIcon, setStampIcon] = useState('star');
+  const [stampShape, setStampShape] = useState<StampShape>(DEFAULT_STAMP_SHAPE);
   const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
+  const [imageStorageId, setImageStorageId] = useState<Id<'_storage'> | null>(
+    null
+  );
+  const [uploadedImageUri, setUploadedImageUri] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -144,14 +176,15 @@ export default function ProgramDetailsScreen() {
       return;
     }
     setTitle(details.title);
-    setDescription(details.description ?? '');
-    setImageUrl(details.imageUrl ?? '');
     setRewardName(details.rewardName);
     setMaxStamps(String(details.maxStamps));
     setCardTerms(details.cardTerms ?? '');
     setRewardConditions(details.rewardConditions ?? '');
-    setStampIcon(details.stampIcon);
+    setStampIcon(details.stampIcon || 'star');
+    setStampShape(toStampShape(details.stampShape));
     setCardThemeId(details.cardThemeId);
+    setImageStorageId(details.imageStorageId ?? null);
+    setUploadedImageUri(null);
   }, [details]);
 
   if (!programId || !selectedBusinessId) {
@@ -165,34 +198,92 @@ export default function ProgramDetailsScreen() {
   const lifecycle = details?.lifecycle ?? 'draft';
   const isRuleLocked = lifecycle !== 'draft';
   const parsedMaxStamps = Number(maxStamps);
-  const canEditGeneralFields = canManage && !isSubmitting;
-  const canEditRuleFields = canManage && !isSubmitting && !isRuleLocked;
+  const canEditGeneralFields = canManage && !isSubmitting && !isUploadingImage;
+  const canEditRuleFields =
+    canManage && !isSubmitting && !isUploadingImage && !isRuleLocked;
   const canSave =
     canEditGeneralFields &&
     title.trim().length > 0 &&
     rewardName.trim().length > 0 &&
-    stampIcon.trim().length > 0 &&
     Number.isFinite(parsedMaxStamps) &&
-    parsedMaxStamps > 0;
+    parsedMaxStamps > 0 &&
+    MAX_STAMP_OPTIONS.includes(
+      parsedMaxStamps as (typeof MAX_STAMP_OPTIONS)[number]
+    ) &&
+    (stampShape !== 'icon' || stampIcon.trim().length > 0);
 
-  const lockMessage =
-    lifecycle === 'draft'
-      ? TEXT.lockDraft
-      : lifecycle === 'active'
-        ? TEXT.lockActive
-        : TEXT.lockArchived;
+  const previewImageUrl = uploadedImageUri ?? details?.imageUrl ?? null;
 
-  const statusLabel =
-    lifecycle === 'draft'
-      ? TEXT.statusDraft
-      : lifecycle === 'active'
-        ? TEXT.statusActive
-        : TEXT.statusArchived;
+  const handlePickAndUploadImage = async () => {
+    if (!canEditGeneralFields || !selectedBusinessId) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage);
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (result.canceled || result.assets.length === 0) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    if (!asset.uri) {
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const { uploadUrl } = await generateProgramImageUploadUrl({
+        businessId: selectedBusinessId,
+      });
+      const fileResponse = await fetch(asset.uri);
+      const blob = await fileResponse.blob();
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': asset.mimeType ?? 'image/jpeg',
+        },
+        body: blob,
+      });
+      if (!uploadResponse.ok) {
+        throw new Error('UPLOAD_FAILED');
+      }
+
+      const payload = (await uploadResponse.json()) as {
+        storageId?: Id<'_storage'>;
+      };
+      if (!payload.storageId) {
+        throw new Error('UPLOAD_FAILED');
+      }
+
+      setImageStorageId(payload.storageId);
+      setUploadedImageUri(asset.uri);
+    } catch {
+      Alert.alert(TEXT.errorTitle, TEXT.imageUploadFailed);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) {
       return;
     }
+
+    const hasNewUpload = imageStorageId !== (details?.imageStorageId ?? null);
+    const nextStorageId = imageStorageId ?? undefined;
+    const nextImageUrl =
+      hasNewUpload || details?.imageStorageId
+        ? undefined
+        : (details?.imageUrl ?? undefined);
 
     setIsSubmitting(true);
     try {
@@ -200,16 +291,18 @@ export default function ProgramDetailsScreen() {
         businessId: selectedBusinessId,
         programId,
         title: title.trim(),
-        description: description.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
+        description: undefined,
+        imageUrl: nextImageUrl,
+        imageStorageId: nextStorageId,
         rewardName: rewardName.trim(),
         maxStamps: parsedMaxStamps,
         cardTerms: cardTerms.trim() || undefined,
         rewardConditions: rewardConditions.trim() || undefined,
-        stampIcon: stampIcon.trim(),
+        stampIcon: stampIcon.trim() || 'star',
+        stampShape,
         cardThemeId,
       });
-      Alert.alert(TEXT.savedTitle, TEXT.savedMessage);
+      Alert.alert(TEXT.saveDoneTitle, TEXT.saveDoneMessage);
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,
@@ -262,6 +355,7 @@ export default function ProgramDetailsScreen() {
     if (!canManage || !details?.canDelete || isSubmitting) {
       return;
     }
+
     setIsSubmitting(true);
     try {
       await deleteProgram({ businessId: selectedBusinessId, programId });
@@ -298,10 +392,10 @@ export default function ProgramDetailsScreen() {
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         className="flex-1"
-        stickyHeaderIndices={[0]}
+        stickyHeaderIndices={details === undefined ? [0] : [0, 1]}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingBottom: 28,
+          paddingBottom: (insets.bottom || 0) + 28,
         }}
       >
         <StickyScrollHeader
@@ -310,7 +404,6 @@ export default function ProgramDetailsScreen() {
         >
           <BusinessScreenHeader
             title="פרטי כרטיסיה"
-            subtitle="עריכה, סטטוס ותפעול מחזור חיים"
             titleAccessory={
               <TouchableOpacity
                 onPress={() => router.back()}
@@ -327,190 +420,250 @@ export default function ProgramDetailsScreen() {
             <ActivityIndicator color="#2F6BFF" />
           </View>
         ) : (
-          <>
-            <View className="mt-4 rounded-2xl border border-[#DBEAFE] bg-[#EFF6FF] p-4">
-              <Text
-                className={`text-sm font-black text-[#1E3A8A] ${tw.textStart}`}
-              >
-                סטטוס: {statusLabel}
-              </Text>
-              <Text className={`mt-1 text-xs text-[#1D4ED8] ${tw.textStart}`}>
-                {lockMessage}
-              </Text>
-            </View>
+          <View className="mt-2 bg-[#E9F0FF] pb-3">
+            <ProgramCustomerCardPreview
+              businessName={selectedBusiness?.name ?? 'העסק שלך'}
+              businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+              programImageUrl={previewImageUrl}
+              title={title || details.title}
+              rewardName={rewardName || details.rewardName}
+              maxStamps={parsedMaxStamps || details.maxStamps}
+              previewCurrentStamps={Math.min(
+                3,
+                Math.max(1, parsedMaxStamps || details.maxStamps)
+              )}
+              cardThemeId={cardThemeId}
+              stampShape={stampShape}
+              stampIcon={stampIcon || details.stampIcon}
+              status={lifecycle === 'archived' ? 'archived' : 'default'}
+              variant="hero"
+            />
+          </View>
+        )}
 
-            <View className="mt-5">
-              <ProgramCustomerCardPreview
-                businessName={selectedBusiness?.name ?? 'העסק שלך'}
-                businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                title={title || details.title}
-                rewardName={rewardName || details.rewardName}
-                maxStamps={parsedMaxStamps || details.maxStamps}
-                previewCurrentStamps={Math.min(
-                  3,
-                  Math.max(1, parsedMaxStamps || details.maxStamps)
-                )}
-                cardThemeId={cardThemeId}
-                stampIcon={stampIcon || details.stampIcon}
-                status={lifecycle === 'archived' ? 'archived' : 'default'}
-                variant="hero"
-              />
-            </View>
+        {details !== undefined ? (
+          <View className="mt-2 gap-3">
+            <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-4">
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  1. {TEXT.sectionTitle}
+                </Text>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  editable={canEditGeneralFields}
+                  placeholder="שם הכרטיסיה"
+                  placeholderTextColor="#94A3B8"
+                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                />
+              </View>
 
-            <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text
-                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-              >
-                שדות ניתנים לעריכה בכל סטטוס
-              </Text>
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  2. {TEXT.sectionReward}
+                </Text>
+                <TextInput
+                  value={rewardName}
+                  onChangeText={setRewardName}
+                  editable={canEditRuleFields}
+                  placeholder="שם ההטבה"
+                  placeholderTextColor="#94A3B8"
+                  className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                    canEditRuleFields
+                      ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
+                      : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                  }`}
+                />
+              </View>
 
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                editable={canEditGeneralFields}
-                placeholder="שם הכרטיסיה"
-                placeholderTextColor="#94A3B8"
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                editable={canEditGeneralFields}
-                placeholder="תיאור"
-                placeholderTextColor="#94A3B8"
-                multiline={true}
-                textAlignVertical="top"
-                className="min-h-[80px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
-              <TextInput
-                value={imageUrl}
-                onChangeText={setImageUrl}
-                editable={canEditGeneralFields}
-                placeholder="קישור תמונה"
-                placeholderTextColor="#94A3B8"
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
-              <TextInput
-                value={stampIcon}
-                onChangeText={setStampIcon}
-                editable={canEditGeneralFields}
-                placeholder="אייקון"
-                placeholderTextColor="#94A3B8"
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  3. {TEXT.sectionMaxStamps}
+                </Text>
+                <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
+                  {TEXT.sectionMaxStampsHint}
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  {MAX_STAMP_OPTIONS.map((option) => {
+                    const selected = parsedMaxStamps === option;
+                    return (
+                      <TouchableOpacity
+                        key={String(option)}
+                        disabled={!canEditRuleFields}
+                        onPress={() => setMaxStamps(String(option))}
+                        className={`rounded-full border px-3 py-2 ${
+                          selected
+                            ? 'border-[#2F6BFF] bg-[#EAF1FF]'
+                            : 'border-[#DCE6F7] bg-[#F8FAFF]'
+                        }`}
+                      >
+                        <Text className="text-xs font-bold text-[#1A2B4A]">
+                          {option}
+                          {option === 10 ? ` (${TEXT.recommended})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
-              <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                {CARD_THEMES.map((theme) => {
-                  const selected = cardThemeId === theme.id;
-                  return (
-                    <TouchableOpacity
-                      key={theme.id}
-                      disabled={!canEditGeneralFields}
-                      onPress={() => setCardThemeId(theme.id)}
-                      className={`rounded-xl border px-3 py-2 ${
-                        selected
-                          ? 'border-[#2F6BFF] bg-[#EAF1FF]'
-                          : 'border-[#DCE6F7] bg-[#F8FAFF]'
-                      }`}
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  4. תמונה
+                </Text>
+                <TouchableOpacity
+                  disabled={!canEditGeneralFields || isUploadingImage}
+                  onPress={() => {
+                    void handlePickAndUploadImage();
+                  }}
+                  className={`rounded-2xl border px-4 py-3 ${
+                    canEditGeneralFields
+                      ? 'border-[#DCE6F7] bg-[#F8FAFF]'
+                      : 'border-[#E2E8F0] bg-[#F1F5F9]'
+                  }`}
+                >
+                  {isUploadingImage ? (
+                    <ActivityIndicator color="#2F6BFF" />
+                  ) : (
+                    <Text
+                      className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
                     >
-                      <Text className="text-xs font-bold text-[#1A2B4A]">
-                        {theme.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                      {previewImageUrl ? 'החלף תמונה' : TEXT.uploadImage}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                {isUploadingImage ? (
+                  <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                    {TEXT.uploadingImage}
+                  </Text>
+                ) : null}
+              </View>
+
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  5. {TEXT.sectionCardTerms}
+                </Text>
+                <TextInput
+                  value={cardTerms}
+                  onChangeText={setCardTerms}
+                  editable={canEditRuleFields}
+                  placeholder="תנאי הכרטיס"
+                  placeholderTextColor="#94A3B8"
+                  multiline={true}
+                  textAlignVertical="top"
+                  className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                    canEditRuleFields
+                      ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
+                      : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                  }`}
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  6. {TEXT.sectionRewardTerms}
+                </Text>
+                <TextInput
+                  value={rewardConditions}
+                  onChangeText={setRewardConditions}
+                  editable={canEditRuleFields}
+                  placeholder="תנאי מימוש ההטבה"
+                  placeholderTextColor="#94A3B8"
+                  multiline={true}
+                  textAlignVertical="top"
+                  className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                    canEditRuleFields
+                      ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
+                      : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                  }`}
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  7. {TEXT.sectionStampShape}
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  {STAMP_SHAPE_OPTIONS.map((option) => {
+                    const selected = stampShape === option.id;
+                    return (
+                      <TouchableOpacity
+                        key={option.id}
+                        disabled={!canEditGeneralFields}
+                        onPress={() => setStampShape(option.id)}
+                        className={`rounded-xl border px-3 py-2 ${
+                          selected
+                            ? 'border-[#2F6BFF] bg-[#EAF1FF]'
+                            : 'border-[#DCE6F7] bg-[#F8FAFF]'
+                        }`}
+                      >
+                        <Text className="text-xs font-bold text-[#1A2B4A]">
+                          {option.label}
+                        </Text>
+                        <Text className="text-[10px] text-[#64748B]">
+                          {option.description}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {stampShape === 'icon' ? (
+                  <TextInput
+                    value={stampIcon}
+                    onChangeText={setStampIcon}
+                    editable={canEditGeneralFields}
+                    placeholder={TEXT.iconInput}
+                    placeholderTextColor="#94A3B8"
+                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                  />
+                ) : null}
+              </View>
+
+              <View className="gap-2">
+                <Text
+                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  8. {TEXT.sectionTheme}
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  {CARD_THEMES.map((theme) => {
+                    const selected = cardThemeId === theme.id;
+                    return (
+                      <TouchableOpacity
+                        key={theme.id}
+                        disabled={!canEditGeneralFields}
+                        onPress={() => setCardThemeId(theme.id)}
+                        className={`rounded-xl border px-3 py-2 ${
+                          selected
+                            ? 'border-[#2F6BFF] bg-[#EAF1FF]'
+                            : 'border-[#DCE6F7] bg-[#F8FAFF]'
+                        }`}
+                      >
+                        <Text className="text-xs font-bold text-[#1A2B4A]">
+                          {theme.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             </View>
 
-            <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
-              <Text
-                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-              >
-                שדות חוקי כרטיס
-              </Text>
-
-              <TextInput
-                value={rewardName}
-                onChangeText={setRewardName}
-                editable={canEditRuleFields}
-                placeholder="שם ההטבה"
-                placeholderTextColor="#94A3B8"
-                className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                  canEditRuleFields
-                    ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                    : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                }`}
-              />
-
-              <TextInput
-                value={maxStamps}
-                onChangeText={setMaxStamps}
-                editable={canEditRuleFields}
-                keyboardType="number-pad"
-                placeholder="מספר ניקובים"
-                placeholderTextColor="#94A3B8"
-                className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                  canEditRuleFields
-                    ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                    : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                }`}
-              />
-
-              <TextInput
-                value={cardTerms}
-                onChangeText={setCardTerms}
-                editable={canEditRuleFields}
-                placeholder="תנאי כרטיס"
-                placeholderTextColor="#94A3B8"
-                multiline={true}
-                textAlignVertical="top"
-                className={`min-h-[80px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                  canEditRuleFields
-                    ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                    : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                }`}
-              />
-
-              <TextInput
-                value={rewardConditions}
-                onChangeText={setRewardConditions}
-                editable={canEditRuleFields}
-                placeholder="תנאי מימוש הטבה"
-                placeholderTextColor="#94A3B8"
-                multiline={true}
-                textAlignVertical="top"
-                className={`min-h-[80px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                  canEditRuleFields
-                    ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                    : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                }`}
-              />
-            </View>
-
-            <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-2">
-              <Text
-                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-              >
-                ביצועי כרטיסיה
-              </Text>
-              <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
-                לקוחות פעילים: {formatNumber(details.metrics.activeMembers)}
-              </Text>
-              <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
-                סה"כ לקוחות: {formatNumber(details.metrics.totalMembers)}
-              </Text>
-              <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
-                ניקובים 7 ימים: {formatNumber(details.metrics.stamps7d)}
-              </Text>
-              <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
-                מימושים 30 ימים: {formatNumber(details.metrics.redemptions30d)}
-              </Text>
-              <Text className={`text-sm text-[#1A2B4A] ${tw.textStart}`}>
-                ניתן למחוק: {details.canDelete ? 'כן' : 'לא'}
-              </Text>
-            </View>
-
-            <View className="mt-5 gap-3">
+            <View className="gap-3">
               <TouchableOpacity
                 disabled={!canSave}
                 onPress={() => {
@@ -524,7 +677,7 @@ export default function ProgramDetailsScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text className="text-center text-sm font-bold text-white">
-                    שמור שינויים
+                    {TEXT.save}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -540,7 +693,7 @@ export default function ProgramDetailsScreen() {
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">
-                    פרסם כרטיסיה
+                    {TEXT.publish}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -556,7 +709,7 @@ export default function ProgramDetailsScreen() {
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">
-                    העבר לארכיון
+                    {TEXT.archive}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -570,13 +723,13 @@ export default function ProgramDetailsScreen() {
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">
-                    מחק כרטיסיה
+                    {TEXT.delete}
                   </Text>
                 </TouchableOpacity>
               ) : null}
             </View>
-          </>
-        )}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

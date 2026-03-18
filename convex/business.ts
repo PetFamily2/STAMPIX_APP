@@ -17,6 +17,12 @@ import {
   generateJoinCode,
   generatePublicId,
 } from './lib/ids';
+import {
+  assertScanTokenSignature,
+  getScanTokenIdentity,
+  isScanTokenExpired,
+  parseScanToken,
+} from './scanTokens';
 
 type BusinessAddressInput = {
   formattedAddress: string;
@@ -331,7 +337,9 @@ async function generateUniquePublicId(
         q.eq('businessPublicId', candidate)
       )
       .first();
-    if (!existing) return candidate;
+    if (!existing) {
+      return candidate;
+    }
   }
   throw new Error('FAILED_TO_GENERATE_PUBLIC_ID');
 }
@@ -349,7 +357,9 @@ async function generateUniqueJoinCode(
       .query('businesses')
       .withIndex('by_joinCode', (q: any) => q.eq('joinCode', candidate))
       .first();
-    if (!existing) return candidate;
+    if (!existing) {
+      return candidate;
+    }
   }
   throw new Error('FAILED_TO_GENERATE_JOIN_CODE');
 }
@@ -1221,6 +1231,7 @@ type BusinessStaffView = {
   createdAt: number;
   updatedAt: number | null;
   displayName: string;
+  phone: string | null;
   email: string | null;
   isSelf: boolean;
 };
@@ -1241,6 +1252,9 @@ type TeamPendingInviteView = {
   businessId: Id<'businesses'>;
   invitedEmail: string;
   invitedUserId: Id<'users'> | null;
+  invitedDisplayName: string | null;
+  invitedPhone: string | null;
+  invitedResolvedEmail: string | null;
   invitedByUserId: Id<'users'>;
   invitedByDisplayName: string;
   targetRole: InviteTargetRole;
@@ -1259,6 +1273,26 @@ type TeamSummary = {
   maxSeats: number;
 };
 
+type TeamHistoryEventView = {
+  eventId: Id<'staffEvents'>;
+  eventType: Doc<'staffEvents'>['eventType'];
+  actorUserId: Id<'users'> | null;
+  actorDisplayName: string | null;
+  targetUserId: Id<'users'> | null;
+  targetDisplayName: string | null;
+  targetPhone: string | null;
+  targetEmail: string | null;
+  targetInviteId: Id<'staffInvites'> | null;
+  inviteCode: string | null;
+  inviteTargetRole: InviteTargetRole | null;
+  fromRole: StaffRole | null;
+  toRole: StaffRole | null;
+  fromStatus: StaffStatus | null;
+  toStatus: StaffStatus | null;
+  reasonCode: string | null;
+  createdAt: number;
+};
+
 type TeamSeatStaffRow = {
   staffRole: StaffRole;
   status?: StaffStatus;
@@ -1275,6 +1309,16 @@ function resolveStaffStatus(staff: any): StaffStatus {
 
 function resolveInviteTargetRole(invite: any): InviteTargetRole {
   return invite?.targetRole === 'manager' ? 'manager' : 'staff';
+}
+
+function resolveUserDisplayName(
+  user: Doc<'users'> | null,
+  fallback = 'צוות'
+): string {
+  if (!user) {
+    return fallback;
+  }
+  return user.fullName ?? user.email ?? user.externalId ?? fallback;
 }
 
 export function calculateTeamSeatsUsed(args: {
@@ -1461,7 +1505,9 @@ async function generateUniqueInviteCode(
       .query('staffInvites')
       .withIndex('by_inviteCode', (q: any) => q.eq('inviteCode', candidate))
       .first();
-    if (!existing) return candidate;
+    if (!existing) {
+      return candidate;
+    }
   }
   throw new Error('FAILED_TO_GENERATE_INVITE_CODE');
 }
@@ -1495,8 +1541,7 @@ export const listBusinessStaff = query({
           return null;
         }
         const status = resolveStaffStatus(record);
-        const displayName =
-          user.fullName ?? user.email ?? user.externalId ?? 'עובד';
+        const displayName = resolveUserDisplayName(user, 'עובד');
         const joinedAt = record.joinedAt ?? record.createdAt;
         return {
           staffId: record._id,
@@ -1515,6 +1560,7 @@ export const listBusinessStaff = query({
           createdAt: record.createdAt,
           updatedAt: record.updatedAt ?? null,
           displayName,
+          phone: user.phone ?? null,
           email: user.email ?? null,
           isSelf: String(actor._id) === String(record.userId),
         };
@@ -1571,6 +1617,9 @@ export const listPendingStaffInvites = query({
     const populated = await Promise.all(
       visibleInvites.map(
         async (invite: any): Promise<TeamPendingInviteView> => {
+          const invitedUser = invite.invitedUserId
+            ? ((await ctx.db.get(invite.invitedUserId)) as Doc<'users'> | null)
+            : null;
           const inviter = (await ctx.db.get(
             invite.invitedByUserId
           )) as Doc<'users'> | null;
@@ -1579,12 +1628,12 @@ export const listPendingStaffInvites = query({
             businessId: invite.businessId,
             invitedEmail: invite.invitedEmail,
             invitedUserId: invite.invitedUserId ?? null,
+            invitedDisplayName: resolveUserDisplayName(invitedUser, 'משתמש'),
+            invitedPhone: invitedUser?.phone ?? null,
+            invitedResolvedEmail:
+              invitedUser?.email ?? invite.invitedEmail ?? null,
             invitedByUserId: invite.invitedByUserId,
-            invitedByDisplayName:
-              inviter?.fullName ??
-              inviter?.email ??
-              inviter?.externalId ??
-              'צוות',
+            invitedByDisplayName: resolveUserDisplayName(inviter),
             targetRole: resolveInviteTargetRole(invite),
             status: 'pending',
             inviteCode: invite.inviteCode,
@@ -1669,6 +1718,184 @@ export const getBusinessTeamSummary = query({
       usedSeats: seatUsage.usedSeats,
       maxSeats: entitlements.limits.maxTeamSeats,
     };
+  },
+});
+
+export const listBusinessStaffHistory = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+    limit: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    { businessId, limit }
+  ): Promise<TeamHistoryEventView[]> => {
+    if (!businessId) {
+      return [];
+    }
+
+    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
+      ctx,
+      businessId
+    );
+    await requireTeamFeatureEnabled(ctx, businessId);
+
+    const normalizedLimit = Math.max(1, Math.min(100, Math.floor(limit ?? 50)));
+
+    const [events, staffMemberships] = await Promise.all([
+      ctx.db
+        .query('staffEvents')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+      ctx.db
+        .query('businessStaff')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+    ]);
+
+    const sortedEvents = [...events].sort((a: any, b: any) => {
+      return b.createdAt - a.createdAt;
+    });
+
+    const staffRoleByUserId = new Map<string, StaffRole>();
+    for (const membership of staffMemberships) {
+      staffRoleByUserId.set(String(membership.userId), membership.staffRole);
+    }
+
+    const inviteIds = Array.from(
+      new Set(
+        sortedEvents
+          .map((event: any) => event.targetInviteId)
+          .filter((value: any): value is Id<'staffInvites'> => Boolean(value))
+      )
+    );
+    const invites = await Promise.all(
+      inviteIds.map(async (inviteId) => {
+        return {
+          inviteId,
+          invite: (await ctx.db.get(inviteId)) as Doc<'staffInvites'> | null,
+        };
+      })
+    );
+    const inviteById = new Map<string, Doc<'staffInvites'>>();
+    for (const row of invites) {
+      if (row.invite) {
+        inviteById.set(String(row.inviteId), row.invite);
+      }
+    }
+
+    const userIds = new Set<string>();
+    for (const event of sortedEvents) {
+      if (event.actorUserId) {
+        userIds.add(String(event.actorUserId));
+      }
+      if (event.targetUserId) {
+        userIds.add(String(event.targetUserId));
+      }
+      const invite = event.targetInviteId
+        ? (inviteById.get(String(event.targetInviteId)) ?? null)
+        : null;
+      if (invite?.invitedByUserId) {
+        userIds.add(String(invite.invitedByUserId));
+      }
+      if (invite?.invitedUserId) {
+        userIds.add(String(invite.invitedUserId));
+      }
+    }
+
+    const userRows = await Promise.all(
+      Array.from(userIds).map(async (idValue) => {
+        const userId = idValue as Id<'users'>;
+        return {
+          userId,
+          user: (await ctx.db.get(userId)) as Doc<'users'> | null,
+        };
+      })
+    );
+    const userById = new Map<string, Doc<'users'>>();
+    for (const row of userRows) {
+      if (row.user) {
+        userById.set(String(row.userId), row.user);
+      }
+    }
+
+    const result: TeamHistoryEventView[] = [];
+
+    for (const event of sortedEvents) {
+      const invite = event.targetInviteId
+        ? (inviteById.get(String(event.targetInviteId)) ?? null)
+        : null;
+      const inviteTargetRole = invite ? resolveInviteTargetRole(invite) : null;
+
+      if (actorRole === 'manager') {
+        const targetStaffRole = event.targetUserId
+          ? (staffRoleByUserId.get(String(event.targetUserId)) ?? null)
+          : null;
+
+        if (event.fromRole && event.fromRole !== 'staff') {
+          continue;
+        }
+        if (event.toRole && event.toRole !== 'staff') {
+          continue;
+        }
+        if (inviteTargetRole && inviteTargetRole !== 'staff') {
+          continue;
+        }
+        if (!event.fromRole && !event.toRole && !inviteTargetRole) {
+          if (targetStaffRole !== 'staff') {
+            continue;
+          }
+        }
+      }
+
+      const actorUser = event.actorUserId
+        ? (userById.get(String(event.actorUserId)) ?? null)
+        : null;
+      const targetUser = event.targetUserId
+        ? (userById.get(String(event.targetUserId)) ?? null)
+        : null;
+      const invitedUser = invite?.invitedUserId
+        ? (userById.get(String(invite.invitedUserId)) ?? null)
+        : null;
+
+      const targetDisplayName = targetUser
+        ? resolveUserDisplayName(targetUser, 'משתמש')
+        : invitedUser
+          ? resolveUserDisplayName(invitedUser, 'משתמש')
+          : invite?.invitedEmail?.trim() || null;
+
+      result.push({
+        eventId: event._id,
+        eventType: event.eventType,
+        actorUserId: event.actorUserId ?? null,
+        actorDisplayName: actorUser
+          ? resolveUserDisplayName(actorUser, 'מערכת')
+          : null,
+        targetUserId: event.targetUserId ?? null,
+        targetDisplayName,
+        targetPhone: targetUser?.phone ?? invitedUser?.phone ?? null,
+        targetEmail:
+          targetUser?.email ??
+          invitedUser?.email ??
+          invite?.invitedEmail ??
+          null,
+        targetInviteId: event.targetInviteId ?? null,
+        inviteCode: invite?.inviteCode ?? null,
+        inviteTargetRole,
+        fromRole: (event.fromRole as StaffRole | undefined) ?? null,
+        toRole: (event.toRole as StaffRole | undefined) ?? null,
+        fromStatus: (event.fromStatus as StaffStatus | undefined) ?? null,
+        toStatus: (event.toStatus as StaffStatus | undefined) ?? null,
+        reasonCode: event.reasonCode ?? null,
+        createdAt: event.createdAt,
+      });
+
+      if (result.length >= normalizedLimit) {
+        break;
+      }
+    }
+
+    return result;
   },
 });
 
@@ -1842,7 +2069,164 @@ export const inviteBusinessStaff = mutation({
       createdAt: now,
     });
 
-    return { inviteCode, inviteId, alreadyPending: false };
+    return {
+      inviteCode,
+      inviteId,
+      alreadyPending: false,
+      deliveryChannel: targetUser
+        ? ('in_app' as const)
+        : ('invite_code' as const),
+      invitedUserExists: Boolean(targetUser),
+    };
+  },
+});
+
+export const inviteBusinessStaffByScanToken = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    scanToken: v.string(),
+    role: v.union(v.literal('manager'), v.literal('staff')),
+  },
+  handler: async (ctx, { businessId, scanToken, role }) => {
+    const { actor, staffRole: actorRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    requireActorCanInviteRole(actorRole, role);
+
+    const normalizedToken = scanToken.trim();
+    if (!normalizedToken) {
+      throw new Error('INVALID_SCAN_TOKEN');
+    }
+
+    let tokenPayload: ReturnType<typeof parseScanToken>;
+    try {
+      tokenPayload = parseScanToken(normalizedToken);
+      await assertScanTokenSignature(tokenPayload);
+    } catch {
+      throw new Error('INVALID_SCAN_TOKEN');
+    }
+
+    if (isScanTokenExpired(tokenPayload)) {
+      throw new Error('SCAN_TOKEN_EXPIRED');
+    }
+
+    const tokenIdentity = getScanTokenIdentity(tokenPayload);
+    const targetUser = (await ctx.db.get(
+      tokenIdentity.customerId as Id<'users'>
+    )) as Doc<'users'> | null;
+
+    if (!targetUser) {
+      throw new Error('TARGET_USER_NOT_FOUND');
+    }
+    if (String(targetUser._id) === String(actor._id)) {
+      throw new Error('CANNOT_INVITE_SELF');
+    }
+
+    const normalizedEmail = targetUser.email?.trim().toLowerCase() ?? '';
+    const invitedUserName =
+      targetUser.fullName?.trim() ||
+      [targetUser.firstName?.trim(), targetUser.lastName?.trim()]
+        .filter((part): part is string => Boolean(part))
+        .join(' ')
+        .trim() ||
+      normalizedEmail ||
+      targetUser.externalId?.trim() ||
+      'עובד';
+    const invitedUserPhone = targetUser.phone?.trim() || null;
+    const now = Date.now();
+
+    const pendingByUser = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_invitedUserId', (q: any) =>
+        q.eq('invitedUserId', targetUser._id)
+      )
+      .filter((q: any) => q.eq(q.field('businessId'), businessId))
+      .filter((q: any) => q.eq(q.field('status'), 'pending'))
+      .collect();
+
+    const pendingByEmail = normalizedEmail
+      ? await ctx.db
+          .query('staffInvites')
+          .withIndex('by_businessId_invitedEmail_status', (q: any) =>
+            q
+              .eq('businessId', businessId)
+              .eq('invitedEmail', normalizedEmail)
+              .eq('status', 'pending')
+          )
+          .collect()
+      : [];
+
+    const uniquePendingInvites = new Map<string, any>();
+    for (const invite of pendingByUser) {
+      uniquePendingInvites.set(String(invite._id), invite);
+    }
+    for (const invite of pendingByEmail) {
+      uniquePendingInvites.set(String(invite._id), invite);
+    }
+
+    for (const invite of uniquePendingInvites.values()) {
+      const didExpire = await expireInviteIfNeeded(ctx, invite, now);
+      if (!didExpire) {
+        throw new Error('INVITE_ALREADY_PENDING');
+      }
+    }
+
+    const existingMembership = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId_userId', (q: any) =>
+        q.eq('businessId', businessId).eq('userId', targetUser._id)
+      )
+      .first();
+
+    if (existingMembership) {
+      if (existingMembership.staffRole === 'owner') {
+        throw new Error('OWNER_CANNOT_BE_INVITED');
+      }
+      const membershipStatus = resolveStaffStatus(existingMembership);
+      if (membershipStatus === 'active') {
+        throw new Error('ALREADY_STAFF');
+      }
+      if (membershipStatus === 'suspended') {
+        throw new Error('SUSPENDED_MEMBER_CANNOT_REINVITE');
+      }
+    }
+
+    await requireAvailableTeamSeat(ctx, businessId, now);
+
+    const inviteCode = await generateUniqueInviteCode(ctx);
+    const inviteId = await ctx.db.insert('staffInvites', {
+      businessId,
+      invitedEmail: normalizedEmail,
+      invitedUserId: targetUser._id,
+      invitedByUserId: actor._id,
+      targetRole: role,
+      inviteCode,
+      status: 'pending',
+      expiresAt: now + TEAM_INVITE_EXPIRY_MS,
+      createdAt: now,
+    });
+
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetInviteId: inviteId,
+      eventType: 'invite_created',
+      toRole: role,
+      createdAt: now,
+    });
+
+    return {
+      inviteCode,
+      inviteId,
+      alreadyPending: false,
+      deliveryChannel: 'in_app' as const,
+      invitedUserExists: true,
+      invitedUser: {
+        name: invitedUserName,
+        phone: invitedUserPhone,
+        email: normalizedEmail || null,
+      },
+    };
   },
 });
 
@@ -1921,6 +2305,13 @@ export const acceptStaffInvite = mutation({
     }
 
     if (
+      invite.invitedUserId &&
+      String(invite.invitedUserId) !== String(user._id)
+    ) {
+      throw new Error('EMAIL_MISMATCH');
+    }
+    if (
+      !invite.invitedUserId &&
       invite.invitedEmail &&
       user.email?.toLowerCase() !== invite.invitedEmail.toLowerCase()
     ) {

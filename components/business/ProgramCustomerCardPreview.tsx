@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, StyleSheet, Text, View } from 'react-native';
-
+import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
+import type { StampShape } from '@/constants/stampOptions';
 
-type ProgramCardVariant = 'hero' | 'list' | 'compact';
+type ProgramCardVariant = 'hero' | 'list' | 'compact' | 'wallet';
 type ProgramCardStatus = 'default' | 'redeemable' | 'archived';
 
 type ProgramCustomerCardPreviewProps = {
@@ -13,7 +13,9 @@ type ProgramCustomerCardPreviewProps = {
   previewCurrentStamps?: number;
   title?: string;
   stampIcon?: string;
+  stampShape?: StampShape;
   cardThemeId?: string | null;
+  programImageUrl?: string | null;
   businessLogoUrl?: string | null;
   variant?: ProgramCardVariant;
   status?: ProgramCardStatus;
@@ -29,6 +31,30 @@ const TEXT = {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getStampShapeStyle(
+  shape: StampShape,
+  variant: ProgramCardVariant
+): ViewStyle {
+  const compact = variant === 'compact';
+  switch (shape) {
+    case 'roundedSquare':
+      return { borderRadius: compact ? 4 : 5 };
+    case 'square':
+      return { borderRadius: 2 };
+    case 'hexagon':
+      return {
+        borderRadius: 3,
+        transform: [{ rotate: '45deg' }],
+      };
+    case 'icon':
+      return { borderRadius: compact ? 6 : 7 };
+    default:
+      return {
+        borderRadius: compact ? 7 : 9,
+      };
+  }
 }
 
 function getMonogram(name: string) {
@@ -49,25 +75,32 @@ export default function ProgramCustomerCardPreview({
   previewCurrentStamps,
   title,
   stampIcon,
+  stampShape = 'circle',
   cardThemeId,
+  programImageUrl,
   businessLogoUrl,
   variant = 'list',
   status = 'default',
   selected = false,
   showAllStamps = false,
 }: ProgramCustomerCardPreviewProps) {
+  const isWallet = variant === 'wallet';
   const goal = Math.max(1, Number(maxStamps || 0));
   const fallbackCurrent =
-    variant === 'hero' ? Math.min(4, goal) : Math.min(2, goal);
+    variant === 'hero' || isWallet ? Math.min(4, goal) : Math.min(2, goal);
   const current = clamp(previewCurrentStamps ?? fallbackCurrent, 0, goal);
-  const defaultVisibleStamps = variant === 'compact' ? 8 : 12;
-  const visibleStamps = showAllStamps
-    ? goal
-    : Math.min(goal, defaultVisibleStamps);
-  const overflow = Math.max(0, goal - visibleStamps);
+  const visibleStamps = showAllStamps ? goal : goal;
   const dotIds = Array.from({ length: visibleStamps }, (_, index) => index + 1);
+  const stampRows =
+    visibleStamps <= 10
+      ? [dotIds]
+      : [
+          dotIds.slice(0, Math.ceil(visibleStamps / 2)),
+          dotIds.slice(Math.ceil(visibleStamps / 2)),
+        ];
   const theme = resolveCardTheme(cardThemeId ?? undefined);
 
+  const cardImageUri = programImageUrl?.trim() ? programImageUrl.trim() : null;
   const logoUri = businessLogoUrl?.trim() ? businessLogoUrl.trim() : null;
   const monogram = getMonogram(businessName);
   const badgeText =
@@ -76,6 +109,23 @@ export default function ProgramCustomerCardPreview({
       : status === 'redeemable'
         ? TEXT.readyBadge
         : null;
+  const walletBrand = title?.trim() ? title : businessName;
+
+  const walletVisibleMax = isWallet ? Math.min(goal, 16) : 0;
+  const walletStampOverflow = isWallet
+    ? Math.max(0, goal - walletVisibleMax)
+    : 0;
+  const walletStampGroups: number[][] = [];
+  if (isWallet) {
+    for (let g = 0; g < walletVisibleMax; g += 4) {
+      walletStampGroups.push(
+        Array.from(
+          { length: Math.min(4, walletVisibleMax - g) },
+          (_, i) => g + i + 1
+        )
+      );
+    }
+  }
 
   return (
     <LinearGradient
@@ -84,104 +134,199 @@ export default function ProgramCustomerCardPreview({
       end={{ x: 1, y: 1 }}
       style={[
         styles.container,
+        isWallet ? styles.containerWallet : null,
         variant === 'hero' ? styles.containerHero : null,
         variant === 'compact' ? styles.containerCompact : null,
         selected ? styles.containerSelected : null,
       ]}
     >
-      <View
-        style={[
-          styles.glow,
-          { backgroundColor: theme.glow },
-          variant === 'compact' ? styles.glowCompact : null,
-        ]}
-      />
-
-      <View style={styles.headerRow}>
+      {isWallet ? null : (
         <View
           style={[
-            styles.logoShell,
-            variant === 'compact' ? styles.logoShellCompact : null,
+            styles.glow,
+            { backgroundColor: theme.glow },
+            variant === 'compact' ? styles.glowCompact : null,
           ]}
-        >
-          {logoUri ? (
-            <Image
-              source={{ uri: logoUri }}
-              style={styles.logoImage}
-              resizeMode="cover"
-              accessibilityLabel={`${businessName} logo`}
-            />
-          ) : (
-            <Text style={styles.monogramText}>{monogram}</Text>
-          )}
-        </View>
+        />
+      )}
 
-        <View style={styles.metaColumn}>
-          <Text
-            style={[
-              styles.cardTitle,
-              variant === 'compact' ? styles.cardTitleCompact : null,
-              { color: theme.titleColor },
-            ]}
-            numberOfLines={1}
-          >
-            {title?.trim() ? title : businessName}
-          </Text>
-          <Text
-            style={[
-              styles.rewardText,
-              variant === 'compact' ? styles.rewardTextCompact : null,
-              { color: theme.subtitleColor },
-            ]}
-            numberOfLines={1}
-          >
-            {TEXT.rewardPrefix}: {rewardName}
-          </Text>
-        </View>
+      {isWallet ? (
+        <>
+          <View style={styles.walletTopRow}>
+            <View style={styles.walletBrandColumn}>
+              <Text
+                style={[styles.walletBrand, { color: theme.titleColor }]}
+                numberOfLines={1}
+              >
+                {walletBrand}
+              </Text>
+              <Text
+                style={[styles.walletBrandSub, { color: theme.subtitleColor }]}
+              >
+                club card
+              </Text>
+            </View>
+            <View style={styles.walletChip}>
+              <View style={styles.walletChipLineH} />
+              <View style={styles.walletChipLineH} />
+              <View style={styles.walletChipLineH} />
+              <View style={styles.walletChipLineV} />
+            </View>
+          </View>
 
-        <View
-          style={[
-            styles.progressChip,
-            variant === 'compact' ? styles.progressChipCompact : null,
-          ]}
-        >
-          <Text style={styles.progressChipText}>
-            {current}/{goal}
-          </Text>
-        </View>
-      </View>
+          <View style={styles.walletStampGroups}>
+            {walletStampGroups.map((group, gi) => (
+              <View key={gi} style={styles.walletStampGroup}>
+                {group.map((dotId) => (
+                  <View
+                    key={dotId}
+                    style={[
+                      styles.walletStampDot,
+                      dotId <= current
+                        ? styles.walletStampDotFilled
+                        : styles.walletStampDotEmpty,
+                    ]}
+                  />
+                ))}
+              </View>
+            ))}
+            {walletStampOverflow > 0 ? (
+              <Text
+                style={[
+                  styles.walletStampOverflowText,
+                  { color: theme.subtitleColor },
+                ]}
+              >
+                +{walletStampOverflow}
+              </Text>
+            ) : null}
+          </View>
 
-      <View style={styles.stampsRow}>
-        {dotIds.map((dotId) => {
-          const isFilled = dotId <= current;
-          return (
+          <View style={styles.walletBottomRow}>
+            <Text
+              style={[styles.walletOwner, { color: theme.subtitleColor }]}
+              numberOfLines={1}
+            >
+              {businessName}
+            </Text>
+            <Text style={[styles.walletProgress, { color: theme.titleColor }]}>
+              {current}/{goal}
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.headerRow}>
             <View
-              key={`${title ?? rewardName}-${dotId}`}
               style={[
-                styles.stampDot,
-                variant === 'compact' ? styles.stampDotCompact : null,
-                isFilled ? styles.stampDotFilled : styles.stampDotEmpty,
+                styles.logoShell,
+                variant === 'compact' ? styles.logoShellCompact : null,
               ]}
             >
-              {variant !== 'compact' && stampIcon ? (
-                <Text style={styles.stampIconText}>{stampIcon[0] ?? ''}</Text>
-              ) : null}
+              {cardImageUri ? (
+                <Image
+                  source={{ uri: cardImageUri }}
+                  style={styles.logoImage}
+                  resizeMode="cover"
+                  accessibilityLabel="Program image"
+                />
+              ) : logoUri ? (
+                <Image
+                  source={{ uri: logoUri }}
+                  style={styles.logoImage}
+                  resizeMode="cover"
+                  accessibilityLabel={`${businessName} logo`}
+                />
+              ) : (
+                <Text style={styles.monogramText}>{monogram}</Text>
+              )}
             </View>
-          );
-        })}
-        {overflow > 0 ? (
-          <Text style={[styles.overflowText, { color: theme.subtitleColor }]}>
-            +{overflow}
-          </Text>
-        ) : null}
-      </View>
 
-      <View style={styles.footerRow}>
-        <Text style={[styles.businessNameText, { color: theme.subtitleColor }]}>
-          {businessName}
-        </Text>
-        {badgeText ? <Text style={styles.badge}>{badgeText}</Text> : null}
-      </View>
+            <View style={styles.metaColumn}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  variant === 'compact' ? styles.cardTitleCompact : null,
+                  { color: theme.titleColor },
+                ]}
+                numberOfLines={1}
+              >
+                {title?.trim() ? title : businessName}
+              </Text>
+              <Text
+                style={[
+                  styles.rewardText,
+                  variant === 'compact' ? styles.rewardTextCompact : null,
+                  { color: theme.subtitleColor },
+                ]}
+                numberOfLines={1}
+              >
+                {TEXT.rewardPrefix}: {rewardName}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.progressChip,
+                variant === 'compact' ? styles.progressChipCompact : null,
+              ]}
+            >
+              <Text style={styles.progressChipText}>
+                {current}/{goal}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.stampsGrid}>
+            {stampRows.map((row, rowIndex) => (
+              <View
+                key={`${title ?? rewardName}-row-${rowIndex + 1}`}
+                style={styles.stampsLine}
+              >
+                {row.map((dotId) => {
+                  const isFilled = dotId <= current;
+                  const shouldShowIcon =
+                    stampShape === 'icon'
+                      ? Boolean(stampIcon)
+                      : variant !== 'compact' && Boolean(stampIcon);
+                  return (
+                    <View
+                      key={`${title ?? rewardName}-${dotId}`}
+                      style={styles.stampCell}
+                    >
+                      <View
+                        style={[
+                          styles.stampDot,
+                          variant === 'compact' ? styles.stampDotCompact : null,
+                          getStampShapeStyle(stampShape, variant),
+                          isFilled ? styles.stampDotFilled : styles.stampDotEmpty,
+                        ]}
+                      >
+                        {shouldShowIcon ? (
+                          <Text
+                            style={[
+                              styles.stampIconText,
+                              stampShape === 'hexagon'
+                                ? styles.stampIconTextHex
+                                : null,
+                            ]}
+                          >
+                            {stampIcon?.[0] ?? ''}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.footerRow}>
+            {badgeText ? <Text style={styles.badge}>{badgeText}</Text> : null}
+          </View>
+        </>
+      )}
     </LinearGradient>
   );
 }
@@ -211,6 +356,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 8,
+  },
+  containerWallet: {
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    aspectRatio: 1.586,
+    justifyContent: 'space-between',
+    gap: 0,
   },
   containerSelected: {
     borderColor: 'rgba(255,255,255,0.64)',
@@ -306,10 +459,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
   },
-  stampsRow: {
+  stampsGrid: {
+    gap: 6,
+  },
+  stampsLine: {
+    width: '100%',
     flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  stampCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
   stampDot: {
@@ -339,21 +501,14 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     lineHeight: 11,
   },
-  overflowText: {
-    fontSize: 11,
-    fontWeight: '800',
+  stampIconTextHex: {
+    transform: [{ rotate: '-45deg' }],
   },
   footerRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: 8,
-  },
-  businessNameText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'right',
-    flexShrink: 1,
   },
   badge: {
     borderRadius: 999,
@@ -366,5 +521,103 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     overflow: 'hidden',
+  },
+  walletTopRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  walletBrandColumn: {
+    flex: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  walletBrand: {
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: '900',
+    textAlign: 'right',
+    textTransform: 'uppercase',
+  },
+  walletBrandSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  walletChip: {
+    width: 46,
+    height: 36,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,210,80,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(180,140,20,0.55)',
+    justifyContent: 'space-between',
+    padding: 7,
+    overflow: 'hidden',
+  },
+  walletChipLineH: {
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(140,100,0,0.48)',
+  },
+  walletChipLineV: {
+    position: 'absolute',
+    width: 2,
+    height: 22,
+    top: 7,
+    left: 22,
+    borderRadius: 999,
+    backgroundColor: 'rgba(140,100,0,0.48)',
+  },
+  walletStampGroups: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 14,
+    flexWrap: 'nowrap',
+  },
+  walletStampGroup: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 5,
+  },
+  walletStampDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
+  walletStampDotFilled: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderColor: 'rgba(255,255,255,0.88)',
+  },
+  walletStampDotEmpty: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  walletStampOverflowText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  walletBottomRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  walletOwner: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  walletProgress: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '900',
+    textAlign: 'left',
   },
 });
