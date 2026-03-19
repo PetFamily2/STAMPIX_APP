@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
@@ -102,7 +103,12 @@ export default function BusinessSettingsSubscriptionScreen() {
   }>();
   const hasAutoOpenedModalRef = useRef(false);
 
-  const { activeBusinessId } = useActiveBusiness();
+  const { activeBusiness, activeBusinessId } = useActiveBusiness();
+
+  if (activeBusiness && activeBusiness.staffRole !== 'owner') {
+    return <Redirect href="/(authenticated)/(business)/settings" />;
+  }
+
   const {
     entitlements,
     planCatalog: planCatalogQuery,
@@ -352,8 +358,8 @@ export default function BusinessSettingsSubscriptionScreen() {
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[0]}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           {
@@ -369,17 +375,7 @@ export default function BusinessSettingsSubscriptionScreen() {
           <BusinessScreenHeader
             title="מסלול וחיוב"
             titleNumberOfLines={1}
-            titleAccessory={
-              <Pressable
-                onPress={() => router.back()}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed ? styles.backButtonPressed : null,
-                ]}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#0F172A" />
-              </Pressable>
-            }
+            titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 

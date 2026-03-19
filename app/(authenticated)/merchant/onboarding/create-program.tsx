@@ -1,6 +1,7 @@
 import { useMutation } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -28,10 +29,12 @@ import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
-  BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
-  BUSINESS_ONBOARDING_TOTAL_STEPS,
+  getBusinessOnboardingProgressStep,
+  getBusinessOnboardingTotalSteps,
+  withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 
 const TEXT = {
   title: 'יוצרים כרטיסיה',
@@ -56,9 +59,12 @@ function toErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function CreateProgramScreen() {
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
   const { businessId, programDraft, setProgramDraft, setProgramId } =
     useOnboarding();
   const { user } = useUser();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
 
   const createProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
   const generateProgramImageUploadUrl = useMutation(
@@ -70,10 +76,23 @@ export default function CreateProgramScreen() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
-    if (!businessId) {
-      safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
+    if (didSyncStepRef.current) {
+      return;
     }
-  }, [businessId]);
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'createProgram', flow }).catch(() => {});
+  }, [flow, saveStep]);
+
+  useEffect(() => {
+    if (!businessId) {
+      safePush(
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createBusiness,
+          flow
+        )
+      );
+    }
+  }, [businessId, flow]);
 
   const maxStampsNumber = useMemo(
     () => Number(programDraft.maxStamps),
@@ -177,12 +196,19 @@ export default function CreateProgramScreen() {
       });
 
       setProgramId(loyaltyProgramId);
+      try {
+        await saveStep({ step: 'createProgram', flow });
+      } catch {
+        // Keep onboarding moving even if draft persistence fails.
+      }
       void trackActivationEvent(ANALYTICS_EVENTS.loyaltyCardCreated, {
         role: 'business',
         userId: user?._id,
       });
 
-      safePush(BUSINESS_ONBOARDING_ROUTES.previewCard);
+      safePush(
+        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
+      );
     } catch (submitError: unknown) {
       setError(toErrorMessage(submitError, TEXT.errorFallback));
     } finally {
@@ -195,11 +221,18 @@ export default function CreateProgramScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.plan)}
+            onPress={() =>
+              safeDismissTo(
+                withBusinessOnboardingFlow(
+                  BUSINESS_ONBOARDING_ROUTES.plan,
+                  flow
+                )
+              )
+            }
           />
           <OnboardingProgress
-            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.createProgram}
+            total={getBusinessOnboardingTotalSteps(flow)}
+            current={getBusinessOnboardingProgressStep('createProgram', flow)}
           />
         </View>
 

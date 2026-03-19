@@ -70,6 +70,14 @@ function getDaysAgo(timestamp: number, now: number) {
   return Math.max(0, Math.floor((now - timestamp) / DAY_MS));
 }
 
+function isNearRewardRatio(rewardProgressRatio: number) {
+  return (
+    Number.isFinite(rewardProgressRatio) &&
+    rewardProgressRatio >= NEAR_REWARD_RATIO &&
+    rewardProgressRatio < 1
+  );
+}
+
 function resolveLifecycleStatus(args: {
   joinedDaysAgo: number;
   lastVisitDaysAgo: number;
@@ -82,7 +90,7 @@ function resolveLifecycleStatus(args: {
   if (args.lastVisitDaysAgo >= AT_RISK_DAYS) {
     return 'AT_RISK';
   }
-  if (args.rewardProgressRatio >= NEAR_REWARD_RATIO) {
+  if (isNearRewardRatio(args.rewardProgressRatio)) {
     return 'NEAR_REWARD';
   }
   if (args.visitCount >= VIP_VISIT_COUNT) {
@@ -334,7 +342,7 @@ export async function buildCustomerLifecycleSnapshotForBusiness(
       lifecycleStatus,
       isNewCustomer: joinedDaysAgo <= NEW_CUSTOMER_DAYS,
       isAtRisk: lastVisitDaysAgo >= AT_RISK_DAYS,
-      isNearReward: rewardProgressRatio >= NEAR_REWARD_RATIO,
+      isNearReward: isNearRewardRatio(rewardProgressRatio),
       isVip: visitCount >= VIP_VISIT_COUNT,
       primaryProgramName: primary.program.title,
     };

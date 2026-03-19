@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -344,7 +345,10 @@ export default function CampaignDraftEditorScreen() {
   }, [campaignDraft]);
 
   const goBackToCampaignList = () => {
-    router.replace('/(authenticated)/(business)/cards/campaigns');
+    router.replace({
+      pathname: '/(authenticated)/(business)/cards',
+      params: { section: 'campaigns' },
+    });
   };
 
   const openDraftEditor = (draftCampaignId: Id<'campaigns'>) => {
@@ -494,8 +498,8 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <ScrollView
+        stickyHeaderIndices={[0]}
           className="flex-1"
-          stickyHeaderIndices={[0]}
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingBottom: 28,
@@ -508,14 +512,7 @@ export default function CampaignDraftEditorScreen() {
             <BusinessScreenHeader
               title="יצירת קמפיין"
               subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
-              titleAccessory={
-                <TouchableOpacity
-                  onPress={goBackToCampaignList}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-white"
-                >
-                  <Text className="text-lg text-[#1A2B4A]">{'\u2190'}</Text>
-                </TouchableOpacity>
-              }
+              titleAccessory={<BackButton onPress={goBackToCampaignList} />}
             />
           </StickyScrollHeader>
 
@@ -1024,8 +1021,8 @@ export default function CampaignDraftEditorScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: 28,
@@ -1037,15 +1034,8 @@ export default function CampaignDraftEditorScreen() {
         >
           <BusinessScreenHeader
             title="עריכת קמפיין"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={goBackToCampaignList}
-                className="h-10 w-10 items-center justify-center rounded-full bg-white"
-              >
-                <Text className="text-lg text-[#1A2B4A]">{'\u2190'}</Text>
-              </TouchableOpacity>
-            }
-          />
+            titleAccessory={<BackButton onPress={goBackToCampaignList} />}
+            />
         </StickyScrollHeader>
 
         {!canManagePrograms ? (

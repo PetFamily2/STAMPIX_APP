@@ -1,6 +1,6 @@
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -26,10 +26,13 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
-  BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
-  BUSINESS_ONBOARDING_TOTAL_STEPS,
+  getBusinessOnboardingProgressStep,
+  getBusinessOnboardingTotalSteps,
+  isAdditionalBusinessFlow,
+  withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 
 const TEXT = {
   title:
@@ -128,7 +131,13 @@ export default function CreateBusinessScreen() {
   const { user } = useUser();
   const createBusiness = useMutation(api.business.createBusiness);
   const updateBusinessAddress = useMutation(api.business.updateBusinessAddress);
-  const { businessName } = useLocalSearchParams<{ businessName?: string }>();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
+  const { businessName, flow } = useLocalSearchParams<{
+    businessName?: string;
+    flow?: string;
+  }>();
+  const isAdditionalFlow = isAdditionalBusinessFlow(flow);
 
   const [addressQuery, setAddressQuery] = useState(
     businessOnboardingDraft.formattedAddress
@@ -150,6 +159,14 @@ export default function CreateBusinessScreen() {
     clearSuggestions,
     resetSessionToken,
   } = useGooglePlaceAutocomplete(searchQueryForAutocomplete);
+
+  useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'createBusiness', flow }).catch(() => {});
+  }, [flow, saveStep]);
 
   useEffect(() => {
     const fromDraft = businessOnboardingDraft.businessName.trim();
@@ -315,7 +332,16 @@ export default function CreateBusinessScreen() {
           businessId,
           ...addressPayload,
         });
-        safePush(BUSINESS_ONBOARDING_ROUTES.usageArea);
+        try {
+          await saveStep({ step: 'createBusiness', flow });
+        } catch {
+          // Keep onboarding moving even if draft persistence fails.
+        }
+        safePush(
+          isAdditionalFlow
+            ? withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.plan, flow)
+            : BUSINESS_ONBOARDING_ROUTES.usageArea
+        );
         return;
       }
 
@@ -328,11 +354,20 @@ export default function CreateBusinessScreen() {
       });
 
       setBusinessId(result.businessId);
+      try {
+        await saveStep({ step: 'createBusiness', flow });
+      } catch {
+        // Keep onboarding moving even if draft persistence fails.
+      }
       void trackActivationEvent(ANALYTICS_EVENTS.businessCreated, {
         role: 'business',
         userId: user?._id,
       });
-      safePush(BUSINESS_ONBOARDING_ROUTES.usageArea);
+      safePush(
+        isAdditionalFlow
+          ? withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.plan, flow)
+          : BUSINESS_ONBOARDING_ROUTES.usageArea
+      );
     } catch (submitError) {
       setError(
         toErrorMessage(
@@ -356,17 +391,24 @@ export default function CreateBusinessScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.name)}
+            onPress={() =>
+              safeDismissTo(
+                withBusinessOnboardingFlow(
+                  BUSINESS_ONBOARDING_ROUTES.name,
+                  flow
+                )
+              )
+            }
           />
           <OnboardingProgress
-            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.createBusiness}
+            total={getBusinessOnboardingTotalSteps(flow)}
+            current={getBusinessOnboardingProgressStep('createBusiness', flow)}
           />
         </View>
 
         <ScrollView
+        stickyHeaderIndices={[0]}
           style={styles.body}
-          stickyHeaderIndices={[0]}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"
         >

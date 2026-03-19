@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -157,7 +158,7 @@ function PlanUsageTile({
   );
 }
 
-export default function CampaignsHubScreen() {
+export function CampaignsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
@@ -416,8 +417,8 @@ export default function CampaignsHubScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -430,16 +431,7 @@ export default function CampaignsHubScreen() {
           <BusinessScreenHeader
             title="קמפיינים"
             subtitle="ניהול קמפיינים קלאסיים לעסק"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-              >
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </TouchableOpacity>
-            }
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
           />
         </StickyScrollHeader>
 
@@ -455,10 +447,7 @@ export default function CampaignsHubScreen() {
                   if (topTab.key === 'campaigns') {
                     return;
                   }
-                  router.replace({
-                    pathname: '/(authenticated)/(business)/cards',
-                    params: { section: 'loyalty' },
-                  });
+                  router.setParams({ section: 'loyalty' });
                 }}
                 className={`flex-1 rounded-full py-2.5 ${
                   isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
@@ -687,6 +676,22 @@ export default function CampaignsHubScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function CampaignsHubRoute() {
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+
+  return (
+    <Redirect
+      href={{
+        pathname: '/(authenticated)/(business)/cards',
+        params: { preview, map, section: 'campaigns' },
+      }}
+    />
   );
 }
 

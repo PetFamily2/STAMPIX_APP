@@ -126,8 +126,8 @@ export default function WalletScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
+        style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           {

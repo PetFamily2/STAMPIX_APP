@@ -35,6 +35,7 @@ import {
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 
@@ -108,12 +109,11 @@ const TEXT = {
     '\u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea, \u05d0\u05e9\u05e8\u05d5 \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea \u05d4\u05de\u05db\u05e9\u05d9\u05e8.',
   switchModeFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  staffScannerTitle: '\u05de\u05e2\u05d1\u05e8 \u05dc\u05e1\u05d5\u05e8\u05e7',
+  staffScannerAction:
+    '\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05e1\u05d5\u05e8\u05e7',
   staffBusinessesTitle:
     '\u05d4\u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05d1\u05d4\u05dd \u05d0\u05e0\u05d9 \u05e2\u05d5\u05d1\u05d3',
-  staffBusinessSubtitle:
-    '\u05db\u05e0\u05d9\u05e1\u05d4 \u05d9\u05e9\u05d9\u05e8\u05d4 \u05dc\u05e1\u05d5\u05e8\u05e7 \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7',
-  staffBusinessAction: '\u05e4\u05ea\u05d7 \u05e1\u05d5\u05e8\u05e7',
-  staffBusinessActive: '\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc',
   logoutFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d1\u05e6\u05e2 \u05d9\u05e6\u05d9\u05d0\u05d4 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
   deleteModalTitle:
@@ -158,6 +158,12 @@ function formatWipeSummary(counts: Record<string, number>) {
   return Object.entries(counts)
     .map(([tableName, count]) => `${tableName}: ${count}`)
     .join('\n');
+}
+
+function getScannerRouteForStaffRole(staffRole: 'owner' | 'manager' | 'staff') {
+  return staffRole === 'staff'
+    ? '/(authenticated)/(staff)/scanner'
+    : '/(authenticated)/(business)/scanner';
 }
 
 function MenuRow({
@@ -280,10 +286,10 @@ export default function SettingsScreen() {
   const sessionContext = useSessionContext();
   const user = sessionContext?.user;
   const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
-  const setActiveBusiness = useMutation(api.users.setActiveBusiness);
   const setActiveMode = useMutation(api.users.setActiveMode);
   const setMyMarketingProfile = useMutation(api.users.setMyMarketingProfile);
   const { setAppMode } = useAppMode();
+  const { isSwitchingBusiness, setActiveBusinessId } = useActiveBusiness();
   const {
     isEnabled: notificationsEnabled,
     isLoading: notificationsLoading,
@@ -313,10 +319,26 @@ export default function SettingsScreen() {
   const isBusinessSettingsScreen = (
     Array.isArray(segments) ? (segments as string[]) : []
   ).includes('(business)');
-  const staffBusinesses =
+  const staffBusinessesRaw =
     sessionContext?.businesses.filter(
-      (business) => business.staffRole === 'staff'
+      (business) =>
+        business.staffRole === 'staff' || business.staffRole === 'manager'
     ) ?? [];
+  const activeBusinessId = sessionContext?.activeBusinessId
+    ? String(sessionContext.activeBusinessId)
+    : null;
+  const staffBusinesses = [...staffBusinessesRaw].sort((a, b) => {
+    const aIsActive =
+      activeBusinessId != null && String(a.id) === activeBusinessId;
+    const bIsActive =
+      activeBusinessId != null && String(b.id) === activeBusinessId;
+    if (aIsActive === bIsActive) {
+      return 0;
+    }
+    return aIsActive ? -1 : 1;
+  });
+  const singleStaffBusiness =
+    staffBusinesses.length === 1 ? staffBusinesses[0] : null;
 
   useEffect(() => {
     setMarketingEnabled(user?.marketingOptIn === true);
@@ -519,17 +541,20 @@ export default function SettingsScreen() {
     }
   };
 
-  const openStaffBusinessScanner = async (businessId: Id<'businesses'>) => {
-    if (staffBusinessBusyId) {
+  const openStaffBusinessScanner = async (business: {
+    id: Id<'businesses'>;
+    staffRole: 'owner' | 'manager' | 'staff';
+  }) => {
+    if (staffBusinessBusyId || isSwitchingBusiness) {
       return;
     }
 
     try {
-      setStaffBusinessBusyId(String(businessId));
-      await setActiveBusiness({ businessId });
+      setStaffBusinessBusyId(String(business.id));
+      await setActiveBusinessId(business.id);
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');
-      router.navigate('/(authenticated)/(staff)/scanner');
+      router.navigate(getScannerRouteForStaffRole(business.staffRole));
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,
@@ -560,7 +585,99 @@ export default function SettingsScreen() {
             }
           />
         </View>
-        <BusinessModeCtaCard disabled={deleteBusy} />
+        <BusinessModeCtaCard
+          disabled={deleteBusy}
+          forcePromotionalBanner={true}
+        />
+        {singleStaffBusiness ? (
+          <Pressable
+            onPress={() => {
+              void openStaffBusinessScanner(singleStaffBusiness);
+            }}
+            disabled={
+              deleteBusy || Boolean(staffBusinessBusyId) || isSwitchingBusiness
+            }
+            style={({ pressed }) => [
+              styles.staffBusinessButton,
+              pressed ? styles.pressed : null,
+              deleteBusy || staffBusinessBusyId || isSwitchingBusiness
+                ? styles.disabled
+                : null,
+            ]}
+          >
+            <View style={styles.staffBusinessButtonInner}>
+              <View style={styles.staffBusinessIconShell}>
+                <Ionicons name="qr-code-outline" size={22} color="#1D4ED8" />
+              </View>
+              <View style={styles.staffBusinessTextWrap}>
+                <Text style={styles.staffBusinessTitle}>
+                  {TEXT.staffScannerTitle} {singleStaffBusiness.name}
+                </Text>
+              </View>
+              {staffBusinessBusyId === String(singleStaffBusiness.id) ? (
+                <ActivityIndicator color="#1D4ED8" />
+              ) : (
+                <View style={styles.staffBusinessAction}>
+                  <Text style={styles.staffBusinessActionText}>
+                    {TEXT.staffScannerAction}
+                  </Text>
+                  <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
+                </View>
+              )}
+            </View>
+          </Pressable>
+        ) : null}
+        {staffBusinesses.length > 1 ? (
+          <View style={styles.staffBusinessesCard}>
+            <Text style={styles.staffBusinessesTitle}>
+              {TEXT.staffBusinessesTitle}
+            </Text>
+            <View style={styles.staffBusinessesList}>
+              {staffBusinesses.map((business) => (
+                <Pressable
+                  key={String(business.id)}
+                  onPress={() => {
+                    void openStaffBusinessScanner(business);
+                  }}
+                  disabled={
+                    deleteBusy ||
+                    Boolean(staffBusinessBusyId) ||
+                    isSwitchingBusiness
+                  }
+                  style={({ pressed }) => [
+                    styles.staffBusinessRow,
+                    pressed ? styles.pressed : null,
+                    deleteBusy || staffBusinessBusyId || isSwitchingBusiness
+                      ? styles.disabled
+                      : null,
+                  ]}
+                >
+                  <View style={styles.staffBusinessRowInner}>
+                    <View style={styles.staffBusinessRowTextWrap}>
+                      <Text style={styles.staffBusinessRowTitle}>
+                        {TEXT.staffScannerTitle} {business.name}
+                      </Text>
+                    </View>
+                    {staffBusinessBusyId === String(business.id) ? (
+                      <ActivityIndicator color="#1D4ED8" />
+                    ) : (
+                      <View style={styles.staffBusinessAction}>
+                        <Text style={styles.staffBusinessActionText}>
+                          {TEXT.staffScannerAction}
+                        </Text>
+                        <Ionicons
+                          name="chevron-back"
+                          size={14}
+                          color="#1D4ED8"
+                        />
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -572,80 +689,6 @@ export default function SettingsScreen() {
           },
         ]}
       >
-        {staffBusinesses.length > 0 ? (
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>{TEXT.staffBusinessesTitle}</Text>
-            {staffBusinesses.map((business) => {
-              const businessId = business.id;
-              const businessKey = String(businessId);
-              const isActive =
-                String(sessionContext?.activeBusinessId ?? '') === businessKey;
-              const isBusy = staffBusinessBusyId === businessKey;
-
-              return (
-                <Pressable
-                  key={businessKey}
-                  onPress={() => {
-                    void openStaffBusinessScanner(businessId);
-                  }}
-                  disabled={deleteBusy || Boolean(staffBusinessBusyId)}
-                  style={({ pressed }) => [
-                    styles.staffBusinessButton,
-                    isActive ? styles.staffBusinessButtonActive : null,
-                    pressed ? styles.pressed : null,
-                    deleteBusy || Boolean(staffBusinessBusyId)
-                      ? styles.disabled
-                      : null,
-                  ]}
-                >
-                  <View style={styles.staffBusinessButtonInner}>
-                    <View style={styles.staffBusinessIconShell}>
-                      <Ionicons
-                        name="qr-code-outline"
-                        size={22}
-                        color="#1D4ED8"
-                      />
-                    </View>
-                    <View style={styles.staffBusinessTextWrap}>
-                      <View style={styles.staffBusinessTitleRow}>
-                        {isActive ? (
-                          <View style={styles.staffBusinessActiveBadge}>
-                            <Text style={styles.staffBusinessActiveBadgeText}>
-                              {TEXT.staffBusinessActive}
-                            </Text>
-                          </View>
-                        ) : null}
-                        <Text style={styles.staffBusinessTitle}>
-                          {business.name}
-                        </Text>
-                      </View>
-                      <Text style={styles.staffBusinessSubtitle}>
-                        {TEXT.staffBusinessSubtitle}
-                      </Text>
-                    </View>
-                    {isBusy ? (
-                      <ActivityIndicator color="#1D4ED8" />
-                    ) : (
-                      <View style={styles.staffBusinessAction}>
-                        <Text style={styles.staffBusinessActionText}>
-                          {TEXT.staffBusinessAction}
-                        </Text>
-                        <Ionicons
-                          name="chevron-back"
-                          size={14}
-                          color="#1D4ED8"
-                        />
-                      </View>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {staffBusinesses.length > 0 ? <View style={styles.divider} /> : null}
-
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
           <MenuRow
@@ -847,10 +890,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-  staffBusinessButtonActive: {
-    borderColor: '#60A5FA',
-    backgroundColor: '#EFF6FF',
-  },
   staffBusinessButtonInner: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
@@ -868,35 +907,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
   },
-  staffBusinessTitleRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-  },
   staffBusinessTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: '#1E3A8A',
-    textAlign: 'right',
-  },
-  staffBusinessActiveBadge: {
-    borderRadius: 999,
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  staffBusinessActiveBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#1D4ED8',
-    textAlign: 'center',
-  },
-  staffBusinessSubtitle: {
-    marginTop: 3,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
-    color: '#475569',
     textAlign: 'right',
   },
   staffBusinessAction: {
@@ -908,6 +922,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#1D4ED8',
+    textAlign: 'right',
+  },
+  staffBusinessesCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DCE6FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  staffBusinessesTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  staffBusinessesList: {
+    gap: 8,
+  },
+  staffBusinessRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  staffBusinessRowInner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  staffBusinessRowTextWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  staffBusinessRowTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E3A8A',
     textAlign: 'right',
   },
   pageTitle: {

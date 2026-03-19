@@ -686,7 +686,10 @@ export default function DiscoveryScreen() {
           </>
         ) : null}
 
-        <BusinessModeCtaCard style={styles.ctaCard} />
+        <BusinessModeCtaCard
+          style={styles.ctaCard}
+          forcePromotionalBanner={true}
+        />
       </ScrollView>
     </SafeAreaView>
   );

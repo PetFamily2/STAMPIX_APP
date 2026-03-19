@@ -1169,9 +1169,9 @@ export default function ScannerScreen() {
       />
 
       <ScrollView
+        stickyHeaderIndices={[0]}
         ref={scrollViewRef}
         style={styles.scrollBackground}
-        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {

@@ -112,8 +112,8 @@ export default function StaffCustomersScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,

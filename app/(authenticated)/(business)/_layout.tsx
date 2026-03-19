@@ -10,7 +10,11 @@ import {
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
-import { resolveActiveBusinessShell } from '@/lib/activeBusinessShell';
+import {
+  getActiveMembershipByBusinessId,
+  requiresBusinessOnboardingForRole,
+  resolveActiveBusinessShell,
+} from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
@@ -48,6 +52,11 @@ export default function BusinessTabsLayout() {
 
   const bizList = sessionContext?.businesses ?? [];
   const activeBusinessId = sessionContext?.activeBusinessId ?? null;
+  const activeMembership = getActiveMembershipByBusinessId(
+    bizList,
+    activeBusinessId
+  );
+  const activeMembershipRole = activeMembership?.staffRole ?? null;
   const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
 
   if (!isPreviewMode && activeShell === 'none') {
@@ -61,9 +70,12 @@ export default function BusinessTabsLayout() {
   if (
     !isPreviewMode &&
     activeShell === 'business' &&
-    sessionContext?.user.businessOnboardedAt == null
+    requiresBusinessOnboardingForRole(
+      activeMembershipRole,
+      sessionContext?.user.businessOnboardedAt != null
+    )
   ) {
-    return <Redirect href={BUSINESS_ONBOARDING_ROUTES.role} />;
+    return <Redirect href={BUSINESS_ONBOARDING_ROUTES.entry} />;
   }
 
   const segmentStrings = (

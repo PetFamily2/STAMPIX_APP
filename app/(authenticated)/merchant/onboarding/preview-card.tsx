@@ -1,6 +1,7 @@
 import { useMutation } from 'convex/react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,10 +22,12 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
-  BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
-  BUSINESS_ONBOARDING_TOTAL_STEPS,
+  getBusinessOnboardingProgressStep,
+  getBusinessOnboardingTotalSteps,
+  withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 
 const TEXT = {
   title: 'תצוגה מקדימה לכרטיס',
@@ -313,6 +316,7 @@ function ThemeOption({
 }
 
 export default function PreviewCardScreen() {
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
   const {
     businessDraft,
     businessOnboardingDraft,
@@ -334,19 +338,39 @@ export default function PreviewCardScreen() {
   );
   const setActiveMode = useMutation(api.users.setActiveMode);
   const { setAppMode } = useAppMode();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
 
   const [isFinishing, setIsFinishing] = useState(false);
 
   useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'previewCard', flow }).catch(() => {});
+  }, [flow, saveStep]);
+
+  useEffect(() => {
     if (!businessId) {
-      safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
+      safePush(
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createBusiness,
+          flow
+        )
+      );
       return;
     }
 
     if (!programId) {
-      safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
+      safePush(
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createProgram,
+          flow
+        )
+      );
     }
-  }, [businessId, programId]);
+  }, [businessId, flow, programId]);
 
   const stampCount = useMemo(() => {
     const parsed = Number(programDraft.maxStamps);
@@ -454,6 +478,15 @@ export default function PreviewCardScreen() {
       await completeBusinessOnboarding({});
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');
+      try {
+        await saveStep({
+          step: 'previewCard',
+          flow,
+          status: 'completed',
+        });
+      } catch {
+        // Completion should continue even if draft status update fails.
+      }
       reset();
       safePush('/(authenticated)/(business)/scanner');
     } catch {
@@ -469,17 +502,22 @@ export default function PreviewCardScreen() {
         <View style={styles.header}>
           <BackButton
             onPress={() =>
-              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.createProgram)
+              safeDismissTo(
+                withBusinessOnboardingFlow(
+                  BUSINESS_ONBOARDING_ROUTES.createProgram,
+                  flow
+                )
+              )
             }
           />
           <OnboardingProgress
-            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.previewCard}
+            total={getBusinessOnboardingTotalSteps(flow)}
+            current={getBusinessOnboardingProgressStep('previewCard', flow)}
           />
         </View>
 
         <ScrollView
-          stickyHeaderIndices={[0]}
+        stickyHeaderIndices={[0]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >

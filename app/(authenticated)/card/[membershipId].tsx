@@ -18,6 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
+import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
@@ -342,9 +343,9 @@ export default function CardDetailsScreen() {
         fullScreenCelebration={true}
       />
       <ScrollView
+        stickyHeaderIndices={[0]}
         ref={scrollViewRef}
         style={styles.scrollBackground}
-        stickyHeaderIndices={[0]}
         contentContainerStyle={[
           styles.scrollContainer,
           {
@@ -352,113 +353,106 @@ export default function CardDetailsScreen() {
           },
         ]}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <View style={styles.headerRow}>
-            <BusinessScreenHeader
-              title={TEXT.cardDetails}
-              subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
-              titleAccessory={
-                <Pressable
-                  onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-                  hitSlop={8}
-                  style={({ pressed }) => [
-                    styles.backButton,
-                    pressed ? styles.pressed : null,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="\u05d7\u05d6\u05e8\u05d4"
-                >
-                  <Ionicons name="chevron-forward" size={20} color="#111827" />
-                </Pressable>
-              }
-            />
-          </View>
-        </StickyScrollHeader>
-
-        <View
-          style={[
-            styles.card,
-            isRedeemEligible
-              ? styles.progressCardReady
-              : styles.progressCardPending,
-          ]}
-        >
-          <ProgramCustomerCardPreview
-            businessName={membership.businessName}
-            businessLogoUrl={membership.businessLogoUrl}
-            title={membership.programTitle}
-            rewardName={membership.rewardName}
-            maxStamps={goal}
-            previewCurrentStamps={current}
-            cardThemeId={membership.cardThemeId}
-            stampIcon={membership.stampIcon}
-            stampShape={normalizeStampShape(membership.stampShape)}
-            status={isRedeemEligible ? 'redeemable' : 'default'}
-            variant="hero"
-            showAllStamps={true}
-          />
+        <View style={styles.stickyTopSection}>
+          <StickyScrollHeader
+            topPadding={(insets.top || 0) + 12}
+            backgroundColor="#E9F0FF"
+          >
+            <View style={styles.headerRow}>
+              <BusinessScreenHeader
+                title={TEXT.cardDetails}
+                subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
+                titleAccessory={
+                  <BackButton
+                    onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                  />
+                }
+              />
+            </View>
+          </StickyScrollHeader>
 
           <View
             style={[
-              styles.redeemPanel,
+              styles.card,
               isRedeemEligible
-                ? styles.redeemPanelReady
-                : styles.redeemPanelPending,
+                ? styles.progressCardReady
+                : styles.progressCardPending,
             ]}
           >
-            <Text
+            <ProgramCustomerCardPreview
+              businessName={membership.businessName}
+              businessLogoUrl={membership.businessLogoUrl}
+              title={membership.programTitle}
+              rewardName={membership.rewardName}
+              maxStamps={goal}
+              previewCurrentStamps={current}
+              cardThemeId={membership.cardThemeId}
+              stampIcon={membership.stampIcon}
+              stampShape={normalizeStampShape(membership.stampShape)}
+              status={isRedeemEligible ? 'redeemable' : 'default'}
+              variant="hero"
+              showAllStamps={true}
+            />
+
+            <View
               style={[
-                styles.redeemTitle,
+                styles.redeemPanel,
                 isRedeemEligible
-                  ? styles.redeemTitleReady
-                  : styles.redeemTitlePending,
-              ]}
-            >
-              {isRedeemEligible ? TEXT.cardReadyTitle : TEXT.cardPendingTitle}
-            </Text>
-            <Text
-              style={[
-                styles.redeemSubtitle,
-                isRedeemEligible
-                  ? styles.redeemSubtitleReady
-                  : styles.redeemSubtitlePending,
-              ]}
-            >
-              {isRedeemEligible
-                ? TEXT.cardReadySubtitle
-                : `${TEXT.cardPendingPrefix} ${remainingStamps} ${TEXT.cardPendingSuffix}`}
-            </Text>
-            <Pressable
-              onPress={() => void refreshScanToken()}
-              disabled={
-                !isRedeemEligible || isTokenLoading || !membershipIdForToken
-              }
-              style={({ pressed }) => [
-                styles.redeemButton,
-                isRedeemEligible
-                  ? styles.redeemButtonReady
-                  : styles.redeemButtonDisabled,
-                (pressed && isRedeemEligible) || isTokenLoading
-                  ? { opacity: 0.9 }
-                  : null,
+                  ? styles.redeemPanelReady
+                  : styles.redeemPanelPending,
               ]}
             >
               <Text
                 style={[
-                  styles.redeemButtonText,
-                  !isRedeemEligible && styles.redeemButtonTextDisabled,
+                  styles.redeemTitle,
+                  isRedeemEligible
+                    ? styles.redeemTitleReady
+                    : styles.redeemTitlePending,
                 ]}
               >
-                {isTokenLoading && isRedeemEligible
-                  ? TEXT.loading
-                  : isRedeemEligible
-                    ? TEXT.redeemButtonReady
-                    : TEXT.redeemButtonLocked}
+                {isRedeemEligible ? TEXT.cardReadyTitle : TEXT.cardPendingTitle}
               </Text>
-            </Pressable>
+              <Text
+                style={[
+                  styles.redeemSubtitle,
+                  isRedeemEligible
+                    ? styles.redeemSubtitleReady
+                    : styles.redeemSubtitlePending,
+                ]}
+              >
+                {isRedeemEligible
+                  ? TEXT.cardReadySubtitle
+                  : `${TEXT.cardPendingPrefix} ${remainingStamps} ${TEXT.cardPendingSuffix}`}
+              </Text>
+              <Pressable
+                onPress={() => void refreshScanToken()}
+                disabled={
+                  !isRedeemEligible || isTokenLoading || !membershipIdForToken
+                }
+                style={({ pressed }) => [
+                  styles.redeemButton,
+                  isRedeemEligible
+                    ? styles.redeemButtonReady
+                    : styles.redeemButtonDisabled,
+                  (pressed && isRedeemEligible) || isTokenLoading
+                    ? { opacity: 0.9 }
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.redeemButtonText,
+                    !isRedeemEligible && styles.redeemButtonTextDisabled,
+                  ]}
+                >
+                  {isTokenLoading && isRedeemEligible
+                    ? TEXT.loading
+                    : isRedeemEligible
+                      ? TEXT.redeemButtonReady
+                      : TEXT.redeemButtonLocked}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -554,6 +548,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
     gap: 16,
+  },
+  stickyTopSection: {
+    backgroundColor: '#E9F0FF',
   },
   headerRow: {
     alignItems: 'stretch',

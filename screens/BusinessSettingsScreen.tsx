@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useMutation, useQuery } from 'convex/react';
+import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -19,9 +20,11 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { useAppMode } from '@/contexts/AppModeContext';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
 
 type ProfileCompletionField =
@@ -134,6 +137,12 @@ function MenuRow({
 export default function BusinessSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { setAppMode } = useAppMode();
+  const setActiveMode = useMutation(api.users.setActiveMode);
+  const selfRemoveFromBusiness = useMutation(
+    api.business.selfRemoveFromBusiness
+  );
+  const sessionContext = useSessionContext();
   const {
     businesses,
     activeBusiness,
@@ -145,12 +154,16 @@ export default function BusinessSettingsScreen() {
   const canEditBusiness =
     activeBusiness?.staffRole === 'owner' ||
     activeBusiness?.staffRole === 'manager';
+  const addBusinessRoute = getBusinessOnboardingEntryRoute(
+    sessionContext?.user.businessOnboardedAt != null
+  );
   const businessSettings = useQuery(
     api.business.getBusinessSettings,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
 
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [isLeavingBusiness, setIsLeavingBusiness] = useState(false);
 
   const missingFieldLabels = (
     (businessSettings?.profileCompletion?.missingFields ??
@@ -160,6 +173,50 @@ export default function BusinessSettingsScreen() {
       (field): field is ProfileCompletionField => field in MISSING_FIELD_LABELS
     )
     .map((field) => MISSING_FIELD_LABELS[field]);
+
+  const goToPrivateArea = async () => {
+    await setActiveMode({ mode: 'customer' });
+    await setAppMode('customer');
+    router.navigate('/(authenticated)/(customer)/wallet');
+  };
+
+  const handleLeaveBusiness = () => {
+    if (!activeBusinessId || isLeavingBusiness) {
+      return;
+    }
+
+    Alert.alert(
+      'לעזוב את העסק?',
+      'הגישה שלך למסכי הניהול של העסק הפעיל תוסר, ותועבר לאזור האישי.',
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'עזוב את העסק',
+          style: 'destructive',
+          onPress: async () => {
+            if (!activeBusinessId || isLeavingBusiness) {
+              return;
+            }
+
+            setIsLeavingBusiness(true);
+            try {
+              await selfRemoveFromBusiness({ businessId: activeBusinessId });
+              await goToPrivateArea();
+            } catch (error) {
+              Alert.alert(
+                'שגיאה',
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'לא הצלחנו לעזוב את העסק. נסו שוב.'
+              );
+            } finally {
+              setIsLeavingBusiness(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -195,7 +252,7 @@ export default function BusinessSettingsScreen() {
               התחילו אונבורדינג עסקי כדי להגדיר חנות, כרטיס נאמנות וחבילה.
             </Text>
             <TouchableOpacity
-              onPress={() => router.push(BUSINESS_ONBOARDING_ROUTES.role)}
+              onPress={() => router.push(addBusinessRoute as Href)}
               className="rounded-2xl bg-[#2F6BFF] px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-white">
@@ -373,17 +430,45 @@ export default function BusinessSettingsScreen() {
               )
             }
           />
-          <MenuRow
-            title="מנוי וחבילה"
-            subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
-            icon="card-outline"
-            onPress={() =>
-              router.push(
-                '/(authenticated)/(business)/settings-business-subscription'
-              )
-            }
-          />
+          {activeBusiness?.staffRole === 'owner' ? (
+            <MenuRow
+              title="מנוי וחבילה"
+              subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
+              icon="card-outline"
+              onPress={() =>
+                router.push(
+                  '/(authenticated)/(business)/settings-business-subscription'
+                )
+              }
+            />
+          ) : null}
         </View>
+
+        {activeBusiness?.staffRole === 'manager' ? (
+          <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
+            <Text
+              className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
+            >
+              אזור רגיש
+            </Text>
+            <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
+              עזיבה תסיר את הגישה שלך למסכי הניהול של העסק הפעיל.
+            </Text>
+            <TouchableOpacity
+              onPress={handleLeaveBusiness}
+              disabled={isLeavingBusiness}
+              className="mt-4 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
+            >
+              {isLeavingBusiness ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-center text-sm font-bold text-white">
+                  עזוב את העסק
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
 
       <Modal
@@ -502,7 +587,7 @@ export default function BusinessSettingsScreen() {
             <Pressable
               onPress={() => {
                 setIsPickerVisible(false);
-                router.push(BUSINESS_ONBOARDING_ROUTES.role);
+                router.push(addBusinessRoute as Href);
               }}
               style={({ pressed }) => [
                 {

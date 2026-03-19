@@ -15,6 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -25,6 +26,7 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { CustomersHubContent } from './customers';
 
 const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const TOP_TABS = [
@@ -54,17 +56,15 @@ function calculateGrowthFromWeekly(weekly?: Array<{ stamps: number }>) {
   return Math.round(((latestWeek - previousWeek) / previousWeek) * 100);
 }
 
-export default function BusinessAnalyticsScreen() {
+export function ReportsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map, tab } = useLocalSearchParams<{
+  const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
-    tab?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-  const activeTopTab = tab === 'customers' ? 'customers' : 'reports';
   const { activeBusinessId } = useActiveBusiness();
 
   useEffect(() => {
@@ -75,15 +75,6 @@ export default function BusinessAnalyticsScreen() {
       router.replace('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
-
-  useEffect(() => {
-    if (activeTopTab === 'customers') {
-      router.replace({
-        pathname: '/(authenticated)/(business)/customers',
-        params: { tab: 'customers' },
-      });
-    }
-  }, [activeTopTab, router]);
 
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const advancedReportsGate = gate('advancedReports');
@@ -144,8 +135,8 @@ export default function BusinessAnalyticsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -158,16 +149,7 @@ export default function BusinessAnalyticsScreen() {
           <BusinessScreenHeader
             title="דוחות"
             subtitle="פעילות העסק, מגמות שימוש וצמיחה"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-              >
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </TouchableOpacity>
-            }
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
           />
         </StickyScrollHeader>
 
@@ -175,19 +157,15 @@ export default function BusinessAnalyticsScreen() {
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
           {TOP_TABS.map((topTab) => {
-            const isActive = activeTopTab === topTab.key;
+            const isActive = topTab.key === 'reports';
             return (
               <TouchableOpacity
                 key={topTab.key}
                 onPress={() => {
                   if (topTab.key === 'customers') {
-                    router.replace({
-                      pathname: '/(authenticated)/(business)/customers',
-                      params: { tab: 'customers' },
-                    });
+                    router.setParams({ tab: 'customers' });
                     return;
                   }
-                  router.replace('/(authenticated)/(business)/analytics');
                 }}
                 className={`flex-1 rounded-full py-2.5 ${
                   isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
@@ -262,7 +240,9 @@ export default function BusinessAnalyticsScreen() {
         <View className={`${tw.flexRow} mt-5 gap-3`}>
           <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
             <Text className="text-right text-xs font-semibold text-[#64748B]">
-              מימושים השבוע
+              {
+                '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5 \u05d4\u05e9\u05d1\u05d5\u05e2'
+              }
             </Text>
             <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
               {formatNumber(basicAnalytics?.totals.redemptions ?? 0)}
@@ -321,4 +301,16 @@ export default function BusinessAnalyticsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+export default function BusinessAnalyticsScreen() {
+  const { tab } = useLocalSearchParams<{
+    tab?: string;
+  }>();
+
+  if (tab === 'customers') {
+    return <CustomersHubContent />;
+  }
+
+  return <ReportsHubContent />;
 }

@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -242,24 +243,7 @@ export default function BusinessSettingsAddressScreen() {
           <BusinessScreenHeader
             title="עריכת כתובת העסק"
             subtitle="בחרו כתובת מרשימת ההצעות ושמרו"
-            titleAccessory={
-              <Pressable
-                onPress={() => router.back()}
-                style={({ pressed }) => ({
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#FFFFFF',
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  opacity: pressed ? 0.88 : 1,
-                })}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#111827" />
-              </Pressable>
-            }
+            titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 

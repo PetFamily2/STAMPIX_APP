@@ -833,22 +833,6 @@ function computeBusinessProfileCompletion(business: {
     missingFields.push('serviceTags');
   }
 
-  const snapshot = sanitizeBusinessOnboardingSnapshot(
-    business.onboardingSnapshot
-  );
-  if (!snapshot?.discoverySource) {
-    missingFields.push('discoverySource');
-  }
-  if (!snapshot?.reason) {
-    missingFields.push('reason');
-  }
-  if (!snapshot?.usageAreas || snapshot.usageAreas.length === 0) {
-    missingFields.push('usageAreas');
-  }
-  if (!snapshot?.ownerAgeRange) {
-    missingFields.push('ownerAgeRange');
-  }
-
   return {
     isComplete: missingFields.length === 0,
     missingFields,

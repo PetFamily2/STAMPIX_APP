@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import { safeDismissTo, safePush } from '@/lib/navigation';
@@ -23,6 +24,7 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   BUSINESS_ONBOARDING_TOTAL_STEPS,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type AgeRangeId =
@@ -47,6 +49,14 @@ const TEXT = {
     '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e9\u05de\u05d9\u05e8\u05d4',
   saveErrorMessage:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e9\u05dd \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  exitTitle:
+    '\u05dc\u05e6\u05d0\u05ea \u05de\u05d4\u05e7\u05de\u05ea \u05d4\u05e2\u05e1\u05e7?',
+  exitMessage:
+    '\u05e0\u05e9\u05de\u05d5\u05e8 \u05dc\u05da \u05d0\u05ea \u05d4\u05d4\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05d5\u05ea\u05d5\u05db\u05dc/\u05d9 \u05dc\u05d7\u05d6\u05d5\u05e8 \u05dc\u05d6\u05d4 \u05db\u05dc \u05d6\u05de\u05df.',
+  exitConfirm: '\u05dc\u05e9\u05de\u05d5\u05e8 \u05d5\u05dc\u05e6\u05d0\u05ea',
+  exitCancel: '\u05d4\u05de\u05e9\u05da \u05e2\u05e8\u05d9\u05db\u05d4',
+  exitFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05d8\u05d9\u05d5\u05d8\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
 };
 
 const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
@@ -95,8 +105,11 @@ export default function OnboardingBusinessRoleScreen() {
   const { isAuthenticated } = useConvexAuth();
   const user = useQuery(api.users.getCurrentUser);
   const setMyName = useMutation(api.users.setMyName);
+  const setActiveMode = useMutation(api.users.setActiveMode);
+  const { setAppMode } = useAppMode();
   const { businessOnboardingDraft, setBusinessOnboardingDraft } =
     useOnboarding();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
   const firstName = businessOnboardingDraft.firstName;
   const lastName = businessOnboardingDraft.lastName;
   const selectedAgeRange =
@@ -120,7 +133,9 @@ export default function OnboardingBusinessRoleScreen() {
     [setBusinessOnboardingDraft]
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const didPrefillRef = useRef(false);
+  const didSyncStepRef = useRef(false);
   const lastNameInputRef = useRef<TextInput>(null);
 
   const { completeStep, trackChoice, trackContinue, trackError } =
@@ -128,6 +143,14 @@ export default function OnboardingBusinessRoleScreen() {
       screen: 'onboarding_business_role',
       role: 'business',
     });
+
+  useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'role' }).catch(() => {});
+  }, [saveStep]);
 
   useEffect(() => {
     if (!user || didPrefillRef.current) {
@@ -164,8 +187,43 @@ export default function OnboardingBusinessRoleScreen() {
     [firstName, lastName, selectedAgeRange]
   );
 
+  const handleLeave = async () => {
+    if (isLeaving || isSubmitting) {
+      return;
+    }
+
+    setIsLeaving(true);
+    try {
+      await saveStep({ step: 'role', status: 'paused' });
+      await setActiveMode({ mode: 'customer' });
+      await setAppMode('customer');
+      safeDismissTo('/(authenticated)/(customer)/settings');
+    } catch {
+      Alert.alert(TEXT.saveErrorTitle, TEXT.exitFailed);
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  const handleExitIntent = () => {
+    if (isLeaving || isSubmitting) {
+      return;
+    }
+
+    Alert.alert(TEXT.exitTitle, TEXT.exitMessage, [
+      { text: TEXT.exitCancel, style: 'cancel' },
+      {
+        text: TEXT.exitConfirm,
+        style: 'destructive',
+        onPress: () => {
+          void handleLeave();
+        },
+      },
+    ]);
+  };
+
   const handleContinue = async () => {
-    if (!canContinue || isSubmitting || !selectedAgeRange) {
+    if (!canContinue || isSubmitting || isLeaving || !selectedAgeRange) {
       return;
     }
 
@@ -184,6 +242,11 @@ export default function OnboardingBusinessRoleScreen() {
           firstName: normalizedFirstName,
           lastName: normalizedLastName,
         });
+      }
+      try {
+        await saveStep({ step: 'role' });
+      } catch {
+        // Keep onboarding flow moving even if draft persistence fails.
       }
 
       completeStep({
@@ -207,11 +270,22 @@ export default function OnboardingBusinessRoleScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <BackButton
-            onPress={() =>
-              safeDismissTo('/(authenticated)/(customer)/settings')
-            }
-          />
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={handleExitIntent}
+              disabled={isLeaving || isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.exitConfirm}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed ? styles.closeButtonPressed : null,
+                isLeaving || isSubmitting ? styles.closeButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.closeButtonText}>X</Text>
+            </Pressable>
+            <BackButton onPress={handleExitIntent} />
+          </View>
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
             current={BUSINESS_ONBOARDING_PROGRESS.role}
@@ -302,7 +376,7 @@ export default function OnboardingBusinessRoleScreen() {
             onPress={() => {
               void handleContinue();
             }}
-            disabled={!canContinue || isSubmitting}
+            disabled={!canContinue || isSubmitting || isLeaving}
           />
         </View>
       </KeyboardAvoidingView>
@@ -325,6 +399,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  closeButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonPressed: {
+    opacity: 0.86,
+  },
+  closeButtonDisabled: {
+    opacity: 0.55,
+  },
+  closeButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#334155',
   },
   titleContainer: {
     marginTop: 32,

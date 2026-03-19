@@ -2,14 +2,14 @@ import type React from 'react';
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { Id } from '@/convex/_generated/dataModel';
 
-type BusinessDraft = {
+export type BusinessDraft = {
   name: string;
   externalId: string;
   logoUrl?: string;
   colors?: string;
 };
 
-type ProgramDraft = {
+export type ProgramDraft = {
   title: string;
   rewardName: string;
   maxStamps: string;
@@ -22,7 +22,7 @@ type ProgramDraft = {
   imagePreviewUri: string | null;
 };
 
-type BusinessOnboardingDraft = {
+export type BusinessOnboardingDraft = {
   firstName: string;
   lastName: string;
   ageRange: string | null;
@@ -39,6 +39,14 @@ type BusinessOnboardingDraft = {
   streetNumber: string;
 };
 
+export type OnboardingHydrationSnapshot = {
+  businessDraft?: Partial<BusinessDraft> | null;
+  programDraft?: Partial<ProgramDraft> | null;
+  businessOnboardingDraft?: Partial<BusinessOnboardingDraft> | null;
+  businessId?: Id<'businesses'> | null;
+  programId?: Id<'loyaltyPrograms'> | null;
+};
+
 type OnboardingContextValue = {
   businessDraft: BusinessDraft;
   setBusinessDraft: React.Dispatch<React.SetStateAction<BusinessDraft>>;
@@ -52,6 +60,7 @@ type OnboardingContextValue = {
   setBusinessId: (value: Id<'businesses'> | null) => void;
   programId: Id<'loyaltyPrograms'> | null;
   setProgramId: (value: Id<'loyaltyPrograms'> | null) => void;
+  hydrate: (snapshot: OnboardingHydrationSnapshot) => void;
   reset: () => void;
 };
 
@@ -126,6 +135,22 @@ export function OnboardingProvider({
       setBusinessId,
       programId,
       setProgramId,
+      hydrate: (snapshot: OnboardingHydrationSnapshot) => {
+        setBusinessDraft({
+          ...defaultBusinessDraft,
+          ...(snapshot.businessDraft ?? {}),
+        });
+        setProgramDraft({
+          ...defaultProgramDraft,
+          ...(snapshot.programDraft ?? {}),
+        });
+        setBusinessOnboardingDraft({
+          ...defaultBusinessOnboardingDraft,
+          ...(snapshot.businessOnboardingDraft ?? {}),
+        });
+        setBusinessId(snapshot.businessId ?? null);
+        setProgramId(snapshot.programId ?? null);
+      },
       reset: () => {
         setBusinessDraft({ ...defaultBusinessDraft });
         setProgramDraft({ ...defaultProgramDraft });

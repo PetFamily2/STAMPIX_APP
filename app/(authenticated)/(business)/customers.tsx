@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -30,6 +31,11 @@ import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ReportsTopTab = 'reports' | 'customers';
+type CustomerRouteFilter =
+  | 'near_reward'
+  | 'at_risk'
+  | 'new_customers'
+  | 'reward_eligible';
 type CustomerStatus =
   | 'NEW_CUSTOMER'
   | 'ACTIVE'
@@ -190,23 +196,21 @@ function quickSegment(status: CustomerStatus) {
   }
 }
 
-export default function BusinessCustomersScreen() {
+export function CustomersHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map, tab, filter } = useLocalSearchParams<{
+  const { preview, map, filter } = useLocalSearchParams<{
     preview?: string;
     map?: string;
-    tab?: string;
     filter?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-  const activeTopTab: ReportsTopTab =
-    tab === 'reports' ? 'reports' : 'customers';
-  const activeFilter =
+  const activeFilter: CustomerRouteFilter | null =
     filter === 'near_reward' ||
     filter === 'at_risk' ||
-    filter === 'new_customers'
+    filter === 'new_customers' ||
+    filter === 'reward_eligible'
       ? filter
       : null;
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
@@ -273,12 +277,6 @@ export default function BusinessCustomersScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  useEffect(() => {
-    if (activeTopTab === 'reports') {
-      router.replace('/(authenticated)/(business)/analytics');
-    }
-  }, [activeTopTab, router]);
-
   const openUpgrade = (
     featureKey: string,
     requiredPlan: 'starter' | 'pro' | 'premium' | null,
@@ -311,6 +309,13 @@ export default function BusinessCustomersScreen() {
           }
           if (activeFilter === 'at_risk') {
             return customer.lifecycleStatus === 'AT_RISK';
+          }
+          if (activeFilter === 'reward_eligible') {
+            return (
+              Number(customer.rewardThreshold) > 0 &&
+              Number(customer.loyaltyProgress) >=
+                Number(customer.rewardThreshold)
+            );
           }
           return customer.lifecycleStatus === 'NEW_CUSTOMER';
         })
@@ -396,8 +401,8 @@ export default function BusinessCustomersScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -410,35 +415,22 @@ export default function BusinessCustomersScreen() {
           <BusinessScreenHeader
             title="לקוחות"
             subtitle="מצב הלקוחות, תובנות lifecycle ובניית קהלים"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-              >
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </TouchableOpacity>
-            }
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
           />
         </StickyScrollHeader>
         <View
           className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
         >
           {TOP_TABS.map((topTab) => {
-            const isActive = activeTopTab === topTab.key;
+            const isActive = topTab.key === 'customers';
             return (
               <TouchableOpacity
                 key={topTab.key}
                 onPress={() => {
                   if (topTab.key === 'reports') {
-                    router.replace('/(authenticated)/(business)/analytics');
+                    router.setParams({ tab: 'reports' });
                     return;
                   }
-                  router.replace({
-                    pathname: '/(authenticated)/(business)/customers',
-                    params: { tab: 'customers' },
-                  });
                 }}
                 className={`flex-1 rounded-full py-2.5 ${
                   isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
@@ -599,10 +591,12 @@ export default function BusinessCustomersScreen() {
           >
             <Text className="text-[11px] font-bold text-[#1D4ED8]">
               {activeFilter === 'near_reward'
-                ? 'מסונן: לקוחות קרובים לפרס'
+                ? 'מסונן: לקוחות קרובים להטבה'
                 : activeFilter === 'at_risk'
                   ? 'מסונן: לקוחות בסיכון'
-                  : 'מסונן: לקוחות חדשים'}
+                  : activeFilter === 'reward_eligible'
+                    ? 'מסונן: ממתינים למימוש'
+                    : 'מסונן: לקוחות חדשים'}
             </Text>
           </View>
         ) : null}
@@ -664,6 +658,17 @@ export default function BusinessCustomersScreen() {
                           {STATUS_LABELS[customer.lifecycleStatus]}
                         </Text>
                       </View>
+                      {Number(customer.rewardThreshold) > 0 &&
+                      Number(customer.loyaltyProgress) >=
+                        Number(customer.rewardThreshold) ? (
+                        <View className="rounded-full bg-emerald-100 px-3 py-1">
+                          <Text className="text-xs font-bold text-emerald-700">
+                            {
+                              '\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9'
+                            }
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     <Text
                       className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
@@ -964,5 +969,22 @@ export default function BusinessCustomersScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function BusinessCustomersRoute() {
+  const { preview, map, filter } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+    filter?: string;
+  }>();
+
+  return (
+    <Redirect
+      href={{
+        pathname: '/(authenticated)/(business)/analytics',
+        params: { preview, map, tab: 'customers', filter },
+      }}
+    />
   );
 }

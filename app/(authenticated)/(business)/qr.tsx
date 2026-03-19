@@ -33,8 +33,8 @@ export default function BusinessJoinQrScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
-        style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
+        style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           {

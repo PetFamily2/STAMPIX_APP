@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   BUSINESS_ONBOARDING_TOTAL_STEPS,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
@@ -60,12 +61,22 @@ export default function OnboardingBusinessUsageAreaScreen() {
   }>();
   const { businessOnboardingDraft, setBusinessOnboardingDraft } =
     useOnboarding();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
   const selected = businessOnboardingDraft.usageAreas as UsageAreaId[];
   const canContinue = selected.length > 0;
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_usage_area',
     role: 'business',
   });
+
+  useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'usageArea' }).catch(() => {});
+  }, [saveStep]);
 
   useEffect(() => {
     if (businessOnboardingDraft.businessName.trim().length > 0) {
@@ -104,11 +115,16 @@ export default function OnboardingBusinessUsageAreaScreen() {
     });
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!canContinue) {
       return;
     }
     trackContinue();
+    try {
+      await saveStep({ step: 'usageArea' });
+    } catch {
+      // Keep onboarding flow moving even if draft persistence fails.
+    }
     completeStep({
       areas_count: selected.length,
       areas_values: selected,
@@ -159,7 +175,12 @@ export default function OnboardingBusinessUsageAreaScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
+          <ContinueButton
+            onPress={() => {
+              void handleContinue();
+            }}
+            disabled={!canContinue}
+          />
         </View>
       </View>
     </SafeAreaView>

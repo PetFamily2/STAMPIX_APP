@@ -14,8 +14,10 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   getActiveMembershipByBusinessId,
+  requiresBusinessOnboardingForRole,
   resolveActiveBusinessShell,
 } from '@/lib/activeBusinessShell';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
@@ -47,6 +49,7 @@ export default function AuthenticatedLayout() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
+  const { activeBusinessId: resolvedActiveBusinessId } = useActiveBusiness();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
   const user = useQuery(api.users.getCurrentUser, shouldLoadUser ? {} : 'skip');
@@ -174,19 +177,27 @@ export default function AuthenticatedLayout() {
     const customerTarget = '/(authenticated)/(customer)/wallet';
     const businessTarget = '/(authenticated)/(business)/dashboard';
     const staffTarget = '/(authenticated)/(staff)/scanner';
-    const merchantOnboardingTarget = BUSINESS_ONBOARDING_ROUTES.role;
+    const merchantOnboardingTarget = BUSINESS_ONBOARDING_ROUTES.entry;
     const nameCaptureTarget = '/(auth)/name-capture';
 
     const customerOnboarded = user?.customerOnboardedAt != null;
     const businessOnboarded = user?.businessOnboardedAt != null;
     const activeMode = sessionContext?.activeMode ?? 'customer';
     const bizList = sessionContext?.businesses ?? [];
-    const activeBusinessId = sessionContext?.activeBusinessId ?? null;
+    const activeBusinessId =
+      resolvedActiveBusinessId ?? sessionContext?.activeBusinessId ?? null;
+    const activeMembership = getActiveMembershipByBusinessId(
+      bizList,
+      activeBusinessId
+    );
+    const activeMembershipRole = activeMembership?.staffRole ?? null;
     const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
     const shouldForceBusinessOnboarding =
       activeMode === 'business' &&
-      activeShell !== 'staff' &&
-      !businessOnboarded;
+      requiresBusinessOnboardingForRole(
+        activeMembershipRole,
+        businessOnboarded
+      );
 
     void setAppMode(activeMode);
 
@@ -205,7 +216,14 @@ export default function AuthenticatedLayout() {
         safeReplace(customerTarget);
         return;
       }
-      if (activeShell === 'business' && !businessOnboarded && !inMerchant) {
+      if (
+        activeShell === 'business' &&
+        requiresBusinessOnboardingForRole(
+          activeMembershipRole,
+          businessOnboarded
+        ) &&
+        !inMerchant
+      ) {
         safeReplace(merchantOnboardingTarget);
         return;
       }
@@ -248,6 +266,7 @@ export default function AuthenticatedLayout() {
     user,
     isPreviewMode,
     setAppMode,
+    resolvedActiveBusinessId,
   ]);
 
   useEffect(() => {
@@ -291,7 +310,8 @@ export default function AuthenticatedLayout() {
     const activeMode = sessionContext.activeMode ?? appMode;
     if (activeMode === 'business') {
       const businesses = sessionContext.businesses ?? [];
-      const activeBusinessId = sessionContext.activeBusinessId ?? null;
+      const activeBusinessId =
+        resolvedActiveBusinessId ?? sessionContext.activeBusinessId ?? null;
       const activeMembership = getActiveMembershipByBusinessId(
         businesses,
         activeBusinessId
@@ -306,7 +326,10 @@ export default function AuthenticatedLayout() {
         return TEXT.loadingSubtitleStaff;
       }
 
-      return user.businessOnboardedAt == null
+      return requiresBusinessOnboardingForRole(
+        activeMembershipRole,
+        user.businessOnboardedAt != null
+      )
         ? TEXT.loadingSubtitleBusinessOnboarding
         : TEXT.loadingSubtitleBusiness;
     }

@@ -16,6 +16,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { tw } from '@/lib/rtl';
@@ -69,24 +70,7 @@ export default function BusinessSettingsAccountScreen() {
           <BusinessScreenHeader
             title="פרטי חשבון"
             subtitle="נתוני המשתמש המחובר והגדרות התחברות"
-            titleAccessory={
-              <Pressable
-                onPress={() => router.back()}
-                style={({ pressed }) => ({
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#FFFFFF',
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  opacity: pressed ? 0.82 : 1,
-                })}
-              >
-                <Text style={{ fontSize: 16, color: '#0F172A' }}>←</Text>
-              </Pressable>
-            }
+            titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 

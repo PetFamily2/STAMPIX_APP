@@ -19,6 +19,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -252,16 +253,7 @@ export default function CustomerAccountDetailsScreen() {
           <BusinessScreenHeader
             title={TEXT.title}
             titleAccessory={
-              <Pressable
-                onPress={() => router.back()}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Ionicons name="chevron-forward" size={20} color="#111827" />
-              </Pressable>
+              <BackButton onPress={() => router.back()} />
             }
           />
         </StickyScrollHeader>

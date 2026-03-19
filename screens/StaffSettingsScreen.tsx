@@ -99,26 +99,37 @@ export default function StaffSettingsScreen() {
     router.navigate('/(authenticated)/(customer)/wallet');
   };
 
-  const handleDeleteUser = () => {
-    Alert.alert('מחק משתמש', 'האם למחוק את הפרופיל שלך מהעסק?', [
-      { text: 'ביטול', style: 'cancel' },
-      {
-        text: 'מחק',
-        style: 'destructive',
-        onPress: async () => {
-          if (!activeBusinessId || isRemoving) {
-            return;
-          }
-          setIsRemoving(true);
-          try {
-            await selfRemoveFromBusiness({ businessId: activeBusinessId });
-            await goToPrivateArea();
-          } finally {
-            setIsRemoving(false);
-          }
+  const handleLeaveBusiness = () => {
+    Alert.alert(
+      'לעזוב את העסק?',
+      'הגישה שלך למסכי העסק הפעיל תוסר, ותועבר לאזור האישי.',
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'עזוב את העסק',
+          style: 'destructive',
+          onPress: async () => {
+            if (!activeBusinessId || isRemoving) {
+              return;
+            }
+            setIsRemoving(true);
+            try {
+              await selfRemoveFromBusiness({ businessId: activeBusinessId });
+              await goToPrivateArea();
+            } catch (error) {
+              Alert.alert(
+                'שגיאה',
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'לא הצלחנו לעזוב את העסק. נסו שוב.'
+              );
+            } finally {
+              setIsRemoving(false);
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
@@ -261,16 +272,24 @@ export default function StaffSettingsScreen() {
         </View>
 
         <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
+          <Text
+            className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
+          >
+            אזור רגיש
+          </Text>
+          <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
+            אם אין לך יותר צורך בגישה לעסק הפעיל, אפשר לעזוב אותו מכאן.
+          </Text>
           <TouchableOpacity
-            onPress={handleDeleteUser}
+            onPress={handleLeaveBusiness}
             disabled={isRemoving}
-            className="items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
+            className="mt-4 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
           >
             {isRemoving ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text className="text-center text-sm font-bold text-white">
-                מחק משתמש
+                עזוב את העסק
               </Text>
             )}
           </TouchableOpacity>

@@ -100,8 +100,8 @@ export default function AcceptInviteScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
       >
         <StickyScrollHeader

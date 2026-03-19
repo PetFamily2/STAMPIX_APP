@@ -17,6 +17,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -226,8 +227,8 @@ export default function BusinessCustomerCardScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
+        style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           { paddingBottom: (insets.bottom || 0) + 28 },
@@ -240,11 +241,7 @@ export default function BusinessCustomerCardScreen() {
           <BusinessScreenHeader
             title="כרטיס לקוח"
             subtitle={card?.customer.name ?? 'פרטי לקוח והיסטוריית פעילות'}
-            titleAccessory={
-              <Pressable onPress={goBack} style={styles.headerBackButton}>
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </Pressable>
-            }
+            titleAccessory={<BackButton onPress={goBack} />}
           />
         </StickyScrollHeader>
 
@@ -259,9 +256,7 @@ export default function BusinessCustomerCardScreen() {
             <Text style={styles.stateText}>
               ייתכן שהלקוח כבר לא פעיל בכרטיסיות של העסק.
             </Text>
-            <Pressable onPress={goBack} style={styles.stateAction}>
-              <Text style={styles.stateActionText}>חזרה</Text>
-            </Pressable>
+            <BackButton onPress={goBack} />
           </View>
         ) : (
           <>

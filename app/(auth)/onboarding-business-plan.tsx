@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,10 +13,13 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
-  BUSINESS_ONBOARDING_PROGRESS,
   BUSINESS_ONBOARDING_ROUTES,
-  BUSINESS_ONBOARDING_TOTAL_STEPS,
+  getBusinessOnboardingProgressStep,
+  getBusinessOnboardingTotalSteps,
+  isAdditionalBusinessFlow,
+  withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
@@ -23,7 +27,11 @@ import {
 } from '@/lib/subscription/planComparison';
 
 export default function OnboardingBusinessPlanScreen() {
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
   const { businessId } = useOnboarding();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
+  const isAdditionalFlow = isAdditionalBusinessFlow(flow);
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
   const syncBusinessSubscription = useMutation(
     api.entitlements.syncBusinessSubscription
@@ -36,12 +44,25 @@ export default function OnboardingBusinessPlanScreen() {
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
 
   useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'plan', flow }).catch(() => {});
+  }, [flow, saveStep]);
+
+  useEffect(() => {
     if (businessId) {
       return;
     }
 
-    safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
-  }, [businessId]);
+    safePush(
+      withBusinessOnboardingFlow(
+        BUSINESS_ONBOARDING_ROUTES.createBusiness,
+        flow
+      )
+    );
+  }, [businessId, flow]);
 
   const planCatalog = useMemo(
     () => normalizePlanCatalog(planCatalogQuery),
@@ -58,6 +79,11 @@ export default function OnboardingBusinessPlanScreen() {
     }
 
     setError(null);
+    try {
+      await saveStep({ step: 'plan', flow });
+    } catch {
+      // Keep onboarding flow moving even if draft persistence fails.
+    }
 
     if (selectedPlan === 'starter') {
       setIsSubmitting(true);
@@ -68,7 +94,12 @@ export default function OnboardingBusinessPlanScreen() {
           status: 'active',
           provider: 'manual',
         });
-        safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
+        safePush(
+          withBusinessOnboardingFlow(
+            BUSINESS_ONBOARDING_ROUTES.createProgram,
+            flow
+          )
+        );
       } catch {
         setError('לא הצלחנו לשמור את בחירת המסלול. נסו שוב.');
       } finally {
@@ -85,11 +116,20 @@ export default function OnboardingBusinessPlanScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.usageArea)}
+            onPress={() =>
+              safeDismissTo(
+                isAdditionalFlow
+                  ? withBusinessOnboardingFlow(
+                      BUSINESS_ONBOARDING_ROUTES.createBusiness,
+                      flow
+                    )
+                  : BUSINESS_ONBOARDING_ROUTES.usageArea
+              )
+            }
           />
           <OnboardingProgress
-            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.plan}
+            total={getBusinessOnboardingTotalSteps(flow)}
+            current={getBusinessOnboardingProgressStep('plan', flow)}
           />
         </View>
 
@@ -143,7 +183,12 @@ export default function OnboardingBusinessPlanScreen() {
         featureKey="onboarding_plan_selection"
         onClose={() => setIsUpgradeVisible(false)}
         onSuccess={() => {
-          safePush(BUSINESS_ONBOARDING_ROUTES.createProgram);
+          safePush(
+            withBusinessOnboardingFlow(
+              BUSINESS_ONBOARDING_ROUTES.createProgram,
+              flow
+            )
+          );
         }}
       />
     </SafeAreaView>

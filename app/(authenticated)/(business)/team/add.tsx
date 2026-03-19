@@ -1,4 +1,4 @@
-ο»Ώimport { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -15,6 +15,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
@@ -121,12 +122,12 @@ export default function AddBusinessStaffScreen() {
       return;
     }
 
-    setInviteError('ΧΧ™Χ¨ΧΆΧ” Χ©Χ’Χ™ΧΧ”.');
+    setInviteError('ΰιψςδ ωβιΰδ.');
   };
 
   const handleInviteByScan = async (rawData: string) => {
     if (!activeBusinessId) {
-      setInviteError('ΧΧ Χ Χ‘Χ—Χ¨ ΧΆΧ΅Χ§ Χ¤ΧΆΧ™Χ.');
+      setInviteError('μΰ παηψ ςρχ τςιμ.');
       setScannerResetKey((current) => current + 1);
       return;
     }
@@ -153,7 +154,7 @@ export default function AddBusinessStaffScreen() {
       });
 
       setScannedStaffDetails(result.invitedUser);
-      setInviteSuccess('Χ”ΧΆΧ•Χ‘Χ“ Χ Χ•Χ΅Χ£ Χ‘Χ”Χ¦ΧΧ—Χ” ΧΧ¨Χ©Χ™ΧΧª Χ”Χ”Χ–ΧΧ Χ•Χª Χ”ΧΧΧªΧ™Χ Χ•Χª.');
+      setInviteSuccess('δςεαγ περσ αδφμηδ μψωιξϊ δδζξπεϊ δξξϊιπεϊ.');
     } catch (error) {
       handleMutationError(error);
       setScannerResetKey((current) => current + 1);
@@ -175,8 +176,8 @@ export default function AddBusinessStaffScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -187,18 +188,9 @@ export default function AddBusinessStaffScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="Χ”Χ•Χ΅Χ£ ΧΆΧ•Χ‘Χ“"
-            subtitle="Χ‘Χ—Χ™Χ¨Χª ΧªΧ¤Χ§Χ™Χ“ Χ•Χ΅Χ¨Χ™Χ§Χª QR ΧΧ™Χ©Χ™ ΧΧ”Χ•Χ΅Χ¤Χ” ΧΧ”Χ™Χ¨Χ”"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/team')
-                }
-                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-              >
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </TouchableOpacity>
-            }
+            title="δερσ ςεαγ"
+            subtitle="αηιψϊ ϊτχιγ ερψιχϊ QR ΰιωι μδερτδ ξδιψδ"
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/team')} />}
           />
         </StickyScrollHeader>
 
@@ -223,7 +215,7 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                1. ΧªΧ¤Χ§Χ™Χ“ ΧΆΧ•Χ‘Χ“
+                1. ϊτχιγ ςεαγ
               </Text>
               <View className="flex-row-reverse gap-2">
                 <TouchableOpacity
@@ -234,7 +226,7 @@ export default function AddBusinessStaffScreen() {
                       : 'border-[#D6E3FF] bg-white'
                   }`}
                 >
-                  <Text className="text-xs font-bold text-[#1D4ED8]">ΧΆΧ•Χ‘Χ“</Text>
+                  <Text className="text-xs font-bold text-[#1D4ED8]">ςεαγ</Text>
                 </TouchableOpacity>
                 {isOwner ? (
                   <TouchableOpacity
@@ -246,7 +238,7 @@ export default function AddBusinessStaffScreen() {
                     }`}
                   >
                     <Text className="text-xs font-bold text-[#1D4ED8]">
-                      ΧΧ Χ”Χ
+                      ξπδμ
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -257,10 +249,10 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                2. Χ΅Χ¨Χ™Χ§Χª QR ΧΧ™Χ©Χ™
+                2. ρψιχϊ QR ΰιωι
               </Text>
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                Χ”Χ΅Χ¨Χ™Χ§Χ” Χ©Χ•ΧΧ¨Χª ΧΧ•ΧΧ•ΧΧΧ™Χª ΧΧª Χ”ΧΆΧ•Χ‘Χ“ Χ›Χ”Χ–ΧΧ Χ” ΧΧΧªΧ™Χ Χ”.
+                δρψιχδ ωεξψϊ ΰεθεξθιϊ ΰϊ δςεαγ λδζξπδ ξξϊιπδ.
               </Text>
               <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
                 <QrScanner
@@ -269,10 +261,10 @@ export default function AddBusinessStaffScreen() {
                   isBusy={isInvitingByScan}
                   caption={
                     isInvitingByScan
-                      ? 'Χ©Χ•ΧΧ¨ ΧΆΧ•Χ‘Χ“...'
+                      ? 'ωεξψ ςεαγ...'
                       : scannedStaffDetails
-                        ? 'Χ”ΧΆΧ•Χ‘Χ“ Χ Χ©ΧΧ¨. Χ Χ™ΧªΧ ΧΧ΅Χ¨Χ•Χ§ Χ©Χ•Χ‘.'
-                        : 'ΧΧ•Χ›Χ Χ™Χ ΧΧ΅Χ¨Χ™Χ§Χª QR ΧΧ™Χ©Χ™'
+                        ? 'δςεαγ πωξψ. πιϊο μρψεχ ωεα.'
+                        : 'ξελπιν μρψιχϊ QR ΰιωι'
                   }
                 />
               </View>
@@ -299,26 +291,26 @@ export default function AddBusinessStaffScreen() {
                 <Text
                   className={`text-xs font-bold text-emerald-700 ${tw.textStart}`}
                 >
-                  Χ¤Χ¨ΧΧ™ Χ”ΧΆΧ•Χ‘Χ“ Χ©Χ Χ©ΧΧ¨
+                  τψθι δςεαγ ωπωξψ
                 </Text>
                 <Text
                   className={`mt-2 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  Χ©Χ: {scannedStaffDetails.name}
+                  ων: {scannedStaffDetails.name}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  ΧΧΧ¤Χ•Χ: {scannedStaffDetails.phone ?? 'ΧΧ Χ”Χ•Χ’Χ“Χ¨'}
+                  θμτεο: {scannedStaffDetails.phone ?? 'μΰ δεβγψ'}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  ΧΧ™ΧΧ™Χ™Χ: {scannedStaffDetails.email ?? 'ΧΧ Χ”Χ•Χ’Χ“Χ¨'}
+                  ΰιξιιμ: {scannedStaffDetails.email ?? 'μΰ δεβγψ'}
                 </Text>
                 <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
                   <Text className="text-[11px] font-bold text-emerald-700">
-                    ΧªΧ¤Χ§Χ™Χ“ ΧΧ‘Χ•Χ§Χ©: {inviteRole === 'manager' ? 'ΧΧ Χ”Χ' : 'ΧΆΧ•Χ‘Χ“'}
+                    ϊτχιγ ξαεχω: {inviteRole === 'manager' ? 'ξπδμ' : 'ςεαγ'}
                   </Text>
                 </View>
               </View>
@@ -339,7 +331,7 @@ export default function AddBusinessStaffScreen() {
                 <ActivityIndicator color="#94A3B8" />
               ) : (
                 <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                  Χ΅Χ¨Χ•Χ§ Χ©Χ•Χ‘
+                  ρψεχ ωεα
                 </Text>
               )}
             </TouchableOpacity>
@@ -349,7 +341,7 @@ export default function AddBusinessStaffScreen() {
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">
-                Χ—Χ–Χ¨Χ” ΧΧ Χ™Χ”Χ•Χ ΧΆΧ•Χ‘Χ“Χ™Χ
+                ηζψδ μπιδεμ ςεαγιν
               </Text>
             </TouchableOpacity>
           </View>

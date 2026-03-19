@@ -16,6 +16,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
+import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -247,8 +248,8 @@ export default function CustomerBusinessDetailsScreen() {
         fullScreenCelebration={true}
       />
       <ScrollView
-        style={styles.scrollBackground}
         stickyHeaderIndices={[0]}
+        style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
           {
@@ -265,17 +266,9 @@ export default function CustomerBusinessDetailsScreen() {
               title={business.name}
               subtitle={business.formattedAddress ?? ''}
               titleAccessory={
-                <Pressable
+                <BackButton
                   onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-                  style={({ pressed }) => [
-                    styles.backButton,
-                    pressed ? styles.pressed : null,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={TEXT.back}
-                >
-                  <Ionicons name="chevron-forward" size={20} color="#111827" />
-                </Pressable>
+                />
               }
             />
           </View>

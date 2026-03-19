@@ -72,6 +72,31 @@ export default defineSchema({
     .index('by_isActive', ['isActive'])
     .index('by_userType', ['userType']),
 
+  businessOnboardingDrafts: defineTable({
+    userId: v.id('users'),
+    flow: v.union(v.literal('default'), v.literal('additional')),
+    status: v.union(
+      v.literal('in_progress'),
+      v.literal('paused'),
+      v.literal('completed')
+    ),
+    currentStep: v.string(),
+    farthestStep: v.string(),
+    farthestStepOrder: v.number(),
+    businessId: v.optional(v.id('businesses')),
+    programId: v.optional(v.id('loyaltyPrograms')),
+    businessDraft: v.optional(v.any()),
+    programDraft: v.optional(v.any()),
+    businessOnboardingDraft: v.optional(v.any()),
+    pausedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_userId_flow', ['userId', 'flow'])
+    .index('by_userId_status', ['userId', 'status']),
+
   userIdentities: defineTable({
     userId: v.id('users'),
     provider: v.union(

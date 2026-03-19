@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +14,7 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   BUSINESS_ONBOARDING_TOTAL_STEPS,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type DiscoverySourceId =
@@ -74,6 +76,8 @@ const DISCOVERY_SOURCES: Array<{
 export default function OnboardingBusinessDiscoveryScreen() {
   const { businessOnboardingDraft, setBusinessOnboardingDraft } =
     useOnboarding();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
   const selected =
     businessOnboardingDraft.discoverySource as DiscoverySourceId | null;
   const canContinue = Boolean(selected);
@@ -82,12 +86,25 @@ export default function OnboardingBusinessDiscoveryScreen() {
     role: 'business',
   });
 
-  const handleContinue = () => {
+  useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'discovery' }).catch(() => {});
+  }, [saveStep]);
+
+  const handleContinue = async () => {
     if (!canContinue) {
       return;
     }
 
     trackContinue();
+    try {
+      await saveStep({ step: 'discovery' });
+    } catch {
+      // Keep onboarding flow moving even if draft persistence fails.
+    }
     completeStep({ discovery_source: selected });
     safePush(BUSINESS_ONBOARDING_ROUTES.reason);
   };
@@ -139,7 +156,12 @@ export default function OnboardingBusinessDiscoveryScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
+          <ContinueButton
+            onPress={() => {
+              void handleContinue();
+            }}
+            disabled={!canContinue}
+          />
         </View>
       </View>
     </SafeAreaView>

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +15,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -25,6 +26,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { tw } from '@/lib/rtl';
+import { CampaignsHubContent } from './campaigns';
 
 type MarketingTopTab = 'campaigns' | 'loyalty';
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -69,7 +71,8 @@ const TEXT = {
   inUseLabel: 'נספרים במגבלה',
   customersLabel: 'לקוחות פעילים',
   activeLabel: 'בכרטיסים פעילים',
-  redemptionsLabel: 'מימושים',
+  redemptionsLabel:
+    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5',
   days30Label: '30 יום',
   limitReached: 'הגעתם למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   nearLimit: 'אתם מתקרבים למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
@@ -201,28 +204,15 @@ function ProgramListSection({
     </View>
   );
 }
-export default function BusinessCardsManagementScreen() {
+export function LoyaltyCardsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { preview, map, section } = useLocalSearchParams<{
+  const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
-    section?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-  const activeSection = section === 'loyalty' ? 'loyalty' : 'campaigns';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-
-  if (activeSection === 'campaigns') {
-    return (
-      <Redirect
-        href={{
-          pathname: '/(authenticated)/(business)/cards/campaigns',
-          params: { preview, map },
-        }}
-      />
-    );
-  }
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const canManage =
@@ -335,8 +325,8 @@ export default function BusinessCardsManagementScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -349,16 +339,7 @@ export default function BusinessCardsManagementScreen() {
           <BusinessScreenHeader
             title={TEXT.screenTitle}
             subtitle={TEXT.screenSubtitle}
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-                className="h-10 w-10 items-center justify-center rounded-full border border-[#E5EAF2] bg-white"
-              >
-                <Ionicons name="arrow-forward" size={18} color="#1A2B4A" />
-              </TouchableOpacity>
-            }
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
           />
         </StickyScrollHeader>
 
@@ -374,7 +355,7 @@ export default function BusinessCardsManagementScreen() {
                   if (topTab.key === 'loyalty') {
                     return;
                   }
-                  router.replace('/(authenticated)/(business)/cards/campaigns');
+                  router.setParams({ section: 'campaigns' });
                 }}
                 className={`flex-1 rounded-full py-2.5 ${
                   isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
@@ -518,4 +499,18 @@ export default function BusinessCardsManagementScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+export default function BusinessCardsManagementScreen() {
+  const { section } = useLocalSearchParams<{
+    section?: string;
+  }>();
+
+  const activeSection = section === 'loyalty' ? 'loyalty' : 'campaigns';
+
+  if (activeSection === 'campaigns') {
+    return <CampaignsHubContent />;
+  }
+
+  return <LoyaltyCardsHubContent />;
 }

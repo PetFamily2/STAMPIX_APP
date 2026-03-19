@@ -18,6 +18,7 @@ import {
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
@@ -61,12 +62,14 @@ type BusinessModeCtaCardProps = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   accentButton?: boolean;
+  forcePromotionalBanner?: boolean;
 };
 
 export default function BusinessModeCtaCard({
   disabled = false,
   style,
   accentButton = false,
+  forcePromotionalBanner = false,
 }: BusinessModeCtaCardProps) {
   const setActiveMode = useMutation(api.users.setActiveMode);
   const setActiveBusiness = useMutation(api.users.setActiveBusiness);
@@ -96,22 +99,30 @@ export default function BusinessModeCtaCard({
   const hasNamedManagedBusiness = manageableBusinessName.length > 0;
   const businessOnboarded =
     (sessionContext?.user?.businessOnboardedAt ?? null) != null;
+  const targetBusinessRequiresOnboarding = requiresBusinessOnboardingForRole(
+    targetBusinessForBusinessMode?.staffRole ?? null,
+    businessOnboarded
+  );
   const shouldStartBusinessOnboarding =
-    !businessOnboarded || !hasOwnerOrManager;
+    !hasOwnerOrManager || targetBusinessRequiresOnboarding;
   const showExistingBusinessCta = hasNamedManagedBusiness;
   const isBusinessMode = appMode === 'business';
+  const showPromotionalBanner = forcePromotionalBanner && !isBusinessMode;
   const hostActionDisabled = disabled || isAppModeLoading || modeSwitchBusy;
-  const hostTitle = showExistingBusinessCta
-    ? formatSwitchToBusinessTitle(manageableBusinessName)
-    : TEXT.hostTitle;
-  const hostSubtitle = showExistingBusinessCta
-    ? shouldStartBusinessOnboarding
-      ? TEXT.existingBusinessSetupSubtitle
-      : TEXT.existingBusinessSubtitle
-    : TEXT.hostSubtitle;
-  const hostButtonLabel = showExistingBusinessCta
-    ? TEXT.switchToBusinessButton
-    : TEXT.hostButton;
+  const hostTitle =
+    !showPromotionalBanner && showExistingBusinessCta
+      ? formatSwitchToBusinessTitle(manageableBusinessName)
+      : TEXT.hostTitle;
+  const hostSubtitle =
+    !showPromotionalBanner && showExistingBusinessCta
+      ? shouldStartBusinessOnboarding
+        ? TEXT.existingBusinessSetupSubtitle
+        : TEXT.existingBusinessSubtitle
+      : TEXT.hostSubtitle;
+  const hostButtonLabel =
+    !showPromotionalBanner && showExistingBusinessCta
+      ? TEXT.switchToBusinessButton
+      : TEXT.hostButton;
   const shouldUseAccentButton = !isBusinessMode || accentButton;
 
   useEffect(() => {
@@ -155,18 +166,18 @@ export default function BusinessModeCtaCard({
     try {
       setModeSwitchBusy(true);
 
-      if (targetBusinessForBusinessMode) {
+      if (!showPromotionalBanner && targetBusinessForBusinessMode) {
         await setActiveBusiness({
           businessId: targetBusinessForBusinessMode.id,
         });
       }
 
-      if (shouldStartBusinessOnboarding) {
+      if (showPromotionalBanner || shouldStartBusinessOnboarding) {
         await setAppMode('business');
-        if (hasOwnerOrManager) {
+        if (hasOwnerOrManager && !showPromotionalBanner) {
           await setActiveMode({ mode: 'business' });
         }
-        router.replace(BUSINESS_ONBOARDING_ROUTES.role);
+        router.replace(BUSINESS_ONBOARDING_ROUTES.entry);
         return;
       }
 

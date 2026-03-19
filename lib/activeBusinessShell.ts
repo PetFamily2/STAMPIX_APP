@@ -1,8 +1,10 @@
-﻿export type ActiveBusinessShell = 'none' | 'business' | 'staff';
+export type ActiveBusinessShell = 'none' | 'business' | 'staff';
+
+export type ActiveBusinessStaffRole = 'owner' | 'manager' | 'staff';
 
 export type ActiveBusinessMembership = {
   id: string;
-  staffRole: 'owner' | 'manager' | 'staff';
+  staffRole: ActiveBusinessStaffRole;
 };
 
 export function getActiveMembershipByBusinessId(
@@ -40,4 +42,11 @@ export function resolveActiveBusinessShell(
   }
 
   return 'staff';
+}
+
+export function requiresBusinessOnboardingForRole(
+  staffRole: ActiveBusinessStaffRole | null | undefined,
+  businessOnboarded: boolean
+) {
+  return staffRole === 'owner' && !businessOnboarded;
 }

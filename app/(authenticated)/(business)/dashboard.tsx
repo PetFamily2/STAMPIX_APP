@@ -39,6 +39,12 @@ type BusinessRoute =
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-subscription';
 
+type CustomerRouteFilter =
+  | 'near_reward'
+  | 'at_risk'
+  | 'new_customers'
+  | 'reward_eligible';
+
 type HeroStatus = {
   key: string;
   message: string;
@@ -59,6 +65,7 @@ type KpiItem = {
   label: string;
   value: string;
   route: BusinessRoute;
+  filter?: CustomerRouteFilter;
 };
 
 type LoyaltyProgramSummary = {
@@ -647,7 +654,7 @@ export default function MerchantDashboardScreen() {
       key: 'healthy',
       message: `השבוע נרשמו ${formatNumber(stamps7d)} ניקובים ו-${formatNumber(
         redemptions7d
-      )} מימושים`,
+      )} \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5`,
     };
   }, [
     activePrograms.length,
@@ -779,7 +786,10 @@ export default function MerchantDashboardScreen() {
       entitlements !== null &&
       customerSnapshot === undefined);
 
-  const kpiLoading = activity === undefined || usageSummary === undefined;
+  const kpiLoading =
+    activity === undefined ||
+    usageSummary === undefined ||
+    rewardEligibilitySummary === undefined;
   const kpiItems: KpiItem[] = [
     {
       key: 'stamps_7d',
@@ -789,7 +799,8 @@ export default function MerchantDashboardScreen() {
     },
     {
       key: 'redemptions_7d',
-      label: 'מימושים 7 ימים',
+      label:
+        '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5 7 \u05d9\u05de\u05d9\u05dd',
       value: formatNumber(redemptions7d),
       route: '/(authenticated)/(business)/analytics',
     },
@@ -800,10 +811,20 @@ export default function MerchantDashboardScreen() {
       route: '/(authenticated)/(business)/customers',
     },
     {
-      key: 'active_cards',
-      label: 'כרטיסים פעילים',
-      value: formatNumber(cardsUsed),
-      route: '/(authenticated)/(business)/cards',
+      key: 'reward_eligible_now',
+      label:
+        '\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d9\u05dd \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
+      value: formatNumber(rewardEligibilitySummary?.redeemableCustomers ?? 0),
+      route: '/(authenticated)/(business)/customers',
+      filter: 'reward_eligible',
+    },
+    {
+      key: 'redeemable_cards_now',
+      label:
+        '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05de\u05dc\u05d0\u05d5\u05ea',
+      value: formatNumber(rewardEligibilitySummary?.redeemableCards ?? 0),
+      route: '/(authenticated)/(business)/customers',
+      filter: 'reward_eligible',
     },
   ];
 
@@ -846,6 +867,13 @@ export default function MerchantDashboardScreen() {
   const openRoute = (route: BusinessRoute) => {
     if (route === '/(authenticated)/(business)/cards') {
       openMarketingHub('loyalty');
+      return;
+    }
+    if (route === '/(authenticated)/(business)/customers') {
+      router.push({
+        pathname: '/(authenticated)/(business)/analytics',
+        params: { tab: 'customers' },
+      });
       return;
     }
     router.push(route);
@@ -955,8 +983,8 @@ export default function MerchantDashboardScreen() {
   ) => {
     if (customerFilter) {
       router.push({
-        pathname: '/(authenticated)/(business)/customers',
-        params: { filter: customerFilter },
+        pathname: '/(authenticated)/(business)/analytics',
+        params: { tab: 'customers', filter: customerFilter },
       });
       return;
     }
@@ -1130,8 +1158,8 @@ export default function MerchantDashboardScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
-        className="flex-1"
         stickyHeaderIndices={[0]}
+        className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
@@ -1307,27 +1335,36 @@ export default function MerchantDashboardScreen() {
           </Text>
           {kpiLoading ? (
             <View className="mt-3">
-              <LoadingBlock height={86} />
+              <LoadingBlock height={176} />
             </View>
           ) : (
-            <View className={`${tw.flexRow} mt-3`}>
+            <View className={`${tw.flexRow} mt-3 flex-wrap`}>
               {kpiItems.map((kpi, index) => (
                 <TouchableOpacity
                   key={kpi.key}
-                  onPress={() => openRoute(kpi.route)}
-                  className={`flex-1 px-2 ${index > 0 ? 'border-r border-[#EEF2F8]' : ''}`}
+                  onPress={() =>
+                    kpi.filter
+                      ? router.push({
+                          pathname: kpi.route,
+                          params: { filter: kpi.filter },
+                        })
+                      : openRoute(kpi.route)
+                  }
+                  className={`mb-3 w-1/2 px-1 ${index >= kpiItems.length - 1 && kpiItems.length % 2 === 1 ? 'self-center' : ''}`}
                 >
-                  <Text
-                    numberOfLines={2}
-                    className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {kpi.label}
-                  </Text>
-                  <Text
-                    className={`mt-2 text-xl font-black text-[#0F294B] ${tw.textStart}`}
-                  >
-                    {kpi.value}
-                  </Text>
+                  <View className="min-h-[78px] rounded-2xl border border-[#EEF2F8] bg-[#F8FAFF] px-3 py-3">
+                    <Text
+                      numberOfLines={2}
+                      className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {kpi.label}
+                    </Text>
+                    <Text
+                      className={`mt-2 text-xl font-black text-[#0F294B] ${tw.textStart}`}
+                    >
+                      {kpi.value}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1615,7 +1652,9 @@ export default function MerchantDashboardScreen() {
               <Text
                 className={`mt-1 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                מימושים ב-30 ימים:{' '}
+                {
+                  '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5 \u05d1-30 \u05d9\u05de\u05d9\u05dd:'
+                }{' '}
                 {formatNumber(programsSummary.redemptions30d)}
               </Text>
               <Text

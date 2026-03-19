@@ -32,6 +32,7 @@ import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/
 import type * as migrations_backfillUserSubscriptionPlans from "../migrations/backfillUserSubscriptionPlans.js";
 import type * as migrations_migrateRetentionActionLimitModel from "../migrations/migrateRetentionActionLimitModel.js";
 import type * as migrations_migrateToOnboardingFlags from "../migrations/migrateToOnboardingFlags.js";
+import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
 import type * as pushNotifications from "../pushNotifications.js";
 import type * as retention from "../retention.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfillUserSubscriptionPlans": typeof migrations_backfillUserSubscriptionPlans;
   "migrations/migrateRetentionActionLimitModel": typeof migrations_migrateRetentionActionLimitModel;
   "migrations/migrateToOnboardingFlags": typeof migrations_migrateToOnboardingFlags;
+  onboarding: typeof onboarding;
   otp: typeof otp;
   pushNotifications: typeof pushNotifications;
   retention: typeof retention;

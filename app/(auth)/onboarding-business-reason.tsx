@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,6 +13,7 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   BUSINESS_ONBOARDING_TOTAL_STEPS,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 type ReasonId =
@@ -61,6 +63,8 @@ const REASONS: Array<{ id: ReasonId; title: string }> = [
 export default function OnboardingBusinessReasonScreen() {
   const { businessOnboardingDraft, setBusinessOnboardingDraft } =
     useOnboarding();
+  const { saveStep } = useBusinessOnboardingDraftPersistence();
+  const didSyncStepRef = useRef(false);
   const selected = businessOnboardingDraft.reason as ReasonId | null;
   const canContinue = Boolean(selected);
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
@@ -68,12 +72,25 @@ export default function OnboardingBusinessReasonScreen() {
     role: 'business',
   });
 
-  const handleContinue = () => {
+  useEffect(() => {
+    if (didSyncStepRef.current) {
+      return;
+    }
+    didSyncStepRef.current = true;
+    void saveStep({ step: 'reason' }).catch(() => {});
+  }, [saveStep]);
+
+  const handleContinue = async () => {
     if (!canContinue) {
       return;
     }
 
     trackContinue();
+    try {
+      await saveStep({ step: 'reason' });
+    } catch {
+      // Keep onboarding flow moving even if draft persistence fails.
+    }
     completeStep({ reason: selected });
     safePush(BUSINESS_ONBOARDING_ROUTES.name);
   };
@@ -117,7 +134,12 @@ export default function OnboardingBusinessReasonScreen() {
         </View>
 
         <View style={styles.footer}>
-          <ContinueButton onPress={handleContinue} disabled={!canContinue} />
+          <ContinueButton
+            onPress={() => {
+              void handleContinue();
+            }}
+            disabled={!canContinue}
+          />
         </View>
       </View>
     </SafeAreaView>

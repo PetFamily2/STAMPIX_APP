@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,6 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
@@ -362,7 +364,11 @@ export default function ProgramDetailsScreen() {
       Alert.alert(TEXT.deleteDoneTitle, TEXT.deleteDoneMessage, [
         {
           text: 'אישור',
-          onPress: () => router.replace('/(authenticated)/(business)/cards'),
+          onPress: () =>
+            router.replace({
+              pathname: '/(authenticated)/(business)/cards',
+              params: { section: 'loyalty' },
+            }),
         },
       ]);
     } catch (error) {
@@ -391,27 +397,21 @@ export default function ProgramDetailsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        stickyHeaderIndices={[0]}
         className="flex-1"
-        stickyHeaderIndices={details === undefined ? [0] : [0, 1]}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 28,
         }}
       >
+        <View className="bg-[#E9F0FF]">
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
             title="פרטי כרטיסיה"
-            titleAccessory={
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="h-10 w-10 items-center justify-center rounded-full bg-white"
-              >
-                <Text className="text-lg text-[#1A2B4A]">←</Text>
-              </TouchableOpacity>
-            }
+            titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 
@@ -440,6 +440,7 @@ export default function ProgramDetailsScreen() {
             />
           </View>
         )}
+        </View>
 
         {details !== undefined ? (
           <View className="mt-2 gap-3">

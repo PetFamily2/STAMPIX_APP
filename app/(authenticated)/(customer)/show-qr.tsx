@@ -1,4 +1,4 @@
-ο»Ώimport { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import {
   type BottomTabNavigationProp,
   useBottomTabBarHeight,
@@ -23,6 +23,7 @@ import {
 
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BackButton } from '@/components/BackButton';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -30,16 +31,16 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 
 const TEXT = {
-  title: 'Χ”-QR Χ©ΧΧ™',
-  subtitle: 'Χ§Χ•Χ“ ΧΧ§Χ•Χ— ΧΧ™Χ©Χ™ ΧΧ—Χ“ ΧΧ›Χ Χ”ΧΆΧ΅Χ§Χ™Χ',
+  title: 'δ-QR ωμι',
+  subtitle: 'χεγ μχεη ΰιωι ΰηγ μλμ δςρχιν',
   helper:
-    'ΧΧ¦Χ™Χ’Χ™Χ ΧΧª Χ”Χ§Χ•Χ“ Χ‘Χ§Χ•Χ¤Χ” Χ›Χ“Χ™ ΧΧ¦Χ‘Χ•Χ¨ Χ Χ™Χ§Χ•Χ‘Χ™Χ ΧΧ• ΧΧΧΧ© Χ”ΧΧ‘Χ” ΧΧ¤Χ™ Χ”ΧªΧ•Χ›Χ Χ™Χª Χ©Χ”ΧΆΧ΅Χ§ Χ‘Χ•Χ—Χ¨.',
-  qrLoading: 'ΧΧ•ΧΆΧ QR',
-  qrIdle: 'ΧΧ—Χ¦Χ• ΧΆΧ Χ¨ΧΆΧ Χ•Χ QR ΧΧ”Χ¦Χ’Χª Χ§Χ•Χ“',
-  qrCreateFailed: 'ΧΧ Χ”Χ¦ΧΧ—Χ Χ• ΧΧ™Χ™Χ¦Χ¨ ΧΧª Χ”-QR, Χ Χ΅Χ• Χ©Χ•Χ‘.',
-  qrExpired: 'ΧªΧ•Χ§Χ£ Χ”-QR Χ¤Χ’. Χ¨ΧΆΧ Χ Χ• Χ§Χ•Χ“ Χ—Χ“Χ©.',
-  refreshCta: 'Χ¨ΧΆΧ Χ•Χ QR',
-  stampSuccessBanner: 'β… Χ§Χ™Χ‘ΧΧª Χ Χ™Χ§Χ•Χ‘!',
+    'ξφιβιν ΰϊ δχεγ αχετδ λγι μφαεψ πιχεαιν ΰε μξξω δθαδ μτι δϊελπιϊ ωδςρχ αεηψ.',
+  qrLoading: 'θεςο QR',
+  qrIdle: 'μηφε ςμ ψςπεο QR μδφβϊ χεγ',
+  qrCreateFailed: 'μΰ δφμηπε μιιφψ ΰϊ δ-QR, πρε ωεα.',
+  qrExpired: 'ϊεχσ δ-QR τβ. ψςππε χεγ ηγω.',
+  refreshCta: 'ψςπεο QR',
+  stampSuccessBanner: '? χιαμϊ πιχεα!',
 };
 
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
@@ -257,22 +258,7 @@ export default function CustomerShowQrScreen() {
             title={TEXT.title}
             subtitle={TEXT.subtitle}
             subtitleStyle={styles.pageSubtitle}
-            titleAccessory={
-              <Pressable
-                onPress={() =>
-                  router.replace('/(authenticated)/(customer)/wallet')
-                }
-                hitSlop={8}
-                style={({ pressed }) => [
-                  styles.closeButton,
-                  pressed ? styles.closeButtonPressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Close QR screen"
-              >
-                <Ionicons name="close" size={22} color="#1A2B4A" />
-              </Pressable>
-            }
+            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(customer)/wallet')} />}
           />
         </View>
 
