@@ -1,9 +1,9 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { Doc, Id } from './_generated/dataModel';
 import {
+  type BusinessCapability,
   canRoleAccessCapability,
   getRoleCapabilities,
-  type BusinessCapability,
 } from './lib/staffPermissions';
 
 type StaffRole = 'owner' | 'manager' | 'staff';
@@ -215,11 +215,8 @@ export async function requireActorIsBusinessOwnerOrManager(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const { actor, membership, staffRole } = await requireActorHasBusinessCapability(
-    ctx,
-    businessId,
-    'manage_team'
-  );
+  const { actor, membership, staffRole } =
+    await requireActorHasBusinessCapability(ctx, businessId, 'manage_team');
   return { actor, membership, staffRole };
 }
 

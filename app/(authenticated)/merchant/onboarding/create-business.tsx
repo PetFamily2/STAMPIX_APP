@@ -407,7 +407,7 @@ export default function CreateBusinessScreen() {
         </View>
 
         <ScrollView
-        stickyHeaderIndices={[0]}
+          stickyHeaderIndices={[0]}
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"

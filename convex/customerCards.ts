@@ -3,13 +3,13 @@ import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
   buildCustomerLifecycleSnapshotForBusiness,
-  getCustomerLifecycleStatus,
   getCustomerStateAndTier,
 } from './customerLifecycle';
 import {
   requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
 } from './guards';
+import { mapCustomerStateToLegacyLifecycleStatus } from './lib/customerIntelligence';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
@@ -392,13 +392,10 @@ export const getBusinessCustomerCard = query({
       visitCount,
       rewardsRedeemedCount,
     });
-    const lifecycleStatus = getCustomerLifecycleStatus({
-      joinedDaysAgo,
-      lastVisitDaysAgo,
-      rewardProgressRatio: primaryRow.rewardProgressRatio,
-      visitCount,
-      rewardsRedeemedCount,
-    });
+    const lifecycleStatus = mapCustomerStateToLegacyLifecycleStatus(
+      customerState,
+      customerValueTier
+    );
 
     const joinedTimeline = programRowsWithMeta.map((row) => ({
       id: `join-${String(row.membershipId)}`,

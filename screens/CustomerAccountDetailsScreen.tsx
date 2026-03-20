@@ -17,9 +17,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -252,9 +251,7 @@ export default function CustomerAccountDetailsScreen() {
         >
           <BusinessScreenHeader
             title={TEXT.title}
-            titleAccessory={
-              <BackButton onPress={() => router.back()} />
-            }
+            titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 

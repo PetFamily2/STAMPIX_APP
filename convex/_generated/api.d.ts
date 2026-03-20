@@ -33,8 +33,10 @@ import type * as migrations_backfillBusinessSubscriptions from "../migrations/ba
 import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/backfillLoyaltyProgramLifecycle.js";
 import type * as migrations_backfillUserSubscriptionPlans from "../migrations/backfillUserSubscriptionPlans.js";
 import type * as migrations_cutoverLegacyRetentionActions from "../migrations/cutoverLegacyRetentionActions.js";
+import type * as migrations_migrateLegacySegmentCustomerStatus from "../migrations/migrateLegacySegmentCustomerStatus.js";
 import type * as migrations_migrateRetentionActionLimitModel from "../migrations/migrateRetentionActionLimitModel.js";
 import type * as migrations_migrateToOnboardingFlags from "../migrations/migrateToOnboardingFlags.js";
+import type * as migrations_postCutoverValidation from "../migrations/postCutoverValidation.js";
 import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -78,8 +80,10 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfillLoyaltyProgramLifecycle": typeof migrations_backfillLoyaltyProgramLifecycle;
   "migrations/backfillUserSubscriptionPlans": typeof migrations_backfillUserSubscriptionPlans;
   "migrations/cutoverLegacyRetentionActions": typeof migrations_cutoverLegacyRetentionActions;
+  "migrations/migrateLegacySegmentCustomerStatus": typeof migrations_migrateLegacySegmentCustomerStatus;
   "migrations/migrateRetentionActionLimitModel": typeof migrations_migrateRetentionActionLimitModel;
   "migrations/migrateToOnboardingFlags": typeof migrations_migrateToOnboardingFlags;
+  "migrations/postCutoverValidation": typeof migrations_postCutoverValidation;
   onboarding: typeof onboarding;
   otp: typeof otp;
   pushNotifications: typeof pushNotifications;

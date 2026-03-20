@@ -12,7 +12,6 @@ export type SegmentField =
   | 'lastVisitDaysAgo'
   | 'visitCount'
   | 'loyaltyProgress'
-  | 'customerStatus'
   | 'customerState'
   | 'customerValueTier'
   | 'joinedDaysAgo';
@@ -31,7 +30,6 @@ const ALLOWED_FIELDS = new Set<SegmentField>([
   'lastVisitDaysAgo',
   'visitCount',
   'loyaltyProgress',
-  'customerStatus',
   'customerState',
   'customerValueTier',
   'joinedDaysAgo',
@@ -43,7 +41,7 @@ const ALLOWED_OPERATORS = new Set<SegmentOperator>([
   'lte',
   'eq',
 ]);
-const ALLOWED_CUSTOMER_STATUSES = new Set([
+const ALLOWED_LEGACY_CUSTOMER_STATUSES = new Set([
   'NEW_CUSTOMER',
   'ACTIVE',
   'AT_RISK',
@@ -58,6 +56,43 @@ const ALLOWED_CUSTOMER_STATES = new Set([
   'CLOSE_TO_REWARD',
 ]);
 const ALLOWED_CUSTOMER_VALUE_TIERS = new Set(['REGULAR', 'LOYAL', 'VIP']);
+
+function mapLegacyStatusToCondition(status: string): SegmentCondition | null {
+  switch (status) {
+    case 'NEW_CUSTOMER':
+      return {
+        field: 'customerState',
+        operator: 'eq',
+        value: 'NEW',
+      };
+    case 'AT_RISK':
+      return {
+        field: 'customerState',
+        operator: 'eq',
+        value: 'NEEDS_WINBACK',
+      };
+    case 'NEAR_REWARD':
+      return {
+        field: 'customerState',
+        operator: 'eq',
+        value: 'CLOSE_TO_REWARD',
+      };
+    case 'VIP':
+      return {
+        field: 'customerValueTier',
+        operator: 'eq',
+        value: 'VIP',
+      };
+    case 'ACTIVE':
+      return {
+        field: 'customerState',
+        operator: 'eq',
+        value: 'ACTIVE',
+      };
+    default:
+      return null;
+  }
+}
 
 function normalizeSegmentName(value: string) {
   const normalized = value.trim().replace(/\s+/g, ' ');
@@ -90,27 +125,24 @@ export function normalizeSegmentRules(rules: unknown): SegmentRules {
       const operator = candidate.operator;
       const value = candidate.value;
 
+      if (typeof field !== 'string' || typeof operator !== 'string') {
+        return null;
+      }
+
       if (
-        typeof field !== 'string' ||
-        typeof operator !== 'string' ||
+        field === 'customerStatus' &&
+        operator === 'eq' &&
+        typeof value === 'string' &&
+        ALLOWED_LEGACY_CUSTOMER_STATUSES.has(value)
+      ) {
+        return mapLegacyStatusToCondition(value);
+      }
+
+      if (
         !ALLOWED_FIELDS.has(field as SegmentField) ||
         !ALLOWED_OPERATORS.has(operator as SegmentOperator)
       ) {
         return null;
-      }
-
-      if (field === 'customerStatus') {
-        if (
-          typeof value !== 'string' ||
-          !ALLOWED_CUSTOMER_STATUSES.has(value)
-        ) {
-          return null;
-        }
-        return {
-          field: field as SegmentField,
-          operator: operator as SegmentOperator,
-          value,
-        };
       }
 
       if (field === 'customerState') {
@@ -208,12 +240,6 @@ export function applySegmentRules(
         case 'joinedDaysAgo':
           return compareValues(
             customer.joinedDaysAgo,
-            condition.operator,
-            condition.value
-          );
-        case 'customerStatus':
-          return compareValues(
-            customer.lifecycleStatus,
             condition.operator,
             condition.value
           );

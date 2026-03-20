@@ -96,7 +96,8 @@ export default function QrScanner({
         <View style={styles.permissionFallback}>
           <ActivityIndicator color="#2F6BFF" />
           <Text style={styles.permissionTitle}>
-            ׳˜׳•׳¢׳ ׳”׳¨׳©׳׳•׳× ׳׳¦׳׳׳”
+            \u05d8\u05d5\u05e2\u05df \u05d4\u05e8\u05e9\u05d0\u05d5\u05ea
+            \u05de\u05e6\u05dc\u05de\u05d4
           </Text>
         </View>
       );
@@ -105,15 +106,21 @@ export default function QrScanner({
     if (!permission.granted) {
       return (
         <View style={styles.permissionFallback}>
-          <Text style={styles.permissionTitle}>׳׳™׳ ׳”׳¨׳©׳׳× ׳׳¦׳׳׳”</Text>
+          <Text style={styles.permissionTitle}>
+            \u05d0\u05d9\u05df \u05d4\u05e8\u05e9\u05d0\u05ea
+            \u05de\u05e6\u05dc\u05de\u05d4
+          </Text>
           <Text style={styles.permissionText}>
-            ׳‘׳§׳© ׳”׳¨׳©׳׳” ׳›׳“׳™ ׳׳”׳×׳—׳™׳ ׳׳¡׳¨׳•׳§
+            \u05d1\u05e7\u05e9 \u05d4\u05e8\u05e9\u05d0\u05d4 \u05db\u05d3\u05d9
+            \u05dc\u05d4\u05ea\u05d7\u05d9\u05dc \u05dc\u05e1\u05e8\u05d5\u05e7
           </Text>
           <Pressable
             onPress={requestPermission}
             style={styles.permissionButton}
           >
-            <Text style={styles.permissionButtonText}>׳×׳ ׳”׳¨׳©׳׳”</Text>
+            <Text style={styles.permissionButtonText}>
+              \u05ea\u05df \u05d4\u05e8\u05e9\u05d0\u05d4
+            </Text>
           </Pressable>
         </View>
       );
@@ -149,7 +156,7 @@ export default function QrScanner({
             style={styles.tapToResetOverlay}
             onPress={onTapWhileScanned}
             accessibilityRole="button"
-            accessibilityLabel="סרוק שוב"
+            accessibilityLabel="\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1"
           />
         ) : null}
       </View>

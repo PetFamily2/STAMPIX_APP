@@ -85,9 +85,8 @@ export default function BusinessModeCtaCard({
 
   const bizList = sessionContext?.businesses ?? [];
   const manageableBusiness =
-    bizList.find(
-      (business) => canAccessBusinessMode(business.staffRole)
-    ) ?? null;
+    bizList.find((business) => canAccessBusinessMode(business.staffRole)) ??
+    null;
   const activeManagedBusiness =
     (sessionContext?.activeBusinessId
       ? bizList.find(

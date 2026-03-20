@@ -68,6 +68,7 @@ const ISRAEL_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
   hourCycle: 'h23',
 });
+const LEGACY_RETENTION_DISABLED_REASON = 'legacy_retention_disabled';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -536,7 +537,14 @@ export const createRetentionAction = mutation({
   },
   handler: async (ctx, args) => {
     await requireActorIsBusinessOwnerOrManager(ctx, args.businessId);
-    return await createRetentionActionInternal(ctx, args);
+    return {
+      status: 'disabled' as const,
+      reason: LEGACY_RETENTION_DISABLED_REASON,
+      message:
+        'Legacy retention actions are disabled. Use campaign creation and activation in campaigns v2.',
+      targetType: args.targetType,
+      segmentId: args.segmentId ?? null,
+    };
   },
 });
 
@@ -552,7 +560,14 @@ export const sendRetentionAction = mutation({
   },
   handler: async (ctx, args) => {
     await requireActorIsBusinessOwnerOrManager(ctx, args.businessId);
-    return await createRetentionActionInternal(ctx, args);
+    return {
+      status: 'disabled' as const,
+      reason: LEGACY_RETENTION_DISABLED_REASON,
+      message:
+        'Legacy retention send is disabled. Use campaign activation in campaigns v2.',
+      targetType: args.targetType,
+      segmentId: args.segmentId ?? null,
+    };
   },
 });
 
@@ -564,195 +579,27 @@ export const setRetentionActionStatus = mutation({
   },
   handler: async (ctx, { businessId, campaignId, status }) => {
     await requireActorIsBusinessOwnerOrManager(ctx, businessId);
-    const campaign = await getRetentionActionOrThrow(
-      ctx,
-      businessId,
-      campaignId
-    );
-    const now = Date.now();
-
-    if (status === 'active' && (campaign.status ?? 'draft') !== 'active') {
-      if (campaign.isActive === true) {
-        await assertCampaignsNotOverLimit(ctx, businessId);
-      } else {
-        await assertCampaignCapacity(ctx, businessId);
-      }
-      await assertRetentionActionCanBeActivated(ctx, businessId);
-    }
-
-    await ctx.db.patch(campaignId, {
-      status,
-      isActive: status !== 'archived',
-      automationEnabled: status === 'active',
-      archivedAt: status === 'archived' ? now : undefined,
-      updatedAt: now,
-    });
-
-    const activeRetentionActions = await countActiveRetentionActionsForBusiness(
-      ctx,
-      businessId
-    );
-    const entitlements = await getBusinessEntitlementsForBusinessId(
-      ctx,
-      businessId
-    );
-
     return {
       campaignId,
-      status,
-      usage: {
-        activeRetentionActions,
-        limit: entitlements.limits.maxActiveRetentionActions,
-      },
+      status: 'disabled' as const,
+      requestedStatus: status,
+      reason: LEGACY_RETENTION_DISABLED_REASON,
     };
   },
 });
 
 export const runRetentionActionSweepInternal = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    const israelHour = getIsraelHour(now);
-    if (israelHour !== 9) {
-      return {
-        processedCampaigns: 0,
-        targetedCustomers: 0,
-        inAppMessages: 0,
-        pushSent: 0,
-        pushFailed: 0,
-        pushSkipped: 0,
-        dedupedUsers: 0,
-        reason: 'outside_window',
-      };
-    }
-
-    const campaigns = await ctx.db
-      .query('campaigns')
-      .withIndex('by_automationEnabled', (q: any) =>
-        q.eq('automationEnabled', true)
-      )
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('type'), 'retention_action'),
-          q.eq(q.field('status'), 'active'),
-          q.eq(q.field('isActive'), true)
-        )
-      )
-      .collect();
-
-    let processedCampaigns = 0;
-    let targetedCustomers = 0;
-    let inAppMessages = 0;
-    let pushSent = 0;
-    let pushFailed = 0;
-    let pushSkipped = 0;
-    let dedupedUsers = 0;
-    const overLimitByBusiness = new Map<string, boolean>();
-
-    for (const campaign of campaigns) {
-      if (isLegacyRetentionAutomationDisabled(campaign.sourceContext)) {
-        continue;
-      }
-
-      const businessKey = String(campaign.businessId);
-      let isBlocked = overLimitByBusiness.get(businessKey);
-      if (isBlocked === undefined) {
-        try {
-          await assertCampaignsNotOverLimit(ctx, campaign.businessId);
-          isBlocked = false;
-        } catch (error) {
-          if (!isCampaignLimitReachedError(error)) {
-            throw error;
-          }
-          isBlocked = true;
-        }
-        overLimitByBusiness.set(businessKey, isBlocked);
-      }
-      if (isBlocked) {
-        continue;
-      }
-
-      const target = parseRetentionTargetFromRules(campaign.rules);
-      if (!target) {
-        continue;
-      }
-
-      const audience = await resolveAudience(ctx, campaign.businessId, target);
-      const channels = normalizeChannels(
-        Array.isArray(campaign.channels) ? campaign.channels : undefined
-      );
-      processedCampaigns += 1;
-
-      for (const customer of audience.customers) {
-        const existing = await ctx.db
-          .query('messageLog')
-          .withIndex('by_campaignId_toUserId', (q: any) =>
-            q.eq('campaignId', campaign._id).eq('toUserId', customer.customerId)
-          )
-          .first();
-
-        if (existing) {
-          dedupedUsers += 1;
-          continue;
-        }
-
-        targetedCustomers += 1;
-        let hasMessageLogEntry = false;
-
-        if (channels.includes('in_app')) {
-          await ctx.db.insert('messageLog', {
-            businessId: campaign.businessId,
-            campaignId: campaign._id,
-            toUserId: customer.customerId,
-            channel: 'in_app',
-            status: 'sent',
-            createdAt: now,
-          });
-          hasMessageLogEntry = true;
-          inAppMessages += 1;
-        }
-
-        if (channels.includes('push')) {
-          const pushResult = await sendPushNotificationToUser(ctx, {
-            businessId: campaign.businessId,
-            toUserId: customer.customerId,
-            title: campaign.messageTitle ?? campaign.title ?? 'STAMPAIX',
-            body: campaign.messageBody ?? '',
-            campaignId: campaign._id,
-          });
-          pushSent += pushResult.sent;
-          pushFailed += pushResult.failed;
-          pushSkipped += pushResult.skipped;
-
-          if (!hasMessageLogEntry) {
-            const pushLogStatus =
-              pushResult.sent > 0
-                ? 'sent'
-                : pushResult.skipped > 0
-                  ? 'skipped'
-                  : 'failed';
-            await ctx.db.insert('messageLog', {
-              businessId: campaign.businessId,
-              campaignId: campaign._id,
-              toUserId: customer.customerId,
-              channel: 'push',
-              status: pushLogStatus,
-              createdAt: now,
-            });
-          }
-        }
-      }
-    }
-
+  handler: async () => {
     return {
-      processedCampaigns,
-      targetedCustomers,
-      inAppMessages,
-      pushSent,
-      pushFailed,
-      pushSkipped,
-      dedupedUsers,
-      reason: 'ok',
+      processedCampaigns: 0,
+      targetedCustomers: 0,
+      inAppMessages: 0,
+      pushSent: 0,
+      pushFailed: 0,
+      pushSkipped: 0,
+      dedupedUsers: 0,
+      reason: LEGACY_RETENTION_DISABLED_REASON,
     };
   },
 });

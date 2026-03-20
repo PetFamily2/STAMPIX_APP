@@ -15,9 +15,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -439,7 +438,13 @@ export function CampaignsHubContent() {
           <BusinessScreenHeader
             title="קמפיינים"
             subtitle="ניהול קמפיינים קלאסיים לעסק"
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+              />
+            }
           />
         </StickyScrollHeader>
 

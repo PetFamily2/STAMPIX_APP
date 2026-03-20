@@ -1010,7 +1010,7 @@ export default function BusinessSettingsProfileScreen() {
                     >
                       <Pressable onPress={() => removeDraftTag(tag)}>
                         <Text className="text-xs font-black text-[#DC2626]">
-                          ×
+                          ?
                         </Text>
                       </Pressable>
                       <Text className="text-xs font-semibold text-[#1E293B]">

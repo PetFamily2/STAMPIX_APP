@@ -16,9 +16,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
@@ -410,41 +409,41 @@ export default function ProgramDetailsScreen() {
         }}
       >
         <View className="bg-[#E9F0FF]">
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="פרטי כרטיסיה"
-            titleAccessory={<BackButton onPress={() => router.back()} />}
-          />
-        </StickyScrollHeader>
-
-        {details === undefined ? (
-          <View className="mt-6 items-center justify-center">
-            <ActivityIndicator color="#2F6BFF" />
-          </View>
-        ) : (
-          <View className="mt-2 bg-[#E9F0FF] pb-3">
-            <ProgramCustomerCardPreview
-              businessName={selectedBusiness?.name ?? 'העסק שלך'}
-              businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-              programImageUrl={previewImageUrl}
-              title={title || details.title}
-              rewardName={rewardName || details.rewardName}
-              maxStamps={parsedMaxStamps || details.maxStamps}
-              previewCurrentStamps={Math.min(
-                3,
-                Math.max(1, parsedMaxStamps || details.maxStamps)
-              )}
-              cardThemeId={cardThemeId}
-              stampShape={stampShape}
-              stampIcon={stampIcon || details.stampIcon}
-              status={lifecycle === 'archived' ? 'archived' : 'default'}
-              variant="hero"
+          <StickyScrollHeader
+            topPadding={(insets.top || 0) + 12}
+            backgroundColor="#E9F0FF"
+          >
+            <BusinessScreenHeader
+              title="פרטי כרטיסיה"
+              titleAccessory={<BackButton onPress={() => router.back()} />}
             />
-          </View>
-        )}
+          </StickyScrollHeader>
+
+          {details === undefined ? (
+            <View className="mt-6 items-center justify-center">
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View className="mt-2 bg-[#E9F0FF] pb-3">
+              <ProgramCustomerCardPreview
+                businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                programImageUrl={previewImageUrl}
+                title={title || details.title}
+                rewardName={rewardName || details.rewardName}
+                maxStamps={parsedMaxStamps || details.maxStamps}
+                previewCurrentStamps={Math.min(
+                  3,
+                  Math.max(1, parsedMaxStamps || details.maxStamps)
+                )}
+                cardThemeId={cardThemeId}
+                stampShape={stampShape}
+                stampIcon={stampIcon || details.stampIcon}
+                status={lifecycle === 'archived' ? 'archived' : 'default'}
+                variant="hero"
+              />
+            </View>
+          )}
         </View>
 
         {details !== undefined ? (

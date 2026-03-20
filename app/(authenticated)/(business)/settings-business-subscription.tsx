@@ -15,9 +15,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
@@ -192,7 +191,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     }
     if (retentionStatus.isNearLimit || retentionStatus.isAtLimit) {
       warnings.push(
-        `שימור ${formatLimit(
+        `קמפיינים חוזרים ${formatLimit(
           retentionStatus.currentValue,
           retentionStatus.limitValue
         )}`
@@ -337,7 +336,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       hint: 'בעסק',
     },
     {
-      label: 'שימור',
+      label: 'קמפיינים חוזרים',
       value: formatLimit(
         usageSummary?.activeRetentionActionsUsed ?? 0,
         retentionStatus.limitValue

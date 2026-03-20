@@ -364,7 +364,9 @@ export default function CardDetailsScreen() {
                 subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
                 titleAccessory={
                   <BackButton
-                    onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                    onPress={() =>
+                      safeBack('/(authenticated)/(customer)/wallet')
+                    }
                   />
                 }
               />

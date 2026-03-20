@@ -7,9 +7,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -98,29 +97,29 @@ type TeamHistoryRow = {
 };
 
 const ROLE_LABEL: Record<StaffRole, string> = {
-  owner: '�����',
-  manager: '����',
-  staff: '����',
+  owner: '?????',
+  manager: '????',
+  staff: '????',
 };
 
 const STATUS_LABEL: Record<StaffStatus, string> = {
-  active: '����',
-  suspended: '������',
-  removed: '����',
+  active: '????',
+  suspended: '?????',
+  removed: '????',
 };
 
 const EVENT_LABEL: Record<TeamHistoryRow['eventType'], string> = {
-  invite_created: '����� �����',
-  invite_cancelled: '����� �����',
-  invite_accepted: '����� ������',
-  invite_expired: '����� ���',
-  role_changed: '����� �����',
-  suspended: '���� �����',
-  reactivated: '���� ����� ����',
-  removed: '���� ����',
-  auto_disabled_by_plan: '���� ����� ������',
-  auto_invites_cancelled_by_plan: '������ ����� ��������',
-  reinvited_after_removal: '���� ��� ���� ����',
+  invite_created: '????? ?????',
+  invite_cancelled: '????? ?????',
+  invite_accepted: '????? ??????',
+  invite_expired: '????? ???',
+  role_changed: '????? ?????',
+  suspended: '???? ?????',
+  reactivated: '???? ????? ????',
+  removed: '???? ????',
+  auto_disabled_by_plan: '????? ???? ???????',
+  auto_invites_cancelled_by_plan: '????? ?????? ???? ??????',
+  reinvited_after_removal: '????? ???? ???? ????',
 };
 
 function formatDate(timestamp: number) {
@@ -146,43 +145,41 @@ function describeHistoryEvent(row: TeamHistoryRow) {
     case 'invite_created': {
       const role = row.toRole ?? row.inviteTargetRole;
       return role
-        ? `����� ����� ������ ${ROLE_LABEL[role]}`
-        : '����� ����� ����';
+        ? `????? ????? ?????? ${ROLE_LABEL[role]}`
+        : '????? ????? ?????';
     }
     case 'invite_cancelled':
-      return '����� ����� �����.';
+      return '????? ?????.';
     case 'invite_accepted': {
       const role = row.toRole ?? row.inviteTargetRole;
-      return role
-        ? `������ ������ ������ ${ROLE_LABEL[role]}`
-        : '������ ������.';
+      return role ? `????? ?????? ?????? ${ROLE_LABEL[role]}` : '????? ??????.';
     }
     case 'invite_expired':
-      return '����� ��� ��� ����� ��� ������.';
+      return '????? ??? ??? ???? ???? ???? ????.';
     case 'role_changed': {
       if (row.fromRole && row.toRole) {
-        return `����� ���� �-${ROLE_LABEL[row.fromRole]} �-${ROLE_LABEL[row.toRole]}`;
+        return `????? ????? ?-${ROLE_LABEL[row.fromRole]} ?-${ROLE_LABEL[row.toRole]}`;
       }
-      return '����� ���� �����.';
+      return '????? ?????.';
     }
     case 'suspended':
-      return '����� ����� ���� ������.';
+      return '????? ????? ?? ??? ????.';
     case 'reactivated':
-      return '����� ����� ���� ����.';
+      return '????? ????? ????.';
     case 'removed':
-      return '����� ���� ������.';
+      return '????? ???? ??????.';
     case 'reinvited_after_removal': {
       if (row.fromRole && row.toRole) {
-        return `��� �����: ${ROLE_LABEL[row.fromRole]} �-${ROLE_LABEL[row.toRole]}`;
+        return `????? ????: ${ROLE_LABEL[row.fromRole]} ?-${ROLE_LABEL[row.toRole]}`;
       }
-      return '���� ��� ����� ���� ����.';
+      return '????? ???? ???? ???? ??????.';
     }
     case 'auto_disabled_by_plan':
-      return '���� ����� ������ ���� ��� �����.';
+      return '????? ????? ?????? ??????? ??????.';
     case 'auto_invites_cancelled_by_plan':
-      return '������ ������� ����� ���� ��� �����.';
+      return '?????? ?????? ????? ???? ????? ??????.';
     default:
-      return '����� ���� �����.';
+      return '????? ????? ?????.';
   }
 }
 
@@ -289,7 +286,7 @@ export default function BusinessTeamManagementScreen() {
       return;
     }
 
-    setInviteError('����� �����.');
+    setInviteError('????? ?????.');
   };
 
   const handleCancelInvite = async (inviteId: string) => {
@@ -398,15 +395,15 @@ export default function BusinessTeamManagementScreen() {
 
   const managementRows = useMemo(() => {
     const rows: Array<{ label: string; value: string }> = [
-      { label: '������ ������', value: String(activeRows.length) },
-      { label: '������ ������', value: String(suspendedRows.length) },
-      { label: '������ ������', value: String(removedRows.length) },
-      { label: '������ �������', value: String(pendingInvites.length) },
+      { label: '?????? ??????', value: String(activeRows.length) },
+      { label: '?????? ??????', value: String(suspendedRows.length) },
+      { label: '?????? ??????', value: String(removedRows.length) },
+      { label: '?????? ???????', value: String(pendingInvites.length) },
     ];
 
     if (isOwner) {
       rows.push({
-        label: '������ ������',
+        label: '?????? ??????',
         value: String(
           activeRows.filter((row) => row.staffRole === 'manager').length
         ),
@@ -414,7 +411,7 @@ export default function BusinessTeamManagementScreen() {
     }
 
     rows.push({
-      label: '���� ������',
+      label: '?????? ??????',
       value: summary ? `${summary.usedSeats}/${summary.maxSeats}` : '--',
     });
 
@@ -500,10 +497,10 @@ export default function BusinessTeamManagementScreen() {
             ) : null}
             <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
               {member.staffRole === 'owner'
-                ? '��� ����'
+                ? '???/? ???'
                 : section === 'removed' && member.removedAt
-                  ? `���� �-${formatDate(member.removedAt)}`
-                  : `����� �-${formatDate(member.joinedAt)}`}
+                  ? `???? ?-${formatDate(member.removedAt)}`
+                  : `????? ?-${formatDate(member.joinedAt)}`}
             </Text>
           </View>
         </View>
@@ -522,7 +519,7 @@ export default function BusinessTeamManagementScreen() {
           {member.isSelf ? (
             <View className="rounded-full bg-[#E2E8F0] px-3 py-1">
               <Text className="text-[11px] font-bold text-[#475569]">
-                �� ���
+                ?? ???
               </Text>
             </View>
           ) : null}
@@ -532,7 +529,7 @@ export default function BusinessTeamManagementScreen() {
           <View className="mt-3 flex-row-reverse flex-wrap gap-2">
             {isOwner && member.staffRole === 'staff'
               ? renderActionButton(
-                  '��� �����',
+                  '??? ?????',
                   () => {
                     void handleChangeRole(member.staffId, 'manager');
                   },
@@ -543,7 +540,7 @@ export default function BusinessTeamManagementScreen() {
 
             {isOwner && member.staffRole === 'manager'
               ? renderActionButton(
-                  '���� �����',
+                  '???? ?????',
                   () => {
                     void handleChangeRole(member.staffId, 'staff');
                   },
@@ -554,7 +551,7 @@ export default function BusinessTeamManagementScreen() {
 
             {section === 'active'
               ? renderActionButton(
-                  '����',
+                  '????',
                   () => {
                     void handleSuspend(member.staffId);
                   },
@@ -562,7 +559,7 @@ export default function BusinessTeamManagementScreen() {
                   isBusy || Boolean(busyInviteId)
                 )
               : renderActionButton(
-                  '���� ����',
+                  '???? ????',
                   () => {
                     void handleReactivate(member.staffId);
                   },
@@ -571,7 +568,7 @@ export default function BusinessTeamManagementScreen() {
                 )}
 
             {renderActionButton(
-              '���',
+              '???',
               () => {
                 void handleRemove(member.staffId);
               },
@@ -599,9 +596,15 @@ export default function BusinessTeamManagementScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="����� ������"
-            subtitle="����� ������, ������� ������� ����"
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
+            title="????? ??????"
+            subtitle="????? ??????, ?????? ?????????? ?????"
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+              />
+            }
           />
         </StickyScrollHeader>
 
@@ -625,7 +628,7 @@ export default function BusinessTeamManagementScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ����� �����
+              ???? ????
             </Text>
             <View className="mt-3">
               {managementRows.map((row, index) => (
@@ -659,7 +662,7 @@ export default function BusinessTeamManagementScreen() {
           >
             <View className={`${tw.flexRow} items-center justify-center gap-2`}>
               <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text className="text-sm font-black text-white">���� ����</Text>
+              <Text className="text-sm font-black text-white">????? ????</Text>
             </View>
           </TouchableOpacity>
 
@@ -681,7 +684,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ������ ������ ({activeRows.length})
+                ?????? ?????? ({activeRows.length})
               </Text>
               <Ionicons
                 name={isActiveExpanded ? 'chevron-up' : 'chevron-down'}
@@ -694,7 +697,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {activeRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ��� ������ ������.
+                    ??? ?????? ??????.
                   </Text>
                 ) : (
                   activeRows.map((member) => renderStaffCard(member, 'active'))
@@ -711,7 +714,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ������ ������ ({suspendedRows.length})
+                ?????? ?????? ({suspendedRows.length})
               </Text>
               <Ionicons
                 name={isSuspendedExpanded ? 'chevron-up' : 'chevron-down'}
@@ -724,7 +727,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {suspendedRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ��� ������ ������.
+                    ??? ?????? ??????.
                   </Text>
                 ) : (
                   suspendedRows.map((member) =>
@@ -743,7 +746,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ��������� ������ ({removedRows.length})
+                ?????? ?????? ({removedRows.length})
               </Text>
               <Ionicons
                 name={isRemovedExpanded ? 'chevron-up' : 'chevron-down'}
@@ -756,7 +759,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {removedRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ��� ������ ������ �����.
+                    ??? ?????? ?????? ?????.
                   </Text>
                 ) : (
                   removedRows.map((member) =>
@@ -775,7 +778,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ������ ������� ({pendingInvites.length})
+                ?????? ??????? ({pendingInvites.length})
               </Text>
               <Ionicons
                 name={isPendingExpanded ? 'chevron-up' : 'chevron-down'}
@@ -788,7 +791,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {pendingInvites.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ��� ������ �������.
+                    ??? ?????? ???????.
                   </Text>
                 ) : (
                   pendingInvites.map((invite) => {
@@ -797,7 +800,7 @@ export default function BusinessTeamManagementScreen() {
                       invite.invitedDisplayName ??
                       invite.invitedResolvedEmail ??
                       invite.invitedEmail ??
-                      '�����';
+                      '??? ??';
 
                     return (
                       <View
@@ -836,7 +839,9 @@ export default function BusinessTeamManagementScreen() {
                             <Text
                               className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                             >
-                              ����� �-{formatDate(invite.createdAt)} � �� ����{' '}
+                              {'\u05e0\u05d5\u05e6\u05e8\u05d4 \u05d1-'}
+                              {formatDate(invite.createdAt)}
+                              {' \u2022 \u05e2\u05d3 '}
                               {formatDate(invite.expiresAt)}
                             </Text>
                           </View>
@@ -846,19 +851,19 @@ export default function BusinessTeamManagementScreen() {
                           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                             <Text className="text-[11px] font-bold text-[#1D4ED8]">
                               {invite.targetRole === 'manager'
-                                ? '����'
-                                : '����'}
+                                ? '????'
+                                : '????'}
                             </Text>
                           </View>
                           <View className="rounded-full bg-amber-100 px-3 py-1">
                             <Text className="text-[11px] font-bold text-amber-700">
-                              ����� ������
+                              ????? ??????
                             </Text>
                           </View>
                         </View>
 
                         {renderActionButton(
-                          '��� �����',
+                          '??? ?????',
                           () => {
                             void handleCancelInvite(invite.inviteId);
                           },
@@ -881,7 +886,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ���� ������ ������ ({history.length})
+                ???? ?????? ???? ({history.length})
               </Text>
               <Ionicons
                 name={isActivityExpanded ? 'chevron-up' : 'chevron-down'}
@@ -894,7 +899,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {history.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ��� ������ ������ �����.
+                    ??? ??????? ?????????? ?????.
                   </Text>
                 ) : (
                   history.map((row) => (
@@ -924,21 +929,23 @@ export default function BusinessTeamManagementScreen() {
                       <Text
                         className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                       >
-                        ���:{' '}
-                        {row.targetDisplayName ?? row.targetEmail ?? '�� ����'}
+                        ???:{' '}
+                        {row.targetDisplayName ?? row.targetEmail ?? '?? ????'}
                       </Text>
 
                       <Text
                         className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                       >
-                        ���� �� ���: {row.actorDisplayName ?? '�����'}
+                        ???? ?? ???: {row.actorDisplayName ?? '?????'}
                       </Text>
 
                       {row.fromStatus && row.toStatus ? (
                         <Text
                           className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                         >
-                          �����: {STATUS_LABEL[row.fromStatus]} ?{' '}
+                          \u05e1\u05d8\u05d8\u05d5\u05e1:{' '}
+                          {STATUS_LABEL[row.fromStatus]}
+                          {' \u2192 '}
                           {STATUS_LABEL[row.toStatus]}
                         </Text>
                       ) : null}
@@ -947,7 +954,9 @@ export default function BusinessTeamManagementScreen() {
                         <Text
                           className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                         >
-                          �����: {ROLE_LABEL[row.fromRole]} ?{' '}
+                          \u05ea\u05e4\u05e7\u05d9\u05d3:{' '}
+                          {ROLE_LABEL[row.fromRole]}
+                          {' \u2192 '}
                           {ROLE_LABEL[row.toRole]}
                         </Text>
                       ) : null}

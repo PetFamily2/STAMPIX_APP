@@ -66,9 +66,17 @@ describe('analytics traffic strength engine', () => {
 
       for (let visitIndex = 0; visitIndex < visits; visitIndex += 1) {
         const hour =
-          weekdayIndex === 0 ? 9 : weekdayIndex === 2 ? 15 : visitIndex % 2 === 0 ? 10 : 18;
+          weekdayIndex === 0
+            ? 9
+            : weekdayIndex === 2
+              ? 15
+              : visitIndex % 2 === 0
+                ? 10
+                : 18;
         events.push(
-          buildVisitEvent(dayStart + hour * 60 * 60 * 1000 + visitIndex * 5 * 60 * 1000)
+          buildVisitEvent(
+            dayStart + hour * 60 * 60 * 1000 + visitIndex * 5 * 60 * 1000
+          )
         );
       }
     }

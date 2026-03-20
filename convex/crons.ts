@@ -10,12 +10,6 @@ crons.hourly(
   internal.campaigns.runAutomationSweepInternal
 );
 
-crons.hourly(
-  'retention action sweep hourly',
-  { minuteUTC: 0 },
-  internal.retention.runRetentionActionSweepInternal
-);
-
 crons.interval(
   'ai recommendation sweep every 12 hours',
   { hours: 12 },

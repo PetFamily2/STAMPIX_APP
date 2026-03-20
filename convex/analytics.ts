@@ -193,7 +193,9 @@ function classifyThreshold(values: number[]) {
   };
 }
 
-export function classifyTrafficValues(values: number[]): TrafficStrengthClass[] {
+export function classifyTrafficValues(
+  values: number[]
+): TrafficStrengthClass[] {
   if (!Array.isArray(values) || values.length === 0) {
     return [];
   }
@@ -209,10 +211,9 @@ export function classifyTrafficValues(values: number[]): TrafficStrengthClass[] 
   });
 }
 
-function selectTrafficExtremes<T extends { visits: number; classification: TrafficStrengthClass }>(
-  buckets: T[],
-  classification: 'strong' | 'weak'
-) {
+function selectTrafficExtremes<
+  T extends { visits: number; classification: TrafficStrengthClass },
+>(buckets: T[], classification: 'strong' | 'weak') {
   return buckets
     .filter((bucket) => bucket.classification === classification)
     .sort((left, right) => {
@@ -343,7 +344,9 @@ async function collectBusinessActivity(
   const now = Date.now();
   const dailyWindowStart = startOfUTCDay(now - (DAYS_TO_SHOW - 1) * DAY_MS);
   const weeklyWindowStart = startOfUTCWeek(now - (WEEKS_TO_SHOW - 1) * WEEK_MS);
-  const trafficWindowStart = startOfUTCDay(now - (TRAFFIC_WINDOW_DAYS - 1) * DAY_MS);
+  const trafficWindowStart = startOfUTCDay(
+    now - (TRAFFIC_WINDOW_DAYS - 1) * DAY_MS
+  );
   const earliestTimestamp = Math.min(
     dailyWindowStart,
     weeklyWindowStart,

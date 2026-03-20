@@ -555,7 +555,7 @@ export default function MerchantDashboardScreen() {
       return { label: 'קמפיינים', status: campaignsLimit };
     }
     if (retentionLimit.isAtLimit) {
-      return { label: 'פעולות שימור', status: retentionLimit };
+      return { label: 'קמפיינים חוזרים', status: retentionLimit };
     }
     if (aiExecutionsLimit.isAtLimit) {
       return { label: 'AI חודשי', status: aiExecutionsLimit };
@@ -580,7 +580,7 @@ export default function MerchantDashboardScreen() {
       return { label: 'קמפיינים', status: campaignsLimit };
     }
     if (retentionLimit.isNearLimit) {
-      return { label: 'פעולות שימור', status: retentionLimit };
+      return { label: 'קמפיינים חוזרים', status: retentionLimit };
     }
     if (aiExecutionsLimit.isNearLimit) {
       return { label: 'AI חודשי', status: aiExecutionsLimit };
@@ -1532,7 +1532,7 @@ export default function MerchantDashboardScreen() {
                 תמונת לקוחות חכמה זמינה במסלול מתקדם
               </Text>
               <Text className={`mt-1 text-xs text-[#475569] ${tw.textStart}`}>
-                שדרוג יפתח סטטוסים, תובנות ומדדי סיכון בזמן אמת.
+                שדרוג יפתח customer state, value tier ותובנות בזמן אמת.
               </Text>
               <TouchableOpacity
                 onPress={openSmartUpgrade}

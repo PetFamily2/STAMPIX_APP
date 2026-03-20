@@ -32,6 +32,13 @@ const DEFAULT_PLAN_STATUS: Record<SubscriptionPlan, SubscriptionPlanStatus> = {
 const NAME_MAX_LENGTH = 60;
 const PHONE_MAX_LENGTH = 24;
 
+function assertCanonicalSubscriptionPlan(plan: string) {
+  if (plan === 'starter' || plan === 'pro' || plan === 'premium') {
+    return;
+  }
+  throw new Error('INVALID_SUBSCRIPTION_PLAN');
+}
+
 function normalizeUserSubscriptionPlan(
   value: unknown
 ): SubscriptionPlan | undefined {
@@ -108,6 +115,7 @@ async function patchSubscriptionPlan(
     updatedAt?: number;
   }
 ) {
+  assertCanonicalSubscriptionPlan(plan);
   const timestamp = options?.updatedAt ?? Date.now();
   const status = options?.status ?? DEFAULT_PLAN_STATUS[plan];
   await ctx.db.patch(userId, {

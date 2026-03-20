@@ -62,16 +62,16 @@ const REASON_OPTIONS: Array<{ code: ReasonCode; label: string }> = [
 const LEGACY_STATUS_TO_STATE: Record<string, string> = {
   NEW_CUSTOMER: 'חדש',
   ACTIVE: 'פעיל',
-  AT_RISK: 'בסיכון',
-  NEAR_REWARD: 'קרוב להטבה',
+  NEEDS_WINBACK: 'צריך וינבאק',
+  CLOSE_TO_REWARD: 'קרוב להטבה',
   VIP: 'VIP',
 };
 
 const STATUS_COLORS: Record<string, string> = {
   NEW_CUSTOMER: '#0EA5E9',
   ACTIVE: '#334155',
-  AT_RISK: '#DC2626',
-  NEAR_REWARD: '#D97706',
+  NEEDS_WINBACK: '#DC2626',
+  CLOSE_TO_REWARD: '#D97706',
   VIP: '#4338CA',
 };
 void LEGACY_STATUS_TO_STATE;
@@ -105,10 +105,7 @@ const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
   VIP: '#4338CA',
 };
 
-function resolveSummaryState(summary: {
-  customerState?: string | null;
-  lifecycleStatus?: string | null;
-}) {
+function resolveSummaryState(summary: { customerState?: string | null }) {
   const state = summary.customerState;
   if (
     state === 'NEW' ||
@@ -119,22 +116,13 @@ function resolveSummaryState(summary: {
   ) {
     return state;
   }
-  if (summary.lifecycleStatus === 'NEW_CUSTOMER') return 'NEW';
-  if (summary.lifecycleStatus === 'AT_RISK') return 'NEEDS_WINBACK';
-  if (summary.lifecycleStatus === 'NEAR_REWARD') return 'CLOSE_TO_REWARD';
   return 'ACTIVE';
 }
 
-function resolveSummaryTier(summary: {
-  customerValueTier?: string | null;
-  lifecycleStatus?: string | null;
-}) {
+function resolveSummaryTier(summary: { customerValueTier?: string | null }) {
   const tier = summary.customerValueTier;
   if (tier === 'REGULAR' || tier === 'LOYAL' || tier === 'VIP') {
     return tier;
-  }
-  if (summary.lifecycleStatus === 'VIP') {
-    return 'VIP';
   }
   return 'REGULAR';
 }

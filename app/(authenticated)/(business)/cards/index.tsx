@@ -14,8 +14,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -248,6 +248,7 @@ export function LoyaltyCardsHubContent() {
   );
 
   const [isCreating, setIsCreating] = useState(false);
+  const [isDraftCardsExpanded, setIsDraftCardsExpanded] = useState(false);
   const [isArchivedCardsExpanded, setIsArchivedCardsExpanded] = useState(false);
 
   const draftPrograms = useMemo(
@@ -344,7 +345,13 @@ export function LoyaltyCardsHubContent() {
           <BusinessScreenHeader
             title={TEXT.screenTitle}
             subtitle={TEXT.screenSubtitle}
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+              />
+            }
           />
         </StickyScrollHeader>
 
@@ -477,6 +484,9 @@ export function LoyaltyCardsHubContent() {
           businessName={businessDisplayName}
           businessLogoUrl={activeBusiness?.logoUrl ?? null}
           onOpenProgram={openProgramDetails}
+          isCollapsible={true}
+          isExpanded={isDraftCardsExpanded}
+          onToggleExpand={() => setIsDraftCardsExpanded((current) => !current)}
         />
 
         <ProgramListSection

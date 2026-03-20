@@ -85,7 +85,9 @@ const ROLE_CAPABILITIES: Record<StaffRole, BusinessCapabilityMap> = {
   },
 };
 
-export function getRoleCapabilities(staffRole: StaffRole): BusinessCapabilityMap {
+export function getRoleCapabilities(
+  staffRole: StaffRole
+): BusinessCapabilityMap {
   return ROLE_CAPABILITIES[staffRole];
 }
 
@@ -109,8 +111,7 @@ export function resolveBusinessCapabilities(
       capabilities.create_campaigns ?? fallback.create_campaigns,
     edit_campaigns: capabilities.edit_campaigns ?? fallback.edit_campaigns,
     activate_send_campaigns:
-      capabilities.activate_send_campaigns ??
-      fallback.activate_send_campaigns,
+      capabilities.activate_send_campaigns ?? fallback.activate_send_campaigns,
     delete_campaigns:
       capabilities.delete_campaigns ?? fallback.delete_campaigns,
     access_analytics:

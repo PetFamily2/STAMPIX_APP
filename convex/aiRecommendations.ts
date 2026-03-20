@@ -1098,7 +1098,7 @@ function bodyForState(input: {
     case 'LOW_BEHAVIORAL_SIGNAL':
       return 'יש כבר בסיס ראשוני, ועכשיו קמפיין פשוט יעזור להבין מה מניע חזרה של לקוחות.';
     case 'LOW_FEATURE_ADOPTION':
-      return 'יש פעילות ראשונית, אבל עדיין אין מהלך שיווקי שייתן בסיס ברור לשיפור ושימור.';
+      return 'יש פעילות ראשונית, אבל עדיין אין מהלך קמפיין שנותן בסיס ברור לשיפור מתמשך.';
     case 'NO_WELCOME_CAMPAIGN':
       return 'לקוחות חדשים כבר מצטרפים, והודעת קבלת פנים יכולה לעזור לחזק את הביקור השני שלהם.';
     case 'MISSING_NEW_CUSTOMER_FOLLOWUP':

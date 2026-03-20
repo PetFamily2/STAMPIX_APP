@@ -40,7 +40,13 @@ export default defineSchema({
     anniversaryDay: v.optional(v.number()),
     userType: v.optional(v.union(v.literal('free'), v.literal('paid'))),
     subscriptionPlan: v.optional(
-      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
+      v.union(
+        v.literal('starter'),
+        v.literal('pro'),
+        v.literal('premium'),
+        v.literal('free'),
+        v.literal('paid')
+      )
     ),
     subscriptionStatus: v.optional(
       v.union(

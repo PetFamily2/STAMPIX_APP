@@ -13,6 +13,10 @@ import {
   requireCurrentUser,
 } from './guards';
 import {
+  type BusinessCapabilityMap,
+  getRoleCapabilities,
+} from './lib/staffPermissions';
+import {
   assertScanTokenSignature,
   buildScanToken,
   getScanTokenIdentity,
@@ -20,10 +24,6 @@ import {
   parseScanToken,
   type ScanTokenPayload,
 } from './scanTokens';
-import {
-  getRoleCapabilities,
-  type BusinessCapabilityMap,
-} from './lib/staffPermissions';
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;

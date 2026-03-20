@@ -13,9 +13,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -67,7 +66,9 @@ function formatTrafficHighlights(
   if (!items || items.length === 0) {
     return '--';
   }
-  return items.map((item) => `${item.label} (${formatNumber(item.visits)})`).join(', ');
+  return items
+    .map((item) => `${item.label} (${formatNumber(item.visits)})`)
+    .join(', ');
 }
 
 export function ReportsHubContent() {
@@ -176,7 +177,13 @@ export function ReportsHubContent() {
           <BusinessScreenHeader
             title="דוחות"
             subtitle="פעילות העסק, מגמות שימוש וצמיחה"
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+              />
+            }
           />
         </StickyScrollHeader>
 

@@ -140,7 +140,8 @@ export function UpgradeModal({
   }, [planCatalogQuery]);
 
   const reasonCopy =
-    PLAN_REASON_COPY[reason] ?? 'שדרוג פותח יותר יכולות ניהול ושימור לקוחות.';
+    PLAN_REASON_COPY[reason] ??
+    'שדרוג פותח יותר יכולות ניהול קמפיינים ופעילות לקוחות.';
   const featureAreaLabel = getUpgradeAreaLabel(featureKey);
   const isBillingLive = PAYMENT_SYSTEM_ENABLED && isConfigured && !isExpoGo;
 

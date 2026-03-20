@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import {
   type BottomTabNavigationProp,
   useBottomTabBarHeight,
@@ -22,8 +21,8 @@ import {
 } from 'react-native-safe-area-context';
 
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -31,16 +30,21 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 
 const TEXT = {
-  title: 'ה-QR שלי',
-  subtitle: 'קוד לקוח אישי אחד לכל העסקים',
+  title: '\u05d4-QR \u05e9\u05dc\u05d9',
+  subtitle:
+    '\u05e7\u05d5\u05d3 \u05dc\u05e7\u05d5\u05d7 \u05d0\u05d9\u05e9\u05d9 \u05d0\u05d7\u05d3 \u05dc\u05db\u05dc \u05d4\u05e2\u05e1\u05e7\u05d9\u05dd',
   helper:
-    'מציגים את הקוד בקופה כדי לצבור ניקובים או לממש הטבה לפי התוכנית שהעסק בוחר.',
-  qrLoading: 'טוען QR',
-  qrIdle: 'לחצו על רענון QR להצגת קוד',
-  qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
-  qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
-  refreshCta: 'רענון QR',
-  stampSuccessBanner: '? קיבלת ניקוב!',
+    '\u05de\u05e6\u05d9\u05d2\u05d9\u05dd \u05d0\u05ea \u05d4\u05e7\u05d5\u05d3 \u05d1\u05e7\u05d5\u05e4\u05d4 \u05db\u05d3\u05d9 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05d0\u05d5 \u05dc\u05de\u05de\u05e9 \u05d4\u05d8\u05d1\u05d4 \u05dc\u05e4\u05d9 \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05e9\u05d4\u05e2\u05e1\u05e7 \u05d1\u05d5\u05d7\u05e8.',
+  qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
+  qrIdle:
+    '\u05dc\u05d7\u05e6\u05d5 \u05e2\u05dc \u05e8\u05e2\u05e0\u05d5\u05df QR \u05dc\u05d4\u05e6\u05d2\u05ea \u05e7\u05d5\u05d3',
+  qrCreateFailed:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05d9\u05e6\u05e8 \u05d0\u05ea \u05d4-QR, \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  qrExpired:
+    '\u05ea\u05d5\u05e7\u05e3 \u05d4-QR \u05e4\u05d2. \u05e8\u05e2\u05e0\u05e0\u05d5 \u05e7\u05d5\u05d3 \u05d7\u05d3\u05e9.',
+  refreshCta: '\u05e8\u05e2\u05e0\u05d5\u05df QR',
+  stampSuccessBanner:
+    '\uD83C\uDF89 \u05e7\u05d9\u05d1\u05dc\u05ea \u05e0\u05d9\u05e7\u05d5\u05d1!',
 };
 
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
@@ -258,7 +262,13 @@ export default function CustomerShowQrScreen() {
             title={TEXT.title}
             subtitle={TEXT.subtitle}
             subtitleStyle={styles.pageSubtitle}
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(customer)/wallet')} />}
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(customer)/wallet')
+                }
+              />
+            }
           />
         </View>
 

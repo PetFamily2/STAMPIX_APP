@@ -293,7 +293,8 @@ export default function CampaignDraftEditorScreen() {
     : null;
   const canCreateCampaigns =
     selectedBusinessCapabilities?.create_campaigns === true;
-  const canEditCampaigns = selectedBusinessCapabilities?.edit_campaigns === true;
+  const canEditCampaigns =
+    selectedBusinessCapabilities?.edit_campaigns === true;
   const canActivateSendCampaigns =
     selectedBusinessCapabilities?.activate_send_campaigns === true;
   const canArchiveCampaign =
@@ -1068,8 +1069,8 @@ export default function CampaignDraftEditorScreen() {
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
       Alert.alert(
-        '׳—׳¨׳™׳’׳” ׳׳”׳׳›׳¡׳”',
-        '׳׳ ׳ ׳™׳×׳ ׳׳”׳₪׳¢׳™׳ ׳§׳׳₪׳™׳™׳ ׳—׳“׳© ׳›׳׳©׳¨ ׳§׳™׳™׳׳× ׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳.'
+        '\u05d7\u05e8\u05d9\u05d2\u05d4 \u05de\u05d4\u05de\u05db\u05e1\u05d4',
+        '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d4\u05e4\u05e2\u05d9\u05dc \u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05d7\u05d3\u05e9 \u05db\u05d0\u05e9\u05e8 \u05e7\u05d9\u05d9\u05de\u05ea \u05d7\u05e8\u05d9\u05d2\u05d4 \u05de\u05de\u05db\u05e1\u05ea \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd.'
       );
       openCampaignsUpgrade();
       return;
@@ -1081,8 +1082,8 @@ export default function CampaignDraftEditorScreen() {
     const sendAt = resolvedScheduledForAt;
     if (sendAt < Date.now() + MIN_SCHEDULE_LEAD_MS) {
       Alert.alert(
-        '׳–׳׳ ׳׳ ׳×׳§׳™׳',
-        '׳™׳© ׳׳‘׳—׳•׳¨ ׳–׳׳ ׳©׳׳™׳—׳” ׳‘׳¢׳×׳™׳“.'
+        '\u05d6\u05de\u05df \u05dc\u05d0 \u05ea\u05e7\u05d9\u05df',
+        '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05d6\u05de\u05df \u05e9\u05dc\u05d9\u05d7\u05d4 \u05d1\u05e2\u05ea\u05d9\u05d3.'
       );
       return;
     }
@@ -1105,17 +1106,24 @@ export default function CampaignDraftEditorScreen() {
         sendAt,
       });
       Alert.alert(
-        '׳ ׳©׳׳¨ ׳•׳׳•׳₪׳¢׳',
-        `׳”׳§׳׳₪׳™׳™׳ ׳™׳™׳©׳׳— ׳‘-${oneTimeScheduleDisplay}.`,
-        [{ text: '׳׳™׳©׳•׳¨', onPress: goBackToCampaignList }]
+        '\u05e0\u05e9\u05de\u05e8 \u05d5\u05d4\u05d5\u05e4\u05e2\u05dc',
+        `\u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05d9\u05d9\u05e9\u05dc\u05d7 \u05d1-${oneTimeScheduleDisplay}.`,
+        [
+          {
+            text: '\u05d0\u05d9\u05e9\u05d5\u05e8',
+            onPress: goBackToCampaignList,
+          },
+        ]
       );
     } catch (error) {
       if (handleEntitlementError(error)) {
         return;
       }
       Alert.alert(
-        '׳©׳’׳™׳׳”',
-        error instanceof Error ? error.message : '׳©׳׳™׳¨׳” ׳׳• ׳×׳–׳׳•׳ ׳ ׳›׳©׳׳•.'
+        '\u05e9\u05d2\u05d9\u05d0\u05d4',
+        error instanceof Error
+          ? error.message
+          : '\u05e9\u05de\u05d9\u05e8\u05d4 \u05d0\u05d5 \u05ea\u05d6\u05de\u05d5\u05df \u05e0\u05db\u05e9\u05dc\u05d5.'
       );
     } finally {
       setIsSubmitting(false);
@@ -1289,7 +1297,8 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ׳׳•׳₪׳ ׳©׳׳™׳—׳” ׳—׳“-׳₪׳¢׳׳™׳×
+              \u05d0\u05d5\u05e4\u05df \u05e9\u05dc\u05d9\u05d7\u05d4
+              \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9\u05ea
             </Text>
             <View className={`${tw.flexRow} gap-2`}>
               <TouchableOpacity
@@ -1299,7 +1308,9 @@ export default function CampaignDraftEditorScreen() {
                   setScheduledForAt(null);
                 }}
                 className={`rounded-full px-3 py-2 ${
-                  !isOneTimeMode ? 'bg-[#DBEAFE]' : 'border border-[#E2E8F0] bg-white'
+                  !isOneTimeMode
+                    ? 'bg-[#DBEAFE]'
+                    : 'border border-[#E2E8F0] bg-white'
                 }`}
               >
                 <Text
@@ -1307,14 +1318,16 @@ export default function CampaignDraftEditorScreen() {
                     !isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
                   }`}
                 >
-                  ׳©׳׳™׳—׳” ׳¢׳›׳©׳™׳•
+                  \u05e9\u05dc\u05d9\u05d7\u05d4 \u05e2\u05db\u05e9\u05d9\u05d5
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 disabled={!canEditContent}
                 onPress={() => setOneTimePreset(1, 10)}
                 className={`rounded-full px-3 py-2 ${
-                  isOneTimeMode ? 'bg-[#DBEAFE]' : 'border border-[#E2E8F0] bg-white'
+                  isOneTimeMode
+                    ? 'bg-[#DBEAFE]'
+                    : 'border border-[#E2E8F0] bg-white'
                 }`}
               >
                 <Text
@@ -1322,14 +1335,16 @@ export default function CampaignDraftEditorScreen() {
                     isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
                   }`}
                 >
-                  ׳×׳–׳׳•׳ ׳—׳“-׳₪׳¢׳׳™
+                  \u05ea\u05d6\u05de\u05d5\u05df
+                  \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9
                 </Text>
               </TouchableOpacity>
             </View>
             {isOneTimeMode ? (
               <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
                 <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
-                  ׳׳׳ ׳©׳׳™׳—׳” ׳ ׳‘׳—׳¨: {oneTimeScheduleDisplay}
+                  \u05d6\u05de\u05df \u05e9\u05dc\u05d9\u05d7\u05d4
+                  \u05e0\u05d1\u05d7\u05e8: {oneTimeScheduleDisplay}
                 </Text>
                 <View className={`${tw.flexRow} flex-wrap gap-2`}>
                   <TouchableOpacity
@@ -1338,7 +1353,7 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      ׳׳—׳¨ 10:00
+                      \u05de\u05d7\u05e8 10:00
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1347,7 +1362,7 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      ׳׳—׳¨ 18:00
+                      \u05de\u05d7\u05e8 18:00
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1356,19 +1371,30 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      +3 ׳™׳׳™׳ 10:00
+                      +3 \u05d9\u05de\u05d9\u05dd 10:00
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                ׳©׳׳™׳—׳” ׳¢׳›׳©׳™׳• ׳‘׳׳ ׳•׳׳: ׳”׳§׳׳₪׳™׳™׳ ׳ ׳©׳׳¨ ׳•׳ ׳©׳׳— ׳¨׳§ ׳׳׳—׳¨ ׳׳™׳©׳•׳¨.
+                \u05e9\u05dc\u05d9\u05d7\u05d4 \u05e2\u05db\u05e9\u05d9\u05d5
+                \u05d1\u05de\u05e0\u05d5\u05d0\u05dc:
+                \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05df
+                \u05e0\u05e9\u05de\u05e8 \u05d5\u05e0\u05e9\u05dc\u05d7
+                \u05e8\u05e7 \u05dc\u05d0\u05d7\u05e8
+                \u05d0\u05d9\u05e9\u05d5\u05e8.
               </Text>
             )}
             <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-              Starter ׳™׳›׳•׳ ׳׳©׳׳•׳— ׳¢׳›׳©׳™׳• ׳׳׳×׳–׳׳ ׳©׳׳™׳—׳” ׳—׳“-׳₪׳¢׳׳™׳×. ׳׳•׳˜׳•׳׳¦׳™׳” ׳׳—׳–׳•׳¨׳™׳× ׳—׳¡׳•׳׳”
-              ׳‘-Starter.
+              Starter \u05d9\u05db\u05d5\u05dc \u05dc\u05e9\u05dc\u05d5\u05d7
+              \u05e2\u05db\u05e9\u05d9\u05d5
+              \u05d5\u05dc\u05ea\u05d6\u05de\u05df
+              \u05e9\u05dc\u05d9\u05d7\u05d4
+              \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9\u05ea.
+              \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4
+              \u05de\u05d7\u05d6\u05d5\u05e8\u05d9\u05ea
+              \u05d7\u05e1\u05d5\u05de\u05d4 \u05d1-Starter.
             </Text>
           </View>
 
@@ -1633,7 +1659,8 @@ export default function CampaignDraftEditorScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text className="text-center text-sm font-bold text-white">
-                ן¿½ן¿½ן¿½ן¿½ ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½ן¿½
+                \u05d4\u05e2\u05d1\u05e8
+                \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df
               </Text>
             )}
           </TouchableOpacity>

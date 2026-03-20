@@ -16,9 +16,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -44,17 +43,10 @@ type CustomerState =
   | 'NEEDS_WINBACK'
   | 'CLOSE_TO_REWARD';
 type CustomerValueTier = 'REGULAR' | 'LOYAL' | 'VIP';
-type CustomerStatus =
-  | 'NEW_CUSTOMER'
-  | 'ACTIVE'
-  | 'AT_RISK'
-  | 'NEAR_REWARD'
-  | 'VIP';
 type SegmentField =
   | 'lastVisitDaysAgo'
   | 'visitCount'
   | 'loyaltyProgress'
-  | 'customerStatus'
   | 'customerState'
   | 'customerValueTier'
   | 'joinedDaysAgo';
@@ -104,27 +96,10 @@ const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
   VIP: 'bg-fuchsia-100 text-fuchsia-700',
 };
 
-const STATUS_LABELS: Record<CustomerStatus, string> = {
-  NEW_CUSTOMER: 'חדש',
-  ACTIVE: 'פעיל',
-  AT_RISK: 'בסיכון',
-  NEAR_REWARD: 'קרוב להטבה',
-  VIP: 'VIP',
-};
-
-const STATUS_COLORS: Record<CustomerStatus, string> = {
-  NEW_CUSTOMER: 'bg-sky-100 text-sky-700',
-  ACTIVE: 'bg-slate-100 text-slate-700',
-  AT_RISK: 'bg-rose-100 text-rose-700',
-  NEAR_REWARD: 'bg-amber-100 text-amber-700',
-  VIP: 'bg-indigo-100 text-indigo-700',
-};
-
 const FIELD_OPTIONS: Array<{ key: SegmentField; label: string }> = [
   { key: 'lastVisitDaysAgo', label: 'ימים מאז ביקור' },
   { key: 'visitCount', label: 'מספר ביקורים' },
   { key: 'loyaltyProgress', label: 'התקדמות בכרטיס' },
-  { key: 'customerStatus', label: 'סטטוס לקוח' },
   { key: 'joinedDaysAgo', label: 'ימים מאז הצטרפות' },
 ];
 
@@ -136,19 +111,10 @@ const OPERATOR_OPTIONS: Array<{ key: SegmentOperator; label: string }> = [
   { key: 'lt', label: 'פחות מ-' },
 ];
 
-const STATUS_OPTIONS: CustomerStatus[] = [
-  'AT_RISK',
-  'NEAR_REWARD',
-  'VIP',
-  'NEW_CUSTOMER',
-  'ACTIVE',
-];
-
 const SEGMENT_FIELD_OPTIONS: Array<{ key: SegmentField; label: string }> = [
-  ...FIELD_OPTIONS.filter((option) => option.key !== 'customerStatus'),
+  ...FIELD_OPTIONS,
   { key: 'customerState', label: 'Customer State' },
   { key: 'customerValueTier', label: 'Value Tier' },
-  { key: 'customerStatus', label: 'Status (Legacy)' },
 ];
 
 const QUICK_SEGMENT_OPTIONS: Array<{ key: QuickSegmentKey; label: string }> = [
@@ -175,7 +141,6 @@ const CUSTOMER_VALUE_TIER_OPTIONS: CustomerValueTier[] = [
 
 function resolveCustomerState(customer: {
   customerState?: string | null;
-  lifecycleStatus?: string | null;
 }): CustomerState {
   if (
     customer.customerState === 'NEW' ||
@@ -186,21 +151,11 @@ function resolveCustomerState(customer: {
   ) {
     return customer.customerState;
   }
-  if (customer.lifecycleStatus === 'NEW_CUSTOMER') {
-    return 'NEW';
-  }
-  if (customer.lifecycleStatus === 'AT_RISK') {
-    return 'NEEDS_WINBACK';
-  }
-  if (customer.lifecycleStatus === 'NEAR_REWARD') {
-    return 'CLOSE_TO_REWARD';
-  }
   return 'ACTIVE';
 }
 
 function resolveCustomerValueTier(customer: {
   customerValueTier?: string | null;
-  lifecycleStatus?: string | null;
 }): CustomerValueTier {
   if (
     customer.customerValueTier === 'REGULAR' ||
@@ -208,9 +163,6 @@ function resolveCustomerValueTier(customer: {
     customer.customerValueTier === 'VIP'
   ) {
     return customer.customerValueTier;
-  }
-  if (customer.lifecycleStatus === 'VIP') {
-    return 'VIP';
   }
   return 'REGULAR';
 }
@@ -242,9 +194,6 @@ function defaultValueForField(field: SegmentField): number | string {
   }
   if (field === 'customerValueTier') {
     return 'VIP';
-  }
-  if (field === 'customerStatus') {
-    return 'AT_RISK';
   }
   if (field === 'joinedDaysAgo') {
     return 7;
@@ -332,81 +281,6 @@ function quickSegmentPreset(preset: QuickSegmentKey) {
       ],
     },
   };
-}
-
-function quickSegment(status: CustomerStatus) {
-  switch (status) {
-    case 'AT_RISK':
-      return {
-        name: 'לקוחות בסיכון',
-        rules: {
-          match: 'all' as const,
-          conditions: [
-            {
-              field: 'lastVisitDaysAgo' as const,
-              operator: 'gte' as const,
-              value: 30,
-            },
-          ],
-        },
-      };
-    case 'NEAR_REWARD':
-      return {
-        name: 'קרובים להטבה',
-        rules: {
-          match: 'all' as const,
-          conditions: [
-            {
-              field: 'customerStatus' as const,
-              operator: 'eq' as const,
-              value: 'NEAR_REWARD',
-            },
-          ],
-        },
-      };
-    case 'VIP':
-      return {
-        name: 'VIP',
-        rules: {
-          match: 'all' as const,
-          conditions: [
-            {
-              field: 'customerStatus' as const,
-              operator: 'eq' as const,
-              value: 'VIP',
-            },
-          ],
-        },
-      };
-    case 'NEW_CUSTOMER':
-      return {
-        name: 'לקוחות חדשים',
-        rules: {
-          match: 'all' as const,
-          conditions: [
-            {
-              field: 'joinedDaysAgo' as const,
-              operator: 'lte' as const,
-              value: 7,
-            },
-          ],
-        },
-      };
-    default:
-      return {
-        name: 'לקוחות פעילים',
-        rules: {
-          match: 'all' as const,
-          conditions: [
-            {
-              field: 'customerStatus' as const,
-              operator: 'eq' as const,
-              value: 'ACTIVE',
-            },
-          ],
-        },
-      };
-  }
 }
 
 export function CustomersHubContent() {
@@ -647,7 +521,13 @@ export function CustomersHubContent() {
           <BusinessScreenHeader
             title="לקוחות"
             subtitle="מצב לקוחות, דרגות ערך והזדמנויות קמפיין"
-            titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
+            titleAccessory={
+              <BackButton
+                onPress={() =>
+                  router.replace('/(authenticated)/(business)/dashboard')
+                }
+              />
+            }
           />
         </StickyScrollHeader>
         <View
@@ -850,84 +730,90 @@ export function CustomersHubContent() {
               const customerValueTier = resolveCustomerValueTier(customer);
 
               return (
-              <Pressable
-                key={customer.primaryMembershipId}
-                onPress={() => openCustomerCard(String(customer.customerId))}
-                className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
-              >
-                <View className={`${tw.flexRow} items-start justify-between`}>
-                  <View className="items-end">
-                    <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
-                      ביקור אחרון
-                    </Text>
-                    <Text
-                      className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
-                    >
-                      {formatLastVisit(customer.lastVisitDaysAgo)}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                    >
-                      {customer.visitCount} ביקורים •{' '}
-                      {customer.primaryProgramName}
-                    </Text>
-                  </View>
+                <Pressable
+                  key={customer.primaryMembershipId}
+                  onPress={() => openCustomerCard(String(customer.customerId))}
+                  className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
+                >
+                  <View className={`${tw.flexRow} items-start justify-between`}>
+                    <View className="items-end">
+                      <Text
+                        className={`text-xs text-[#94A3B8] ${tw.textStart}`}
+                      >
+                        ביקור אחרון
+                      </Text>
+                      <Text
+                        className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
+                      >
+                        {formatLastVisit(customer.lastVisitDaysAgo)}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        {customer.visitCount} ביקורים •{' '}
+                        {customer.primaryProgramName}
+                      </Text>
+                    </View>
 
-                  <View className="flex-1 items-end px-3">
-                    <Text
-                      className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
-                    >
-                      {customer.name}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
-                    >
-                      {customer.phone ?? 'ללא טלפון'}
-                    </Text>
-                    <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
-                      <View
-                        className={`rounded-full px-3 py-1 ${
-                          STATE_COLORS[customerState]
-                        }`}
+                    <View className="flex-1 items-end px-3">
+                      <Text
+                        className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
                       >
-                        <Text className="text-xs font-bold">
-                          {STATE_LABELS[customerState]}
-                        </Text>
-                      </View>
-                      <View
-                        className={`rounded-full px-3 py-1 ${
-                          VALUE_TIER_COLORS[customerValueTier]
-                        }`}
+                        {customer.name}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
                       >
-                        <Text className="text-xs font-bold">
-                          {VALUE_TIER_LABELS[customerValueTier]}
-                        </Text>
-                      </View>
-                      {Number(customer.rewardThreshold) > 0 &&
-                      Number(customer.loyaltyProgress) >=
-                        Number(customer.rewardThreshold) ? (
-                        <View className="rounded-full bg-emerald-100 px-3 py-1">
-                          <Text className="text-xs font-bold text-emerald-700">
-                            {
-                              '\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9'
-                            }
+                        {customer.phone ?? 'ללא טלפון'}
+                      </Text>
+                      <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
+                        <View
+                          className={`rounded-full px-3 py-1 ${
+                            STATE_COLORS[customerState]
+                          }`}
+                        >
+                          <Text className="text-xs font-bold">
+                            {STATE_LABELS[customerState]}
                           </Text>
                         </View>
-                      ) : null}
+                        <View
+                          className={`rounded-full px-3 py-1 ${
+                            VALUE_TIER_COLORS[customerValueTier]
+                          }`}
+                        >
+                          <Text className="text-xs font-bold">
+                            {VALUE_TIER_LABELS[customerValueTier]}
+                          </Text>
+                        </View>
+                        {Number(customer.rewardThreshold) > 0 &&
+                        Number(customer.loyaltyProgress) >=
+                          Number(customer.rewardThreshold) ? (
+                          <View className="rounded-full bg-emerald-100 px-3 py-1">
+                            <Text className="text-xs font-bold text-emerald-700">
+                              {
+                                '\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9'
+                              }
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text
+                        className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
+                      >
+                        התקדמות להטבה: {customer.loyaltyProgress}/
+                        {customer.rewardThreshold}
+                      </Text>
                     </View>
-                    <Text
-                      className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
-                    >
-                      התקדמות להטבה: {customer.loyaltyProgress}/
-                      {customer.rewardThreshold}
-                    </Text>
-                  </View>
 
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
-                  <Ionicons name="person-outline" size={20} color="#2F6BFF" />
-                </View>
-              </View>
-              </Pressable>
+                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
+                      <Ionicons
+                        name="person-outline"
+                        size={20}
+                        color="#2F6BFF"
+                      />
+                    </View>
+                  </View>
+                </Pressable>
               );
             })
           )}
@@ -992,8 +878,6 @@ export function CustomersHubContent() {
 
               <View className="mt-4 gap-3">
                 {segmentRules.conditions.map((condition, index) => {
-                  const isLegacyStatusField =
-                    condition.field === 'customerStatus';
                   const isCustomerStateField =
                     condition.field === 'customerState';
                   const isCustomerValueTierField =
@@ -1069,28 +953,7 @@ export function CustomersHubContent() {
                         </TouchableOpacity>
                       </View>
 
-                      {isLegacyStatusField ? (
-                        <TouchableOpacity
-                          onPress={() =>
-                            updateCondition(index, {
-                              value: cycleOption(
-                                STATUS_OPTIONS,
-                                (condition.value as CustomerStatus) || 'AT_RISK'
-                              ),
-                            })
-                          }
-                          className="mt-2 rounded-xl border border-[#CBD5E1] bg-white px-3 py-3"
-                        >
-                          <Text className="text-center text-sm font-bold text-[#334155]">
-                            {
-                              STATUS_LABELS[
-                                ((condition.value as CustomerStatus) ||
-                                  'AT_RISK') as CustomerStatus
-                              ]
-                            }
-                          </Text>
-                        </TouchableOpacity>
-                      ) : isCustomerStateField ? (
+                      {isCustomerStateField ? (
                         <TouchableOpacity
                           onPress={() =>
                             updateCondition(index, {

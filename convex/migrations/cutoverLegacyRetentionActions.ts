@@ -105,7 +105,9 @@ export default mutation({
     const campaigns = businessId
       ? await ctx.db
           .query('campaigns')
-          .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+          .withIndex('by_businessId', (q: any) =>
+            q.eq('businessId', businessId)
+          )
           .collect()
       : await ctx.db.query('campaigns').collect();
 

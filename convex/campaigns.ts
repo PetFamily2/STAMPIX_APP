@@ -1132,7 +1132,9 @@ export const scheduleCampaignOneTime = mutation({
       throw new Error('SCHEDULE_TIME_INVALID');
     }
 
-    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    const currentSchedule = isObject(campaign.schedule)
+      ? campaign.schedule
+      : {};
     await ctx.db.patch(campaign._id, {
       automationEnabled: false,
       status: 'active',
@@ -1160,22 +1162,21 @@ export const clearCampaignOneTimeSchedule = mutation({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    await requireActorHasBusinessCapability(
-      ctx,
-      businessId,
-      'edit_campaigns'
-    );
+    await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
 
-    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    const currentSchedule = isObject(campaign.schedule)
+      ? campaign.schedule
+      : {};
     const now = Date.now();
     await ctx.db.patch(campaign._id, {
       automationEnabled: false,
       status:
-        campaign.status === 'active' && getScheduleModeFromCampaign(campaign) === 'one_time'
+        campaign.status === 'active' &&
+        getScheduleModeFromCampaign(campaign) === 'one_time'
           ? 'draft'
           : campaign.status,
       activationStatus:
@@ -1382,7 +1383,9 @@ export const sendCampaignNow = mutation({
 
     const now = Date.now();
     const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
-    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    const currentSchedule = isObject(campaign.schedule)
+      ? campaign.schedule
+      : {};
     const patchPayload: Record<string, unknown> = {
       updatedAt: now,
     };
@@ -1462,7 +1465,9 @@ export const runAutomationSweepInternal = internalMutation({
 
     const oneTimeCandidates = await ctx.db
       .query('campaigns')
-      .withIndex('by_activationStatus', (q: any) => q.eq('activationStatus', 'active'))
+      .withIndex('by_activationStatus', (q: any) =>
+        q.eq('activationStatus', 'active')
+      )
       .filter((q: any) =>
         q.and(
           q.eq(q.field('isActive'), true),
@@ -1508,7 +1513,9 @@ export const runAutomationSweepInternal = internalMutation({
       const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
       sentCount += result.sentCount;
       skippedCount += result.skippedCount;
-      const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+      const currentSchedule = isObject(campaign.schedule)
+        ? campaign.schedule
+        : {};
       await ctx.db.patch(campaign._id, {
         status: 'completed',
         activationStatus: 'completed',
@@ -1523,7 +1530,8 @@ export const runAutomationSweepInternal = internalMutation({
     }
 
     return {
-      processedCampaigns: recurringProcessedCampaigns + oneTimeProcessedCampaigns,
+      processedCampaigns:
+        recurringProcessedCampaigns + oneTimeProcessedCampaigns,
       recurringProcessedCampaigns,
       oneTimeProcessedCampaigns,
       sentCount,

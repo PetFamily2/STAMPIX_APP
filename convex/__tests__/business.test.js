@@ -207,6 +207,10 @@ describe('business profile settings and discovery filters', () => {
       'reason',
       'usageAreas',
       'ownerAgeRange',
+      'businessExample',
+      'birthdayCampaignRelevant',
+      'joinAnniversaryCampaignRelevant',
+      'weakTimePromosRelevant',
     ]);
   });
 
@@ -226,6 +230,10 @@ describe('business profile settings and discovery filters', () => {
             reason: 'insights',
             usageAreas: ['citywide'],
             ownerAgeRange: '25-34',
+            businessExample: 'hair_salon',
+            birthdayCampaignRelevant: true,
+            joinAnniversaryCampaignRelevant: true,
+            weakTimePromosRelevant: true,
             collectedAt: Date.now(),
           },
         }),

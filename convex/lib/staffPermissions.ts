@@ -87,7 +87,9 @@ const ROLE_CAPABILITIES: Record<StaffRole, BusinessCapabilityMap> = {
   },
 };
 
-export function getRoleCapabilities(staffRole: StaffRole): BusinessCapabilityMap {
+export function getRoleCapabilities(
+  staffRole: StaffRole
+): BusinessCapabilityMap {
   return ROLE_CAPABILITIES[staffRole];
 }
 
