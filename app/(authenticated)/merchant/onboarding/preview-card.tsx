@@ -474,6 +474,13 @@ export default function PreviewCardScreen() {
             ? businessOnboardingDraft.usageAreas
             : undefined,
         ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
+        businessExample: businessOnboardingDraft.businessExample ?? undefined,
+        birthdayCampaignRelevant:
+          businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
+        joinAnniversaryCampaignRelevant:
+          businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
+        weakTimePromosRelevant:
+          businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
       });
       await completeBusinessOnboarding({});
       await setActiveMode({ mode: 'business' });
@@ -517,7 +524,7 @@ export default function PreviewCardScreen() {
         </View>
 
         <ScrollView
-        stickyHeaderIndices={[0]}
+          stickyHeaderIndices={[0]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >

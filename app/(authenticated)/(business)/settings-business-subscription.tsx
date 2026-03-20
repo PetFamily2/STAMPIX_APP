@@ -25,6 +25,7 @@ import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { IS_RTL } from '@/lib/rtl';
 import {
   buildComparisonRows,
@@ -104,8 +105,14 @@ export default function BusinessSettingsSubscriptionScreen() {
   const hasAutoOpenedModalRef = useRef(false);
 
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
+  const capabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
 
-  if (activeBusiness && activeBusiness.staffRole !== 'owner') {
+  if (activeBusiness && capabilities?.view_billing_state !== true) {
     return <Redirect href="/(authenticated)/(business)/settings" />;
   }
 

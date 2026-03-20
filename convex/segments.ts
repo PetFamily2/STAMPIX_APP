@@ -13,6 +13,8 @@ export type SegmentField =
   | 'visitCount'
   | 'loyaltyProgress'
   | 'customerStatus'
+  | 'customerState'
+  | 'customerValueTier'
   | 'joinedDaysAgo';
 export type SegmentOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
 export type SegmentCondition = {
@@ -30,6 +32,8 @@ const ALLOWED_FIELDS = new Set<SegmentField>([
   'visitCount',
   'loyaltyProgress',
   'customerStatus',
+  'customerState',
+  'customerValueTier',
   'joinedDaysAgo',
 ]);
 const ALLOWED_OPERATORS = new Set<SegmentOperator>([
@@ -46,6 +50,14 @@ const ALLOWED_CUSTOMER_STATUSES = new Set([
   'NEAR_REWARD',
   'VIP',
 ]);
+const ALLOWED_CUSTOMER_STATES = new Set([
+  'NEW',
+  'ACTIVE',
+  'NEEDS_NURTURE',
+  'NEEDS_WINBACK',
+  'CLOSE_TO_REWARD',
+]);
+const ALLOWED_CUSTOMER_VALUE_TIERS = new Set(['REGULAR', 'LOYAL', 'VIP']);
 
 function normalizeSegmentName(value: string) {
   const normalized = value.trim().replace(/\s+/g, ' ');
@@ -91,6 +103,31 @@ export function normalizeSegmentRules(rules: unknown): SegmentRules {
         if (
           typeof value !== 'string' ||
           !ALLOWED_CUSTOMER_STATUSES.has(value)
+        ) {
+          return null;
+        }
+        return {
+          field: field as SegmentField,
+          operator: operator as SegmentOperator,
+          value,
+        };
+      }
+
+      if (field === 'customerState') {
+        if (typeof value !== 'string' || !ALLOWED_CUSTOMER_STATES.has(value)) {
+          return null;
+        }
+        return {
+          field: field as SegmentField,
+          operator: operator as SegmentOperator,
+          value,
+        };
+      }
+
+      if (field === 'customerValueTier') {
+        if (
+          typeof value !== 'string' ||
+          !ALLOWED_CUSTOMER_VALUE_TIERS.has(value)
         ) {
           return null;
         }
@@ -177,6 +214,18 @@ export function applySegmentRules(
         case 'customerStatus':
           return compareValues(
             customer.lifecycleStatus,
+            condition.operator,
+            condition.value
+          );
+        case 'customerState':
+          return compareValues(
+            customer.customerState,
+            condition.operator,
+            condition.value
+          );
+        case 'customerValueTier':
+          return compareValues(
+            customer.customerValueTier,
             condition.operator,
             condition.value
           );

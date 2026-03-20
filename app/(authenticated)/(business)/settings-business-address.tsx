@@ -22,6 +22,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
 import { tw } from '@/lib/rtl';
 
@@ -82,9 +83,14 @@ function SuggestionRow({
 export default function BusinessSettingsAddressScreen() {
   const insets = useSafeAreaInsets();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
   const canEditBusiness =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+    activeBusinessCapabilities?.edit_business_profile === true;
 
   const businessSettings = useQuery(
     api.business.getBusinessSettings,

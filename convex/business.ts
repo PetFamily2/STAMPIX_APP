@@ -7,6 +7,7 @@ import {
   requireActorCanInviteRole,
   requireActorCanManageTargetStaff,
   requireActorCanManageTeamForBusiness,
+  requireActorHasBusinessCapability,
   requireActorIsActiveStaffForBusiness,
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
@@ -130,11 +131,31 @@ const BUSINESS_OWNER_AGE_RANGE_LITERALS = [
   'not_specified',
 ] as const;
 
+const BUSINESS_EXAMPLE_LITERALS = [
+  'hair_salon',
+  'cafe_restaurant',
+  'greengrocer_retail_produce',
+  'tire_shop_puncture',
+  'clinic',
+  'fitness_studio',
+  'repair_maintenance',
+  'other',
+] as const;
+
 type BusinessDiscoverySource =
   (typeof BUSINESS_DISCOVERY_SOURCE_LITERALS)[number];
 type BusinessReason = (typeof BUSINESS_REASON_LITERALS)[number];
 type BusinessUsageArea = (typeof BUSINESS_USAGE_AREA_LITERALS)[number];
 type BusinessOwnerAgeRange = (typeof BUSINESS_OWNER_AGE_RANGE_LITERALS)[number];
+type BusinessExample = (typeof BUSINESS_EXAMPLE_LITERALS)[number];
+type BusinessModel = 'service' | 'product' | 'mixed';
+type CadenceBand =
+  | 'daily'
+  | 'weekly'
+  | 'biweekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'irregular';
 
 const BUSINESS_DISCOVERY_SOURCE_SET = new Set<string>(
   BUSINESS_DISCOVERY_SOURCE_LITERALS
@@ -144,6 +165,93 @@ const BUSINESS_USAGE_AREA_SET = new Set<string>(BUSINESS_USAGE_AREA_LITERALS);
 const BUSINESS_OWNER_AGE_RANGE_SET = new Set<string>(
   BUSINESS_OWNER_AGE_RANGE_LITERALS
 );
+const BUSINESS_EXAMPLE_SET = new Set<string>(BUSINESS_EXAMPLE_LITERALS);
+const BUSINESS_MODEL_SET = new Set<string>(['service', 'product', 'mixed']);
+const CADENCE_BAND_SET = new Set<string>([
+  'daily',
+  'weekly',
+  'biweekly',
+  'monthly',
+  'quarterly',
+  'irregular',
+]);
+
+const BUSINESS_EXAMPLE_PROFILE_MAP: Record<
+  BusinessExample,
+  {
+    serviceType: BusinessServiceType;
+    businessModel: BusinessModel;
+    cadenceBand: CadenceBand;
+    birthdayRelevant: boolean;
+    joinAnniversaryRelevant: boolean;
+    weakTimePromosRelevant: boolean;
+  }
+> = {
+  hair_salon: {
+    serviceType: 'beauty',
+    businessModel: 'service',
+    cadenceBand: 'monthly',
+    birthdayRelevant: true,
+    joinAnniversaryRelevant: true,
+    weakTimePromosRelevant: true,
+  },
+  cafe_restaurant: {
+    serviceType: 'food_drink',
+    businessModel: 'mixed',
+    cadenceBand: 'weekly',
+    birthdayRelevant: true,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: true,
+  },
+  greengrocer_retail_produce: {
+    serviceType: 'retail',
+    businessModel: 'product',
+    cadenceBand: 'weekly',
+    birthdayRelevant: false,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: true,
+  },
+  tire_shop_puncture: {
+    serviceType: 'professional_services',
+    businessModel: 'service',
+    cadenceBand: 'irregular',
+    birthdayRelevant: false,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: false,
+  },
+  clinic: {
+    serviceType: 'health_wellness',
+    businessModel: 'service',
+    cadenceBand: 'quarterly',
+    birthdayRelevant: false,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: false,
+  },
+  fitness_studio: {
+    serviceType: 'fitness',
+    businessModel: 'service',
+    cadenceBand: 'weekly',
+    birthdayRelevant: true,
+    joinAnniversaryRelevant: true,
+    weakTimePromosRelevant: true,
+  },
+  repair_maintenance: {
+    serviceType: 'professional_services',
+    businessModel: 'service',
+    cadenceBand: 'quarterly',
+    birthdayRelevant: false,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: false,
+  },
+  other: {
+    serviceType: 'other',
+    businessModel: 'mixed',
+    cadenceBand: 'monthly',
+    birthdayRelevant: false,
+    joinAnniversaryRelevant: false,
+    weakTimePromosRelevant: true,
+  },
+};
 
 const BUSINESS_PROFILE_COMPLETION_FIELDS = [
   'name',
@@ -156,6 +264,10 @@ const BUSINESS_PROFILE_COMPLETION_FIELDS = [
   'reason',
   'usageAreas',
   'ownerAgeRange',
+  'businessExample',
+  'birthdayCampaignRelevant',
+  'joinAnniversaryCampaignRelevant',
+  'weakTimePromosRelevant',
 ] as const;
 
 type BusinessProfileCompletionField =
@@ -166,6 +278,10 @@ type BusinessOnboardingSnapshotView = {
   reason?: BusinessReason;
   usageAreas?: BusinessUsageArea[];
   ownerAgeRange?: BusinessOwnerAgeRange;
+  businessExample?: BusinessExample;
+  birthdayCampaignRelevant?: boolean;
+  joinAnniversaryCampaignRelevant?: boolean;
+  weakTimePromosRelevant?: boolean;
   collectedAt?: number;
 };
 
@@ -364,6 +480,157 @@ async function generateUniqueJoinCode(
   throw new Error('FAILED_TO_GENERATE_JOIN_CODE');
 }
 
+function buildDefaultBusinessRetentionProfile(now: number) {
+  return {
+    schemaVersion: 2,
+    serviceType: 'other' as BusinessServiceType,
+    businessModel: 'mixed' as BusinessModel,
+    operatingScope: 'nearby' as const,
+    preferredLanguage: 'he' as const,
+    primaryGoal: 'repeat_visits' as const,
+    repeatModel: {
+      cadenceBand: 'monthly' as CadenceBand,
+      expectedRepeatDays: 30,
+      secondVisitNudgeDays: 7,
+      nurtureDays: 14,
+      winbackDays: 30,
+    },
+    rewardModel: {
+      primaryProgramId: null,
+      rewardType: 'unknown' as const,
+      rewardName: null,
+      rewardThreshold: null,
+      closeToRewardRatio: 0.8,
+      loyalVisitThreshold: 5,
+      vipVisitThreshold: 10,
+      loyalRedemptionThreshold: 1,
+      vipRedemptionThreshold: 3,
+    },
+    birthdayPolicy: {
+      enabled: false,
+      relevance: 'conditional' as const,
+    },
+    joinAnniversaryPolicy: {
+      enabled: false,
+      relevance: 'conditional' as const,
+    },
+    timeBasedPromoPolicy: {
+      enabled: true,
+      relevance: 'high' as const,
+    },
+    learning: {
+      status: 'defaults' as const,
+      eligibleCustomers: 0,
+      eligibleEvents: 0,
+      observedRepeatP50Days: null,
+      observedRepeatP75Days: null,
+      learnedAt: null,
+    },
+    onboardingMeta: {
+      collectedAt: now,
+    },
+    updatedAt: now,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function cadenceBandToExpectedRepeatDays(cadenceBand: CadenceBand): number {
+  switch (cadenceBand) {
+    case 'daily':
+      return 2;
+    case 'weekly':
+      return 7;
+    case 'biweekly':
+      return 14;
+    case 'monthly':
+      return 30;
+    case 'quarterly':
+      return 90;
+    case 'irregular':
+      return 120;
+    default:
+      return 30;
+  }
+}
+
+function computeRepeatModelByCadence(cadenceBand: CadenceBand) {
+  const expectedRepeatDays = cadenceBandToExpectedRepeatDays(cadenceBand);
+  const secondVisitNudgeDays = Math.max(
+    2,
+    Math.min(30, Math.round(expectedRepeatDays * 0.3))
+  );
+  const nurtureDays = Math.max(
+    5,
+    Math.min(120, Math.round(expectedRepeatDays * 0.7))
+  );
+  const winbackDays = Math.max(
+    nurtureDays + 3,
+    Math.min(240, Math.round(expectedRepeatDays * 1.5))
+  );
+
+  return {
+    cadenceBand,
+    expectedRepeatDays,
+    secondVisitNudgeDays,
+    nurtureDays,
+    winbackDays,
+  };
+}
+
+function normalizeBusinessRetentionProfile(profile: unknown, now: number) {
+  const defaults = buildDefaultBusinessRetentionProfile(now);
+  const source = asRecord(profile);
+  const repeatModel = asRecord(source.repeatModel);
+  const rewardModel = asRecord(source.rewardModel);
+  const birthdayPolicy = asRecord(source.birthdayPolicy);
+  const joinAnniversaryPolicy = asRecord(source.joinAnniversaryPolicy);
+  const timeBasedPromoPolicy = asRecord(source.timeBasedPromoPolicy);
+  const learning = asRecord(source.learning);
+  const onboardingMeta = asRecord(source.onboardingMeta);
+  const overrides = asRecord(source.overrides);
+
+  return {
+    ...defaults,
+    ...source,
+    repeatModel: {
+      ...defaults.repeatModel,
+      ...repeatModel,
+    },
+    rewardModel: {
+      ...defaults.rewardModel,
+      ...rewardModel,
+    },
+    birthdayPolicy: {
+      ...defaults.birthdayPolicy,
+      ...birthdayPolicy,
+    },
+    joinAnniversaryPolicy: {
+      ...defaults.joinAnniversaryPolicy,
+      ...joinAnniversaryPolicy,
+    },
+    timeBasedPromoPolicy: {
+      ...defaults.timeBasedPromoPolicy,
+      ...timeBasedPromoPolicy,
+    },
+    learning: {
+      ...defaults.learning,
+      ...learning,
+    },
+    onboardingMeta: {
+      ...defaults.onboardingMeta,
+      ...onboardingMeta,
+    },
+    overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+    updatedAt: now,
+  };
+}
+
 export async function createBusinessForOwner(
   ctx: any,
   input: BusinessCreationInput
@@ -391,6 +658,7 @@ export async function createBusinessForOwner(
       ...DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
       updatedAt: now,
     },
+    businessRetentionProfile: buildDefaultBusinessRetentionProfile(now),
     location: normalizedAddress.location,
     placeId: normalizedAddress.placeId,
     formattedAddress: normalizedAddress.formattedAddress,
@@ -503,7 +771,11 @@ export const updateBusinessAddress = mutation({
       streetNumber,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
     const normalizedAddress = normalizeBusinessAddressInput({
       formattedAddress,
       placeId,
@@ -717,6 +989,20 @@ function normalizeOnboardingChoiceInput<T extends string>(
   return normalized as T;
 }
 
+function normalizeOnboardingBooleanInput(value: boolean | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  return value === true;
+}
+
+function sanitizeOnboardingBoolean(value: unknown) {
+  if (value === true || value === false) {
+    return value;
+  }
+  return undefined;
+}
+
 function normalizeOnboardingUsageAreasInput(value: string[] | undefined) {
   if (value === undefined) {
     return undefined;
@@ -765,6 +1051,21 @@ function sanitizeBusinessOnboardingSnapshot(snapshot: unknown) {
     typeof source.ownerAgeRange === 'string' ? source.ownerAgeRange : undefined,
     BUSINESS_OWNER_AGE_RANGE_SET
   );
+  const businessExample = sanitizeOnboardingChoice<BusinessExample>(
+    typeof source.businessExample === 'string'
+      ? source.businessExample
+      : undefined,
+    BUSINESS_EXAMPLE_SET
+  );
+  const birthdayCampaignRelevant = sanitizeOnboardingBoolean(
+    source.birthdayCampaignRelevant
+  );
+  const joinAnniversaryCampaignRelevant = sanitizeOnboardingBoolean(
+    source.joinAnniversaryCampaignRelevant
+  );
+  const weakTimePromosRelevant = sanitizeOnboardingBoolean(
+    source.weakTimePromosRelevant
+  );
   const collectedAt = Number.isFinite(source.collectedAt)
     ? Math.max(0, Math.floor(Number(source.collectedAt)))
     : undefined;
@@ -781,6 +1082,19 @@ function sanitizeBusinessOnboardingSnapshot(snapshot: unknown) {
   }
   if (ownerAgeRange) {
     normalizedSnapshot.ownerAgeRange = ownerAgeRange;
+  }
+  if (businessExample) {
+    normalizedSnapshot.businessExample = businessExample;
+  }
+  if (birthdayCampaignRelevant !== undefined) {
+    normalizedSnapshot.birthdayCampaignRelevant = birthdayCampaignRelevant;
+  }
+  if (joinAnniversaryCampaignRelevant !== undefined) {
+    normalizedSnapshot.joinAnniversaryCampaignRelevant =
+      joinAnniversaryCampaignRelevant;
+  }
+  if (weakTimePromosRelevant !== undefined) {
+    normalizedSnapshot.weakTimePromosRelevant = weakTimePromosRelevant;
   }
   if (collectedAt !== undefined) {
     normalizedSnapshot.collectedAt = collectedAt;
@@ -814,6 +1128,8 @@ function computeBusinessProfileCompletion(business: {
   onboardingSnapshot?: unknown;
 }) {
   const missingFields: BusinessProfileCompletionField[] = [];
+  const onboardingSnapshot =
+    sanitizeBusinessOnboardingSnapshot(business.onboardingSnapshot) ?? null;
   if (!normalizeOptionalText(business.name)) {
     missingFields.push('name');
   }
@@ -831,6 +1147,32 @@ function computeBusinessProfileCompletion(business: {
   }
   if (sanitizeServiceTags(business.serviceTags).length === 0) {
     missingFields.push('serviceTags');
+  }
+  if (!onboardingSnapshot?.discoverySource) {
+    missingFields.push('discoverySource');
+  }
+  if (!onboardingSnapshot?.reason) {
+    missingFields.push('reason');
+  }
+  if ((onboardingSnapshot?.usageAreas?.length ?? 0) === 0) {
+    missingFields.push('usageAreas');
+  }
+  if (!onboardingSnapshot?.ownerAgeRange) {
+    missingFields.push('ownerAgeRange');
+  }
+  if (!onboardingSnapshot?.businessExample) {
+    missingFields.push('businessExample');
+  }
+  if (typeof onboardingSnapshot?.birthdayCampaignRelevant !== 'boolean') {
+    missingFields.push('birthdayCampaignRelevant');
+  }
+  if (
+    typeof onboardingSnapshot?.joinAnniversaryCampaignRelevant !== 'boolean'
+  ) {
+    missingFields.push('joinAnniversaryCampaignRelevant');
+  }
+  if (typeof onboardingSnapshot?.weakTimePromosRelevant !== 'boolean') {
+    missingFields.push('weakTimePromosRelevant');
   }
 
   return {
@@ -901,7 +1243,11 @@ export const updateBusinessProfile = mutation({
       serviceTags,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
     const business = await ctx.db.get(businessId);
     if (!business || business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
@@ -945,12 +1291,30 @@ export const saveBusinessOnboardingSnapshot = mutation({
     reason: v.optional(v.string()),
     usageAreas: v.optional(v.array(v.string())),
     ownerAgeRange: v.optional(v.string()),
+    businessExample: v.optional(v.string()),
+    birthdayCampaignRelevant: v.optional(v.boolean()),
+    joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
+    weakTimePromosRelevant: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { businessId, discoverySource, reason, usageAreas, ownerAgeRange }
+    {
+      businessId,
+      discoverySource,
+      reason,
+      usageAreas,
+      ownerAgeRange,
+      businessExample,
+      birthdayCampaignRelevant,
+      joinAnniversaryCampaignRelevant,
+      weakTimePromosRelevant,
+    }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
     const business = await ctx.db.get(businessId);
     if (!business || business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
@@ -974,9 +1338,41 @@ export const saveBusinessOnboardingSnapshot = mutation({
         BUSINESS_OWNER_AGE_RANGE_SET,
         'BUSINESS_OWNER_AGE_RANGE_INVALID'
       );
+    const normalizedBusinessExample =
+      normalizeOnboardingChoiceInput<BusinessExample>(
+        businessExample,
+        BUSINESS_EXAMPLE_SET,
+        'BUSINESS_EXAMPLE_INVALID'
+      );
+    const normalizedBirthdayCampaignRelevant = normalizeOnboardingBooleanInput(
+      birthdayCampaignRelevant
+    );
+    const normalizedJoinAnniversaryCampaignRelevant =
+      normalizeOnboardingBooleanInput(joinAnniversaryCampaignRelevant);
+    const normalizedWeakTimePromosRelevant = normalizeOnboardingBooleanInput(
+      weakTimePromosRelevant
+    );
 
     const existingSnapshot =
       sanitizeBusinessOnboardingSnapshot(business.onboardingSnapshot) ?? {};
+    const now = Date.now();
+    const effectiveBusinessExample =
+      normalizedBusinessExample ?? existingSnapshot.businessExample;
+    const exampleDefaults = effectiveBusinessExample
+      ? BUSINESS_EXAMPLE_PROFILE_MAP[effectiveBusinessExample]
+      : null;
+    const effectiveBirthdayCampaignRelevant =
+      normalizedBirthdayCampaignRelevant ??
+      existingSnapshot.birthdayCampaignRelevant ??
+      exampleDefaults?.birthdayRelevant;
+    const effectiveJoinAnniversaryCampaignRelevant =
+      normalizedJoinAnniversaryCampaignRelevant ??
+      existingSnapshot.joinAnniversaryCampaignRelevant ??
+      exampleDefaults?.joinAnniversaryRelevant;
+    const effectiveWeakTimePromosRelevant =
+      normalizedWeakTimePromosRelevant ??
+      existingSnapshot.weakTimePromosRelevant ??
+      exampleDefaults?.weakTimePromosRelevant;
 
     const nextSnapshot = {
       ...existingSnapshot,
@@ -985,17 +1381,151 @@ export const saveBusinessOnboardingSnapshot = mutation({
       reason: normalizedReason ?? existingSnapshot.reason,
       usageAreas: normalizedUsageAreas ?? existingSnapshot.usageAreas,
       ownerAgeRange: normalizedOwnerAgeRange ?? existingSnapshot.ownerAgeRange,
-      collectedAt: Date.now(),
+      businessExample: effectiveBusinessExample,
+      birthdayCampaignRelevant: effectiveBirthdayCampaignRelevant,
+      joinAnniversaryCampaignRelevant: effectiveJoinAnniversaryCampaignRelevant,
+      weakTimePromosRelevant: effectiveWeakTimePromosRelevant,
+      collectedAt: now,
     };
 
-    await ctx.db.patch(businessId, {
+    const retentionProfile = normalizeBusinessRetentionProfile(
+      business.businessRetentionProfile,
+      now
+    );
+    const retentionRepeatModel = asRecord(retentionProfile.repeatModel);
+    const retentionBirthdayPolicy = asRecord(retentionProfile.birthdayPolicy);
+    const retentionJoinPolicy = asRecord(
+      retentionProfile.joinAnniversaryPolicy
+    );
+    const retentionTimePolicy = asRecord(retentionProfile.timeBasedPromoPolicy);
+    const retentionOnboardingMeta = asRecord(retentionProfile.onboardingMeta);
+    const retentionProfileRecord = asRecord(retentionProfile);
+    const nextCadenceBand =
+      exampleDefaults?.cadenceBand ??
+      (CADENCE_BAND_SET.has(String(retentionRepeatModel.cadenceBand))
+        ? (retentionRepeatModel.cadenceBand as CadenceBand)
+        : null);
+    const nextRepeatByCadence = nextCadenceBand
+      ? computeRepeatModelByCadence(nextCadenceBand)
+      : null;
+
+    const nextRetentionProfile = {
+      ...retentionProfile,
+      serviceType:
+        exampleDefaults?.serviceType ??
+        (BUSINESS_SERVICE_TYPE_SET.has(String(retentionProfile.serviceType))
+          ? retentionProfile.serviceType
+          : 'other'),
+      businessModel:
+        exampleDefaults?.businessModel ??
+        (BUSINESS_MODEL_SET.has(String(retentionProfile.businessModel))
+          ? retentionProfile.businessModel
+          : 'mixed'),
+      operatingScope:
+        (normalizedUsageAreas?.[0] ??
+          nextSnapshot.usageAreas?.[0] ??
+          retentionProfileRecord.operatingScope) === 'citywide'
+          ? 'citywide'
+          : (normalizedUsageAreas?.[0] ??
+                nextSnapshot.usageAreas?.[0] ??
+                retentionProfileRecord.operatingScope) === 'online'
+            ? 'online'
+            : (normalizedUsageAreas?.[0] ??
+                  nextSnapshot.usageAreas?.[0] ??
+                  retentionProfileRecord.operatingScope) === 'multiple'
+              ? 'multiple'
+              : 'nearby',
+      discoverySource:
+        normalizedDiscoverySource ??
+        existingSnapshot.discoverySource ??
+        retentionProfileRecord.discoverySource,
+      adoptionReason:
+        normalizedReason ??
+        existingSnapshot.reason ??
+        retentionProfileRecord.adoptionReason,
+      repeatModel: {
+        ...retentionRepeatModel,
+        ...(nextRepeatByCadence ?? {}),
+      },
+      birthdayPolicy: {
+        ...retentionBirthdayPolicy,
+        enabled:
+          effectiveBirthdayCampaignRelevant ??
+          retentionBirthdayPolicy.enabled === true,
+        relevance:
+          effectiveBirthdayCampaignRelevant === true
+            ? 'high'
+            : effectiveBirthdayCampaignRelevant === false
+              ? 'off'
+              : (retentionBirthdayPolicy.relevance ?? 'conditional'),
+      },
+      joinAnniversaryPolicy: {
+        ...retentionJoinPolicy,
+        enabled:
+          effectiveJoinAnniversaryCampaignRelevant ??
+          retentionJoinPolicy.enabled === true,
+        relevance:
+          effectiveJoinAnniversaryCampaignRelevant === true
+            ? 'high'
+            : effectiveJoinAnniversaryCampaignRelevant === false
+              ? 'off'
+              : (retentionJoinPolicy.relevance ?? 'conditional'),
+      },
+      timeBasedPromoPolicy: {
+        ...retentionTimePolicy,
+        enabled:
+          effectiveWeakTimePromosRelevant ??
+          retentionTimePolicy.enabled !== false,
+        relevance:
+          effectiveWeakTimePromosRelevant === true
+            ? 'high'
+            : effectiveWeakTimePromosRelevant === false
+              ? 'off'
+              : (retentionTimePolicy.relevance ?? 'conditional'),
+      },
+      onboardingMeta: {
+        ...retentionOnboardingMeta,
+        ownerAgeRange:
+          normalizedOwnerAgeRange ??
+          existingSnapshot.ownerAgeRange ??
+          retentionOnboardingMeta.ownerAgeRange,
+        businessExample:
+          effectiveBusinessExample ?? retentionOnboardingMeta.businessExample,
+        birthdayCampaignRelevant:
+          effectiveBirthdayCampaignRelevant ??
+          retentionOnboardingMeta.birthdayCampaignRelevant,
+        joinAnniversaryCampaignRelevant:
+          effectiveJoinAnniversaryCampaignRelevant ??
+          retentionOnboardingMeta.joinAnniversaryCampaignRelevant,
+        weakTimePromosRelevant:
+          effectiveWeakTimePromosRelevant ??
+          retentionOnboardingMeta.weakTimePromosRelevant,
+        collectedAt: now,
+      },
+      updatedAt: now,
+    };
+
+    const businessPatchPayload: Record<string, unknown> = {
       onboardingSnapshot: nextSnapshot,
-      updatedAt: Date.now(),
-    });
+      businessRetentionProfile: nextRetentionProfile,
+      updatedAt: now,
+    };
+
+    const existingServiceTypes = sanitizeServiceTypes(business.serviceTypes);
+    if (
+      existingServiceTypes.length === 0 &&
+      exampleDefaults &&
+      exampleDefaults.serviceType !== 'other'
+    ) {
+      businessPatchPayload.serviceTypes = [exampleDefaults.serviceType];
+    }
+
+    await ctx.db.patch(businessId, businessPatchPayload);
 
     return {
       businessId,
       onboardingSnapshot: nextSnapshot,
+      businessRetentionProfile: nextRetentionProfile,
     };
   },
 });
@@ -1038,7 +1568,11 @@ export const updateCustomerSegmentationConfig = mutation({
       dropPercentThreshold,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
     const business = await ctx.db.get(businessId);
     if (!business || business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
@@ -1929,27 +2463,16 @@ export const getMyStaffProfileForBusiness = query({
       return null;
     }
 
-    const { actor, membership, staffRole } =
+    const { actor, membership, staffRole, capabilities } =
       await requireActorIsActiveStaffForBusiness(ctx, businessId);
     const business = await ctx.db.get(businessId);
     if (!business || business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
     }
 
-    const permissionsByRole: Record<StaffRole, string[]> = {
-      owner: [
-        'manage_subscription',
-        'manage_team',
-        'manage_business_settings',
-        'scanner_access',
-      ],
-      manager: [
-        'manage_staff_only',
-        'manage_business_settings',
-        'scanner_access',
-      ],
-      staff: ['scanner_access'],
-    };
+    const permissions = (
+      Object.keys(capabilities) as Array<keyof typeof capabilities>
+    ).filter((permission) => capabilities[permission] === true);
 
     return {
       userId: actor._id,
@@ -1957,9 +2480,10 @@ export const getMyStaffProfileForBusiness = query({
       businessName: business.name,
       staffRole,
       status: resolveStaffStatus(membership),
-      permissions: permissionsByRole[staffRole],
+      permissions,
+      capabilities,
       joinedAt: membership.joinedAt ?? membership.createdAt,
-      canManageTeam: staffRole === 'owner' || staffRole === 'manager',
+      canManageTeam: capabilities.manage_team === true,
     };
   },
 });

@@ -24,6 +24,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   mapTeamInviteErrorToMessage,
   TEAM_INVITE_ERROR_MESSAGES,
@@ -55,8 +56,13 @@ export default function AddBusinessStaffScreen() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const isOwner = activeBusiness?.staffRole === 'owner';
-  const isManager = activeBusiness?.staffRole === 'manager';
-  const canManageTeam = isOwner || isManager;
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canManageTeam = activeBusinessCapabilities?.manage_team === true;
 
   const { gate } = useEntitlements(activeBusinessId);
   const teamGate = gate('team');
@@ -122,12 +128,12 @@ export default function AddBusinessStaffScreen() {
       return;
     }
 
-    setInviteError('айштд щвйад.');
+    setInviteError('пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.');
   };
 
   const handleInviteByScan = async (rawData: string) => {
     if (!activeBusinessId) {
-      setInviteError('ма рбзш тсч фтйм.');
+      setInviteError('пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.');
       setScannerResetKey((current) => current + 1);
       return;
     }
@@ -154,7 +160,7 @@ export default function AddBusinessStaffScreen() {
       });
 
       setScannedStaffDetails(result.invitedUser);
-      setInviteSuccess('дтебг ресу бдцмзд мшщйоъ дджореъ дооъйреъ.');
+      setInviteSuccess('пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.');
     } catch (error) {
       handleMutationError(error);
       setScannerResetKey((current) => current + 1);
@@ -188,8 +194,8 @@ export default function AddBusinessStaffScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="десу тебг"
-            subtitle="бзйшъ ъфчйг есшйчъ QR айщй мдесфд одйшд"
+            title="пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ"
+            subtitle="пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ QR пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ"
             titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/team')} />}
           />
         </StickyScrollHeader>
@@ -215,7 +221,7 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                1. ъфчйг тебг
+                1. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
               </Text>
               <View className="flex-row-reverse gap-2">
                 <TouchableOpacity
@@ -226,7 +232,7 @@ export default function AddBusinessStaffScreen() {
                       : 'border-[#D6E3FF] bg-white'
                   }`}
                 >
-                  <Text className="text-xs font-bold text-[#1D4ED8]">тебг</Text>
+                  <Text className="text-xs font-bold text-[#1D4ED8]">пїЅпїЅпїЅпїЅ</Text>
                 </TouchableOpacity>
                 {isOwner ? (
                   <TouchableOpacity
@@ -238,7 +244,7 @@ export default function AddBusinessStaffScreen() {
                     }`}
                   >
                     <Text className="text-xs font-bold text-[#1D4ED8]">
-                      ордм
+                      пїЅпїЅпїЅпїЅ
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -249,10 +255,10 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                2. сшйчъ QR айщй
+                2. пїЅпїЅпїЅпїЅпїЅ QR пїЅпїЅпїЅпїЅ
               </Text>
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                дсшйчд щеошъ аеиеоийъ аъ дтебг лджорд ооъйрд.
+                пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
               </Text>
               <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
                 <QrScanner
@@ -261,10 +267,10 @@ export default function AddBusinessStaffScreen() {
                   isBusy={isInvitingByScan}
                   caption={
                     isInvitingByScan
-                      ? 'щеош тебг...'
+                      ? 'пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ...'
                       : scannedStaffDetails
-                        ? 'дтебг рщош. рйъп мсшеч щеб.'
-                        : 'оелрйн мсшйчъ QR айщй'
+                        ? 'пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ.'
+                        : 'пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ QR пїЅпїЅпїЅпїЅ'
                   }
                 />
               </View>
@@ -291,26 +297,26 @@ export default function AddBusinessStaffScreen() {
                 <Text
                   className={`text-xs font-bold text-emerald-700 ${tw.textStart}`}
                 >
-                  фший дтебг щрщош
+                  пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                 </Text>
                 <Text
                   className={`mt-2 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  щн: {scannedStaffDetails.name}
+                  пїЅпїЅ: {scannedStaffDetails.name}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  имфеп: {scannedStaffDetails.phone ?? 'ма девгш'}
+                  пїЅпїЅпїЅпїЅпїЅ: {scannedStaffDetails.phone ?? 'пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ'}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  айоййм: {scannedStaffDetails.email ?? 'ма девгш'}
+                  пїЅпїЅпїЅпїЅпїЅпїЅ: {scannedStaffDetails.email ?? 'пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ'}
                 </Text>
                 <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
                   <Text className="text-[11px] font-bold text-emerald-700">
-                    ъфчйг обечщ: {inviteRole === 'manager' ? 'ордм' : 'тебг'}
+                    пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: {inviteRole === 'manager' ? 'пїЅпїЅпїЅпїЅ' : 'пїЅпїЅпїЅпїЅ'}
                   </Text>
                 </View>
               </View>
@@ -331,7 +337,7 @@ export default function AddBusinessStaffScreen() {
                 <ActivityIndicator color="#94A3B8" />
               ) : (
                 <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                  сшеч щеб
+                  пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
                 </Text>
               )}
             </TouchableOpacity>
@@ -341,7 +347,7 @@ export default function AddBusinessStaffScreen() {
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">
-                зжшд мрйдем тебгйн
+                пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
               </Text>
             </TouchableOpacity>
           </View>

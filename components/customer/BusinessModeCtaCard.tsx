@@ -19,6 +19,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
@@ -58,6 +59,10 @@ function formatSwitchToBusinessTitle(businessName: string) {
   return `\u05de\u05e2\u05d1\u05e8 \u05dc\u05e2\u05e1\u05e7 ${businessName}`;
 }
 
+function canAccessBusinessMode(staffRole: 'owner' | 'manager' | 'staff') {
+  return resolveBusinessCapabilities(null, staffRole).access_dashboard === true;
+}
+
 type BusinessModeCtaCardProps = {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -81,15 +86,14 @@ export default function BusinessModeCtaCard({
   const bizList = sessionContext?.businesses ?? [];
   const manageableBusiness =
     bizList.find(
-      (business) =>
-        business.staffRole === 'owner' || business.staffRole === 'manager'
+      (business) => canAccessBusinessMode(business.staffRole)
     ) ?? null;
   const activeManagedBusiness =
     (sessionContext?.activeBusinessId
       ? bizList.find(
           (business) =>
             String(business.id) === String(sessionContext.activeBusinessId) &&
-            (business.staffRole === 'owner' || business.staffRole === 'manager')
+            canAccessBusinessMode(business.staffRole)
         )
       : null) ?? null;
   const targetBusinessForBusinessMode =

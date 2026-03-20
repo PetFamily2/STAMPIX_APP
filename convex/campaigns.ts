@@ -5,12 +5,12 @@ import {
   assertCampaignsNotOverLimit,
   assertEntitlement,
   countActiveCampaignsForBusiness,
+  countActiveRetentionActionsForBusiness,
   getBusinessEntitlementsForBusinessId,
 } from './entitlements';
 import {
   getCurrentUserOrNull,
-  requireActorIsBusinessOwnerOrManager,
-  requireActorIsStaffForBusiness,
+  requireActorHasBusinessCapability,
 } from './guards';
 import { recordCampaignRun } from './lib/campaignRuns';
 
@@ -83,6 +83,29 @@ function normalizeEditableManagementStatus(
     return value === 'completed' ? 'draft' : value;
   }
   return 'draft';
+}
+
+function normalizeScheduleMode(
+  value: unknown
+): 'send_now' | 'one_time' | 'recurring' {
+  if (value === 'send_now' || value === 'one_time' || value === 'recurring') {
+    return value;
+  }
+  return 'send_now';
+}
+
+function getScheduleModeFromCampaign(campaign: any) {
+  const scheduleMode = isObject(campaign?.schedule)
+    ? normalizeScheduleMode(campaign.schedule.mode)
+    : null;
+
+  if (scheduleMode) {
+    return scheduleMode;
+  }
+
+  return isAutomationEnabled(campaign?.automationEnabled)
+    ? 'recurring'
+    : 'send_now';
 }
 
 function isAutomationEnabled(value: unknown): boolean {
@@ -258,6 +281,20 @@ async function assertCampaignCapacity(ctx: any, businessId: Id<'businesses'>) {
   await assertEntitlement(ctx, businessId, {
     limitKey: 'maxCampaigns',
     currentValue: activeCampaigns,
+  });
+}
+
+async function assertRecurringCampaignCapacity(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const activeRecurringCampaigns = await countActiveRetentionActionsForBusiness(
+    ctx,
+    businessId
+  );
+  await assertEntitlement(ctx, businessId, {
+    limitKey: 'maxActiveRetentionActions',
+    currentValue: activeRecurringCampaigns,
   });
 }
 
@@ -567,6 +604,63 @@ async function sendAutomationForCampaign(
   return { sentCount, skippedCount };
 }
 
+async function sendCampaignDeliveryOnce(
+  ctx: any,
+  campaign: any,
+  now: number
+): Promise<{
+  sentCount: number;
+  skippedCount: number;
+  estimatedAudience: number;
+}> {
+  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  let sentCount = 0;
+  let skippedCount = 0;
+
+  for (const userId of estimate.userIds) {
+    const existing = await ctx.db
+      .query('messageLog')
+      .withIndex('by_campaignId_toUserId', (q: any) =>
+        q.eq('campaignId', campaign._id).eq('toUserId', userId)
+      )
+      .first();
+
+    if (existing) {
+      skippedCount += 1;
+      continue;
+    }
+
+    await ctx.db.insert('messageLog', {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      toUserId: userId,
+      channel: 'in_app',
+      status: 'sent',
+      createdAt: now,
+    });
+    sentCount += 1;
+  }
+
+  if (sentCount > 0) {
+    await recordCampaignRun(ctx, {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      programId: campaign.programId ?? undefined,
+      campaignType: campaign.type,
+      sentAt: now,
+      targetedCount: estimate.total,
+      deliveredCount: sentCount,
+      lastDeliveryAt: now,
+    });
+  }
+
+  return {
+    sentCount,
+    skippedCount,
+    estimatedAudience: estimate.total,
+  };
+}
+
 export const listAiCampaignsByBusiness = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -579,7 +673,11 @@ export const listAiCampaignsByBusiness = query({
       };
     }
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_campaigns'
+    );
     const entitlements = await getBusinessEntitlementsForBusinessId(
       ctx,
       businessId
@@ -635,7 +733,11 @@ export const createAiCampaign = mutation({
     ),
   },
   handler: async (ctx, { businessId, title, prompt, rules, channels }) => {
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'create_campaigns'
+    );
     await assertCampaignCapacity(ctx, businessId);
 
     const normalizedPrompt = prompt.trim();
@@ -658,10 +760,14 @@ export const createAiCampaign = mutation({
       title: normalizedTitle,
       prompt: normalizedPrompt,
       status: 'draft',
+      activationStatus: 'draft',
       rules,
       channels:
         normalizedChannels.length > 0 ? normalizedChannels : DEFAULT_CHANNELS,
       automationEnabled: false,
+      schedule: {
+        mode: 'send_now',
+      },
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -692,7 +798,11 @@ export const listManagementCampaignsByBusiness = query({
       return [];
     }
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_campaigns'
+    );
     const campaigns = await ctx.db
       .query('campaigns')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
@@ -703,6 +813,7 @@ export const listManagementCampaignsByBusiness = query({
         const automationEnabled = isAutomationEnabled(
           campaign.automationEnabled
         );
+        const scheduleMode = getScheduleModeFromCampaign(campaign);
         const isCountedTowardLimit = campaign.isActive === true;
         const lifecycle =
           campaign.isActive !== true
@@ -755,6 +866,11 @@ export const listManagementCampaignsByBusiness = query({
           status: normalizeEditableManagementStatus(
             campaign.status ?? defaultStatus
           ),
+          scheduleMode,
+          scheduledForAt:
+            typeof campaign.schedule?.sendAt === 'number'
+              ? campaign.schedule.sendAt
+              : null,
           rules: campaign.rules ?? null,
           automationEnabled,
           lifecycle,
@@ -785,7 +901,11 @@ export const getManagementCampaignDraft = query({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_campaigns'
+    );
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
@@ -801,12 +921,18 @@ export const getManagementCampaignDraft = query({
     ]);
     const deliveryStats = buildCampaignDeliveryStats(logs);
     const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
+    const scheduleMode = getScheduleModeFromCampaign(campaign);
 
     return {
       campaignId: campaign._id,
       businessId: campaign.businessId,
       type: campaign.type,
       status: normalizeEditableManagementStatus(campaign.status),
+      scheduleMode,
+      scheduledForAt:
+        typeof campaign.schedule?.sendAt === 'number'
+          ? campaign.schedule.sendAt
+          : null,
       messageTitle: campaign.messageTitle ?? defaults.messageTitle,
       messageBody: campaign.messageBody ?? defaults.messageBody,
       rules: campaign.rules ?? defaults.rules,
@@ -841,7 +967,11 @@ export const createCampaignDraft = mutation({
     ctx,
     { businessId, type, title, messageTitle, messageBody, rules, programId }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'create_campaigns'
+    );
     await validateProgramBelongsToBusiness(ctx, businessId, programId);
     await assertCampaignCapacity(ctx, businessId);
 
@@ -857,7 +987,11 @@ export const createCampaignDraft = mutation({
       channels: DEFAULT_CHANNELS,
       programId,
       status: 'draft',
+      activationStatus: 'draft',
       automationEnabled: false,
+      schedule: {
+        mode: 'send_now',
+      },
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -872,7 +1006,11 @@ export const createGeneralCampaignDraft = mutation({
     businessId: v.id('businesses'),
   },
   handler: async (ctx, { businessId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'create_campaigns'
+    );
     await assertCampaignCapacity(ctx, businessId);
 
     const defaults = buildDefaultDraftByType('promo');
@@ -886,7 +1024,11 @@ export const createGeneralCampaignDraft = mutation({
       rules: defaults.rules,
       channels: DEFAULT_CHANNELS,
       status: 'draft',
+      activationStatus: 'draft',
       automationEnabled: false,
+      schedule: {
+        mode: 'send_now',
+      },
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -903,23 +1045,156 @@ export const setCampaignAutomationEnabled = mutation({
     enabled: v.boolean(),
   },
   handler: async (ctx, { businessId, campaignId, enabled }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'activate_send_campaigns'
+    );
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
     if (enabled) {
       await assertCampaignsNotOverLimit(ctx, businessId);
+      if (!isAutomationEnabled(campaign.automationEnabled)) {
+        await assertRecurringCampaignCapacity(ctx, businessId);
+      }
     }
 
-    await ctx.db.patch(campaign._id, {
+    const now = Date.now();
+    const currentSchedule = isObject(campaign.schedule)
+      ? campaign.schedule
+      : {};
+    const patchPayload: Record<string, unknown> = {
       automationEnabled: enabled,
-      updatedAt: Date.now(),
-    });
+      status: enabled
+        ? 'active'
+        : campaign.status === 'active'
+          ? 'paused'
+          : campaign.status,
+      activationStatus: enabled
+        ? 'active'
+        : campaign.activationStatus === 'active'
+          ? 'paused'
+          : campaign.activationStatus,
+      updatedAt: now,
+    };
+
+    if (enabled) {
+      patchPayload.schedule = {
+        ...currentSchedule,
+        mode: 'recurring',
+        sendHourLocal:
+          Number.isFinite(currentSchedule.sendHourLocal) &&
+          Number(currentSchedule.sendHourLocal) >= 0 &&
+          Number(currentSchedule.sendHourLocal) <= 23
+            ? Number(currentSchedule.sendHourLocal)
+            : 9,
+      };
+    } else if (currentSchedule.mode === 'recurring') {
+      patchPayload.schedule = {
+        ...currentSchedule,
+        mode: 'send_now',
+        nextRunAt: undefined,
+      };
+    }
+
+    await ctx.db.patch(campaign._id, patchPayload);
 
     return {
       ok: true,
       automationEnabled: enabled,
+    };
+  },
+});
+
+export const scheduleCampaignOneTime = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    sendAt: v.number(),
+  },
+  handler: async (ctx, { businessId, campaignId, sendAt }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'activate_send_campaigns'
+    );
+    await assertCampaignsNotOverLimit(ctx, businessId);
+    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+
+    const now = Date.now();
+    const minScheduleAt = now + 5 * 60 * 1000;
+    if (!Number.isFinite(sendAt) || sendAt < minScheduleAt) {
+      throw new Error('SCHEDULE_TIME_INVALID');
+    }
+
+    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    await ctx.db.patch(campaign._id, {
+      automationEnabled: false,
+      status: 'active',
+      activationStatus: 'active',
+      schedule: {
+        ...currentSchedule,
+        mode: 'one_time',
+        sendAt,
+        nextRunAt: sendAt,
+      },
+      updatedAt: now,
+    });
+
+    return {
+      ok: true,
+      scheduleMode: 'one_time' as const,
+      sendAt,
+    };
+  },
+});
+
+export const clearCampaignOneTimeSchedule = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+  },
+  handler: async (ctx, { businessId, campaignId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_campaigns'
+    );
+    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    if (!isManagementType(campaign.type)) {
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+
+    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    const now = Date.now();
+    await ctx.db.patch(campaign._id, {
+      automationEnabled: false,
+      status:
+        campaign.status === 'active' && getScheduleModeFromCampaign(campaign) === 'one_time'
+          ? 'draft'
+          : campaign.status,
+      activationStatus:
+        campaign.activationStatus === 'active' &&
+        getScheduleModeFromCampaign(campaign) === 'one_time'
+          ? 'draft'
+          : campaign.activationStatus,
+      schedule: {
+        ...currentSchedule,
+        mode: 'send_now',
+        sendAt: undefined,
+        nextRunAt: undefined,
+      },
+      updatedAt: now,
+    });
+
+    return {
+      ok: true,
+      scheduleMode: 'send_now' as const,
     };
   },
 });
@@ -930,9 +1205,10 @@ export const archiveManagementCampaign = mutation({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    const { actor } = await requireActorIsBusinessOwnerOrManager(
+    const { actor } = await requireActorHasBusinessCapability(
       ctx,
-      businessId
+      businessId,
+      'delete_campaigns'
     );
     const campaign = await getCampaignAnyStateOrThrow(
       ctx,
@@ -978,7 +1254,7 @@ export const restoreManagementCampaign = mutation({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignAnyStateOrThrow(
       ctx,
       businessId,
@@ -1032,7 +1308,7 @@ export const updateCampaignDraft = mutation({
       programId,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
@@ -1070,7 +1346,11 @@ export const estimateCampaignAudience = mutation({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_campaigns'
+    );
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
@@ -1089,63 +1369,39 @@ export const sendCampaignNow = mutation({
     campaignId: v.id('campaigns'),
   },
   handler: async (ctx, { businessId, campaignId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'activate_send_campaigns'
+    );
     await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
 
-    const estimate = await estimateAudienceForCampaign(ctx, campaign);
-    let sentCount = 0;
-    let skippedCount = 0;
     const now = Date.now();
-
-    for (const userId of estimate.userIds) {
-      const existing = await ctx.db
-        .query('messageLog')
-        .withIndex('by_campaignId_toUserId', (q: any) =>
-          q.eq('campaignId', campaign._id).eq('toUserId', userId)
-        )
-        .first();
-
-      if (existing) {
-        skippedCount += 1;
-        continue;
-      }
-
-      await ctx.db.insert('messageLog', {
-        businessId,
-        campaignId: campaign._id,
-        toUserId: userId,
-        channel: 'in_app',
-        status: 'sent',
-        createdAt: now,
-      });
-      sentCount += 1;
-    }
-
-    await ctx.db.patch(campaign._id, {
+    const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
+    const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+    const patchPayload: Record<string, unknown> = {
       updatedAt: now,
-    });
-
-    if (sentCount > 0) {
-      await recordCampaignRun(ctx, {
-        businessId,
-        campaignId: campaign._id,
-        programId: campaign.programId ?? undefined,
-        campaignType: campaign.type,
-        sentAt: now,
-        targetedCount: estimate.total,
-        deliveredCount: sentCount,
-        lastDeliveryAt: now,
-      });
+    };
+    if (getScheduleModeFromCampaign(campaign) === 'one_time') {
+      patchPayload.status = 'completed';
+      patchPayload.activationStatus = 'completed';
+      patchPayload.schedule = {
+        ...currentSchedule,
+        mode: 'send_now',
+        sendAt: undefined,
+        nextRunAt: undefined,
+      };
     }
+    await ctx.db.patch(campaign._id, patchPayload);
 
     return {
-      sentCount,
-      skippedCount,
-      estimatedAudience: estimate.total,
+      sentCount: result.sentCount,
+      skippedCount: result.skippedCount,
+      estimatedAudience: result.estimatedAudience,
     };
   },
 });
@@ -1155,37 +1411,81 @@ export const runAutomationSweepInternal = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const israelHour = getIsraelHour(now);
-    if (israelHour !== 9) {
-      return {
-        processedCampaigns: 0,
-        sentCount: 0,
-        skippedCount: 0,
-        reason: 'outside_window',
-      };
-    }
-
-    const campaigns = await ctx.db
-      .query('campaigns')
-      .withIndex('by_automationEnabled', (q: any) =>
-        q.eq('automationEnabled', true)
-      )
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.neq(q.field('type'), 'ai_marketing')
-        )
-      )
-      .collect();
-
-    let processedCampaigns = 0;
+    const shouldRunRecurring = israelHour === 9;
+    let recurringProcessedCampaigns = 0;
+    let oneTimeProcessedCampaigns = 0;
     let sentCount = 0;
     let skippedCount = 0;
     const overLimitByBusiness = new Map<string, boolean>();
 
-    for (const campaign of campaigns) {
+    if (shouldRunRecurring) {
+      const recurringCampaigns = await ctx.db
+        .query('campaigns')
+        .withIndex('by_automationEnabled', (q: any) =>
+          q.eq('automationEnabled', true)
+        )
+        .filter((q: any) =>
+          q.and(
+            q.eq(q.field('isActive'), true),
+            q.neq(q.field('type'), 'ai_marketing')
+          )
+        )
+        .collect();
+
+      for (const campaign of recurringCampaigns) {
+        if (!isManagementType(campaign.type)) {
+          continue;
+        }
+        const businessKey = String(campaign.businessId);
+        let isBlocked = overLimitByBusiness.get(businessKey);
+        if (isBlocked === undefined) {
+          try {
+            await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+            isBlocked = false;
+          } catch (error) {
+            if (!isCampaignLimitReachedError(error)) {
+              throw error;
+            }
+            isBlocked = true;
+          }
+          overLimitByBusiness.set(businessKey, isBlocked);
+        }
+        if (isBlocked) {
+          continue;
+        }
+        recurringProcessedCampaigns += 1;
+        const result = await sendAutomationForCampaign(ctx, campaign, now);
+        sentCount += result.sentCount;
+        skippedCount += result.skippedCount;
+      }
+    }
+
+    const oneTimeCandidates = await ctx.db
+      .query('campaigns')
+      .withIndex('by_activationStatus', (q: any) => q.eq('activationStatus', 'active'))
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field('isActive'), true),
+          q.eq(q.field('automationEnabled'), false),
+          q.neq(q.field('type'), 'ai_marketing'),
+          q.neq(q.field('type'), 'ai_retention'),
+          q.neq(q.field('type'), 'retention_action')
+        )
+      )
+      .collect();
+
+    for (const campaign of oneTimeCandidates) {
       if (!isManagementType(campaign.type)) {
         continue;
       }
+      if (getScheduleModeFromCampaign(campaign) !== 'one_time') {
+        continue;
+      }
+      const sendAt = Number(campaign.schedule?.sendAt ?? 0);
+      if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
+        continue;
+      }
+
       const businessKey = String(campaign.businessId);
       let isBlocked = overLimitByBusiness.get(businessKey);
       if (isBlocked === undefined) {
@@ -1203,17 +1503,32 @@ export const runAutomationSweepInternal = internalMutation({
       if (isBlocked) {
         continue;
       }
-      processedCampaigns += 1;
-      const result = await sendAutomationForCampaign(ctx, campaign, now);
+
+      oneTimeProcessedCampaigns += 1;
+      const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
       sentCount += result.sentCount;
       skippedCount += result.skippedCount;
+      const currentSchedule = isObject(campaign.schedule) ? campaign.schedule : {};
+      await ctx.db.patch(campaign._id, {
+        status: 'completed',
+        activationStatus: 'completed',
+        schedule: {
+          ...currentSchedule,
+          mode: 'send_now',
+          sendAt: undefined,
+          nextRunAt: undefined,
+        },
+        updatedAt: now,
+      });
     }
 
     return {
-      processedCampaigns,
+      processedCampaigns: recurringProcessedCampaigns + oneTimeProcessedCampaigns,
+      recurringProcessedCampaigns,
+      oneTimeProcessedCampaigns,
       sentCount,
       skippedCount,
-      reason: 'ok',
+      reason: shouldRunRecurring ? 'ok' : 'recurring_window_closed',
     };
   },
 });

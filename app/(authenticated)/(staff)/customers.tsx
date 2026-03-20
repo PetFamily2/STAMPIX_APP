@@ -23,28 +23,85 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { tw } from '@/lib/rtl';
 
-type CustomerStatus =
+type CustomerState =
+  | 'NEW'
+  | 'ACTIVE'
+  | 'NEEDS_NURTURE'
+  | 'NEEDS_WINBACK'
+  | 'CLOSE_TO_REWARD';
+type CustomerValueTier = 'REGULAR' | 'LOYAL' | 'VIP';
+type LegacyLifecycleStatus =
   | 'NEW_CUSTOMER'
   | 'ACTIVE'
   | 'AT_RISK'
   | 'NEAR_REWARD'
   | 'VIP';
 
-const STATUS_LABELS: Record<CustomerStatus, string> = {
-  NEW_CUSTOMER: 'חדש',
+const STATE_LABELS: Record<CustomerState, string> = {
+  NEW: 'חדש',
   ACTIVE: 'פעיל',
-  AT_RISK: 'בסיכון',
-  NEAR_REWARD: 'קרוב להטבה',
+  NEEDS_NURTURE: 'צריך חיזוק',
+  NEEDS_WINBACK: 'צריך וינבאק',
+  CLOSE_TO_REWARD: 'קרוב להטבה',
+};
+
+const STATE_COLORS: Record<CustomerState, string> = {
+  NEW: 'bg-sky-100 text-sky-700',
+  ACTIVE: 'bg-slate-100 text-slate-700',
+  NEEDS_NURTURE: 'bg-orange-100 text-orange-700',
+  NEEDS_WINBACK: 'bg-rose-100 text-rose-700',
+  CLOSE_TO_REWARD: 'bg-amber-100 text-amber-700',
+};
+
+const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
+  REGULAR: 'רגיל',
+  LOYAL: 'נאמן',
   VIP: 'VIP',
 };
 
-const STATUS_COLORS: Record<CustomerStatus, string> = {
-  NEW_CUSTOMER: 'bg-sky-100 text-sky-700',
-  ACTIVE: 'bg-slate-100 text-slate-700',
-  AT_RISK: 'bg-rose-100 text-rose-700',
-  NEAR_REWARD: 'bg-amber-100 text-amber-700',
+const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
+  REGULAR: 'bg-slate-100 text-slate-700',
+  LOYAL: 'bg-emerald-100 text-emerald-700',
   VIP: 'bg-indigo-100 text-indigo-700',
 };
+
+function resolveCustomerState(customer: {
+  customerState?: string | null;
+  lifecycleStatus?: string | null;
+}) {
+  const state = customer.customerState;
+  if (
+    state === 'NEW' ||
+    state === 'ACTIVE' ||
+    state === 'NEEDS_NURTURE' ||
+    state === 'NEEDS_WINBACK' ||
+    state === 'CLOSE_TO_REWARD'
+  ) {
+    return state;
+  }
+
+  const legacy = customer.lifecycleStatus as LegacyLifecycleStatus | undefined;
+  if (legacy === 'NEW_CUSTOMER') return 'NEW';
+  if (legacy === 'AT_RISK') return 'NEEDS_WINBACK';
+  if (legacy === 'NEAR_REWARD') return 'CLOSE_TO_REWARD';
+  return 'ACTIVE';
+}
+
+function resolveCustomerValueTier(customer: {
+  customerValueTier?: string | null;
+  lifecycleStatus?: string | null;
+}) {
+  const tier = customer.customerValueTier;
+  if (tier === 'REGULAR' || tier === 'LOYAL' || tier === 'VIP') {
+    return tier;
+  }
+
+  if (customer.lifecycleStatus === 'VIP') {
+    return 'VIP';
+  }
+
+  return 'REGULAR';
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
@@ -165,66 +222,86 @@ export default function StaffCustomersScreen() {
               </Text>
             </View>
           ) : (
-            filteredCustomers.map((customer) => (
-              <Pressable
-                key={customer.primaryMembershipId}
-                onPress={() => openCustomerCard(String(customer.customerId))}
-                className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
-              >
-                <View className={`${tw.flexRow} items-start justify-between`}>
-                  <View className="items-end">
-                    <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
-                      ביקור אחרון
-                    </Text>
-                    <Text
-                      className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
-                    >
-                      {formatLastVisit(customer.lastVisitDaysAgo)}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                    >
-                      {customer.visitCount} ביקורים •{' '}
-                      {customer.primaryProgramName}
-                    </Text>
-                  </View>
+            filteredCustomers.map((customer) => {
+              const customerState = resolveCustomerState(customer);
+              const customerValueTier = resolveCustomerValueTier(customer);
 
-                  <View className="flex-1 items-end px-3">
-                    <Text
-                      className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
-                    >
-                      {customer.name}
-                    </Text>
-                    <Text
-                      className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
-                    >
-                      {customer.phone ?? 'ללא טלפון'}
-                    </Text>
-                    <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
-                      <View
-                        className={`rounded-full px-3 py-1 ${
-                          STATUS_COLORS[customer.lifecycleStatus]
-                        }`}
+              return (
+                <Pressable
+                  key={customer.primaryMembershipId}
+                  onPress={() => openCustomerCard(String(customer.customerId))}
+                  className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
+                >
+                  <View className={`${tw.flexRow} items-start justify-between`}>
+                    <View className="items-end">
+                      <Text
+                        className={`text-xs text-[#94A3B8] ${tw.textStart}`}
                       >
-                        <Text className="text-xs font-bold">
-                          {STATUS_LABELS[customer.lifecycleStatus]}
-                        </Text>
-                      </View>
+                        ביקור אחרון
+                      </Text>
+                      <Text
+                        className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
+                      >
+                        {formatLastVisit(customer.lastVisitDaysAgo)}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        {customer.visitCount} ביקורים •{' '}
+                        {customer.primaryProgramName}
+                      </Text>
                     </View>
-                    <Text
-                      className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
-                    >
-                      התקדמות להטבה: {customer.loyaltyProgress}/
-                      {customer.rewardThreshold}
-                    </Text>
-                  </View>
 
-                  <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
-                    <Ionicons name="person-outline" size={20} color="#2F6BFF" />
+                    <View className="flex-1 items-end px-3">
+                      <Text
+                        className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
+                      >
+                        {customer.name}
+                      </Text>
+                      <Text
+                        className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
+                      >
+                        {customer.phone ?? 'ללא טלפון'}
+                      </Text>
+                      <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
+                        <View
+                          className={`rounded-full px-3 py-1 ${
+                            STATE_COLORS[customerState]
+                          }`}
+                        >
+                          <Text className="text-xs font-bold">
+                            {STATE_LABELS[customerState]}
+                          </Text>
+                        </View>
+                        <View
+                          className={`rounded-full px-3 py-1 ${
+                            VALUE_TIER_COLORS[customerValueTier]
+                          }`}
+                        >
+                          <Text className="text-xs font-bold">
+                            {VALUE_TIER_LABELS[customerValueTier]}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
+                      >
+                        התקדמות להטבה: {customer.loyaltyProgress}/
+                        {customer.rewardThreshold}
+                      </Text>
+                    </View>
+
+                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
+                      <Ionicons
+                        name="person-outline"
+                        size={20}
+                        color="#2F6BFF"
+                      />
+                    </View>
                   </View>
-                </View>
-              </Pressable>
-            ))
+                </Pressable>
+              );
+            })
           )}
         </View>
       </ScrollView>

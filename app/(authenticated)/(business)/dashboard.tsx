@@ -22,6 +22,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
@@ -431,9 +432,13 @@ export default function MerchantDashboardScreen() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const canManageTeam =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canManageTeam = activeBusinessCapabilities?.manage_team === true;
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -589,6 +594,26 @@ export default function MerchantDashboardScreen() {
     retentionLimit,
   ]);
 
+  const displayAtLimitEntry = useMemo(() => {
+    if (!atLimitEntry) {
+      return null;
+    }
+    if (atLimitEntry.status === retentionLimit) {
+      atLimitEntry.label = 'Recurring campaigns';
+    }
+    return atLimitEntry;
+  }, [atLimitEntry, retentionLimit]);
+
+  const displayNearLimitEntry = useMemo(() => {
+    if (!nearLimitEntry) {
+      return null;
+    }
+    if (nearLimitEntry.status === retentionLimit) {
+      nearLimitEntry.label = 'Recurring campaigns';
+    }
+    return nearLimitEntry;
+  }, [nearLimitEntry, retentionLimit]);
+
   const heroStatus = useMemo<HeroStatus>(() => {
     const missingFieldsCount =
       businessSettings?.profileCompletion?.missingFields?.length ?? 0;
@@ -612,7 +637,8 @@ export default function MerchantDashboardScreen() {
       };
     }
 
-    if (atLimitEntry) {
+    if (displayAtLimitEntry) {
+      const atLimitEntry = displayAtLimitEntry;
       return {
         key: 'limit_reached',
         message: `${atLimitEntry.label}: הגעתם למגבלה (${atLimitEntry.status.currentValue}/${atLimitEntry.status.limitValue})`,
@@ -620,7 +646,8 @@ export default function MerchantDashboardScreen() {
       };
     }
 
-    if (nearLimitEntry) {
+    if (displayNearLimitEntry) {
+      const nearLimitEntry = displayNearLimitEntry;
       return {
         key: 'limit_near',
         message: `${nearLimitEntry.label}: מתקרבים למגבלה (${nearLimitEntry.status.currentValue}/${nearLimitEntry.status.limitValue})`,

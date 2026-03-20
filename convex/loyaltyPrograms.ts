@@ -3,7 +3,7 @@ import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
-  requireActorIsBusinessOwnerOrManager,
+  requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
 } from './guards';
 import { buildProgramStructureSignature } from './lib/recommendationUtils';
@@ -487,7 +487,11 @@ export const generateProgramImageUploadUrl = mutation({
     businessId: v.id('businesses'),
   },
   handler: async (ctx, { businessId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
     const uploadUrl = await ctx.storage.generateUploadUrl();
     return { uploadUrl };
   },
@@ -525,7 +529,11 @@ export const createLoyaltyProgram = mutation({
       cardThemeId,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
 
     const normalizedTitle = normalizeTitle(title);
     const normalizedDescription = normalizeOptionalText(description);
@@ -594,7 +602,11 @@ export const publishProgram = mutation({
     programId: v.id('loyaltyPrograms'),
   },
   handler: async (ctx, { businessId, programId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
     const program = await getProgramOrThrow(ctx, businessId, programId);
     const lifecycle = resolveProgramLifecycle(program);
 
@@ -666,7 +678,11 @@ export const updateProgramForManagement = mutation({
       cardThemeId,
     }
   ) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
     const program = await getProgramOrThrow(ctx, businessId, programId);
     const lifecycle = resolveProgramLifecycle(program);
     const ruleLocked = isRuleLocked(lifecycle);
@@ -745,9 +761,10 @@ export const archiveProgram = mutation({
     programId: v.id('loyaltyPrograms'),
   },
   handler: async (ctx, { businessId, programId }) => {
-    const { actor } = await requireActorIsBusinessOwnerOrManager(
+    const { actor } = await requireActorHasBusinessCapability(
       ctx,
-      businessId
+      businessId,
+      'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
     const lifecycle = resolveProgramLifecycle(program);
@@ -784,7 +801,11 @@ export const deleteProgram = mutation({
     programId: v.id('loyaltyPrograms'),
   },
   handler: async (ctx, { businessId, programId }) => {
-    await requireActorIsBusinessOwnerOrManager(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
     const program = await getProgramOrThrow(ctx, businessId, programId);
     const membershipCount = await getProgramMembershipCount(ctx, program._id);
 

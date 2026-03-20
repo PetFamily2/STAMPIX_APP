@@ -20,6 +20,10 @@ import {
   parseScanToken,
   type ScanTokenPayload,
 } from './scanTokens';
+import {
+  getRoleCapabilities,
+  type BusinessCapabilityMap,
+} from './lib/staffPermissions';
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
@@ -68,6 +72,7 @@ type BusinessForStaff = {
   logoUrl: string | null;
   colors: unknown | null;
   staffRole: 'owner' | 'manager' | 'staff';
+  capabilities: BusinessCapabilityMap;
 };
 
 type ResolveScanOutcome = 'AUTO_STAMP' | 'REDEEM_AVAILABLE' | 'JOIN_AND_STAMP';
@@ -1054,6 +1059,7 @@ export const myBusinesses = query({
           logoUrl: business.logoUrl ?? null,
           colors: business.colors ?? null,
           staffRole: staff.staffRole,
+          capabilities: getRoleCapabilities(staff.staffRole),
         };
       })
     );

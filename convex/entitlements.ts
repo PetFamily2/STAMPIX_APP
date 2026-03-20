@@ -2,9 +2,9 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
+  requireActorHasBusinessCapability,
   getBusinessStaffStatus,
   requireActorIsBusinessOwner,
-  requireActorIsStaffForBusiness,
 } from './guards';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
 
@@ -67,6 +67,7 @@ type BusinessSubscriptionState = {
 export type BusinessEntitlements = {
   businessId: Id<'businesses'>;
   plan: BusinessPlan;
+  effectivePlan: BusinessPlan;
   subscriptionStatus: BusinessSubscriptionStatus;
   subscriptionStartAt: number | null;
   subscriptionEndAt: number | null;
@@ -178,8 +179,8 @@ const REQUIRED_PLAN_BY_CANONICAL_FEATURE: Record<
 > = {
   team: 'pro',
   advancedReports: 'pro',
-  marketingHub: 'pro',
-  smartAnalytics: 'pro',
+  marketingHub: 'starter',
+  smartAnalytics: 'starter',
   segmentationBuilder: 'premium',
   savedSegments: 'premium',
 };
@@ -207,8 +208,8 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     features: {
       team: false,
       advancedReports: false,
-      marketingHub: false,
-      smartAnalytics: false,
+      marketingHub: true,
+      smartAnalytics: true,
       segmentationBuilder: false,
       savedSegments: false,
     },
@@ -415,7 +416,11 @@ export function buildBusinessEntitlementsFromBusiness(
   }
 ): BusinessEntitlements {
   const state = resolveBusinessSubscriptionState(business, now);
-  const config = planConfig[state.plan];
+  const effectivePlan =
+    state.isSubscriptionActive || state.plan === 'starter'
+      ? state.plan
+      : 'starter';
+  const config = planConfig[effectivePlan];
   const activeRetentionActions = Number.isFinite(
     options?.activeRetentionActions
   )
@@ -448,6 +453,7 @@ export function buildBusinessEntitlementsFromBusiness(
   return {
     businessId: business._id,
     plan: state.plan,
+    effectivePlan,
     subscriptionStatus: state.status,
     subscriptionStartAt: state.startAt,
     subscriptionEndAt: state.endAt,
@@ -476,26 +482,23 @@ function assertEntitlementFromSnapshot(
   entitlements: BusinessEntitlements,
   requirement: EntitlementRequirement
 ) {
-  if (!entitlements.isSubscriptionActive && entitlements.plan !== 'starter') {
-    throwEntitlementError({
-      code: 'SUBSCRIPTION_INACTIVE',
-      businessId: String(entitlements.businessId),
-      requiredPlan: entitlements.plan,
-      planKey: entitlements.plan,
-      subscriptionStatus: entitlements.subscriptionStatus,
-      featureKey: requirement.featureKey,
-      limitKey: requirement.limitKey,
-      currentValue:
-        typeof requirement.currentValue === 'number'
-          ? requirement.currentValue
-          : undefined,
-    });
-  }
+  const isPaidPlanInactive =
+    !entitlements.isSubscriptionActive && entitlements.plan !== 'starter';
 
   if (requirement.featureKey) {
     const canonicalFeatureKey = normalizeFeatureKey(requirement.featureKey);
     const hasFeature = entitlements.features[canonicalFeatureKey] === true;
     if (!hasFeature) {
+      if (isPaidPlanInactive) {
+        throwEntitlementError({
+          code: 'SUBSCRIPTION_INACTIVE',
+          businessId: String(entitlements.businessId),
+          requiredPlan: entitlements.plan,
+          planKey: entitlements.plan,
+          subscriptionStatus: entitlements.subscriptionStatus,
+          featureKey: requirement.featureKey,
+        });
+      }
       throwEntitlementError({
         code: 'FEATURE_NOT_AVAILABLE',
         businessId: String(entitlements.businessId),
@@ -638,6 +641,79 @@ export async function countActiveCustomersForBusiness(
   ).size;
 }
 
+export function getCampaignLifecycleState(campaign: any) {
+  if (
+    campaign?.activationStatus === 'draft' ||
+    campaign?.activationStatus === 'active' ||
+    campaign?.activationStatus === 'paused' ||
+    campaign?.activationStatus === 'completed' ||
+    campaign?.activationStatus === 'archived'
+  ) {
+    return campaign.activationStatus;
+  }
+  if (
+    campaign?.status === 'draft' ||
+    campaign?.status === 'active' ||
+    campaign?.status === 'paused' ||
+    campaign?.status === 'completed' ||
+    campaign?.status === 'archived'
+  ) {
+    return campaign.status;
+  }
+  return 'active';
+}
+
+export function getCampaignScheduleMode(campaign: any) {
+  if (
+    campaign?.schedule?.mode === 'send_now' ||
+    campaign?.schedule?.mode === 'one_time' ||
+    campaign?.schedule?.mode === 'recurring'
+  ) {
+    return campaign.schedule.mode;
+  }
+  return null;
+}
+
+export function countsTowardCampaignDefinitions(campaign: any) {
+  if (campaign?.isActive !== true) {
+    return false;
+  }
+
+  const lifecycle = getCampaignLifecycleState(campaign);
+  if (lifecycle === 'completed' || lifecycle === 'archived') {
+    return false;
+  }
+
+  return true;
+}
+
+export function countsTowardRecurringLiveLimit(campaign: any) {
+  if (campaign?.isActive !== true) {
+    return false;
+  }
+
+  if (campaign?.type === 'retention_action' && campaign?.status === 'active') {
+    // Legacy recurring retention actions during migration.
+    return true;
+  }
+
+  const lifecycle = getCampaignLifecycleState(campaign);
+  const scheduleMode = getCampaignScheduleMode(campaign);
+  if (scheduleMode === 'recurring' && lifecycle === 'active') {
+    return true;
+  }
+
+  // Compatibility path for legacy automation-enabled management campaigns
+  // that predate schedule.mode=recurring.
+  return (
+    scheduleMode === null &&
+    campaign?.automationEnabled === true &&
+    lifecycle === 'active' &&
+    campaign?.type !== 'ai_marketing' &&
+    campaign?.type !== 'ai_retention'
+  );
+}
+
 export async function countActiveRetentionActionsForBusiness(
   ctx: any,
   businessId: Id<'businesses'>
@@ -645,15 +721,8 @@ export async function countActiveRetentionActionsForBusiness(
   const campaigns = await ctx.db
     .query('campaigns')
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-    .filter((q: any) =>
-      q.and(
-        q.eq(q.field('type'), 'retention_action'),
-        q.eq(q.field('status'), 'active'),
-        q.eq(q.field('isActive'), true)
-      )
-    )
     .collect();
-  return campaigns.length;
+  return campaigns.filter(countsTowardRecurringLiveLimit).length;
 }
 
 export async function countActiveManagementCampaignsForBusiness(
@@ -670,10 +739,9 @@ export async function countActiveCampaignsForBusiness(
   const campaigns = await ctx.db
     .query('campaigns')
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-    .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
 
-  return campaigns.length;
+  return campaigns.filter(countsTowardCampaignDefinitions).length;
 }
 
 export async function assertCampaignsNotOverLimit(
@@ -850,7 +918,11 @@ export const getBusinessEntitlements = query({
       return null;
     }
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'view_usage_quota'
+    );
     return await getBusinessEntitlementsForBusinessId(ctx, businessId);
   },
 });
@@ -864,7 +936,11 @@ export const getBusinessUsageSummary = query({
       return null;
     }
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'view_usage_quota'
+    );
     return await getUsageSummary(ctx, businessId);
   },
 });

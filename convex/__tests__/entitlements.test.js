@@ -329,8 +329,8 @@ describe('business entitlements', () => {
   test('required plan mapping is correct for all feature keys', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canManageTeam).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('pro');
-    expect(REQUIRED_PLAN_BY_FEATURE.canUseMarketingHubAI).toBe('pro');
-    expect(REQUIRED_PLAN_BY_FEATURE.canUseSmartAnalytics).toBe('pro');
+    expect(REQUIRED_PLAN_BY_FEATURE.canUseMarketingHubAI).toBe('starter');
+    expect(REQUIRED_PLAN_BY_FEATURE.canUseSmartAnalytics).toBe('starter');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseAdvancedSegmentation).toBe('premium');
 
     expect(getRequiredPlanForLimit('maxCards', 'starter')).toBe('pro');

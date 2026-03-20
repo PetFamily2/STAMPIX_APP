@@ -4,9 +4,10 @@ import { mutation, query } from './_generated/server';
 import {
   buildCustomerLifecycleSnapshotForBusiness,
   getCustomerLifecycleStatus,
+  getCustomerStateAndTier,
 } from './customerLifecycle';
 import {
-  requireActorIsBusinessOwnerOrManager,
+  requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
 } from './guards';
 
@@ -232,8 +233,11 @@ export const getBusinessCustomerCard = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { businessId, customerUserId, limit }) => {
-    const { staffRole } = await requireActorIsStaffForBusiness(ctx, businessId);
-    const canManualAdjust = staffRole === 'owner' || staffRole === 'manager';
+    const { capabilities } = await requireActorIsStaffForBusiness(
+      ctx,
+      businessId
+    );
+    const canManualAdjust = capabilities.edit_loyalty_cards === true;
 
     const customer = await ctx.db.get(customerUserId);
     if (!customer || customer.isActive !== true) {
@@ -380,11 +384,20 @@ export const getBusinessCustomerCard = query({
     const joinedDaysAgo = getDaysAgo(joinedAt, now);
     const lastVisitDaysAgo = getDaysAgo(lastVisitAt, now);
     const visitCount = stampEvents.length;
+    const rewardsRedeemedCount = rewardEvents.length;
+    const { customerState, customerValueTier } = getCustomerStateAndTier({
+      joinedDaysAgo,
+      lastVisitDaysAgo,
+      rewardProgressRatio: primaryRow.rewardProgressRatio,
+      visitCount,
+      rewardsRedeemedCount,
+    });
     const lifecycleStatus = getCustomerLifecycleStatus({
       joinedDaysAgo,
       lastVisitDaysAgo,
       rewardProgressRatio: primaryRow.rewardProgressRatio,
       visitCount,
+      rewardsRedeemedCount,
     });
 
     const joinedTimeline = programRowsWithMeta.map((row) => ({
@@ -553,6 +566,8 @@ export const getBusinessCustomerCard = query({
         primaryProgramName: primaryRow.programTitle,
         loyaltyProgress: primaryRow.currentStamps,
         rewardThreshold: primaryRow.maxStamps,
+        customerState,
+        customerValueTier,
       },
       programs: programRowsWithMeta.map(
         ({ rewardProgressRatio: _rewardProgressRatio, ...row }) => row
@@ -585,9 +600,10 @@ export const reverseCustomerCardEvent = mutation({
       throw new Error('REASON_NOTE_REQUIRED');
     }
 
-    const { actor } = await requireActorIsBusinessOwnerOrManager(
+    const { actor } = await requireActorHasBusinessCapability(
       ctx,
-      targetEvent.businessId
+      targetEvent.businessId,
+      'edit_loyalty_cards'
     );
 
     const membership = await loadMembershipForEventOrThrow(ctx, targetEvent);

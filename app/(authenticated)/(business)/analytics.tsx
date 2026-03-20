@@ -56,6 +56,20 @@ function calculateGrowthFromWeekly(weekly?: Array<{ stamps: number }>) {
   return Math.round(((latestWeek - previousWeek) / previousWeek) * 100);
 }
 
+function formatTrafficHighlights(
+  items:
+    | Array<{
+        label: string;
+        visits: number;
+      }>
+    | undefined
+) {
+  if (!items || items.length === 0) {
+    return '--';
+  }
+  return items.map((item) => `${item.label} (${formatNumber(item.visits)})`).join(', ');
+}
+
 export function ReportsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -131,6 +145,19 @@ export function ReportsHubContent() {
   const growthPercent =
     advancedAnalytics?.growthPercent ??
     calculateGrowthFromWeekly(basicAnalytics?.weekly);
+  const trafficWindows = basicAnalytics?.trafficWindows;
+  const weakWeekdaysLabel = formatTrafficHighlights(
+    trafficWindows?.weakestWeekdays
+  );
+  const strongWeekdaysLabel = formatTrafficHighlights(
+    trafficWindows?.strongestWeekdays
+  );
+  const weakHoursLabel = formatTrafficHighlights(
+    trafficWindows?.weakestHourBlocks
+  );
+  const strongHoursLabel = formatTrafficHighlights(
+    trafficWindows?.strongestHourBlocks
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
@@ -256,6 +283,45 @@ export function ReportsHubContent() {
               {formatNumber(basicAnalytics?.totals.uniqueCustomers ?? 0)}
             </Text>
           </View>
+        </View>
+
+        <View className="mt-5 rounded-3xl border border-[#E5EAF2] bg-white p-5">
+          <Text className={`text-lg font-black text-[#15233A] ${tw.textStart}`}>
+            {'ימים ושעות חזקים/חלשים'}
+          </Text>
+          {basicAnalytics === undefined ? (
+            <View className="mt-4 items-center justify-center">
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : trafficWindows?.hasEnoughData ? (
+            <View className="mt-3 gap-2">
+              <Text className={`text-sm text-[#166534] ${tw.textStart}`}>
+                {`ימים חזקים: ${strongWeekdaysLabel}`}
+              </Text>
+              <Text className={`text-sm text-[#B45309] ${tw.textStart}`}>
+                {`ימים חלשים: ${weakWeekdaysLabel}`}
+              </Text>
+              <Text className={`text-sm text-[#166534] ${tw.textStart}`}>
+                {`שעות חזקות: ${strongHoursLabel}`}
+              </Text>
+              <Text className={`text-sm text-[#B45309] ${tw.textStart}`}>
+                {`שעות חלשות: ${weakHoursLabel}`}
+              </Text>
+              <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                {'החישוב דטרמיניסטי לפי אירועי ביקור (החתמות), ללא תלות ב-AI.'}
+              </Text>
+            </View>
+          ) : (
+            <View className="mt-3">
+              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                {`אין עדיין מספיק נתונים לחישוב חלונות חזקים/חלשים. נדרש לפחות ${formatNumber(
+                  trafficWindows?.minVisitsRequired ?? 40
+                )} ביקורים ובפריסה של ${formatNumber(
+                  trafficWindows?.minActiveDaysRequired ?? 14
+                )} ימים.`}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="mt-5">

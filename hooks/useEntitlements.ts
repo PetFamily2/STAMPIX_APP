@@ -21,7 +21,8 @@ type LimitKey =
   | 'maxCustomers'
   | 'maxActiveRetentionActions'
   | 'maxCampaigns'
-  | 'maxAiExecutionsPerMonth';
+  | 'maxAiExecutionsPerMonth'
+  | 'maxTeamSeats';
 type BusinessPlan = 'starter' | 'pro' | 'premium';
 
 type GateResult = {
@@ -60,7 +61,11 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
           };
         }
 
+        const hasFeature = entitlements.features?.[featureKey] === true;
+        const requiredPlan =
+          entitlements.requiredPlanMap?.byFeature?.[featureKey] ?? null;
         if (
+          !hasFeature &&
           !entitlements.isSubscriptionActive &&
           entitlements.plan !== 'starter'
         ) {
@@ -71,10 +76,6 @@ export function useEntitlements(businessId: Id<'businesses'> | null) {
             reason: 'subscription_inactive',
           };
         }
-
-        const hasFeature = entitlements.features?.[featureKey] === true;
-        const requiredPlan =
-          entitlements.requiredPlanMap?.byFeature?.[featureKey] ?? null;
 
         return {
           isLocked: !hasFeature,

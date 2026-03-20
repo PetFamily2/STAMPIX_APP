@@ -16,8 +16,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -27,12 +27,13 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
-type CustomerLifecycleStatus =
-  | 'NEW_CUSTOMER'
+type CustomerState =
+  | 'NEW'
   | 'ACTIVE'
-  | 'AT_RISK'
-  | 'NEAR_REWARD'
-  | 'VIP';
+  | 'NEEDS_NURTURE'
+  | 'NEEDS_WINBACK'
+  | 'CLOSE_TO_REWARD';
+type CustomerValueTier = 'REGULAR' | 'LOYAL' | 'VIP';
 
 type TimelineItemType =
   | 'JOINED_PROGRAM'
@@ -58,7 +59,7 @@ const REASON_OPTIONS: Array<{ code: ReasonCode; label: string }> = [
   { code: 'other', label: 'אחר' },
 ];
 
-const STATUS_LABELS: Record<CustomerLifecycleStatus, string> = {
+const LEGACY_STATUS_TO_STATE: Record<string, string> = {
   NEW_CUSTOMER: 'חדש',
   ACTIVE: 'פעיל',
   AT_RISK: 'בסיכון',
@@ -66,13 +67,77 @@ const STATUS_LABELS: Record<CustomerLifecycleStatus, string> = {
   VIP: 'VIP',
 };
 
-const STATUS_COLORS: Record<CustomerLifecycleStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   NEW_CUSTOMER: '#0EA5E9',
   ACTIVE: '#334155',
   AT_RISK: '#DC2626',
   NEAR_REWARD: '#D97706',
   VIP: '#4338CA',
 };
+void LEGACY_STATUS_TO_STATE;
+void STATUS_COLORS;
+
+const STATE_LABELS: Record<CustomerState, string> = {
+  NEW: 'חדש',
+  ACTIVE: 'פעיל',
+  NEEDS_NURTURE: 'צריך חיזוק',
+  NEEDS_WINBACK: 'צריך וינבאק',
+  CLOSE_TO_REWARD: 'קרוב להטבה',
+};
+
+const STATE_TEXT_COLORS: Record<CustomerState, string> = {
+  NEW: '#0EA5E9',
+  ACTIVE: '#334155',
+  NEEDS_NURTURE: '#C2410C',
+  NEEDS_WINBACK: '#DC2626',
+  CLOSE_TO_REWARD: '#D97706',
+};
+
+const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
+  REGULAR: 'רגיל',
+  LOYAL: 'נאמן',
+  VIP: 'VIP',
+};
+
+const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
+  REGULAR: '#64748B',
+  LOYAL: '#047857',
+  VIP: '#4338CA',
+};
+
+function resolveSummaryState(summary: {
+  customerState?: string | null;
+  lifecycleStatus?: string | null;
+}) {
+  const state = summary.customerState;
+  if (
+    state === 'NEW' ||
+    state === 'ACTIVE' ||
+    state === 'NEEDS_NURTURE' ||
+    state === 'NEEDS_WINBACK' ||
+    state === 'CLOSE_TO_REWARD'
+  ) {
+    return state;
+  }
+  if (summary.lifecycleStatus === 'NEW_CUSTOMER') return 'NEW';
+  if (summary.lifecycleStatus === 'AT_RISK') return 'NEEDS_WINBACK';
+  if (summary.lifecycleStatus === 'NEAR_REWARD') return 'CLOSE_TO_REWARD';
+  return 'ACTIVE';
+}
+
+function resolveSummaryTier(summary: {
+  customerValueTier?: string | null;
+  lifecycleStatus?: string | null;
+}) {
+  const tier = summary.customerValueTier;
+  if (tier === 'REGULAR' || tier === 'LOYAL' || tier === 'VIP') {
+    return tier;
+  }
+  if (summary.lifecycleStatus === 'VIP') {
+    return 'VIP';
+  }
+  return 'REGULAR';
+}
 
 function formatDateTime(timestamp: number) {
   return new Date(timestamp).toLocaleString('he-IL', {
@@ -224,6 +289,9 @@ export default function BusinessCustomerCardScreen() {
     }
   };
 
+  const summaryState = card ? resolveSummaryState(card.summary) : 'ACTIVE';
+  const summaryTier = card ? resolveSummaryTier(card.summary) : 'REGULAR';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
@@ -286,7 +354,7 @@ export default function BusinessCustomerCardScreen() {
                   style={[
                     styles.statusChip,
                     {
-                      borderColor: STATUS_COLORS[card.summary.lifecycleStatus],
+                      borderColor: STATE_TEXT_COLORS[summaryState],
                       backgroundColor: '#FFFFFF',
                     },
                   ]}
@@ -294,10 +362,20 @@ export default function BusinessCustomerCardScreen() {
                   <Text
                     style={[
                       styles.statusChipText,
-                      { color: STATUS_COLORS[card.summary.lifecycleStatus] },
+                      { color: STATE_TEXT_COLORS[summaryState] },
                     ]}
                   >
-                    {STATUS_LABELS[card.summary.lifecycleStatus]}
+                    {STATE_LABELS[summaryState]}
+                  </Text>
+                </View>
+                <View style={styles.infoChip}>
+                  <Text
+                    style={[
+                      styles.infoChipText,
+                      { color: VALUE_TIER_COLORS[summaryTier] },
+                    ]}
+                  >
+                    {VALUE_TIER_LABELS[summaryTier]}
                   </Text>
                 </View>
                 <View style={styles.infoChip}>

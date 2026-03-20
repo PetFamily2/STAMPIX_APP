@@ -1,5 +1,10 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { Doc, Id } from './_generated/dataModel';
+import {
+  canRoleAccessCapability,
+  getRoleCapabilities,
+  type BusinessCapability,
+} from './lib/staffPermissions';
 
 type StaffRole = 'owner' | 'manager' | 'staff';
 type StaffStatus = 'active' | 'suspended' | 'removed';
@@ -110,7 +115,28 @@ export async function requireActorIsActiveStaffForBusiness(
     actor,
     membership,
     staffRole: membership.staffRole as StaffRole,
+    capabilities: getRoleCapabilities(membership.staffRole as StaffRole),
     status: 'active' as const,
+  };
+}
+
+export async function requireActorHasBusinessCapability(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  capability: BusinessCapability
+) {
+  const { actor, membership, staffRole, capabilities } =
+    await requireActorIsActiveStaffForBusiness(ctx, businessId);
+
+  if (capabilities[capability] !== true) {
+    throw new Error('NOT_AUTHORIZED');
+  }
+
+  return {
+    actor,
+    membership,
+    staffRole,
+    capabilities,
   };
 }
 
@@ -118,9 +144,9 @@ export async function requireActorCanManageTeamForBusiness(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const { actor, membership, staffRole } =
+  const { actor, membership, staffRole, capabilities } =
     await requireActorIsActiveStaffForBusiness(ctx, businessId);
-  if (staffRole !== 'owner' && staffRole !== 'manager') {
+  if (capabilities.manage_team !== true) {
     throw new Error('NOT_AUTHORIZED');
   }
   return { actor, membership, staffRole };
@@ -189,8 +215,11 @@ export async function requireActorIsBusinessOwnerOrManager(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
-  const { actor, membership, staffRole } =
-    await requireActorCanManageTeamForBusiness(ctx, businessId);
+  const { actor, membership, staffRole } = await requireActorHasBusinessCapability(
+    ctx,
+    businessId,
+    'manage_team'
+  );
   return { actor, membership, staffRole };
 }
 
@@ -209,4 +238,11 @@ export function getBusinessStaffStatus(
   staff: Doc<'businessStaff'>
 ): StaffStatus {
   return resolveStaffStatus(staff);
+}
+
+export function roleCanAccessCapability(
+  staffRole: StaffRole,
+  capability: BusinessCapability
+) {
+  return canRoleAccessCapability(staffRole, capability);
 }

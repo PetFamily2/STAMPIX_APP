@@ -10,6 +10,7 @@ import {
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import type { BusinessCapabilityMap } from '@/lib/domain/businessPermissions';
 
 type BusinessForStaff = {
   businessId: Id<'businesses'>;
@@ -20,6 +21,7 @@ type BusinessForStaff = {
   logoUrl: string | null;
   colors: unknown | null;
   staffRole: 'owner' | 'manager' | 'staff';
+  capabilities?: BusinessCapabilityMap;
 };
 
 type ActiveBusinessContextValue = {

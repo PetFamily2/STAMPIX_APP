@@ -16,12 +16,12 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 
 type BusinessServiceType =
@@ -62,6 +62,16 @@ type OwnerAgeRangeId =
   | '55+'
   | 'not_specified';
 
+type BusinessExampleId =
+  | 'hair_salon'
+  | 'cafe_restaurant'
+  | 'greengrocer_retail_produce'
+  | 'tire_shop_puncture'
+  | 'clinic'
+  | 'fitness_studio'
+  | 'repair_maintenance'
+  | 'other';
+
 type ProfileCompletionField =
   | 'name'
   | 'shortDescription'
@@ -72,7 +82,11 @@ type ProfileCompletionField =
   | 'discoverySource'
   | 'reason'
   | 'usageAreas'
-  | 'ownerAgeRange';
+  | 'ownerAgeRange'
+  | 'businessExample'
+  | 'birthdayCampaignRelevant'
+  | 'joinAnniversaryCampaignRelevant'
+  | 'weakTimePromosRelevant';
 
 type EditingField =
   | 'name'
@@ -84,6 +98,10 @@ type EditingField =
   | 'reason'
   | 'usageAreas'
   | 'ownerAgeRange'
+  | 'businessExample'
+  | 'birthdayCampaignRelevant'
+  | 'joinAnniversaryCampaignRelevant'
+  | 'weakTimePromosRelevant'
   | null;
 
 const MISSING_VALUE = 'לא הוגדר';
@@ -139,6 +157,20 @@ const OWNER_AGE_RANGES: Array<{ id: OwnerAgeRangeId; label: string }> = [
   { id: 'not_specified', label: 'לא צוין' },
 ];
 
+const BUSINESS_EXAMPLES: Array<{ id: BusinessExampleId; label: string }> = [
+  { id: 'hair_salon', label: 'מספרה / סלון שיער' },
+  { id: 'cafe_restaurant', label: 'קפה / מסעדה' },
+  {
+    id: 'greengrocer_retail_produce',
+    label: 'ירקנייה / קמעונאות תוצרת',
+  },
+  { id: 'tire_shop_puncture', label: 'פנצ׳ריה / צמיגים' },
+  { id: 'clinic', label: 'קליניקה' },
+  { id: 'fitness_studio', label: 'סטודיו כושר' },
+  { id: 'repair_maintenance', label: 'שירותי תיקון / תחזוקה' },
+  { id: 'other', label: 'עסק אחר' },
+];
+
 const SERVICE_TYPE_SET = new Set<BusinessServiceType>(
   SERVICE_TYPES.map((item) => item.id)
 );
@@ -157,8 +189,15 @@ const USAGE_AREA_LABELS = Object.fromEntries(
 const OWNER_AGE_LABELS = Object.fromEntries(
   OWNER_AGE_RANGES.map((item) => [item.id, item.label])
 ) as Record<OwnerAgeRangeId, string>;
+const BUSINESS_EXAMPLE_LABELS = Object.fromEntries(
+  BUSINESS_EXAMPLES.map((item) => [item.id, item.label])
+) as Record<BusinessExampleId, string>;
 
 const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
+  businessExample: 'מיפוי סוג עסק',
+  birthdayCampaignRelevant: 'רלוונטיות יום הולדת',
+  joinAnniversaryCampaignRelevant: 'רלוונטיות יום הצטרפות',
+  weakTimePromosRelevant: 'רלוונטיות שעות/ימים חלשים',
   name: 'שם העסק',
   shortDescription: 'תיאור קצר',
   businessPhone: 'טלפון עסקי',
@@ -253,9 +292,14 @@ function ProfileRow({
 export default function BusinessSettingsProfileScreen() {
   const insets = useSafeAreaInsets();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
   const canEditBusiness =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+    activeBusinessCapabilities?.edit_business_profile === true;
 
   const businessSettings = useQuery(
     api.business.getBusinessSettings,
@@ -282,6 +326,16 @@ export default function BusinessSettingsProfileScreen() {
   const [ownerAgeRange, setOwnerAgeRange] = useState<OwnerAgeRangeId | null>(
     null
   );
+  const [businessExample, setBusinessExample] =
+    useState<BusinessExampleId | null>(null);
+  const [birthdayCampaignRelevant, setBirthdayCampaignRelevant] = useState<
+    boolean | null
+  >(null);
+  const [joinAnniversaryCampaignRelevant, setJoinAnniversaryCampaignRelevant] =
+    useState<boolean | null>(null);
+  const [weakTimePromosRelevant, setWeakTimePromosRelevant] = useState<
+    boolean | null
+  >(null);
 
   const [draftText, setDraftText] = useState('');
   const [draftServiceTypes, setDraftServiceTypes] = useState<
@@ -295,6 +349,16 @@ export default function BusinessSettingsProfileScreen() {
   const [draftUsageAreas, setDraftUsageAreas] = useState<UsageAreaId[]>([]);
   const [draftOwnerAgeRange, setDraftOwnerAgeRange] =
     useState<OwnerAgeRangeId | null>(null);
+  const [draftBusinessExample, setDraftBusinessExample] =
+    useState<BusinessExampleId | null>(null);
+  const [draftBirthdayCampaignRelevant, setDraftBirthdayCampaignRelevant] =
+    useState<boolean | null>(null);
+  const [
+    draftJoinAnniversaryCampaignRelevant,
+    setDraftJoinAnniversaryCampaignRelevant,
+  ] = useState<boolean | null>(null);
+  const [draftWeakTimePromosRelevant, setDraftWeakTimePromosRelevant] =
+    useState<boolean | null>(null);
 
   useEffect(() => {
     setBusinessName(businessSettings?.name ?? '');
@@ -309,6 +373,27 @@ export default function BusinessSettingsProfileScreen() {
     setReason((snapshot?.reason as ReasonId) ?? null);
     setUsageAreas((snapshot?.usageAreas as UsageAreaId[]) ?? []);
     setOwnerAgeRange((snapshot?.ownerAgeRange as OwnerAgeRangeId) ?? null);
+    setBusinessExample(
+      (snapshot?.businessExample as BusinessExampleId) ?? null
+    );
+    setBirthdayCampaignRelevant(
+      snapshot?.birthdayCampaignRelevant === true ||
+        snapshot?.birthdayCampaignRelevant === false
+        ? snapshot.birthdayCampaignRelevant
+        : null
+    );
+    setJoinAnniversaryCampaignRelevant(
+      snapshot?.joinAnniversaryCampaignRelevant === true ||
+        snapshot?.joinAnniversaryCampaignRelevant === false
+        ? snapshot.joinAnniversaryCampaignRelevant
+        : null
+    );
+    setWeakTimePromosRelevant(
+      snapshot?.weakTimePromosRelevant === true ||
+        snapshot?.weakTimePromosRelevant === false
+        ? snapshot.weakTimePromosRelevant
+        : null
+    );
   }, [businessSettings]);
 
   const missingFieldLabels = useMemo(() => {
@@ -372,17 +457,55 @@ export default function BusinessSettingsProfileScreen() {
         'טווח גיל בעלים',
         ownerAgeRange ? OWNER_AGE_LABELS[ownerAgeRange] : MISSING_VALUE,
       ] as const,
+      [
+        'businessExample',
+        'מיפוי סוג עסק',
+        businessExample
+          ? BUSINESS_EXAMPLE_LABELS[businessExample]
+          : MISSING_VALUE,
+      ] as const,
+      [
+        'birthdayCampaignRelevant',
+        'רלוונטיות קמפיין יום הולדת',
+        birthdayCampaignRelevant === null
+          ? MISSING_VALUE
+          : birthdayCampaignRelevant
+            ? 'כן'
+            : 'לא',
+      ] as const,
+      [
+        'joinAnniversaryCampaignRelevant',
+        'רלוונטיות קמפיין יום הצטרפות',
+        joinAnniversaryCampaignRelevant === null
+          ? MISSING_VALUE
+          : joinAnniversaryCampaignRelevant
+            ? 'כן'
+            : 'לא',
+      ] as const,
+      [
+        'weakTimePromosRelevant',
+        'רלוונטיות קמפייני שעות/ימים חלשים',
+        weakTimePromosRelevant === null
+          ? MISSING_VALUE
+          : weakTimePromosRelevant
+            ? 'כן'
+            : 'לא',
+      ] as const,
     ],
     [
+      birthdayCampaignRelevant,
       businessName,
       businessPhone,
+      businessExample,
       discoverySource,
+      joinAnniversaryCampaignRelevant,
       ownerAgeRange,
       reason,
       serviceTags,
       serviceTypes,
       shortDescription,
       usageAreas,
+      weakTimePromosRelevant,
     ]
   );
 
@@ -400,6 +523,16 @@ export default function BusinessSettingsProfileScreen() {
     if (field === 'reason') setDraftReason(reason);
     if (field === 'usageAreas') setDraftUsageAreas(usageAreas);
     if (field === 'ownerAgeRange') setDraftOwnerAgeRange(ownerAgeRange);
+    if (field === 'businessExample') setDraftBusinessExample(businessExample);
+    if (field === 'birthdayCampaignRelevant') {
+      setDraftBirthdayCampaignRelevant(birthdayCampaignRelevant);
+    }
+    if (field === 'joinAnniversaryCampaignRelevant') {
+      setDraftJoinAnniversaryCampaignRelevant(joinAnniversaryCampaignRelevant);
+    }
+    if (field === 'weakTimePromosRelevant') {
+      setDraftWeakTimePromosRelevant(weakTimePromosRelevant);
+    }
   };
 
   const closeEditor = () => {
@@ -532,6 +665,51 @@ export default function BusinessSettingsProfileScreen() {
           ownerAgeRange: draftOwnerAgeRange,
         });
         setOwnerAgeRange(draftOwnerAgeRange);
+      } else if (editingField === 'businessExample') {
+        if (!draftBusinessExample) {
+          Alert.alert('שגיאה', 'יש לבחור מיפוי עסק.');
+          return;
+        }
+        await saveBusinessOnboardingSnapshot({
+          businessId: activeBusinessId,
+          businessExample: draftBusinessExample,
+        });
+        setBusinessExample(draftBusinessExample);
+      } else if (editingField === 'birthdayCampaignRelevant') {
+        if (draftBirthdayCampaignRelevant === null) {
+          Alert.alert('שגיאה', 'יש לבחור האם קמפיין יום הולדת רלוונטי.');
+          return;
+        }
+        await saveBusinessOnboardingSnapshot({
+          businessId: activeBusinessId,
+          birthdayCampaignRelevant: draftBirthdayCampaignRelevant,
+        });
+        setBirthdayCampaignRelevant(draftBirthdayCampaignRelevant);
+      } else if (editingField === 'joinAnniversaryCampaignRelevant') {
+        if (draftJoinAnniversaryCampaignRelevant === null) {
+          Alert.alert('שגיאה', 'יש לבחור האם קמפיין יום הצטרפות רלוונטי.');
+          return;
+        }
+        await saveBusinessOnboardingSnapshot({
+          businessId: activeBusinessId,
+          joinAnniversaryCampaignRelevant: draftJoinAnniversaryCampaignRelevant,
+        });
+        setJoinAnniversaryCampaignRelevant(
+          draftJoinAnniversaryCampaignRelevant
+        );
+      } else if (editingField === 'weakTimePromosRelevant') {
+        if (draftWeakTimePromosRelevant === null) {
+          Alert.alert(
+            'שגיאה',
+            'יש לבחור האם קמפייני שעות/ימים חלשים רלוונטיים.'
+          );
+          return;
+        }
+        await saveBusinessOnboardingSnapshot({
+          businessId: activeBusinessId,
+          weakTimePromosRelevant: draftWeakTimePromosRelevant,
+        });
+        setWeakTimePromosRelevant(draftWeakTimePromosRelevant);
       }
       setEditingField(null);
     } catch (error) {
@@ -927,6 +1105,75 @@ export default function BusinessSettingsProfileScreen() {
                     option.label,
                     () => setDraftOwnerAgeRange(option.id)
                   )
+                )}
+              </View>
+            )}
+
+            {editingField === 'businessExample' && (
+              <View className="gap-2">
+                <Text className="text-right text-base font-extrabold text-[#111827]">
+                  מיפוי סוג עסק
+                </Text>
+                {BUSINESS_EXAMPLES.map((option) =>
+                  renderChoiceRow(
+                    draftBusinessExample === option.id,
+                    option.label,
+                    () => setDraftBusinessExample(option.id)
+                  )
+                )}
+              </View>
+            )}
+
+            {editingField === 'birthdayCampaignRelevant' && (
+              <View className="gap-2">
+                <Text className="text-right text-base font-extrabold text-[#111827]">
+                  האם קמפיין יום הולדת רלוונטי לעסק?
+                </Text>
+                {renderChoiceRow(
+                  draftBirthdayCampaignRelevant === true,
+                  'כן',
+                  () => setDraftBirthdayCampaignRelevant(true)
+                )}
+                {renderChoiceRow(
+                  draftBirthdayCampaignRelevant === false,
+                  'לא',
+                  () => setDraftBirthdayCampaignRelevant(false)
+                )}
+              </View>
+            )}
+
+            {editingField === 'joinAnniversaryCampaignRelevant' && (
+              <View className="gap-2">
+                <Text className="text-right text-base font-extrabold text-[#111827]">
+                  האם קמפיין יום הצטרפות רלוונטי לעסק?
+                </Text>
+                {renderChoiceRow(
+                  draftJoinAnniversaryCampaignRelevant === true,
+                  'כן',
+                  () => setDraftJoinAnniversaryCampaignRelevant(true)
+                )}
+                {renderChoiceRow(
+                  draftJoinAnniversaryCampaignRelevant === false,
+                  'לא',
+                  () => setDraftJoinAnniversaryCampaignRelevant(false)
+                )}
+              </View>
+            )}
+
+            {editingField === 'weakTimePromosRelevant' && (
+              <View className="gap-2">
+                <Text className="text-right text-base font-extrabold text-[#111827]">
+                  האם קמפייני שעות/ימים חלשים רלוונטיים לעסק?
+                </Text>
+                {renderChoiceRow(
+                  draftWeakTimePromosRelevant === true,
+                  'כן',
+                  () => setDraftWeakTimePromosRelevant(true)
+                )}
+                {renderChoiceRow(
+                  draftWeakTimePromosRelevant === false,
+                  'לא',
+                  () => setDraftWeakTimePromosRelevant(false)
                 )}
               </View>
             )}

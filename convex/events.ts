@@ -32,13 +32,21 @@ export const getCustomerManagementSnapshot = query({
         summary: {
           totalCustomers: 0,
           activeCustomers: 0,
+          needsNurtureCustomers: 0,
+          needsWinbackCustomers: 0,
+          closeToRewardCustomers: 0,
+          loyalCustomers: 0,
           atRiskCustomers: 0,
           nearRewardCustomers: 0,
           vipCustomers: 0,
           newCustomers: 0,
+          secondVisitCustomers: 0,
+          birthdayEligibleCustomers: 0,
+          anniversaryEligibleCustomers: 0,
         },
         insights: [],
         opportunityCards: [],
+        campaignOpportunityCards: [],
         customers: [],
       } satisfies SnapshotResponse;
     }

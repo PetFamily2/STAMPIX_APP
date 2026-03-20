@@ -26,6 +26,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -36,6 +37,13 @@ type CustomerRouteFilter =
   | 'at_risk'
   | 'new_customers'
   | 'reward_eligible';
+type CustomerState =
+  | 'NEW'
+  | 'ACTIVE'
+  | 'NEEDS_NURTURE'
+  | 'NEEDS_WINBACK'
+  | 'CLOSE_TO_REWARD';
+type CustomerValueTier = 'REGULAR' | 'LOYAL' | 'VIP';
 type CustomerStatus =
   | 'NEW_CUSTOMER'
   | 'ACTIVE'
@@ -47,6 +55,8 @@ type SegmentField =
   | 'visitCount'
   | 'loyaltyProgress'
   | 'customerStatus'
+  | 'customerState'
+  | 'customerValueTier'
   | 'joinedDaysAgo';
 type SegmentOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
 type SegmentCondition = {
@@ -54,11 +64,45 @@ type SegmentCondition = {
   operator: SegmentOperator;
   value: number | string;
 };
+type QuickSegmentKey =
+  | 'NEEDS_WINBACK'
+  | 'CLOSE_TO_REWARD'
+  | 'VIP_VALUE'
+  | 'NEW'
+  | 'ACTIVE';
 
 const TOP_TABS: Array<{ key: ReportsTopTab; label: string }> = [
   { key: 'reports', label: 'דוחות' },
   { key: 'customers', label: 'לקוחות' },
 ];
+
+const STATE_LABELS: Record<CustomerState, string> = {
+  NEW: 'חדש',
+  ACTIVE: 'פעיל',
+  NEEDS_NURTURE: 'דורש טיפוח',
+  NEEDS_WINBACK: 'דורש החזרה',
+  CLOSE_TO_REWARD: 'קרוב להטבה',
+};
+
+const STATE_COLORS: Record<CustomerState, string> = {
+  NEW: 'bg-sky-100 text-sky-700',
+  ACTIVE: 'bg-slate-100 text-slate-700',
+  NEEDS_NURTURE: 'bg-orange-100 text-orange-700',
+  NEEDS_WINBACK: 'bg-rose-100 text-rose-700',
+  CLOSE_TO_REWARD: 'bg-amber-100 text-amber-700',
+};
+
+const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
+  REGULAR: 'Regular',
+  LOYAL: 'Loyal',
+  VIP: 'VIP',
+};
+
+const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
+  REGULAR: 'bg-slate-100 text-slate-700',
+  LOYAL: 'bg-indigo-100 text-indigo-700',
+  VIP: 'bg-fuchsia-100 text-fuchsia-700',
+};
 
 const STATUS_LABELS: Record<CustomerStatus, string> = {
   NEW_CUSTOMER: 'חדש',
@@ -100,6 +144,77 @@ const STATUS_OPTIONS: CustomerStatus[] = [
   'ACTIVE',
 ];
 
+const SEGMENT_FIELD_OPTIONS: Array<{ key: SegmentField; label: string }> = [
+  ...FIELD_OPTIONS.filter((option) => option.key !== 'customerStatus'),
+  { key: 'customerState', label: 'Customer State' },
+  { key: 'customerValueTier', label: 'Value Tier' },
+  { key: 'customerStatus', label: 'Status (Legacy)' },
+];
+
+const QUICK_SEGMENT_OPTIONS: Array<{ key: QuickSegmentKey; label: string }> = [
+  { key: 'NEEDS_WINBACK', label: STATE_LABELS.NEEDS_WINBACK },
+  { key: 'CLOSE_TO_REWARD', label: STATE_LABELS.CLOSE_TO_REWARD },
+  { key: 'VIP_VALUE', label: VALUE_TIER_LABELS.VIP },
+  { key: 'NEW', label: STATE_LABELS.NEW },
+  { key: 'ACTIVE', label: STATE_LABELS.ACTIVE },
+];
+
+const CUSTOMER_STATE_OPTIONS: CustomerState[] = [
+  'NEEDS_WINBACK',
+  'NEEDS_NURTURE',
+  'CLOSE_TO_REWARD',
+  'NEW',
+  'ACTIVE',
+];
+
+const CUSTOMER_VALUE_TIER_OPTIONS: CustomerValueTier[] = [
+  'VIP',
+  'LOYAL',
+  'REGULAR',
+];
+
+function resolveCustomerState(customer: {
+  customerState?: string | null;
+  lifecycleStatus?: string | null;
+}): CustomerState {
+  if (
+    customer.customerState === 'NEW' ||
+    customer.customerState === 'ACTIVE' ||
+    customer.customerState === 'NEEDS_NURTURE' ||
+    customer.customerState === 'NEEDS_WINBACK' ||
+    customer.customerState === 'CLOSE_TO_REWARD'
+  ) {
+    return customer.customerState;
+  }
+  if (customer.lifecycleStatus === 'NEW_CUSTOMER') {
+    return 'NEW';
+  }
+  if (customer.lifecycleStatus === 'AT_RISK') {
+    return 'NEEDS_WINBACK';
+  }
+  if (customer.lifecycleStatus === 'NEAR_REWARD') {
+    return 'CLOSE_TO_REWARD';
+  }
+  return 'ACTIVE';
+}
+
+function resolveCustomerValueTier(customer: {
+  customerValueTier?: string | null;
+  lifecycleStatus?: string | null;
+}): CustomerValueTier {
+  if (
+    customer.customerValueTier === 'REGULAR' ||
+    customer.customerValueTier === 'LOYAL' ||
+    customer.customerValueTier === 'VIP'
+  ) {
+    return customer.customerValueTier;
+  }
+  if (customer.lifecycleStatus === 'VIP') {
+    return 'VIP';
+  }
+  return 'REGULAR';
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
     value
@@ -119,6 +234,104 @@ function formatLastVisit(daysAgo: number) {
 function cycleOption<T extends string>(options: readonly T[], current: T) {
   const index = options.indexOf(current);
   return options[(index + 1) % options.length];
+}
+
+function defaultValueForField(field: SegmentField): number | string {
+  if (field === 'customerState') {
+    return 'NEEDS_WINBACK';
+  }
+  if (field === 'customerValueTier') {
+    return 'VIP';
+  }
+  if (field === 'customerStatus') {
+    return 'AT_RISK';
+  }
+  if (field === 'joinedDaysAgo') {
+    return 7;
+  }
+  if (field === 'visitCount') {
+    return 5;
+  }
+  if (field === 'loyaltyProgress') {
+    return 6;
+  }
+  return 30;
+}
+
+function quickSegmentPreset(preset: QuickSegmentKey) {
+  if (preset === 'NEEDS_WINBACK') {
+    return {
+      name: STATE_LABELS.NEEDS_WINBACK,
+      rules: {
+        match: 'all' as const,
+        conditions: [
+          {
+            field: 'customerState' as const,
+            operator: 'eq' as const,
+            value: 'NEEDS_WINBACK',
+          },
+        ],
+      },
+    };
+  }
+  if (preset === 'CLOSE_TO_REWARD') {
+    return {
+      name: STATE_LABELS.CLOSE_TO_REWARD,
+      rules: {
+        match: 'all' as const,
+        conditions: [
+          {
+            field: 'customerState' as const,
+            operator: 'eq' as const,
+            value: 'CLOSE_TO_REWARD',
+          },
+        ],
+      },
+    };
+  }
+  if (preset === 'VIP_VALUE') {
+    return {
+      name: VALUE_TIER_LABELS.VIP,
+      rules: {
+        match: 'all' as const,
+        conditions: [
+          {
+            field: 'customerValueTier' as const,
+            operator: 'eq' as const,
+            value: 'VIP',
+          },
+        ],
+      },
+    };
+  }
+  if (preset === 'NEW') {
+    return {
+      name: STATE_LABELS.NEW,
+      rules: {
+        match: 'all' as const,
+        conditions: [
+          {
+            field: 'customerState' as const,
+            operator: 'eq' as const,
+            value: 'NEW',
+          },
+        ],
+      },
+    };
+  }
+  return {
+    name: STATE_LABELS.ACTIVE,
+    rules: {
+      match: 'all' as const,
+      conditions: [
+        {
+          field: 'customerState' as const,
+          operator: 'eq' as const,
+          value: 'ACTIVE',
+        },
+      ],
+    },
+  };
 }
 
 function quickSegment(status: CustomerStatus) {
@@ -214,9 +427,13 @@ export function CustomersHubContent() {
       ? filter
       : null;
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const canManageSegments =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canManageSegments = activeBusinessCapabilities?.edit_campaigns === true;
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('smartAnalytics');
   const segmentationGate = gate('segmentationBuilder');
@@ -291,11 +508,25 @@ export function CustomersHubContent() {
   const summary = snapshot?.summary ?? {
     totalCustomers: 0,
     activeCustomers: 0,
+    needsNurtureCustomers: 0,
+    needsWinbackCustomers: 0,
+    closeToRewardCustomers: 0,
+    loyalCustomers: 0,
     atRiskCustomers: 0,
     nearRewardCustomers: 0,
     vipCustomers: 0,
     newCustomers: 0,
   };
+  const needsAttentionCustomersRaw =
+    (summary.needsNurtureCustomers ?? 0) + (summary.needsWinbackCustomers ?? 0);
+  const needsAttentionCustomers =
+    needsAttentionCustomersRaw > 0
+      ? needsAttentionCustomersRaw
+      : (summary.atRiskCustomers ?? 0);
+  const closeToRewardCustomers =
+    (summary.closeToRewardCustomers ?? 0) > 0
+      ? summary.closeToRewardCustomers
+      : (summary.nearRewardCustomers ?? 0);
   const rewardEligibleCustomers =
     rewardEligibilitySummary?.redeemableCustomers ?? 0;
   const rewardEligibleCards = rewardEligibilitySummary?.redeemableCards ?? 0;
@@ -304,11 +535,12 @@ export function CustomersHubContent() {
     const customers = customerList ?? [];
     const routeFilteredCustomers = activeFilter
       ? customers.filter((customer) => {
+          const state = resolveCustomerState(customer);
           if (activeFilter === 'near_reward') {
-            return customer.lifecycleStatus === 'NEAR_REWARD';
+            return state === 'CLOSE_TO_REWARD';
           }
           if (activeFilter === 'at_risk') {
-            return customer.lifecycleStatus === 'AT_RISK';
+            return state === 'NEEDS_NURTURE' || state === 'NEEDS_WINBACK';
           }
           if (activeFilter === 'reward_eligible') {
             return (
@@ -317,7 +549,7 @@ export function CustomersHubContent() {
                 Number(customer.rewardThreshold)
             );
           }
-          return customer.lifecycleStatus === 'NEW_CUSTOMER';
+          return state === 'NEW';
         })
       : customers;
     const normalizedSearch = search.trim().toLowerCase();
@@ -414,7 +646,7 @@ export function CustomersHubContent() {
         >
           <BusinessScreenHeader
             title="לקוחות"
-            subtitle="מצב הלקוחות, תובנות lifecycle ובניית קהלים"
+            subtitle="מצב לקוחות, דרגות ערך והזדמנויות קמפיין"
             titleAccessory={<BackButton onPress={() => router.replace('/(authenticated)/(business)/dashboard')} />}
           />
         </StickyScrollHeader>
@@ -484,7 +716,7 @@ export function CustomersHubContent() {
                   <Text className="mt-1 text-right text-2xl font-black text-[#B42318]">
                     {smartGate.isLocked
                       ? '--'
-                      : formatNumber(summary.atRiskCustomers)}
+                      : formatNumber(needsAttentionCustomers)}
                   </Text>
                 </View>
                 <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#FFF7ED] p-3">
@@ -494,18 +726,18 @@ export function CustomersHubContent() {
                   <Text className="mt-1 text-right text-2xl font-black text-[#C2410C]">
                     {smartGate.isLocked
                       ? '--'
-                      : formatNumber(summary.nearRewardCustomers)}
+                      : formatNumber(closeToRewardCustomers)}
                   </Text>
                 </View>
                 <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#EEF2FF] p-3">
                   <Text className="text-right text-xs font-semibold text-[#4338CA]">
-                    VIP / חדשים
+                    VIP / Loyal
                   </Text>
                   <Text className="mt-1 text-right text-2xl font-black text-[#3730A3]">
                     {smartGate.isLocked
                       ? '--'
-                      : `${formatNumber(summary.vipCustomers)} / ${formatNumber(
-                          summary.newCustomers
+                      : `${formatNumber(summary.vipCustomers ?? 0)} / ${formatNumber(
+                          summary.loyalCustomers ?? 0
                         )}`}
                   </Text>
                 </View>
@@ -613,7 +845,11 @@ export function CustomersHubContent() {
               </Text>
             </View>
           ) : (
-            filteredCustomers.map((customer) => (
+            filteredCustomers.map((customer) => {
+              const customerState = resolveCustomerState(customer);
+              const customerValueTier = resolveCustomerValueTier(customer);
+
+              return (
               <Pressable
                 key={customer.primaryMembershipId}
                 onPress={() => openCustomerCard(String(customer.customerId))}
@@ -651,11 +887,20 @@ export function CustomersHubContent() {
                     <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
                       <View
                         className={`rounded-full px-3 py-1 ${
-                          STATUS_COLORS[customer.lifecycleStatus]
+                          STATE_COLORS[customerState]
                         }`}
                       >
                         <Text className="text-xs font-bold">
-                          {STATUS_LABELS[customer.lifecycleStatus]}
+                          {STATE_LABELS[customerState]}
+                        </Text>
+                      </View>
+                      <View
+                        className={`rounded-full px-3 py-1 ${
+                          VALUE_TIER_COLORS[customerValueTier]
+                        }`}
+                      >
+                        <Text className="text-xs font-bold">
+                          {VALUE_TIER_LABELS[customerValueTier]}
                         </Text>
                       </View>
                       {Number(customer.rewardThreshold) > 0 &&
@@ -678,12 +923,13 @@ export function CustomersHubContent() {
                     </Text>
                   </View>
 
-                  <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
-                    <Ionicons name="person-outline" size={20} color="#2F6BFF" />
-                  </View>
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
+                  <Ionicons name="person-outline" size={20} color="#2F6BFF" />
                 </View>
+              </View>
               </Pressable>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -727,18 +973,18 @@ export function CustomersHubContent() {
               </View>
 
               <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
-                {STATUS_OPTIONS.map((status) => (
+                {QUICK_SEGMENT_OPTIONS.map((preset) => (
                   <TouchableOpacity
-                    key={status}
+                    key={preset.key}
                     onPress={() => {
-                      const template = quickSegment(status);
+                      const template = quickSegmentPreset(preset.key);
                       setSegmentName(template.name);
                       setSegmentRules(template.rules);
                     }}
                     className="rounded-full border border-[#D6E2F8] bg-[#EEF3FF] px-3 py-1"
                   >
                     <Text className="text-xs font-bold text-[#2F6BFF]">
-                      {STATUS_LABELS[status]}
+                      {preset.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -746,7 +992,12 @@ export function CustomersHubContent() {
 
               <View className="mt-4 gap-3">
                 {segmentRules.conditions.map((condition, index) => {
-                  const isStatusField = condition.field === 'customerStatus';
+                  const isLegacyStatusField =
+                    condition.field === 'customerStatus';
+                  const isCustomerStateField =
+                    condition.field === 'customerState';
+                  const isCustomerValueTierField =
+                    condition.field === 'customerValueTier';
                   return (
                     <View
                       key={`${condition.field}-${index}`}
@@ -757,17 +1008,26 @@ export function CustomersHubContent() {
                           onPress={() =>
                             updateCondition(index, {
                               field: cycleOption(
-                                FIELD_OPTIONS.map((option) => option.key),
+                                SEGMENT_FIELD_OPTIONS.map(
+                                  (option) => option.key
+                                ),
                                 condition.field
                               ),
-                              value: 30,
+                              value: defaultValueForField(
+                                cycleOption(
+                                  SEGMENT_FIELD_OPTIONS.map(
+                                    (option) => option.key
+                                  ),
+                                  condition.field
+                                )
+                              ),
                             })
                           }
                           className="flex-1 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2"
                         >
                           <Text className="text-center text-xs font-bold text-[#334155]">
                             {
-                              FIELD_OPTIONS.find(
+                              SEGMENT_FIELD_OPTIONS.find(
                                 (option) => option.key === condition.field
                               )?.label
                             }
@@ -809,7 +1069,7 @@ export function CustomersHubContent() {
                         </TouchableOpacity>
                       </View>
 
-                      {isStatusField ? (
+                      {isLegacyStatusField ? (
                         <TouchableOpacity
                           onPress={() =>
                             updateCondition(index, {
@@ -826,6 +1086,49 @@ export function CustomersHubContent() {
                               STATUS_LABELS[
                                 ((condition.value as CustomerStatus) ||
                                   'AT_RISK') as CustomerStatus
+                              ]
+                            }
+                          </Text>
+                        </TouchableOpacity>
+                      ) : isCustomerStateField ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            updateCondition(index, {
+                              value: cycleOption(
+                                CUSTOMER_STATE_OPTIONS,
+                                (condition.value as CustomerState) ||
+                                  'NEEDS_WINBACK'
+                              ),
+                            })
+                          }
+                          className="mt-2 rounded-xl border border-[#CBD5E1] bg-white px-3 py-3"
+                        >
+                          <Text className="text-center text-sm font-bold text-[#334155]">
+                            {
+                              STATE_LABELS[
+                                ((condition.value as CustomerState) ||
+                                  'NEEDS_WINBACK') as CustomerState
+                              ]
+                            }
+                          </Text>
+                        </TouchableOpacity>
+                      ) : isCustomerValueTierField ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            updateCondition(index, {
+                              value: cycleOption(
+                                CUSTOMER_VALUE_TIER_OPTIONS,
+                                (condition.value as CustomerValueTier) || 'VIP'
+                              ),
+                            })
+                          }
+                          className="mt-2 rounded-xl border border-[#CBD5E1] bg-white px-3 py-3"
+                        >
+                          <Text className="text-center text-sm font-bold text-[#334155]">
+                            {
+                              VALUE_TIER_LABELS[
+                                ((condition.value as CustomerValueTier) ||
+                                  'VIP') as CustomerValueTier
                               ]
                             }
                           </Text>

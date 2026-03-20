@@ -25,6 +25,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 import { CampaignsHubContent } from './campaigns';
 
@@ -215,9 +216,13 @@ export function LoyaltyCardsHubContent() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const canManage =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+  const businessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canManage = businessCapabilities?.edit_loyalty_cards === true;
   const { limitStatus } = useEntitlements(activeBusinessId);
 
   useEffect(() => {

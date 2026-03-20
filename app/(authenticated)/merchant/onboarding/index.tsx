@@ -100,6 +100,25 @@ function toBusinessOnboardingDraft(
           (entry): entry is string => typeof entry === 'string'
         )
       : undefined,
+    businessExample:
+      typeof source.businessExample === 'string'
+        ? source.businessExample
+        : null,
+    birthdayCampaignRelevant:
+      source.birthdayCampaignRelevant === true ||
+      source.birthdayCampaignRelevant === false
+        ? source.birthdayCampaignRelevant
+        : null,
+    joinAnniversaryCampaignRelevant:
+      source.joinAnniversaryCampaignRelevant === true ||
+      source.joinAnniversaryCampaignRelevant === false
+        ? source.joinAnniversaryCampaignRelevant
+        : null,
+    weakTimePromosRelevant:
+      source.weakTimePromosRelevant === true ||
+      source.weakTimePromosRelevant === false
+        ? source.weakTimePromosRelevant
+        : null,
     formattedAddress:
       typeof source.formattedAddress === 'string'
         ? source.formattedAddress

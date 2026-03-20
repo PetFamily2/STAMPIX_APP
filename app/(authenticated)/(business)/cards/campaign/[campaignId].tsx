@@ -15,14 +15,14 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BackButton } from '@/components/BackButton';
+import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
@@ -233,6 +233,20 @@ function formatDateTime(value: number): string {
   });
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_SCHEDULE_LEAD_MS = 5 * 60 * 1000;
+
+function getScheduledTimestamp(daysFromNow: number, hour: number) {
+  const now = new Date();
+  const target = new Date(now.getTime());
+  target.setDate(target.getDate() + Math.max(0, daysFromNow));
+  target.setHours(hour, 0, 0, 0);
+  if (target.getTime() < Date.now() + MIN_SCHEDULE_LEAD_MS) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
+
 export default function CampaignDraftEditorScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -271,18 +285,32 @@ export default function CampaignDraftEditorScreen() {
     [activeBusiness, activeBusinessId, businesses, selectedBusinessId]
   );
 
-  const canManagePrograms =
-    selectedBusiness?.staffRole === 'owner' ||
-    selectedBusiness?.staffRole === 'manager';
+  const selectedBusinessCapabilities = selectedBusiness
+    ? resolveBusinessCapabilities(
+        selectedBusiness.capabilities ?? null,
+        selectedBusiness.staffRole
+      )
+    : null;
+  const canCreateCampaigns =
+    selectedBusinessCapabilities?.create_campaigns === true;
+  const canEditCampaigns = selectedBusinessCapabilities?.edit_campaigns === true;
+  const canActivateSendCampaigns =
+    selectedBusinessCapabilities?.activate_send_campaigns === true;
+  const canArchiveCampaign =
+    selectedBusinessCapabilities?.delete_campaigns === true;
   const {
     entitlements,
     limitStatus,
     isLoading: isEntitlementsLoading,
   } = useEntitlements(selectedBusinessId);
   const campaignLimit = limitStatus('maxCampaigns');
+  const recurringLimit = limitStatus('maxActiveRetentionActions');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
+  const requiredPlanForRecurring =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxActiveRetentionActions ?? 'pro';
   const programs = (useQuery(
     api.loyaltyPrograms.listManagementByBusiness,
     selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
@@ -311,6 +339,12 @@ export default function CampaignDraftEditorScreen() {
   const setCampaignAutomationEnabled = useMutation(
     api.campaigns.setCampaignAutomationEnabled
   );
+  const scheduleCampaignOneTime = useMutation(
+    api.campaigns.scheduleCampaignOneTime
+  );
+  const clearCampaignOneTimeSchedule = useMutation(
+    api.campaigns.clearCampaignOneTimeSchedule
+  );
   const archiveManagementCampaign = useMutation(
     api.campaigns.archiveManagementCampaign
   );
@@ -319,6 +353,10 @@ export default function CampaignDraftEditorScreen() {
   const [messageBody, setMessageBody] = useState('');
   const [daysInput, setDaysInput] = useState('');
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
+  const [deliveryMode, setDeliveryMode] = useState<'send_now' | 'one_time'>(
+    'send_now'
+  );
+  const [scheduledForAt, setScheduledForAt] = useState<number | null>(null);
   const [createMode, setCreateMode] = useState<CampaignCreateMode>('template');
   const [isCreatingDraft, setIsCreatingDraft] = useState<
     CampaignType | 'custom' | null
@@ -342,6 +380,18 @@ export default function CampaignDraftEditorScreen() {
     setSelectedProgramId(
       campaignDraft.programId ? String(campaignDraft.programId) : 'all'
     );
+    const nextDeliveryMode =
+      campaignDraft.scheduleMode === 'one_time' ? 'one_time' : 'send_now';
+    setDeliveryMode(nextDeliveryMode);
+    if (nextDeliveryMode === 'one_time') {
+      setScheduledForAt(
+        typeof campaignDraft.scheduledForAt === 'number'
+          ? campaignDraft.scheduledForAt
+          : Date.now() + DAY_MS
+      );
+    } else {
+      setScheduledForAt(null);
+    }
   }, [campaignDraft]);
 
   const goBackToCampaignList = () => {
@@ -378,6 +428,20 @@ export default function CampaignDraftEditorScreen() {
     });
   };
 
+  const openRecurringUpgrade = (
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForRecurring
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxActiveRetentionActions',
+      requiredPlan,
+      reason: 'limit_reached',
+    });
+  };
+
   const handleEntitlementError = (error: unknown) => {
     const entitlementError = getEntitlementError(error);
     if (!entitlementError) {
@@ -394,12 +458,16 @@ export default function CampaignDraftEditorScreen() {
       openCampaignsUpgrade(
         entitlementError.requiredPlan ?? requiredPlanForCampaigns
       );
+    } else if (entitlementError.limitKey === 'maxActiveRetentionActions') {
+      openRecurringUpgrade(
+        entitlementError.requiredPlan ?? requiredPlanForRecurring
+      );
     }
     return true;
   };
 
   const handleCreateFromTemplate = async (type: CampaignType) => {
-    if (!selectedBusinessId || !canManagePrograms || isCreatingDraft) {
+    if (!selectedBusinessId || !canCreateCampaigns || isCreatingDraft) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
@@ -427,7 +495,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleCreateCustomCampaign = async () => {
-    if (!selectedBusinessId || !canManagePrograms || isCreatingDraft) {
+    if (!selectedBusinessId || !canCreateCampaigns || isCreatingDraft) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
@@ -498,7 +566,7 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
         <ScrollView
-        stickyHeaderIndices={[0]}
+          stickyHeaderIndices={[0]}
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: 20,
@@ -516,7 +584,7 @@ export default function CampaignDraftEditorScreen() {
             />
           </StickyScrollHeader>
 
-          {!canManagePrograms ? (
+          {!canCreateCampaigns ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
               <Text className="text-right text-sm font-semibold text-red-700">
                 רק בעלים או מנהל יכולים ליצור קמפיינים.
@@ -529,6 +597,11 @@ export default function CampaignDraftEditorScreen() {
                 יש חריגה ממכסת הקמפיינים במסלול הנוכחי. יצירה או הפעלה חסומות עד
                 שחוזרים למכסה או משדרגים.
               </Text>
+              {!isEntitlementsLoading && recurringLimit.isAtLimit ? (
+                <Text className={`text-[11px] text-[#B45309] ${tw.textStart}`}>
+                  שליחה מחזורית חסומה במסלול הנוכחי.
+                </Text>
+              ) : null}
               <TouchableOpacity
                 onPress={() => openCampaignsUpgrade()}
                 className="mt-3 self-end rounded-full bg-red-600 px-3 py-1.5"
@@ -590,7 +663,7 @@ export default function CampaignDraftEditorScreen() {
                   const meta = campaignMeta(template.type);
                   const isBusy = isCreatingDraft === template.type;
                   const disabled =
-                    !canManagePrograms ||
+                    !canCreateCampaigns ||
                     isCreatingDraft != null ||
                     (!isEntitlementsLoading && campaignLimit.isAtLimit);
                   return (
@@ -651,7 +724,7 @@ export default function CampaignDraftEditorScreen() {
               </Text>
               <TouchableOpacity
                 disabled={
-                  !canManagePrograms ||
+                  !canCreateCampaigns ||
                   isCreatingDraft != null ||
                   (!isEntitlementsLoading && campaignLimit.isAtLimit)
                 }
@@ -659,7 +732,7 @@ export default function CampaignDraftEditorScreen() {
                   void handleCreateCustomCampaign();
                 }}
                 className={`mt-4 rounded-2xl px-4 py-3 ${
-                  !canManagePrograms ||
+                  !canCreateCampaigns ||
                   isCreatingDraft != null ||
                   (!isEntitlementsLoading && campaignLimit.isAtLimit)
                     ? 'bg-[#CBD5E1]'
@@ -728,7 +801,7 @@ export default function CampaignDraftEditorScreen() {
   const isRulesLocked =
     (campaignDraft.isRulesLocked ?? automationEnabled) === true;
 
-  const canEditContent = canManagePrograms;
+  const canEditContent = canEditCampaigns;
   const canEditRules = canEditContent && !isRulesLocked;
 
   const stats = campaignDraft.stats ?? {
@@ -744,6 +817,13 @@ export default function CampaignDraftEditorScreen() {
       : (activePrograms.find(
           (program) => String(program.loyaltyProgramId) === selectedProgramId
         )?.title ?? 'תוכנית לא זמינה');
+
+  const resolvedScheduledForAt =
+    typeof scheduledForAt === 'number'
+      ? scheduledForAt
+      : getScheduledTimestamp(1, 10);
+  const isOneTimeMode = deliveryMode === 'one_time';
+  const oneTimeScheduleDisplay = formatDateTime(resolvedScheduledForAt);
 
   const buildRulesPayload = (): EditableCampaignRules | null => {
     if (campaignType === 'welcome') {
@@ -822,7 +902,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleToggleAutomation = async () => {
-    if (!canManagePrograms || isTogglingAutomation) {
+    if (!canActivateSendCampaigns || isTogglingAutomation) {
       return;
     }
     if (
@@ -834,6 +914,18 @@ export default function CampaignDraftEditorScreen() {
         'חריגה מהמכסה',
         'לא ניתן להפעיל אוטומציה לקמפיין כשכבר קיימת חריגה ממכסת הקמפיינים.'
       );
+      return;
+    }
+    if (
+      !automationEnabled &&
+      !isEntitlementsLoading &&
+      recurringLimit.isAtLimit
+    ) {
+      Alert.alert(
+        'מגבלת מסלול',
+        'הפעלת קמפיין מחזורי חסומה במסלול הנוכחי. ניתן לשלוח עכשיו ידנית או לשדרג.'
+      );
+      openRecurringUpgrade();
       return;
     }
     setIsTogglingAutomation(true);
@@ -893,7 +985,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleSaveAndSend = async () => {
-    if (!canEditContent || isSubmitting) {
+    if (!canEditContent || !canActivateSendCampaigns || isSubmitting) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
@@ -920,6 +1012,12 @@ export default function CampaignDraftEditorScreen() {
     setIsSubmitting(true);
     try {
       await saveDraftMutation(rulesPayload);
+      if (campaignDraft.scheduleMode === 'one_time') {
+        await clearCampaignOneTimeSchedule({
+          businessId: selectedBusinessId,
+          campaignId,
+        });
+      }
 
       const estimate = await estimateCampaignAudience({
         businessId: selectedBusinessId,
@@ -959,10 +1057,75 @@ export default function CampaignDraftEditorScreen() {
     }
   };
 
+  const setOneTimePreset = (daysFromNow: number, hour: number) => {
+    setDeliveryMode('one_time');
+    setScheduledForAt(getScheduledTimestamp(daysFromNow, hour));
+  };
+
+  const handleSaveAndSchedule = async () => {
+    if (!canEditContent || !canActivateSendCampaigns || isSubmitting) {
+      return;
+    }
+    if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
+      Alert.alert(
+        '׳—׳¨׳™׳’׳” ׳׳”׳׳›׳¡׳”',
+        '׳׳ ׳ ׳™׳×׳ ׳׳”׳₪׳¢׳™׳ ׳§׳׳₪׳™׳™׳ ׳—׳“׳© ׳›׳׳©׳¨ ׳§׳™׳™׳׳× ׳—׳¨׳™׳’׳” ׳׳׳›׳¡׳× ׳”׳§׳׳₪׳™׳™׳ ׳™׳.'
+      );
+      openCampaignsUpgrade();
+      return;
+    }
+    if (!validateContent()) {
+      return;
+    }
+
+    const sendAt = resolvedScheduledForAt;
+    if (sendAt < Date.now() + MIN_SCHEDULE_LEAD_MS) {
+      Alert.alert(
+        '׳–׳׳ ׳׳ ׳×׳§׳™׳',
+        '׳™׳© ׳׳‘׳—׳•׳¨ ׳–׳׳ ׳©׳׳™׳—׳” ׳‘׳¢׳×׳™׳“.'
+      );
+      return;
+    }
+
+    let rulesPayload: EditableCampaignRules | undefined;
+    if (!isRulesLocked) {
+      const builtRules = buildRulesPayload();
+      if (!builtRules) {
+        return;
+      }
+      rulesPayload = builtRules;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await saveDraftMutation(rulesPayload);
+      await scheduleCampaignOneTime({
+        businessId: selectedBusinessId,
+        campaignId,
+        sendAt,
+      });
+      Alert.alert(
+        '׳ ׳©׳׳¨ ׳•׳׳•׳₪׳¢׳',
+        `׳”׳§׳׳₪׳™׳™׳ ׳™׳™׳©׳׳— ׳‘-${oneTimeScheduleDisplay}.`,
+        [{ text: '׳׳™׳©׳•׳¨', onPress: goBackToCampaignList }]
+      );
+    } catch (error) {
+      if (handleEntitlementError(error)) {
+        return;
+      }
+      Alert.alert(
+        '׳©׳’׳™׳׳”',
+        error instanceof Error ? error.message : '׳©׳׳™׳¨׳” ׳׳• ׳×׳–׳׳•׳ ׳ ׳›׳©׳׳•.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleMoveToArchive = () => {
     if (
       !selectedBusinessId ||
-      !canManagePrograms ||
+      !canArchiveCampaign ||
       isArchiving ||
       isSubmitting
     ) {
@@ -1035,10 +1198,10 @@ export default function CampaignDraftEditorScreen() {
           <BusinessScreenHeader
             title="עריכת קמפיין"
             titleAccessory={<BackButton onPress={goBackToCampaignList} />}
-            />
+          />
         </StickyScrollHeader>
 
-        {!canManagePrograms ? (
+        {!canEditContent ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
             <Text className="text-right text-sm font-semibold text-red-700">
               רק בעלים או מנהל יכולים לערוך ולשלוח קמפיינים.
@@ -1126,6 +1289,95 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
+              ׳׳•׳₪׳ ׳©׳׳™׳—׳” ׳—׳“-׳₪׳¢׳׳™׳×
+            </Text>
+            <View className={`${tw.flexRow} gap-2`}>
+              <TouchableOpacity
+                disabled={!canEditContent}
+                onPress={() => {
+                  setDeliveryMode('send_now');
+                  setScheduledForAt(null);
+                }}
+                className={`rounded-full px-3 py-2 ${
+                  !isOneTimeMode ? 'bg-[#DBEAFE]' : 'border border-[#E2E8F0] bg-white'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    !isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
+                  }`}
+                >
+                  ׳©׳׳™׳—׳” ׳¢׳›׳©׳™׳•
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={!canEditContent}
+                onPress={() => setOneTimePreset(1, 10)}
+                className={`rounded-full px-3 py-2 ${
+                  isOneTimeMode ? 'bg-[#DBEAFE]' : 'border border-[#E2E8F0] bg-white'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
+                  }`}
+                >
+                  ׳×׳–׳׳•׳ ׳—׳“-׳₪׳¢׳׳™
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {isOneTimeMode ? (
+              <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
+                <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
+                  ׳׳׳ ׳©׳׳™׳—׳” ׳ ׳‘׳—׳¨: {oneTimeScheduleDisplay}
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  <TouchableOpacity
+                    disabled={!canEditContent}
+                    onPress={() => setOneTimePreset(1, 10)}
+                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-xs font-bold text-[#334155]">
+                      ׳׳—׳¨ 10:00
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canEditContent}
+                    onPress={() => setOneTimePreset(1, 18)}
+                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-xs font-bold text-[#334155]">
+                      ׳׳—׳¨ 18:00
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canEditContent}
+                    onPress={() => setOneTimePreset(3, 10)}
+                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                  >
+                    <Text className="text-xs font-bold text-[#334155]">
+                      +3 ׳™׳׳™׳ 10:00
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                ׳©׳׳™׳—׳” ׳¢׳›׳©׳™׳• ׳‘׳׳ ׳•׳׳: ׳”׳§׳׳₪׳™׳™׳ ׳ ׳©׳׳¨ ׳•׳ ׳©׳׳— ׳¨׳§ ׳׳׳—׳¨ ׳׳™׳©׳•׳¨.
+              </Text>
+            )}
+            <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
+              Starter ׳™׳›׳•׳ ׳׳©׳׳•׳— ׳¢׳›׳©׳™׳• ׳׳׳×׳–׳׳ ׳©׳׳™׳—׳” ׳—׳“-׳₪׳¢׳׳™׳×. ׳׳•׳˜׳•׳׳¦׳™׳” ׳׳—׳–׳•׳¨׳™׳× ׳—׳¡׳•׳׳”
+              ׳‘-Starter.
+            </Text>
+          </View>
+
+          <View className="my-5 h-px bg-[#E7EEFF]" />
+
+          <View className="gap-3">
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
               הפעלה אוטומטית
             </Text>
             <Text
@@ -1143,11 +1395,11 @@ export default function CampaignDraftEditorScreen() {
               </Text>
               <TouchableOpacity
                 disabled={
-                  !canManagePrograms ||
+                  !canActivateSendCampaigns ||
                   isTogglingAutomation ||
                   (!automationEnabled &&
                     !isEntitlementsLoading &&
-                    campaignLimit.isOverLimit)
+                    (campaignLimit.isOverLimit || recurringLimit.isAtLimit))
                 }
                 onPress={() => {
                   void handleToggleAutomation();
@@ -1341,15 +1593,21 @@ export default function CampaignDraftEditorScreen() {
           <TouchableOpacity
             disabled={
               !canEditContent ||
+              !canActivateSendCampaigns ||
               isSubmitting ||
               isArchiving ||
               (!isEntitlementsLoading && campaignLimit.isOverLimit)
             }
             onPress={() => {
+              if (isOneTimeMode) {
+                void handleSaveAndSchedule();
+                return;
+              }
               void handleSaveAndSend();
             }}
             className={`rounded-2xl px-4 py-3 ${
               canEditContent &&
+              canActivateSendCampaigns &&
               !isSubmitting &&
               !isArchiving &&
               (isEntitlementsLoading || !campaignLimit.isOverLimit)
@@ -1358,15 +1616,15 @@ export default function CampaignDraftEditorScreen() {
             }`}
           >
             <Text className="text-center text-sm font-bold text-white">
-              שמור ושלח עכשיו
+              {isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled={!canManagePrograms || isSubmitting || isArchiving}
+            disabled={!canArchiveCampaign || isSubmitting || isArchiving}
             onPress={handleMoveToArchive}
             className={`rounded-2xl px-4 py-3 ${
-              !canManagePrograms || isSubmitting || isArchiving
+              !canArchiveCampaign || isSubmitting || isArchiving
                 ? 'bg-[#CBD5E1]'
                 : 'bg-[#F59E0B]'
             }`}

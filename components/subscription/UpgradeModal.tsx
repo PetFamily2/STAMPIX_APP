@@ -62,6 +62,7 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         maxActiveRetentionActions: 5,
         maxCampaigns: 5,
         maxAiExecutionsPerMonth: 100,
+        maxTeamSeats: 5,
       },
       features: {
         team: true,
@@ -82,6 +83,7 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         maxActiveRetentionActions: 15,
         maxCampaigns: 10,
         maxAiExecutionsPerMonth: 300,
+        maxTeamSeats: 20,
       },
       features: {
         team: true,

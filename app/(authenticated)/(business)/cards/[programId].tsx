@@ -31,6 +31,7 @@ import {
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -137,9 +138,13 @@ export default function ProgramDetailsScreen() {
     [activeBusiness, activeBusinessId, businesses, selectedBusinessId]
   );
 
-  const canManage =
-    selectedBusiness?.staffRole === 'owner' ||
-    selectedBusiness?.staffRole === 'manager';
+  const selectedBusinessCapabilities = selectedBusiness
+    ? resolveBusinessCapabilities(
+        selectedBusiness.capabilities ?? null,
+        selectedBusiness.staffRole
+      )
+    : null;
+  const canManage = selectedBusinessCapabilities?.edit_loyalty_cards === true;
 
   const details = useQuery(
     api.loyaltyPrograms.getProgramDetailsForManagement,

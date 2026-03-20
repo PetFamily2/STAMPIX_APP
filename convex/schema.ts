@@ -129,6 +129,10 @@ export default defineSchema({
         reason: v.optional(v.string()),
         usageAreas: v.optional(v.array(v.string())),
         ownerAgeRange: v.optional(v.string()),
+        businessExample: v.optional(v.string()),
+        birthdayCampaignRelevant: v.optional(v.boolean()),
+        joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
+        weakTimePromosRelevant: v.optional(v.boolean()),
         collectedAt: v.optional(v.number()),
       })
     ),
@@ -199,6 +203,188 @@ export default defineSchema({
         frequentVisitsLast30Days: v.number(),
         dropPercentThreshold: v.number(),
         updatedAt: v.number(),
+      })
+    ),
+    businessRetentionProfile: v.optional(
+      v.object({
+        schemaVersion: v.optional(v.number()),
+        serviceType: v.optional(
+          v.union(
+            v.literal('food_drink'),
+            v.literal('beauty'),
+            v.literal('health_wellness'),
+            v.literal('fitness'),
+            v.literal('retail'),
+            v.literal('professional_services'),
+            v.literal('education'),
+            v.literal('hospitality'),
+            v.literal('other')
+          )
+        ),
+        serviceTags: v.optional(v.array(v.string())),
+        businessModel: v.optional(
+          v.union(
+            v.literal('service'),
+            v.literal('product'),
+            v.literal('mixed')
+          )
+        ),
+        operatingScope: v.optional(
+          v.union(
+            v.literal('nearby'),
+            v.literal('citywide'),
+            v.literal('online'),
+            v.literal('multiple')
+          )
+        ),
+        preferredLanguage: v.optional(
+          v.union(v.literal('he'), v.literal('en'))
+        ),
+        brandStyle: v.optional(
+          v.union(
+            v.literal('friendly'),
+            v.literal('professional'),
+            v.literal('premium'),
+            v.literal('playful'),
+            v.literal('minimal')
+          )
+        ),
+        priceRange: v.optional(
+          v.union(
+            v.literal('low'),
+            v.literal('mid'),
+            v.literal('high'),
+            v.literal('unknown')
+          )
+        ),
+        primaryGoal: v.optional(
+          v.union(
+            v.literal('repeat_visits'),
+            v.literal('fill_slow_hours'),
+            v.literal('increase_redemptions'),
+            v.literal('grow_members'),
+            v.literal('promote_products'),
+            v.literal('understand_customers')
+          )
+        ),
+        adoptionReason: v.optional(v.string()),
+        discoverySource: v.optional(v.string()),
+        repeatModel: v.optional(
+          v.object({
+            cadenceBand: v.optional(
+              v.union(
+                v.literal('daily'),
+                v.literal('weekly'),
+                v.literal('biweekly'),
+                v.literal('monthly'),
+                v.literal('quarterly'),
+                v.literal('irregular')
+              )
+            ),
+            expectedRepeatDays: v.optional(v.number()),
+            secondVisitNudgeDays: v.optional(v.number()),
+            nurtureDays: v.optional(v.number()),
+            winbackDays: v.optional(v.number()),
+          })
+        ),
+        rewardModel: v.optional(
+          v.object({
+            primaryProgramId: v.optional(
+              v.union(v.id('loyaltyPrograms'), v.null())
+            ),
+            rewardType: v.optional(
+              v.union(
+                v.literal('free_item'),
+                v.literal('free_service'),
+                v.literal('discount'),
+                v.literal('upgrade'),
+                v.literal('bonus'),
+                v.literal('unknown')
+              )
+            ),
+            rewardName: v.optional(v.union(v.string(), v.null())),
+            rewardThreshold: v.optional(v.union(v.number(), v.null())),
+            closeToRewardRatio: v.optional(v.number()),
+            loyalVisitThreshold: v.optional(v.number()),
+            vipVisitThreshold: v.optional(v.number()),
+            loyalRedemptionThreshold: v.optional(v.number()),
+            vipRedemptionThreshold: v.optional(v.number()),
+          })
+        ),
+        birthdayPolicy: v.optional(
+          v.object({
+            enabled: v.optional(v.boolean()),
+            relevance: v.optional(
+              v.union(
+                v.literal('high'),
+                v.literal('conditional'),
+                v.literal('off')
+              )
+            ),
+          })
+        ),
+        joinAnniversaryPolicy: v.optional(
+          v.object({
+            enabled: v.optional(v.boolean()),
+            relevance: v.optional(
+              v.union(
+                v.literal('high'),
+                v.literal('conditional'),
+                v.literal('off')
+              )
+            ),
+          })
+        ),
+        timeBasedPromoPolicy: v.optional(
+          v.object({
+            enabled: v.optional(v.boolean()),
+            relevance: v.optional(
+              v.union(
+                v.literal('high'),
+                v.literal('conditional'),
+                v.literal('off')
+              )
+            ),
+          })
+        ),
+        learning: v.optional(
+          v.object({
+            status: v.optional(
+              v.union(
+                v.literal('defaults'),
+                v.literal('learning'),
+                v.literal('learned')
+              )
+            ),
+            eligibleCustomers: v.optional(v.number()),
+            eligibleEvents: v.optional(v.number()),
+            observedRepeatP50Days: v.optional(v.union(v.number(), v.null())),
+            observedRepeatP75Days: v.optional(v.union(v.number(), v.null())),
+            learnedAt: v.optional(v.union(v.number(), v.null())),
+          })
+        ),
+        overrides: v.optional(
+          v.object({
+            businessTypeOverride: v.optional(v.string()),
+            expectedRepeatDays: v.optional(v.number()),
+            nurtureDays: v.optional(v.number()),
+            winbackDays: v.optional(v.number()),
+            birthdayEnabled: v.optional(v.boolean()),
+            joinAnniversaryEnabled: v.optional(v.boolean()),
+            timeBasedPromoEnabled: v.optional(v.boolean()),
+          })
+        ),
+        onboardingMeta: v.optional(
+          v.object({
+            ownerAgeRange: v.optional(v.string()),
+            businessExample: v.optional(v.string()),
+            birthdayCampaignRelevant: v.optional(v.boolean()),
+            joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
+            weakTimePromosRelevant: v.optional(v.boolean()),
+            collectedAt: v.optional(v.number()),
+          })
+        ),
+        updatedAt: v.optional(v.number()),
       })
     ),
     location: v.optional(
@@ -443,9 +629,16 @@ export default defineSchema({
     businessId: v.id('businesses'),
     type: v.union(
       v.literal('welcome'),
+      v.literal('second_visit'),
+      v.literal('finish_card'),
+      v.literal('vip_retention'),
       v.literal('birthday'),
+      v.literal('join_anniversary'),
       v.literal('anniversary'),
       v.literal('winback'),
+      v.literal('general_promo'),
+      v.literal('time_based_promo'),
+      v.literal('product_promo'),
       v.literal('promo'),
       v.literal('ai_marketing'),
       v.literal('ai_retention'),
@@ -468,6 +661,75 @@ export default defineSchema({
     rules: v.optional(v.any()),
     channels: v.optional(v.array(v.string())),
     automationEnabled: v.optional(v.boolean()),
+    family: v.optional(
+      v.union(
+        v.literal('lifecycle'),
+        v.literal('promo'),
+        v.literal('celebration'),
+        v.literal('loyalty')
+      )
+    ),
+    opportunityType: v.optional(
+      v.union(
+        v.literal('welcome'),
+        v.literal('second_visit'),
+        v.literal('winback'),
+        v.literal('finish_card'),
+        v.literal('vip_retention'),
+        v.literal('birthday'),
+        v.literal('join_anniversary'),
+        v.literal('general_promo'),
+        v.literal('time_based_promo'),
+        v.literal('product_promo')
+      )
+    ),
+    audienceSource: v.optional(
+      v.union(
+        v.literal('automatic'),
+        v.literal('advanced_segment'),
+        v.literal('manual_override')
+      )
+    ),
+    activationStatus: v.optional(
+      v.union(
+        v.literal('draft'),
+        v.literal('active'),
+        v.literal('paused'),
+        v.literal('completed'),
+        v.literal('archived')
+      )
+    ),
+    schedule: v.optional(
+      v.object({
+        mode: v.optional(
+          v.union(
+            v.literal('send_now'),
+            v.literal('one_time'),
+            v.literal('recurring')
+          )
+        ),
+        sendAt: v.optional(v.number()),
+        nextRunAt: v.optional(v.number()),
+        sendHourLocal: v.optional(v.number()),
+        recurrencePolicy: v.optional(v.any()),
+      })
+    ),
+    preparedAudience: v.optional(
+      v.object({
+        count: v.optional(v.number()),
+        sampleUserIds: v.optional(v.array(v.id('users'))),
+        sourceSnapshotHash: v.optional(v.string()),
+        lastPreparedAt: v.optional(v.number()),
+      })
+    ),
+    source: v.optional(
+      v.union(
+        v.literal('manual'),
+        v.literal('recommendation'),
+        v.literal('migration')
+      )
+    ),
+    sourceContext: v.optional(v.any()),
     isActive: v.boolean(),
     archivedAt: v.optional(v.number()),
     archivedByUserId: v.optional(v.id('users')),
@@ -476,6 +738,7 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_activationStatus', ['activationStatus'])
     .index('by_automationEnabled', ['automationEnabled']),
 
   campaignRuns: defineTable({
@@ -483,6 +746,43 @@ export default defineSchema({
     campaignId: v.id('campaigns'),
     programId: v.optional(v.id('loyaltyPrograms')),
     campaignType: v.string(),
+    family: v.optional(
+      v.union(
+        v.literal('lifecycle'),
+        v.literal('promo'),
+        v.literal('celebration'),
+        v.literal('loyalty')
+      )
+    ),
+    opportunityType: v.optional(
+      v.union(
+        v.literal('welcome'),
+        v.literal('second_visit'),
+        v.literal('winback'),
+        v.literal('finish_card'),
+        v.literal('vip_retention'),
+        v.literal('birthday'),
+        v.literal('join_anniversary'),
+        v.literal('general_promo'),
+        v.literal('time_based_promo'),
+        v.literal('product_promo')
+      )
+    ),
+    audienceSource: v.optional(
+      v.union(
+        v.literal('automatic'),
+        v.literal('advanced_segment'),
+        v.literal('manual_override')
+      )
+    ),
+    scheduleMode: v.optional(
+      v.union(
+        v.literal('send_now'),
+        v.literal('one_time'),
+        v.literal('recurring')
+      )
+    ),
+    runReason: v.optional(v.string()),
     sentAt: v.number(),
     targetedCount: v.number(),
     deliveredCount: v.number(),
@@ -533,16 +833,42 @@ export default defineSchema({
   messageLog: defineTable({
     businessId: v.id('businesses'),
     campaignId: v.optional(v.id('campaigns')),
+    campaignRunId: v.optional(v.id('campaignRuns')),
+    campaignFamily: v.optional(
+      v.union(
+        v.literal('lifecycle'),
+        v.literal('promo'),
+        v.literal('celebration'),
+        v.literal('loyalty')
+      )
+    ),
+    opportunityType: v.optional(
+      v.union(
+        v.literal('welcome'),
+        v.literal('second_visit'),
+        v.literal('winback'),
+        v.literal('finish_card'),
+        v.literal('vip_retention'),
+        v.literal('birthday'),
+        v.literal('join_anniversary'),
+        v.literal('general_promo'),
+        v.literal('time_based_promo'),
+        v.literal('product_promo')
+      )
+    ),
     toUserId: v.id('users'),
     channel: v.string(),
     status: v.string(),
+    deliveryStatus: v.optional(v.string()),
     providerMessageId: v.optional(v.string()),
+    inboxPayload: v.optional(v.any()),
     readAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_campaignId', ['campaignId'])
+    .index('by_campaignRunId', ['campaignRunId'])
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
@@ -702,7 +1028,12 @@ export default defineSchema({
       v.literal('campaign_message'),
       v.literal('business_insight'),
       v.literal('campaign_summary'),
-      v.literal('recommendation_explanation')
+      v.literal('recommendation_explanation'),
+      v.literal('campaign_message_generation'),
+      v.literal('campaign_message_rewrite'),
+      v.literal('campaign_suggestion'),
+      v.literal('insight_explanation'),
+      v.literal('campaign_run_summary')
     ),
     model: v.string(),
     cacheHit: v.boolean(),
@@ -729,6 +1060,8 @@ export default defineSchema({
             v.literal('visitCount'),
             v.literal('loyaltyProgress'),
             v.literal('customerStatus'),
+            v.literal('customerState'),
+            v.literal('customerValueTier'),
             v.literal('joinedDaysAgo')
           ),
           operator: v.union(

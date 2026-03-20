@@ -167,6 +167,13 @@ function parseRetentionTargetFromRules(rules: unknown): RetentionTarget | null {
   return { targetType };
 }
 
+export function isLegacyRetentionAutomationDisabled(sourceContext: unknown) {
+  if (!isRecord(sourceContext)) {
+    return false;
+  }
+  return sourceContext.legacyAutomationDisabled === true;
+}
+
 function buildAiSuggestion(target: RetentionTarget, audienceCount: number) {
   switch (target.targetType) {
     case 'at_risk':
@@ -643,6 +650,10 @@ export const runRetentionActionSweepInternal = internalMutation({
     const overLimitByBusiness = new Map<string, boolean>();
 
     for (const campaign of campaigns) {
+      if (isLegacyRetentionAutomationDisabled(campaign.sourceContext)) {
+        continue;
+      }
+
       const businessKey = String(campaign.businessId);
       let isBlocked = overLimitByBusiness.get(businessKey);
       if (isBlocked === undefined) {

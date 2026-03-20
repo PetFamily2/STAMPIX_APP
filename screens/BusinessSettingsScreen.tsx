@@ -24,6 +24,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { tw } from '@/lib/rtl';
 
@@ -151,9 +152,20 @@ export default function BusinessSettingsScreen() {
     isSwitchingBusiness,
     setActiveBusinessId,
   } = useActiveBusiness();
+  const activeBusinessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
   const canEditBusiness =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+    activeBusinessCapabilities?.edit_business_profile === true;
+  const canManageTeam = activeBusinessCapabilities?.manage_team === true;
+  const canViewBillingState =
+    activeBusinessCapabilities?.view_billing_state === true;
+  const canLeaveBusiness = activeBusiness
+    ? activeBusiness.staffRole !== 'owner'
+    : false;
   const addBusinessRoute = getBusinessOnboardingEntryRoute(
     sessionContext?.user.businessOnboardedAt != null
   );
@@ -412,7 +424,7 @@ export default function BusinessSettingsScreen() {
             icon="qr-code-outline"
             onPress={() => router.push('/(authenticated)/(business)/qr')}
           />
-          {canEditBusiness ? (
+          {canManageTeam ? (
             <MenuRow
               title="ניהול עובדים"
               subtitle="הצג את צוות העסק ונהלי הרשאות"
@@ -430,7 +442,7 @@ export default function BusinessSettingsScreen() {
               )
             }
           />
-          {activeBusiness?.staffRole === 'owner' ? (
+          {canViewBillingState ? (
             <MenuRow
               title="מנוי וחבילה"
               subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
@@ -444,7 +456,7 @@ export default function BusinessSettingsScreen() {
           ) : null}
         </View>
 
-        {activeBusiness?.staffRole === 'manager' ? (
+        {canLeaveBusiness ? (
           <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
             <Text
               className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}

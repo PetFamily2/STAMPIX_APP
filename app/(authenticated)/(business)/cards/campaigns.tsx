@@ -25,6 +25,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
@@ -169,9 +170,15 @@ export function CampaignsHubContent() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const canManage =
-    activeBusiness?.staffRole === 'owner' ||
-    activeBusiness?.staffRole === 'manager';
+  const businessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canCreateCampaigns = businessCapabilities?.create_campaigns === true;
+  const canEditCampaigns = businessCapabilities?.edit_campaigns === true;
+  const canViewCampaigns = businessCapabilities?.access_campaigns === true;
   const {
     entitlements,
     limitStatus,
@@ -251,7 +258,8 @@ export function CampaignsHubContent() {
       ?.maxCampaigns ?? 'pro';
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
-    canManage &&
+    canViewCampaigns &&
+    canCreateCampaigns &&
     !isEntitlementsLoading &&
     !campaignLimit.isAtLimit;
 
@@ -283,7 +291,7 @@ export function CampaignsHubContent() {
   };
 
   const handleRestoreCampaign = async (campaignId: Id<'campaigns'>) => {
-    if (!activeBusinessId || !canManage || busyCampaignId) {
+    if (!activeBusinessId || !canEditCampaigns || busyCampaignId) {
       return;
     }
     setBusyCampaignId(String(campaignId));
@@ -314,7 +322,7 @@ export function CampaignsHubContent() {
   };
 
   const handleCreateCampaign = () => {
-    if (!activeBusinessId || !canManage) {
+    if (!activeBusinessId || !canCreateCampaigns) {
       return;
     }
     if (campaignLimit.isAtLimit) {
@@ -648,12 +656,12 @@ export function CampaignsHubContent() {
                       </Text>
                       <View className={`${tw.flexRow} mt-3 gap-2`}>
                         <TouchableOpacity
-                          disabled={!canManage || isBusy}
+                          disabled={!canEditCampaigns || isBusy}
                           onPress={() => {
                             void handleRestoreCampaign(campaign.campaignId);
                           }}
                           className={`rounded-xl px-3 py-2 ${
-                            !canManage || isBusy
+                            !canEditCampaigns || isBusy
                               ? 'bg-[#CBD5E1]'
                               : 'bg-[#0F766E]'
                           }`}
