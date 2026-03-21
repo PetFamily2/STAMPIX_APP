@@ -22,15 +22,12 @@ export type CanonicalFeatureKey =
   | 'team'
   | 'advancedReports'
   | 'marketingHub'
-  | 'smartAnalytics'
-  | 'segmentationBuilder'
-  | 'savedSegments';
+  | 'smartAnalytics';
 export type LegacyFeatureKey =
   | 'canManageTeam'
   | 'canSeeAdvancedReports'
   | 'canUseMarketingHubAI'
-  | 'canUseSmartAnalytics'
-  | 'canUseAdvancedSegmentation';
+  | 'canUseSmartAnalytics';
 export type FeatureKey = CanonicalFeatureKey | LegacyFeatureKey;
 export type LimitKey =
   | 'maxCards'
@@ -131,13 +128,10 @@ const FEATURE_ALIAS_MAP: Record<FeatureKey, CanonicalFeatureKey> = {
   advancedReports: 'advancedReports',
   marketingHub: 'marketingHub',
   smartAnalytics: 'smartAnalytics',
-  segmentationBuilder: 'segmentationBuilder',
-  savedSegments: 'savedSegments',
   canManageTeam: 'team',
   canSeeAdvancedReports: 'advancedReports',
   canUseMarketingHubAI: 'marketingHub',
   canUseSmartAnalytics: 'smartAnalytics',
-  canUseAdvancedSegmentation: 'segmentationBuilder',
 };
 
 const LIMIT_KEYS: LimitKey[] = [
@@ -156,7 +150,6 @@ function expandFeatureConfig(features: CanonicalFeatureConfig): FeatureConfig {
     canSeeAdvancedReports: features.advancedReports,
     canUseMarketingHubAI: features.marketingHub,
     canUseSmartAnalytics: features.smartAnalytics,
-    canUseAdvancedSegmentation: features.segmentationBuilder,
   };
 }
 
@@ -169,7 +162,6 @@ function expandRequiredPlanMap(
     canSeeAdvancedReports: requiredPlanByFeature.advancedReports,
     canUseMarketingHubAI: requiredPlanByFeature.marketingHub,
     canUseSmartAnalytics: requiredPlanByFeature.smartAnalytics,
-    canUseAdvancedSegmentation: requiredPlanByFeature.segmentationBuilder,
   };
 }
 
@@ -181,8 +173,6 @@ const REQUIRED_PLAN_BY_CANONICAL_FEATURE: Record<
   advancedReports: 'pro',
   marketingHub: 'starter',
   smartAnalytics: 'starter',
-  segmentationBuilder: 'premium',
-  savedSegments: 'premium',
 };
 
 export const REQUIRED_PLAN_BY_FEATURE = expandRequiredPlanMap(
@@ -210,8 +200,6 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: false,
       marketingHub: true,
       smartAnalytics: true,
-      segmentationBuilder: false,
-      savedSegments: false,
     },
   },
   pro: {
@@ -234,8 +222,6 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: true,
       marketingHub: true,
       smartAnalytics: true,
-      segmentationBuilder: false,
-      savedSegments: false,
     },
   },
   premium: {
@@ -258,8 +244,6 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: true,
       marketingHub: true,
       smartAnalytics: true,
-      segmentationBuilder: true,
-      savedSegments: true,
     },
   },
 };

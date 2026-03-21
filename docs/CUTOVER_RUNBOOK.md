@@ -5,38 +5,33 @@ Do not run these steps from development preview environments.
 
 ## 1) Migration execution order
 
-Run migrations in this strict order:
+Run manual segment retirement in this strict order:
 
-1. Baseline snapshot (read-only):
+1. Baseline dependency audit (read-only):
 ```bash
-bunx convex run migrations/postCutoverValidation
+bunx convex run migrations/auditManualSegmentDependencies
 ```
-2. Dry run legacy campaign cutover:
+2. Dry run manual segment cleanup:
 ```bash
-bunx convex run migrations/cutoverLegacyRetentionActions '{"dryRun":true,"pauseActive":true}'
+bunx convex run migrations/removeManualSegments '{"dryRun":true}'
 ```
-3. Dry run legacy segment conversion:
+3. Execute manual segment cleanup:
 ```bash
-bunx convex run migrations/migrateLegacySegmentCustomerStatus '{"dryRun":true}'
+bunx convex run migrations/removeManualSegments
 ```
-4. Execute legacy campaign cutover:
-```bash
-bunx convex run migrations/cutoverLegacyRetentionActions '{"pauseActive":true}'
-```
-5. Execute legacy segment conversion:
-```bash
-bunx convex run migrations/migrateLegacySegmentCustomerStatus
-```
-6. Final post-cutover snapshot:
+4. Final post-cleanup snapshot:
 ```bash
 bunx convex run migrations/postCutoverValidation
 ```
 
 ## 2) Post-cutover checks (hard gates)
 
-After step 6, all checks below must pass:
+After step 4, all checks below must pass:
 - `legacy.legacyRetentionActionsActive === 0`
-- `legacy.legacySegmentRules === 0`
+- `legacy.campaignsWithPreparedAudienceSegmentRefs === 0`
+- `legacy.campaignsRequiringManualSegmentCleanup === 0`
+- `legacy.campaignRunsWithAdvancedSegmentAudienceSource === 0`
+- `totals.segments === 0`
 - `readyForCleanup === true`
 
 If any check fails, run business-scoped diagnostics:
@@ -44,10 +39,12 @@ If any check fails, run business-scoped diagnostics:
 bunx convex run migrations/postCutoverValidation '{"businessId":"<businessId>"}'
 ```
 
-Then re-run only for that business:
+Then re-run cleanup only for that business:
 ```bash
-bunx convex run migrations/cutoverLegacyRetentionActions '{"businessId":"<businessId>","pauseActive":true}'
-bunx convex run migrations/migrateLegacySegmentCustomerStatus '{"businessId":"<businessId>"}'
+bunx convex run migrations/auditManualSegmentDependencies '{"businessId":"<businessId>"}'
+bunx convex run migrations/removeManualSegments '{"businessId":"<businessId>","dryRun":true}'
+bunx convex run migrations/removeManualSegments '{"businessId":"<businessId>"}'
+bunx convex run migrations/postCutoverValidation '{"businessId":"<businessId>"}'
 ```
 
 ## 3) Duplicate-send prevention validation
@@ -72,13 +69,15 @@ Validate new campaign flow is authoritative after cutover:
 - Confirm entitlements still enforce `maxCampaigns` and recurring campaigns limit.
 - Confirm no auto-send occurs without explicit activation action.
 
-## 5) Segment migration validation
+## 5) Manual segment retirement validation
 
-Validate segment conversion quality:
-- No saved segment should keep `customerStatus` in effective rules after migration.
-- Sample migrated segments should evaluate correctly against `customerState` / `customerValueTier`.
-- Segment builder UI exposes only `customerState` and `customerValueTier` for state/tier rules.
-- Saved segment preview and list remain functional post-migration.
+Validate manual segment removal quality:
+- No `preparedAudience` payload should contain `advanced_segment`, `saved_segment`, or `segmentId`.
+- No campaign should keep `rules.targetType='saved_segment'`.
+- No campaign or campaign run should keep `audienceSource='advanced_segment'`.
+- No `segments` rows should remain.
+- Customer intelligence screens continue to show deterministic state/tier data only.
+- Campaign UI continues to work with deterministic audiences only.
 
 ## 6) Analytics validation
 
@@ -88,13 +87,17 @@ Validate analytics integrity after cutover:
 - `reports/customers` values for close-to-reward and needs-winback remain stable.
 - Weak/strong day/hour deterministic outputs unchanged except for natural data drift.
 - AI insight explanations still render and do not affect deterministic analytics values.
+- `convex/analytics.ts` remains independent from manual segment artifacts.
 
 ## 7) Monitoring window after release
 
 Monitor for at least one full business cycle:
 - campaign send volume anomalies
 - recurring campaign scheduling anomalies
-- segment preview mismatches
+- any residual manual segment cleanup anomalies reported by validation
 - analytics discontinuities
 
-Keep compatibility paths enabled until monitoring window passes and all checks are clean.
+## 8) Historical migration note
+
+`migrations/migrateLegacySegmentCustomerStatus` is retained as a historical artifact only.
+Do not use it for the manual segment retirement rollout.

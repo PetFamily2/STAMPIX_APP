@@ -8,13 +8,10 @@ type FeatureKey =
   | 'advancedReports'
   | 'marketingHub'
   | 'smartAnalytics'
-  | 'segmentationBuilder'
-  | 'savedSegments'
   | 'canManageTeam'
   | 'canSeeAdvancedReports'
   | 'canUseMarketingHubAI'
-  | 'canUseSmartAnalytics'
-  | 'canUseAdvancedSegmentation';
+  | 'canUseSmartAnalytics';
 
 type LimitKey =
   | 'maxCards'

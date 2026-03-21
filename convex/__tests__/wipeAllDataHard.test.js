@@ -188,7 +188,6 @@ describe('wipeAllDataHardImpl', () => {
       pushDeliveryLog: 0,
       campaigns: 1,
       subscriptions: 1,
-      segments: 0,
       scanSessions: 1,
       scanTokenEvents: 1,
       events: 1,

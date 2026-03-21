@@ -5,6 +5,13 @@ import {
   preparedAudienceHasManualSegmentReference,
 } from './removeManualSegments';
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
 async function collectTable(
   ctx: any,
   tableName: string,
@@ -20,10 +27,7 @@ async function collectTable(
 }
 
 /**
- * Post-cutover validation snapshot.
- *
- * This now validates both the unified campaign cutover and the manual segment
- * retirement state.
+ * Read-only audit before removing the manual segment system.
  */
 export default query({
   args: {
@@ -36,42 +40,28 @@ export default query({
       collectTable(ctx, 'segments', businessId),
     ]);
 
-    let legacyRetentionActionsActive = 0;
-    let legacyRetentionActionsDisabled = 0;
+    let campaignsWithSavedSegmentRules = 0;
+    let campaignsWithAdvancedSegmentAudienceSource = 0;
     let campaignsWithPreparedAudienceSegmentRefs = 0;
-    let campaignsRequiringManualSegmentCleanup = 0;
+    let campaignsRequiringArchiveOrNormalization = 0;
     let campaignRunsWithAdvancedSegmentAudienceSource = 0;
-    const sampleRetentionActionIds: string[] = [];
     const sampleCampaignIds: string[] = [];
     const sampleCampaignRunIds: string[] = [];
     const sampleSegmentIds: string[] = [];
 
     for (const campaign of campaigns) {
-      const sourceContext =
-        campaign.sourceContext &&
-        typeof campaign.sourceContext === 'object' &&
-        !Array.isArray(campaign.sourceContext)
-          ? (campaign.sourceContext as Record<string, unknown>)
-          : {};
-      const disabled = sourceContext.legacyAutomationDisabled === true;
-
-      if (campaign.type === 'retention_action') {
-        if (disabled) {
-          legacyRetentionActionsDisabled += 1;
-        }
-        if (campaign.status === 'active' && campaign.automationEnabled === true) {
-          legacyRetentionActionsActive += 1;
-          if (sampleRetentionActionIds.length < 25) {
-            sampleRetentionActionIds.push(String(campaign._id));
-          }
-        }
+      const rules = asRecord(campaign.rules);
+      if (rules.targetType === 'saved_segment' || 'segmentId' in rules) {
+        campaignsWithSavedSegmentRules += 1;
       }
-
+      if (campaign.audienceSource === 'advanced_segment') {
+        campaignsWithAdvancedSegmentAudienceSource += 1;
+      }
       if (preparedAudienceHasManualSegmentReference(campaign.preparedAudience)) {
         campaignsWithPreparedAudienceSegmentRefs += 1;
       }
       if (buildManualSegmentRemovalPatch(campaign, Date.now())) {
-        campaignsRequiringManualSegmentCleanup += 1;
+        campaignsRequiringArchiveOrNormalization += 1;
         if (sampleCampaignIds.length < 25) {
           sampleCampaignIds.push(String(campaign._id));
         }
@@ -95,29 +85,27 @@ export default query({
     return {
       businessId: businessId ?? null,
       totals: {
+        segments: segments.length,
         campaigns: campaigns.length,
         campaignRuns: campaignRuns.length,
-        segments: segments.length,
       },
-      legacy: {
-        legacyRetentionActionsActive,
-        legacyRetentionActionsDisabled,
+      manualSegmentDependencies: {
+        campaignsWithSavedSegmentRules,
+        campaignsWithAdvancedSegmentAudienceSource,
         campaignsWithPreparedAudienceSegmentRefs,
-        campaignsRequiringManualSegmentCleanup,
+        campaignsRequiringArchiveOrNormalization,
         campaignRunsWithAdvancedSegmentAudienceSource,
       },
-      readyForCleanup:
-        legacyRetentionActionsActive === 0 &&
-        campaignsWithPreparedAudienceSegmentRefs === 0 &&
-        campaignsRequiringManualSegmentCleanup === 0 &&
-        campaignRunsWithAdvancedSegmentAudienceSource === 0 &&
-        segments.length === 0,
       samples: {
-        retentionActionIds: sampleRetentionActionIds,
         campaignIds: sampleCampaignIds,
         campaignRunIds: sampleCampaignRunIds,
         segmentIds: sampleSegmentIds,
       },
+      readyForBackendDependencyRemoval:
+        campaignsRequiringArchiveOrNormalization === 0 &&
+        campaignsWithPreparedAudienceSegmentRefs === 0 &&
+        campaignRunsWithAdvancedSegmentAudienceSource === 0 &&
+        segments.length === 0,
     };
   },
 });

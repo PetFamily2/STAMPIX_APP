@@ -12,9 +12,7 @@ export type FeatureKey =
   | 'team'
   | 'advancedReports'
   | 'marketingHub'
-  | 'smartAnalytics'
-  | 'segmentationBuilder'
-  | 'savedSegments';
+  | 'smartAnalytics';
 
 export type PlanPricing = {
   monthly: number;
@@ -74,8 +72,6 @@ const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   advancedReports: 'Advanced analytics',
   marketingHub: 'Campaign workspace',
   smartAnalytics: 'Customer intelligence',
-  segmentationBuilder: 'Advanced audience builder',
-  savedSegments: 'Saved advanced audiences',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
@@ -83,8 +79,6 @@ const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
   advancedReports: 'Adv. analytics',
   marketingHub: 'Campaigns',
   smartAnalytics: 'Intelligence',
-  segmentationBuilder: 'Audience builder',
-  savedSegments: 'Saved audiences',
 };
 
 function isPlanId(value: unknown): value is PlanId {
@@ -133,8 +127,6 @@ function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
       advancedReports: false,
       marketingHub: false,
       smartAnalytics: false,
-      segmentationBuilder: false,
-      savedSegments: false,
     },
   };
 }
@@ -220,14 +212,6 @@ function normalizePlan(rawPlan: unknown): PlanCatalogItem | null {
       smartAnalytics: normalizeBoolean(
         sourceFeatures.smartAnalytics,
         fallback.features.smartAnalytics
-      ),
-      segmentationBuilder: normalizeBoolean(
-        sourceFeatures.segmentationBuilder,
-        fallback.features.segmentationBuilder
-      ),
-      savedSegments: normalizeBoolean(
-        sourceFeatures.savedSegments,
-        fallback.features.savedSegments
       ),
     },
   };
@@ -338,14 +322,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   }));
 
   const featureRows: ComparisonRow[] = (
-    [
-      'team',
-      'advancedReports',
-      'marketingHub',
-      'smartAnalytics',
-      'segmentationBuilder',
-      'savedSegments',
-    ] as FeatureKey[]
+    ['team', 'advancedReports', 'marketingHub', 'smartAnalytics'] as FeatureKey[]
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
     label: FEATURE_ROW_LABELS[featureKey],

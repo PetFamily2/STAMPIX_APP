@@ -69,8 +69,6 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         advancedReports: true,
         marketingHub: true,
         smartAnalytics: true,
-        segmentationBuilder: false,
-        savedSegments: false,
       },
     },
     {
@@ -90,8 +88,6 @@ function buildFallbackPlans(): PlanCatalogItem[] {
         advancedReports: true,
         marketingHub: true,
         smartAnalytics: true,
-        segmentationBuilder: true,
-        savedSegments: true,
       },
     },
   ]).filter((plan) => plan.plan !== 'starter');

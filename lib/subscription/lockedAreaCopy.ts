@@ -5,8 +5,6 @@ export type LockedAreaKey =
   | 'marketingHub'
   | 'smartAnalytics'
   | 'advancedReports'
-  | 'segmentationBuilder'
-  | 'savedSegments'
   | 'maxCards'
   | 'maxCustomers'
   | 'maxActiveRetentionActions'
@@ -39,9 +37,6 @@ const FEATURE_KEY_ALIAS_MAP: Record<string, LockedAreaKey> = {
   canUseSmartAnalytics: 'smartAnalytics',
   advancedReports: 'advancedReports',
   canSeeAdvancedReports: 'advancedReports',
-  segmentationBuilder: 'segmentationBuilder',
-  canUseAdvancedSegmentation: 'segmentationBuilder',
-  savedSegments: 'savedSegments',
   maxCards: 'maxCards',
   maxCustomers: 'maxCustomers',
   maxActiveRetentionActions: 'maxActiveRetentionActions',
@@ -113,32 +108,6 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     ],
     upgradeAreaLabel:
       '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
-  },
-  segmentationBuilder: {
-    sectionTitle: '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd',
-    lockedTitle:
-      '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd \u05d6\u05de\u05d9\u05df \u05d1\u05de\u05e1\u05dc\u05d5\u05dc Premium AI',
-    lockedSubtitle: () =>
-      '\u05e4\u05d9\u05dc\u05d5\u05d7 \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d4\u05de\u05ea\u05e7\u05d3\u05dd \u05d6\u05de\u05d9\u05df \u05d1-Premium AI.',
-    benefits: [
-      '\u05d4\u05d2\u05d3\u05e8\u05ea \u05e7\u05d4\u05dc\u05d9\u05dd \u05de\u05de\u05d5\u05e7\u05d3\u05d9\u05dd',
-      '\u05e9\u05de\u05d9\u05e8\u05ea \u05e7\u05d4\u05dc\u05d9\u05dd \u05dc\u05e9\u05d9\u05de\u05d5\u05e9 \u05d7\u05d5\u05d6\u05e8',
-    ],
-    upgradeAreaLabel: '\u05d1\u05d5\u05e0\u05d4 \u05e7\u05d4\u05dc\u05d9\u05dd',
-  },
-  savedSegments: {
-    sectionTitle:
-      '\u05e7\u05d4\u05dc\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
-    lockedTitle:
-      '\u05e7\u05d4\u05dc\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d9\u05dd \u05d1-Premium AI',
-    lockedSubtitle: () =>
-      '\u05e9\u05de\u05d9\u05e8\u05ea \u05e7\u05d4\u05dc\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d4 \u05d1\u05de\u05e1\u05dc\u05d5\u05dc Premium AI.',
-    benefits: [
-      '\u05e9\u05d9\u05de\u05d5\u05e9 \u05d7\u05d5\u05d6\u05e8 \u05d1\u05e7\u05d4\u05dc\u05d9\u05dd',
-      '\u05d7\u05d9\u05d1\u05d5\u05e8 \u05de\u05d4\u05d9\u05e8 \u05dc\u05de\u05d4\u05dc\u05db\u05d9 \u05e9\u05d9\u05de\u05d5\u05e8',
-    ],
-    upgradeAreaLabel:
-      '\u05e7\u05d4\u05dc\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
   },
   maxCards: {
     sectionTitle:

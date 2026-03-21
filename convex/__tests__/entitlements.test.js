@@ -331,7 +331,6 @@ describe('business entitlements', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseMarketingHubAI).toBe('starter');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseSmartAnalytics).toBe('starter');
-    expect(REQUIRED_PLAN_BY_FEATURE.canUseAdvancedSegmentation).toBe('premium');
 
     expect(getRequiredPlanForLimit('maxCards', 'starter')).toBe('pro');
     expect(getRequiredPlanForLimit('maxCustomers', 'starter')).toBe('pro');

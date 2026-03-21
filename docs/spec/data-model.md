@@ -98,7 +98,6 @@ Fields:
 ## Future-support tables (already in schema)
 - `campaigns`
 - `messageLog`
-- `segments`
 - `pushTokens`
 - `pushDeliveryLog`
 - `apiClients`
@@ -108,3 +107,5 @@ Fields:
 - App mode and role-based routing read from `users.role` + local appMode.
 - Scanner authorization uses `businessStaff` membership, not just `users.role`.
 - Subscription state is persisted on both `users` and `businesses`, with business entitlements enforced server-side.
+- Manual saved segments are no longer part of the MVP data model.
+- Campaign audiences are derived from deterministic campaign rules and canonical customer intelligence, not from business-authored segment definitions.

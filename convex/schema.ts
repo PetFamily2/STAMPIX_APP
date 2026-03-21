@@ -692,7 +692,6 @@ export default defineSchema({
     audienceSource: v.optional(
       v.union(
         v.literal('automatic'),
-        v.literal('advanced_segment'),
         v.literal('manual_override')
       )
     ),
@@ -777,7 +776,6 @@ export default defineSchema({
     audienceSource: v.optional(
       v.union(
         v.literal('automatic'),
-        v.literal('advanced_segment'),
         v.literal('manual_override')
       )
     ),
@@ -1053,39 +1051,6 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_businessId_monthKey', ['businessId', 'monthKey'])
     .index('by_createdAt', ['createdAt']),
-
-  segments: defineTable({
-    businessId: v.id('businesses'),
-    name: v.string(),
-    rules: v.object({
-      match: v.union(v.literal('all'), v.literal('any')),
-      conditions: v.array(
-        v.object({
-          field: v.union(
-            v.literal('lastVisitDaysAgo'),
-            v.literal('visitCount'),
-            v.literal('loyaltyProgress'),
-            v.literal('customerStatus'),
-            v.literal('customerState'),
-            v.literal('customerValueTier'),
-            v.literal('joinedDaysAgo')
-          ),
-          operator: v.union(
-            v.literal('gt'),
-            v.literal('gte'),
-            v.literal('lt'),
-            v.literal('lte'),
-            v.literal('eq')
-          ),
-          value: v.union(v.number(), v.string()),
-        })
-      ),
-    }),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index('by_businessId', ['businessId'])
-    .index('by_businessId_name', ['businessId', 'name']),
 
   pushTokens: defineTable({
     userId: v.id('users'),

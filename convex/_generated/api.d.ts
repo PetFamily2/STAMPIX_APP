@@ -28,6 +28,7 @@ import type * as lib_recommendationUtils from "../lib/recommendationUtils.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
+import type * as migrations_auditManualSegmentDependencies from "../migrations/auditManualSegmentDependencies.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
 import type * as migrations_backfillBusinessSubscriptions from "../migrations/backfillBusinessSubscriptions.js";
 import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/backfillLoyaltyProgramLifecycle.js";
@@ -37,6 +38,7 @@ import type * as migrations_migrateLegacySegmentCustomerStatus from "../migratio
 import type * as migrations_migrateRetentionActionLimitModel from "../migrations/migrateRetentionActionLimitModel.js";
 import type * as migrations_migrateToOnboardingFlags from "../migrations/migrateToOnboardingFlags.js";
 import type * as migrations_postCutoverValidation from "../migrations/postCutoverValidation.js";
+import type * as migrations_removeManualSegments from "../migrations/removeManualSegments.js";
 import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -44,7 +46,6 @@ import type * as retention from "../retention.js";
 import type * as scanTokens from "../scanTokens.js";
 import type * as scanner from "../scanner.js";
 import type * as seed from "../seed.js";
-import type * as segments from "../segments.js";
 import type * as support from "../support.js";
 import type * as users from "../users.js";
 
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/staffPermissions": typeof lib_staffPermissions;
   loyaltyPrograms: typeof loyaltyPrograms;
   memberships: typeof memberships;
+  "migrations/auditManualSegmentDependencies": typeof migrations_auditManualSegmentDependencies;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
   "migrations/backfillBusinessSubscriptions": typeof migrations_backfillBusinessSubscriptions;
   "migrations/backfillLoyaltyProgramLifecycle": typeof migrations_backfillLoyaltyProgramLifecycle;
@@ -84,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/migrateRetentionActionLimitModel": typeof migrations_migrateRetentionActionLimitModel;
   "migrations/migrateToOnboardingFlags": typeof migrations_migrateToOnboardingFlags;
   "migrations/postCutoverValidation": typeof migrations_postCutoverValidation;
+  "migrations/removeManualSegments": typeof migrations_removeManualSegments;
   onboarding: typeof onboarding;
   otp: typeof otp;
   pushNotifications: typeof pushNotifications;
@@ -91,7 +94,6 @@ declare const fullApi: ApiFromModules<{
   scanTokens: typeof scanTokens;
   scanner: typeof scanner;
   seed: typeof seed;
-  segments: typeof segments;
   support: typeof support;
   users: typeof users;
 }>;
