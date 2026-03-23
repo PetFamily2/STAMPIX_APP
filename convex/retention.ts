@@ -16,11 +16,7 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 
-type RetentionTargetType =
-  | 'at_risk'
-  | 'near_reward'
-  | 'vip'
-  | 'new_customers';
+type RetentionTargetType = 'at_risk' | 'near_reward' | 'vip' | 'new_customers';
 
 const RETENTION_TARGET_TYPE_UNION = v.union(
   v.literal('at_risk'),
@@ -108,7 +104,10 @@ async function resolveAudience(
   businessId: Id<'businesses'>,
   targetType: RetentionTargetType
 ) {
-  const snapshot = await buildCustomerLifecycleSnapshotForBusiness(ctx, businessId);
+  const snapshot = await buildCustomerLifecycleSnapshotForBusiness(
+    ctx,
+    businessId
+  );
   return {
     customers: getCustomersForOpportunity(
       snapshot.customers,

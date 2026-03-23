@@ -9,6 +9,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BarComparisonChart, KpiCard } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -16,6 +17,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { mapTeamInviteErrorToMessage } from '@/lib/domain/teamInviteErrors';
 import {
@@ -30,6 +32,7 @@ type InviteTargetRole = 'manager' | 'staff';
 
 type StaffRole = 'owner' | 'manager' | 'staff';
 type StaffStatus = 'active' | 'suspended' | 'removed';
+type InviteStatus = 'pending' | 'accepted' | 'cancelled' | 'expired';
 
 type StaffRow = {
   staffId: string;
@@ -44,16 +47,21 @@ type StaffRow = {
   isSelf: boolean;
 };
 
-type PendingInviteRow = {
+type TeamInviteRow = {
   inviteId: string;
   invitedEmail: string;
   invitedUserId: string | null;
   invitedDisplayName: string | null;
   invitedPhone: string | null;
   invitedResolvedEmail: string | null;
+  invitedByDisplayName?: string;
   targetRole: InviteTargetRole;
+  status: InviteStatus;
   expiresAt: number;
   createdAt: number;
+  acceptedAt?: number | null;
+  cancelledAt?: number | null;
+  resolvedAt?: number | null;
 };
 
 type TeamSummary = {
@@ -97,29 +105,29 @@ type TeamHistoryRow = {
 };
 
 const ROLE_LABEL: Record<StaffRole, string> = {
-  owner: '?????',
-  manager: '????',
-  staff: '????',
+  owner: 'בעלים',
+  manager: 'מנהל',
+  staff: 'עובד',
 };
 
 const STATUS_LABEL: Record<StaffStatus, string> = {
-  active: '????',
-  suspended: '?????',
-  removed: '????',
+  active: 'פעיל',
+  suspended: 'מושעה',
+  removed: 'הוסר',
 };
 
 const EVENT_LABEL: Record<TeamHistoryRow['eventType'], string> = {
-  invite_created: '????? ?????',
-  invite_cancelled: '????? ?????',
-  invite_accepted: '????? ??????',
-  invite_expired: '????? ???',
-  role_changed: '????? ?????',
-  suspended: '???? ?????',
-  reactivated: '???? ????? ????',
-  removed: '???? ????',
-  auto_disabled_by_plan: '????? ???? ???????',
-  auto_invites_cancelled_by_plan: '????? ?????? ???? ??????',
-  reinvited_after_removal: '????? ???? ???? ????',
+  invite_created: 'הזמנה נשלחה',
+  invite_cancelled: 'הזמנה בוטלה',
+  invite_accepted: 'הזמנה התקבלה',
+  invite_expired: 'הזמנה פגה',
+  role_changed: 'תפקיד עודכן',
+  suspended: 'חברות הושעתה',
+  reactivated: 'חברות חודשה',
+  removed: 'עובד הוסר',
+  auto_disabled_by_plan: 'הושעה עקב חבילה',
+  auto_invites_cancelled_by_plan: 'הזמנות בוטלו',
+  reinvited_after_removal: 'הוזמן מחדש',
 };
 
 function formatDate(timestamp: number) {
@@ -145,41 +153,43 @@ function describeHistoryEvent(row: TeamHistoryRow) {
     case 'invite_created': {
       const role = row.toRole ?? row.inviteTargetRole;
       return role
-        ? `????? ????? ?????? ${ROLE_LABEL[role]}`
-        : '????? ????? ?????';
+        ? `נשלחה הזמנה לתפקיד ${ROLE_LABEL[role]}`
+        : 'נשלחה הזמנה חדשה.';
     }
     case 'invite_cancelled':
-      return '????? ?????.';
+      return 'ההזמנה בוטלה.';
     case 'invite_accepted': {
       const role = row.toRole ?? row.inviteTargetRole;
-      return role ? `????? ?????? ?????? ${ROLE_LABEL[role]}` : '????? ??????.';
+      return role
+        ? `ההזמנה התקבלה לתפקיד ${ROLE_LABEL[role]}`
+        : 'ההזמנה התקבלה.';
     }
     case 'invite_expired':
-      return '????? ??? ??? ???? ???? ???? ????.';
+      return 'תוקף ההזמנה פג לפני שהיא התקבלה.';
     case 'role_changed': {
       if (row.fromRole && row.toRole) {
-        return `????? ????? ?-${ROLE_LABEL[row.fromRole]} ?-${ROLE_LABEL[row.toRole]}`;
+        return `התפקיד שונה מ-${ROLE_LABEL[row.fromRole]} ל-${ROLE_LABEL[row.toRole]}`;
       }
-      return '????? ?????.';
+      return 'התפקיד עודכן.';
     }
     case 'suspended':
-      return '????? ????? ?? ??? ????.';
+      return 'חברות העובד בצוות הושעתה.';
     case 'reactivated':
-      return '????? ????? ????.';
+      return 'חברות העובד הופעלה מחדש.';
     case 'removed':
-      return '????? ???? ??????.';
+      return 'העובד הוסר מהצוות.';
     case 'reinvited_after_removal': {
       if (row.fromRole && row.toRole) {
-        return `????? ????: ${ROLE_LABEL[row.fromRole]} ?-${ROLE_LABEL[row.toRole]}`;
+        return `הוזמן מחדש: מ-${ROLE_LABEL[row.fromRole]} ל-${ROLE_LABEL[row.toRole]}`;
       }
-      return '????? ???? ???? ???? ??????.';
+      return 'העובד הוזמן מחדש לאחר הסרה.';
     }
     case 'auto_disabled_by_plan':
-      return '????? ????? ?????? ??????? ??????.';
+      return 'הגישה הושעתה בגלל מגבלת החבילה.';
     case 'auto_invites_cancelled_by_plan':
-      return '?????? ?????? ????? ???? ????? ??????.';
+      return 'הזמנות ממתינות בוטלו בגלל מגבלת החבילה.';
     default:
-      return '????? ????? ?????.';
+      return 'נרשמה פעילות צוות.';
   }
 }
 
@@ -217,8 +227,13 @@ export default function BusinessTeamManagementScreen() {
       | undefined) ?? [];
   const pendingInvites =
     (useQuery(api.business.listPendingStaffInvites, queryArgs) as
-      | PendingInviteRow[]
+      | TeamInviteRow[]
       | undefined) ?? [];
+  const closedInvites =
+    (useQuery(
+      api.business.listClosedStaffInvites,
+      queryArgs === 'skip' ? 'skip' : { ...queryArgs, limit: 50 }
+    ) as TeamInviteRow[] | undefined) ?? [];
   const summary = useQuery(api.business.getBusinessTeamSummary, queryArgs) as
     | TeamSummary
     | null
@@ -243,6 +258,7 @@ export default function BusinessTeamManagementScreen() {
   const [isRemovedExpanded, setIsRemovedExpanded] = useState(false);
   const [isActivityExpanded, setIsActivityExpanded] = useState(false);
   const [isPendingExpanded, setIsPendingExpanded] = useState(false);
+  const [isClosedExpanded, setIsClosedExpanded] = useState(false);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -286,7 +302,7 @@ export default function BusinessTeamManagementScreen() {
       return;
     }
 
-    setInviteError('????? ?????.');
+    setInviteError('שגיאה כללית.');
   };
 
   const handleCancelInvite = async (inviteId: string) => {
@@ -394,16 +410,38 @@ export default function BusinessTeamManagementScreen() {
   );
 
   const managementRows = useMemo(() => {
-    const rows: Array<{ label: string; value: string }> = [
-      { label: '?????? ??????', value: String(activeRows.length) },
-      { label: '?????? ??????', value: String(suspendedRows.length) },
-      { label: '?????? ??????', value: String(removedRows.length) },
-      { label: '?????? ???????', value: String(pendingInvites.length) },
+    const rows: Array<{ key: string; label: string; value: string }> = [
+      {
+        key: 'active_members',
+        label: 'חברי צוות פעילים',
+        value: String(activeRows.length),
+      },
+      {
+        key: 'suspended_members',
+        label: 'חברי צוות מושעים',
+        value: String(suspendedRows.length),
+      },
+      {
+        key: 'removed_members',
+        label: 'חברי צוות שהוסרו',
+        value: String(removedRows.length),
+      },
+      {
+        key: 'pending_invites',
+        label: 'הזמנות ממתינות',
+        value: String(pendingInvites.length),
+      },
+      {
+        key: 'closed_invites',
+        label: 'הזמנות קודמות',
+        value: String(closedInvites.length),
+      },
     ];
 
     if (isOwner) {
       rows.push({
-        label: '?????? ??????',
+        key: 'active_managers',
+        label: 'מנהלים פעילים',
         value: String(
           activeRows.filter((row) => row.staffRole === 'manager').length
         ),
@@ -411,19 +449,47 @@ export default function BusinessTeamManagementScreen() {
     }
 
     rows.push({
-      label: '?????? ??????',
+      key: 'seats_in_use',
+      label: 'מקומות בשימוש',
       value: summary ? `${summary.usedSeats}/${summary.maxSeats}` : '--',
     });
 
     return rows;
   }, [
     activeRows,
+    closedInvites.length,
     isOwner,
     pendingInvites.length,
     removedRows.length,
     summary,
     suspendedRows.length,
   ]);
+
+  const activeManagersCount = useMemo(
+    () => activeRows.filter((row) => row.staffRole === 'manager').length,
+    [activeRows]
+  );
+  const seatUsageLabel = summary
+    ? `${summary.usedSeats}/${summary.maxSeats}`
+    : '--';
+  const seatUsagePercent =
+    summary && summary.maxSeats > 0
+      ? Math.min(100, Math.round((summary.usedSeats / summary.maxSeats) * 100))
+      : 0;
+  const teamStatusChartData = useMemo(
+    () => [
+      { label: 'פעילים', value: activeRows.length },
+      { label: 'מושעים', value: suspendedRows.length },
+      { label: 'הוסרו', value: removedRows.length },
+      { label: 'הזמנות', value: pendingInvites.length },
+    ],
+    [
+      activeRows.length,
+      pendingInvites.length,
+      removedRows.length,
+      suspendedRows.length,
+    ]
+  );
 
   const renderActionButton = (
     label: string,
@@ -457,10 +523,10 @@ export default function BusinessTeamManagementScreen() {
   ) => {
     const isBusy = busyMemberId === member.staffId;
     const canShowActions =
-      member.staffRole !== 'owner' &&
       !member.isSelf &&
       canManageTeam &&
-      section !== 'removed';
+      section !== 'removed' &&
+      (isOwner ? member.staffRole !== 'owner' : member.staffRole === 'staff');
 
     const statusToneClass =
       member.status === 'active'
@@ -497,10 +563,10 @@ export default function BusinessTeamManagementScreen() {
             ) : null}
             <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
               {member.staffRole === 'owner'
-                ? '???/? ???'
+                ? 'בעל/ת העסק'
                 : section === 'removed' && member.removedAt
-                  ? `???? ?-${formatDate(member.removedAt)}`
-                  : `????? ?-${formatDate(member.joinedAt)}`}
+                  ? `הוסר ב-${formatDate(member.removedAt)}`
+                  : `הצטרף ב-${formatDate(member.joinedAt)}`}
             </Text>
           </View>
         </View>
@@ -519,7 +585,7 @@ export default function BusinessTeamManagementScreen() {
           {member.isSelf ? (
             <View className="rounded-full bg-[#E2E8F0] px-3 py-1">
               <Text className="text-[11px] font-bold text-[#475569]">
-                ?? ???
+                זה אתה
               </Text>
             </View>
           ) : null}
@@ -529,7 +595,7 @@ export default function BusinessTeamManagementScreen() {
           <View className="mt-3 flex-row-reverse flex-wrap gap-2">
             {isOwner && member.staffRole === 'staff'
               ? renderActionButton(
-                  '??? ?????',
+                  'קדם למנהל',
                   () => {
                     void handleChangeRole(member.staffId, 'manager');
                   },
@@ -540,7 +606,7 @@ export default function BusinessTeamManagementScreen() {
 
             {isOwner && member.staffRole === 'manager'
               ? renderActionButton(
-                  '???? ?????',
+                  'העבר לעובד',
                   () => {
                     void handleChangeRole(member.staffId, 'staff');
                   },
@@ -551,7 +617,7 @@ export default function BusinessTeamManagementScreen() {
 
             {section === 'active'
               ? renderActionButton(
-                  '????',
+                  'השעיה',
                   () => {
                     void handleSuspend(member.staffId);
                   },
@@ -559,7 +625,7 @@ export default function BusinessTeamManagementScreen() {
                   isBusy || Boolean(busyInviteId)
                 )
               : renderActionButton(
-                  '???? ????',
+                  'הפעל מחדש',
                   () => {
                     void handleReactivate(member.staffId);
                   },
@@ -568,7 +634,7 @@ export default function BusinessTeamManagementScreen() {
                 )}
 
             {renderActionButton(
-              '???',
+              'הסר',
               () => {
                 void handleRemove(member.staffId);
               },
@@ -577,6 +643,131 @@ export default function BusinessTeamManagementScreen() {
             )}
           </View>
         ) : null}
+      </View>
+    );
+  };
+
+  const renderInviteStatusLabel = (invite: TeamInviteRow) => {
+    if (invite.status === 'accepted') {
+      return 'התקבלה';
+    }
+    if (invite.status === 'cancelled') {
+      return 'בוטלה';
+    }
+    if (invite.status === 'expired') {
+      return 'פגה';
+    }
+    return 'ממתינה';
+  };
+
+  const renderInviteStatusTone = (invite: TeamInviteRow) => {
+    if (invite.status === 'accepted') {
+      return 'bg-emerald-100 text-emerald-700';
+    }
+    if (invite.status === 'cancelled') {
+      return 'bg-rose-100 text-rose-700';
+    }
+    if (invite.status === 'expired') {
+      return 'bg-slate-100 text-slate-700';
+    }
+    return 'bg-amber-100 text-amber-700';
+  };
+
+  const canCancelInviteAction = (invite: TeamInviteRow) =>
+    canManageTeam &&
+    invite.status === 'pending' &&
+    (isOwner || invite.targetRole === 'staff');
+
+  const getInviteResolvedAt = (invite: TeamInviteRow) => {
+    if (invite.status === 'accepted') {
+      return invite.acceptedAt ?? invite.resolvedAt ?? invite.createdAt;
+    }
+    if (invite.status === 'cancelled') {
+      return invite.cancelledAt ?? invite.resolvedAt ?? invite.createdAt;
+    }
+    if (invite.status === 'expired') {
+      return invite.resolvedAt ?? invite.expiresAt;
+    }
+    return invite.expiresAt;
+  };
+
+  const renderInviteCard = (
+    invite: TeamInviteRow,
+    mode: 'pending' | 'closed'
+  ) => {
+    const isBusy = busyInviteId === invite.inviteId;
+    const displayName =
+      invite.invitedDisplayName ??
+      invite.invitedResolvedEmail ??
+      invite.invitedEmail ??
+      'ללא שם';
+    const statusToneClass = renderInviteStatusTone(invite);
+    const resolvedAt = getInviteResolvedAt(invite);
+
+    return (
+      <View
+        key={invite.inviteId}
+        className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
+      >
+        <View className={`${tw.flexRow} items-start gap-3`}>
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EEF3FF]">
+            <Ionicons name="person-add-outline" size={18} color="#1D4ED8" />
+          </View>
+
+          <View className="flex-1 items-end">
+            <Text
+              className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              {displayName}
+            </Text>
+            {invite.invitedPhone ? (
+              <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                {invite.invitedPhone}
+              </Text>
+            ) : null}
+            {invite.invitedResolvedEmail ? (
+              <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                {invite.invitedResolvedEmail}
+              </Text>
+            ) : null}
+            <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+              {'נוצרה ב-'}
+              {formatDate(invite.createdAt)}
+              {mode === 'pending' ? ' • עד ' : ' • הוכרעה ב-'}
+              {formatDate(resolvedAt)}
+            </Text>
+            {invite.invitedByDisplayName ? (
+              <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                {'נוצרה על ידי '}
+                {invite.invitedByDisplayName}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <View className="mt-3 flex-row-reverse flex-wrap gap-2">
+          <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
+            <Text className="text-[11px] font-bold text-[#1D4ED8]">
+              {invite.targetRole === 'manager' ? 'מנהל' : 'עובד'}
+            </Text>
+          </View>
+          <View className={`rounded-full px-3 py-1 ${statusToneClass}`}>
+            <Text className="text-[11px] font-bold">
+              {renderInviteStatusLabel(invite)}
+            </Text>
+          </View>
+        </View>
+
+        {mode === 'pending' && canCancelInviteAction(invite)
+          ? renderActionButton(
+              'בטל הזמנה',
+              () => {
+                void handleCancelInvite(invite.inviteId);
+              },
+              'danger',
+              isBusy
+            )
+          : null}
       </View>
     );
   };
@@ -596,8 +787,8 @@ export default function BusinessTeamManagementScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="????? ??????"
-            subtitle="????? ??????, ?????? ?????????? ?????"
+            title="ניהול עובדים"
+            subtitle="צפייה בצוות, הרשאות והיסטוריית שינויים"
             titleAccessory={
               <BackButton
                 onPress={() =>
@@ -624,16 +815,71 @@ export default function BusinessTeamManagementScreen() {
           subtitle={teamCopy.lockedSubtitle}
           benefits={teamCopy.benefits}
         >
+          <View
+            style={{
+              marginTop: 16,
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
+            <View style={{ width: '48%' }}>
+              <KpiCard
+                label="צוות פעיל"
+                value={String(activeRows.length)}
+                icon="people-outline"
+                tone="blue"
+              />
+            </View>
+            <View style={{ width: '48%' }}>
+              <KpiCard
+                label="הזמנות ממתינות"
+                value={String(pendingInvites.length)}
+                icon="person-add-outline"
+                tone="teal"
+              />
+            </View>
+            <View style={{ width: '48%' }}>
+              <KpiCard
+                label="מנהלים פעילים"
+                value={String(activeManagersCount)}
+                icon="shield-checkmark-outline"
+                tone="violet"
+              />
+            </View>
+            <View style={{ width: '48%' }}>
+              <KpiCard
+                label="שימוש במושבים"
+                value={seatUsageLabel}
+                icon="grid-outline"
+                tone={seatUsagePercent >= 90 ? 'amber' : 'emerald'}
+                trend={{
+                  direction: seatUsagePercent >= 90 ? 'down' : 'up',
+                  label: `${seatUsagePercent}%`,
+                }}
+              />
+            </View>
+          </View>
+
+          <View style={{ marginTop: 16 }}>
+            <BarComparisonChart
+              title="סטטוס פעילות צוות"
+              subtitle="התפלגות מצב כוח האדם וההזמנות בעסק"
+              data={teamStatusChartData}
+              color={DASHBOARD_TOKENS.colors.violet}
+            />
+          </View>
+
           <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              ???? ????
+              תמונת מצב
             </Text>
             <View className="mt-3">
               {managementRows.map((row, index) => (
                 <View
-                  key={row.label}
+                  key={row.key}
                   className={`${tw.flexRow} items-center justify-between py-2 ${
                     index < managementRows.length - 1
                       ? 'border-b border-[#E5EAF2]'
@@ -662,7 +908,7 @@ export default function BusinessTeamManagementScreen() {
           >
             <View className={`${tw.flexRow} items-center justify-center gap-2`}>
               <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text className="text-sm font-black text-white">????? ????</Text>
+              <Text className="text-sm font-black text-white">הוספת עובד</Text>
             </View>
           </TouchableOpacity>
 
@@ -684,7 +930,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ?????? ?????? ({activeRows.length})
+                עובדים פעילים ({activeRows.length})
               </Text>
               <Ionicons
                 name={isActiveExpanded ? 'chevron-up' : 'chevron-down'}
@@ -697,7 +943,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {activeRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ??? ?????? ??????.
+                    אין עובדים פעילים.
                   </Text>
                 ) : (
                   activeRows.map((member) => renderStaffCard(member, 'active'))
@@ -714,7 +960,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ?????? ?????? ({suspendedRows.length})
+                עובדים מושעים ({suspendedRows.length})
               </Text>
               <Ionicons
                 name={isSuspendedExpanded ? 'chevron-up' : 'chevron-down'}
@@ -727,7 +973,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {suspendedRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ??? ?????? ??????.
+                    אין עובדים מושעים.
                   </Text>
                 ) : (
                   suspendedRows.map((member) =>
@@ -746,7 +992,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ?????? ?????? ({removedRows.length})
+                עובדים שהוסרו ({removedRows.length})
               </Text>
               <Ionicons
                 name={isRemovedExpanded ? 'chevron-up' : 'chevron-down'}
@@ -759,7 +1005,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {removedRows.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ??? ?????? ?????? ?????.
+                    אין עובדים שהוסרו.
                   </Text>
                 ) : (
                   removedRows.map((member) =>
@@ -778,7 +1024,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ?????? ??????? ({pendingInvites.length})
+                הזמנות ממתינות ({pendingInvites.length})
               </Text>
               <Ionicons
                 name={isPendingExpanded ? 'chevron-up' : 'chevron-down'}
@@ -791,7 +1037,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {pendingInvites.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ??? ?????? ???????.
+                    אין הזמנות ממתינות.
                   </Text>
                 ) : (
                   pendingInvites.map((invite) => {
@@ -800,7 +1046,7 @@ export default function BusinessTeamManagementScreen() {
                       invite.invitedDisplayName ??
                       invite.invitedResolvedEmail ??
                       invite.invitedEmail ??
-                      '??? ??';
+                      'ללא שם';
 
                     return (
                       <View
@@ -851,28 +1097,62 @@ export default function BusinessTeamManagementScreen() {
                           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                             <Text className="text-[11px] font-bold text-[#1D4ED8]">
                               {invite.targetRole === 'manager'
-                                ? '????'
-                                : '????'}
+                                ? 'מנהל'
+                                : 'עובד'}
                             </Text>
                           </View>
                           <View className="rounded-full bg-amber-100 px-3 py-1">
                             <Text className="text-[11px] font-bold text-amber-700">
-                              ????? ??????
+                              ממתין לאישור
                             </Text>
                           </View>
                         </View>
 
-                        {renderActionButton(
-                          '??? ?????',
-                          () => {
-                            void handleCancelInvite(invite.inviteId);
-                          },
-                          'danger',
-                          isBusy
-                        )}
+                        {canCancelInviteAction(invite)
+                          ? renderActionButton(
+                              'בטל הזמנה',
+                              () => {
+                                void handleCancelInvite(invite.inviteId);
+                              },
+                              'danger',
+                              isBusy
+                            )
+                          : null}
                       </View>
                     );
                   })
+                )}
+              </View>
+            ) : null}
+          </View>
+
+          <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+            <TouchableOpacity
+              onPress={() => setIsClosedExpanded((current) => !current)}
+              className={`${tw.flexRow} items-center justify-between`}
+            >
+              <Text
+                className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                הזמנות קודמות ({closedInvites.length})
+              </Text>
+              <Ionicons
+                name={isClosedExpanded ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+
+            {isClosedExpanded ? (
+              <View className="mt-3 gap-3">
+                {closedInvites.length === 0 ? (
+                  <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                    אין הזמנות קודמות.
+                  </Text>
+                ) : (
+                  closedInvites.map((invite) =>
+                    renderInviteCard(invite, 'closed')
+                  )
                 )}
               </View>
             ) : null}
@@ -886,7 +1166,7 @@ export default function BusinessTeamManagementScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                ???? ?????? ???? ({history.length})
+                פעילות אחרונה בצוות ({history.length})
               </Text>
               <Ionicons
                 name={isActivityExpanded ? 'chevron-up' : 'chevron-down'}
@@ -899,7 +1179,7 @@ export default function BusinessTeamManagementScreen() {
               <View className="mt-3 gap-3">
                 {history.length === 0 ? (
                   <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                    ??? ??????? ?????????? ?????.
+                    אין עדיין אירועים בהיסטוריית הצוות.
                   </Text>
                 ) : (
                   history.map((row) => (
@@ -929,14 +1209,14 @@ export default function BusinessTeamManagementScreen() {
                       <Text
                         className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                       >
-                        ???:{' '}
-                        {row.targetDisplayName ?? row.targetEmail ?? '?? ????'}
+                        יעד:{' '}
+                        {row.targetDisplayName ?? row.targetEmail ?? 'לא ידוע'}
                       </Text>
 
                       <Text
                         className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                       >
-                        ???? ?? ???: {row.actorDisplayName ?? '?????'}
+                        בוצע על ידי: {row.actorDisplayName ?? 'מערכת'}
                       </Text>
 
                       {row.fromStatus && row.toStatus ? (

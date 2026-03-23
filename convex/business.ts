@@ -1782,6 +1782,26 @@ type TeamPendingInviteView = {
   createdAt: number;
 };
 
+type TeamClosedInviteView = {
+  inviteId: Id<'staffInvites'>;
+  businessId: Id<'businesses'>;
+  invitedEmail: string;
+  invitedUserId: Id<'users'> | null;
+  invitedDisplayName: string | null;
+  invitedPhone: string | null;
+  invitedResolvedEmail: string | null;
+  invitedByUserId: Id<'users'>;
+  invitedByDisplayName: string;
+  targetRole: InviteTargetRole;
+  status: 'accepted' | 'cancelled' | 'expired';
+  inviteCode: string;
+  expiresAt: number;
+  createdAt: number;
+  acceptedAt: number | null;
+  cancelledAt: number | null;
+  resolvedAt: number;
+};
+
 type TeamSummary = {
   activeStaffCount: number;
   pendingInvitesCount: number;
@@ -1827,6 +1847,16 @@ function resolveStaffStatus(staff: any): StaffStatus {
 
 function resolveInviteTargetRole(invite: any): InviteTargetRole {
   return invite?.targetRole === 'manager' ? 'manager' : 'staff';
+}
+
+function resolveInviteStatusForView(
+  invite: Doc<'staffInvites'>,
+  now: number
+): 'pending' | 'accepted' | 'cancelled' | 'expired' {
+  if (invite.status === 'pending' && invite.expiresAt <= now) {
+    return 'expired';
+  }
+  return invite.status;
 }
 
 function resolveUserDisplayName(
@@ -2039,8 +2069,10 @@ export const listBusinessStaff = query({
       return [];
     }
 
-    const { actor, staffRole: actorRole } =
-      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    const { actor } = await requireActorCanManageTeamForBusiness(
+      ctx,
+      businessId
+    );
     await requireTeamFeatureEnabled(ctx, businessId);
 
     const staffRecords = await ctx.db
@@ -2048,12 +2080,8 @@ export const listBusinessStaff = query({
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
       .collect();
 
-    const visibleStaff = staffRecords.filter((record: any) =>
-      actorRole === 'owner' ? true : record.staffRole === 'staff'
-    );
-
     const populated: Array<BusinessStaffView | null> = await Promise.all(
-      visibleStaff.map(async (record): Promise<BusinessStaffView | null> => {
+      staffRecords.map(async (record): Promise<BusinessStaffView | null> => {
         const user = await ctx.db.get(record.userId);
         if (!user) {
           return null;
@@ -2108,10 +2136,7 @@ export const listPendingStaffInvites = query({
       return [];
     }
 
-    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
-      ctx,
-      businessId
-    );
+    await requireActorCanManageTeamForBusiness(ctx, businessId);
     await requireTeamFeatureEnabled(ctx, businessId);
     const now = Date.now();
 
@@ -2122,15 +2147,9 @@ export const listPendingStaffInvites = query({
       )
       .collect();
 
-    const visibleInvites = pendingInvites.filter((invite: any) => {
-      if (invite.expiresAt <= now) {
-        return false;
-      }
-      if (actorRole === 'owner') {
-        return true;
-      }
-      return resolveInviteTargetRole(invite) === 'staff';
-    });
+    const visibleInvites = pendingInvites.filter(
+      (invite: any) => invite.expiresAt > now
+    );
 
     const populated = await Promise.all(
       visibleInvites.map(
@@ -2175,10 +2194,7 @@ export const getBusinessTeamSummary = query({
       return null;
     }
 
-    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
-      ctx,
-      businessId
-    );
+    await requireActorCanManageTeamForBusiness(ctx, businessId);
     await requireTeamFeatureEnabled(ctx, businessId);
     const now = Date.now();
 
@@ -2196,18 +2212,10 @@ export const getBusinessTeamSummary = query({
       assertEntitlement(ctx, businessId, { featureKey: 'team' }),
     ]);
 
-    const visibleStaffRows = staffRows.filter((staff: any) =>
-      actorRole === 'owner' ? true : staff.staffRole === 'staff'
+    const visibleStaffRows = staffRows;
+    const visiblePendingInvites = invites.filter(
+      (invite: any) => invite.expiresAt > now
     );
-    const visiblePendingInvites = invites.filter((invite: any) => {
-      if (invite.expiresAt <= now) {
-        return false;
-      }
-      if (actorRole === 'owner') {
-        return true;
-      }
-      return resolveInviteTargetRole(invite) === 'staff';
-    });
 
     const activeStaffCount = visibleStaffRows.filter((staff: any) => {
       const status = resolveStaffStatus(staff);
@@ -2217,14 +2225,10 @@ export const getBusinessTeamSummary = query({
       const status = resolveStaffStatus(staff);
       return status === 'suspended' && staff.staffRole !== 'owner';
     }).length;
-    const managersCount =
-      actorRole === 'owner'
-        ? visibleStaffRows.filter(
-            (staff: any) =>
-              staff.staffRole === 'manager' &&
-              resolveStaffStatus(staff) === 'active'
-          ).length
-        : 0;
+    const managersCount = visibleStaffRows.filter(
+      (staff: any) =>
+        staff.staffRole === 'manager' && resolveStaffStatus(staff) === 'active'
+    ).length;
 
     const seatUsage = await getSeatUsageForBusiness(ctx, businessId, now);
 
@@ -2252,33 +2256,19 @@ export const listBusinessStaffHistory = query({
       return [];
     }
 
-    const { staffRole: actorRole } = await requireActorCanManageTeamForBusiness(
-      ctx,
-      businessId
-    );
+    await requireActorCanManageTeamForBusiness(ctx, businessId);
     await requireTeamFeatureEnabled(ctx, businessId);
 
     const normalizedLimit = Math.max(1, Math.min(100, Math.floor(limit ?? 50)));
 
-    const [events, staffMemberships] = await Promise.all([
-      ctx.db
-        .query('staffEvents')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .collect(),
-      ctx.db
-        .query('businessStaff')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .collect(),
-    ]);
+    const events = await ctx.db
+      .query('staffEvents')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .collect();
 
     const sortedEvents = [...events].sort((a: any, b: any) => {
       return b.createdAt - a.createdAt;
     });
-
-    const staffRoleByUserId = new Map<string, StaffRole>();
-    for (const membership of staffMemberships) {
-      staffRoleByUserId.set(String(membership.userId), membership.staffRole);
-    }
 
     const inviteIds = Array.from(
       new Set(
@@ -2345,27 +2335,6 @@ export const listBusinessStaffHistory = query({
         : null;
       const inviteTargetRole = invite ? resolveInviteTargetRole(invite) : null;
 
-      if (actorRole === 'manager') {
-        const targetStaffRole = event.targetUserId
-          ? (staffRoleByUserId.get(String(event.targetUserId)) ?? null)
-          : null;
-
-        if (event.fromRole && event.fromRole !== 'staff') {
-          continue;
-        }
-        if (event.toRole && event.toRole !== 'staff') {
-          continue;
-        }
-        if (inviteTargetRole && inviteTargetRole !== 'staff') {
-          continue;
-        }
-        if (!event.fromRole && !event.toRole && !inviteTargetRole) {
-          if (targetStaffRole !== 'staff') {
-            continue;
-          }
-        }
-      }
-
       const actorUser = event.actorUserId
         ? (userById.get(String(event.actorUserId)) ?? null)
         : null;
@@ -2414,6 +2383,87 @@ export const listBusinessStaffHistory = query({
     }
 
     return result;
+  },
+});
+
+export const listClosedStaffInvites = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+    limit: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    { businessId, limit }
+  ): Promise<TeamClosedInviteView[]> => {
+    if (!businessId) {
+      return [];
+    }
+
+    await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    const now = Date.now();
+    const normalizedLimit = Math.max(1, Math.min(100, Math.floor(limit ?? 50)));
+
+    const invites = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .collect();
+
+    const closedInvites = invites
+      .map((invite) => ({
+        invite,
+        status: resolveInviteStatusForView(invite, now),
+      }))
+      .filter(
+        (
+          row
+        ): row is {
+          invite: Doc<'staffInvites'>;
+          status: 'accepted' | 'cancelled' | 'expired';
+        } => row.status !== 'pending'
+      )
+      .sort((left, right) => right.invite.createdAt - left.invite.createdAt)
+      .slice(0, normalizedLimit);
+
+    const populated = await Promise.all(
+      closedInvites.map(async ({ invite, status }) => {
+        const invitedUser = invite.invitedUserId
+          ? ((await ctx.db.get(invite.invitedUserId)) as Doc<'users'> | null)
+          : null;
+        const inviter = (await ctx.db.get(
+          invite.invitedByUserId
+        )) as Doc<'users'> | null;
+        const resolvedAt =
+          status === 'accepted'
+            ? (invite.acceptedAt ?? invite.createdAt)
+            : status === 'cancelled'
+              ? (invite.cancelledAt ?? invite.createdAt)
+              : invite.expiresAt;
+
+        return {
+          inviteId: invite._id,
+          businessId: invite.businessId,
+          invitedEmail: invite.invitedEmail,
+          invitedUserId: invite.invitedUserId ?? null,
+          invitedDisplayName: resolveUserDisplayName(invitedUser, 'משתמש'),
+          invitedPhone: invitedUser?.phone ?? null,
+          invitedResolvedEmail:
+            invitedUser?.email ?? invite.invitedEmail ?? null,
+          invitedByUserId: invite.invitedByUserId,
+          invitedByDisplayName: resolveUserDisplayName(inviter),
+          targetRole: resolveInviteTargetRole(invite),
+          status,
+          inviteCode: invite.inviteCode,
+          expiresAt: invite.expiresAt,
+          createdAt: invite.createdAt,
+          acceptedAt: invite.acceptedAt ?? null,
+          cancelledAt: invite.cancelledAt ?? null,
+          resolvedAt,
+        };
+      })
+    );
+
+    return populated;
   },
 });
 

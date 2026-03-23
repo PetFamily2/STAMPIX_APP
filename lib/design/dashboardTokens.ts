@@ -1,0 +1,88 @@
+export const DASHBOARD_TOKENS = {
+  colors: {
+    brandBlue: '#1E4ED8',
+    teal: '#06B6D4',
+    emerald: '#10B981',
+    violet: '#8B5CF6',
+    amber: '#F59E0B',
+    red: '#EF4444',
+    textPrimary: '#0F172A',
+    textMuted: '#64748B',
+    pageBackground: '#F6F8FC',
+    sectionBackground: '#FFFFFF',
+    sectionBackgroundMuted: '#FAFCFF',
+    divider: '#E5EAF2',
+    dividerStrong: '#D6E2F2',
+    border: '#E3E9F4',
+    borderStrong: '#D6E2F2',
+  },
+  gradients: {
+    hero: ['#1E4ED8', '#3B82F6'] as const,
+    insight: ['#EEF4FF', '#F5F3FF'] as const,
+    iconBlue: ['#DBEAFE', '#DCE7FF'] as const,
+    iconTeal: ['#CCFBF1', '#CFFAFE'] as const,
+    iconViolet: ['#EDE9FE', '#F3E8FF'] as const,
+    iconEmerald: ['#DCFCE7', '#ECFDF3'] as const,
+  },
+  cardRadius: 18,
+  cardRadiusLarge: 20,
+  cardRadiusHero: 22,
+  cardBorderColor: '#E3E9F4',
+  cardBorderStrongColor: '#D6E2F2',
+  cardShadow: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  cardShadowSoft: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  sectionBackground: '#FFFFFF',
+  sectionBackgroundMuted: '#FAFCFF',
+  pageBackground: '#F6F8FC',
+  chartHeightSm: 160,
+  chartHeightMd: 190,
+  chartHeightLg: 220,
+  iconSizeSm: 16,
+  iconSizeMd: 20,
+  iconSizeLg: 24,
+  dividerColor: '#E5EAF2',
+  dividerStrongColor: '#D6E2F2',
+  spacingPageHorizontal: 20,
+  spacingSectionVertical: 20,
+  spacingGridGap: 14,
+  spacingCardInner: 14,
+  sectionTitleSize: 18,
+  sectionSubtitleSize: 13,
+} as const;
+
+export const DASHBOARD_CARD_STATES = {
+  default: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E3E9F4',
+  },
+  hover: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CFE0FF',
+  },
+  active: {
+    backgroundColor: '#EEF4FF',
+    borderColor: '#A9C7FF',
+  },
+  alert: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+  },
+  locked: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+  },
+} as const;
+
+export const BUSINESS_UI_TOKENS = DASHBOARD_TOKENS;

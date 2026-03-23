@@ -1,20 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
+  StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  BarComparisonChart,
+  InsightCard,
+  KpiCard,
+  LineTrendChart,
+  SegmentedPillControl,
+  SurfaceCard,
+} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -22,16 +30,18 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 import { CustomersHubContent } from './customers';
 
 const WEEKDAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
-const TOP_TABS = [
+type ReportsTopTab = 'reports' | 'customers';
+const TOP_TABS: Array<{ key: ReportsTopTab; label: string }> = [
   { key: 'reports', label: 'דוחות' },
   { key: 'customers', label: 'לקוחות' },
-] as const;
+];
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
@@ -56,12 +66,7 @@ function calculateGrowthFromWeekly(weekly?: Array<{ stamps: number }>) {
 }
 
 function formatTrafficHighlights(
-  items:
-    | Array<{
-        label: string;
-        visits: number;
-      }>
-    | undefined
+  items: Array<{ label: string; visits: number }> | undefined
 ) {
   if (!items || items.length === 0) {
     return '--';
@@ -120,7 +125,7 @@ export function ReportsHubContent() {
     openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
   };
 
-  const dailyStamps = useMemo(() => {
+  const dailySeries = useMemo(() => {
     const rawDaily = basicAnalytics?.daily ?? [];
     const fallback = WEEKDAY_LABELS.map(() => 0);
     if (!rawDaily.length) {
@@ -133,15 +138,28 @@ export function ReportsHubContent() {
       .slice(0, WEEKDAY_LABELS.length);
   }, [basicAnalytics]);
 
-  const chartHeights = useMemo(() => {
-    const maxValue = Math.max(...dailyStamps, 0);
-    if (maxValue === 0) {
-      return dailyStamps.map(() => 8);
+  const dailyChartData = useMemo(
+    () =>
+      WEEKDAY_LABELS.map((label, index) => ({
+        label,
+        value: dailySeries[index] ?? 0,
+      })),
+    [dailySeries]
+  );
+
+  const weeklyChartData = useMemo(() => {
+    const rawWeekly = basicAnalytics?.weekly ?? [];
+    if (rawWeekly.length === 0) {
+      return dailyChartData.slice(0, 5).map((item, index) => ({
+        label: `W${index + 1}`,
+        value: item.value,
+      }));
     }
-    return dailyStamps.map((value) =>
-      Math.max(12, Math.round((value / maxValue) * 120))
-    );
-  }, [dailyStamps]);
+    return rawWeekly.slice(-5).map((item, index) => ({
+      label: `W${index + 1}`,
+      value: item.stamps ?? 0,
+    }));
+  }, [basicAnalytics, dailyChartData]);
 
   const growthPercent =
     advancedAnalytics?.growthPercent ??
@@ -161,18 +179,18 @@ export function ReportsHubContent() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
-        className="flex-1"
+        style={styles.scroll}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#F6F7FB"
+          backgroundColor={DASHBOARD_TOKENS.pageBackground}
         >
           <BusinessScreenHeader
             title="דוחות"
@@ -187,190 +205,205 @@ export function ReportsHubContent() {
           />
         </StickyScrollHeader>
 
-        <View
-          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
-        >
-          {TOP_TABS.map((topTab) => {
-            const isActive = topTab.key === 'reports';
-            return (
-              <TouchableOpacity
-                key={topTab.key}
-                onPress={() => {
-                  if (topTab.key === 'customers') {
-                    router.setParams({ tab: 'customers' });
-                    return;
-                  }
-                }}
-                className={`flex-1 rounded-full py-2.5 ${
-                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-extrabold ${
-                    isActive ? 'text-white' : 'text-[#51617F]'
-                  }`}
-                >
-                  {topTab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <View className="mt-5 rounded-3xl border border-[#E5EAF2] bg-white p-5">
-          <View className={`${tw.flexRow} items-center justify-between`}>
-            <Text
-              className={`text-2xl font-black text-[#15233A] ${tw.textStart}`}
-            >
-              ניקובים השבוע
-            </Text>
-            <View className="rounded-full border border-[#CFE0FF] bg-[#F1F6FF] px-3 py-1">
-              <Text className="text-[11px] font-bold text-[#2F6BFF]">
-                סה״כ {formatNumber(basicAnalytics?.totals.stamps ?? 0)}
-              </Text>
-            </View>
-          </View>
-
-          <View className="mt-4 h-[180px] rounded-[22px] border border-[#EEF2F8] bg-[#FCFDFF] px-3 py-4">
-            {basicAnalytics === undefined ? (
-              <View className="flex-1 items-center justify-center">
-                <ActivityIndicator color="#2F6BFF" />
-              </View>
-            ) : (
-              <View className="flex-1">
-                <View
-                  className={`${tw.flexRow} h-[130px] items-end justify-between gap-2`}
-                >
-                  {WEEKDAY_LABELS.map((dayLabel, index) => (
-                    <View
-                      key={dayLabel}
-                      className="flex-1 items-center justify-end"
-                    >
-                      <View
-                        className="w-[8px] rounded-full bg-[#2F6BFF]"
-                        style={{
-                          height: chartHeights[index],
-                          opacity: dailyStamps[index] > 0 ? 1 : 0.2,
-                        }}
-                      />
-                    </View>
-                  ))}
-                </View>
-                <View className={`${tw.flexRow} mt-4 justify-between`}>
-                  {WEEKDAY_LABELS.map((dayLabel) => (
-                    <Text
-                      key={`${dayLabel}-label`}
-                      className="flex-1 text-center text-[11px] font-semibold text-[#A0AABA]"
-                    >
-                      {dayLabel}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View className={`${tw.flexRow} mt-5 gap-3`}>
-          <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
-            <Text className="text-right text-xs font-semibold text-[#64748B]">
-              {
-                '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5 \u05d4\u05e9\u05d1\u05d5\u05e2'
+        <View style={styles.sectionTop}>
+          <SegmentedPillControl<ReportsTopTab>
+            items={TOP_TABS}
+            value="reports"
+            onChange={(nextTab) => {
+              if (nextTab === 'customers') {
+                router.setParams({ tab: 'customers' });
               }
-            </Text>
-            <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
-              {formatNumber(basicAnalytics?.totals.redemptions ?? 0)}
-            </Text>
+            }}
+          />
+        </View>
+
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="ניקובים 7 ימים"
+              value={formatNumber(basicAnalytics?.totals.stamps ?? 0)}
+              icon="ticket-outline"
+              tone="teal"
+              trend={{
+                direction:
+                  growthPercent > 0
+                    ? 'up'
+                    : growthPercent < 0
+                      ? 'down'
+                      : 'flat',
+                label: formatGrowth(growthPercent),
+              }}
+            />
           </View>
-          <View className="flex-1 rounded-3xl border border-[#E5EAF2] bg-white p-4">
-            <Text className="text-right text-xs font-semibold text-[#64748B]">
-              לקוחות פעילים השבוע
-            </Text>
-            <Text className="mt-1 text-right text-3xl font-black text-[#0F294B]">
-              {formatNumber(basicAnalytics?.totals.uniqueCustomers ?? 0)}
-            </Text>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="מימושים השבוע"
+              value={formatNumber(basicAnalytics?.totals.redemptions ?? 0)}
+              icon="gift-outline"
+              tone="violet"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="לקוחות פעילים"
+              value={formatNumber(basicAnalytics?.totals.uniqueCustomers ?? 0)}
+              icon="people-outline"
+              tone="blue"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="צמיחה תקופתית"
+              value={
+                advancedReportsGate.isLocked
+                  ? '--'
+                  : formatGrowth(growthPercent)
+              }
+              icon="trending-up-outline"
+              tone="emerald"
+              trend={{
+                direction:
+                  growthPercent > 0
+                    ? 'up'
+                    : growthPercent < 0
+                      ? 'down'
+                      : 'flat',
+                label: 'לעומת שבוע קודם',
+              }}
+            />
           </View>
         </View>
 
-        <View className="mt-5 rounded-3xl border border-[#E5EAF2] bg-white p-5">
-          <Text className={`text-lg font-black text-[#15233A] ${tw.textStart}`}>
-            {'ימים ושעות חזקים/חלשים'}
-          </Text>
-          {basicAnalytics === undefined ? (
-            <View className="mt-4 items-center justify-center">
-              <ActivityIndicator color="#2F6BFF" />
-            </View>
-          ) : trafficWindows?.hasEnoughData ? (
-            <View className="mt-3 gap-2">
-              <Text className={`text-sm text-[#166534] ${tw.textStart}`}>
-                {`ימים חזקים: ${strongWeekdaysLabel}`}
-              </Text>
-              <Text className={`text-sm text-[#B45309] ${tw.textStart}`}>
-                {`ימים חלשים: ${weakWeekdaysLabel}`}
-              </Text>
-              <Text className={`text-sm text-[#166534] ${tw.textStart}`}>
-                {`שעות חזקות: ${strongHoursLabel}`}
-              </Text>
-              <Text className={`text-sm text-[#B45309] ${tw.textStart}`}>
-                {`שעות חלשות: ${weakHoursLabel}`}
-              </Text>
-              <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                {'החישוב דטרמיניסטי לפי אירועי ביקור (החתמות), ללא תלות ב-AI.'}
-              </Text>
-            </View>
-          ) : (
-            <View className="mt-3">
-              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                {`אין עדיין מספיק נתונים לחישוב חלונות חזקים/חלשים. נדרש לפחות ${formatNumber(
-                  trafficWindows?.minVisitsRequired ?? 40
-                )} ביקורים ובפריסה של ${formatNumber(
-                  trafficWindows?.minActiveDaysRequired ?? 14
-                )} ימים.`}
-              </Text>
-            </View>
-          )}
-        </View>
+        {basicAnalytics === undefined ? (
+          <SurfaceCard style={styles.loadingCard}>
+            <ActivityIndicator color={DASHBOARD_TOKENS.colors.brandBlue} />
+          </SurfaceCard>
+        ) : (
+          <>
+            <LineTrendChart
+              title="מגמת ניקובים שבועית"
+              subtitle="קו מגמה לפי 7 הימים האחרונים"
+              data={dailyChartData}
+              color={DASHBOARD_TOKENS.colors.brandBlue}
+            />
 
-        <View className="mt-5">
-          <FeatureGate
-            isLocked={advancedReportsGate.isLocked}
-            requiredPlan={advancedReportsGate.requiredPlan}
-            onUpgradeClick={() =>
-              openUpgrade(
-                'advancedReports',
-                advancedReportsGate.requiredPlan,
-                advancedReportsGate.reason === 'subscription_inactive'
-                  ? 'subscription_inactive'
-                  : 'feature_locked'
-              )
-            }
-            title={advancedReportsCopy.lockedTitle}
-            subtitle={advancedReportsCopy.lockedSubtitle}
-            benefits={advancedReportsCopy.benefits}
-          >
-            <View className="rounded-3xl border border-[#E5EAF2] bg-white p-5">
-              <View className={`${tw.flexRow} items-center justify-between`}>
-                <Text
-                  className={`text-lg font-black text-[#15233A] ${tw.textStart}`}
-                >
-                  צמיחה תקופתית
+            <BarComparisonChart
+              title="השוואת שבועות"
+              subtitle="השוואת ביקורים בין שבועות אחרונים"
+              data={weeklyChartData}
+              color={DASHBOARD_TOKENS.colors.teal}
+            />
+          </>
+        )}
+
+        <InsightCard
+          title="אות צמיחה"
+          body={
+            advancedReportsGate.isLocked
+              ? 'שדרוג למסלול מתקדם יפתח תובנות צמיחה והשוואה בין תקופות.'
+              : `קצב הצמיחה הנוכחי עומד על ${formatGrowth(growthPercent)} לעומת התקופה הקודמת.`
+          }
+          tags={
+            advancedReportsGate.isLocked
+              ? ['נעול למסלול מתקדם']
+              : ['מגמת צמיחה', 'פעילות בזמן אמת']
+          }
+          ctaLabel={advancedReportsGate.isLocked ? 'שדרוג' : undefined}
+          onPress={
+            advancedReportsGate.isLocked
+              ? () =>
+                  openUpgrade(
+                    'advancedReports',
+                    advancedReportsGate.requiredPlan,
+                    advancedReportsGate.reason === 'subscription_inactive'
+                      ? 'subscription_inactive'
+                      : 'feature_locked'
+                  )
+              : undefined
+          }
+        />
+
+        <SurfaceCard style={styles.trafficCard}>
+          <View style={styles.trafficRows}>
+            <View style={styles.trafficRow}>
+              <View style={styles.trafficTagGood} />
+              <View style={styles.trafficTextWrap}>
+                <Text className={tw.textStart} style={styles.trafficLabel}>
+                  ימים חזקים
                 </Text>
-                <View className="rounded-full bg-[#EAF8F2] px-3 py-1">
-                  <Text className="text-sm font-bold text-[#0EAD69]">
-                    {advancedReportsGate.isLocked
-                      ? '--'
-                      : formatGrowth(growthPercent)}
-                  </Text>
-                </View>
+                <Text className={tw.textStart} style={styles.trafficValue}>
+                  {trafficWindows?.hasEnoughData ? strongWeekdaysLabel : '--'}
+                </Text>
               </View>
-              <Text className={`mt-3 text-sm text-[#64748B] ${tw.textStart}`}>
-                {advancedReportsGate.isLocked
-                  ? 'שדרוג ל-Pro AI יפתח דוחות מתקדמים והשוואה בין תקופות.'
-                  : 'האחוז מחושב על בסיס השוואת הניקובים של השבוע האחרון מול השבוע שקדם לו.'}
-              </Text>
             </View>
-          </FeatureGate>
-        </View>
+            <View style={styles.trafficRow}>
+              <View style={styles.trafficTagWarn} />
+              <View style={styles.trafficTextWrap}>
+                <Text className={tw.textStart} style={styles.trafficLabel}>
+                  ימים חלשים
+                </Text>
+                <Text className={tw.textStart} style={styles.trafficValue}>
+                  {trafficWindows?.hasEnoughData ? weakWeekdaysLabel : '--'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.trafficRow}>
+              <View style={styles.trafficTagGood} />
+              <View style={styles.trafficTextWrap}>
+                <Text className={tw.textStart} style={styles.trafficLabel}>
+                  שעות חזקות
+                </Text>
+                <Text className={tw.textStart} style={styles.trafficValue}>
+                  {trafficWindows?.hasEnoughData ? strongHoursLabel : '--'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.trafficRow}>
+              <View style={styles.trafficTagWarn} />
+              <View style={styles.trafficTextWrap}>
+                <Text className={tw.textStart} style={styles.trafficLabel}>
+                  שעות חלשות
+                </Text>
+                <Text className={tw.textStart} style={styles.trafficValue}>
+                  {trafficWindows?.hasEnoughData ? weakHoursLabel : '--'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </SurfaceCard>
+
+        <FeatureGate
+          isLocked={advancedReportsGate.isLocked}
+          requiredPlan={advancedReportsGate.requiredPlan}
+          onUpgradeClick={() =>
+            openUpgrade(
+              'advancedReports',
+              advancedReportsGate.requiredPlan,
+              advancedReportsGate.reason === 'subscription_inactive'
+                ? 'subscription_inactive'
+                : 'feature_locked'
+            )
+          }
+          title={advancedReportsCopy.lockedTitle}
+          subtitle={advancedReportsCopy.lockedSubtitle}
+          benefits={advancedReportsCopy.benefits}
+        >
+          <SurfaceCard style={styles.advancedCard}>
+            <InsightCard
+              title="תובנה מתקדמת"
+              body={
+                advancedReportsGate.isLocked
+                  ? 'שדרוג למסלול מתקדם מאפשר ניתוחים השוואתיים עמוקים יותר.'
+                  : 'נתוני הצמיחה וההשוואות מוצגים בזמן אמת ויכולים להנחות את הקמפיין הבא.'
+              }
+              tags={
+                advancedReportsGate.isLocked
+                  ? ['Advanced Reports']
+                  : ['Growth', 'Comparison']
+              }
+            />
+          </SurfaceCard>
+        </FeatureGate>
       </ScrollView>
     </SafeAreaView>
   );
@@ -387,3 +420,74 @@ export default function BusinessAnalyticsScreen() {
 
   return <ReportsHubContent />;
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: DASHBOARD_TOKENS.pageBackground,
+  },
+  scroll: {
+    flex: 1,
+  },
+  sectionTop: {
+    marginTop: 4,
+  },
+  kpiGrid: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  kpiCell: {
+    width: '48%',
+  },
+  loadingCard: {
+    marginTop: 16,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trafficCard: {
+    marginTop: 16,
+  },
+  trafficRows: {
+    gap: 10,
+  },
+  trafficRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  trafficTextWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  trafficLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  trafficValue: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  trafficTagGood: {
+    marginTop: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  trafficTagWarn: {
+    marginTop: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F59E0B',
+  },
+  advancedCard: {
+    marginTop: 16,
+  },
+});

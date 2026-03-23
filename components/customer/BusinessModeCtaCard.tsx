@@ -84,21 +84,28 @@ export default function BusinessModeCtaCard({
   const hostButtonScale = useRef(new Animated.Value(1)).current;
 
   const bizList = sessionContext?.businesses ?? [];
-  const manageableBusiness =
-    bizList.find((business) => canAccessBusinessMode(business.staffRole)) ??
-    null;
+  const manageableBusinesses = bizList.filter((business) =>
+    canAccessBusinessMode(business.staffRole)
+  );
+  const ownedBusinesses = manageableBusinesses.filter(
+    (business) => business.staffRole === 'owner'
+  );
   const activeManagedBusiness =
     (sessionContext?.activeBusinessId
-      ? bizList.find(
+      ? manageableBusinesses.find(
           (business) =>
-            String(business.id) === String(sessionContext.activeBusinessId) &&
-            canAccessBusinessMode(business.staffRole)
+            String(business.id) === String(sessionContext.activeBusinessId)
         )
       : null) ?? null;
   const targetBusinessForBusinessMode =
-    activeManagedBusiness ?? manageableBusiness;
-  const hasOwnerOrManager = manageableBusiness != null;
-  const manageableBusinessName = manageableBusiness?.name.trim() ?? '';
+    activeManagedBusiness ??
+    ownedBusinesses[0] ??
+    manageableBusinesses[0] ??
+    null;
+  const hasManageableBusiness = manageableBusinesses.length > 0;
+  const hasOwnedBusiness = ownedBusinesses.length > 0;
+  const manageableBusinessName =
+    targetBusinessForBusinessMode?.name.trim() ?? '';
   const hasNamedManagedBusiness = manageableBusinessName.length > 0;
   const businessOnboarded =
     (sessionContext?.user?.businessOnboardedAt ?? null) != null;
@@ -107,10 +114,14 @@ export default function BusinessModeCtaCard({
     businessOnboarded
   );
   const shouldStartBusinessOnboarding =
-    !hasOwnerOrManager || targetBusinessRequiresOnboarding;
+    !hasManageableBusiness || targetBusinessRequiresOnboarding;
   const showExistingBusinessCta = hasNamedManagedBusiness;
   const isBusinessMode = appMode === 'business';
-  const showPromotionalBanner = forcePromotionalBanner && !isBusinessMode;
+  // On discovery we keep the promotional banner for users who don't own a
+  // business, even if they can access one as managers. Existing business access
+  // is presented in customer settings, not inside the banner itself.
+  const showPromotionalBanner =
+    forcePromotionalBanner && !isBusinessMode && !hasOwnedBusiness;
   const hostActionDisabled = disabled || isAppModeLoading || modeSwitchBusy;
   const hostTitle =
     !showPromotionalBanner && showExistingBusinessCta
@@ -162,6 +173,9 @@ export default function BusinessModeCtaCard({
   }, [hostActionDisabled, hostButtonScale, isBusinessMode]);
 
   const handleSwitchToBusiness = async () => {
+    const selectedBusiness = showPromotionalBanner
+      ? null
+      : targetBusinessForBusinessMode;
     if (hostActionDisabled) {
       return;
     }
@@ -169,15 +183,22 @@ export default function BusinessModeCtaCard({
     try {
       setModeSwitchBusy(true);
 
-      if (!showPromotionalBanner && targetBusinessForBusinessMode) {
+      if (selectedBusiness) {
         await setActiveBusiness({
-          businessId: targetBusinessForBusinessMode.id,
+          businessId: selectedBusiness.id,
         });
       }
 
-      if (showPromotionalBanner || shouldStartBusinessOnboarding) {
+      const shouldOpenOnboarding =
+        selectedBusiness == null ||
+        requiresBusinessOnboardingForRole(
+          selectedBusiness.staffRole,
+          businessOnboarded
+        );
+
+      if (shouldOpenOnboarding) {
         await setAppMode('business');
-        if (hasOwnerOrManager && !showPromotionalBanner) {
+        if (selectedBusiness) {
           await setActiveMode({ mode: 'business' });
         }
         router.replace(BUSINESS_ONBOARDING_ROUTES.entry);

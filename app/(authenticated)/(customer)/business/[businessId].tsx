@@ -56,6 +56,7 @@ type ProgramRow = {
   programId: string;
   title: string;
   rewardName: string;
+  programImageUrl: string | null;
   maxStamps: number;
   stampIcon: string;
   stampShape: string;
@@ -304,6 +305,7 @@ export default function CustomerBusinessDetailsScreen() {
                     <ProgramCustomerCardPreview
                       businessName={business.name}
                       businessLogoUrl={business.logoUrl}
+                      programImageUrl={program.programImageUrl}
                       title={program.title}
                       rewardName={program.rewardName}
                       maxStamps={program.maxStamps}
@@ -374,6 +376,7 @@ export default function CustomerBusinessDetailsScreen() {
                   <ProgramCustomerCardPreview
                     businessName={business.name}
                     businessLogoUrl={business.logoUrl}
+                    programImageUrl={program.programImageUrl}
                     title={program.title}
                     rewardName={program.rewardName}
                     maxStamps={program.maxStamps}

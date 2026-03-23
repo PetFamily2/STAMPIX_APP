@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -17,6 +18,14 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import {
+  BarComparisonChart,
+  HorizontalRankingChart,
+  InsightCard,
+  KpiCard,
+  ProgramHealthRow,
+  SegmentedPillControl,
+} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import type { StampShape } from '@/constants/stampOptions';
@@ -25,6 +34,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 import { CampaignsHubContent } from './campaigns';
@@ -328,6 +338,45 @@ export function LoyaltyCardsHubContent() {
     });
   };
 
+  const topProgramActivity = useMemo(
+    () =>
+      activePrograms
+        .slice()
+        .sort((a, b) => (b.metrics.stamps7d ?? 0) - (a.metrics.stamps7d ?? 0))
+        .slice(0, 5)
+        .map((program) => ({
+          label: program.title,
+          value: Number(program.metrics.stamps7d ?? 0),
+        })),
+    [activePrograms]
+  );
+
+  const topProgramRedemptions = useMemo(
+    () =>
+      activePrograms
+        .slice()
+        .sort(
+          (a, b) =>
+            (b.metrics.redemptions30d ?? 0) - (a.metrics.redemptions30d ?? 0)
+        )
+        .slice(0, 5)
+        .map((program) => ({
+          label: program.title,
+          value: Number(program.metrics.redemptions30d ?? 0),
+        })),
+    [activePrograms]
+  );
+
+  const mostActiveProgram = useMemo(
+    () =>
+      activePrograms
+        .slice()
+        .sort(
+          (a, b) => (b.metrics.stamps7d ?? 0) - (a.metrics.stamps7d ?? 0)
+        )[0] ?? null,
+    [activePrograms]
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
@@ -355,34 +404,16 @@ export function LoyaltyCardsHubContent() {
           />
         </StickyScrollHeader>
 
-        <View
-          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
-        >
-          {TOP_TABS.map((topTab) => {
-            const isActive = topTab.key === 'loyalty';
-            return (
-              <TouchableOpacity
-                key={topTab.key}
-                onPress={() => {
-                  if (topTab.key === 'loyalty') {
-                    return;
-                  }
-                  router.setParams({ section: 'campaigns' });
-                }}
-                className={`flex-1 rounded-full py-2.5 ${
-                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-extrabold ${
-                    isActive ? 'text-white' : 'text-[#51617F]'
-                  }`}
-                >
-                  {topTab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={{ marginTop: 4 }}>
+          <SegmentedPillControl
+            items={TOP_TABS}
+            value="loyalty"
+            onChange={(nextTab) => {
+              if (nextTab === 'campaigns') {
+                router.setParams({ section: 'campaigns' });
+              }
+            }}
+          />
         </View>
 
         <TouchableOpacity
@@ -408,6 +439,41 @@ export function LoyaltyCardsHubContent() {
             </View>
           )}
         </TouchableOpacity>
+
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="כרטיסים פעילים"
+              value={formatNumber(activePrograms.length)}
+              icon="albums-outline"
+              tone="blue"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="לקוחות פעילים"
+              value={formatNumber(totalCustomers)}
+              icon="people-outline"
+              tone="teal"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="מימושים 30 יום"
+              value={formatNumber(totalRedemptions30d)}
+              icon="gift-outline"
+              tone="violet"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="זכאים למימוש"
+              value={formatNumber(redeemableCustomersCount)}
+              icon="sparkles-outline"
+              tone="emerald"
+            />
+          </View>
+        </View>
 
         <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
           <Text
@@ -477,6 +543,47 @@ export function LoyaltyCardsHubContent() {
           ) : null}
         </View>
 
+        <View style={styles.analyticsStack}>
+          <HorizontalRankingChart
+            title="תוכניות מובילות לפי פעילות"
+            subtitle="דירוג לפי ניקובים ב-7 ימים"
+            data={topProgramActivity}
+            color={DASHBOARD_TOKENS.colors.teal}
+          />
+          <BarComparisonChart
+            title="השוואת מימושים"
+            subtitle="מימושים ב-30 ימים אחרונים"
+            data={topProgramRedemptions}
+            color={DASHBOARD_TOKENS.colors.violet}
+          />
+          <InsightCard
+            title="תובנת נאמנות"
+            body={
+              mostActiveProgram
+                ? `התוכנית "${mostActiveProgram.title}" מובילה עם ${formatNumber(
+                    mostActiveProgram.metrics.stamps7d
+                  )} ניקובים ב-7 ימים.`
+                : 'עדיין אין פעילות מספקת להצגת תוכנית מובילה.'
+            }
+            tags={[
+              `לקוחות זכאים: ${formatNumber(redeemableCustomersCount)}`,
+              `כרטיסיות מלאות: ${formatNumber(redeemableCardsCount)}`,
+            ]}
+          />
+          <View style={styles.programHealthList}>
+            {activePrograms.slice(0, 3).map((program) => (
+              <ProgramHealthRow
+                key={String(program.loyaltyProgramId)}
+                title={program.title}
+                members={program.metrics.activeMembers}
+                stamps7d={program.metrics.stamps7d}
+                redemptions30d={program.metrics.redemptions30d}
+                onPress={() => openProgramDetails(program)}
+              />
+            ))}
+          </View>
+        </View>
+
         <ProgramListSection
           title={TEXT.draftCardsTitle}
           emptyText={TEXT.noDraftCards}
@@ -515,6 +622,25 @@ export function LoyaltyCardsHubContent() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  kpiGrid: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  kpiCell: {
+    width: '48%',
+  },
+  analyticsStack: {
+    marginTop: 16,
+    gap: 14,
+  },
+  programHealthList: {
+    gap: 10,
+  },
+});
 
 export default function BusinessCardsManagementScreen() {
   const { section } = useLocalSearchParams<{

@@ -16,12 +16,17 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  DonutChartCard,
+  HorizontalRankingChart,
+} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -421,6 +426,41 @@ function LoadingBlock({ height = 80 }: { height?: number }) {
   );
 }
 
+function UsageProgressRow({
+  label,
+  used,
+  limit,
+  color,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  color: string;
+}) {
+  const percent =
+    limit > 0
+      ? Math.max(0, Math.min(100, Math.round((used / limit) * 100)))
+      : 0;
+  return (
+    <View className="mt-2">
+      <View className={`${tw.flexRow} items-center justify-between`}>
+        <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+          {label}
+        </Text>
+        <Text className="text-xs font-bold text-[#1A2B4A]">
+          {used}/{limit}
+        </Text>
+      </View>
+      <View className="mt-1 h-2 overflow-hidden rounded-full bg-[#E6EDF7]">
+        <View
+          className="h-2 rounded-full"
+          style={{ width: `${percent}%`, backgroundColor: color }}
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function MerchantDashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -449,34 +489,32 @@ export default function MerchantDashboardScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  const businessSettings = useQuery(
-    api.business.getBusinessSettings,
+  const dashboardSummary = useQuery(
+    api.dashboard.getBusinessDashboardSummary,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
-  const usageSummary = useQuery(
-    api.entitlements.getBusinessUsageSummary,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const activity = useQuery(
-    api.analytics.getBusinessActivity,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const programs = useQuery(
-    api.loyaltyPrograms.listManagementByBusiness,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  ) as LoyaltyProgramSummary[] | undefined;
-  const rewardEligibilitySummary = useQuery(
-    api.memberships.getBusinessRewardEligibilitySummary,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-  const recentActivity = useQuery(
-    api.events.getRecentActivity,
-    activeBusinessId ? { businessId: activeBusinessId, limit: 3 } : 'skip'
-  );
-  const aiRecommendation = useQuery(
-    api.aiRecommendations.getLatestRecommendationForBusiness,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
+  const businessSettings = dashboardSummary?.sources?.businessSettings;
+  const usageSummary = dashboardSummary?.sources?.usageSummary;
+  const activity = dashboardSummary?.sources?.activity;
+  const programs = dashboardSummary?.sources?.programs as
+    | LoyaltyProgramSummary[]
+    | undefined;
+  const rewardEligibilitySummary =
+    dashboardSummary?.sources?.rewardEligibilitySummary;
+  const recentActivity = dashboardSummary?.sources?.recentActivity as
+    | Array<{
+        id: string;
+        type: 'reward' | 'stamp';
+        customer: string;
+        detail: string;
+        time: string;
+      }>
+    | undefined;
+  const aiRecommendation = dashboardSummary?.sources?.aiRecommendation;
+  const campaignPerformanceSummary =
+    dashboardSummary?.campaignPerformanceSummary;
+  const teamSummary = dashboardSummary?.teamSummary;
+  const planUsageSummary = dashboardSummary?.planUsageSummary;
   const executeRecommendationCta = useMutation(
     api.aiRecommendations.executeRecommendationPrimaryCta
   );
@@ -871,6 +909,57 @@ export default function MerchantDashboardScreen() {
       redeemableCards: rewardEligibilitySummary?.redeemableCards ?? 0,
     }),
     [activePrograms, rewardEligibilitySummary]
+  );
+
+  const customerHealthChart = useMemo(() => {
+    const summary = customerSnapshot?.summary;
+    if (!summary) {
+      return [
+        { label: 'פעילים', value: 0, color: '#1E4ED8' },
+        { label: 'בסיכון', value: 0, color: '#EF4444' },
+        { label: 'חדשים', value: 0, color: '#06B6D4' },
+        { label: 'VIP', value: 0, color: '#8B5CF6' },
+      ];
+    }
+    return [
+      { label: 'פעילים', value: summary.activeCustomers ?? 0, color: '#1E4ED8' },
+      { label: 'בסיכון', value: summary.atRiskCustomers ?? 0, color: '#EF4444' },
+      { label: 'חדשים', value: summary.newCustomers ?? 0, color: '#06B6D4' },
+      { label: 'VIP', value: summary.vipCustomers ?? 0, color: '#8B5CF6' },
+    ];
+  }, [customerSnapshot]);
+
+  const campaignReachChart = useMemo(() => {
+    const list = (campaignPerformanceSummary?.topCampaigns ?? []) as Array<{
+      title: string;
+      reachedMessagesAllTime?: number;
+      returnedCustomers14d?: number | null;
+    }>;
+    if (list.length > 0) {
+      return list.slice(0, 5).map((campaign) => ({
+        label: campaign.title,
+        value: Number(campaign.reachedMessagesAllTime ?? campaign.returnedCustomers14d ?? 0),
+      }));
+    }
+    return [
+      {
+        label: 'קמפיין 1',
+        value: Number(campaignPerformanceSummary?.overview.totalMessagesSent ?? 0),
+      },
+    ];
+  }, [campaignPerformanceSummary]);
+
+  const loyaltyProgramChart = useMemo(
+    () =>
+      activePrograms
+        .slice()
+        .sort((a, b) => (b.metrics.stamps7d ?? 0) - (a.metrics.stamps7d ?? 0))
+        .slice(0, 5)
+        .map((program) => ({
+          label: program.title,
+          value: Number(program.metrics.stamps7d ?? 0),
+        })),
+    [activePrograms]
   );
 
   const openSmartUpgrade = () => {
@@ -1305,14 +1394,16 @@ export default function MerchantDashboardScreen() {
 
             {recommendationCard.evidenceTags.length > 0 ? (
               <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
-                {recommendationCard.evidenceTags.slice(0, 3).map((tag) => (
-                  <View
-                    key={tag}
-                    className={`rounded-full border px-3 py-1 ${recommendationTheme.chip}`}
-                  >
-                    <Text className="text-[11px] font-bold">{tag}</Text>
-                  </View>
-                ))}
+                {recommendationCard.evidenceTags
+                  .slice(0, 3)
+                  .map((tag: string, index: number) => (
+                    <View
+                      key={`evidence-${index}-${tag}`}
+                      className={`rounded-full border px-3 py-1 ${recommendationTheme.chip}`}
+                    >
+                      <Text className="text-[11px] font-bold">{tag}</Text>
+                    </View>
+                  ))}
               </View>
             ) : null}
 
@@ -1396,6 +1487,32 @@ export default function MerchantDashboardScreen() {
               ))}
             </View>
           )}
+        </View>
+
+        <View className="mt-4 gap-4">
+          <DonutChartCard
+            title="הרכב בריאות לקוחות"
+            subtitle="פילוח מצב הלקוחות לפי מצב פעילות"
+            centerLabel="סה״כ לקוחות"
+            centerValue={
+              customerSnapshot?.summary
+                ? formatNumber(customerSnapshot.summary.totalCustomers)
+                : '--'
+            }
+            data={customerHealthChart}
+          />
+          <HorizontalRankingChart
+            title="קמפיינים מובילים"
+            subtitle="דירוג לפי reach בפועל"
+            data={campaignReachChart}
+            color={DASHBOARD_TOKENS.colors.teal}
+          />
+          <HorizontalRankingChart
+            title="תוכניות נאמנות מובילות"
+            subtitle="דירוג לפי ניקובים ב-7 ימים"
+            data={loyaltyProgramChart}
+            color={DASHBOARD_TOKENS.colors.violet}
+          />
         </View>
 
         {!recommendationCard && isAttentionLoading ? (
@@ -1734,6 +1851,170 @@ export default function MerchantDashboardScreen() {
               </View>
             </View>
           )}
+        </View>
+
+        <View className="mt-5">
+          <TouchableOpacity
+            onPress={() => openRoute('/(authenticated)/(business)/cards')}
+            className={`${tw.flexRow} items-center justify-between`}
+          >
+            <Text
+              className={`text-lg font-black text-[#1A2B4A] ${tw.textStart}`}
+            >
+              ביצועי קמפיינים
+            </Text>
+            <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+          {dashboardSummary === undefined ? (
+            <View className="mt-3">
+              <LoadingBlock height={160} />
+            </View>
+          ) : campaignPerformanceSummary == null ? (
+            <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                עדיין אין נתוני קמפיינים להצגה.
+              </Text>
+            </View>
+          ) : (
+            <View className="mt-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+              <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
+                  <Text className="text-right text-xs font-semibold text-[#64748B]">
+                    קמפיינים פעילים
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#0F294B]">
+                    {formatNumber(
+                      campaignPerformanceSummary.overview.activeCampaigns
+                    )}
+                  </Text>
+                </View>
+                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#F0FDF4] p-3">
+                  <Text className="text-right text-xs font-semibold text-[#166534]">
+                    אוטומציות פעילות
+                  </Text>
+                  <Text className="mt-1 text-right text-2xl font-black text-[#15803D]">
+                    {formatNumber(
+                      campaignPerformanceSummary.overview.automatedCampaigns
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
+                הודעות שנשלחו:{' '}
+                {formatNumber(
+                  campaignPerformanceSummary.overview.totalMessagesSent
+                )}
+              </Text>
+              {campaignPerformanceSummary.bestReturnCampaign ? (
+                <View className="mt-3 rounded-2xl border border-[#BBF7D0] bg-[#ECFDF3] p-3">
+                  <Text
+                    className={`text-xs font-semibold text-[#166534] ${tw.textStart}`}
+                  >
+                    קמפיין מוביל בחזרת לקוחות
+                  </Text>
+                  <Text
+                    className={`mt-1 text-sm font-black text-[#14532D] ${tw.textStart}`}
+                  >
+                    {campaignPerformanceSummary.bestReturnCampaign.title}
+                  </Text>
+                  <Text
+                    className={`mt-1 text-xs text-[#166534] ${tw.textStart}`}
+                  >
+                    חזרות 14 יום:{' '}
+                    {formatNumber(
+                      campaignPerformanceSummary.bestReturnCampaign
+                        .returnedCustomers14d ?? 0
+                    )}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
+
+        <View
+          className={`${tw.flexRow} mt-5 flex-wrap gap-3`}
+          style={{ rowGap: DASHBOARD_TOKENS.spacingGridGap }}
+        >
+          <View className="w-[48%] rounded-3xl border border-[#E3E9FF] bg-white p-4">
+            <TouchableOpacity
+              onPress={() => openRoute('/(authenticated)/(business)/team')}
+              className={`${tw.flexRow} items-center justify-between`}
+            >
+              <Text
+                className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}
+              >
+                פעילות צוות
+              </Text>
+              <Ionicons name="chevron-back" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+            {dashboardSummary === undefined ? (
+              <View className="mt-3">
+                <LoadingBlock height={88} />
+              </View>
+            ) : teamSummary?.isAvailable ? (
+              <View className="mt-3">
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  אנשי צוות פעילים: {formatNumber(teamSummary.activeStaffCount)}
+                </Text>
+                <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                  הזמנות ממתינות:{' '}
+                  {formatNumber(teamSummary.pendingInvitesCount)}
+                </Text>
+                <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+                  מושעים: {formatNumber(teamSummary.suspendedCount)}
+                </Text>
+              </View>
+            ) : (
+              <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
+                נתוני צוות אינם זמינים במסלול הנוכחי.
+              </Text>
+            )}
+          </View>
+
+          <View className="w-[48%] rounded-3xl border border-[#E3E9FF] bg-white p-4">
+            <TouchableOpacity
+              onPress={() =>
+                openRoute(
+                  '/(authenticated)/(business)/settings-business-subscription'
+                )
+              }
+              className={`${tw.flexRow} items-center justify-between`}
+            >
+              <Text
+                className={`text-base font-black text-[#1A2B4A] ${tw.textStart}`}
+              >
+                שימוש בתוכנית
+              </Text>
+              <Ionicons name="chevron-back" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+            {dashboardSummary === undefined || planUsageSummary == null ? (
+              <View className="mt-3">
+                <LoadingBlock height={88} />
+              </View>
+            ) : (
+              <View className="mt-2">
+                <UsageProgressRow
+                  label="כרטיסים"
+                  used={planUsageSummary.limits.cardsUsed}
+                  limit={planUsageSummary.limits.cardsLimit}
+                  color="#2F6BFF"
+                />
+                <UsageProgressRow
+                  label="לקוחות"
+                  used={planUsageSummary.limits.customersUsed}
+                  limit={planUsageSummary.limits.customersLimit}
+                  color="#0F766E"
+                />
+                <UsageProgressRow
+                  label="קמפיינים"
+                  used={planUsageSummary.limits.campaignsUsed}
+                  limit={planUsageSummary.limits.campaignsLimit}
+                  color="#D97706"
+                />
+              </View>
+            )}
+          </View>
         </View>
 
         <View className="mt-5">

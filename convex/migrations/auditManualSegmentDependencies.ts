@@ -57,7 +57,9 @@ export default query({
       if (campaign.audienceSource === 'advanced_segment') {
         campaignsWithAdvancedSegmentAudienceSource += 1;
       }
-      if (preparedAudienceHasManualSegmentReference(campaign.preparedAudience)) {
+      if (
+        preparedAudienceHasManualSegmentReference(campaign.preparedAudience)
+      ) {
         campaignsWithPreparedAudienceSegmentRefs += 1;
       }
       if (buildManualSegmentRemovalPatch(campaign, Date.now())) {

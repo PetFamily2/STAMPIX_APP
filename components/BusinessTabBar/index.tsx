@@ -9,7 +9,7 @@ const STANDARD_TAB_BUBBLE_WIDTH = 52;
 const STANDARD_TAB_BUBBLE_HEIGHT = 34;
 const STANDARD_TAB_BUBBLE_RADIUS = STANDARD_TAB_BUBBLE_HEIGHT / 2;
 export const TAB_BAR_CONTENT_HEIGHT = 56;
-const STANDARD_TAB_ACTIVE_BACKGROUND = '#E7F0FF';
+const STANDARD_TAB_ACTIVE_BACKGROUND = '#EAF1FF';
 const STANDARD_TAB_ACTIVE_COLOR = '#111827';
 const STANDARD_TAB_INACTIVE_COLOR = '#9AA4B8';
 
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: STANDARD_TAB_BUBBLE_RADIUS,
     backgroundColor: STANDARD_TAB_ACTIVE_BACKGROUND,
     borderWidth: 1,
-    borderColor: '#C3D8FF',
+    borderColor: '#C8DAFF',
   },
   standardTabLabel: {
     marginTop: 3,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     alignSelf: 'center',
-    shadowColor: '#163A87',
+    shadowColor: '#1E4ED8',
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 0.24,
     shadowRadius: 22,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: '#204EBD',
+    backgroundColor: '#1E40AF',
     opacity: 0.2,
     transform: [{ scaleX: 0.96 }, { scaleY: 0.92 }],
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: '#9DB6FF',
+    backgroundColor: '#BFDBFE',
     opacity: 0.28,
     transform: [{ scaleX: 0.98 }, { scaleY: 0.96 }],
   },
@@ -242,8 +242,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D5E3FF',
-    shadowColor: '#1B4FD6',
+    borderColor: '#D6E4FF',
+    shadowColor: '#1E4ED8',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
     shadowRadius: 10,

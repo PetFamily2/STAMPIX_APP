@@ -16,6 +16,7 @@ import type * as campaigns from "../campaigns.js";
 import type * as crons from "../crons.js";
 import type * as customerCards from "../customerCards.js";
 import type * as customerLifecycle from "../customerLifecycle.js";
+import type * as dashboard from "../dashboard.js";
 import type * as debug from "../debug.js";
 import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customerCards: typeof customerCards;
   customerLifecycle: typeof customerLifecycle;
+  dashboard: typeof dashboard;
   debug: typeof debug;
   entitlements: typeof entitlements;
   events: typeof events;

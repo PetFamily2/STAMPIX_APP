@@ -46,6 +46,6 @@ export default function BusinessScreenHeader({
 const styles = StyleSheet.create({
   headerRow: {
     alignItems: 'stretch',
-    marginBottom: 4,
+    marginBottom: 8,
   },
 });

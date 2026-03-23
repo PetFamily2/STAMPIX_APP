@@ -59,7 +59,10 @@ export default query({
         if (disabled) {
           legacyRetentionActionsDisabled += 1;
         }
-        if (campaign.status === 'active' && campaign.automationEnabled === true) {
+        if (
+          campaign.status === 'active' &&
+          campaign.automationEnabled === true
+        ) {
           legacyRetentionActionsActive += 1;
           if (sampleRetentionActionIds.length < 25) {
             sampleRetentionActionIds.push(String(campaign._id));
@@ -67,7 +70,9 @@ export default query({
         }
       }
 
-      if (preparedAudienceHasManualSegmentReference(campaign.preparedAudience)) {
+      if (
+        preparedAudienceHasManualSegmentReference(campaign.preparedAudience)
+      ) {
         campaignsWithPreparedAudienceSegmentRefs += 1;
       }
       if (buildManualSegmentRemovalPatch(campaign, Date.now())) {

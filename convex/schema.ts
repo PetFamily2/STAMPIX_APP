@@ -690,10 +690,7 @@ export default defineSchema({
       )
     ),
     audienceSource: v.optional(
-      v.union(
-        v.literal('automatic'),
-        v.literal('manual_override')
-      )
+      v.union(v.literal('automatic'), v.literal('manual_override'))
     ),
     activationStatus: v.optional(
       v.union(
@@ -774,10 +771,7 @@ export default defineSchema({
       )
     ),
     audienceSource: v.optional(
-      v.union(
-        v.literal('automatic'),
-        v.literal('manual_override')
-      )
+      v.union(v.literal('automatic'), v.literal('manual_override'))
     ),
     scheduleMode: v.optional(
       v.union(

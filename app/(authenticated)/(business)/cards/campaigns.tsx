@@ -17,6 +17,13 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  HorizontalRankingChart,
+  InsightCard,
+  KpiCard,
+  SegmentedPillControl,
+  UsageProgressBar,
+} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -24,6 +31,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -251,6 +259,22 @@ export function CampaignsHubContent() {
     (sum, campaign) => sum + campaign.reachedMessagesAllTime,
     0
   );
+  const topReachCampaigns = useMemo(
+    () =>
+      activeCampaigns
+        .slice()
+        .sort(
+          (a, b) =>
+            (b.reachedMessagesAllTime ?? 0) - (a.reachedMessagesAllTime ?? 0)
+        )
+        .slice(0, 5)
+        .map((campaign) => ({
+          label: campaign.title,
+          value: Number(campaign.reachedMessagesAllTime ?? 0),
+        })),
+    [activeCampaigns]
+  );
+  const bestReachCampaign = topReachCampaigns[0] ?? null;
   const campaignLimit = limitStatus('maxCampaigns', activeCampaigns.length);
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
@@ -448,34 +472,16 @@ export function CampaignsHubContent() {
           />
         </StickyScrollHeader>
 
-        <View
-          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
-        >
-          {TOP_TABS.map((topTab) => {
-            const isActive = topTab.key === 'campaigns';
-            return (
-              <TouchableOpacity
-                key={topTab.key}
-                onPress={() => {
-                  if (topTab.key === 'campaigns') {
-                    return;
-                  }
-                  router.setParams({ section: 'loyalty' });
-                }}
-                className={`flex-1 rounded-full py-2.5 ${
-                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-extrabold ${
-                    isActive ? 'text-white' : 'text-[#51617F]'
-                  }`}
-                >
-                  {topTab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={{ marginTop: 4 }}>
+          <SegmentedPillControl
+            items={TOP_TABS}
+            value="campaigns"
+            onChange={(nextTab) => {
+              if (nextTab === 'loyalty') {
+                router.setParams({ section: 'loyalty' });
+              }
+            }}
+          />
         </View>
 
         <TouchableOpacity
@@ -490,6 +496,41 @@ export function CampaignsHubContent() {
             <Text className="text-sm font-black text-white">צור קמפיין</Text>
           </View>
         </TouchableOpacity>
+
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="קמפיינים פעילים"
+              value={formatNumber(liveCampaigns.length)}
+              icon="megaphone-outline"
+              tone="blue"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="אוטומציות פעילות"
+              value={formatNumber(automatedCampaignsCount)}
+              icon="flash-outline"
+              tone="emerald"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="הודעות שנשלחו"
+              value={formatNumber(totalMessagesSent)}
+              icon="mail-open-outline"
+              tone="teal"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="לא פעילים"
+              value={formatNumber(inactiveCampaigns.length)}
+              icon="pause-circle-outline"
+              tone="amber"
+            />
+          </View>
+        </View>
 
         {!isEntitlementsLoading ? (
           <View className="mt-3 rounded-2xl border border-[#DCE7F8] bg-white px-4 py-3">
@@ -554,6 +595,38 @@ export function CampaignsHubContent() {
               label="הודעות"
               value={formatNumber(totalMessagesSent)}
               hint='סה"כ'
+            />
+          </View>
+        </View>
+
+        <View style={styles.analyticsStack}>
+          <HorizontalRankingChart
+            title="דירוג קמפיינים לפי Reach"
+            subtitle="מבוסס על הודעות שנשלחו בפועל"
+            data={topReachCampaigns}
+            color={DASHBOARD_TOKENS.colors.teal}
+          />
+          <InsightCard
+            title="תובנת קמפיינים"
+            body={
+              bestReachCampaign
+                ? `הקמפיין המוביל כרגע הוא "${bestReachCampaign.label}" עם ${formatNumber(
+                    bestReachCampaign.value
+                  )} הודעות שנשלחו.`
+                : 'עדיין אין נתוני Reach מספיקים לקמפיינים פעילים.'
+            }
+            tags={[
+              `פעילים: ${formatNumber(liveCampaigns.length)}`,
+              `לא פעילים: ${formatNumber(inactiveCampaigns.length)}`,
+              `בארכיון: ${formatNumber(archivedCampaigns.length)}`,
+            ]}
+          />
+          <View style={styles.limitWrap}>
+            <UsageProgressBar
+              label="שימוש במכסת קמפיינים"
+              used={campaignLimit.currentValue}
+              limit={campaignLimit.limitValue}
+              accent={DASHBOARD_TOKENS.colors.brandBlue}
             />
           </View>
         </View>
@@ -709,6 +782,26 @@ export default function CampaignsHubRoute() {
 }
 
 const styles = StyleSheet.create({
+  kpiGrid: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  kpiCell: {
+    width: '48%',
+  },
+  analyticsStack: {
+    marginTop: 16,
+    gap: 14,
+  },
+  limitWrap: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+  },
   usageStrip: {
     marginTop: 12,
     flexDirection: ROW_DIRECTION,

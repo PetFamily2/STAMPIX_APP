@@ -35,5 +35,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
     overflow: 'visible',
     flexShrink: 0,
+    paddingBottom: 8,
   },
 });

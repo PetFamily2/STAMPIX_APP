@@ -3,20 +3,28 @@ import { useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  DonutChartCard,
+  HorizontalRankingChart,
+  InsightCard,
+  KpiCard,
+  SegmentedPillControl,
+  SurfaceCard,
+} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -24,6 +32,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -42,25 +51,31 @@ type CustomerState =
   | 'CLOSE_TO_REWARD';
 type CustomerValueTier = 'REGULAR' | 'LOYAL' | 'VIP';
 
+type CustomerRow = {
+  primaryMembershipId: string;
+  customerId: string;
+  name: string;
+  phone?: string | null;
+  customerState?: string | null;
+  customerValueTier?: string | null;
+  lastVisitDaysAgo: number;
+  visitCount: number;
+  primaryProgramName: string;
+  rewardThreshold: number;
+  loyaltyProgress: number;
+};
+
 const TOP_TABS: Array<{ key: ReportsTopTab; label: string }> = [
-  { key: 'reports', label: '׳“׳•׳—׳•׳×' },
-  { key: 'customers', label: '׳׳§׳•׳—׳•׳×' },
+  { key: 'reports', label: 'דוחות' },
+  { key: 'customers', label: 'לקוחות' },
 ];
 
 const STATE_LABELS: Record<CustomerState, string> = {
-  NEW: '׳—׳“׳©',
-  ACTIVE: '׳₪׳¢׳™׳',
-  NEEDS_NURTURE: '׳“׳•׳¨׳© ׳˜׳™׳₪׳•׳—',
-  NEEDS_WINBACK: '׳“׳•׳¨׳© ׳”׳—׳–׳¨׳”',
-  CLOSE_TO_REWARD: '׳§׳¨׳•׳‘ ׳׳”׳˜׳‘׳”',
-};
-
-const STATE_COLORS: Record<CustomerState, string> = {
-  NEW: 'bg-sky-100 text-sky-700',
-  ACTIVE: 'bg-slate-100 text-slate-700',
-  NEEDS_NURTURE: 'bg-orange-100 text-orange-700',
-  NEEDS_WINBACK: 'bg-rose-100 text-rose-700',
-  CLOSE_TO_REWARD: 'bg-amber-100 text-amber-700',
+  NEW: 'חדש',
+  ACTIVE: 'פעיל',
+  NEEDS_NURTURE: 'דורש חימום',
+  NEEDS_WINBACK: 'דורש חזרה',
+  CLOSE_TO_REWARD: 'קרוב להטבה',
 };
 
 const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
@@ -69,11 +84,20 @@ const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
   VIP: 'VIP',
 };
 
-const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
-  REGULAR: 'bg-slate-100 text-slate-700',
-  LOYAL: 'bg-indigo-100 text-indigo-700',
-  VIP: 'bg-fuchsia-100 text-fuchsia-700',
+const STATE_COLORS: Record<CustomerState, { bg: string; fg: string }> = {
+  NEW: { bg: '#E0F2FE', fg: '#0369A1' },
+  ACTIVE: { bg: '#EEF2FF', fg: '#3730A3' },
+  NEEDS_NURTURE: { bg: '#FFEDD5', fg: '#C2410C' },
+  NEEDS_WINBACK: { bg: '#FEE2E2', fg: '#B91C1C' },
+  CLOSE_TO_REWARD: { bg: '#FEF3C7', fg: '#B45309' },
 };
+
+const VALUE_TIER_COLORS: Record<CustomerValueTier, { bg: string; fg: string }> =
+  {
+    REGULAR: { bg: '#E2E8F0', fg: '#334155' },
+    LOYAL: { bg: '#E0E7FF', fg: '#4338CA' },
+    VIP: { bg: '#F3E8FF', fg: '#7E22CE' },
+  };
 
 function resolveCustomerState(customer: {
   customerState?: string | null;
@@ -111,25 +135,25 @@ function formatNumber(value: number) {
 
 function formatLastVisit(daysAgo: number) {
   if (daysAgo <= 0) {
-    return '׳”׳™׳•׳';
+    return 'היום';
   }
   if (daysAgo === 1) {
-    return '׳׳×׳׳•׳';
+    return 'אתמול';
   }
-  return `׳׳₪׳ ׳™ ${daysAgo} ׳™׳׳™׳`;
+  return `לפני ${daysAgo} ימים`;
 }
 
 function buildActiveFilterLabel(activeFilter: CustomerRouteFilter) {
   if (activeFilter === 'near_reward') {
-    return '׳׳¡׳•׳ ׳: ׳׳§׳•׳—׳•׳× ׳§׳¨׳•׳‘׳™׳ ׳׳”׳˜׳‘׳”';
+    return 'מסונן: קרובים להטבה';
   }
   if (activeFilter === 'at_risk') {
-    return '׳׳¡׳•׳ ׳: ׳׳§׳•׳—׳•׳× ׳‘׳¡׳™׳›׳•׳';
+    return 'מסונן: לקוחות בסיכון';
   }
   if (activeFilter === 'reward_eligible') {
-    return '׳׳¡׳•׳ ׳: ׳׳׳×׳™׳ ׳™׳ ׳׳׳™׳׳•׳©';
+    return 'מסונן: זכאים למימוש';
   }
-  return '׳׳¡׳•׳ ׳: ׳׳§׳•׳—׳•׳× ׳—׳“׳©׳™׳';
+  return 'מסונן: לקוחות חדשים';
 }
 
 export function CustomersHubContent() {
@@ -149,14 +173,15 @@ export function CustomersHubContent() {
     filter === 'reward_eligible'
       ? filter
       : null;
+
   const { activeBusinessId } = useActiveBusiness();
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('smartAnalytics');
   const smartCopy = getLockedAreaCopy('smartAnalytics', smartGate.requiredPlan);
-  const customerList = useQuery(
+  const customerList = (useQuery(
     api.customerCards.listBusinessCustomersBase,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
+  ) ?? []) as CustomerRow[];
   const snapshot = useQuery(
     api.events.getCustomerManagementSnapshot,
     activeBusinessId && entitlements && !smartGate.isLocked
@@ -201,6 +226,7 @@ export function CustomersHubContent() {
     vipCustomers: 0,
     newCustomers: 0,
   };
+
   const needsAttentionCustomersRaw =
     (summary.needsNurtureCustomers ?? 0) + (summary.needsWinbackCustomers ?? 0);
   const needsAttentionCustomers =
@@ -216,9 +242,8 @@ export function CustomersHubContent() {
   const rewardEligibleCards = rewardEligibilitySummary?.redeemableCards ?? 0;
 
   const filteredCustomers = useMemo(() => {
-    const customers = customerList ?? [];
     const routeFilteredCustomers = activeFilter
-      ? customers.filter((customer) => {
+      ? customerList.filter((customer) => {
           const state = resolveCustomerState(customer);
           if (activeFilter === 'near_reward') {
             return state === 'CLOSE_TO_REWARD';
@@ -235,7 +260,7 @@ export function CustomersHubContent() {
           }
           return state === 'NEW';
         })
-      : customers;
+      : customerList;
     const normalizedSearch = search.trim().toLowerCase();
     if (!normalizedSearch) {
       return routeFilteredCustomers;
@@ -247,6 +272,47 @@ export function CustomersHubContent() {
     );
   }, [activeFilter, customerList, search]);
 
+  const customerHealthChart = useMemo(
+    () => [
+      {
+        label: 'פעילים',
+        value: smartGate.isLocked ? 0 : summary.activeCustomers,
+        color: '#1E4ED8',
+      },
+      {
+        label: 'בסיכון',
+        value: smartGate.isLocked ? 0 : needsAttentionCustomers,
+        color: '#EF4444',
+      },
+      {
+        label: 'חדשים',
+        value: smartGate.isLocked ? 0 : summary.newCustomers,
+        color: '#06B6D4',
+      },
+      {
+        label: 'VIP / Loyal',
+        value: smartGate.isLocked
+          ? 0
+          : (summary.vipCustomers ?? 0) + (summary.loyalCustomers ?? 0),
+        color: '#8B5CF6',
+      },
+    ],
+    [smartGate.isLocked, summary, needsAttentionCustomers]
+  );
+
+  const topActiveCustomers = useMemo(
+    () =>
+      customerList
+        .slice()
+        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+        .slice(0, 5)
+        .map((customer) => ({
+          label: customer.name,
+          value: Number(customer.visitCount ?? 0),
+        })),
+    [customerList]
+  );
+
   const openCustomerCard = (customerUserId: string) => {
     router.push({
       pathname: '/(authenticated)/(business)/customer/[customerUserId]',
@@ -255,22 +321,22 @@ export function CustomersHubContent() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F6F7FB]" edges={[]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
-        className="flex-1"
+        style={styles.scroll}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#F6F7FB"
+          backgroundColor={DASHBOARD_TOKENS.pageBackground}
         >
           <BusinessScreenHeader
-            title="׳׳§׳•׳—׳•׳×"
-            subtitle="׳׳¦׳‘ ׳׳§׳•׳—׳•׳×, ׳“׳¨׳’׳•׳× ׳¢׳¨׳ ׳•׳ª׳׳‘׳ ׳•׳ª ׳“׳˜׳¨׳׳™׳ ׳™׳¡׳˜׳™׳•׳ª"
+            title="לקוחות"
+            subtitle="מצב לקוחות, דרגות ערך ותובנות"
             titleAccessory={
               <BackButton
                 onPress={() =>
@@ -281,36 +347,68 @@ export function CustomersHubContent() {
           />
         </StickyScrollHeader>
 
-        <View
-          className={`mt-4 rounded-full border border-[#D6E2F8] bg-[#EEF3FF] p-1 ${tw.flexRow} gap-1`}
-        >
-          {TOP_TABS.map((topTab) => {
-            const isActive = topTab.key === 'customers';
-            return (
-              <TouchableOpacity
-                key={topTab.key}
-                onPress={() => {
-                  if (topTab.key === 'reports') {
-                    router.setParams({ tab: 'reports' });
-                  }
-                }}
-                className={`flex-1 rounded-full py-2.5 ${
-                  isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
-                }`}
-              >
-                <Text
-                  className={`text-center text-sm font-extrabold ${
-                    isActive ? 'text-white' : 'text-[#51617F]'
-                  }`}
-                >
-                  {topTab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={{ marginTop: 4 }}>
+          <SegmentedPillControl
+            items={TOP_TABS}
+            value="customers"
+            onChange={(nextTab) => {
+              if (nextTab === 'reports') {
+                router.setParams({ tab: 'reports' });
+              }
+            }}
+          />
         </View>
 
-        <View className="mt-5">
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="לקוחות פעילים"
+              value={
+                smartGate.isLocked
+                  ? '--'
+                  : formatNumber(summary.activeCustomers)
+              }
+              icon="people-outline"
+              tone="blue"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="לקוחות בסיכון"
+              value={
+                smartGate.isLocked
+                  ? '--'
+                  : formatNumber(needsAttentionCustomers)
+              }
+              icon="alert-circle-outline"
+              tone="red"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="קרובים להטבה"
+              value={
+                smartGate.isLocked ? '--' : formatNumber(closeToRewardCustomers)
+              }
+              icon="gift-outline"
+              tone="amber"
+            />
+          </View>
+          <View style={styles.kpiCell}>
+            <KpiCard
+              label="VIP / Loyal"
+              value={
+                smartGate.isLocked
+                  ? '--'
+                  : `${formatNumber(summary.vipCustomers ?? 0)} / ${formatNumber(summary.loyalCustomers ?? 0)}`
+              }
+              icon="diamond-outline"
+              tone="violet"
+            />
+          </View>
+        </View>
+
+        <View style={{ marginTop: 16 }}>
           <FeatureGate
             isLocked={smartGate.isLocked}
             requiredPlan={smartGate.requiredPlan}
@@ -327,230 +425,177 @@ export function CustomersHubContent() {
             subtitle={smartCopy.lockedSubtitle}
             benefits={smartCopy.benefits}
           >
-            <View className="rounded-3xl border border-[#E5EAF2] bg-white p-5">
-              <View className={`${tw.flexRow} flex-wrap gap-3`}>
-                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
-                  <Text className="text-right text-xs font-semibold text-[#64748B]">
-                    ׳₪׳¢׳™׳׳™׳
-                  </Text>
-                  <Text className="mt-1 text-right text-2xl font-black text-[#0F294B]">
-                    {smartGate.isLocked
-                      ? '--'
-                      : formatNumber(summary.activeCustomers)}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#FFF6F6] p-3">
-                  <Text className="text-right text-xs font-semibold text-[#B45353]">
-                    ׳‘׳¡׳™׳›׳•׳
-                  </Text>
-                  <Text className="mt-1 text-right text-2xl font-black text-[#B42318]">
-                    {smartGate.isLocked
-                      ? '--'
-                      : formatNumber(needsAttentionCustomers)}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#FFF7ED] p-3">
-                  <Text className="text-right text-xs font-semibold text-[#B45309]">
-                    ׳§׳¨׳•׳‘׳™׳ ׳׳”׳˜׳‘׳”
-                  </Text>
-                  <Text className="mt-1 text-right text-2xl font-black text-[#C2410C]">
-                    {smartGate.isLocked
-                      ? '--'
-                      : formatNumber(closeToRewardCustomers)}
-                  </Text>
-                </View>
-                <View className="w-[48%] rounded-2xl border border-[#E5EAF2] bg-[#EEF2FF] p-3">
-                  <Text className="text-right text-xs font-semibold text-[#4338CA]">
-                    VIP / Loyal
-                  </Text>
-                  <Text className="mt-1 text-right text-2xl font-black text-[#3730A3]">
-                    {smartGate.isLocked
-                      ? '--'
-                      : `${formatNumber(summary.vipCustomers ?? 0)} / ${formatNumber(
-                          summary.loyalCustomers ?? 0
-                        )}`}
-                  </Text>
-                </View>
-              </View>
-
-              <Text
-                className={`mt-3 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-              >
-                ׳׳§׳•׳—׳•׳× ׳–׳›׳׳™׳ ׳׳”׳˜׳‘׳”:{' '}
-                {smartGate.isLocked
-                  ? '--'
-                  : formatNumber(rewardEligibleCustomers)}{' '}
-                ֲ· ׳›׳¨׳˜׳™׳¡׳™׳•׳× ׳׳׳׳•׳×:{' '}
-                {smartGate.isLocked ? '--' : formatNumber(rewardEligibleCards)}
-              </Text>
-
-              <View className="mt-4 rounded-3xl border border-[#E5EAF2] bg-[#182F4E] px-5 py-5">
-                <Text
-                  className={`text-lg font-black text-[#7EB1FF] ${tw.textStart}`}
-                >
-                  ׳×׳•׳‘׳ ׳•׳× ׳׳§׳•׳—׳•׳×
-                </Text>
-                {smartGate.isLocked ? (
-                  <Text
-                    className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}
-                  >
-                    ׳©׳“׳¨׳•׳’ ׳-Pro AI ׳™׳₪׳×׳— ׳×׳•׳‘׳ ׳•׳× ׳׳§׳•׳—׳•׳× ׳‘׳–׳׳ ׳׳׳×.
-                  </Text>
-                ) : snapshot === undefined ? (
-                  <ActivityIndicator color="#FFFFFF" style={{ marginTop: 12 }} />
-                ) : snapshot.insights.length === 0 ? (
-                  <Text
-                    className={`mt-2 text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}
-                  >
-                    ׳׳™׳ ׳›׳¨׳’׳¢ ׳×׳•׳‘׳ ׳•׳× ׳׳”׳¦׳’׳”.
-                  </Text>
-                ) : (
-                  <View className="mt-2 gap-2">
-                    {snapshot.insights.map((insight) => (
-                      <Text
-                        key={insight}
-                        className={`text-sm leading-6 text-[#E2E8F6] ${tw.textStart}`}
-                      >
-                        ג€¢ {insight}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-              </View>
+            <View style={styles.analyticsStack}>
+              <DonutChartCard
+                title="הרכב בריאות לקוחות"
+                subtitle="פילוח מצב הלקוחות בעסק"
+                centerLabel="סה״כ לקוחות"
+                centerValue={
+                  smartGate.isLocked
+                    ? '--'
+                    : formatNumber(summary.totalCustomers)
+                }
+                data={customerHealthChart}
+              />
+              <HorizontalRankingChart
+                title="לקוחות פעילים מובילים"
+                subtitle="דירוג לפי מספר ביקורים"
+                data={topActiveCustomers}
+                color={DASHBOARD_TOKENS.colors.violet}
+              />
+              <InsightCard
+                title="תובנת שימור"
+                body={
+                  smartGate.isLocked
+                    ? 'שדרוג למסלול מתקדם יפתח תובנות לקוחות בזמן אמת.'
+                    : `יש כרגע ${formatNumber(closeToRewardCustomers)} לקוחות קרובים להטבה ו-${formatNumber(
+                        needsAttentionCustomers
+                      )} שדורשים פעולה.`
+                }
+                tags={[
+                  `זכאים למימוש: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCustomers)}`,
+                  `כרטיסיות מלאות: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCards)}`,
+                ]}
+              />
             </View>
           </FeatureGate>
         </View>
 
-        <View className="mt-5 rounded-full border border-[#E5EAF2] bg-white px-4 py-3">
-          <View className={`${tw.flexRow} items-center gap-2`}>
+        <SurfaceCard style={styles.searchCard}>
+          <View style={styles.searchRow}>
             <Ionicons name="search-outline" size={20} color="#B0BAC8" />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="׳—׳₪׳©׳• ׳׳§׳•׳— ׳׳₪׳™ ׳©׳ ׳׳• ׳˜׳׳₪׳•׳"
+              placeholder="חיפוש לקוח לפי שם או טלפון"
               placeholderTextColor="#B0BAC8"
-              className={`flex-1 text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
+              className={tw.textStart}
+              style={styles.searchInput}
             />
           </View>
-        </View>
+        </SurfaceCard>
 
-        <View className={`${tw.flexRow} mt-4 items-center justify-between`}>
-          <Text className="text-xs font-semibold text-[#64748B]">
-            {`${formatNumber(filteredCustomers.length)} ׳׳§׳•׳—׳•׳×`}
-          </Text>
-          {customerList ? (
-            <Text className="text-xs font-semibold text-[#64748B]">
-              {formatNumber(customerList.length)} ׳¡׳”׳´׳›
-            </Text>
-          ) : null}
+        <View style={styles.listHeader}>
+          <Text
+            style={styles.listHeaderText}
+          >{`${formatNumber(filteredCustomers.length)} לקוחות`}</Text>
+          <Text
+            style={styles.listHeaderText}
+          >{`${formatNumber(customerList.length)} סה"כ`}</Text>
         </View>
 
         {activeFilter ? (
-          <View
-            className={`${tw.selfStart} mt-2 rounded-full bg-[#E8F1FF] px-3 py-1`}
-          >
-            <Text className="text-[11px] font-bold text-[#1D4ED8]">
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>
               {buildActiveFilterLabel(activeFilter)}
             </Text>
           </View>
         ) : null}
 
-        <View className="mt-3 gap-3">
-          {customerList === undefined ? (
-            <View className="items-center justify-center py-8">
-              <ActivityIndicator color="#2F6BFF" />
-            </View>
-          ) : filteredCustomers.length === 0 ? (
-            <View className="rounded-2xl border border-[#E5EAF2] bg-white p-4">
-              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                ׳׳ ׳ ׳׳¦׳׳• ׳׳§׳•׳—׳•׳× ׳©׳×׳•׳׳׳™׳ ׳׳—׳™׳₪׳•׳©.
+        <View style={styles.listWrap}>
+          {customerList.length === 0 ? (
+            <SurfaceCard>
+              <Text className={tw.textStart} style={styles.emptyText}>
+                אין עדיין לקוחות להצגה.
               </Text>
-            </View>
+            </SurfaceCard>
+          ) : filteredCustomers.length === 0 ? (
+            <SurfaceCard>
+              <Text className={tw.textStart} style={styles.emptyText}>
+                לא נמצאו לקוחות התואמים לחיפוש.
+              </Text>
+            </SurfaceCard>
           ) : (
             filteredCustomers.map((customer) => {
               const customerState = resolveCustomerState(customer);
               const customerValueTier = resolveCustomerValueTier(customer);
-
               return (
                 <Pressable
                   key={customer.primaryMembershipId}
                   onPress={() => openCustomerCard(String(customer.customerId))}
-                  className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
+                  style={styles.customerCard}
                 >
-                  <View className={`${tw.flexRow} items-start justify-between`}>
-                    <View className="items-end">
-                      <Text
-                        className={`text-xs text-[#94A3B8] ${tw.textStart}`}
-                      >
-                        ׳‘׳™׳§׳•׳¨ ׳׳—׳¨׳•׳
-                      </Text>
-                      <Text
-                        className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
-                      >
-                        {formatLastVisit(customer.lastVisitDaysAgo)}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                      >
-                        {customer.visitCount} ׳‘׳™׳§׳•׳¨׳™׳ ג€¢{' '}
-                        {customer.primaryProgramName}
-                      </Text>
-                    </View>
-
-                    <View className="flex-1 items-end px-3">
-                      <Text
-                        className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
-                      >
-                        {customer.name}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
-                      >
-                        {customer.phone ?? '׳׳׳ ׳˜׳׳₪׳•׳'}
-                      </Text>
-                      <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
-                        <View
-                          className={`rounded-full px-3 py-1 ${
-                            STATE_COLORS[customerState]
-                          }`}
-                        >
-                          <Text className="text-xs font-bold">
-                            {STATE_LABELS[customerState]}
-                          </Text>
-                        </View>
-                        <View
-                          className={`rounded-full px-3 py-1 ${
-                            VALUE_TIER_COLORS[customerValueTier]
-                          }`}
-                        >
-                          <Text className="text-xs font-bold">
-                            {VALUE_TIER_LABELS[customerValueTier]}
-                          </Text>
-                        </View>
-                        {Number(customer.rewardThreshold) > 0 &&
-                        Number(customer.loyaltyProgress) >=
-                          Number(customer.rewardThreshold) ? (
-                          <View className="rounded-full bg-emerald-100 px-3 py-1">
-                            <Text className="text-xs font-bold text-emerald-700">
-                              {'\u05d6\u05db\u05d0\u05d9 \u05dc\u05de\u05d9\u05de\u05d5\u05e9'}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text
-                        className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
-                      >
-                        ׳”׳×׳§׳“׳׳•׳× ׳׳”׳˜׳‘׳”: {customer.loyaltyProgress}/
-                        {customer.rewardThreshold}
-                      </Text>
-                    </View>
-
-                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
+                  <View style={styles.customerRow}>
+                    <View style={styles.avatar}>
                       <Ionicons
                         name="person-outline"
                         size={20}
                         color="#2F6BFF"
                       />
+                    </View>
+
+                    <View style={styles.customerMain}>
+                      <Text
+                        className={tw.textStart}
+                        style={styles.customerName}
+                      >
+                        {customer.name}
+                      </Text>
+                      <Text
+                        className={tw.textStart}
+                        style={styles.customerSecondary}
+                      >
+                        {customer.phone ?? 'ללא טלפון'}
+                      </Text>
+                      <View style={styles.badges}>
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor: STATE_COLORS[customerState].bg,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              { color: STATE_COLORS[customerState].fg },
+                            ]}
+                          >
+                            {STATE_LABELS[customerState]}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor:
+                                VALUE_TIER_COLORS[customerValueTier].bg,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              {
+                                color: VALUE_TIER_COLORS[customerValueTier].fg,
+                              },
+                            ]}
+                          >
+                            {VALUE_TIER_LABELS[customerValueTier]}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        className={tw.textStart}
+                        style={styles.progressText}
+                      >
+                        התקדמות להטבה: {customer.loyaltyProgress}/
+                        {customer.rewardThreshold}
+                      </Text>
+                    </View>
+
+                    <View style={styles.customerMeta}>
+                      <Text className={tw.textStart} style={styles.metaTitle}>
+                        ביקור אחרון
+                      </Text>
+                      <Text className={tw.textStart} style={styles.metaValue}>
+                        {formatLastVisit(customer.lastVisitDaysAgo)}
+                      </Text>
+                      <Text className={tw.textStart} style={styles.metaSub}>
+                        {customer.visitCount} ביקורים ·{' '}
+                        {customer.primaryProgramName}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
@@ -564,18 +609,167 @@ export function CustomersHubContent() {
 }
 
 export default function BusinessCustomersRoute() {
-  const { preview, map, filter } = useLocalSearchParams<{
+  const { tab, preview, map } = useLocalSearchParams<{
+    tab?: string;
     preview?: string;
     map?: string;
-    filter?: string;
   }>();
 
-  return (
-    <Redirect
-      href={{
-        pathname: '/(authenticated)/(business)/analytics',
-        params: { preview, map, tab: 'customers', filter },
-      }}
-    />
-  );
+  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+
+  if (!isPreviewMode && tab === 'reports') {
+    return (
+      <Redirect href="/(authenticated)/(business)/analytics?tab=reports" />
+    );
+  }
+
+  return <CustomersHubContent />;
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: DASHBOARD_TOKENS.pageBackground,
+  },
+  scroll: {
+    flex: 1,
+  },
+  kpiGrid: {
+    marginTop: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  kpiCell: {
+    width: '48%',
+  },
+  analyticsStack: {
+    gap: 14,
+  },
+  searchCard: {
+    marginTop: 18,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  listHeader: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  listHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  filterBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    borderRadius: 999,
+    backgroundColor: '#E8F1FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  listWrap: {
+    marginTop: 10,
+    gap: 12,
+  },
+  customerCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E3E9F4',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECF1FF',
+  },
+  customerMain: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  customerName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F294B',
+  },
+  customerSecondary: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8A97AC',
+  },
+  badges: {
+    marginTop: 8,
+    flexDirection: 'row-reverse',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  customerMeta: {
+    minWidth: 92,
+    alignItems: 'flex-end',
+  },
+  metaTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  metaValue: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  metaSub: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+});

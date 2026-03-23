@@ -5,6 +5,7 @@ export type CustomerMembershipView = {
   programId: string;
   businessName: string;
   businessLogoUrl: string | null;
+  programImageUrl: string | null;
   programTitle: string;
   rewardName: string;
   stampIcon: string;

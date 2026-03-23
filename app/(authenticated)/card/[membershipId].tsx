@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -384,6 +383,7 @@ export default function CardDetailsScreen() {
             <ProgramCustomerCardPreview
               businessName={membership.businessName}
               businessLogoUrl={membership.businessLogoUrl}
+              programImageUrl={membership.programImageUrl}
               title={membership.programTitle}
               rewardName={membership.rewardName}
               maxStamps={goal}

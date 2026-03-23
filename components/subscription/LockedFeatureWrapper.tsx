@@ -64,8 +64,11 @@ export function FeatureGate({
             <Text style={styles.subtitle}>{resolvedSubtitle}</Text>
             {Array.isArray(benefits) && benefits.length > 0 ? (
               <View style={styles.benefits}>
-                {benefits.slice(0, 3).map((benefit) => (
-                  <Text key={benefit} style={styles.benefitText}>
+                {benefits.slice(0, 3).map((benefit, index) => (
+                  <Text
+                    key={`benefit-${index}-${benefit}`}
+                    style={styles.benefitText}
+                  >
                     - {benefit}
                   </Text>
                 ))}
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 20,
+    borderRadius: 22,
   },
   content: {
     minHeight: 64,
@@ -112,9 +115,9 @@ const styles = StyleSheet.create({
   lockCard: {
     width: '86%',
     maxWidth: 360,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#DCE6F8',
+    borderColor: '#D8E3F6',
     backgroundColor: 'rgba(255,255,255,0.94)',
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -127,7 +130,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#E0E7FF',
   },
   title: {
     fontSize: 15,
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     minHeight: 40,
     borderRadius: 999,
-    backgroundColor: '#1D4ED8',
+    backgroundColor: '#1E4ED8',
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',

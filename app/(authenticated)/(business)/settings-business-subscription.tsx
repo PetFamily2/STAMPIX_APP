@@ -316,6 +316,7 @@ export default function BusinessSettingsSubscriptionScreen() {
 
   const usageItems = [
     {
+      key: 'billing_period',
       label: 'חיוב',
       value: entitlements?.billingPeriod
         ? BILLING_PERIOD_LABELS[entitlements.billingPeriod]
@@ -323,11 +324,13 @@ export default function BusinessSettingsSubscriptionScreen() {
       hint: currentStatusLabel,
     },
     {
+      key: 'cards_usage',
       label: 'כרטיסים',
       value: formatLimit(usageSummary?.cardsUsed ?? 0, cardsStatus.limitValue),
       hint: 'בשימוש',
     },
     {
+      key: 'customers_usage',
       label: 'לקוחות',
       value: formatLimit(
         usageSummary?.customersUsed ?? 0,
@@ -336,6 +339,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       hint: 'בעסק',
     },
     {
+      key: 'retention_usage',
       label: 'קמפיינים חוזרים',
       value: formatLimit(
         usageSummary?.activeRetentionActionsUsed ?? 0,
@@ -344,6 +348,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       hint: 'קמפיינים',
     },
     {
+      key: 'campaigns_usage',
       label: 'קמפיינים',
       value: formatLimit(
         usageSummary?.activeManagementCampaignsUsed ?? 0,
@@ -352,6 +357,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       hint: 'פעילים',
     },
     {
+      key: 'ai_usage',
       label: 'AI',
       value: formatLimit(
         usageSummary?.aiExecutionsThisMonthUsed ?? 0,
@@ -387,7 +393,7 @@ export default function BusinessSettingsSubscriptionScreen() {
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
-            <View key={item.label} style={styles.usageChip}>
+            <View key={item.key} style={styles.usageChip}>
               {isLoading || usageSummary === undefined ? (
                 <ActivityIndicator size="small" color="#2F6BFF" />
               ) : (

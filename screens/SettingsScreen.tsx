@@ -109,9 +109,8 @@ const TEXT = {
     '\u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea, \u05d0\u05e9\u05e8\u05d5 \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea \u05d4\u05de\u05db\u05e9\u05d9\u05e8.',
   switchModeFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  staffScannerTitle: '\u05de\u05e2\u05d1\u05e8 \u05dc\u05e1\u05d5\u05e8\u05e7',
-  staffScannerAction:
-    '\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05e1\u05d5\u05e8\u05e7',
+  staffBusinessTitlePrefix: '\u05de\u05e2\u05d1\u05e8 \u05dc',
+  staffScannerAction: '\u05dc\u05d7\u05e5 \u05dc\u05de\u05e2\u05d1\u05e8',
   staffBusinessesTitle:
     '\u05d4\u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05d1\u05d4\u05dd \u05d0\u05e0\u05d9 \u05e2\u05d5\u05d1\u05d3',
   logoutFailed:
@@ -611,7 +610,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.staffBusinessTextWrap}>
                 <Text style={styles.staffBusinessTitle}>
-                  {TEXT.staffScannerTitle} {singleStaffBusiness.name}
+                  {TEXT.staffBusinessTitlePrefix} {singleStaffBusiness.name}
                 </Text>
               </View>
               {staffBusinessBusyId === String(singleStaffBusiness.id) ? (
@@ -655,7 +654,7 @@ export default function SettingsScreen() {
                   <View style={styles.staffBusinessRowInner}>
                     <View style={styles.staffBusinessRowTextWrap}>
                       <Text style={styles.staffBusinessRowTitle}>
-                        {TEXT.staffScannerTitle} {business.name}
+                        {TEXT.staffBusinessTitlePrefix} {business.name}
                       </Text>
                     </View>
                     {staffBusinessBusyId === String(business.id) ? (

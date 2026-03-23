@@ -65,6 +65,7 @@ type CustomerMembershipRecord = {
   programId: Id<'loyaltyPrograms'>;
   businessName: string;
   businessLogoUrl: string | null;
+  programImageUrl: string | null;
   programTitle: string;
   rewardName: string;
   stampIcon: string;
@@ -146,6 +147,18 @@ function isLifecycleJoinable(lifecycle: 'draft' | 'active' | 'archived') {
 
 function isLifecycleOperational(lifecycle: 'draft' | 'active' | 'archived') {
   return lifecycle === 'active' || lifecycle === 'archived';
+}
+
+async function resolveProgramImageUrl(ctx: any, program: any) {
+  const storageId = program.imageStorageId as Id<'_storage'> | undefined;
+  if (storageId) {
+    const url = await ctx.storage.getUrl(storageId);
+    if (url) {
+      return url;
+    }
+  }
+
+  return program.imageUrl ?? null;
 }
 
 async function listActiveProgramsForBusiness(
@@ -245,6 +258,7 @@ export const byCustomer = query({
           programId: program._id,
           businessName: business.name,
           businessLogoUrl: business.logoUrl ?? null,
+          programImageUrl: await resolveProgramImageUrl(ctx, program),
           programTitle: program.title,
           rewardName: program.rewardName,
           stampIcon: program.stampIcon,
@@ -362,6 +376,7 @@ export const byCustomerBusinesses = query({
         lastActivityAt: number;
         previewProgramTitle: string | null;
         previewRewardName: string | null;
+        previewProgramImageUrl: string | null;
         previewCardThemeId: string | null;
         previewMaxStamps: number | null;
         previewCurrentStamps: number | null;
@@ -387,6 +402,7 @@ export const byCustomerBusinesses = query({
       }
 
       const key = String(business._id);
+      const previewProgramImageUrl = await resolveProgramImageUrl(ctx, program);
       const lastActivityAt =
         membership.lastStampAt ??
         membership.updatedAt ??
@@ -405,6 +421,7 @@ export const byCustomerBusinesses = query({
           lastActivityAt,
           previewProgramTitle: program.title,
           previewRewardName: program.rewardName,
+          previewProgramImageUrl,
           previewCardThemeId: program.cardThemeId ?? null,
           previewMaxStamps: Number(program.maxStamps ?? 0),
           previewCurrentStamps: Number(membership.currentStamps ?? 0),
@@ -421,6 +438,7 @@ export const byCustomerBusinesses = query({
         existing.lastActivityAt = lastActivityAt;
         existing.previewProgramTitle = program.title;
         existing.previewRewardName = program.rewardName;
+        existing.previewProgramImageUrl = previewProgramImageUrl;
         existing.previewCardThemeId = program.cardThemeId ?? null;
         existing.previewMaxStamps = Number(program.maxStamps ?? 0);
         existing.previewCurrentStamps = Number(membership.currentStamps ?? 0);
@@ -533,8 +551,8 @@ export const getCustomerBusiness = query({
       allPrograms.map((program: any) => [String(program._id), program])
     );
 
-    const joinedPrograms = memberships
-      .map((membership: any) => {
+    const joinedProgramRows = await Promise.all(
+      memberships.map(async (membership: any) => {
         const program = programById.get(String(membership.programId));
         if (
           !program ||
@@ -549,6 +567,7 @@ export const getCustomerBusiness = query({
           programId: program._id,
           title: program.title,
           rewardName: program.rewardName,
+          programImageUrl: await resolveProgramImageUrl(ctx, program),
           maxStamps,
           stampIcon: program.stampIcon,
           stampShape: program.stampShape ?? 'circle',
@@ -564,6 +583,9 @@ export const getCustomerBusiness = query({
             null,
         };
       })
+    );
+
+    const joinedPrograms = joinedProgramRows
       .filter((row): row is NonNullable<typeof row> => row !== null)
       .sort((left, right) => {
         const leftAt = left.lastStampAt ?? 0;
@@ -579,10 +601,11 @@ export const getCustomerBusiness = query({
         isLifecycleJoinable(resolveProgramLifecycle(program))
       )
       .filter((program: any) => !joinedProgramIdSet.has(String(program._id)))
-      .map((program: any) => ({
+      .map(async (program: any) => ({
         programId: program._id,
         title: program.title,
         rewardName: program.rewardName,
+        programImageUrl: await resolveProgramImageUrl(ctx, program),
         maxStamps: Number(program.maxStamps ?? 0),
         stampIcon: program.stampIcon,
         stampShape: program.stampShape ?? 'circle',
@@ -592,10 +615,12 @@ export const getCustomerBusiness = query({
         currentStamps: 0,
         canRedeem: false,
         lastStampAt: null,
-      }))
-      .sort((left, right) =>
-        String(left.title ?? '').localeCompare(String(right.title ?? ''), 'he')
-      );
+      }));
+
+    const resolvedAvailablePrograms = await Promise.all(availablePrograms);
+    resolvedAvailablePrograms.sort((left, right) =>
+      String(left.title ?? '').localeCompare(String(right.title ?? ''), 'he')
+    );
 
     return {
       business: {
@@ -607,7 +632,7 @@ export const getCustomerBusiness = query({
         serviceTags: business.serviceTags ?? [],
       },
       joinedPrograms,
-      availablePrograms,
+      availablePrograms: resolvedAvailablePrograms,
     };
   },
 });

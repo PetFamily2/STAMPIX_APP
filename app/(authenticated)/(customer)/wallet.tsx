@@ -56,6 +56,7 @@ type WalletBusiness = {
   lastActivityAt: number;
   previewProgramTitle: string | null;
   previewRewardName: string | null;
+  previewProgramImageUrl: string | null;
   previewCardThemeId: string | null;
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
@@ -256,6 +257,7 @@ export default function WalletScreen() {
                         business.businessName ?? TEXT.businessFallback
                       }
                       businessLogoUrl={business.businessLogoUrl}
+                      programImageUrl={business.previewProgramImageUrl}
                       title={
                         business.previewProgramTitle ?? TEXT.joinedPrograms
                       }

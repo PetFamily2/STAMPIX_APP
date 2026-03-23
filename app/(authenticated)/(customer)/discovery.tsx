@@ -107,6 +107,7 @@ type SavedBusinessQuery = {
   redeemableCount: number;
   previewProgramTitle: string | null;
   previewRewardName: string | null;
+  previewProgramImageUrl: string | null;
   previewCardThemeId: string | null;
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
@@ -320,6 +321,7 @@ export default function DiscoveryScreen() {
                   <ProgramCustomerCardPreview
                     businessName={business.businessName}
                     businessLogoUrl={business.businessLogoUrl}
+                    programImageUrl={business.previewProgramImageUrl}
                     title={
                       business.previewProgramTitle ?? business.businessName
                     }
