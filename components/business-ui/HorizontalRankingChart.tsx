@@ -30,13 +30,13 @@ export function HorizontalRankingChart({
     <ChartCardShell title={title} subtitle={subtitle}>
       <View style={styles.chartBox}>
         {chartData.length > 0 ? (
-          chartData.map((item) => {
+          chartData.map((item, index) => {
             const fillPercent = Math.max(
               6,
               Math.round((item.value / maxValue) * 100)
             );
             return (
-              <View key={item.label} style={styles.row}>
+              <View key={`${item.label}-${index}`} style={styles.row}>
                 <View style={styles.rowTextWrap}>
                   <Text
                     className={tw.textStart}

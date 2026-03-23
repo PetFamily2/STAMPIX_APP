@@ -38,11 +38,19 @@ export function InsightCard({
         </Text>
         {tags.length > 0 ? (
           <View style={styles.tagsWrap}>
-            {tags.slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
+            {(() => {
+              const counts = new Map<string, number>();
+              return tags.slice(0, 3).map((tag) => {
+                const nextCount = (counts.get(tag) ?? 0) + 1;
+                counts.set(tag, nextCount);
+                const key = nextCount === 1 ? tag : `${tag}-${nextCount}`;
+                return (
+                  <View key={key} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                );
+              });
+            })()}
           </View>
         ) : null}
         {ctaLabel && onPress ? (

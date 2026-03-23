@@ -78,14 +78,14 @@ export function DonutChartCard({
               strokeWidth={strokeWidth}
               fill="none"
             />
-            {pieData.map((item) => {
+            {pieData.map((item, index) => {
               const segment =
                 totalValue > 0 ? (item.value / totalValue) * circumference : 0;
               const dashOffset = -consumed;
               consumed += segment;
               return (
                 <Circle
-                  key={item.label}
+                  key={`${item.label}-${index}`}
                   cx={center}
                   cy={center}
                   r={radius}
@@ -111,8 +111,8 @@ export function DonutChartCard({
         </View>
       </View>
       <View style={styles.legendWrap}>
-        {legendData.map((item) => (
-          <View key={item.label} style={styles.legendItem}>
+        {legendData.map((item, index) => (
+          <View key={`${item.label}-${index}`} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: item.color }]} />
             <Text style={styles.legendText}>{item.label}</Text>
           </View>

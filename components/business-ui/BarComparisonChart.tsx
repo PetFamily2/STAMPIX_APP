@@ -43,13 +43,13 @@ export function BarComparisonChart({
     <ChartCardShell title={title} subtitle={subtitle}>
       <View style={styles.chartBox}>
         <View style={styles.plotArea}>
-          {chartData.map((item) => {
+          {chartData.map((item, index) => {
             const percent = Math.max(
               5,
               Math.round((item.value / maxValue) * 100)
             );
             return (
-              <View key={item.label} style={styles.column}>
+              <View key={`${item.label}-${index}`} style={styles.column}>
                 <View style={styles.columnTrack}>
                   <View
                     style={[
