@@ -547,6 +547,20 @@ export default function MerchantDashboardScreen() {
       ),
     [programs]
   );
+  const draftPrograms = useMemo(
+    () =>
+      (programs ?? []).filter(
+        (program: LoyaltyProgramSummary) => program.lifecycle === 'draft'
+      ),
+    [programs]
+  );
+  const archivedPrograms = useMemo(
+    () =>
+      (programs ?? []).filter(
+        (program: LoyaltyProgramSummary) => program.lifecycle === 'archived'
+      ),
+    [programs]
+  );
 
   const stamps7d = useMemo(
     () => sumStampsLast7Days(activity?.daily),
@@ -668,6 +682,22 @@ export default function MerchantDashboardScreen() {
     }
 
     if (programs !== undefined && activePrograms.length === 0) {
+      if (draftPrograms.length > 0) {
+        return {
+          key: 'activate_draft_card',
+          message:
+            'יש כרטיסיות בטיוטה. כדאי להפעיל כרטיס קיים כדי להתחיל לצרף לקוחות',
+          route: '/(authenticated)/(business)/cards',
+        };
+      }
+      if (archivedPrograms.length > 0) {
+        return {
+          key: 'restore_archived_card',
+          message:
+            'כל הכרטיסיות בארכיון. כדאי לשחזר או ליצור כרטיס פעיל כדי להתחיל לצרף לקוחות',
+          route: '/(authenticated)/(business)/cards',
+        };
+      }
       return {
         key: 'no_cards',
         message: 'כדאי ליצור כרטיס נאמנות ראשון כדי להתחיל לצרף לקוחות',
@@ -723,11 +753,13 @@ export default function MerchantDashboardScreen() {
     };
   }, [
     activePrograms.length,
+    archivedPrograms.length,
     activity,
-    atLimitEntry,
     businessSettings?.profileCompletion,
     customerSnapshot,
-    nearLimitEntry,
+    displayAtLimitEntry,
+    displayNearLimitEntry,
+    draftPrograms.length,
     programs,
     redemptions7d,
     smartGate.isLocked,
@@ -758,7 +790,12 @@ export default function MerchantDashboardScreen() {
         key: 'no_active_cards',
         priority: 2,
         title: 'אין כרטיס נאמנות פעיל',
-        subtitle: 'כדאי להקים כרטיס ראשון כדי להתחיל לצבור לקוחות.',
+        subtitle:
+          draftPrograms.length > 0
+            ? `יש ${formatNumber(draftPrograms.length)} טיוטות. הפעילו כרטיס קיים כדי להתחיל לצבור לקוחות.`
+            : archivedPrograms.length > 0
+              ? 'כל הכרטיסיות בארכיון. שחזרו או צרו כרטיס פעיל כדי להתחיל לצבור לקוחות.'
+              : 'כדאי להקים כרטיס ראשון כדי להתחיל לצבור לקוחות.',
         route: '/(authenticated)/(business)/cards',
         tone: 'neutral',
       });
@@ -832,10 +869,12 @@ export default function MerchantDashboardScreen() {
     return items.sort((a, b) => a.priority - b.priority).slice(0, 3);
   }, [
     activePrograms.length,
+    archivedPrograms.length,
     activity,
     atLimitEntry,
     businessSettings?.profileCompletion,
     customerSnapshot,
+    draftPrograms.length,
     nearLimitEntry,
     programs,
     smartGate.isLocked,
@@ -1001,6 +1040,42 @@ export default function MerchantDashboardScreen() {
     }
 
     if (activePrograms.length === 0) {
+      if (draftPrograms.length > 0) {
+        return {
+          sectionTitle: 'הצעד הבא לעסק',
+          layer: 'foundation',
+          statusTone: 'setup_needed',
+          title: 'השלב הבא הוא להפעיל כרטיס נאמנות מטיוטה',
+          body: 'כבר יש כרטיסיה במצב טיוטה. הפעלה של כרטיס קיים תאפשר להתחיל לצרף לקוחות ולייצר פעילות.',
+          supportingText:
+            'אחרי שכרטיס אחד לפחות יהיה פעיל, יהיה אפשר להתקדם לקמפיינים והמלצות מדויקות יותר.',
+          evidenceTags: [
+            'אין כרטיסיה פעילה',
+            `טיוטות קיימות: ${formatNumber(draftPrograms.length)}`,
+          ],
+          primaryCta: { kind: 'open_cards', label: 'הפעלת כרטיס קיים' },
+          packageNote: null,
+          showNoCtaReason: false,
+        };
+      }
+      if (archivedPrograms.length > 0) {
+        return {
+          sectionTitle: 'הצעד הבא לעסק',
+          layer: 'foundation',
+          statusTone: 'setup_needed',
+          title: 'השלב הבא הוא להחזיר כרטיס פעיל מארכיון',
+          body: 'כדי לצרף לקוחות ולמדוד פעילות צריך לפחות כרטיס פעיל אחד. ניתן לשחזר כרטיס מארכיון או ליצור חדש.',
+          supportingText:
+            'ברגע שיש כרטיס פעיל, ההמלצות והמדדים בדשבורד חוזרים לעבוד בצורה מלאה.',
+          evidenceTags: [
+            'אין כרטיסיה פעילה',
+            `כרטיסיות בארכיון: ${formatNumber(archivedPrograms.length)}`,
+          ],
+          primaryCta: { kind: 'open_cards', label: 'ניהול כרטיסים' },
+          packageNote: null,
+          showNoCtaReason: false,
+        };
+      }
       return {
         sectionTitle: 'הצעד הבא לעסק',
         layer: 'foundation',
@@ -1055,10 +1130,22 @@ export default function MerchantDashboardScreen() {
       packageNote: null,
       showNoCtaReason: false,
     };
-  }, [activePrograms.length, businessSettings, programs]);
+  }, [
+    activePrograms.length,
+    archivedPrograms.length,
+    businessSettings,
+    draftPrograms.length,
+    programs,
+  ]);
 
-  const recommendationCard =
-    aiRecommendation === undefined
+  const shouldForceNoActiveProgramFallback =
+    programs !== undefined &&
+    activePrograms.length === 0 &&
+    (draftPrograms.length > 0 || archivedPrograms.length > 0);
+
+  const recommendationCard = shouldForceNoActiveProgramFallback
+    ? fallbackRecommendation
+    : aiRecommendation === undefined
       ? fallbackRecommendation
       : aiRecommendation
         ? {

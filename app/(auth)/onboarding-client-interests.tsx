@@ -79,9 +79,6 @@ export default function OnboardingInterestsScreen() {
           <Text style={styles.title}>
             באילו סוגי עסקים אתה הכי{'\n'}משתמש בשגרה?
           </Text>
-          <Text style={styles.subtitle}>
-            בחר עד 3 - כדי שננגיש לך את ההצעות הראשונות
-          </Text>
         </View>
 
         <View style={styles.optionsContainer}>

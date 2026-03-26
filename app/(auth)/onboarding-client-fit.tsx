@@ -62,9 +62,6 @@ export default function OnboardingClientFitScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>למי אתה רוצה שההטבות יתאימו?</Text>
-          <Text style={styles.subtitle}>
-            אפשר לבחור כמה - זה עוזר לנו לדייק את ההמלצות
-          </Text>
         </View>
 
         <View style={styles.optionsContainer}>

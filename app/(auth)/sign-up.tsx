@@ -177,7 +177,6 @@ export default function SignUpScreen() {
           <Text style={styles.title} numberOfLines={2}>
             {TEXT.title}
           </Text>
-          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
         <View style={styles.optionsContainer}>

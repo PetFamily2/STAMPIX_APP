@@ -69,9 +69,6 @@ export default function OnboardingReturnMotivationScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>איזה סוג הטבה הכי גורם לך לחזור?</Text>
-          <Text style={styles.subtitle}>
-            נעזור להציע לך עסקים עם הטבות שמתאימות לך
-          </Text>
         </View>
 
         <View style={styles.optionsContainer}>

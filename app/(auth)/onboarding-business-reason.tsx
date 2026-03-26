@@ -110,7 +110,6 @@ export default function OnboardingBusinessReasonScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
         </View>
 
         <View style={styles.optionsContainer}>

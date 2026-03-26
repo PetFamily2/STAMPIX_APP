@@ -120,10 +120,6 @@ export default function AcceptInviteScreen() {
               </Text>
               <View className="w-11 h-11" />
             </View>
-
-            <Text className={`text-sm text-zinc-500 mt-2 ${tw.textStart}`}>
-              {TEXT.subtitle}
-            </Text>
           </View>
         </StickyScrollHeader>
 

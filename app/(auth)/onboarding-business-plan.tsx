@@ -135,10 +135,6 @@ export default function OnboardingBusinessPlanScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>בחירת מסלול לעסק</Text>
-          <Text style={styles.subtitle}>
-            Starter מתאים להתחלה. Pro AI פותח את המוצר המלא לרוב העסקים,
-            ו-Premium AI מוסיף בניית קהלים ושמירתם לעבודה מדויקת יותר.
-          </Text>
         </View>
 
         {isSubmitting && selectedPlan === 'starter' ? (

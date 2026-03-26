@@ -2,6 +2,17 @@
 
 Last synced: 2026-02-18
 
+## Decision: Remove page-header subtitles across screens
+- Date: 2026-03-26
+- Decision: Page-level headers no longer display subtitle text.
+- Scope:
+  - Applies to reusable page headers (`BrandPageHeader` / `BusinessScreenHeader`).
+  - Applies to custom top-of-screen subtitle text blocks in auth and join/invite screens.
+- Rationale: Keep top areas cleaner and maintain one clear title focus per screen.
+- Implications:
+  - New screens should not add subtitle text under the page title.
+  - Existing explanatory copy should move into body content when needed.
+
 ## Decision: Canonical routing uses group trees only
 - Date: 2026-02-18
 - Decision: Keep canonical business/customer routes in Expo Router groups only.

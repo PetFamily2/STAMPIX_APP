@@ -236,17 +236,6 @@ export default function JoinScreen() {
           >
             {TEXT.title}
           </Text>
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              fontWeight: '700',
-              color: '#2F6BFF',
-              textAlign: 'right',
-            }}
-          >
-            {TEXT.subtitle}
-          </Text>
           {feedback ? (
             <Text
               style={{

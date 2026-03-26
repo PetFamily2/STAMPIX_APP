@@ -332,10 +332,6 @@ export default function PaywallScreen() {
           <Text style={styles.title}>
             בחרו את הדרך שבה העסק ישמור על לקוחות
           </Text>
-          <Text style={styles.subtitle}>
-            Starter מתאים להתחלה. Pro AI פותח Marketing Hub, תובנות לקוחות
-            ודוחות מתקדמים. Premium AI מוסיף בניית קהלים ושמירתם.
-          </Text>
         </View>
 
         <View style={styles.utilityLinksRow}>

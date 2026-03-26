@@ -418,7 +418,6 @@ export default function CreateBusinessScreen() {
             style={styles.titleContainer}
           >
             <Text style={styles.title}>{TEXT.title}</Text>
-            <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
           </StickyScrollHeader>
 
           <View style={styles.searchSection}>

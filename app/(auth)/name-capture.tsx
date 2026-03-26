@@ -236,9 +236,6 @@ export default function NameCaptureScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{TEXT.title}</Text>
-          {TEXT.subtitle ? (
-            <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
-          ) : null}
         </View>
 
         <View style={styles.form}>

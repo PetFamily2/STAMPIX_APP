@@ -19,7 +19,6 @@ export default function NotFoundScreen() {
 
       <View style={styles.content}>
         <Text style={styles.title}>{TEXT.title}</Text>
-        <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
 
         <View style={styles.debugBox}>
           <Text style={styles.debugLabel}>{TEXT.debugPrefix}</Text>

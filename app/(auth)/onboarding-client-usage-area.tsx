@@ -59,7 +59,6 @@ export default function OnboardingUsageAreaScreen() {
           >
             איפה אתה נמצא בדרך כלל?
           </Text>
-          <Text style={styles.subtitle}>כדי להציג עסקים רלוונטיים</Text>
         </View>
 
         <View style={styles.optionsContainer}>

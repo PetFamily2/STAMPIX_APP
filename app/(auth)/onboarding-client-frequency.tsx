@@ -51,7 +51,6 @@ export default function OnboardingClientFrequencyScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>באיזו תדירות אתה חוזר לאותם מקומות?</Text>
-          <Text style={styles.subtitle}>כדי להתאים מועדונים לקצב שלך</Text>
         </View>
 
         <View style={styles.optionsContainer}>

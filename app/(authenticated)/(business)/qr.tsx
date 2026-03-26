@@ -44,16 +44,7 @@ export default function BusinessJoinQrScreen() {
       >
         <StickyScrollHeader topPadding={12} backgroundColor="#E9F0FF">
           <View style={styles.header}>
-            <BrandPageHeader
-              title="קוד הצטרפות"
-              subtitle="שתפו עם לקוחות QR להצטרפות מהירה למועדון."
-            />
-            <Text style={styles.headerTitle}>QR להצטרפות לקוחות</Text>
-            <Text style={styles.headerSubtitle}>
-              {selectedBusiness
-                ? 'הציגו ללקוח כדי להצטרף במהירות למועדון'
-                : 'טוען עסק'}
-            </Text>
+            <BrandPageHeader title="\u05e7\u05d5\u05d3 \u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea" />
           </View>
         </StickyScrollHeader>
 
@@ -128,20 +119,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 6,
-  },
-  headerTitle: {
-    display: 'none',
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'right',
-  },
-  headerSubtitle: {
-    display: 'none',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2F6BFF',
-    textAlign: 'right',
   },
   card: {
     backgroundColor: '#FFFFFF',

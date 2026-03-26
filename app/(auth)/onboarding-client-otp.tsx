@@ -90,13 +90,6 @@ export default function OnboardingOtpScreen() {
     [contactValue]
   );
 
-  const headerSubtitle = useMemo(() => {
-    if (!contactValue) {
-      return TEXT.noContactSubtitle;
-    }
-    return `שלחנו קוד ל-${contactValue}`;
-  }, [contactValue]);
-
   const otpChannel = isEmailContact ? 'email' : 'sms';
 
   const mapOtpError = useCallback((value: unknown) => {
@@ -368,7 +361,6 @@ export default function OnboardingOtpScreen() {
 
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.subtitle}>{headerSubtitle}</Text>
         </View>
 
         <View style={styles.digitsContainer}>
