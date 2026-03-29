@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +30,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { tw } from '@/lib/rtl';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -53,6 +53,7 @@ type ProgramDetails = {
   status: ProgramLifecycle;
   isRuleLocked: boolean;
   canDelete: boolean;
+  updatedAt: number;
 };
 
 const TEXT = {
@@ -176,9 +177,38 @@ export default function ProgramDetailsScreen() {
   const [uploadedImageUri, setUploadedImageUri] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
+  const [conflictLocked, setConflictLocked] = useState(false);
+
+  const applyProgramSnapshot = (snapshot: ProgramDetails | undefined) => {
+    if (!snapshot) {
+      return;
+    }
+    setTitle(snapshot.title);
+    setRewardName(snapshot.rewardName);
+    setMaxStamps(String(snapshot.maxStamps));
+    setCardTerms(snapshot.cardTerms ?? '');
+    setRewardConditions(snapshot.rewardConditions ?? '');
+    setStampIcon(snapshot.stampIcon || 'star');
+    setStampShape(toStampShape(snapshot.stampShape));
+    setCardThemeId(snapshot.cardThemeId);
+    setImageStorageId(snapshot.imageStorageId ?? null);
+    setUploadedImageUri(null);
+    setBaseUpdatedAt(snapshot.updatedAt);
+    setConflictLocked(false);
+  };
 
   useEffect(() => {
-    if (!details) {
+    const screenKey = `${selectedBusinessId ?? 'none'}:${programId ?? 'none'}`;
+    setBaseUpdatedAt(null);
+    setConflictLocked(false);
+    if (screenKey === 'none:none') {
+      setUploadedImageUri(null);
+    }
+  }, [programId, selectedBusinessId]);
+
+  useEffect(() => {
+    if (!details || baseUpdatedAt !== null) {
       return;
     }
     setTitle(details.title);
@@ -191,7 +221,9 @@ export default function ProgramDetailsScreen() {
     setCardThemeId(details.cardThemeId);
     setImageStorageId(details.imageStorageId ?? null);
     setUploadedImageUri(null);
-  }, [details]);
+    setBaseUpdatedAt(details.updatedAt);
+    setConflictLocked(false);
+  }, [baseUpdatedAt, details]);
 
   if (!programId || !selectedBusinessId) {
     return (
@@ -216,7 +248,8 @@ export default function ProgramDetailsScreen() {
     MAX_STAMP_OPTIONS.includes(
       parsedMaxStamps as (typeof MAX_STAMP_OPTIONS)[number]
     ) &&
-    (stampShape !== 'icon' || stampIcon.trim().length > 0);
+    (stampShape !== 'icon' || stampIcon.trim().length > 0) &&
+    !conflictLocked;
 
   const previewImageUrl = uploadedImageUri ?? details?.imageUrl ?? null;
 
@@ -293,9 +326,10 @@ export default function ProgramDetailsScreen() {
 
     setIsSubmitting(true);
     try {
-      await updateProgram({
+      const result = await updateProgram({
         businessId: selectedBusinessId,
         programId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
         title: title.trim(),
         description: undefined,
         imageUrl: nextImageUrl,
@@ -308,8 +342,34 @@ export default function ProgramDetailsScreen() {
         stampShape,
         cardThemeId,
       });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
+      setConflictLocked(false);
       Alert.alert(TEXT.saveDoneTitle, TEXT.saveDoneMessage);
     } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer program version was found. You can reload it or keep your local draft.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyProgramSnapshot(details);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
         TEXT.errorTitle,
         error instanceof Error ? error.message : TEXT.saveFailed
@@ -326,9 +386,39 @@ export default function ProgramDetailsScreen() {
 
     setIsSubmitting(true);
     try {
-      await publishProgram({ businessId: selectedBusinessId, programId });
+      const result = await publishProgram({
+        businessId: selectedBusinessId,
+        programId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
+      });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
+      setConflictLocked(false);
       Alert.alert(TEXT.publishDoneTitle, TEXT.publishDoneMessage);
     } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer program version was found. Reload the latest version before publishing.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyProgramSnapshot(details);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
         TEXT.errorTitle,
         error instanceof Error ? error.message : TEXT.saveFailed
@@ -345,9 +435,39 @@ export default function ProgramDetailsScreen() {
 
     setIsSubmitting(true);
     try {
-      await archiveProgram({ businessId: selectedBusinessId, programId });
+      const result = await archiveProgram({
+        businessId: selectedBusinessId,
+        programId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
+      });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
+      setConflictLocked(false);
       Alert.alert(TEXT.archiveDoneTitle, TEXT.archiveDoneMessage);
     } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer program version was found. Reload the latest version before archiving.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyProgramSnapshot(details);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
         TEXT.errorTitle,
         error instanceof Error ? error.message : TEXT.saveFailed
@@ -364,7 +484,11 @@ export default function ProgramDetailsScreen() {
 
     setIsSubmitting(true);
     try {
-      await deleteProgram({ businessId: selectedBusinessId, programId });
+      await deleteProgram({
+        businessId: selectedBusinessId,
+        programId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
+      });
       Alert.alert(TEXT.deleteDoneTitle, TEXT.deleteDoneMessage, [
         {
           text: 'אישור',
@@ -376,6 +500,28 @@ export default function ProgramDetailsScreen() {
         },
       ]);
     } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer program version was found. Reload the latest version before deleting.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyProgramSnapshot(details);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
         TEXT.errorTitle,
         error instanceof Error ? error.message : TEXT.saveFailed
@@ -669,6 +815,25 @@ export default function ProgramDetailsScreen() {
             </View>
 
             <View className="gap-3">
+              {conflictLocked ? (
+                <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
+                  <Text className="text-right text-xs text-[#92400E]">
+                    נמצאה גרסה חדשה של הכרטיס. השמירה נעולה עד לטעינת הגרסה
+                    העדכנית.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      applyProgramSnapshot(details);
+                    }}
+                    className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+                  >
+                    <Text className="text-xs font-bold text-white">
+                      Reload latest
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
               <TouchableOpacity
                 disabled={!canSave}
                 onPress={() => {
@@ -689,12 +854,14 @@ export default function ProgramDetailsScreen() {
 
               {lifecycle === 'draft' ? (
                 <TouchableOpacity
-                  disabled={!canManage || isSubmitting}
+                  disabled={!canManage || isSubmitting || conflictLocked}
                   onPress={() => {
                     void handlePublish();
                   }}
                   className={`rounded-2xl px-4 py-3 ${
-                    canManage && !isSubmitting ? 'bg-[#16A34A]' : 'bg-[#CBD5E1]'
+                    canManage && !isSubmitting && !conflictLocked
+                      ? 'bg-[#16A34A]'
+                      : 'bg-[#CBD5E1]'
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">
@@ -705,12 +872,14 @@ export default function ProgramDetailsScreen() {
 
               {lifecycle === 'active' ? (
                 <TouchableOpacity
-                  disabled={!canManage || isSubmitting}
+                  disabled={!canManage || isSubmitting || conflictLocked}
                   onPress={() => {
                     void handleArchive();
                   }}
                   className={`rounded-2xl px-4 py-3 ${
-                    canManage && !isSubmitting ? 'bg-[#F59E0B]' : 'bg-[#CBD5E1]'
+                    canManage && !isSubmitting && !conflictLocked
+                      ? 'bg-[#F59E0B]'
+                      : 'bg-[#CBD5E1]'
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">
@@ -721,10 +890,12 @@ export default function ProgramDetailsScreen() {
 
               {details.canDelete ? (
                 <TouchableOpacity
-                  disabled={!canManage || isSubmitting}
+                  disabled={!canManage || isSubmitting || conflictLocked}
                   onPress={handleDelete}
                   className={`rounded-2xl px-4 py-3 ${
-                    canManage && !isSubmitting ? 'bg-[#DC2626]' : 'bg-[#CBD5E1]'
+                    canManage && !isSubmitting && !conflictLocked
+                      ? 'bg-[#DC2626]'
+                      : 'bg-[#CBD5E1]'
                   }`}
                 >
                   <Text className="text-center text-sm font-bold text-white">

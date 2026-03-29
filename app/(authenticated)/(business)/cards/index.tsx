@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,7 +15,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import {
@@ -24,7 +23,6 @@ import {
   InsightCard,
   KpiCard,
   ProgramHealthRow,
-  SegmentedPillControl,
 } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -37,7 +35,6 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
-import { CampaignsHubContent } from './campaigns';
 
 type MarketingTopTab = 'campaigns' | 'loyalty';
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -65,7 +62,7 @@ type ManagementProgram = {
   };
 };
 
-const TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
+const _TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
   { key: 'campaigns', label: 'קמפיינים' },
   { key: 'loyalty', label: 'כרטיסיות נאמנות' },
 ];
@@ -240,7 +237,7 @@ export function LoyaltyCardsHubContent() {
       return;
     }
     if (appMode !== 'business') {
-      router.replace('/(authenticated)/(customer)/wallet');
+      router.navigate('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
@@ -394,27 +391,8 @@ export function LoyaltyCardsHubContent() {
           <BusinessScreenHeader
             title={TEXT.screenTitle}
             subtitle={TEXT.screenSubtitle}
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-              />
-            }
           />
         </StickyScrollHeader>
-
-        <View style={{ marginTop: 4 }}>
-          <SegmentedPillControl
-            items={TOP_TABS}
-            value="loyalty"
-            onChange={(nextTab) => {
-              if (nextTab === 'campaigns') {
-                router.setParams({ section: 'campaigns' });
-              }
-            }}
-          />
-        </View>
 
         <TouchableOpacity
           disabled={!canCreate}
@@ -643,15 +621,24 @@ const styles = StyleSheet.create({
 });
 
 export default function BusinessCardsManagementScreen() {
-  const { section } = useLocalSearchParams<{
+  const { preview, map, section } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
     section?: string;
   }>();
 
-  const activeSection = section === 'loyalty' ? 'loyalty' : 'campaigns';
-
-  if (activeSection === 'campaigns') {
-    return <CampaignsHubContent />;
-  }
-
-  return <LoyaltyCardsHubContent />;
+  return (
+    <Redirect
+      href={{
+        pathname:
+          section === 'campaigns'
+            ? '/(authenticated)/(business)/campaigns'
+            : '/(authenticated)/(business)/programs',
+        params: {
+          ...(preview ? { preview } : {}),
+          ...(map ? { map } : {}),
+        },
+      }}
+    />
+  );
 }

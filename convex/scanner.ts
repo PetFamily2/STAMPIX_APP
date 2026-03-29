@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import {
   assertEntitlement,
   countActiveCustomersForBusiness,
@@ -29,6 +29,7 @@ const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
 const UNDO_WINDOW_MS = 30_000;
 const ALLOW_REDEEM_UNDO = true;
+const SCAN_SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const BALANCE_EVENT_TYPES = new Set([
   'STAMP_ADDED',
@@ -1373,6 +1374,40 @@ export const undoLastScannerAction = mutation({
         reversalResult.program.maxStamps
       ),
       program: buildProgramSummary(reversalResult.program),
+    };
+  },
+});
+
+export const cleanupExpiredScanSessionsInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - SCAN_SESSION_RETENTION_MS;
+    const statuses = [
+      'ready',
+      'committed',
+      'failed_business',
+      'expired',
+    ] as const;
+    let deletedCount = 0;
+
+    for (const status of statuses) {
+      const sessions = await ctx.db
+        .query('scanSessions')
+        .withIndex('by_status', (q: any) => q.eq('status', status))
+        .collect();
+
+      for (const session of sessions) {
+        if (Number(session.expiresAt) > cutoff) {
+          continue;
+        }
+        await ctx.db.delete(session._id);
+        deletedCount += 1;
+      }
+    }
+
+    return {
+      deletedCount,
+      cutoff,
     };
   },
 });

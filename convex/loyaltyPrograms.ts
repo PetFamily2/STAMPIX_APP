@@ -6,6 +6,7 @@ import {
   requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
 } from './guards';
+import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import { buildProgramStructureSignature } from './lib/recommendationUtils';
 
 const DEFAULT_THEME_ID = 'midnight-luxe';
@@ -478,6 +479,7 @@ export const getProgramDetailsForManagement = query({
       },
       publishedAt: program.publishedAt ?? null,
       archivedAt: program.archivedAt ?? null,
+      updatedAt: program.updatedAt,
     };
   },
 });
@@ -600,14 +602,21 @@ export const publishProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, programId }) => {
+  handler: async (ctx, { businessId, programId, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
       'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
     const lifecycle = resolveProgramLifecycle(program);
 
     if (lifecycle === 'archived') {
@@ -640,7 +649,7 @@ export const publishProgram = mutation({
       updatedAt: now,
     });
 
-    return { ok: true };
+    return { ok: true, updatedAt: now };
   },
 });
 
@@ -648,6 +657,7 @@ export const updateProgramForManagement = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
+    expectedUpdatedAt: v.optional(v.number()),
     title: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -665,6 +675,7 @@ export const updateProgramForManagement = mutation({
     {
       businessId,
       programId,
+      expectedUpdatedAt,
       title,
       description,
       imageUrl,
@@ -684,6 +695,12 @@ export const updateProgramForManagement = mutation({
       'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
     const lifecycle = resolveProgramLifecycle(program);
     const ruleLocked = isRuleLocked(lifecycle);
 
@@ -751,7 +768,7 @@ export const updateProgramForManagement = mutation({
 
     await ctx.db.patch(program._id, patchPayload);
 
-    return { ok: true };
+    return { ok: true, updatedAt: now };
   },
 });
 
@@ -759,14 +776,21 @@ export const archiveProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, programId }) => {
+  handler: async (ctx, { businessId, programId, expectedUpdatedAt }) => {
     const { actor } = await requireActorHasBusinessCapability(
       ctx,
       businessId,
       'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
     const lifecycle = resolveProgramLifecycle(program);
     if (lifecycle !== 'active') {
       throw new Error('PROGRAM_CANNOT_BE_ARCHIVED');
@@ -781,7 +805,7 @@ export const archiveProgram = mutation({
       updatedAt: now,
     });
 
-    return { ok: true };
+    return { ok: true, updatedAt: now };
   },
 });
 
@@ -799,14 +823,21 @@ export const deleteProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, programId }) => {
+  handler: async (ctx, { businessId, programId, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
       'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
     const membershipCount = await getProgramMembershipCount(ctx, program._id);
 
     if (membershipCount > 0) {

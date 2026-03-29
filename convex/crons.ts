@@ -16,4 +16,10 @@ crons.interval(
   internal.aiRecommendations.runRecommendationSweepInternal
 );
 
+crons.daily(
+  'scan session retention cleanup daily',
+  { hourUTC: 1, minuteUTC: 0 },
+  internal.scanner.cleanupExpiredScanSessionsInternal
+);
+
 export default crons;

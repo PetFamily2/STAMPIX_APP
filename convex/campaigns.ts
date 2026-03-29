@@ -13,6 +13,7 @@ import {
   requireActorHasBusinessCapability,
 } from './guards';
 import { recordCampaignRun } from './lib/campaignRuns';
+import { assertExpectedUpdatedAt } from './lib/editConflicts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
@@ -1043,14 +1044,21 @@ export const setCampaignAutomationEnabled = mutation({
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
     enabled: v.boolean(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId, enabled }) => {
+  handler: async (ctx, { businessId, campaignId, enabled, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
       'activate_send_campaigns'
     );
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1104,6 +1112,7 @@ export const setCampaignAutomationEnabled = mutation({
     return {
       ok: true,
       automationEnabled: enabled,
+      updatedAt: now,
     };
   },
 });
@@ -1113,8 +1122,9 @@ export const scheduleCampaignOneTime = mutation({
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
     sendAt: v.number(),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId, sendAt }) => {
+  handler: async (ctx, { businessId, campaignId, sendAt, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1122,6 +1132,12 @@ export const scheduleCampaignOneTime = mutation({
     );
     await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1152,6 +1168,7 @@ export const scheduleCampaignOneTime = mutation({
       ok: true,
       scheduleMode: 'one_time' as const,
       sendAt,
+      updatedAt: now,
     };
   },
 });
@@ -1160,10 +1177,17 @@ export const clearCampaignOneTimeSchedule = mutation({
   args: {
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId }) => {
+  handler: async (ctx, { businessId, campaignId, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1196,6 +1220,7 @@ export const clearCampaignOneTimeSchedule = mutation({
     return {
       ok: true,
       scheduleMode: 'send_now' as const,
+      updatedAt: now,
     };
   },
 });
@@ -1204,8 +1229,9 @@ export const archiveManagementCampaign = mutation({
   args: {
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId }) => {
+  handler: async (ctx, { businessId, campaignId, expectedUpdatedAt }) => {
     const { actor } = await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1216,6 +1242,12 @@ export const archiveManagementCampaign = mutation({
       businessId,
       campaignId
     );
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (campaign.isActive !== true) {
       throw new Error('CAMPAIGN_ALREADY_ARCHIVED');
     }
@@ -1245,6 +1277,7 @@ export const archiveManagementCampaign = mutation({
       ok: true,
       campaignId: campaign._id,
       archivedAt: now,
+      updatedAt: now,
     };
   },
 });
@@ -1291,6 +1324,7 @@ export const updateCampaignDraft = mutation({
   args: {
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
+    expectedUpdatedAt: v.optional(v.number()),
     title: v.optional(v.string()),
     messageTitle: v.optional(v.string()),
     messageBody: v.optional(v.string()),
@@ -1302,6 +1336,7 @@ export const updateCampaignDraft = mutation({
     {
       businessId,
       campaignId,
+      expectedUpdatedAt,
       title,
       messageTitle,
       messageBody,
@@ -1311,6 +1346,12 @@ export const updateCampaignDraft = mutation({
   ) => {
     await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1324,11 +1365,12 @@ export const updateCampaignDraft = mutation({
       await validateProgramBelongsToBusiness(ctx, businessId, programId);
     }
     const defaults = buildDefaultDraftByType(campaign.type);
+    const updatedAt = Date.now();
     const patchPayload: Record<string, unknown> = {
       title: normalizeText(title, defaults.title),
       messageTitle: normalizeText(messageTitle, defaults.messageTitle),
       messageBody: normalizeText(messageBody, defaults.messageBody),
-      updatedAt: Date.now(),
+      updatedAt,
     };
     if (!isAutomationEnabled(campaign.automationEnabled)) {
       patchPayload.rules = normalizeCampaignRules(campaign.type, rules);
@@ -1337,7 +1379,7 @@ export const updateCampaignDraft = mutation({
 
     await ctx.db.patch(campaign._id, patchPayload);
 
-    return { ok: true };
+    return { ok: true, updatedAt };
   },
 });
 
@@ -1368,8 +1410,9 @@ export const sendCampaignNow = mutation({
   args: {
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId }) => {
+  handler: async (ctx, { businessId, campaignId, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1377,6 +1420,12 @@ export const sendCampaignNow = mutation({
     );
     await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaignId),
+      expectedUpdatedAt,
+      actualUpdatedAt: campaign.updatedAt,
+    });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1405,6 +1454,7 @@ export const sendCampaignNow = mutation({
       sentCount: result.sentCount,
       skippedCount: result.skippedCount,
       estimatedAudience: result.estimatedAudience,
+      updatedAt: now,
     };
   },
 });

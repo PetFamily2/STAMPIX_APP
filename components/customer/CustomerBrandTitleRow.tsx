@@ -7,6 +7,7 @@ type CustomerBrandTitleRowProps = {
   style?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
+  brandAccessory?: ReactNode;
   titleNumberOfLines?: number;
 };
 
@@ -15,16 +16,20 @@ export default function CustomerBrandTitleRow({
   style,
   titleStyle,
   titleAccessory,
+  brandAccessory,
   titleNumberOfLines = 1,
 }: CustomerBrandTitleRowProps) {
   return (
     <View style={[styles.row, style]}>
-      <Text style={styles.brand}>
-        <Text style={styles.brandAccent}>S</Text>
-        tamp
-        <Text style={styles.brandAccent}>A</Text>
-        ix
-      </Text>
+      <View style={styles.brandWrap}>
+        {brandAccessory}
+        <Text style={styles.brand}>
+          <Text style={styles.brandAccent}>S</Text>
+          tamp
+          <Text style={styles.brandAccent}>A</Text>
+          ix
+        </Text>
+      </View>
       <View style={styles.titleWrap}>
         {titleAccessory}
         <Text
@@ -45,6 +50,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  brandWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   brand: {
     textAlign: 'right',

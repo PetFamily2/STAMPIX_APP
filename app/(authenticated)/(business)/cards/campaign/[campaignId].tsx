@@ -27,6 +27,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -365,18 +366,59 @@ export default function CampaignDraftEditorScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTogglingAutomation, setIsTogglingAutomation] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
+  const [conflictLocked, setConflictLocked] = useState(false);
+
+  const applyCampaignSnapshot = (snapshot: typeof campaignDraft) => {
+    if (!snapshot) {
+      return;
+    }
+    setMessageTitle(snapshot.messageTitle ?? '');
+    setMessageBody(snapshot.messageBody ?? '');
+    setDaysInput(
+      rulesInputFromDraft(
+        snapshot.type as CampaignType,
+        snapshot.rules
+      )
+    );
+    setSelectedProgramId(
+      snapshot.programId ? String(snapshot.programId) : 'all'
+    );
+    const nextDeliveryMode =
+      snapshot.scheduleMode === 'one_time' ? 'one_time' : 'send_now';
+    setDeliveryMode(nextDeliveryMode);
+    if (nextDeliveryMode === 'one_time') {
+      setScheduledForAt(
+        typeof snapshot.scheduledForAt === 'number'
+          ? snapshot.scheduledForAt
+          : Date.now() + DAY_MS
+      );
+    } else {
+      setScheduledForAt(null);
+    }
+    setBaseUpdatedAt(
+      typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : null
+    );
+    setConflictLocked(false);
+  };
 
   useEffect(() => {
-    if (!campaignDraft) {
+    const screenKey = `${selectedBusinessId ?? 'none'}:${campaignId ?? 'none'}`;
+    setBaseUpdatedAt(null);
+    setConflictLocked(false);
+    if (screenKey === 'none:none') {
+      setScheduledForAt(null);
+    }
+  }, [campaignId, selectedBusinessId]);
+
+  useEffect(() => {
+    if (!campaignDraft || baseUpdatedAt !== null) {
       return;
     }
     setMessageTitle(campaignDraft.messageTitle ?? '');
     setMessageBody(campaignDraft.messageBody ?? '');
     setDaysInput(
-      rulesInputFromDraft(
-        campaignDraft.type as CampaignType,
-        campaignDraft.rules
-      )
+      rulesInputFromDraft(campaignDraft.type as CampaignType, campaignDraft.rules)
     );
     setSelectedProgramId(
       campaignDraft.programId ? String(campaignDraft.programId) : 'all'
@@ -393,7 +435,11 @@ export default function CampaignDraftEditorScreen() {
     } else {
       setScheduledForAt(null);
     }
-  }, [campaignDraft]);
+    setBaseUpdatedAt(
+      typeof campaignDraft.updatedAt === 'number' ? campaignDraft.updatedAt : null
+    );
+    setConflictLocked(false);
+  }, [baseUpdatedAt, campaignDraft]);
 
   const goBackToCampaignList = () => {
     router.replace({
@@ -879,6 +925,7 @@ export default function CampaignDraftEditorScreen() {
     const payload: {
       businessId: Id<'businesses'>;
       campaignId: Id<'campaigns'>;
+      expectedUpdatedAt?: number;
       messageTitle: string;
       messageBody: string;
       rules?: EditableCampaignRules;
@@ -886,6 +933,7 @@ export default function CampaignDraftEditorScreen() {
     } = {
       businessId: selectedBusinessId,
       campaignId,
+      expectedUpdatedAt: baseUpdatedAt ?? undefined,
       messageTitle: messageTitle.trim(),
       messageBody: messageBody.trim(),
     };
@@ -899,7 +947,12 @@ export default function CampaignDraftEditorScreen() {
       payload.programId = normalizedProgramId;
     }
 
-    await updateCampaignDraft(payload);
+    const result = await updateCampaignDraft(payload);
+    if (typeof result?.updatedAt === 'number') {
+      setBaseUpdatedAt(result.updatedAt);
+    }
+    setConflictLocked(false);
+    return result;
   };
 
   const handleToggleAutomation = async () => {
@@ -931,13 +984,40 @@ export default function CampaignDraftEditorScreen() {
     }
     setIsTogglingAutomation(true);
     try {
-      await setCampaignAutomationEnabled({
+      const result = await setCampaignAutomationEnabled({
         businessId: selectedBusinessId,
         campaignId,
         enabled: !automationEnabled,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
       });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
+      setConflictLocked(false);
     } catch (error) {
       if (handleEntitlementError(error)) {
+        return;
+      }
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer campaign version was found. Reload it before changing automation.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyCampaignSnapshot(campaignDraft);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
         return;
       }
       Alert.alert(
@@ -950,7 +1030,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleSaveOnly = async () => {
-    if (!canEditContent || isSubmitting) {
+    if (!canEditContent || isSubmitting || conflictLocked) {
       return;
     }
     if (!validateContent()) {
@@ -976,6 +1056,28 @@ export default function CampaignDraftEditorScreen() {
       if (handleEntitlementError(error)) {
         return;
       }
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer campaign version was found. Reload it or keep your local draft.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyCampaignSnapshot(campaignDraft);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
         'שגיאה',
         error instanceof Error ? error.message : 'שמירת טיוטה נכשלה.'
@@ -986,7 +1088,12 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleSaveAndSend = async () => {
-    if (!canEditContent || !canActivateSendCampaigns || isSubmitting) {
+    if (
+      !canEditContent ||
+      !canActivateSendCampaigns ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
@@ -1012,12 +1119,21 @@ export default function CampaignDraftEditorScreen() {
 
     setIsSubmitting(true);
     try {
-      await saveDraftMutation(rulesPayload);
+      const saved = await saveDraftMutation(rulesPayload);
+      let currentUpdatedAt =
+        typeof saved?.updatedAt === 'number'
+          ? saved.updatedAt
+          : baseUpdatedAt ?? undefined;
       if (campaignDraft.scheduleMode === 'one_time') {
-        await clearCampaignOneTimeSchedule({
+        const cleared = await clearCampaignOneTimeSchedule({
           businessId: selectedBusinessId,
           campaignId,
+          expectedUpdatedAt: currentUpdatedAt,
         });
+        if (typeof cleared?.updatedAt === 'number') {
+          currentUpdatedAt = cleared.updatedAt;
+          setBaseUpdatedAt(cleared.updatedAt);
+        }
       }
 
       const estimate = await estimateCampaignAudience({
@@ -1038,7 +1154,11 @@ export default function CampaignDraftEditorScreen() {
       const result = await sendCampaignNow({
         businessId: selectedBusinessId,
         campaignId,
+        expectedUpdatedAt: currentUpdatedAt,
       });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
 
       Alert.alert(
         'נשלח',
@@ -1047,6 +1167,28 @@ export default function CampaignDraftEditorScreen() {
       );
     } catch (error) {
       if (handleEntitlementError(error)) {
+        return;
+      }
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer campaign version was found. Reload it before sending.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyCampaignSnapshot(campaignDraft);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
         return;
       }
       Alert.alert(
@@ -1064,7 +1206,12 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleSaveAndSchedule = async () => {
-    if (!canEditContent || !canActivateSendCampaigns || isSubmitting) {
+    if (
+      !canEditContent ||
+      !canActivateSendCampaigns ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
@@ -1099,12 +1246,19 @@ export default function CampaignDraftEditorScreen() {
 
     setIsSubmitting(true);
     try {
-      await saveDraftMutation(rulesPayload);
-      await scheduleCampaignOneTime({
+      const saved = await saveDraftMutation(rulesPayload);
+      const scheduled = await scheduleCampaignOneTime({
         businessId: selectedBusinessId,
         campaignId,
         sendAt,
+        expectedUpdatedAt:
+          typeof saved?.updatedAt === 'number'
+            ? saved.updatedAt
+            : baseUpdatedAt ?? undefined,
       });
+      if (typeof scheduled?.updatedAt === 'number') {
+        setBaseUpdatedAt(scheduled.updatedAt);
+      }
       Alert.alert(
         '\u05e0\u05e9\u05de\u05e8 \u05d5\u05d4\u05d5\u05e4\u05e2\u05dc',
         `\u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05d9\u05d9\u05e9\u05dc\u05d7 \u05d1-${oneTimeScheduleDisplay}.`,
@@ -1117,6 +1271,28 @@ export default function CampaignDraftEditorScreen() {
       );
     } catch (error) {
       if (handleEntitlementError(error)) {
+        return;
+      }
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'Data changed',
+          'A newer campaign version was found. Reload it before scheduling.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyCampaignSnapshot(campaignDraft);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
         return;
       }
       Alert.alert(
@@ -1159,11 +1335,34 @@ export default function CampaignDraftEditorScreen() {
               await archiveManagementCampaign({
                 businessId: selectedBusinessId,
                 campaignId,
+                expectedUpdatedAt: baseUpdatedAt ?? undefined,
               });
               Alert.alert('הועבר לארכיון', 'הקמפיין הועבר לארכיון בהצלחה.', [
                 { text: 'אישור', onPress: goBackToCampaignList },
               ]);
             } catch (error) {
+              const conflict = getEditConflictError(error);
+              if (conflict) {
+                Alert.alert(
+                  'Data changed',
+                  'A newer campaign version was found. Reload it before archiving.',
+                  [
+                    {
+                      text: 'Reload latest',
+                      onPress: () => {
+                        applyCampaignSnapshot(campaignDraft);
+                      },
+                    },
+                    {
+                      text: 'Keep my draft',
+                      onPress: () => {
+                        setConflictLocked(true);
+                      },
+                    },
+                  ]
+                );
+                return;
+              }
               if (
                 error instanceof Error &&
                 error.message.includes(
@@ -1596,13 +1795,33 @@ export default function CampaignDraftEditorScreen() {
         </View>
 
         <View className="mt-6 gap-3">
+          {conflictLocked ? (
+            <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
+              <Text className="text-right text-xs text-[#92400E]">
+                נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה העדכנית.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  applyCampaignSnapshot(campaignDraft);
+                }}
+                className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+              >
+                <Text className="text-xs font-bold text-white">
+                  Reload latest
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <TouchableOpacity
-            disabled={!canEditContent || isSubmitting || isArchiving}
+            disabled={
+              !canEditContent || isSubmitting || isArchiving || conflictLocked
+            }
             onPress={() => {
               void handleSaveOnly();
             }}
             className={`rounded-2xl px-4 py-3 ${
-              canEditContent && !isSubmitting && !isArchiving
+              canEditContent && !isSubmitting && !isArchiving && !conflictLocked
                 ? 'bg-[#2F6BFF]'
                 : 'bg-[#CBD5E1]'
             }`}
@@ -1622,6 +1841,7 @@ export default function CampaignDraftEditorScreen() {
               !canActivateSendCampaigns ||
               isSubmitting ||
               isArchiving ||
+              conflictLocked ||
               (!isEntitlementsLoading && campaignLimit.isOverLimit)
             }
             onPress={() => {
@@ -1636,6 +1856,7 @@ export default function CampaignDraftEditorScreen() {
               canActivateSendCampaigns &&
               !isSubmitting &&
               !isArchiving &&
+              !conflictLocked &&
               (isEntitlementsLoading || !campaignLimit.isOverLimit)
                 ? 'bg-[#0F766E]'
                 : 'bg-[#CBD5E1]'
@@ -1647,10 +1868,18 @@ export default function CampaignDraftEditorScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            disabled={!canArchiveCampaign || isSubmitting || isArchiving}
+            disabled={
+              !canArchiveCampaign ||
+              isSubmitting ||
+              isArchiving ||
+              conflictLocked
+            }
             onPress={handleMoveToArchive}
             className={`rounded-2xl px-4 py-3 ${
-              !canArchiveCampaign || isSubmitting || isArchiving
+              !canArchiveCampaign ||
+              isSubmitting ||
+              isArchiving ||
+              conflictLocked
                 ? 'bg-[#CBD5E1]'
                 : 'bg-[#F59E0B]'
             }`}

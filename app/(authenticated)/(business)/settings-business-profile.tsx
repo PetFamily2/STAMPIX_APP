@@ -22,6 +22,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { tw } from '@/lib/rtl';
 
 type BusinessServiceType =
@@ -313,6 +314,8 @@ export default function BusinessSettingsProfileScreen() {
 
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
+  const [conflictLocked, setConflictLocked] = useState(false);
 
   const [businessName, setBusinessName] = useState('');
   const [shortDescription, setShortDescription] = useState('');
@@ -360,13 +363,16 @@ export default function BusinessSettingsProfileScreen() {
   const [draftWeakTimePromosRelevant, setDraftWeakTimePromosRelevant] =
     useState<boolean | null>(null);
 
-  useEffect(() => {
-    setBusinessName(businessSettings?.name ?? '');
-    setShortDescription(businessSettings?.shortDescription ?? '');
-    setBusinessPhone(businessSettings?.businessPhone ?? '');
-    setServiceTypes(sanitizeServiceTypes(businessSettings?.serviceTypes));
-    setServiceTags(sanitizeServiceTags(businessSettings?.serviceTags));
-    const snapshot = businessSettings?.onboardingSnapshot;
+  const applyBusinessSettingsSnapshot = (settings: typeof businessSettings) => {
+    if (!settings) {
+      return;
+    }
+    setBusinessName(settings.name ?? '');
+    setShortDescription(settings.shortDescription ?? '');
+    setBusinessPhone(settings.businessPhone ?? '');
+    setServiceTypes(sanitizeServiceTypes(settings.serviceTypes));
+    setServiceTags(sanitizeServiceTags(settings.serviceTags));
+    const snapshot = settings.onboardingSnapshot;
     setDiscoverySource(
       (snapshot?.discoverySource as DiscoverySourceId) ?? null
     );
@@ -394,7 +400,23 @@ export default function BusinessSettingsProfileScreen() {
         ? snapshot.weakTimePromosRelevant
         : null
     );
-  }, [businessSettings]);
+    setBaseUpdatedAt(
+      typeof settings.updatedAt === 'number' ? settings.updatedAt : null
+    );
+    setConflictLocked(false);
+  };
+
+  useEffect(() => {
+    setBaseUpdatedAt(null);
+    setConflictLocked(false);
+  }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (!businessSettings || baseUpdatedAt !== null) {
+      return;
+    }
+    applyBusinessSettingsSnapshot(businessSettings);
+  }, [baseUpdatedAt, businessSettings]);
 
   const missingFieldLabels = useMemo(() => {
     const fields = (businessSettings?.profileCompletion?.missingFields ??
@@ -538,6 +560,7 @@ export default function BusinessSettingsProfileScreen() {
   const closeEditor = () => {
     if (isSaving) return;
     setEditingField(null);
+    setConflictLocked(false);
   };
 
   const buildProfilePayload = (overrides?: {
@@ -616,8 +639,9 @@ export default function BusinessSettingsProfileScreen() {
           return;
         }
 
-        await updateBusinessProfile({
+        const result = await updateBusinessProfile({
           businessId: activeBusinessId,
+          expectedUpdatedAt: baseUpdatedAt ?? undefined,
           ...payload,
         });
         setBusinessName(payload.name);
@@ -625,6 +649,9 @@ export default function BusinessSettingsProfileScreen() {
         setBusinessPhone(payload.businessPhone);
         setServiceTypes(payload.serviceTypes);
         setServiceTags(payload.serviceTags);
+        if (typeof result?.updatedAt === 'number') {
+          setBaseUpdatedAt(result.updatedAt);
+        }
       } else if (editingField === 'discoverySource') {
         if (!draftDiscoverySource) {
           Alert.alert('שגיאה', 'יש לבחור מקור הגעה.');
@@ -712,7 +739,31 @@ export default function BusinessSettingsProfileScreen() {
         setWeakTimePromosRelevant(draftWeakTimePromosRelevant);
       }
       setEditingField(null);
+      setConflictLocked(false);
     } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'הנתונים עודכנו',
+          'נמצאה גרסה חדשה של פרטי העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyBusinessSettingsSnapshot(businessSettings);
+                setEditingField(null);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert('שגיאה', toErrorMessage(error, 'שמירת הנתון נכשלה.'));
     } finally {
       setIsSaving(false);
@@ -1178,6 +1229,24 @@ export default function BusinessSettingsProfileScreen() {
               </View>
             )}
 
+            {conflictLocked ? (
+              <View className="mt-4 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-3 py-3">
+                <Text className="text-right text-xs text-[#92400E]">
+                  נמצאה גרסה חדשה של הנתונים. השמירה נעולה עד לטעינת הגרסה העדכנית.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    applyBusinessSettingsSnapshot(businessSettings);
+                  }}
+                  className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+                >
+                  <Text className="text-xs font-bold text-white">
+                    Reload latest
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <View className={`${tw.flexRow} mt-4 gap-2`}>
               <Pressable
                 onPress={closeEditor}
@@ -1190,8 +1259,10 @@ export default function BusinessSettingsProfileScreen() {
                 onPress={() => {
                   void saveField();
                 }}
-                disabled={isSaving}
-                className="flex-1 items-center justify-center rounded-xl bg-[#2F6BFF] py-3"
+                disabled={isSaving || conflictLocked}
+                className={`flex-1 items-center justify-center rounded-xl py-3 ${
+                  isSaving || conflictLocked ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
+                }`}
               >
                 {isSaving ? (
                   <ActivityIndicator color="#FFFFFF" />

@@ -15,13 +15,11 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   HorizontalRankingChart,
   InsightCard,
   KpiCard,
-  SegmentedPillControl,
   UsageProgressBar,
 } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -68,7 +66,7 @@ type ManagementCampaign = {
   updatedAt: number;
 };
 
-const TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
+const _TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
   { key: 'campaigns', label: 'קמפיינים' },
   { key: 'loyalty', label: 'כרטיסיות נאמנות' },
 ];
@@ -197,7 +195,7 @@ export function CampaignsHubContent() {
       return;
     }
     if (appMode !== 'business') {
-      router.replace('/(authenticated)/(customer)/wallet');
+      router.navigate('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
@@ -462,27 +460,8 @@ export function CampaignsHubContent() {
           <BusinessScreenHeader
             title="קמפיינים"
             subtitle="ניהול קמפיינים קלאסיים לעסק"
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-              />
-            }
           />
         </StickyScrollHeader>
-
-        <View style={{ marginTop: 4 }}>
-          <SegmentedPillControl
-            items={TOP_TABS}
-            value="campaigns"
-            onChange={(nextTab) => {
-              if (nextTab === 'loyalty') {
-                router.setParams({ section: 'loyalty' });
-              }
-            }}
-          />
-        </View>
 
         <TouchableOpacity
           disabled={!canCreateCampaign}
@@ -774,8 +753,11 @@ export default function CampaignsHubRoute() {
   return (
     <Redirect
       href={{
-        pathname: '/(authenticated)/(business)/cards',
-        params: { preview, map, section: 'campaigns' },
+        pathname: '/(authenticated)/(business)/campaigns',
+        params: {
+          ...(preview ? { preview } : {}),
+          ...(map ? { map } : {}),
+        },
       }}
     />
   );

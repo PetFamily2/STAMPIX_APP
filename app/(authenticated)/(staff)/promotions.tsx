@@ -156,7 +156,7 @@ export default function StaffPromotionsScreen() {
       return;
     }
     if (appMode !== 'business') {
-      router.replace('/(authenticated)/(customer)/wallet');
+      router.navigate('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 

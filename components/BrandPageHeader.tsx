@@ -11,6 +11,7 @@ type BrandPageHeaderProps = {
   titleStyle?: StyleProp<TextStyle>;
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
+  brandAccessory?: ReactNode;
   titleNumberOfLines?: number;
   subtitleNumberOfLines?: number;
 };
@@ -20,6 +21,7 @@ export default function BrandPageHeader({
   style,
   titleStyle,
   titleAccessory,
+  brandAccessory,
   titleNumberOfLines = 1,
 }: BrandPageHeaderProps) {
   return (
@@ -29,6 +31,7 @@ export default function BrandPageHeader({
         style={styles.titleRow}
         titleStyle={titleStyle}
         titleAccessory={titleAccessory}
+        brandAccessory={brandAccessory}
         titleNumberOfLines={titleNumberOfLines}
       />
     </View>

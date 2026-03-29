@@ -18,6 +18,7 @@ import {
   generateJoinCode,
   generatePublicId,
 } from './lib/ids';
+import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   assertScanTokenSignature,
   getScanTokenIdentity,
@@ -750,6 +751,7 @@ export const createBusiness = mutation({
 export const updateBusinessAddress = mutation({
   args: {
     businessId: v.id('businesses'),
+    expectedUpdatedAt: v.optional(v.number()),
     formattedAddress: v.string(),
     placeId: v.string(),
     lat: v.number(),
@@ -762,6 +764,7 @@ export const updateBusinessAddress = mutation({
     ctx,
     {
       businessId,
+      expectedUpdatedAt,
       formattedAddress,
       placeId,
       lat,
@@ -776,6 +779,16 @@ export const updateBusinessAddress = mutation({
       businessId,
       'edit_business_profile'
     );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+    assertExpectedUpdatedAt({
+      entity: 'business',
+      entityId: String(businessId),
+      expectedUpdatedAt,
+      actualUpdatedAt: business.updatedAt,
+    });
     const normalizedAddress = normalizeBusinessAddressInput({
       formattedAddress,
       placeId,
@@ -786,6 +799,7 @@ export const updateBusinessAddress = mutation({
       streetNumber,
     });
 
+    const updatedAt = Date.now();
     await ctx.db.patch(businessId, {
       location: normalizedAddress.location,
       placeId: normalizedAddress.placeId,
@@ -793,10 +807,10 @@ export const updateBusinessAddress = mutation({
       city: normalizedAddress.city,
       street: normalizedAddress.street,
       streetNumber: normalizedAddress.streetNumber,
-      updatedAt: Date.now(),
+      updatedAt,
     });
 
-    return { businessId };
+    return { businessId, updatedAt };
   },
 });
 
@@ -1226,6 +1240,7 @@ export const getBusinessSettings = query({
 export const updateBusinessProfile = mutation({
   args: {
     businessId: v.id('businesses'),
+    expectedUpdatedAt: v.optional(v.number()),
     name: v.string(),
     shortDescription: v.string(),
     businessPhone: v.string(),
@@ -1236,6 +1251,7 @@ export const updateBusinessProfile = mutation({
     ctx,
     {
       businessId,
+      expectedUpdatedAt,
       name,
       shortDescription,
       businessPhone,
@@ -1252,6 +1268,12 @@ export const updateBusinessProfile = mutation({
     if (!business || business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
     }
+    assertExpectedUpdatedAt({
+      entity: 'business',
+      entityId: String(businessId),
+      expectedUpdatedAt,
+      actualUpdatedAt: business.updatedAt,
+    });
 
     const normalizedName = normalizeBusinessName(name);
     const normalizedShortDescription =

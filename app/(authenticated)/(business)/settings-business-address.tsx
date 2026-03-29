@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -22,6 +21,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
 import { tw } from '@/lib/rtl';
 
@@ -103,9 +103,51 @@ export default function BusinessSettingsAddressScreen() {
   const [isSelectingAddress, setIsSelectingAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
+  const [conflictLocked, setConflictLocked] = useState(false);
+
+  const applyBusinessAddressSnapshot = (settings: typeof businessSettings) => {
+    if (!settings) {
+      return;
+    }
+    const formatted = settings.formattedAddress?.trim() ?? '';
+    setAddressQuery(formatted);
+    const location = settings.location;
+    const hasCoordinates =
+      location &&
+      typeof location.lat === 'number' &&
+      typeof location.lng === 'number';
+
+    if (formatted && settings.placeId && hasCoordinates && location) {
+      setSelectedAddress({
+        formattedAddress: formatted,
+        placeId: settings.placeId,
+        lat: location.lat,
+        lng: location.lng,
+        city: settings.city ?? '',
+        street: settings.street ?? '',
+        streetNumber: settings.streetNumber ?? '',
+      });
+    } else {
+      setSelectedAddress(null);
+    }
+    setBaseUpdatedAt(
+      typeof settings.updatedAt === 'number' ? settings.updatedAt : null
+    );
+    setConflictLocked(false);
+  };
 
   useEffect(() => {
-    if (!businessSettings) {
+    const businessKey = activeBusinessId ?? null;
+    setBaseUpdatedAt(null);
+    setConflictLocked(false);
+    if (businessKey === null) {
+      setSelectedAddress(null);
+    }
+  }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (!businessSettings || baseUpdatedAt !== null) {
       return;
     }
     const formatted = businessSettings.formattedAddress?.trim() ?? '';
@@ -129,7 +171,13 @@ export default function BusinessSettingsAddressScreen() {
     } else {
       setSelectedAddress(null);
     }
-  }, [businessSettings]);
+    setBaseUpdatedAt(
+      typeof businessSettings.updatedAt === 'number'
+        ? businessSettings.updatedAt
+        : null
+    );
+    setConflictLocked(false);
+  }, [baseUpdatedAt, businessSettings]);
 
   const searchQuery = useMemo(() => {
     const normalizedQuery = addressQuery.trim();
@@ -157,7 +205,8 @@ export default function BusinessSettingsAddressScreen() {
     canEditBusiness &&
     hasSelectedAddress &&
     !isSelectingAddress &&
-    !isSubmitting;
+    !isSubmitting &&
+    !conflictLocked;
 
   const handleAddressChange = (value: string) => {
     setAddressQuery(value);
@@ -202,8 +251,9 @@ export default function BusinessSettingsAddressScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await updateBusinessAddress({
+      const result = await updateBusinessAddress({
         businessId: activeBusinessId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
         formattedAddress: selectedAddress.formattedAddress,
         placeId: selectedAddress.placeId,
         lat: selectedAddress.lat,
@@ -212,9 +262,35 @@ export default function BusinessSettingsAddressScreen() {
         street: selectedAddress.street,
         streetNumber: selectedAddress.streetNumber,
       });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
       Alert.alert('נשמר', 'כתובת העסק עודכנה בהצלחה.');
       router.back();
     } catch (saveError) {
+      const conflict = getEditConflictError(saveError);
+      if (conflict) {
+        Alert.alert(
+          'הנתונים עודכנו',
+          'נמצאה גרסה חדשה של כתובת העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
+          [
+            {
+              text: 'Reload latest',
+              onPress: () => {
+                applyBusinessAddressSnapshot(businessSettings);
+                setError(null);
+              },
+            },
+            {
+              text: 'Keep my draft',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
       setError(toErrorMessage(saveError, 'עדכון הכתובת נכשל.'));
     } finally {
       setIsSubmitting(false);
@@ -339,6 +415,26 @@ export default function BusinessSettingsAddressScreen() {
                 <Text className="text-right text-xs text-[#991B1B]">
                   {error}
                 </Text>
+              </View>
+            ) : null}
+
+            {conflictLocked ? (
+              <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
+                <Text className="text-right text-xs text-[#92400E]">
+                  נמצאה גרסה חדשה של הכתובת. השמירה נעולה עד לטעינת הגרסה
+                  העדכנית.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    applyBusinessAddressSnapshot(businessSettings);
+                    setError(null);
+                  }}
+                  className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+                >
+                  <Text className="text-xs font-bold text-white">
+                    Reload latest
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
 

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -15,14 +15,12 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   DonutChartCard,
   HorizontalRankingChart,
   InsightCard,
   KpiCard,
-  SegmentedPillControl,
   SurfaceCard,
 } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -37,7 +35,6 @@ import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
-type ReportsTopTab = 'reports' | 'customers';
 type CustomerRouteFilter =
   | 'near_reward'
   | 'at_risk'
@@ -65,7 +62,7 @@ type CustomerRow = {
   loyaltyProgress: number;
 };
 
-const TOP_TABS: Array<{ key: ReportsTopTab; label: string }> = [
+const _TOP_TABS = [
   { key: 'reports', label: 'דוחות' },
   { key: 'customers', label: 'לקוחות' },
 ];
@@ -199,7 +196,7 @@ export function CustomersHubContent() {
       return;
     }
     if (appMode !== 'business') {
-      router.replace('/(authenticated)/(customer)/wallet');
+      router.navigate('/(authenticated)/(customer)/wallet');
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
@@ -337,27 +334,8 @@ export function CustomersHubContent() {
           <BusinessScreenHeader
             title="לקוחות"
             subtitle="מצב לקוחות, דרגות ערך ותובנות"
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-              />
-            }
           />
         </StickyScrollHeader>
-
-        <View style={{ marginTop: 4 }}>
-          <SegmentedPillControl
-            items={TOP_TABS}
-            value="customers"
-            onChange={(nextTab) => {
-              if (nextTab === 'reports') {
-                router.setParams({ tab: 'reports' });
-              }
-            }}
-          />
-        </View>
 
         <View style={styles.kpiGrid}>
           <View style={styles.kpiCell}>
@@ -609,20 +587,6 @@ export function CustomersHubContent() {
 }
 
 export default function BusinessCustomersRoute() {
-  const { tab, preview, map } = useLocalSearchParams<{
-    tab?: string;
-    preview?: string;
-    map?: string;
-  }>();
-
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-
-  if (!isPreviewMode && tab === 'reports') {
-    return (
-      <Redirect href="/(authenticated)/(business)/analytics?tab=reports" />
-    );
-  }
-
   return <CustomersHubContent />;
 }
 

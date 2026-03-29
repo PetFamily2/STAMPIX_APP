@@ -19,14 +19,12 @@ import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingF
 
 const TEXT = {
   dashboard: 'מרכז ניהול',
-  analytics: 'דוחות',
-  scanCustomer: 'סרוק לקוח',
   customers: 'לקוחות',
-  marketing: 'שיווק',
+  programs: 'תוכניות',
+  campaigns: 'קמפיינים',
+  scanCustomer: 'סרוק לקוח',
   settings: 'הגדרות',
 };
-
-const DASHBOARD_ROUTE_NAMES = new Set(['dashboard', 'qr']);
 
 export default function BusinessTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -83,20 +81,39 @@ export default function BusinessTabsLayout() {
   ) as string[];
   const currentLeafSegment =
     segmentStrings[segmentStrings.length - 1] ?? 'dashboard';
-  const isCardsRoute = segmentStrings.includes('cards');
-  const isCustomersRoute = segmentStrings.includes('customers');
-  const isCustomerCardRoute = segmentStrings.includes('customer');
-  const isSettingsSubRoute =
+  const isProgramsRoute =
+    currentLeafSegment === 'programs' ||
+    (segmentStrings.includes('cards') &&
+      !segmentStrings.includes('campaign') &&
+      !segmentStrings.includes('campaigns'));
+  const isCampaignsRoute =
+    currentLeafSegment === 'campaigns' ||
+    segmentStrings.includes('campaigns') ||
+    segmentStrings.includes('campaign');
+  const isCustomersRoute =
+    currentLeafSegment === 'customers' ||
+    currentLeafSegment === 'analytics' ||
+    segmentStrings.includes('customers') ||
+    segmentStrings.includes('customer');
+  const isSettingsRoute =
+    currentLeafSegment === 'settings' ||
+    currentLeafSegment === 'qr' ||
+    currentLeafSegment === 'team' ||
+    segmentStrings.includes('team') ||
     currentLeafSegment.startsWith('settings-business-');
-  const activeTabName = DASHBOARD_ROUTE_NAMES.has(currentLeafSegment)
-    ? 'dashboard'
-    : isCardsRoute
-      ? 'cards'
-      : isCustomersRoute || isCustomerCardRoute
-        ? 'analytics'
-        : isSettingsSubRoute
-          ? 'settings'
-          : currentLeafSegment;
+
+  const activeTabName =
+    currentLeafSegment === 'dashboard'
+      ? 'dashboard'
+      : isCustomersRoute
+        ? 'customers'
+        : isProgramsRoute
+          ? 'programs'
+          : isCampaignsRoute
+            ? 'campaigns'
+            : isSettingsRoute
+              ? 'settings'
+              : currentLeafSegment;
 
   return (
     <Tabs
@@ -136,29 +153,29 @@ export default function BusinessTabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="settings"
+        name="programs"
         options={{
-          title: TEXT.settings,
+          title: TEXT.programs,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.settings}
-              icon="settings-outline"
-              isActive={activeTabName === 'settings'}
+              title={TEXT.programs}
+              icon="albums-outline"
+              isActive={activeTabName === 'programs'}
             />
           ),
         }}
       />
       <Tabs.Screen
-        name="cards"
+        name="campaigns"
         options={{
-          title: TEXT.marketing,
+          title: TEXT.campaigns,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.marketing}
+              title={TEXT.campaigns}
               icon="megaphone-outline"
-              isActive={activeTabName === 'cards'}
+              isActive={activeTabName === 'campaigns'}
             />
           ),
         }}
@@ -177,15 +194,15 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="customers"
         options={{
-          title: TEXT.analytics,
+          title: TEXT.customers,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.analytics}
-              icon="bar-chart-outline"
-              isActive={activeTabName === 'analytics'}
+              title={TEXT.customers}
+              icon="people-outline"
+              isActive={activeTabName === 'customers'}
             />
           ),
         }}
@@ -202,6 +219,24 @@ export default function BusinessTabsLayout() {
               isActive={activeTabName === 'dashboard'}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="cards"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -224,12 +259,6 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="team/add"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="customers"
         options={{
           href: null,
         }}
