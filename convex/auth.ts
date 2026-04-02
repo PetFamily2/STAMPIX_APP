@@ -5,7 +5,8 @@ import { Password } from '@convex-dev/auth/providers/Password';
 import { convexAuth, getAuthUserId } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
+import { normalizeEmailAddress } from './lib/email';
 
 const AUTH_REDIRECT_APP_PREFIXES = [
   'stampix://',
@@ -17,7 +18,7 @@ const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 
 function normalizeEmailIdentifier(identifier: string): string {
-  return identifier.trim().toLowerCase();
+  return normalizeEmailAddress(identifier) ?? '';
 }
 
 function generateEmailOtpToken(): string {
@@ -72,11 +73,7 @@ type NormalizedIdentityInput = {
 };
 
 function normalizeEmail(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
+  return normalizeEmailAddress(value);
 }
 
 function normalizeNamePart(value: unknown): string | undefined {
@@ -205,7 +202,7 @@ function resolveAvatarUrl(
 function buildUserMetadataPatch(user: any, input: NormalizedIdentityInput) {
   const patch: Record<string, unknown> = {};
 
-  if (input.email && !normalizeEmail(user?.email)) {
+  if (input.email && user?.email !== input.email) {
     patch.email = input.email;
   }
 
@@ -244,15 +241,28 @@ function buildUserMetadataPatch(user: any, input: NormalizedIdentityInput) {
   return patch;
 }
 
-async function findSingleUserByNormalizedEmail(ctx: any, email: string) {
-  const matches = await ctx.db
+async function findUsersByNormalizedEmail(ctx: any, email: string) {
+  const indexedMatches = await ctx.db
     .query('users')
     .withIndex('by_email', (q: any) => q.eq('email', email))
     .collect();
 
+  if (indexedMatches.length > 0) {
+    return indexedMatches;
+  }
+
+  return (await ctx.db.query('users').collect()).filter(
+    (user: any) => normalizeEmail(user.email) === email
+  );
+}
+
+async function findSingleUserByNormalizedEmail(ctx: any, email: string) {
+  const matches = await findUsersByNormalizedEmail(ctx, email);
+
   if (matches.length !== 1) {
     return null;
   }
+
   return matches[0];
 }
 
@@ -610,5 +620,25 @@ export const createOrUpdateUser = mutation({
   },
   handler: async (ctx, args) => {
     return await createOrUpdateUserHandler(ctx, args);
+  },
+});
+
+export const getEmailSignInStatus = query({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, { email }) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return {
+        exists: false,
+      };
+    }
+
+    const matches = await findUsersByNormalizedEmail(ctx, normalizedEmail);
+
+    return {
+      exists: matches.length > 0,
+    };
   },
 });

@@ -7,6 +7,7 @@ import {
   internalQuery,
   mutation,
 } from './_generated/server';
+import { normalizeEmailAddress } from './lib/email';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MS = 3 * 60 * 1000;
@@ -14,7 +15,7 @@ const OTP_COOLDOWN_MS = 30 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 
 function normalizeEmail(value: string) {
-  return value.trim().toLowerCase();
+  return normalizeEmailAddress(value) ?? '';
 }
 
 function generateOtpCode() {

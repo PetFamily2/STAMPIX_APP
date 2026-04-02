@@ -204,6 +204,11 @@ export function SubscriptionSalesPanel({
         ? `₪${formatPlanPrice(equivalentMonthly)}/חודש`
         : `${yearlyBillingAmount}/שנה`;
 
+  const billingPeriods =
+    selectedPlanCard.plan === 'starter'
+      ? (['monthly'] as const)
+      : (['monthly', 'yearly'] as const);
+
   const selectorSection = (
     <View style={styles.selectorRow}>
       {orderedPlans.map((plan) => {
@@ -278,29 +283,31 @@ export function SubscriptionSalesPanel({
     >
       <View style={styles.footerCard}>
         <View style={styles.summaryHeader}>
-          <View style={styles.summaryTextWrap}>
-            <Text style={styles.summaryEyebrow}>{footerSummaryLabel}</Text>
-            <Text
-              style={[
-                styles.summaryPlanName,
-                isCompact ? styles.summaryPlanNameCompact : null,
-              ]}
-              numberOfLines={1}
-            >
-              {selectedPlanCard.label}
-            </Text>
-          </View>
+          <Text style={styles.summaryEyebrow}>{footerSummaryLabel}</Text>
+          <Text
+            style={[
+              styles.summaryPlanName,
+              isCompact ? styles.summaryPlanNameCompact : null,
+            ]}
+            numberOfLines={1}
+          >
+            {selectedPlanCard.label}
+          </Text>
         </View>
 
         <View style={styles.billingOptionsRow}>
-          {(['monthly', 'yearly'] as const).map((period) => {
-            const active = billingPeriod === period;
+          {billingPeriods.map((period) => {
+            const isStarterPlan = selectedPlanCard.plan === 'starter';
+            const active = isStarterPlan || billingPeriod === period;
             const isYearly = period === 'yearly';
             const optionPrice = isYearly
               ? yearlyOptionPrice
               : monthlyOptionPrice;
+            const optionLabel = isStarterPlan
+              ? 'ללא חיוב'
+              : BILLING_PERIOD_LABELS[period];
             const optionSubline =
-              selectedPlanCard.plan === 'starter'
+              isStarterPlan
                 ? 'ללא חיוב'
                 : isYearly
                   ? `חיוב ${yearlyBillingAmount} לשנה`
@@ -332,7 +339,7 @@ export function SubscriptionSalesPanel({
                     ]}
                     numberOfLines={1}
                   >
-                    {BILLING_PERIOD_LABELS[period]}
+                    {optionLabel}
                   </Text>
 
                   <View
@@ -525,9 +532,9 @@ const styles = StyleSheet.create({
     borderColor: '#D6E2F6',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 8,
     shadowColor: '#2F6BFF',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -536,14 +543,9 @@ const styles = StyleSheet.create({
   },
   summaryHeader: {
     flexDirection: IS_RTL ? 'row-reverse' : 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-  },
-  summaryTextWrap: {
-    flex: 1,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
-    gap: 2,
+    gap: 8,
   },
   summaryEyebrow: {
     color: '#64748B',
@@ -552,9 +554,10 @@ const styles = StyleSheet.create({
     textAlign: IS_RTL ? 'right' : 'left',
   },
   summaryPlanName: {
+    flexShrink: 1,
     color: '#0F172A',
     fontSize: 18,
-    lineHeight: 22,
+    lineHeight: 20,
     fontWeight: '900',
     textAlign: IS_RTL ? 'right' : 'left',
   },

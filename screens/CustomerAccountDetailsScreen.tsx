@@ -20,6 +20,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 
@@ -258,6 +259,18 @@ export default function CustomerAccountDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{TEXT.accountInfo}</Text>
           <View style={styles.card}>
+            <View style={styles.profileHero}>
+              <UserAvatar
+                avatarUrl={user?.avatarUrl}
+                fullName={fullName === TEXT.missingValue ? undefined : fullName}
+                size={72}
+              />
+              <View style={styles.profileHeroCopy}>
+                <Text style={styles.profileHeroName}>{fullName}</Text>
+                <Text style={styles.profileHeroEmail}>{email}</Text>
+              </View>
+            </View>
+
             <DetailRow label={TEXT.fullName} value={fullName} />
 
             <View style={styles.detailRow}>
@@ -467,6 +480,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 14,
     gap: 12,
+  },
+  profileHero: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  profileHeroCopy: {
+    flex: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  profileHeroName: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'right',
+  },
+  profileHeroEmail: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
   },
   detailRow: {
     flexDirection: 'row',

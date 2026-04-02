@@ -12,6 +12,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { UserAvatar } from '@/components/UserAvatar';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -91,6 +92,13 @@ export default function WalletScreen() {
   const businesses = (businessesQuery ?? []) as WalletBusiness[];
   const pendingStaffInvites = sessionContext?.pendingInvites ?? [];
   const firstPendingStaffInvite = pendingStaffInvites[0] ?? null;
+  const userDisplayName =
+    sessionContext?.user?.fullName?.trim() ||
+    [sessionContext?.user?.firstName?.trim(), sessionContext?.user?.lastName?.trim()]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    undefined;
 
   const seedMvp = useMutation(api.seed.seedMvp);
   const isLoading = isAuthenticated && businessesQuery === undefined;
@@ -142,7 +150,17 @@ export default function WalletScreen() {
           backgroundColor="#E9F0FF"
         >
           <View style={styles.headerRow}>
-            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+            <BusinessScreenHeader
+              title={TEXT.title}
+              subtitle={TEXT.subtitle}
+              brandAccessory={
+                <UserAvatar
+                  avatarUrl={sessionContext?.user?.avatarUrl}
+                  fullName={userDisplayName}
+                  size={36}
+                />
+              }
+            />
           </View>
         </StickyScrollHeader>
 

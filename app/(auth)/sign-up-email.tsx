@@ -1,4 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useConvex } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
+import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -29,6 +31,7 @@ const TEXT = {
   invalidEmail: 'כתובת האימייל לא תקינה',
   rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות',
   missingConfig: 'שירות האימייל לא מוגדר עדיין בדקו את ההגדרות בסביבת Convex',
+  accountNotFound: 'לא מצאנו חשבון עם האימייל הזה',
 };
 
 function isValidEmail(value: string) {
@@ -36,6 +39,7 @@ function isValidEmail(value: string) {
 }
 
 export default function SignUpEmailScreen() {
+  const convex = useConvex();
   const router = useRouter();
   const { signIn } = useAuthActions();
   const { preview, map } = useLocalSearchParams<{
@@ -85,6 +89,14 @@ export default function SignUpEmailScreen() {
     setBusy(true);
 
     try {
+      const status = await convex.query(api.auth.getEmailSignInStatus, {
+        email: normalizedEmail,
+      });
+      if (!status.exists) {
+        setError(TEXT.accountNotFound);
+        return;
+      }
+
       await signIn('email', {
         email: normalizedEmail,
       });
@@ -176,7 +188,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 28,
   },

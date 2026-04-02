@@ -24,7 +24,7 @@ import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusin
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const TEXT = {
-  title: 'מה התדירות שמתאימה לעסק?',
+  title: 'כל כמה זמן לקוחות חוזרים',
 };
 
 export default function OnboardingBusinessCadenceScreen() {
@@ -127,7 +127,6 @@ export default function OnboardingBusinessCadenceScreen() {
                 key={option}
                 selected={isSelected}
                 label={CADENCE_LABELS[option]}
-                pressableStyle={styles.optionPressable}
                 labelNumberOfLines={1}
                 onPress={() => {
                   setBusinessOnboardingDraft((prev) => ({
@@ -161,7 +160,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
   },
@@ -189,13 +188,7 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     marginTop: 16,
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
     gap: 10,
-  },
-  optionPressable: {
-    width: '48%',
   },
   footer: {
     marginTop: 'auto',

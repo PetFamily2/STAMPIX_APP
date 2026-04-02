@@ -107,8 +107,145 @@ type MembershipAggregate = {
   ratio: number;
 };
 
+export type DashboardStampEvent = {
+  customerUserId: Id<'users'> | string;
+  createdAt: number;
+  type?: string;
+};
+
+export type DashboardLifecycleCounts = {
+  activeCustomers: number;
+  atRiskCustomers: number;
+};
+
 function getDaysAgo(timestamp: number, now: number) {
   return Math.max(0, Math.floor((now - timestamp) / DAY_MS));
+}
+
+function sortAscending(values: number[]) {
+  return values.slice().sort((left, right) => left - right);
+}
+
+export function getCustomerLastStampAt(
+  stampTimestamps: number[],
+  referenceNow: number
+) {
+  let lastStampAt: number | null = null;
+
+  for (const stampAt of stampTimestamps) {
+    if (!Number.isFinite(stampAt) || stampAt > referenceNow) {
+      continue;
+    }
+    if (lastStampAt === null || stampAt > lastStampAt) {
+      lastStampAt = stampAt;
+    }
+  }
+
+  return lastStampAt;
+}
+
+export function getCustomerExpectedCycleDays(
+  stampTimestamps: number[],
+  referenceNow: number
+) {
+  const eligibleStamps = sortAscending(
+    stampTimestamps.filter(
+      (stampAt) => Number.isFinite(stampAt) && stampAt <= referenceNow
+    )
+  );
+
+  if (eligibleStamps.length < 2) {
+    return null;
+  }
+
+  const intervalsDays: number[] = [];
+  for (let index = 1; index < eligibleStamps.length; index += 1) {
+    const intervalMs = eligibleStamps[index] - eligibleStamps[index - 1];
+    if (intervalMs <= 0) {
+      continue;
+    }
+    intervalsDays.push(intervalMs / DAY_MS);
+  }
+
+  if (intervalsDays.length === 0) {
+    return null;
+  }
+
+  return (
+    intervalsDays.reduce((sum, value) => sum + value, 0) / intervalsDays.length
+  );
+}
+
+export function isCustomerActiveForReferenceNow(
+  stampTimestamps: number[],
+  referenceNow: number,
+  windowDays = 30
+) {
+  const lastStampAt = getCustomerLastStampAt(stampTimestamps, referenceNow);
+  if (lastStampAt === null) {
+    return false;
+  }
+  return lastStampAt >= referenceNow - windowDays * DAY_MS;
+}
+
+export function isCustomerAtRiskForReferenceNow(
+  stampTimestamps: number[],
+  referenceNow: number
+) {
+  const lastStampAt = getCustomerLastStampAt(stampTimestamps, referenceNow);
+  const expectedCycleDays = getCustomerExpectedCycleDays(
+    stampTimestamps,
+    referenceNow
+  );
+
+  if (lastStampAt === null || expectedCycleDays === null) {
+    return false;
+  }
+
+  const daysSinceLastVisit = (referenceNow - lastStampAt) / DAY_MS;
+  return daysSinceLastVisit > expectedCycleDays * 1.5;
+}
+
+export function buildDashboardLifecycleCountsFromStampEvents(
+  events: DashboardStampEvent[],
+  referenceNow: number
+): DashboardLifecycleCounts {
+  const stampHistoryByCustomer = new Map<string, number[]>();
+
+  for (const event of events) {
+    if (
+      event?.type &&
+      event.type !== 'STAMP_ADDED' &&
+      event.type !== 'stamp_added'
+    ) {
+      continue;
+    }
+    if (!Number.isFinite(event?.createdAt) || event.createdAt > referenceNow) {
+      continue;
+    }
+
+    const customerKey = String(event.customerUserId);
+    const history = stampHistoryByCustomer.get(customerKey) ?? [];
+    history.push(event.createdAt);
+    stampHistoryByCustomer.set(customerKey, history);
+  }
+
+  let activeCustomers = 0;
+  let atRiskCustomers = 0;
+
+  for (const stampTimestamps of stampHistoryByCustomer.values()) {
+    if (isCustomerActiveForReferenceNow(stampTimestamps, referenceNow)) {
+      activeCustomers += 1;
+    }
+    if (isCustomerAtRiskForReferenceNow(stampTimestamps, referenceNow)) {
+      atRiskCustomers += 1;
+    }
+  }
+
+  return {
+    activeCustomers,
+    atRiskCustomers,
+  };
 }
 
 function isNearRewardRatio(rewardProgressRatio: number, threshold: number) {
@@ -445,15 +582,20 @@ function buildCustomerOpportunities(args: {
 
 export async function buildCustomerLifecycleSnapshotForBusiness(
   ctx: any,
-  businessId: Id<'businesses'>
+  businessId: Id<'businesses'>,
+  options?: {
+    referenceNow?: number;
+  }
 ) {
-  const now = Date.now();
+  const now = options?.referenceNow ?? Date.now();
   const business = (await ctx.db.get(businessId)) as Doc<'businesses'> | null;
   const thresholds = getRetentionThresholdsForBusiness(business);
 
   const memberships = await ctx.db
     .query('memberships')
-    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .withIndex('by_businessId_createdAt', (q: any) =>
+      q.eq('businessId', businessId).lte('createdAt', now)
+    )
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
 
@@ -513,7 +655,9 @@ export async function buildCustomerLifecycleSnapshotForBusiness(
     ),
     ctx.db
       .query('events')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .withIndex('by_businessId_createdAt', (q: any) =>
+        q.eq('businessId', businessId).lte('createdAt', now)
+      )
       .collect(),
   ]);
 

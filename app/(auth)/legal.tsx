@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F7F4',
   },
   headerShell: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 8,
   },
   header: {
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
   title: {

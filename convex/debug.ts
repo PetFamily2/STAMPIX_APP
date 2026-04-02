@@ -1,12 +1,13 @@
 import { v } from 'convex/values';
 import { mutation } from './_generated/server';
 import { requireCurrentUser } from './guards';
+import { normalizeEmailAddress } from './lib/email';
 
 export const linkMeAsOwner = mutation({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, { businessId }) => {
     const identity = await ctx.auth.getUserIdentity();
-    const email = identity?.email;
+    const email = normalizeEmailAddress(identity?.email);
     if (!email) throw new Error('NOT_AUTHENTICATED');
 
     const user = await ctx.db
@@ -57,9 +58,12 @@ export const linkMeAsOwner = mutation({
 export const linkEmailAsOwner = mutation({
   args: { businessId: v.id('businesses'), email: v.string() },
   handler: async (ctx, { businessId, email }) => {
+    const normalizedEmail = normalizeEmailAddress(email);
+    if (!normalizedEmail) throw new Error('EMAIL_REQUIRED');
+
     const user = await ctx.db
       .query('users')
-      .withIndex('by_email', (q) => q.eq('email', email))
+      .withIndex('by_email', (q) => q.eq('email', normalizedEmail))
       .first();
 
     if (!user) throw new Error('USER_NOT_FOUND');
@@ -112,10 +116,13 @@ export const setUserEmailByExternalId = mutation({
 
     if (!user) throw new Error('USER_NOT_FOUND');
 
-    const now = Date.now();
-    await ctx.db.patch(user._id, { email, updatedAt: now });
+    const normalizedEmail = normalizeEmailAddress(email);
+    if (!normalizedEmail) throw new Error('EMAIL_REQUIRED');
 
-    return { ok: true, userId: user._id, externalId, email };
+    const now = Date.now();
+    await ctx.db.patch(user._id, { email: normalizedEmail, updatedAt: now });
+
+    return { ok: true, userId: user._id, externalId, email: normalizedEmail };
   },
 });
 
@@ -143,7 +150,7 @@ export const whoAmI = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    const email = identity?.email ?? null;
+    const email = normalizeEmailAddress(identity?.email);
 
     const user = email
       ? await ctx.db
@@ -163,7 +170,10 @@ export const whoAmI = mutation({
 export const findUsersByEmailLower = mutation({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
-    const target = email.toLowerCase();
+    const target = normalizeEmailAddress(email);
+    if (!target) {
+      return [];
+    }
 
     const all = await ctx.db.query('users').collect();
     const matches = all.filter((u) => (u.email ?? '').toLowerCase() === target);
@@ -183,9 +193,12 @@ export const findUsersByEmailLower = mutation({
 export const setBusinessOwnerByEmail = mutation({
   args: { businessId: v.id('businesses'), email: v.string() },
   handler: async (ctx, { businessId, email }) => {
+    const normalizedEmail = normalizeEmailAddress(email);
+    if (!normalizedEmail) throw new Error('EMAIL_REQUIRED');
+
     const user = await ctx.db
       .query('users')
-      .withIndex('by_email', (q) => q.eq('email', email))
+      .withIndex('by_email', (q) => q.eq('email', normalizedEmail))
       .first();
 
     if (!user) throw new Error('USER_NOT_FOUND');
@@ -198,7 +211,7 @@ export const setBusinessOwnerByEmail = mutation({
       updatedAt: Date.now(),
     });
 
-    return { ok: true, businessId, ownerUserId: user._id, email };
+    return { ok: true, businessId, ownerUserId: user._id, email: normalizedEmail };
   },
 });
 

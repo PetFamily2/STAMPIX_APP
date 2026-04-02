@@ -2,126 +2,525 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { getLatestRecommendationForBusiness } from './aiRecommendations';
-import { getBusinessActivity } from './analytics';
+import { getBusinessSettings } from './business';
 import {
-  getBusinessSettings,
-  getBusinessTeamSummary,
-  listBusinessStaffHistory,
-} from './business';
-import { listManagementCampaignsByBusiness } from './campaigns';
+  buildDashboardLifecycleCountsFromStampEvents,
+  type DashboardStampEvent,
+} from './customerLifecycle';
 import { getBusinessUsageSummary } from './entitlements';
-import { getCustomerManagementSnapshot, getRecentActivity } from './events';
+import { getCustomerManagementSnapshot } from './events';
 import { requireActorIsStaffForBusiness } from './guards';
-import { listManagementByBusiness } from './loyaltyPrograms';
-import { getBusinessRewardEligibilitySummary } from './memberships';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CAMPAIGN_WINDOW_DAYS = 45;
-const ACTIVITY_WINDOW_DAYS = 7;
+const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
+const DATE_PARTS_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: ISRAEL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const TIME_ZONE_OFFSET_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: ISRAEL_TIME_ZONE,
+  timeZoneName: 'longOffset',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
-type CampaignRunLite = {
-  campaignId: Id<'campaigns'>;
-  sentAt: number;
-  summaryStatus: 'pending' | 'ready' | 'summarized';
-  deliveredCount: number;
-  returnedCustomers14d?: number;
-  rewardRedemptions14d?: number;
+type RecommendationTone = 'critical' | 'warning' | 'neutral' | 'success';
+type RecommendationCtaKind =
+  | 'open_cards'
+  | 'open_profile'
+  | 'open_campaign_draft'
+  | 'view_customers'
+  | 'view_analytics'
+  | 'view_subscription'
+  | 'open_campaigns'
+  | 'none';
+
+type RecommendationPrimaryCta = {
+  kind: RecommendationCtaKind;
+  label: string;
+  draftType?: 'welcome' | 'winback' | 'promo' | null;
+  customerFilter?: 'near_reward' | 'at_risk' | 'new_customers' | null;
 };
 
-type CampaignSummaryRow = {
-  campaignId: Id<'campaigns'>;
+type DashboardRecommendationCard = {
+  key: string;
+  priority: number;
+  tone: RecommendationTone;
   title: string;
-  type: string;
-  lifecycle: 'active' | 'inactive' | 'archived';
-  automationEnabled: boolean;
-  estimatedAudience: number;
-  reachedMessagesAllTime: number;
-  reachedUniqueAllTime: number;
-  lastSentAt: number | null;
-  summaryStatus: 'pending' | 'ready' | 'summarized' | 'not_available';
-  deliveredCount14d: number | null;
-  returnedCustomers14d: number | null;
-  rewardRedemptions14d: number | null;
+  body: string;
+  supportingText?: string;
+  evidenceTags: string[];
+  recommendationId?: Id<'aiRecommendations'> | null;
+  primaryCta?: RecommendationPrimaryCta | null;
+};
+
+type DayBounds = {
+  dayKey: string;
+  startMs: number;
+  endMs: number;
+  year: number;
+  month: number;
+  day: number;
 };
 
 function safeNumber(value: unknown, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function sumLast7Days(
-  daily:
-    | Array<{ stamps?: number | null; redemptions?: number | null }>
-    | undefined
-) {
-  const source = Array.isArray(daily) ? daily.slice(-7) : [];
-  const stamps = source.reduce(
-    (sum, day) => sum + safeNumber(day.stamps, 0),
-    0
-  );
-  const redemptions = source.reduce(
-    (sum, day) => sum + safeNumber(day.redemptions, 0),
-    0
-  );
-  return { stamps, redemptions };
-}
-
-function toLifecycle(value: unknown): 'active' | 'inactive' | 'archived' {
-  if (value === 'active' || value === 'inactive' || value === 'archived') {
-    return value;
+function resolveProgramLifecycle(program: {
+  status?: unknown;
+  isArchived?: unknown;
+}) {
+  if (
+    program.status === 'draft' ||
+    program.status === 'active' ||
+    program.status === 'archived'
+  ) {
+    return program.status;
   }
-  return 'inactive';
-}
 
-function toSummaryStatus(
-  value: unknown
-): 'pending' | 'ready' | 'summarized' | 'not_available' {
-  if (value === 'pending' || value === 'ready' || value === 'summarized') {
-    return value;
+  if (program.isArchived === true) {
+    return 'archived' as const;
   }
-  return 'not_available';
+
+  return 'active' as const;
 }
 
-function percent(used: number, limit: number) {
-  if (limit <= 0) {
+function getIsraelDateParts(timestamp: number) {
+  const values = new Map<string, string>();
+  for (const part of DATE_PARTS_FORMATTER.formatToParts(new Date(timestamp))) {
+    if (part.type !== 'literal') {
+      values.set(part.type, part.value);
+    }
+  }
+
+  return {
+    year: Number(values.get('year') ?? '1970'),
+    month: Number(values.get('month') ?? '01'),
+    day: Number(values.get('day') ?? '01'),
+  };
+}
+
+function getIsraelDayKey(timestamp: number) {
+  const { year, month, day } = getIsraelDateParts(timestamp);
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(
+    2,
+    '0'
+  )}-${String(day).padStart(2, '0')}`;
+}
+
+function getIsraelOffsetMs(timestamp: number) {
+  const offsetLabel =
+    TIME_ZONE_OFFSET_FORMATTER.formatToParts(new Date(timestamp)).find(
+      (part) => part.type === 'timeZoneName'
+    )?.value ?? 'GMT+00:00';
+  const match = offsetLabel.match(/GMT([+-])(\d{2}):(\d{2})/);
+
+  if (!match) {
     return 0;
   }
-  return Math.round((used / limit) * 100);
+
+  const sign = match[1] === '-' ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3])) * 60 * 1000;
 }
 
-function isNearLimit(used: number, limit: number) {
-  if (limit <= 0) {
-    return false;
+function zonedDateTimeToUtcTimestamp(input: {
+  year: number;
+  month: number;
+  day: number;
+  hour?: number;
+  minute?: number;
+  second?: number;
+  millisecond?: number;
+}) {
+  const baseUtc = Date.UTC(
+    input.year,
+    input.month - 1,
+    input.day,
+    input.hour ?? 0,
+    input.minute ?? 0,
+    input.second ?? 0,
+    input.millisecond ?? 0
+  );
+
+  let guess = baseUtc;
+  for (let index = 0; index < 3; index += 1) {
+    const offsetMs = getIsraelOffsetMs(guess);
+    const nextGuess = baseUtc - offsetMs;
+    if (nextGuess === guess) {
+      break;
+    }
+    guess = nextGuess;
   }
-  const ratio = used / limit;
-  return ratio >= 0.8 && ratio < 1;
+
+  return guess;
 }
 
-function isAtLimit(used: number, limit: number) {
-  if (limit <= 0) {
-    return false;
-  }
-  return used >= limit;
-}
-
-function addAttentionSignal(
-  rows: Array<{
-    key: string;
-    priority: number;
-    tone: 'info' | 'warning' | 'critical';
-    title: string;
-    subtitle: string;
-    ctaRoute: string;
-  }>,
-  row: {
-    key: string;
-    priority: number;
-    tone: 'info' | 'warning' | 'critical';
-    title: string;
-    subtitle: string;
-    ctaRoute: string;
-  }
+function shiftCivilDate(
+  input: { year: number; month: number; day: number },
+  days: number
 ) {
-  rows.push(row);
+  const shifted = new Date(
+    Date.UTC(input.year, input.month - 1, input.day + days)
+  );
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function getIsraelDayBounds(timestamp: number): DayBounds {
+  const parts = getIsraelDateParts(timestamp);
+  const startMs = zonedDateTimeToUtcTimestamp(parts);
+  const nextDayParts = shiftCivilDate(parts, 1);
+  const nextDayStartMs = zonedDateTimeToUtcTimestamp(nextDayParts);
+
+  return {
+    dayKey: getIsraelDayKey(timestamp),
+    startMs,
+    endMs: nextDayStartMs - 1,
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+  };
+}
+
+function buildSelectedReferenceTimes(dayStart: number, actualNow: number) {
+  const selectedBounds = getIsraelDayBounds(dayStart);
+  const isToday = selectedBounds.dayKey === getIsraelDayKey(actualNow);
+  const referenceNow = isToday
+    ? Math.min(actualNow, selectedBounds.endMs)
+    : selectedBounds.endMs;
+  const previousDayReferenceNow = selectedBounds.startMs - 1;
+
+  return {
+    selectedBounds,
+    referenceNow,
+    previousDayReferenceNow,
+    isToday,
+  };
+}
+
+function collectLifetimeMetrics(
+  events: Array<{
+    type?: string;
+    customerUserId?: unknown;
+    createdAt?: number;
+  }>,
+  memberships: Array<{ userId?: unknown }>
+) {
+  const stampCountsByCustomer = new Map<string, number>();
+  let totalStampsAllTime = 0;
+  let totalRedemptionsAllTime = 0;
+
+  for (const event of events) {
+    if (event.type === 'STAMP_ADDED') {
+      totalStampsAllTime += 1;
+      const customerKey = String(event.customerUserId);
+      stampCountsByCustomer.set(
+        customerKey,
+        (stampCountsByCustomer.get(customerKey) ?? 0) + 1
+      );
+      continue;
+    }
+
+    if (event.type === 'REWARD_REDEEMED') {
+      totalRedemptionsAllTime += 1;
+    }
+  }
+
+  const uniqueCustomers = new Set(
+    memberships.map((membership) => String(membership.userId))
+  );
+  const returningCustomersAllTime = [...stampCountsByCustomer.values()].filter(
+    (count) => count >= 2
+  ).length;
+
+  return {
+    totalStampsAllTime,
+    totalRedemptionsAllTime,
+    totalCustomersJoinedAllTime: uniqueCustomers.size,
+    returningCustomersAllTime,
+  };
+}
+
+function buildUsageWarnings(args: {
+  cardsUsed: number;
+  cardsLimit: number;
+  customersUsed: number;
+  customersLimit: number;
+  campaignsUsed: number;
+  campaignsLimit: number;
+}) {
+  const warnings: string[] = [];
+
+  const addLimitState = (
+    key: 'cards' | 'customers' | 'campaigns',
+    used: number,
+    limit: number
+  ) => {
+    if (limit <= 0) {
+      return;
+    }
+    const ratio = used / limit;
+    if (used >= limit) {
+      warnings.push(`${key}_limit_reached`);
+      return;
+    }
+    if (ratio >= 0.8) {
+      warnings.push(`${key}_limit_near`);
+    }
+  };
+
+  addLimitState('cards', args.cardsUsed, args.cardsLimit);
+  addLimitState('customers', args.customersUsed, args.customersLimit);
+  addLimitState('campaigns', args.campaignsUsed, args.campaignsLimit);
+
+  return warnings;
+}
+
+function buildAiRecommendationCandidate(
+  aiRecommendation: any
+): DashboardRecommendationCard | null {
+  if (!aiRecommendation?.title || !aiRecommendation?.body) {
+    return null;
+  }
+
+  const statusTone = String(aiRecommendation.statusTone ?? 'opportunity');
+  const hasActionableCta =
+    aiRecommendation.primaryCta?.kind &&
+    aiRecommendation.primaryCta.kind !== 'none';
+
+  if (statusTone === 'stable' && !hasActionableCta) {
+    return null;
+  }
+
+  const tone: RecommendationTone =
+    statusTone === 'setup_needed' || statusTone === 'wait'
+      ? 'warning'
+      : statusTone === 'watch'
+        ? 'critical'
+        : statusTone === 'stable'
+          ? 'success'
+          : 'neutral';
+
+  const priority =
+    statusTone === 'setup_needed'
+      ? 12
+      : statusTone === 'watch'
+        ? 24
+        : statusTone === 'wait'
+          ? 26
+          : statusTone === 'opportunity'
+            ? 34
+            : 90;
+
+  return {
+    key: `ai_${String(aiRecommendation.recommendationId ?? 'latest')}`,
+    priority,
+    tone,
+    title: String(aiRecommendation.title),
+    body: String(aiRecommendation.body),
+    supportingText:
+      typeof aiRecommendation.supportingText === 'string'
+        ? aiRecommendation.supportingText
+        : '',
+    evidenceTags: Array.isArray(aiRecommendation.evidenceTags)
+      ? aiRecommendation.evidenceTags
+          .map((tag: unknown) => String(tag))
+          .slice(0, 3)
+      : [],
+    recommendationId: (aiRecommendation.recommendationId ??
+      null) as Id<'aiRecommendations'> | null,
+    primaryCta: aiRecommendation.primaryCta ?? null,
+  };
+}
+
+function buildFallbackRecommendationCard(): DashboardRecommendationCard {
+  return {
+    key: 'fallback_stable',
+    priority: 999,
+    tone: 'neutral',
+    title: 'אין פעולה דחופה כרגע',
+    body: 'העסק יציב כרגע ואין צורך בפעולה מיידית. אפשר להמשיך לעקוב אחרי המדדים היומיים.',
+    evidenceTags: [],
+    primaryCta: null,
+  };
+}
+
+function buildRecommendationCandidates(input: {
+  aiRecommendation: any;
+  activeProgramsCount: number;
+  campaignsUsed: number;
+  customerNearRewardCount: number;
+  cycleAtRiskCustomers: number;
+  lifetimeMetrics: {
+    totalCustomersJoinedAllTime: number;
+  };
+  profileIncomplete: boolean;
+  missingFieldsCount: number;
+  stampsLast7Days: number;
+  usageWarnings: string[];
+}) {
+  const candidates: DashboardRecommendationCard[] = [];
+  const aiCandidate = buildAiRecommendationCandidate(input.aiRecommendation);
+
+  if (aiCandidate) {
+    candidates.push(aiCandidate);
+  }
+
+  if (input.profileIncomplete) {
+    candidates.push({
+      key: 'profile_incomplete',
+      priority: 10,
+      tone: 'critical',
+      title: 'יש להשלים את פרופיל העסק',
+      body: `יש ${input.missingFieldsCount} שדות חסרים בפרופיל. השלמה שלהם תשפר את ההפעלה והדיוק של ההמלצות.`,
+      evidenceTags:
+        input.missingFieldsCount > 0
+          ? [`${input.missingFieldsCount} שדות חסרים`]
+          : [],
+      primaryCta: {
+        kind: 'open_profile',
+        label: 'השלם פרופיל',
+      },
+    });
+  }
+
+  if (
+    input.usageWarnings.includes('cards_limit_reached') ||
+    input.usageWarnings.includes('customers_limit_reached') ||
+    input.usageWarnings.includes('campaigns_limit_reached')
+  ) {
+    candidates.push({
+      key: 'plan_limit_reached',
+      priority: 15,
+      tone: 'critical',
+      title: 'הגעת למגבלת התוכנית',
+      body: 'חלק מהפעולות בעסק מוגבלות עד לעדכון התוכנית הפעילה.',
+      evidenceTags: ['נדרש עדכון תוכנית'],
+      primaryCta: {
+        kind: 'view_subscription',
+        label: 'בדוק תוכנית',
+      },
+    });
+  } else if (
+    input.usageWarnings.includes('cards_limit_near') ||
+    input.usageWarnings.includes('customers_limit_near') ||
+    input.usageWarnings.includes('campaigns_limit_near')
+  ) {
+    candidates.push({
+      key: 'plan_limit_near',
+      priority: 16,
+      tone: 'warning',
+      title: 'מתקרבים למגבלת התוכנית',
+      body: 'כדאי להיערך מראש כדי להימנע מחסימה של פעולות נוספות.',
+      evidenceTags: ['שימוש גבוה בתוכנית'],
+      primaryCta: {
+        kind: 'view_subscription',
+        label: 'בדוק תוכנית',
+      },
+    });
+  }
+
+  if (input.activeProgramsCount === 0) {
+    candidates.push({
+      key: 'no_active_program',
+      priority: 20,
+      tone: 'warning',
+      title: 'אין כרגע תוכנית נאמנות פעילה',
+      body: 'בלי תוכנית פעילה אי אפשר להניע לקוחות ולצבור פעילות עקבית.',
+      evidenceTags: [],
+      primaryCta: {
+        kind: 'open_cards',
+        label: 'פתח תוכנית',
+      },
+    });
+  }
+
+  if (input.cycleAtRiskCustomers > 0) {
+    candidates.push({
+      key: 'customers_at_risk_cycle',
+      priority: 30,
+      tone: 'critical',
+      title: `${input.cycleAtRiskCustomers} לקוחות התרחקו מהקצב הרגיל שלהם`,
+      body: 'כדאי לזהות מי האט את תדירות הביקורים ולבחור פעולה להחזרה.',
+      evidenceTags: [`${input.cycleAtRiskCustomers} לקוחות בסיכון`],
+      primaryCta: {
+        kind: 'view_customers',
+        label: 'פתח לקוחות',
+      },
+    });
+  }
+
+  if (input.customerNearRewardCount > 0) {
+    candidates.push({
+      key: 'customers_near_reward',
+      priority: 34,
+      tone: 'neutral',
+      title: `${input.customerNearRewardCount} לקוחות קרובים להטבה`,
+      body: 'זה הזמן לדחיפה קצרה שתעזור להם להשלים את הכרטיס.',
+      evidenceTags: [`${input.customerNearRewardCount} קרובים להטבה`],
+      primaryCta: {
+        kind: 'view_customers',
+        label: 'צפה בלקוחות',
+        customerFilter: 'near_reward',
+      },
+    });
+  }
+
+  if (
+    input.campaignsUsed === 0 &&
+    input.activeProgramsCount > 0 &&
+    input.lifetimeMetrics.totalCustomersJoinedAllTime > 0
+  ) {
+    candidates.push({
+      key: 'no_active_campaign',
+      priority: 40,
+      tone: 'warning',
+      title: 'אין כרגע קמפיין פעיל',
+      body: 'יש לקוחות פעילים במערכת, אבל אין מהלך שיווקי פעיל שמחזיר אותם לביקור.',
+      evidenceTags: ['אין קמפיין פעיל'],
+      primaryCta: {
+        kind: 'open_campaigns',
+        label: 'פתח קמפיינים',
+      },
+    });
+  }
+
+  if (
+    input.stampsLast7Days === 0 &&
+    input.lifetimeMetrics.totalCustomersJoinedAllTime > 0
+  ) {
+    candidates.push({
+      key: 'no_activity_7d',
+      priority: 50,
+      tone: 'warning',
+      title: 'לא נרשמה פעילות בשבעת הימים האחרונים',
+      body: 'כדאי לבדוק אם נדרש מהלך הפעלה, קמפיין חדש, או דחיפה יזומה ללקוחות.',
+      evidenceTags: ['0 ניקובים ב-7 ימים'],
+      primaryCta: {
+        kind: 'open_campaigns',
+        label: 'פתח קמפיינים',
+      },
+    });
+  }
+
+  const deduped = new Map<string, DashboardRecommendationCard>();
+  for (const candidate of candidates) {
+    if (!deduped.has(candidate.key)) {
+      deduped.set(candidate.key, candidate);
+    }
+  }
+
+  const ranked = [...deduped.values()]
+    .sort((left, right) => left.priority - right.priority)
+    .slice(0, 3);
+
+  return ranked.length > 0 ? ranked : [buildFallbackRecommendationCard()];
 }
 
 export const getBusinessDashboardSummary = query({
@@ -131,14 +530,14 @@ export const getBusinessDashboardSummary = query({
   handler: async (
     ctx: any,
     { businessId }: { businessId?: Id<'businesses'> }
-  ): Promise<any> => {
+  ) => {
     if (!businessId) {
       return null;
     }
 
     await requireActorIsStaffForBusiness(ctx, businessId);
 
-    const safeRun = async (fn: () => Promise<any>, fallback: any) => {
+    const safeRun = async <T>(fn: () => Promise<T>, fallback: T) => {
       try {
         return await fn();
       } catch {
@@ -146,19 +545,16 @@ export const getBusinessDashboardSummary = query({
       }
     };
 
+    const now = Date.now();
     const [
       businessSettings,
       usageSummary,
-      activity,
-      programs,
-      rewardEligibilitySummary,
-      recentActivity,
       aiRecommendation,
       customerSnapshot,
-      campaigns,
-      teamSummary,
-      teamHistory,
-    ]: any[] = await Promise.all([
+      allEvents,
+      allMemberships,
+      allPrograms,
+    ] = await Promise.all([
       safeRun(
         () =>
           ctx.runQuery(getBusinessSettings, {
@@ -175,35 +571,6 @@ export const getBusinessDashboardSummary = query({
       ),
       safeRun(
         () =>
-          ctx.runQuery(getBusinessActivity, {
-            businessId,
-          }),
-        null
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(listManagementByBusiness, {
-            businessId,
-          }),
-        []
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(getBusinessRewardEligibilitySummary, {
-            businessId,
-          }),
-        { redeemableCustomers: 0, redeemableCards: 0 }
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(getRecentActivity, {
-            businessId,
-            limit: 5,
-          }),
-        []
-      ),
-      safeRun(
-        () =>
           ctx.runQuery(getLatestRecommendationForBusiness, {
             businessId,
           }),
@@ -216,532 +583,229 @@ export const getBusinessDashboardSummary = query({
           }),
         null
       ),
-      safeRun(
-        () =>
-          ctx.runQuery(listManagementCampaignsByBusiness, {
-            businessId,
-          }),
-        []
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(getBusinessTeamSummary, {
-            businessId,
-          }),
-        null
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(listBusinessStaffHistory, {
-            businessId,
-            limit: 5,
-          }),
-        []
-      ),
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId)
+        )
+        .collect(),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
     ]);
 
-    const now = Date.now();
-    const campaignWindowStart = now - CAMPAIGN_WINDOW_DAYS * DAY_MS;
-    const campaignRunsRaw = (await ctx.db
-      .query('campaignRuns')
-      .withIndex('by_businessId_sentAt', (q: any) =>
-        q.eq('businessId', businessId).gte('sentAt', campaignWindowStart)
-      )
-      .collect()) as CampaignRunLite[];
-
-    const latestRunByCampaignId = new Map<string, CampaignRunLite>();
-    for (const run of campaignRunsRaw) {
-      const key = String(run.campaignId);
-      const existing = latestRunByCampaignId.get(key);
-      if (!existing || run.sentAt > existing.sentAt) {
-        latestRunByCampaignId.set(key, run);
-      }
-    }
-
-    const campaignRows = (Array.isArray(campaigns) ? campaigns : []).map(
-      (campaign: any): CampaignSummaryRow => {
-        const run = latestRunByCampaignId.get(String(campaign.campaignId));
-        return {
-          campaignId: campaign.campaignId,
-          title: String(campaign.title ?? 'Campaign'),
-          type: String(campaign.type ?? 'promo'),
-          lifecycle: toLifecycle(campaign.lifecycle),
-          automationEnabled: campaign.automationEnabled === true,
-          estimatedAudience: safeNumber(campaign.estimatedAudience, 0),
-          reachedMessagesAllTime: safeNumber(
-            campaign.reachedMessagesAllTime,
-            0
-          ),
-          reachedUniqueAllTime: safeNumber(campaign.reachedUniqueAllTime, 0),
-          lastSentAt:
-            typeof campaign.lastSentAt === 'number'
-              ? campaign.lastSentAt
-              : null,
-          summaryStatus: run
-            ? toSummaryStatus(run.summaryStatus)
-            : 'not_available',
-          deliveredCount14d: run ? safeNumber(run.deliveredCount, 0) : null,
-          returnedCustomers14d: run
-            ? safeNumber(run.returnedCustomers14d, 0)
-            : null,
-          rewardRedemptions14d: run
-            ? safeNumber(run.rewardRedemptions14d, 0)
-            : null,
-        };
-      }
+    const stampEvents = (Array.isArray(allEvents) ? allEvents : []).filter(
+      (event: any) => event.type === 'STAMP_ADDED'
+    ) as DashboardStampEvent[];
+    const lifetimeMetrics = collectLifetimeMetrics(
+      Array.isArray(allEvents) ? allEvents : [],
+      Array.isArray(allMemberships) ? allMemberships : []
     );
-
-    const rowsWithReadySummary = campaignRows.filter(
-      (row) =>
-        row.summaryStatus === 'ready' || row.summaryStatus === 'summarized'
+    const cycleCountsNow = buildDashboardLifecycleCountsFromStampEvents(
+      stampEvents,
+      now
     );
-
-    const bestReturnCampaign =
-      rowsWithReadySummary
-        .slice()
-        .sort(
-          (a, b) =>
-            safeNumber(b.returnedCustomers14d, 0) -
-            safeNumber(a.returnedCustomers14d, 0)
-        )[0] ?? null;
-    const bestRedemptionCampaign =
-      rowsWithReadySummary
-        .slice()
-        .sort(
-          (a, b) =>
-            safeNumber(b.rewardRedemptions14d, 0) -
-            safeNumber(a.rewardRedemptions14d, 0)
-        )[0] ?? null;
-    const largestReachCampaign =
-      campaignRows
-        .slice()
-        .sort((a, b) => b.reachedUniqueAllTime - a.reachedUniqueAllTime)[0] ??
-      null;
-
-    const needsReviewCampaign =
-      rowsWithReadySummary.find((row) => {
-        const reach = Math.max(
-          safeNumber(row.deliveredCount14d, 0),
-          safeNumber(row.reachedUniqueAllTime, 0)
-        );
-        return (
-          reach >= 20 &&
-          safeNumber(row.returnedCustomers14d, 0) === 0 &&
-          safeNumber(row.rewardRedemptions14d, 0) === 0
-        );
-      }) ?? null;
-
-    const campaignPerformanceTopRows = campaignRows
-      .slice()
-      .sort((a, b) => {
-        const outcomeA =
-          safeNumber(a.returnedCustomers14d, 0) * 3 +
-          safeNumber(a.rewardRedemptions14d, 0) * 2 +
-          safeNumber(a.reachedUniqueAllTime, 0);
-        const outcomeB =
-          safeNumber(b.returnedCustomers14d, 0) * 3 +
-          safeNumber(b.rewardRedemptions14d, 0) * 2 +
-          safeNumber(b.reachedUniqueAllTime, 0);
-        return outcomeB - outcomeA;
-      })
-      .slice(0, 5);
-
-    const daily = Array.isArray((activity as any)?.daily)
-      ? ((activity as any).daily as Array<{
-          stamps?: number;
-          redemptions?: number;
-        }>)
-      : [];
-    const totals7d = sumLast7Days(daily);
-
-    const activePrograms = (Array.isArray(programs) ? programs : []).filter(
-      (program: any) => program.lifecycle === 'active'
-    );
-    const draftPrograms = (Array.isArray(programs) ? programs : []).filter(
-      (program: any) => program.lifecycle === 'draft'
-    );
-    const archivedPrograms = (Array.isArray(programs) ? programs : []).filter(
-      (program: any) => program.lifecycle === 'archived'
-    );
-
-    const usage = usageSummary as any;
-    const cardsUsed = safeNumber(usage?.cardsUsed, activePrograms.length);
-    const cardsLimit = safeNumber(usage?.limits?.maxCards, 0);
-    const customersUsed = safeNumber(usage?.customersUsed, 0);
-    const customersLimit = safeNumber(usage?.limits?.maxCustomers, 0);
-    const campaignsUsed = safeNumber(usage?.activeManagementCampaignsUsed, 0);
-    const campaignsLimit = safeNumber(usage?.limits?.maxCampaigns, 0);
-    const retentionUsed = safeNumber(usage?.activeRetentionActionsUsed, 0);
-    const retentionLimit = safeNumber(
-      usage?.limits?.maxActiveRetentionActions,
+    const activeProgramsCount = (
+      Array.isArray(allPrograms) ? allPrograms : []
+    ).filter(
+      (program: any) => resolveProgramLifecycle(program) === 'active'
+    ).length;
+    const campaignsUsed = safeNumber(
+      (usageSummary as any)?.activeManagementCampaignsUsed,
       0
     );
-    const aiUsed = safeNumber(usage?.aiExecutionsThisMonthUsed, 0);
-    const aiLimit = safeNumber(usage?.limits?.maxAiExecutionsPerMonth, 0);
-
-    const usageWarnings: string[] = [];
-    if (isAtLimit(cardsUsed, cardsLimit))
-      usageWarnings.push('cards_limit_reached');
-    else if (isNearLimit(cardsUsed, cardsLimit))
-      usageWarnings.push('cards_limit_near');
-    if (isAtLimit(customersUsed, customersLimit))
-      usageWarnings.push('customers_limit_reached');
-    else if (isNearLimit(customersUsed, customersLimit))
-      usageWarnings.push('customers_limit_near');
-    if (isAtLimit(campaignsUsed, campaignsLimit))
-      usageWarnings.push('campaigns_limit_reached');
-    else if (isNearLimit(campaignsUsed, campaignsLimit))
-      usageWarnings.push('campaigns_limit_near');
-    if (isAtLimit(retentionUsed, retentionLimit))
-      usageWarnings.push('retention_limit_reached');
-    else if (isNearLimit(retentionUsed, retentionLimit))
-      usageWarnings.push('retention_limit_near');
-    if (isAtLimit(aiUsed, aiLimit)) usageWarnings.push('ai_limit_reached');
-    else if (isNearLimit(aiUsed, aiLimit)) usageWarnings.push('ai_limit_near');
-
-    const customerSummary = (customerSnapshot as any)?.summary ?? null;
-    const attentionSignals: Array<{
-      key: string;
-      priority: number;
-      tone: 'info' | 'warning' | 'critical';
-      title: string;
-      subtitle: string;
-      ctaRoute: string;
-    }> = [];
-
+    const usageWarnings = buildUsageWarnings({
+      cardsUsed: safeNumber((usageSummary as any)?.cardsUsed, 0),
+      cardsLimit: safeNumber((usageSummary as any)?.limits?.maxCards, 0),
+      customersUsed: safeNumber((usageSummary as any)?.customersUsed, 0),
+      customersLimit: safeNumber(
+        (usageSummary as any)?.limits?.maxCustomers,
+        0
+      ),
+      campaignsUsed,
+      campaignsLimit: safeNumber(
+        (usageSummary as any)?.limits?.maxCampaigns,
+        0
+      ),
+    });
+    const profileIncomplete =
+      (businessSettings as any)?.profileCompletion?.isComplete === false;
     const missingFieldsCount = safeNumber(
       (businessSettings as any)?.profileCompletion?.missingFields?.length,
       0
     );
-    const profileIncomplete = (businessSettings as any)?.profileCompletion
-      ?.isComplete
-      ? false
-      : missingFieldsCount > 0;
-
-    if (profileIncomplete) {
-      addAttentionSignal(attentionSignals, {
-        key: 'profile_incomplete',
-        priority: 10,
-        tone: 'critical',
-        title: 'השלמת פרופיל עסק',
-        subtitle: `יש ${missingFieldsCount} שדות חסרים`,
-        ctaRoute: '/(authenticated)/(business)/settings-business-profile',
-      });
-    }
-
-    if (activePrograms.length === 0) {
-      addAttentionSignal(attentionSignals, {
-        key: 'no_active_program',
-        priority: 20,
-        tone: 'warning',
-        title: 'אין כרטיס נאמנות פעיל',
-        subtitle: 'כדי להפעיל לקוחות וקמפיינים צריך לפחות תוכנית פעילה אחת.',
-        ctaRoute: '/(authenticated)/(business)/cards',
-      });
-    }
-
-    if (totals7d.stamps === 0) {
-      addAttentionSignal(attentionSignals, {
-        key: 'no_activity_7d',
-        priority: 40,
-        tone: 'warning',
-        title: 'אין פעילות ב-7 ימים האחרונים',
-        subtitle: 'לא נרשמו ניקובים בשבוע האחרון.',
-        ctaRoute: '/(authenticated)/(business)/analytics',
-      });
-    }
-
-    if (safeNumber(customerSummary?.atRiskCustomers, 0) > 0) {
-      addAttentionSignal(attentionSignals, {
-        key: 'customers_at_risk',
-        priority: 30,
-        tone: 'critical',
-        title: 'לקוחות בסיכון נטישה',
-        subtitle: `${safeNumber(customerSummary?.atRiskCustomers, 0)} לקוחות דורשים התייחסות`,
-        ctaRoute: '/(authenticated)/(business)/customers',
-      });
-    }
-
-    if (
-      usageWarnings.includes('cards_limit_reached') ||
-      usageWarnings.includes('customers_limit_reached') ||
-      usageWarnings.includes('campaigns_limit_reached')
-    ) {
-      addAttentionSignal(attentionSignals, {
-        key: 'plan_limit_reached',
-        priority: 15,
-        tone: 'critical',
-        title: 'הגעתם למגבלת המסלול',
-        subtitle: 'חלק מהיכולות מוגבלות עד לשדרוג המסלול.',
-        ctaRoute: '/(authenticated)/(business)/settings-business-subscription',
-      });
-    } else if (
-      usageWarnings.includes('cards_limit_near') ||
-      usageWarnings.includes('customers_limit_near') ||
-      usageWarnings.includes('campaigns_limit_near')
-    ) {
-      addAttentionSignal(attentionSignals, {
-        key: 'plan_limit_near',
-        priority: 16,
-        tone: 'warning',
-        title: 'מתקרבים למגבלת המסלול',
-        subtitle: 'כדאי להיערך לפני חסימה של פעולות נוספות.',
-        ctaRoute: '/(authenticated)/(business)/settings-business-subscription',
-      });
-    }
-
-    const sortedAttentionSignals = attentionSignals
-      .slice()
-      .sort((a, b) => a.priority - b.priority)
-      .slice(0, 3);
-
-    const primaryStatus = sortedAttentionSignals[0]
-      ? {
-          key: sortedAttentionSignals[0].key,
-          tone: sortedAttentionSignals[0].tone,
-          title: sortedAttentionSignals[0].title,
-          subtitle: sortedAttentionSignals[0].subtitle,
-          ctaRoute: sortedAttentionSignals[0].ctaRoute,
-        }
-      : {
-          key: 'healthy',
-          tone: 'healthy' as const,
-          title: 'העסק במצב טוב',
-          subtitle: `נרשמו ${totals7d.stamps} ניקובים ו-${totals7d.redemptions} מימושים ב-7 ימים`,
-          ctaRoute: null,
-        };
-
-    const topPrograms = activePrograms
-      .slice()
-      .sort(
-        (a: any, b: any) =>
-          safeNumber(b.metrics?.stamps7d, 0) -
-          safeNumber(a.metrics?.stamps7d, 0)
-      )
-      .slice(0, 5)
-      .map((program: any) => ({
-        loyaltyProgramId: program.loyaltyProgramId,
-        title: String(program.title ?? 'Program'),
-        lifecycle:
-          program.lifecycle === 'draft' ||
-          program.lifecycle === 'active' ||
-          program.lifecycle === 'archived'
-            ? program.lifecycle
-            : 'active',
-        activeMembers: safeNumber(program.metrics?.activeMembers, 0),
-        stamps7d: safeNumber(program.metrics?.stamps7d, 0),
-        redemptions30d: safeNumber(program.metrics?.redemptions30d, 0),
-        lastActivityAt:
-          typeof program.metrics?.lastActivityAt === 'number'
-            ? program.metrics.lastActivityAt
-            : null,
-      }));
-
-    const inactivePrograms = activePrograms
-      .filter((program: any) => {
-        const last = safeNumber(program.metrics?.lastActivityAt, 0);
-        if (last <= 0) {
-          return true;
-        }
-        return now - last > 21 * DAY_MS;
-      })
-      .slice(0, 5)
-      .map((program: any) => ({
-        loyaltyProgramId: program.loyaltyProgramId,
-        title: String(program.title ?? 'Program'),
-        lastActivityAt:
-          typeof program.metrics?.lastActivityAt === 'number'
-            ? program.metrics.lastActivityAt
-            : null,
-      }));
+    const customerNearRewardCount = safeNumber(
+      (customerSnapshot as any)?.summary?.nearRewardCustomers ??
+        (customerSnapshot as any)?.summary?.closeToRewardCustomers,
+      0
+    );
+    const stampsLast7Days = stampEvents.filter(
+      (event) => safeNumber(event.createdAt, 0) >= now - 7 * DAY_MS
+    ).length;
 
     return {
-      businessStatus: {
+      business: {
         businessId,
         businessName: String((businessSettings as any)?.name ?? ''),
         logoUrl: ((businessSettings as any)?.logoUrl ?? null) as string | null,
-        plan: (usage?.plan ?? 'starter') as 'starter' | 'pro' | 'premium',
-        profileCompletionPercent: safeNumber(
-          (businessSettings as any)?.profileCompletion?.percent,
-          0
-        ),
+        plan: String((usageSummary as any)?.plan ?? 'starter'),
         profileIncomplete,
         missingFieldsCount,
-        primaryStatus,
       },
-      kpiMetrics: {
-        stamps7d: totals7d.stamps,
-        redemptions7d: totals7d.redemptions,
-        activeCustomers: customersUsed,
-        activeCards: cardsUsed,
-        redeemableCustomers: safeNumber(
-          (rewardEligibilitySummary as any)?.redeemableCustomers,
-          0
-        ),
-        growthPercent:
-          typeof (activity as any)?.growthPercent === 'number'
-            ? (activity as any).growthPercent
-            : null,
-      },
-      attentionSignals: sortedAttentionSignals,
-      aiRecommendation,
-      customerHealthSummary: {
-        isLocked: customerSnapshot == null,
-        totalCustomers: safeNumber(customerSummary?.totalCustomers, 0),
-        activeCustomers: safeNumber(customerSummary?.activeCustomers, 0),
-        atRiskCustomers: safeNumber(customerSummary?.atRiskCustomers, 0),
-        nearRewardCustomers: safeNumber(
-          customerSummary?.nearRewardCustomers,
-          0
-        ),
-        vipCustomers: safeNumber(customerSummary?.vipCustomers, 0),
-        loyalCustomers: safeNumber(customerSummary?.loyalCustomers, 0),
-        newCustomers: safeNumber(customerSummary?.newCustomers, 0),
-        insights: Array.isArray((customerSnapshot as any)?.insights)
-          ? (customerSnapshot as any).insights
-          : [],
-        opportunities: Array.isArray(
-          (customerSnapshot as any)?.campaignOpportunityCards
-        )
-          ? (customerSnapshot as any).campaignOpportunityCards.map(
-              (item: any) => ({
-                key: String(item?.type ?? item?.key ?? 'opportunity'),
-                title: String(item?.title ?? 'Opportunity'),
-                audienceCount: safeNumber(item?.audienceCount, 0),
-              })
-            )
-          : [],
-      },
-      campaignPerformanceSummary: {
-        hasEnoughOutcomeData: rowsWithReadySummary.length > 0,
-        overview: {
-          activeCampaigns: campaignRows.filter(
-            (row) => row.lifecycle === 'active'
-          ).length,
-          automatedCampaigns: campaignRows.filter(
-            (row) => row.automationEnabled
-          ).length,
-          totalMessagesSent: campaignRows.reduce(
-            (sum, row) => sum + safeNumber(row.reachedMessagesAllTime, 0),
-            0
-          ),
-          campaignsWithReadyOutcomes: rowsWithReadySummary.length,
-        },
-        bestReturnCampaign,
-        bestRedemptionCampaign,
-        largestReachCampaign,
-        needsReviewCampaign,
-        topCampaigns: campaignPerformanceTopRows,
-      },
-      loyaltyProgramsSummary: {
-        activeProgramsCount: activePrograms.length,
-        draftProgramsCount: draftPrograms.length,
-        archivedProgramsCount: archivedPrograms.length,
-        activeMembers: activePrograms.reduce(
-          (sum: number, program: any) =>
-            sum + safeNumber(program.metrics?.activeMembers, 0),
-          0
-        ),
-        redemptions30d: activePrograms.reduce(
-          (sum: number, program: any) =>
-            sum + safeNumber(program.metrics?.redemptions30d, 0),
-          0
-        ),
-        redeemableCustomers: safeNumber(
-          (rewardEligibilitySummary as any)?.redeemableCustomers,
-          0
-        ),
-        redeemableCards: safeNumber(
-          (rewardEligibilitySummary as any)?.redeemableCards,
-          0
-        ),
-        topPrograms,
-        inactivePrograms,
-      },
-      teamSummary: {
-        isAvailable: teamSummary != null,
-        activeStaffCount: safeNumber((teamSummary as any)?.activeStaffCount, 0),
-        pendingInvitesCount: safeNumber(
-          (teamSummary as any)?.pendingInvitesCount,
-          0
-        ),
-        suspendedCount: safeNumber((teamSummary as any)?.suspendedCount, 0),
-        managersCount: safeNumber((teamSummary as any)?.managersCount, 0),
-        usedSeats: safeNumber((teamSummary as any)?.usedSeats, 0),
-        maxSeats: safeNumber((teamSummary as any)?.maxSeats, 0),
-        recentTeamEvents: (Array.isArray(teamHistory) ? teamHistory : []).map(
-          (event: any) => ({
-            eventId: event.eventId,
-            eventType: String(event.eventType ?? ''),
-            targetDisplayName:
-              typeof event.targetDisplayName === 'string'
-                ? event.targetDisplayName
-                : null,
-            actorDisplayName:
-              typeof event.actorDisplayName === 'string'
-                ? event.actorDisplayName
-                : null,
-            createdAt: safeNumber(event.createdAt, now),
-          })
-        ),
-      },
-      planUsageSummary: {
-        plan: (usage?.plan ?? 'starter') as 'starter' | 'pro' | 'premium',
-        billingPeriod:
-          usage?.billingPeriod === 'monthly' ||
-          usage?.billingPeriod === 'yearly'
-            ? usage.billingPeriod
-            : null,
-        limits: {
-          cardsUsed,
-          cardsLimit,
-          customersUsed,
-          customersLimit,
+      lifetimeMetrics,
+      recommendations: {
+        cards: buildRecommendationCandidates({
+          aiRecommendation,
+          activeProgramsCount,
           campaignsUsed,
-          campaignsLimit,
-          retentionUsed,
-          retentionLimit,
-          aiUsed,
-          aiLimit,
-        },
-        warnings: usageWarnings,
+          customerNearRewardCount,
+          cycleAtRiskCustomers: cycleCountsNow.atRiskCustomers,
+          lifetimeMetrics,
+          profileIncomplete,
+          missingFieldsCount,
+          stampsLast7Days,
+          usageWarnings,
+        }),
       },
-      recentActivity: (Array.isArray(recentActivity) ? recentActivity : []).map(
-        (item: any) => ({
-          id: item.id,
-          type: item.type,
-          customer: String(item.customer ?? ''),
-          detail: String(item.detail ?? ''),
-          timeLabel: String(item.time ?? ''),
-          createdAt: null,
-        })
-      ),
       freshness: {
         generatedAt: now,
-        activityWindowDays: ACTIVITY_WINDOW_DAYS,
-        campaignOutcomeWindowDays: CAMPAIGN_WINDOW_DAYS,
       },
-      // Compatibility payload to enable gradual migration of existing dashboard UI.
-      sources: {
-        businessSettings,
-        usageSummary,
-        activity,
-        programs,
-        rewardEligibilitySummary,
-        recentActivity,
-        aiRecommendation,
-        customerSnapshot,
-        campaigns,
-        teamSummary,
+    };
+  },
+});
+
+export const getBusinessDashboardDay = query({
+  args: {
+    businessId: v.optional(v.id('businesses')),
+    dayStart: v.number(),
+  },
+  handler: async (
+    ctx: any,
+    {
+      businessId,
+      dayStart,
+    }: { businessId?: Id<'businesses'>; dayStart: number }
+  ) => {
+    if (!businessId) {
+      return null;
+    }
+
+    await requireActorIsStaffForBusiness(ctx, businessId);
+
+    const actualNow = Date.now();
+    const { selectedBounds, referenceNow, previousDayReferenceNow, isToday } =
+      buildSelectedReferenceTimes(dayStart, actualNow);
+    const previousDayKey = getIsraelDayKey(previousDayReferenceNow);
+
+    const [events, messageLog, activePrograms] = await Promise.all([
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).lte('createdAt', referenceNow)
+        )
+        .collect(),
+      ctx.db
+        .query('messageLog')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).lte('createdAt', referenceNow)
+        )
+        .collect(),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+
+    const stampEvents = (Array.isArray(events) ? events : []).filter(
+      (event: any) => event.type === 'STAMP_ADDED'
+    ) as DashboardStampEvent[];
+    const lifecycleCounts = buildDashboardLifecycleCountsFromStampEvents(
+      stampEvents,
+      referenceNow
+    );
+    const previousLifecycleCounts =
+      buildDashboardLifecycleCountsFromStampEvents(
+        stampEvents,
+        previousDayReferenceNow
+      );
+
+    let stamps = 0;
+    let stampsPreviousDay = 0;
+    let redemptions = 0;
+    let redemptionsPreviousDay = 0;
+    const staffActors = new Set<string>();
+
+    for (const event of Array.isArray(events) ? events : []) {
+      const dayKey = getIsraelDayKey(safeNumber(event.createdAt, 0));
+      if (dayKey === selectedBounds.dayKey) {
+        if (event.type === 'STAMP_ADDED') {
+          stamps += 1;
+          staffActors.add(String(event.actorUserId));
+        } else if (event.type === 'REWARD_REDEEMED') {
+          redemptions += 1;
+          staffActors.add(String(event.actorUserId));
+        }
+      } else if (dayKey === previousDayKey) {
+        if (event.type === 'STAMP_ADDED') {
+          stampsPreviousDay += 1;
+        } else if (event.type === 'REWARD_REDEEMED') {
+          redemptionsPreviousDay += 1;
+        }
+      }
+    }
+
+    const campaignRecipients = new Set<string>();
+    for (const row of Array.isArray(messageLog) ? messageLog : []) {
+      if (
+        getIsraelDayKey(safeNumber(row.createdAt, 0)) === selectedBounds.dayKey
+      ) {
+        campaignRecipients.add(String(row.toUserId));
+      }
+    }
+
+    const activeProgramsCount = (
+      Array.isArray(activePrograms) ? activePrograms : []
+    ).filter(
+      (program: any) => resolveProgramLifecycle(program) === 'active'
+    ).length;
+    const shouldRenderActivitySummary =
+      staffActors.size > 0 || campaignRecipients.size > 0 || redemptions > 0;
+
+    return {
+      dateContext: {
+        dayKey: selectedBounds.dayKey,
+        dayStart: selectedBounds.startMs,
+        dayEnd: selectedBounds.endMs,
+        referenceNow,
+        isToday,
       },
-      computed: {
-        usage: {
-          cardsPercent: percent(cardsUsed, cardsLimit),
-          customersPercent: percent(customersUsed, customersLimit),
-          campaignsPercent: percent(campaignsUsed, campaignsLimit),
-          retentionPercent: percent(retentionUsed, retentionLimit),
-          aiPercent: percent(aiUsed, aiLimit),
+      kpis: {
+        stamps: {
+          value: stamps,
+          previousValue: stampsPreviousDay,
         },
+        redemptions: {
+          value: redemptions,
+          previousValue: redemptionsPreviousDay,
+        },
+        activeCustomers: lifecycleCounts.activeCustomers,
+        activeCustomersPreviousDay: previousLifecycleCounts.activeCustomers,
+        atRiskCustomers: lifecycleCounts.atRiskCustomers,
+        atRiskCustomersPreviousDay: previousLifecycleCounts.atRiskCustomers,
+      },
+      activitySummary: {
+        shouldRender: shouldRenderActivitySummary,
+        staffScans: staffActors.size,
+        campaignRecipients: campaignRecipients.size,
+        activePrograms: activeProgramsCount,
+        rewardsRedeemed: redemptions,
       },
     };
   },

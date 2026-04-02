@@ -217,7 +217,7 @@ export default function JoinScreen() {
         <View
           style={{
             paddingTop: (insets.top || 0) + 16,
-            paddingHorizontal: 24,
+            paddingHorizontal: 20,
             paddingBottom: 8,
           }}
         >

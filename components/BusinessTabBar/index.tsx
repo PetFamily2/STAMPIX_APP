@@ -5,12 +5,12 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 
 const STANDARD_TAB_ICON_SIZE = 26;
-const STANDARD_TAB_BUBBLE_WIDTH = 52;
-const STANDARD_TAB_BUBBLE_HEIGHT = 34;
+const STANDARD_TAB_BUBBLE_WIDTH = 50;
+const STANDARD_TAB_BUBBLE_HEIGHT = 32;
 const STANDARD_TAB_BUBBLE_RADIUS = STANDARD_TAB_BUBBLE_HEIGHT / 2;
 export const TAB_BAR_CONTENT_HEIGHT = 56;
-const STANDARD_TAB_ACTIVE_BACKGROUND = '#EAF1FF';
-const STANDARD_TAB_ACTIVE_COLOR = '#111827';
+const STANDARD_TAB_ACTIVE_BACKGROUND = '#F1EEFF';
+const STANDARD_TAB_ACTIVE_COLOR = '#4F46E5';
 const STANDARD_TAB_INACTIVE_COLOR = '#9AA4B8';
 
 function StandardTabIcon({
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     borderColor: '#C8DAFF',
   },
   standardTabLabel: {
-    marginTop: 3,
+    marginTop: 4,
     fontSize: 12,
     lineHeight: 14,
     fontWeight: '700',
@@ -195,22 +195,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrTabBubbleShadow: {
-    marginTop: -56,
-    width: 92,
-    height: 98,
+    marginTop: -58,
+    width: 96,
+    height: 102,
     alignItems: 'center',
     justifyContent: 'flex-start',
     alignSelf: 'center',
-    shadowColor: '#1E4ED8',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.24,
-    shadowRadius: 22,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 18,
   },
   qrTabBubbleShadowFocused: {
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.3,
-    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
     elevation: 22,
   },
   qrTabBubbleDepthOuter: {
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: '#1E40AF',
-    opacity: 0.2,
+    backgroundColor: '#4F46E5',
+    opacity: 0.16,
     transform: [{ scaleX: 0.96 }, { scaleY: 0.92 }],
   },
   qrTabBubbleDepthInner: {
@@ -229,30 +229,30 @@ const styles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: '#BFDBFE',
-    opacity: 0.28,
+    backgroundColor: '#C7D2FE',
+    opacity: 0.26,
     transform: [{ scaleX: 0.98 }, { scaleY: 0.96 }],
   },
   qrTabBubble: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D6E4FF',
-    shadowColor: '#1E4ED8',
+    borderColor: '#D9DDF4',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
     shadowRadius: 10,
     elevation: 6,
   },
   qrTabLogo: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
   },
   qrTabLabel: {
     marginTop: 3,

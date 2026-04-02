@@ -1,5 +1,11 @@
-import React, { useMemo } from 'react';
-import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import React from 'react';
+import {
+  type DimensionValue,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
 type OnboardingProgressProps = {
   total: number;
@@ -17,42 +23,42 @@ export function OnboardingProgress({
     normalizedTotal,
     Math.max(0, Math.floor(current))
   );
-
-  const items = useMemo(
-    () => Array.from({ length: normalizedTotal }, (_, index) => index + 1),
-    [normalizedTotal]
-  );
+  const progressPercent = `${(normalizedCurrent / normalizedTotal) * 100}%` as DimensionValue;
 
   return (
     <View style={[styles.container, style]}>
-      {items.map((index) => (
+      <View style={styles.track}>
         <View
-          key={`progress-${index}`}
           style={[
-            styles.segment,
-            index <= normalizedCurrent ? styles.active : styles.inactive,
+            styles.fill,
+            {
+              width: progressPercent,
+            },
           ]}
         />
-      ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
+    flex: 1,
+    marginStart: 16,
+    alignItems: 'stretch',
+    justifyContent: 'center',
   },
-  segment: {
-    height: 6,
-    width: 28,
+  track: {
+    height: 14,
+    width: '100%',
     borderRadius: 999,
-  },
-  active: {
-    backgroundColor: '#2563EB',
-  },
-  inactive: {
     backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  fill: {
+    alignSelf: 'flex-end',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#2563EB',
   },
 });

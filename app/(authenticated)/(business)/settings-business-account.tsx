@@ -17,6 +17,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { tw } from '@/lib/rtl';
 
@@ -79,6 +80,22 @@ export default function BusinessSettingsAccountScreen() {
           >
             חשבון משתמש
           </Text>
+
+          <View className="mt-4 flex-row-reverse items-center gap-3 border-b border-[#F1F5F9] pb-4">
+            <UserAvatar
+              avatarUrl={user?.avatarUrl}
+              fullName={userFullName}
+              size={68}
+            />
+            <View className="flex-1 items-end gap-1">
+              <Text className="text-right text-[18px] font-black text-[#111827]">
+                {userFullName}
+              </Text>
+              <Text className="text-right text-xs font-semibold text-[#64748B]">
+                {user?.email || '׳׳ ׳׳•׳’׳“׳¨'}
+              </Text>
+            </View>
+          </View>
 
           <View className="mt-4 gap-3">
             <View className={`${tw.flexRow} items-center justify-between`}>

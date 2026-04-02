@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 10,
+    gap: 16,
   },
   title: {
     fontSize: 24,

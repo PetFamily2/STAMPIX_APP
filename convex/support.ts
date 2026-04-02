@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
+import { normalizeEmailAddress } from './lib/email';
 
 const SUPPORT_MESSAGE_MAX_LENGTH = 1200;
 
@@ -56,7 +57,7 @@ export const sendSupportRequest = mutation({
     const requestId = await ctx.db.insert('supportRequests', {
       userId: user._id,
       name: resolveDisplayName(user),
-      email: user.email?.trim() || undefined,
+      email: normalizeEmailAddress(user.email) ?? undefined,
       phone: user.phone?.trim() || undefined,
       message: normalizedMessage,
       status: 'new',

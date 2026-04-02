@@ -25,6 +25,7 @@ import type * as http from "../http.js";
 import type * as lib_campaignRuns from "../lib/campaignRuns.js";
 import type * as lib_customerIntelligence from "../lib/customerIntelligence.js";
 import type * as lib_editConflicts from "../lib/editConflicts.js";
+import type * as lib_email from "../lib/email.js";
 import type * as lib_ids from "../lib/ids.js";
 import type * as lib_recommendationUtils from "../lib/recommendationUtils.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/campaignRuns": typeof lib_campaignRuns;
   "lib/customerIntelligence": typeof lib_customerIntelligence;
   "lib/editConflicts": typeof lib_editConflicts;
+  "lib/email": typeof lib_email;
   "lib/ids": typeof lib_ids;
   "lib/recommendationUtils": typeof lib_recommendationUtils;
   "lib/staffPermissions": typeof lib_staffPermissions;

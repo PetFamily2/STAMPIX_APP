@@ -8,6 +8,7 @@ import {
   getCurrentUserOrNull,
   requireCurrentUser,
 } from './guards';
+import { normalizeEmailAddress } from './lib/email';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
   v.literal('starter'),
@@ -695,11 +696,11 @@ export const getSessionContext = query({
     ).filter((b): b is NonNullable<typeof b> => b !== null);
 
     const [pendingByEmail, pendingByUserId] = await Promise.all([
-      user.email
+      normalizeEmailAddress(user.email)
         ? ctx.db
             .query('staffInvites')
             .withIndex('by_invitedEmail', (q: any) =>
-              q.eq('invitedEmail', user.email!)
+              q.eq('invitedEmail', normalizeEmailAddress(user.email)!)
             )
             .filter((q: any) => q.eq(q.field('status'), 'pending'))
             .collect()

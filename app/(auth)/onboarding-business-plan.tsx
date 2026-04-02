@@ -151,6 +151,7 @@ export default function OnboardingBusinessPlanScreen() {
             selectedPlan={selectedPlan}
             billingPeriod={billingPeriod}
             context="onboarding"
+            showPlanSelector={false}
             ctaLabel={
               selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך למסלול'
             }
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
   },

@@ -1,4 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useConvexAuth } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,7 +18,7 @@ import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { safeBack, safePush } from '@/lib/navigation';
+import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const CODE_LENGTH = 6;
@@ -36,14 +38,17 @@ const TEXT = {
   sendFailed: 'שליחת הקוד נכשלה נסו שוב',
   rateLimited: 'אפשר לבקש קוד חדש כל 3 דקות',
   missingConfig: 'שירות האימייל לא מוגדר עדיין בדקו את ההגדרות בסביבת Convex',
+  missingSession: 'לא זוהתה התחברות פעילה. נסו שוב.',
 };
 
 export default function OnboardingOtpScreen() {
+  const router = useRouter();
   const { contact, sent } = useLocalSearchParams<{
     contact?: string | string[];
     sent?: string | string[];
   }>();
   const { signIn } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
 
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => '')
@@ -52,6 +57,7 @@ export default function OnboardingOtpScreen() {
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isAwaitingSession, setIsAwaitingSession] = useState(false);
   const inputsRef = useRef<Array<TextInput | null>>([]);
   const isSendingRef = useRef(false);
   const otpSentRef = useRef(false);
@@ -283,11 +289,28 @@ export default function OnboardingOtpScreen() {
     void sendCode(true);
   };
 
-  const postAuthResolutionRoute = '/(auth)/oauth-callback';
   const backRoute = '/(auth)/sign-up-email';
 
+  useEffect(() => {
+    if (!isAwaitingSession) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      router.replace('/(authenticated)/(customer)/wallet');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setIsAwaitingSession(false);
+      setError(TEXT.missingSession);
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, isAwaitingSession, router]);
+
   const handleContinue = useCallback(async () => {
-    if (!isComplete || isVerifying) {
+    if (!isComplete || isVerifying || isAwaitingSession) {
       if (!isComplete) {
         setError(TEXT.incompleteCode);
         trackError('otp', 'incomplete');
@@ -313,7 +336,7 @@ export default function OnboardingOtpScreen() {
       trackContinue();
       trackEvent(ANALYTICS_EVENTS.otpVerified);
       completeStep();
-      safePush(postAuthResolutionRoute);
+      setIsAwaitingSession(true);
     } catch (err: unknown) {
       const mapped = mapOtpError(err);
       setError(mapped);
@@ -328,18 +351,19 @@ export default function OnboardingOtpScreen() {
     contactValue,
     completeStep,
     isComplete,
+    isAwaitingSession,
     isEmailContact,
     isVerifying,
     mapOtpError,
-    otpCode,
     signIn,
     trackContinue,
     trackError,
     trackEvent,
+    otpCode,
   ]);
 
   useEffect(() => {
-    if (!isComplete || isVerifying || isSending) {
+    if (!isComplete || isVerifying || isSending || isAwaitingSession) {
       return;
     }
 
@@ -349,7 +373,14 @@ export default function OnboardingOtpScreen() {
 
     lastAutoSubmittedCodeRef.current = otpCode;
     void handleContinue();
-  }, [handleContinue, isComplete, isSending, isVerifying, otpCode]);
+  }, [
+    handleContinue,
+    isAwaitingSession,
+    isComplete,
+    isSending,
+    isVerifying,
+    otpCode,
+  ]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -415,7 +446,7 @@ export default function OnboardingOtpScreen() {
             onPress={() => {
               void handleContinue();
             }}
-            disabled={!isComplete || isVerifying || isSending}
+            disabled={!isComplete || isVerifying || isSending || isAwaitingSession}
           />
         </View>
       </View>
@@ -430,7 +461,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
   },
