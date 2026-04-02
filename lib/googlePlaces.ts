@@ -31,6 +31,29 @@ type GooglePlacesDetailsResponse = {
   error_message?: string;
 };
 
+type NominatimSearchResponseItem = {
+  lat?: string;
+  lon?: string;
+  display_name?: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    pedestrian?: string;
+    footway?: string;
+    path?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    hamlet?: string;
+    municipality?: string;
+    county?: string;
+    state_district?: string;
+    state?: string;
+  };
+};
+
 export type PlaceSuggestion = {
   description: string;
   placeId: string;
@@ -64,9 +87,14 @@ function getApiKey() {
   return GOOGLE_PLACES_API_KEY;
 }
 
-function buildUrl(path: string, params: Record<string, string>) {
+function buildGooglePlacesUrl(path: string, params: Record<string, string>) {
   const searchParams = new URLSearchParams(params);
   return `https://maps.googleapis.com/maps/api/place/${path}/json?${searchParams.toString()}`;
+}
+
+function buildNominatimUrl(params: Record<string, string>) {
+  const searchParams = new URLSearchParams(params);
+  return `https://nominatim.openstreetmap.org/search?${searchParams.toString()}`;
 }
 
 function resolveResponseError(
@@ -86,22 +114,144 @@ function getAddressComponent(components: AddressComponent[], type: string) {
   return components.find((component) => component.types.includes(type));
 }
 
+function getNominatimCity(
+  address: NominatimSearchResponseItem['address'] | undefined
+) {
+  return (
+    address?.city ||
+    address?.town ||
+    address?.village ||
+    address?.hamlet ||
+    address?.municipality ||
+    address?.county ||
+    address?.state_district ||
+    address?.state ||
+    ''
+  );
+}
+
+function getNominatimStreet(
+  address: NominatimSearchResponseItem['address'] | undefined
+) {
+  return (
+    address?.road ||
+    address?.pedestrian ||
+    address?.footway ||
+    address?.path ||
+    address?.neighbourhood ||
+    address?.suburb ||
+    ''
+  );
+}
+
+function buildNominatimPrimaryText(
+  street: string,
+  streetNumber: string,
+  city: string,
+  description: string
+) {
+  const streetLine = [street, streetNumber].filter(Boolean).join(' ').trim();
+  if (streetLine) {
+    return streetLine;
+  }
+  if (city) {
+    return city;
+  }
+  return description.split(',')[0]?.trim() || description;
+}
+
+function buildNominatimSecondaryText(description: string, primaryText: string) {
+  const normalizedDescription = description.trim();
+  if (!normalizedDescription) {
+    return '';
+  }
+  if (
+    normalizedDescription === primaryText ||
+    !normalizedDescription.startsWith(primaryText)
+  ) {
+    return normalizedDescription;
+  }
+
+  return normalizedDescription
+    .slice(primaryText.length)
+    .replace(/^,\s*/, '')
+    .trim();
+}
+
+function encodeNominatimPlaceId(details: PlaceDetails) {
+  return `nominatim:${encodeURIComponent(JSON.stringify(details))}`;
+}
+
+function decodeNominatimPlaceId(placeId: string) {
+  if (!placeId.startsWith('nominatim:')) {
+    return null;
+  }
+
+  try {
+    const encodedPayload = placeId.slice('nominatim:'.length);
+    const payload = JSON.parse(
+      decodeURIComponent(encodedPayload)
+    ) as Partial<PlaceDetails>;
+
+    if (
+      typeof payload.formattedAddress !== 'string' ||
+      typeof payload.placeId !== 'string' ||
+      typeof payload.lat !== 'number' ||
+      typeof payload.lng !== 'number' ||
+      typeof payload.city !== 'string' ||
+      typeof payload.street !== 'string' ||
+      typeof payload.streetNumber !== 'string'
+    ) {
+      throw new Error('PLACE_DETAILS_INCOMPLETE');
+    }
+
+    return payload as PlaceDetails;
+  } catch {
+    throw new Error('PLACE_DETAILS_INCOMPLETE');
+  }
+}
+
+function toNominatimPlaceDetails(
+  item: NominatimSearchResponseItem
+): PlaceDetails | null {
+  const formattedAddress = item.display_name?.trim() ?? '';
+  const lat = Number(item.lat);
+  const lng = Number(item.lon);
+  const city = getNominatimCity(item.address);
+  const street = getNominatimStreet(item.address);
+  const streetNumber = item.address?.house_number?.trim() ?? '';
+
+  if (!formattedAddress || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  const details = {
+    formattedAddress,
+    placeId: '',
+    lat,
+    lng,
+    city,
+    street,
+    streetNumber,
+  };
+
+  return {
+    ...details,
+    placeId: encodeNominatimPlaceId(details),
+  };
+}
+
 export function createPlacesSessionToken() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function fetchPlaceSuggestions(
+async function fetchGooglePlaceSuggestions(
   input: string,
   sessionToken: string
 ) {
-  const trimmedInput = input.trim();
-  if (trimmedInput.length < 2) {
-    return [];
-  }
-
   const response = await fetch(
-    buildUrl('autocomplete', {
-      input: trimmedInput,
+    buildGooglePlacesUrl('autocomplete', {
+      input,
       key: getApiKey(),
       language: 'he',
       sessiontoken: sessionToken,
@@ -133,7 +283,73 @@ export async function fetchPlaceSuggestions(
   );
 }
 
-function normalizePlaceDetails(
+async function fetchNominatimSuggestions(input: string) {
+  const response = await fetch(
+    buildNominatimUrl({
+      q: input,
+      format: 'jsonv2',
+      addressdetails: '1',
+      limit: '5',
+      'accept-language': 'he',
+    }),
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('PLACES_AUTOCOMPLETE_REQUEST_FAILED');
+  }
+
+  const payload = (await response.json()) as NominatimSearchResponseItem[];
+
+  return payload
+    .map((item) => {
+      const details = toNominatimPlaceDetails(item);
+      if (!details) {
+        return null;
+      }
+
+      const primaryText = buildNominatimPrimaryText(
+        details.street,
+        details.streetNumber,
+        details.city,
+        details.formattedAddress
+      );
+      const secondaryText = buildNominatimSecondaryText(
+        details.formattedAddress,
+        primaryText
+      );
+
+      return {
+        description: details.formattedAddress,
+        placeId: details.placeId,
+        primaryText,
+        secondaryText,
+      } satisfies PlaceSuggestion;
+    })
+    .filter((item): item is PlaceSuggestion => item !== null);
+}
+
+export async function fetchPlaceSuggestions(
+  input: string,
+  sessionToken: string
+) {
+  const trimmedInput = input.trim();
+  if (trimmedInput.length < 2) {
+    return [];
+  }
+
+  if (!GOOGLE_PLACES_API_KEY) {
+    return fetchNominatimSuggestions(trimmedInput);
+  }
+
+  return fetchGooglePlaceSuggestions(trimmedInput, sessionToken);
+}
+
+function normalizeGooglePlaceDetails(
   payload: GooglePlacesDetailsResponse
 ): PlaceDetails {
   const result = payload.result;
@@ -178,8 +394,13 @@ export async function fetchPlaceDetails(placeId: string, sessionToken: string) {
     throw new Error('PLACE_ID_REQUIRED');
   }
 
+  const nominatimDetails = decodeNominatimPlaceId(trimmedPlaceId);
+  if (nominatimDetails) {
+    return nominatimDetails;
+  }
+
   const response = await fetch(
-    buildUrl('details', {
+    buildGooglePlacesUrl('details', {
       place_id: trimmedPlaceId,
       key: getApiKey(),
       language: 'he',
@@ -201,5 +422,5 @@ export async function fetchPlaceDetails(placeId: string, sessionToken: string) {
     throw new Error(resolvedError);
   }
 
-  return normalizePlaceDetails(payload);
+  return normalizeGooglePlaceDetails(payload);
 }

@@ -1,5 +1,6 @@
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
@@ -34,6 +35,13 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 
+const DEFAULT_MANUAL_REGION: Region = {
+  latitude: 32.0853,
+  longitude: 34.7818,
+  latitudeDelta: 0.08,
+  longitudeDelta: 0.08,
+};
+
 const TEXT = {
   title:
     '\u05de\u05d4 \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7?',
@@ -54,10 +62,24 @@ const TEXT = {
     '\u05de\u05d7\u05e4\u05e9\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05d5\u05ea...',
   loadingPlace:
     '\u05d8\u05d5\u05e2\u05e0\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea...',
+  resolvingManualAddress:
+    '\u05de\u05d0\u05ea\u05e8\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05e4\u05d9 \u05d4\u05d8\u05e7\u05e1\u05d8 \u05e9\u05d4\u05d5\u05d6\u05df...',
   noSuggestions:
     '\u05dc\u05d0 \u05e0\u05de\u05e6\u05d0\u05d5 \u05db\u05ea\u05d5\u05d1\u05d5\u05ea \u05ea\u05d5\u05d0\u05de\u05d5\u05ea. \u05e0\u05e1\u05d5 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05d3\u05d5\u05d9\u05e7\u05ea \u05d9\u05d5\u05ea\u05e8.',
+  manualAddressCta:
+    '\u05d0\u05d9\u05ea\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05e4\u05d9 \u05d4\u05d8\u05e7\u05e1\u05d8 \u05e9\u05d4\u05d5\u05d6\u05df',
   addressRequired:
     '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05ea\u05d5\u05da \u05e8\u05e9\u05d9\u05de\u05ea \u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05dc\u05e4\u05e0\u05d9 \u05d4\u05d4\u05de\u05e9\u05da.',
+  manualAddressResolutionError:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d0\u05ea\u05e8 \u05d0\u05ea \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05d4\u05d6\u05d5. \u05e0\u05e1\u05d5 \u05dc\u05d4\u05d6\u05d9\u05df \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05dc\u05d0\u05d4 \u05d9\u05d5\u05ea\u05e8 \u05db\u05d5\u05dc\u05dc \u05e2\u05d9\u05e8.',
+  manualPinTitle:
+    '\u05d0\u05dd \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05d0 \u05de\u05d0\u05d5\u05ea\u05e8\u05ea, \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e0\u05e2\u05d5\u05e5 \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05d9\u05d3\u05e0\u05d9\u05ea \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
+  manualPinSubtitle:
+    '\u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea, \u05dc\u05d7\u05e6\u05d5 \u05e2\u05dc \u05d4\u05de\u05e4\u05d4 \u05d1\u05de\u05d9\u05e7\u05d5\u05dd \u05d4\u05de\u05d3\u05d5\u05d9\u05e7, \u05d5\u05d0\u05d6 \u05d0\u05e9\u05e8\u05d5.',
+  manualPinCta:
+    '\u05d0\u05e9\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05d9\u05d3\u05e0\u05d9\u05ea \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
+  manualPinRequired:
+    '\u05db\u05d3\u05d9 \u05dc\u05d4\u05de\u05e9\u05d9\u05da, \u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea \u05d5\u05d1\u05d7\u05e8\u05d5 \u05de\u05d9\u05e7\u05d5\u05dd \u05e2\u05dc \u05d4\u05de\u05e4\u05d4.',
   googleKeyMissing:
     '\u05d7\u05e1\u05e8 EXPO_PUBLIC_GOOGLE_MAPS_API_KEY \u05d5\u05dc\u05db\u05df \u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d8\u05e2\u05d5\u05df \u05d4\u05e9\u05dc\u05de\u05ea \u05db\u05ea\u05d5\u05d1\u05ea.',
   autocompleteError:
@@ -90,6 +112,82 @@ function toErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function normalizeManualAddressText(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function parseManualAddressText(value: string) {
+  const normalizedValue = normalizeManualAddressText(value);
+  if (!normalizedValue) {
+    return {
+      formattedAddress: '',
+      city: '',
+      street: '',
+      streetNumber: '',
+    };
+  }
+
+  const commaSeparatedParts = normalizedValue
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (commaSeparatedParts.length >= 2) {
+    const streetLine = commaSeparatedParts[0] ?? '';
+    const city = commaSeparatedParts.slice(1).join(', ').trim();
+    const streetNumberMatch = streetLine.match(
+      /(\d+[A-Za-z\u0590-\u05FF\-\/]*)\s*$/
+    );
+    const streetNumber = streetNumberMatch?.[1]?.trim() ?? '';
+    const street = streetNumber
+      ? streetLine.slice(0, streetLine.length - streetNumber.length).trim()
+      : streetLine;
+
+    return {
+      formattedAddress: normalizedValue,
+      city,
+      street,
+      streetNumber,
+    };
+  }
+
+  const streetWithNumberAndCityMatch = normalizedValue.match(
+    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-\/]*)\s+(.+)$/
+  );
+
+  if (streetWithNumberAndCityMatch) {
+    const [, street = '', streetNumber = '', city = ''] =
+      streetWithNumberAndCityMatch;
+    return {
+      formattedAddress: normalizedValue,
+      city: city.trim(),
+      street: street.trim(),
+      streetNumber: streetNumber.trim(),
+    };
+  }
+
+  const streetWithNumberMatch = normalizedValue.match(
+    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-\/]*)$/
+  );
+
+  if (streetWithNumberMatch) {
+    const [, street = '', streetNumber = ''] = streetWithNumberMatch;
+    return {
+      formattedAddress: normalizedValue,
+      city: '',
+      street: street.trim(),
+      streetNumber: streetNumber.trim(),
+    };
+  }
+
+  return {
+    formattedAddress: normalizedValue,
+    city: '',
+    street: normalizedValue,
+    streetNumber: '',
+  };
 }
 
 function SuggestionRow({
@@ -145,6 +243,21 @@ export default function CreateBusinessScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSelectingPlace, setIsSelectingPlace] = useState(false);
+  const [isResolvingManualAddress, setIsResolvingManualAddress] =
+    useState(false);
+  const [manualMapRegion, setManualMapRegion] = useState(DEFAULT_MANUAL_REGION);
+  const [manualMarker, setManualMarker] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(
+    typeof businessOnboardingDraft.locationLat === 'number' &&
+      typeof businessOnboardingDraft.locationLng === 'number'
+      ? {
+          latitude: businessOnboardingDraft.locationLat,
+          longitude: businessOnboardingDraft.locationLng,
+        }
+      : null
+  );
 
   const selectedAddress = businessOnboardingDraft.formattedAddress.trim();
   const searchQueryForAutocomplete =
@@ -242,7 +355,8 @@ export default function CreateBusinessScreen() {
       normalizedBusinessName && resolvedExternalId && hasValidatedAddress
     ) &&
     !isSubmitting &&
-    !isSelectingPlace;
+    !isSelectingPlace &&
+    !isResolvingManualAddress;
 
   const clearSelectedAddress = () => {
     setBusinessOnboardingDraft((prev) => ({
@@ -255,6 +369,7 @@ export default function CreateBusinessScreen() {
       street: '',
       streetNumber: '',
     }));
+    setManualMarker(null);
   };
 
   const handleAddressChange = (value: string) => {
@@ -295,6 +410,131 @@ export default function CreateBusinessScreen() {
       setIsSelectingPlace(false);
     }
   };
+
+  const handleResolveManualAddress = async () => {
+    const normalizedQuery = addressQuery.trim();
+    if (normalizedQuery.length < 4) {
+      setError(TEXT.manualAddressResolutionError);
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsResolvingManualAddress(true);
+
+      const results = await Location.geocodeAsync(normalizedQuery);
+      const firstResult = results[0];
+      const parsedAddress = parseManualAddressText(normalizedQuery);
+
+      if (
+        !firstResult ||
+        typeof firstResult.latitude !== 'number' ||
+        typeof firstResult.longitude !== 'number'
+      ) {
+        throw new Error('MANUAL_ADDRESS_GEOCODE_FAILED');
+      }
+
+      const reverseResults = await Location.reverseGeocodeAsync({
+        latitude: firstResult.latitude,
+        longitude: firstResult.longitude,
+      });
+      const reverseResult = reverseResults[0];
+      const city =
+        reverseResult?.city?.trim() ||
+        reverseResult?.subregion?.trim() ||
+        reverseResult?.region?.trim() ||
+        parsedAddress.city;
+      const street = reverseResult?.street?.trim() || parsedAddress.street;
+      const streetNumber =
+        reverseResult?.streetNumber?.trim() || parsedAddress.streetNumber;
+      const formattedAddress =
+        parsedAddress.formattedAddress || normalizedQuery;
+
+      setBusinessOnboardingDraft((prev) => ({
+        ...prev,
+        formattedAddress,
+        placeId: `manual:${normalizedQuery.toLowerCase()}:${firstResult.latitude.toFixed(6)}:${firstResult.longitude.toFixed(6)}`,
+        locationLat: firstResult.latitude,
+        locationLng: firstResult.longitude,
+        city,
+        street,
+        streetNumber,
+      }));
+      setAddressQuery(formattedAddress);
+      clearSuggestions();
+      resetSessionToken();
+    } catch {
+      setError(TEXT.manualAddressResolutionError);
+    } finally {
+      setIsResolvingManualAddress(false);
+    }
+  };
+
+  const handleManualMapPress = (latitude: number, longitude: number) => {
+    setError(null);
+    setManualMarker({ latitude, longitude });
+  };
+
+  const handleConfirmManualPin = async () => {
+    const normalizedQuery = addressQuery.trim();
+    if (!normalizedQuery || !manualMarker) {
+      setError(TEXT.manualPinRequired);
+      return;
+    }
+
+    setError(null);
+
+    const parsedAddress = parseManualAddressText(normalizedQuery);
+    let city = '';
+    let street = '';
+    let streetNumber = '';
+    try {
+      const reverseResults = await Location.reverseGeocodeAsync({
+        latitude: manualMarker.latitude,
+        longitude: manualMarker.longitude,
+      });
+      const reverseResult = reverseResults[0];
+      city =
+        reverseResult?.city?.trim() ||
+        reverseResult?.subregion?.trim() ||
+        reverseResult?.region?.trim() ||
+        parsedAddress.city;
+      street = reverseResult?.street?.trim() || parsedAddress.street;
+      streetNumber =
+        reverseResult?.streetNumber?.trim() || parsedAddress.streetNumber;
+    } catch {
+      city = parsedAddress.city;
+      street = parsedAddress.street;
+      streetNumber = parsedAddress.streetNumber;
+    }
+
+    setBusinessOnboardingDraft((prev) => ({
+      ...prev,
+      formattedAddress: parsedAddress.formattedAddress || normalizedQuery,
+      placeId: `manual:${normalizedQuery.toLowerCase()}:${manualMarker.latitude.toFixed(6)}:${manualMarker.longitude.toFixed(6)}`,
+      locationLat: manualMarker.latitude,
+      locationLng: manualMarker.longitude,
+      city,
+      street,
+      streetNumber,
+    }));
+  };
+
+  useEffect(() => {
+    if (
+      typeof latitude === 'number' &&
+      typeof longitude === 'number' &&
+      !Number.isNaN(latitude) &&
+      !Number.isNaN(longitude)
+    ) {
+      setManualMapRegion((prev) => ({
+        ...prev,
+        latitude,
+        longitude,
+      }));
+      setManualMarker({ latitude, longitude });
+    }
+  }, [latitude, longitude]);
 
   const handleSubmit = async () => {
     if (
@@ -434,11 +674,15 @@ export default function CreateBusinessScreen() {
               accessibilityLabel={TEXT.searchLabel}
             />
 
-            {isSuggestionsLoading || isSelectingPlace ? (
+            {isSuggestionsLoading ||
+            isSelectingPlace ||
+            isResolvingManualAddress ? (
               <View style={styles.inlineStatusRow}>
                 <ActivityIndicator color="#2563EB" />
                 <Text style={styles.inlineStatusText}>
-                  {isSelectingPlace
+                  {isResolvingManualAddress
+                    ? TEXT.resolvingManualAddress
+                    : isSelectingPlace
                     ? TEXT.loadingPlace
                     : TEXT.loadingSuggestions}
                 </Text>
@@ -456,6 +700,23 @@ export default function CreateBusinessScreen() {
 
             {showNoSuggestions ? (
               <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
+            ) : null}
+
+            {addressQuery.trim().length >= 4 && !hasValidatedAddress ? (
+              <Pressable
+                onPress={() => {
+                  void handleResolveManualAddress();
+                }}
+                style={({ pressed }) => [
+                  styles.manualResolveButton,
+                  pressed ? styles.pressed : null,
+                ]}
+                disabled={isResolvingManualAddress || isSelectingPlace}
+              >
+                <Text style={styles.manualResolveButtonText}>
+                  {TEXT.manualAddressCta}
+                </Text>
+              </Pressable>
             ) : null}
 
             {suggestions.length > 0 ? (
@@ -518,8 +779,46 @@ export default function CreateBusinessScreen() {
             </View>
           ) : (
             <View style={styles.emptyPreviewCard}>
+              <Text style={styles.emptyPreviewTitle}>{TEXT.manualPinTitle}</Text>
               <Text style={styles.emptyPreviewText}>
-                {TEXT.addressRequired}
+                {TEXT.manualPinSubtitle}
+              </Text>
+              <View style={styles.mapBlock}>
+                <Text style={styles.label}>{TEXT.mapLabel}</Text>
+                <View style={styles.mapShell}>
+                  <MapView
+                    style={styles.map}
+                    region={manualMapRegion}
+                    onRegionChangeComplete={(region) => {
+                      setManualMapRegion(region);
+                    }}
+                    onPress={(event) => {
+                      const { latitude, longitude } =
+                        event.nativeEvent.coordinate;
+                      handleManualMapPress(latitude, longitude);
+                    }}
+                  >
+                    {manualMarker ? (
+                      <Marker coordinate={manualMarker} />
+                    ) : null}
+                  </MapView>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  void handleConfirmManualPin();
+                }}
+                style={({ pressed }) => [
+                  styles.manualResolveButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.manualResolveButtonText}>
+                  {TEXT.manualPinCta}
+                </Text>
+              </Pressable>
+              <Text style={styles.emptyPreviewText}>
+                {TEXT.manualPinRequired}
               </Text>
             </View>
           )}
@@ -564,7 +863,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   body: {
-    marginTop: 24,
+    marginTop: 12,
     flex: 1,
   },
   bodyContent: {
@@ -668,6 +967,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'right',
   },
+  manualResolveButton: {
+    alignSelf: 'flex-end',
+    borderRadius: 999,
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  manualResolveButtonText: {
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   previewSection: {
     gap: 12,
   },
@@ -723,6 +1036,14 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
     padding: 16,
+    gap: 12,
+  },
+  emptyPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   emptyPreviewText: {
     fontSize: 13,

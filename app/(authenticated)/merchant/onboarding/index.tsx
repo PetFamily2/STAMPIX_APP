@@ -104,6 +104,8 @@ function toBusinessOnboardingDraft(
       typeof source.businessExample === 'string'
         ? source.businessExample
         : null,
+    cadenceBand:
+      typeof source.cadenceBand === 'string' ? source.cadenceBand : null,
     birthdayCampaignRelevant:
       source.birthdayCampaignRelevant === true ||
       source.birthdayCampaignRelevant === false

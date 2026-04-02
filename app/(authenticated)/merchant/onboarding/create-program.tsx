@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   titleContainer: {
-    marginTop: 18,
+    marginTop: 10,
     alignItems: 'flex-end',
     gap: 6,
   },

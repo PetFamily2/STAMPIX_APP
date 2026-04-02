@@ -475,6 +475,7 @@ export default function PreviewCardScreen() {
             : undefined,
         ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
         businessExample: businessOnboardingDraft.businessExample ?? undefined,
+        cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
         birthdayCampaignRelevant:
           businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
         joinAnniversaryCampaignRelevant:
@@ -807,7 +808,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   scrollContent: {
-    paddingTop: 26,
+    paddingTop: 12,
     paddingBottom: 28,
     gap: 18,
   },

@@ -136,6 +136,7 @@ export default defineSchema({
         usageAreas: v.optional(v.array(v.string())),
         ownerAgeRange: v.optional(v.string()),
         businessExample: v.optional(v.string()),
+        cadenceBand: v.optional(v.string()),
         birthdayCampaignRelevant: v.optional(v.boolean()),
         joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
         weakTimePromosRelevant: v.optional(v.boolean()),
@@ -384,6 +385,7 @@ export default defineSchema({
           v.object({
             ownerAgeRange: v.optional(v.string()),
             businessExample: v.optional(v.string()),
+            cadenceBand: v.optional(v.string()),
             birthdayCampaignRelevant: v.optional(v.boolean()),
             joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
             weakTimePromosRelevant: v.optional(v.boolean()),

@@ -31,6 +31,7 @@ export type BusinessOnboardingDraft = {
   businessName: string;
   usageAreas: string[];
   businessExample: string | null;
+  cadenceBand: string | null;
   birthdayCampaignRelevant: boolean | null;
   joinAnniversaryCampaignRelevant: boolean | null;
   weakTimePromosRelevant: boolean | null;
@@ -95,6 +96,7 @@ const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {
   businessName: '',
   usageAreas: [],
   businessExample: null,
+  cadenceBand: null,
   birthdayCampaignRelevant: null,
   joinAnniversaryCampaignRelevant: null,
   weakTimePromosRelevant: null,

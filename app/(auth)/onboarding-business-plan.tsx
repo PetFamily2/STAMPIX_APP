@@ -123,7 +123,7 @@ export default function OnboardingBusinessPlanScreen() {
                       BUSINESS_ONBOARDING_ROUTES.createBusiness,
                       flow
                     )
-                  : BUSINESS_ONBOARDING_ROUTES.usageArea
+                  : BUSINESS_ONBOARDING_ROUTES.businessCampaignRelevance
               )
             }
           />
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   titleContainer: {
-    marginTop: 24,
+    marginTop: 10,
     gap: 8,
     alignItems: 'flex-end',
   },

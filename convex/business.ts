@@ -280,6 +280,7 @@ type BusinessOnboardingSnapshotView = {
   usageAreas?: BusinessUsageArea[];
   ownerAgeRange?: BusinessOwnerAgeRange;
   businessExample?: BusinessExample;
+  cadenceBand?: CadenceBand;
   birthdayCampaignRelevant?: boolean;
   joinAnniversaryCampaignRelevant?: boolean;
   weakTimePromosRelevant?: boolean;
@@ -1071,6 +1072,10 @@ function sanitizeBusinessOnboardingSnapshot(snapshot: unknown) {
       : undefined,
     BUSINESS_EXAMPLE_SET
   );
+  const cadenceBand = sanitizeOnboardingChoice<CadenceBand>(
+    typeof source.cadenceBand === 'string' ? source.cadenceBand : undefined,
+    CADENCE_BAND_SET
+  );
   const birthdayCampaignRelevant = sanitizeOnboardingBoolean(
     source.birthdayCampaignRelevant
   );
@@ -1099,6 +1104,9 @@ function sanitizeBusinessOnboardingSnapshot(snapshot: unknown) {
   }
   if (businessExample) {
     normalizedSnapshot.businessExample = businessExample;
+  }
+  if (cadenceBand) {
+    normalizedSnapshot.cadenceBand = cadenceBand;
   }
   if (birthdayCampaignRelevant !== undefined) {
     normalizedSnapshot.birthdayCampaignRelevant = birthdayCampaignRelevant;
@@ -1314,6 +1322,7 @@ export const saveBusinessOnboardingSnapshot = mutation({
     usageAreas: v.optional(v.array(v.string())),
     ownerAgeRange: v.optional(v.string()),
     businessExample: v.optional(v.string()),
+    cadenceBand: v.optional(v.string()),
     birthdayCampaignRelevant: v.optional(v.boolean()),
     joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
     weakTimePromosRelevant: v.optional(v.boolean()),
@@ -1327,6 +1336,7 @@ export const saveBusinessOnboardingSnapshot = mutation({
       usageAreas,
       ownerAgeRange,
       businessExample,
+      cadenceBand,
       birthdayCampaignRelevant,
       joinAnniversaryCampaignRelevant,
       weakTimePromosRelevant,
@@ -1366,6 +1376,11 @@ export const saveBusinessOnboardingSnapshot = mutation({
         BUSINESS_EXAMPLE_SET,
         'BUSINESS_EXAMPLE_INVALID'
       );
+    const normalizedCadenceBand = normalizeOnboardingChoiceInput<CadenceBand>(
+      cadenceBand,
+      CADENCE_BAND_SET,
+      'BUSINESS_CADENCE_INVALID'
+    );
     const normalizedBirthdayCampaignRelevant = normalizeOnboardingBooleanInput(
       birthdayCampaignRelevant
     );
@@ -1404,6 +1419,7 @@ export const saveBusinessOnboardingSnapshot = mutation({
       usageAreas: normalizedUsageAreas ?? existingSnapshot.usageAreas,
       ownerAgeRange: normalizedOwnerAgeRange ?? existingSnapshot.ownerAgeRange,
       businessExample: effectiveBusinessExample,
+      cadenceBand: normalizedCadenceBand ?? existingSnapshot.cadenceBand,
       birthdayCampaignRelevant: effectiveBirthdayCampaignRelevant,
       joinAnniversaryCampaignRelevant: effectiveJoinAnniversaryCampaignRelevant,
       weakTimePromosRelevant: effectiveWeakTimePromosRelevant,
@@ -1423,6 +1439,8 @@ export const saveBusinessOnboardingSnapshot = mutation({
     const retentionOnboardingMeta = asRecord(retentionProfile.onboardingMeta);
     const retentionProfileRecord = asRecord(retentionProfile);
     const nextCadenceBand =
+      normalizedCadenceBand ??
+      existingSnapshot.cadenceBand ??
       exampleDefaults?.cadenceBand ??
       (CADENCE_BAND_SET.has(String(retentionRepeatModel.cadenceBand))
         ? (retentionRepeatModel.cadenceBand as CadenceBand)
@@ -1513,6 +1531,10 @@ export const saveBusinessOnboardingSnapshot = mutation({
           retentionOnboardingMeta.ownerAgeRange,
         businessExample:
           effectiveBusinessExample ?? retentionOnboardingMeta.businessExample,
+        cadenceBand:
+          normalizedCadenceBand ??
+          existingSnapshot.cadenceBand ??
+          retentionOnboardingMeta.cadenceBand,
         birthdayCampaignRelevant:
           effectiveBirthdayCampaignRelevant ??
           retentionOnboardingMeta.birthdayCampaignRelevant,

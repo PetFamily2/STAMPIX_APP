@@ -1,5 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,75 +13,33 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   BUSINESS_ONBOARDING_TOTAL_STEPS,
 } from '@/lib/onboarding/businessOnboardingFlow';
+import {
+  BUSINESS_EXAMPLE_CADENCE_OPTIONS,
+  BUSINESS_EXAMPLES,
+  CADENCE_LABELS,
+  type BusinessCadenceId,
+  type BusinessExampleId,
+} from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
-type DiscoverySourceId =
-  | 'referral'
-  | 'search'
-  | 'social'
-  | 'tiktok'
-  | 'app_store'
-  | 'in_app'
-  | 'other';
-
 const TEXT = {
-  title:
-    '\u05d0\u05d9\u05da \u05d4\u05d2\u05e2\u05ea\u05dd \u05d0\u05dc\u05d9\u05e0\u05d5?',
+  title: 'מה התדירות שמתאימה לעסק?',
 };
 
-const DISCOVERY_SOURCES: Array<{
-  id: DiscoverySourceId;
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}> = [
-  {
-    id: 'referral',
-    title:
-      '\u05d4\u05de\u05dc\u05e6\u05d4 \u05de\u05d7\u05d1\u05e8 \u05d0\u05d5 \u05de\u05d1\u05e2\u05dc \u05e2\u05e1\u05e7',
-    icon: 'people-outline',
-  },
-  {
-    id: 'search',
-    title: '\u05d7\u05d9\u05e4\u05d5\u05e9 \u05d1\u05d2\u05d5\u05d2\u05dc',
-    icon: 'search-outline',
-  },
-  {
-    id: 'social',
-    title:
-      '\u05e8\u05e9\u05ea\u05d5\u05ea \u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea',
-    icon: 'share-social-outline',
-  },
-  {
-    id: 'tiktok',
-    title: '\u05d8\u05d9\u05e7\u05d8\u05d5\u05e7',
-    icon: 'logo-tiktok',
-  },
-  {
-    id: 'app_store',
-    title:
-      '\u05d7\u05e0\u05d5\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d5\u05ea',
-    icon: 'apps-outline',
-  },
-  {
-    id: 'in_app',
-    title:
-      '\u05d3\u05e8\u05da \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-    icon: 'phone-portrait-outline',
-  },
-  { id: 'other', title: '\u05d0\u05d7\u05e8', icon: 'ellipsis-horizontal' },
-];
-
-export default function OnboardingBusinessDiscoveryScreen() {
+export default function OnboardingBusinessCadenceScreen() {
   const { businessOnboardingDraft, setBusinessOnboardingDraft } =
     useOnboarding();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
-  const selected =
-    businessOnboardingDraft.discoverySource as DiscoverySourceId | null;
-  const canContinue = Boolean(selected);
+  const selectedBusinessExample =
+    (businessOnboardingDraft.businessExample as BusinessExampleId | null) ??
+    null;
+  const selectedCadence =
+    (businessOnboardingDraft.cadenceBand as BusinessCadenceId | null) ?? null;
+  const canContinue = selectedBusinessExample !== null && selectedCadence !== null;
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
-    screen: 'onboarding_business_discovery',
+    screen: 'onboarding_business_cadence',
     role: 'business',
   });
 
@@ -91,8 +48,32 @@ export default function OnboardingBusinessDiscoveryScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'discovery' }).catch(() => {});
+    void saveStep({ step: 'businessCadence' }).catch(() => {});
   }, [saveStep]);
+
+  const cadenceOptions = useMemo(() => {
+    if (!selectedBusinessExample) {
+      return [] as BusinessCadenceId[];
+    }
+    return BUSINESS_EXAMPLE_CADENCE_OPTIONS[selectedBusinessExample];
+  }, [selectedBusinessExample]);
+
+  const businessTypeLabel = useMemo(() => {
+    if (!selectedBusinessExample) {
+      return '';
+    }
+    return (
+      BUSINESS_EXAMPLES.find((item) => item.id === selectedBusinessExample)
+        ?.title ?? ''
+    );
+  }, [selectedBusinessExample]);
+
+  useEffect(() => {
+    if (selectedBusinessExample) {
+      return;
+    }
+    safePush(BUSINESS_ONBOARDING_ROUTES.businessType);
+  }, [selectedBusinessExample]);
 
   const handleContinue = async () => {
     if (!canContinue) {
@@ -101,55 +82,60 @@ export default function OnboardingBusinessDiscoveryScreen() {
 
     trackContinue();
     try {
-      await saveStep({ step: 'discovery' });
+      await saveStep({ step: 'businessCadence' });
     } catch {
       // Keep onboarding flow moving even if draft persistence fails.
     }
-    completeStep({ discovery_source: selected });
-    safePush(BUSINESS_ONBOARDING_ROUTES.reason);
+
+    completeStep({
+      business_example: selectedBusinessExample,
+      cadence_band: selectedCadence,
+    });
+
+    safePush(BUSINESS_ONBOARDING_ROUTES.businessCampaignRelevance);
   };
+
+  if (!selectedBusinessExample) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.role)}
+            onPress={() =>
+              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.businessType)
+            }
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.discovery}
+            current={BUSINESS_ONBOARDING_PROGRESS.businessCadence}
           />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={1}>
-            {TEXT.title}
-          </Text>
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.contextText}>{businessTypeLabel}</Text>
         </View>
 
         <View style={styles.optionsContainer}>
-          {DISCOVERY_SOURCES.map((source) => {
-            const isSelected = selected === source.id;
+          {cadenceOptions.map((option) => {
+            const isSelected = selectedCadence === option;
             return (
               <OnboardingChoiceButton
-                key={source.id}
+                key={option}
                 selected={isSelected}
-                label={source.title}
+                label={CADENCE_LABELS[option]}
+                pressableStyle={styles.optionPressable}
+                labelNumberOfLines={1}
                 onPress={() => {
                   setBusinessOnboardingDraft((prev) => ({
                     ...prev,
-                    discoverySource: source.id,
+                    cadenceBand: option,
                   }));
-                  trackChoice('discovery_source', source.id);
+                  trackChoice('cadence_band', option);
                 }}
-                icon={
-                  <Ionicons
-                    name={source.icon}
-                    size={20}
-                    color={isSelected ? '#FFFFFF' : '#2563EB'}
-                  />
-                }
               />
             );
           })}
@@ -175,7 +161,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 32,
   },
@@ -187,20 +173,29 @@ const styles = StyleSheet.create({
   titleContainer: {
     marginTop: 12,
     alignItems: 'flex-end',
-    width: '100%',
+    gap: 4,
   },
   title: {
     fontSize: 24,
     fontWeight: '900',
     color: '#111827',
-    width: '100%',
     textAlign: 'right',
-    writingDirection: 'rtl',
-    lineHeight: 32,
+  },
+  contextText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'right',
   },
   optionsContainer: {
-    marginTop: 32,
-    gap: 12,
+    marginTop: 16,
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  optionPressable: {
+    width: '48%',
   },
   footer: {
     marginTop: 'auto',
