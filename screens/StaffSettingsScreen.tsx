@@ -94,9 +94,13 @@ export default function StaffSettingsScreen() {
   };
 
   const goToPrivateArea = async () => {
-    await setActiveMode({ mode: 'customer' });
     await setAppMode('customer');
-    router.navigate('/(authenticated)/(customer)/wallet');
+    router.replace('/(authenticated)/(customer)/wallet');
+    void setActiveMode({ mode: 'customer' }).catch(async () => {
+      await setAppMode('business');
+      router.replace('/(authenticated)/(staff)/settings');
+      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את מצב המשתמש. נסו שוב.');
+    });
   };
 
   const handleLeaveBusiness = () => {

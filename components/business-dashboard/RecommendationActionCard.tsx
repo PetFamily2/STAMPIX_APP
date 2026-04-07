@@ -37,34 +37,34 @@ const PALETTE: Record<
     badgeText: '#C27100',
   },
   warning: {
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
+    iconBg: '#EAF2FF',
+    iconColor: '#2563EB',
     icon: 'sparkles-outline',
     title: '#111827',
     body: '#475569',
-    border: '#F0E7D6',
-    badgeBg: '#FFF5DB',
-    badgeText: '#C27100',
+    border: '#DCE8FF',
+    badgeBg: '#EEF4FF',
+    badgeText: '#2563EB',
   },
   neutral: {
-    iconBg: '#DDF7F4',
-    iconColor: '#0F766E',
+    iconBg: '#EAF2FF',
+    iconColor: '#2563EB',
     icon: 'leaf-outline',
     title: '#111827',
     body: '#475569',
-    border: '#E6EBF4',
-    badgeBg: '#FFF1D7',
-    badgeText: '#CC8A00',
+    border: '#DCE8FF',
+    badgeBg: '#EEF4FF',
+    badgeText: '#2563EB',
   },
   success: {
-    iconBg: '#DCFCE7',
-    iconColor: '#15803D',
+    iconBg: '#DFF4FF',
+    iconColor: '#0284C7',
     icon: 'checkmark-circle-outline',
     title: '#111827',
     body: '#475569',
-    border: '#D8EEDC',
-    badgeBg: '#E8F9EE',
-    badgeText: '#15803D',
+    border: '#DCE8FF',
+    badgeBg: '#EEF4FF',
+    badgeText: '#2563EB',
   },
 };
 
@@ -104,7 +104,7 @@ export function RecommendationActionCard({
   return (
     <SurfaceCard
       elevated={emphasis === 'primary'}
-      padding={emphasis === 'primary' ? 'lg' : 'md'}
+      padding={emphasis === 'primary' ? 'md' : 'sm'}
       radius={emphasis === 'primary' ? 'hero' : 'lg'}
       style={[
         styles.card,
@@ -193,7 +193,7 @@ export function RecommendationActionCard({
               >
                 <LinearGradient
                   colors={
-                    isLoading ? ['#A5B4FC', '#A5B4FC'] : ['#8B7BFF', '#6D5EF4']
+                    isLoading ? ['#93C5FD', '#93C5FD'] : ['#3B82F6', '#2563EB']
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   content: {
-    gap: 8,
+    gap: 7,
   },
   topRow: {
     flexDirection: 'row-reverse',
@@ -246,9 +246,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBubble: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -257,18 +257,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   title: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
   },
   body: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '500',
   },
   supportingText: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '600',
     color: '#111827',
   },
@@ -294,15 +294,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   primaryCtaGradient: {
-    minHeight: 48,
+    minHeight: 42,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
   },
   primaryCtaText: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -314,8 +314,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   secondaryActionText: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
     color: '#64748B',
   },

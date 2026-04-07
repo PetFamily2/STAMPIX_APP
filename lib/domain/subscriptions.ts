@@ -14,8 +14,8 @@ export const SUBSCRIPTION_PLAN_ORDER: Record<SubscriptionPlan, number> = {
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
   starter: 'Starter',
-  pro: 'Pro AI',
-  premium: 'Premium AI',
+  pro: 'Pro',
+  premium: 'Pro Max',
 };
 
 export function canAccessAdvancedFeatures(plan: SubscriptionPlan): boolean {

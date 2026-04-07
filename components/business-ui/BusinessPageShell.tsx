@@ -11,10 +11,12 @@ export function BusinessPageShell({
   stickyHeader,
   children,
   backgroundColor = DASHBOARD_TOKENS.pageBackground,
+  contentPaddingHorizontal = DASHBOARD_TOKENS.spacingPageHorizontal,
 }: {
   stickyHeader: ReactNode;
   children: ReactNode;
   backgroundColor?: string;
+  contentPaddingHorizontal?: number;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -24,7 +26,7 @@ export function BusinessPageShell({
         stickyHeaderIndices={[0]}
         style={styles.scroll}
         contentContainerStyle={{
-          paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
+          paddingHorizontal: contentPaddingHorizontal,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
       >

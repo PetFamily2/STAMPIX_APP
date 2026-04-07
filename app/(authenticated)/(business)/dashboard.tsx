@@ -4,13 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
 import { DailyKpiGrid } from '@/components/business-dashboard/DailyKpiGrid';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
   type DatePresetKey,
   DateSelectorBar,
-  type DateSelectorItem,
 } from '@/components/business-dashboard/DateSelectorBar';
 import { LifetimeMetricsRow } from '@/components/business-dashboard/LifetimeMetricsRow';
 import { SmartRecommendationsPanel } from '@/components/business-dashboard/SmartRecommendationsPanel';
@@ -19,6 +17,7 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
+import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
@@ -32,29 +31,6 @@ const DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
-});
-const WEEKDAY_FORMATTER = new Intl.DateTimeFormat('he-IL', {
-  timeZone: ISRAEL_TIME_ZONE,
-  weekday: 'short',
-});
-const DAY_FORMATTER = new Intl.DateTimeFormat('he-IL', {
-  timeZone: ISRAEL_TIME_ZONE,
-  day: 'numeric',
-});
-const MONTH_FORMATTER = new Intl.DateTimeFormat('he-IL', {
-  timeZone: ISRAEL_TIME_ZONE,
-  month: 'short',
-});
-const SELECTED_DAY_FORMATTER = new Intl.DateTimeFormat('he-IL', {
-  timeZone: ISRAEL_TIME_ZONE,
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-});
-const DATE_SELECTOR_LABEL_FORMATTER = new Intl.DateTimeFormat('he-IL', {
-  timeZone: ISRAEL_TIME_ZONE,
-  day: 'numeric',
-  month: 'short',
 });
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL', {
   maximumFractionDigits: 0,
@@ -80,7 +56,7 @@ type RecommendationActionKind =
   | 'view_subscription'
   | 'none';
 
-type DatePresetSelection = DatePresetKey | 'custom';
+type DatePresetSelection = DatePresetKey;
 
 type DashboardRecommendationCard = {
   key: string;
@@ -102,22 +78,16 @@ function formatNumber(value: number) {
   return NUMBER_FORMATTER.format(value);
 }
 
-function getIsraelDayKey(timestamp: number) {
-  return DAY_KEY_FORMATTER.format(new Date(timestamp));
+function formatSignedNumber(value: number) {
+  if (value === 0) {
+    return '0';
+  }
+
+  return `${value > 0 ? '+' : '-'}${formatNumber(Math.abs(value))}`;
 }
 
-function buildDateSelectorItems(now: number, count: number) {
-  return Array.from({ length: count }, (_unused, index) => {
-    const anchor = now - index * DAY_MS;
-    return {
-      key: getIsraelDayKey(anchor),
-      anchor,
-      weekdayLabel: WEEKDAY_FORMATTER.format(new Date(anchor)),
-      dayNumber: DAY_FORMATTER.format(new Date(anchor)),
-      shortMonth: MONTH_FORMATTER.format(new Date(anchor)),
-      isToday: index === 0,
-    } satisfies DateSelectorItem;
-  });
+function getIsraelDayKey(timestamp: number) {
+  return DAY_KEY_FORMATTER.format(new Date(timestamp));
 }
 
 function buildKpiTrend(value: number, previousValue: number) {
@@ -202,20 +172,14 @@ function buildEmptyRecommendationCard(): DashboardRecommendationCard {
   };
 }
 
-function getPresetLabel(preset: DatePresetSelection) {
-  if (preset === 'today') {
-    return 'היום';
-  }
-  if (preset === 'yesterday') {
-    return 'אתמול';
-  }
+function getRangeDaysForPreset(preset: DatePresetSelection) {
   if (preset === 'last_7_days') {
-    return '7 ימים';
+    return 7;
   }
   if (preset === 'last_30_days') {
-    return '30 ימים';
+    return 30;
   }
-  return 'יום נבחר';
+  return 1;
 }
 
 export default function BusinessDashboardScreen() {
@@ -227,6 +191,7 @@ export default function BusinessDashboardScreen() {
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
+  const sessionContext = useSessionContext();
   const {
     activeBusinessId,
     activeBusiness,
@@ -236,7 +201,6 @@ export default function BusinessDashboardScreen() {
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] =
     useState<DatePresetSelection>('today');
-  const [visibleDayCount, setVisibleDayCount] = useState(30);
   const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
     string | null
   >(null);
@@ -251,6 +215,7 @@ export default function BusinessDashboardScreen() {
       ? {
           businessId: activeBusinessId,
           dayStart: selectedDayStart,
+          rangeDays: getRangeDaysForPreset(selectedPreset),
         }
       : 'skip'
   );
@@ -270,40 +235,33 @@ export default function BusinessDashboardScreen() {
 
   const anchorNow = dashboardSummary?.freshness?.generatedAt ?? Date.now();
   const todayKey = getIsraelDayKey(anchorNow);
-  const yesterdayKey = getIsraelDayKey(anchorNow - DAY_MS);
-  const dateItems = useMemo(
-    () => buildDateSelectorItems(anchorNow, visibleDayCount),
-    [anchorNow, visibleDayCount]
-  );
-
   const selectedDayKey =
     dashboardDay?.dateContext?.dayKey ?? getIsraelDayKey(selectedDayStart);
-  const selectedDayLabel = SELECTED_DAY_FORMATTER.format(
-    new Date(dashboardDay?.dateContext?.dayStart ?? selectedDayStart)
-  );
-  const selectedDayContextLabel =
-    selectedDayKey === todayKey
+  const activeRangeDays = dashboardDay?.dateContext?.rangeDays ?? 1;
+  const isRangeAggregation = activeRangeDays > 1;
+  const selectedDayContextLabel = isRangeAggregation
+    ? `${activeRangeDays} ימים`
+    : selectedDayKey === todayKey
       ? 'היום'
-      : selectedDayKey === yesterdayKey
-        ? 'אתמול'
-        : DATE_SELECTOR_LABEL_FORMATTER.format(
-            new Date(dashboardDay?.dateContext?.dayStart ?? selectedDayStart)
-          );
-  const selectedPresetLabel =
-    selectedPreset === 'custom'
-      ? DATE_SELECTOR_LABEL_FORMATTER.format(
-          new Date(dashboardDay?.dateContext?.dayStart ?? selectedDayStart)
-        )
-      : getPresetLabel(selectedPreset);
+      : 'אתמול';
 
   const businessName =
     dashboardSummary?.business?.businessName?.trim() ||
     activeBusiness?.name?.trim() ||
     'העסק שלך';
-  const logoUrl =
-    dashboardSummary?.business?.logoUrl ?? activeBusiness?.logoUrl;
+  const currentUser = sessionContext?.user;
+  const dashboardDisplayName =
+    currentUser?.firstName?.trim() ||
+    currentUser?.fullName?.trim()?.split(/\s+/)[0] ||
+    [currentUser?.firstName?.trim(), currentUser?.lastName?.trim()]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    businessName;
+  const avatarUrl = currentUser?.avatarUrl ?? null;
 
   const lifetimeMetrics = dashboardSummary?.lifetimeMetrics;
+  const lifetimeMetricChanges = dashboardSummary?.lifetimeMetricChanges;
   const lifetimeItems = [
     {
       key: 'lifetime_stamps',
@@ -311,7 +269,10 @@ export default function BusinessDashboardScreen() {
       value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
       icon: 'ticket-outline' as const,
       tone: 'teal' as const,
-      helperText: 'לכל התקופה',
+      helperLabel: 'שבוע',
+      helperValue: formatSignedNumber(
+        lifetimeMetricChanges?.stampsLast7Days ?? 0
+      ),
     },
     {
       key: 'lifetime_redemptions',
@@ -319,7 +280,10 @@ export default function BusinessDashboardScreen() {
       value: formatNumber(lifetimeMetrics?.totalRedemptionsAllTime ?? 0),
       icon: 'gift-outline' as const,
       tone: 'violet' as const,
-      helperText: 'לכל התקופה',
+      helperLabel: 'שבוע',
+      helperValue: formatSignedNumber(
+        lifetimeMetricChanges?.redemptionsLast7Days ?? 0
+      ),
     },
     {
       key: 'lifetime_joined_customers',
@@ -327,7 +291,10 @@ export default function BusinessDashboardScreen() {
       value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
       icon: 'person-add-outline' as const,
       tone: 'blue' as const,
-      helperText: 'לכל התקופה',
+      helperLabel: 'שבוע',
+      helperValue: formatSignedNumber(
+        lifetimeMetricChanges?.joinedCustomersLast7Days ?? 0
+      ),
     },
     {
       key: 'lifetime_returning_customers',
@@ -335,11 +302,16 @@ export default function BusinessDashboardScreen() {
       value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
       icon: 'people-outline' as const,
       tone: 'amber' as const,
-      helperText: 'לכל התקופה',
+      helperLabel: 'שבוע',
+      helperValue: formatSignedNumber(
+        lifetimeMetricChanges?.returningCustomersLast7Days ?? 0
+      ),
     },
   ];
 
   const kpis = dashboardDay?.kpis;
+  const rangeComparisonText =
+    activeRangeDays > 1 ? `מול ${activeRangeDays} קודמים` : 'מאתמול';
   const dailyKpiItems = [
     {
       key: 'stamps',
@@ -352,7 +324,7 @@ export default function BusinessDashboardScreen() {
         kpis?.stamps?.value ?? 0,
         kpis?.stamps?.previousValue ?? 0
       ),
-      comparisonText: 'מאתמול',
+      comparisonText: rangeComparisonText,
     },
     {
       key: 'redemptions',
@@ -365,7 +337,7 @@ export default function BusinessDashboardScreen() {
         kpis?.redemptions?.value ?? 0,
         kpis?.redemptions?.previousValue ?? 0
       ),
-      comparisonText: 'מאתמול',
+      comparisonText: rangeComparisonText,
     },
     {
       key: 'activeCustomers',
@@ -378,7 +350,7 @@ export default function BusinessDashboardScreen() {
         kpis?.activeCustomers ?? 0,
         kpis?.activeCustomersPreviousDay ?? 0
       ),
-      comparisonText: 'מאתמול',
+      comparisonText: rangeComparisonText,
     },
     {
       key: 'atRiskCustomers',
@@ -391,10 +363,9 @@ export default function BusinessDashboardScreen() {
         kpis?.atRiskCustomers ?? 0,
         kpis?.atRiskCustomersPreviousDay ?? 0
       ),
-      comparisonText: 'מאתמול',
+      comparisonText: rangeComparisonText,
     },
   ];
-
   const recommendationCards = useMemo(() => {
     if (dashboardSummary === undefined) {
       return [buildLoadingRecommendationCard()];
@@ -433,36 +404,6 @@ export default function BusinessDashboardScreen() {
       ),
     [recommendationCards]
   );
-
-  const activitySummaryTitle = `סקירה יומית (${selectedDayLabel})`;
-  const activitySummaryItems = [
-    {
-      key: 'staff_scans',
-      label: 'סריקות צוות',
-      value: formatNumber(dashboardDay?.activitySummary?.staffScans ?? 0),
-      tone: 'blue' as const,
-    },
-    {
-      key: 'campaign_recipients',
-      label: 'לקוחות מקמפיינים',
-      value: formatNumber(
-        dashboardDay?.activitySummary?.campaignRecipients ?? 0
-      ),
-      tone: 'teal' as const,
-    },
-    {
-      key: 'active_programs',
-      label: 'תוכניות פעילות',
-      value: formatNumber(dashboardDay?.activitySummary?.activePrograms ?? 0),
-      tone: 'violet' as const,
-    },
-    {
-      key: 'rewards_redeemed',
-      label: 'הטבות שמומשו',
-      value: formatNumber(dashboardDay?.activitySummary?.rewardsRedeemed ?? 0),
-      tone: 'amber' as const,
-    },
-  ];
 
   const openRoute = (route: BusinessRoute) => {
     router.push(route);
@@ -641,20 +582,6 @@ export default function BusinessDashboardScreen() {
     }
   };
 
-  const handleSelectDateItem = (item: DateSelectorItem) => {
-    setSelectedDayStart(item.anchor);
-
-    if (item.key === todayKey) {
-      setSelectedPreset('today');
-      return;
-    }
-    if (item.key === yesterdayKey) {
-      setSelectedPreset('yesterday');
-      return;
-    }
-    setSelectedPreset('custom');
-  };
-
   const handleSelectPreset = (preset: DatePresetKey) => {
     if (preset === 'today') {
       setSelectedPreset('today');
@@ -668,13 +595,11 @@ export default function BusinessDashboardScreen() {
     }
     if (preset === 'last_7_days') {
       setSelectedPreset('last_7_days');
-      setVisibleDayCount(7);
       setSelectedDayStart(anchorNow);
       return;
     }
 
     setSelectedPreset('last_30_days');
-    setVisibleDayCount(30);
     setSelectedDayStart(anchorNow);
   };
 
@@ -689,14 +614,15 @@ export default function BusinessDashboardScreen() {
   return (
     <BusinessPageShell
       backgroundColor="#F4F5FB"
+      contentPaddingHorizontal={10}
       stickyHeader={
         <StickyScrollHeader
-          topPadding={(insets.top || 0) + 8}
+          topPadding={(insets.top || 0) + 6}
           backgroundColor="#F4F5FB"
         >
           <DashboardHeader
-            businessName={businessName}
-            logoUrl={logoUrl}
+            displayName={dashboardDisplayName}
+            avatarUrl={avatarUrl}
             onPressMenu={() =>
               openRoute('/(authenticated)/(business)/settings')
             }
@@ -707,15 +633,11 @@ export default function BusinessDashboardScreen() {
       <View style={styles.content}>
         <LifetimeMetricsRow metrics={lifetimeItems} />
 
-        <DateSelectorBar
-          items={dateItems}
-          selectedKey={selectedDayKey}
-          selectedPresetLabel={selectedPresetLabel}
-          onSelect={handleSelectDateItem}
-          onSelectPreset={handleSelectPreset}
-        />
+        <DateSelectorBar value={selectedPreset} onChange={handleSelectPreset} />
 
-        <DailyKpiGrid items={dailyKpiItems} />
+        <View style={styles.summaryCluster}>
+          <DailyKpiGrid items={dailyKpiItems} />
+        </View>
 
         <SmartRecommendationsPanel
           cards={recommendationCards}
@@ -725,13 +647,6 @@ export default function BusinessDashboardScreen() {
           onPressDetails={openRecommendationDetails}
           loadingCardKey={applyingRecommendationKey}
         />
-
-        {dashboardDay?.activitySummary?.shouldRender ? (
-          <CompactActivitySummaryRow
-            title={activitySummaryTitle}
-            items={activitySummaryItems}
-          />
-        ) : null}
 
         {dashboardDay === undefined ? (
           <SurfaceCard elevated={false} padding="sm" radius="lg">
@@ -747,8 +662,11 @@ export default function BusinessDashboardScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingTop: 8,
-    gap: 12,
+    paddingTop: 2,
+    gap: 10,
+  },
+  summaryCluster: {
+    gap: 8,
   },
   loadingText: {
     fontSize: 13,

@@ -50,35 +50,35 @@ export type ComparisonRow = {
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
-  maxCards: 'Loyalty cards',
-  maxCustomers: 'Customers',
-  maxActiveRetentionActions: 'Active recurring campaigns',
-  maxCampaigns: 'Campaign definitions',
-  maxAiExecutionsPerMonth: 'AI actions per month',
-  maxTeamSeats: 'Team seats',
+  maxCards: 'כרטיסי ניקוב',
+  maxCustomers: 'לקוחות',
+  maxActiveRetentionActions: 'קמפיינים אוטומטיים',
+  maxCampaigns: 'קמפיינים',
+  maxAiExecutionsPerMonth: 'פעולות AI',
+  maxTeamSeats: 'ניהול צוות',
 };
 
 const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
-  maxCards: 'Cards',
-  maxCustomers: 'Customers',
-  maxActiveRetentionActions: 'Recurring',
-  maxCampaigns: 'Campaigns',
-  maxAiExecutionsPerMonth: 'AI',
-  maxTeamSeats: 'Seats',
+  maxCards: 'כרטיסים',
+  maxCustomers: 'לקוחות',
+  maxActiveRetentionActions: 'קמפיינים אוטומטיים',
+  maxCampaigns: 'קמפיינים',
+  maxAiExecutionsPerMonth: 'AI חודשי',
+  maxTeamSeats: 'ניהול צוות',
 };
 
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
-  team: 'Team management',
-  advancedReports: 'Advanced analytics',
-  marketingHub: 'Campaign workspace',
-  smartAnalytics: 'Customer intelligence',
+  team: 'ניהול צוות',
+  advancedReports: 'דוחות מתקדמים',
+  marketingHub: 'מרכז הקמפיינים',
+  smartAnalytics: 'זיהוי לקוחות בסכנת נטישה',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
-  team: 'Team',
-  advancedReports: 'Adv. analytics',
-  marketingHub: 'Campaigns',
-  smartAnalytics: 'Intelligence',
+  team: 'צוות',
+  advancedReports: 'דוחות',
+  marketingHub: 'קמפיינים',
+  smartAnalytics: 'סכנת נטישה',
 };
 
 function isPlanId(value: unknown): value is PlanId {
@@ -102,8 +102,8 @@ function normalizeBoolean(value: unknown, fallbackValue: boolean): boolean {
 function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
   const labels: Record<PlanId, string> = {
     starter: 'Starter',
-    pro: 'Pro AI',
-    premium: 'Premium AI',
+    pro: 'Pro',
+    premium: 'Pro Max',
   };
 
   return {
@@ -278,7 +278,7 @@ export function formatPlanPrice(value: number): string {
 }
 
 function formatLimitValue(limitValue: number): string {
-  return String(limitValue);
+  return limitValue === 0 ? '-' : String(limitValue);
 }
 
 export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
@@ -323,9 +323,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
 
   const featureRows: ComparisonRow[] = (
     [
-      'team',
       'advancedReports',
-      'marketingHub',
       'smartAnalytics',
     ] as FeatureKey[]
   ).map((featureKey) => ({

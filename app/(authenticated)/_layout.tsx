@@ -48,7 +48,7 @@ export default function AuthenticatedLayout() {
     camp?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
-  const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
+  const { appMode, syncAppMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId: resolvedActiveBusinessId } = useActiveBusiness();
 
   const shouldLoadUser = isAuthenticated || isPreviewMode;
@@ -199,7 +199,7 @@ export default function AuthenticatedLayout() {
         businessOnboarded
       );
 
-    void setAppMode(activeMode);
+    void syncAppMode(activeMode);
 
     if (!customerOnboarded) {
       safeReplace(nameCaptureTarget);
@@ -265,7 +265,7 @@ export default function AuthenticatedLayout() {
     sessionContext,
     user,
     isPreviewMode,
-    setAppMode,
+    syncAppMode,
     resolvedActiveBusinessId,
   ]);
 

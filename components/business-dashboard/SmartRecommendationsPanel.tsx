@@ -31,7 +31,7 @@ export function SmartRecommendationsPanel({
   return (
     <SurfaceCard
       elevated={false}
-      padding="md"
+      padding="sm"
       radius="hero"
       style={styles.panel}
     >
@@ -40,7 +40,7 @@ export function SmartRecommendationsPanel({
 
         <View style={styles.titleRow}>
           <Text style={styles.title}>משימות והמלצות</Text>
-          <Ionicons name="heart-outline" size={20} color="#7C7AA5" />
+          <Ionicons name="heart-outline" size={20} color="#2563EB" />
         </View>
       </View>
 
@@ -124,9 +124,9 @@ export function SmartRecommendationsPanel({
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: '#F5F5FE',
-    borderColor: '#E7E9F8',
-    gap: 12,
+    backgroundColor: '#F3F8FF',
+    borderColor: '#DCE8FF',
+    gap: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -140,14 +140,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     color: '#1F2340',
   },
   headerAction: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
     color: '#55607C',
   },

@@ -203,7 +203,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     },
   },
   pro: {
-    displayName: 'Pro AI',
+    displayName: 'Pro',
     pricing: {
       monthly: 129,
       yearly: 1238,
@@ -225,7 +225,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     },
   },
   premium: {
-    displayName: 'Premium AI',
+    displayName: 'Pro Max',
     pricing: {
       monthly: 249,
       yearly: 2390,

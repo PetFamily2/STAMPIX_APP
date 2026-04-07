@@ -24,8 +24,8 @@ type LockedAreaDefinition = {
 
 const PLAN_LABELS: Record<'starter' | 'pro' | 'premium', string> = {
   starter: 'Starter',
-  pro: 'Pro AI',
-  premium: 'Premium AI',
+  pro: 'Pro',
+  premium: 'Pro Max',
 };
 
 const FEATURE_KEY_ALIAS_MAP: Record<string, LockedAreaKey> = {

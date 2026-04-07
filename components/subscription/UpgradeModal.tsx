@@ -20,8 +20,8 @@ import {
 import { SubscriptionSalesPanel } from './SubscriptionSalesPanel';
 
 const PLAN_LABELS: Record<'pro' | 'premium', string> = {
-  pro: 'Pro AI',
-  premium: 'Premium AI',
+  pro: 'Pro',
+  premium: 'Pro Max',
 };
 
 type UpgradeModalProps = {

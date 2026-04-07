@@ -15,20 +15,20 @@ const TONE_MAP: Record<
   }
 > = {
   teal: {
-    bubble: ['#E9DDFF', '#F3ECFF'],
-    icon: '#6D4BFF',
+    bubble: ['#EAF2FF', '#F4F8FF'],
+    icon: '#2563EB',
   },
   violet: {
-    bubble: ['#DDF7F4', '#ECFDFC'],
-    icon: '#0F766E',
+    bubble: ['#DBEAFE', '#EFF6FF'],
+    icon: '#1D4ED8',
   },
   blue: {
-    bubble: ['#E7F9F7', '#EFFCFB'],
-    icon: '#0F766E',
+    bubble: ['#DFF4FF', '#F0F9FF'],
+    icon: '#0284C7',
   },
   amber: {
-    bubble: ['#FFE9F0', '#FFF5F8'],
-    icon: '#DB2777',
+    bubble: ['#EAF2FF', '#F7FAFF'],
+    icon: '#2F6BFF',
   },
 };
 
@@ -84,9 +84,9 @@ export function DailyKpiCard({
 
 const styles = StyleSheet.create({
   card: {
-    minHeight: 136,
+    minHeight: 118,
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
     borderColor: '#E6EBF4',
     backgroundColor: '#FFFFFF',
   },
@@ -96,9 +96,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -107,15 +107,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   label: {
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
     color: '#111827',
   },
   metaLabel: {
     marginTop: 2,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '500',
     color: '#64748B',
   },
@@ -127,14 +127,14 @@ const styles = StyleSheet.create({
   },
   value: {
     flexShrink: 1,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: '900',
     color: '#111827',
   },
   comparisonText: {
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '600',
     color: '#64748B',
   },

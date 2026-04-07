@@ -43,8 +43,8 @@ const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 
 const PLAN_LABELS: Record<PlanId, string> = {
   starter: 'Starter',
-  pro: 'Pro AI',
-  premium: 'Premium AI',
+  pro: 'Pro',
+  premium: 'Pro Max',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -311,7 +311,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     comparisonSelectedPlan === currentPlan && currentPlan !== 'starter'
       ? 'ניהול המסלול הנוכחי'
       : comparisonSelectedPlan === 'starter'
-        ? 'שדרוג ל-Pro AI'
+        ? 'שדרוג ל-Pro'
         : `שדרוג ל-${PLAN_LABELS[comparisonUpgradePlan]}`;
 
   const usageItems = [

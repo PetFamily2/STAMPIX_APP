@@ -16,24 +16,24 @@ const TONE_MAP: Record<
   }
 > = {
   teal: {
-    bubble: ['#E8DEFF', '#F1EBFF'],
-    icon: '#6D4BFF',
-    helper: '#0F766E',
+    bubble: ['#EAF2FF', '#F4F8FF'],
+    icon: '#2563EB',
+    helper: '#2563EB',
   },
   violet: {
-    bubble: ['#E8E4FF', '#F5F0FF'],
-    icon: '#7C3AED',
-    helper: '#E11D48',
+    bubble: ['#DBEAFE', '#EFF6FF'],
+    icon: '#1D4ED8',
+    helper: '#1D4ED8',
   },
   blue: {
-    bubble: ['#DDF7F4', '#ECFDFB'],
-    icon: '#0F766E',
-    helper: '#0891B2',
+    bubble: ['#DFF4FF', '#F0F9FF'],
+    icon: '#0284C7',
+    helper: '#0284C7',
   },
   amber: {
-    bubble: ['#FFE6EE', '#FFF2F6'],
-    icon: '#DB2777',
-    helper: '#111827',
+    bubble: ['#EAF2FF', '#F7FAFF'],
+    icon: '#2F6BFF',
+    helper: '#2F6BFF',
   },
 };
 
@@ -54,14 +54,22 @@ export function LifetimeMetricCard({
 
   return (
     <SurfaceCard elevated={false} padding="sm" radius="lg" style={styles.card}>
-      <LinearGradient colors={[...palette.bubble]} style={styles.iconBubble}>
-        <Ionicons name={icon} size={16} color={palette.icon} />
-      </LinearGradient>
-
-      <View style={styles.textWrap}>
-        <Text className={tw.textStart} numberOfLines={1} style={styles.value}>
+      <View style={styles.metricRow}>
+        <LinearGradient colors={[...palette.bubble]} style={styles.iconBubble}>
+          <Ionicons name={icon} size={14} color={palette.icon} />
+        </LinearGradient>
+        <Text
+          className={tw.textStart}
+          numberOfLines={1}
+          adjustsFontSizeToFit={true}
+          minimumFontScale={0.72}
+          style={styles.value}
+        >
           {value}
         </Text>
+      </View>
+
+      <View style={styles.textWrap}>
         <Text className={tw.textStart} numberOfLines={2} style={styles.label}>
           {label}
         </Text>
@@ -82,31 +90,41 @@ export function LifetimeMetricCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minHeight: 134,
+    minHeight: 92,
     justifyContent: 'space-between',
     borderColor: '#E5EAF4',
     backgroundColor: 'rgba(255,255,255,0.96)',
+    paddingHorizontal: 8,
+    paddingVertical: 9,
   },
-  iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  metricRow: {
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-end',
-  },
-  textWrap: {
+    justifyContent: 'space-between',
     gap: 4,
   },
+  iconBubble: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  textWrap: {
+    gap: 2,
+  },
   value: {
-    fontSize: 18,
-    lineHeight: 22,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    lineHeight: 17,
     fontWeight: '900',
     color: '#111827',
   },
   label: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: '600',
     color: '#334155',
   },
@@ -116,11 +134,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     borderTopWidth: 1,
     borderTopColor: '#EEF2F7',
-    paddingTop: 7,
+    marginTop: 3,
+    paddingTop: 3,
   },
   helperText: {
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 8,
+    lineHeight: 10,
     fontWeight: '800',
   },
 });

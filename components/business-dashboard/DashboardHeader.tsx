@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { UserAvatar } from '@/components/UserAvatar';
 import { tw } from '@/lib/rtl';
 
 function getGreeting() {
@@ -22,68 +22,48 @@ function getGreeting() {
   return 'ערב טוב';
 }
 
-function getInitials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
-
 export function DashboardHeader({
-  businessName,
-  logoUrl,
+  displayName,
+  avatarUrl,
   onPressMenu,
 }: {
-  businessName: string;
-  logoUrl?: string | null;
+  displayName: string;
+  avatarUrl?: string | null;
   onPressMenu: () => void;
 }) {
   const greeting = getGreeting();
-  const initials = getInitials(businessName || 'עסק');
 
   return (
     <View style={styles.wrap}>
-      <Pressable onPress={onPressMenu} style={styles.menuButton}>
-        <Ionicons name="menu-outline" size={20} color="#25337B" />
-      </Pressable>
+      <View style={styles.leadingCluster}>
+        <Pressable onPress={onPressMenu} style={styles.menuButton}>
+          <Ionicons name="ellipsis-vertical" size={24} color="#111827" />
+        </Pressable>
+
+        <Text className={tw.textStart} style={styles.brandLine}>
+          StampAix
+        </Text>
+      </View>
 
       <View style={styles.identityBlock}>
-        <View style={styles.avatarWrap}>
-          {logoUrl ? (
-            <Image
-              source={{ uri: logoUrl }}
-              style={styles.avatarImage}
-              accessibilityLabel={`${businessName} logo`}
-            />
-          ) : (
-            <Text style={styles.avatarFallback}>{initials || 'S'}</Text>
-          )}
-        </View>
+        <UserAvatar avatarUrl={avatarUrl} fullName={displayName} size={50} />
 
         <View style={styles.copyWrap}>
           <Text
             className={tw.textStart}
             numberOfLines={1}
-            style={styles.titleLine}
+            style={styles.greetingLine}
           >
-            {`${greeting}, `}
-            <Text style={styles.businessName}>{businessName}</Text>
+            {`${greeting},`}
           </Text>
 
-          <View style={styles.brandRow}>
-            <Image
-              source={STAMPAIX_IMAGE_LOGO}
-              style={styles.brandLogo}
-              resizeMode="contain"
-              accessibilityLabel="StampAix brand logo"
-            />
-            <Text className={tw.textStart} style={styles.brandLine}>
-              StampAix
-            </Text>
-          </View>
+          <Text
+            className={tw.textStart}
+            numberOfLines={1}
+            style={styles.businessName}
+          >
+            {displayName}
+          </Text>
         </View>
       </View>
     </View>
@@ -92,26 +72,23 @@ export function DashboardHeader({
 
 const styles = StyleSheet.create({
   wrap: {
-    minHeight: 70,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
+  },
+  leadingCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 32,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderWidth: 1,
-    borderColor: '#E3E9F5',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    backgroundColor: 'transparent',
   },
   identityBlock: {
     flex: 1,
@@ -119,62 +96,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  avatarWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D7DFF0',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarFallback: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#3F51D7',
-  },
   copyWrap: {
     flex: 1,
-    gap: 4,
+    gap: 1,
     alignItems: 'stretch',
   },
-  titleLine: {
-    fontSize: 15,
-    lineHeight: 20,
+  greetingLine: {
+    fontSize: 16,
+    lineHeight: 21,
     fontWeight: '600',
     color: '#2C3558',
   },
   businessName: {
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: '900',
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '700',
     color: '#0F172A',
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  brandLogo: {
-    width: 18,
-    height: 18,
-  },
   brandLine: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
-    color: '#4F46E5',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '900',
+    color: '#2F6BFF',
   },
 });

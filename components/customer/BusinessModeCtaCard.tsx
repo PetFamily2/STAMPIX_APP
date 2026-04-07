@@ -225,9 +225,16 @@ export default function BusinessModeCtaCard({
 
     try {
       setModeSwitchBusy(true);
-      await setActiveMode({ mode: 'customer' });
       await setAppMode('customer');
-      router.navigate('/(authenticated)/(customer)/wallet');
+      router.replace('/(authenticated)/(customer)/wallet');
+      void setActiveMode({ mode: 'customer' }).catch(async (error) => {
+        await setAppMode('business');
+        router.replace('/(authenticated)/(business)/dashboard');
+        Alert.alert(
+          TEXT.errorTitle,
+          toErrorMessage(error, TEXT.switchModeFailed)
+        );
+      });
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,

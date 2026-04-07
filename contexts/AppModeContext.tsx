@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -13,6 +14,7 @@ export type AppMode = 'customer' | 'business';
 type AppModeContextValue = {
   appMode: AppMode;
   setAppMode: (mode: AppMode) => Promise<void>;
+  syncAppMode: (mode: AppMode) => Promise<void>;
   isLoading: boolean;
 };
 
@@ -26,6 +28,7 @@ const AppModeContext = createContext<AppModeContextValue | undefined>(
 export function AppModeProvider({ children }: { children: React.ReactNode }) {
   const [appMode, setAppModeState] = useState<AppMode>('customer');
   const [isLoading, setIsLoading] = useState(true);
+  const pendingModeRef = useRef<AppMode | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -64,8 +67,7 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const setAppMode = useCallback(async (mode: AppMode) => {
-    setAppModeState(mode);
+  const persistMode = useCallback(async (mode: AppMode) => {
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, mode);
       await SecureStore.deleteItemAsync(LEGACY_STORAGE_KEY);
@@ -74,13 +76,37 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setAppMode = useCallback(
+    async (mode: AppMode) => {
+      pendingModeRef.current = mode;
+      setAppModeState(mode);
+      await persistMode(mode);
+    },
+    [persistMode]
+  );
+
+  const syncAppMode = useCallback(
+    async (mode: AppMode) => {
+      const pendingMode = pendingModeRef.current;
+      if (pendingMode && pendingMode !== mode) {
+        return;
+      }
+
+      pendingModeRef.current = null;
+      setAppModeState(mode);
+      await persistMode(mode);
+    },
+    [persistMode]
+  );
+
   const value = useMemo(
     () => ({
       appMode,
       setAppMode,
+      syncAppMode,
       isLoading,
     }),
-    [appMode, setAppMode, isLoading]
+    [appMode, setAppMode, syncAppMode, isLoading]
   );
 
   return (

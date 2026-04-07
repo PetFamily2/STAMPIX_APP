@@ -1,5 +1,6 @@
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { ConvexReactClient } from 'convex/react';
+import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
@@ -91,6 +92,14 @@ class RootErrorBoundary extends React.Component<
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />

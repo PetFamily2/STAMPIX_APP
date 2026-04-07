@@ -195,9 +195,12 @@ export default function OnboardingBusinessRoleScreen() {
     setIsLeaving(true);
     try {
       await saveStep({ step: 'role', status: 'paused' });
-      await setActiveMode({ mode: 'customer' });
       await setAppMode('customer');
       safeDismissTo('/(authenticated)/(customer)/settings');
+      void setActiveMode({ mode: 'customer' }).catch(async () => {
+        await setAppMode('business');
+        Alert.alert(TEXT.saveErrorTitle, TEXT.exitFailed);
+      });
     } catch {
       Alert.alert(TEXT.saveErrorTitle, TEXT.exitFailed);
     } finally {

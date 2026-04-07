@@ -25,6 +25,7 @@ const TIME_ZONE_OFFSET_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit',
 });
+const TEMP_DASHBOARD_LARGE_NUMBERS = true;
 
 type RecommendationTone = 'critical' | 'warning' | 'neutral' | 'success';
 type RecommendationCtaKind =
@@ -204,6 +205,90 @@ function buildSelectedReferenceTimes(dayStart: number, actualNow: number) {
   };
 }
 
+function applyTemporaryLargeNumberSummary(metrics: {
+  totalStampsAllTime: number;
+  totalRedemptionsAllTime: number;
+  totalCustomersJoinedAllTime: number;
+  returningCustomersAllTime: number;
+}) {
+  if (!TEMP_DASHBOARD_LARGE_NUMBERS) {
+    return metrics;
+  }
+
+  return {
+    totalStampsAllTime: 999_999,
+    totalRedemptionsAllTime: 999_999,
+    totalCustomersJoinedAllTime: 999_999,
+    returningCustomersAllTime: 999_999,
+  };
+}
+
+function applyTemporaryLargeNumberLifetimeChanges(changes: {
+  stampsLast7Days: number;
+  redemptionsLast7Days: number;
+  joinedCustomersLast7Days: number;
+  returningCustomersLast7Days: number;
+}) {
+  if (!TEMP_DASHBOARD_LARGE_NUMBERS) {
+    return changes;
+  }
+
+  return {
+    stampsLast7Days: 999,
+    redemptionsLast7Days: 999,
+    joinedCustomersLast7Days: 999,
+    returningCustomersLast7Days: 999,
+  };
+}
+
+function applyTemporaryLargeNumberDay(kpis: {
+  stamps: { value: number; previousValue: number };
+  redemptions: { value: number; previousValue: number };
+  activeCustomers: number;
+  activeCustomersPreviousDay: number;
+  atRiskCustomers: number;
+  atRiskCustomersPreviousDay: number;
+}) {
+  if (!TEMP_DASHBOARD_LARGE_NUMBERS) {
+    return kpis;
+  }
+
+  return {
+    stamps: {
+      value: 999_999,
+      previousValue: 999_999,
+    },
+    redemptions: {
+      value: 999_999,
+      previousValue: 999_999,
+    },
+    activeCustomers: 999_999,
+    activeCustomersPreviousDay: 999_999,
+    atRiskCustomers: 999_999,
+    atRiskCustomersPreviousDay: 999_999,
+  };
+}
+
+function applyTemporaryLargeNumberActivitySummary(summary: {
+  shouldRender: boolean;
+  staffScans: number;
+  campaignRecipients: number;
+  activePrograms: number;
+  rewardsRedeemed: number;
+}) {
+  if (!TEMP_DASHBOARD_LARGE_NUMBERS) {
+    return summary;
+  }
+
+  return {
+    shouldRender: true,
+    staffScans: 999_999,
+    campaignRecipients: 999_999,
+    activePrograms: 999_999,
+    rewardsRedeemed: 999_999,
+  };
+}
+
 function collectLifetimeMetrics(
   events: Array<{
     type?: string;
@@ -244,6 +329,71 @@ function collectLifetimeMetrics(
     totalRedemptionsAllTime,
     totalCustomersJoinedAllTime: uniqueCustomers.size,
     returningCustomersAllTime,
+  };
+}
+
+function collectLifetimeMetricChanges(args: {
+  events: Array<{
+    type?: string;
+    customerUserId?: unknown;
+    createdAt?: number;
+  }>;
+  memberships: Array<{ userId?: unknown; createdAt?: number; _creationTime?: number }>;
+  now: number;
+  windowDays?: number;
+}) {
+  const windowStart = args.now - (args.windowDays ?? 7) * DAY_MS;
+  let stampsLast7Days = 0;
+  let redemptionsLast7Days = 0;
+  let joinedCustomersLast7Days = 0;
+  let returningCustomersLast7Days = 0;
+  const customerStampCounts = new Map<string, number>();
+
+  const sortedEvents = [...args.events].sort(
+    (left, right) =>
+      safeNumber(left.createdAt, 0) - safeNumber(right.createdAt, 0)
+  );
+
+  for (const membership of args.memberships) {
+    const createdAt = safeNumber(
+      membership.createdAt ?? membership._creationTime,
+      0
+    );
+    if (createdAt >= windowStart && createdAt <= args.now) {
+      joinedCustomersLast7Days += 1;
+    }
+  }
+
+  for (const event of sortedEvents) {
+    const createdAt = safeNumber(event.createdAt, 0);
+    if (event.type === 'STAMP_ADDED') {
+      if (createdAt >= windowStart && createdAt <= args.now) {
+        stampsLast7Days += 1;
+      }
+
+      const customerKey = String(event.customerUserId ?? '');
+      const nextCount = (customerStampCounts.get(customerKey) ?? 0) + 1;
+      customerStampCounts.set(customerKey, nextCount);
+      if (nextCount === 2 && createdAt >= windowStart && createdAt <= args.now) {
+        returningCustomersLast7Days += 1;
+      }
+      continue;
+    }
+
+    if (
+      event.type === 'REWARD_REDEEMED' &&
+      createdAt >= windowStart &&
+      createdAt <= args.now
+    ) {
+      redemptionsLast7Days += 1;
+    }
+  }
+
+  return {
+    stampsLast7Days,
+    redemptionsLast7Days,
+    joinedCustomersLast7Days,
+    returningCustomersLast7Days,
   };
 }
 
@@ -603,9 +753,19 @@ export const getBusinessDashboardSummary = query({
     const stampEvents = (Array.isArray(allEvents) ? allEvents : []).filter(
       (event: any) => event.type === 'STAMP_ADDED'
     ) as DashboardStampEvent[];
-    const lifetimeMetrics = collectLifetimeMetrics(
-      Array.isArray(allEvents) ? allEvents : [],
-      Array.isArray(allMemberships) ? allMemberships : []
+    const lifetimeMetrics = applyTemporaryLargeNumberSummary(
+      collectLifetimeMetrics(
+        Array.isArray(allEvents) ? allEvents : [],
+        Array.isArray(allMemberships) ? allMemberships : []
+      )
+    );
+    const lifetimeMetricChanges = applyTemporaryLargeNumberLifetimeChanges(
+      collectLifetimeMetricChanges({
+        events: Array.isArray(allEvents) ? allEvents : [],
+        memberships: Array.isArray(allMemberships) ? allMemberships : [],
+        now,
+        windowDays: 7,
+      })
     );
     const cycleCountsNow = buildDashboardLifecycleCountsFromStampEvents(
       stampEvents,
@@ -659,6 +819,7 @@ export const getBusinessDashboardSummary = query({
         missingFieldsCount,
       },
       lifetimeMetrics,
+      lifetimeMetricChanges,
       recommendations: {
         cards: buildRecommendationCandidates({
           aiRecommendation,
@@ -684,13 +845,15 @@ export const getBusinessDashboardDay = query({
   args: {
     businessId: v.optional(v.id('businesses')),
     dayStart: v.number(),
+    rangeDays: v.optional(v.number()),
   },
   handler: async (
     ctx: any,
     {
       businessId,
       dayStart,
-    }: { businessId?: Id<'businesses'>; dayStart: number }
+      rangeDays,
+    }: { businessId?: Id<'businesses'>; dayStart: number; rangeDays?: number }
   ) => {
     if (!businessId) {
       return null;
@@ -701,7 +864,30 @@ export const getBusinessDashboardDay = query({
     const actualNow = Date.now();
     const { selectedBounds, referenceNow, previousDayReferenceNow, isToday } =
       buildSelectedReferenceTimes(dayStart, actualNow);
-    const previousDayKey = getIsraelDayKey(previousDayReferenceNow);
+    const effectiveRangeDays = rangeDays === 7 || rangeDays === 30 ? rangeDays : 1;
+    const currentRangeStartParts = shiftCivilDate(
+      {
+        year: selectedBounds.year,
+        month: selectedBounds.month,
+        day: selectedBounds.day,
+      },
+      -(effectiveRangeDays - 1)
+    );
+    const currentRangeStartMs = zonedDateTimeToUtcTimestamp(currentRangeStartParts);
+    const comparisonRangeEndMs =
+      effectiveRangeDays === 1 ? previousDayReferenceNow : currentRangeStartMs - 1;
+    const comparisonRangeEndBounds = getIsraelDayBounds(comparisonRangeEndMs);
+    const comparisonRangeStartParts = shiftCivilDate(
+      {
+        year: comparisonRangeEndBounds.year,
+        month: comparisonRangeEndBounds.month,
+        day: comparisonRangeEndBounds.day,
+      },
+      -(effectiveRangeDays - 1)
+    );
+    const comparisonRangeStartMs = zonedDateTimeToUtcTimestamp(
+      comparisonRangeStartParts
+    );
 
     const [events, messageLog, activePrograms] = await Promise.all([
       ctx.db
@@ -733,7 +919,7 @@ export const getBusinessDashboardDay = query({
     const previousLifecycleCounts =
       buildDashboardLifecycleCountsFromStampEvents(
         stampEvents,
-        previousDayReferenceNow
+        comparisonRangeEndMs
       );
 
     let stamps = 0;
@@ -743,8 +929,8 @@ export const getBusinessDashboardDay = query({
     const staffActors = new Set<string>();
 
     for (const event of Array.isArray(events) ? events : []) {
-      const dayKey = getIsraelDayKey(safeNumber(event.createdAt, 0));
-      if (dayKey === selectedBounds.dayKey) {
+      const createdAt = safeNumber(event.createdAt, 0);
+      if (createdAt >= currentRangeStartMs && createdAt <= referenceNow) {
         if (event.type === 'STAMP_ADDED') {
           stamps += 1;
           staffActors.add(String(event.actorUserId));
@@ -752,7 +938,10 @@ export const getBusinessDashboardDay = query({
           redemptions += 1;
           staffActors.add(String(event.actorUserId));
         }
-      } else if (dayKey === previousDayKey) {
+      } else if (
+        createdAt >= comparisonRangeStartMs &&
+        createdAt <= comparisonRangeEndMs
+      ) {
         if (event.type === 'STAMP_ADDED') {
           stampsPreviousDay += 1;
         } else if (event.type === 'REWARD_REDEEMED') {
@@ -763,9 +952,8 @@ export const getBusinessDashboardDay = query({
 
     const campaignRecipients = new Set<string>();
     for (const row of Array.isArray(messageLog) ? messageLog : []) {
-      if (
-        getIsraelDayKey(safeNumber(row.createdAt, 0)) === selectedBounds.dayKey
-      ) {
+      const createdAt = safeNumber(row.createdAt, 0);
+      if (createdAt >= currentRangeStartMs && createdAt <= referenceNow) {
         campaignRecipients.add(String(row.toUserId));
       }
     }
@@ -778,35 +966,40 @@ export const getBusinessDashboardDay = query({
     const shouldRenderActivitySummary =
       staffActors.size > 0 || campaignRecipients.size > 0 || redemptions > 0;
 
+    const kpis = applyTemporaryLargeNumberDay({
+      stamps: {
+        value: stamps,
+        previousValue: stampsPreviousDay,
+      },
+      redemptions: {
+        value: redemptions,
+        previousValue: redemptionsPreviousDay,
+      },
+      activeCustomers: lifecycleCounts.activeCustomers,
+      activeCustomersPreviousDay: previousLifecycleCounts.activeCustomers,
+      atRiskCustomers: lifecycleCounts.atRiskCustomers,
+      atRiskCustomersPreviousDay: previousLifecycleCounts.atRiskCustomers,
+    });
+
     return {
       dateContext: {
         dayKey: selectedBounds.dayKey,
         dayStart: selectedBounds.startMs,
         dayEnd: selectedBounds.endMs,
+        rangeDays: effectiveRangeDays,
+        rangeStart: currentRangeStartMs,
+        rangeEnd: referenceNow,
         referenceNow,
         isToday,
       },
-      kpis: {
-        stamps: {
-          value: stamps,
-          previousValue: stampsPreviousDay,
-        },
-        redemptions: {
-          value: redemptions,
-          previousValue: redemptionsPreviousDay,
-        },
-        activeCustomers: lifecycleCounts.activeCustomers,
-        activeCustomersPreviousDay: previousLifecycleCounts.activeCustomers,
-        atRiskCustomers: lifecycleCounts.atRiskCustomers,
-        atRiskCustomersPreviousDay: previousLifecycleCounts.atRiskCustomers,
-      },
-      activitySummary: {
+      kpis,
+      activitySummary: applyTemporaryLargeNumberActivitySummary({
         shouldRender: shouldRenderActivitySummary,
         staffScans: staffActors.size,
         campaignRecipients: campaignRecipients.size,
         activePrograms: activeProgramsCount,
         rewardsRedeemed: redemptions,
-      },
+      }),
     };
   },
 });

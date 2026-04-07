@@ -11,8 +11,8 @@ const TONE_MAP: Record<
   { bg: string; icon: string; iconName: keyof typeof Ionicons.glyphMap }
 > = {
   blue: {
-    bg: '#EEE8FF',
-    icon: '#6D4BFF',
+    bg: '#EAF2FF',
+    icon: '#2563EB',
     iconName: 'people-outline',
   },
   teal: {
@@ -21,13 +21,13 @@ const TONE_MAP: Record<
     iconName: 'megaphone-outline',
   },
   violet: {
-    bg: '#EAE6FF',
-    icon: '#6D4BFF',
+    bg: '#DBEAFE',
+    icon: '#1D4ED8',
     iconName: 'albums-outline',
   },
   amber: {
-    bg: '#FFE9F0',
-    icon: '#DB2777',
+    bg: '#EAF2FF',
+    icon: '#2F6BFF',
     iconName: 'gift-outline',
   },
 };
@@ -47,7 +47,7 @@ export function CompactActivitySummaryRow({
   return (
     <SurfaceCard
       elevated={false}
-      padding="md"
+      padding="sm"
       radius="hero"
       style={styles.card}
     >
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   card: {
     borderColor: '#E4E9F3',
     backgroundColor: '#FFFFFF',
-    gap: 12,
+    gap: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     color: '#1F2937',
   },
@@ -117,23 +117,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 8,
+    gap: 5,
+    paddingHorizontal: 6,
   },
   statDivider: {
     borderLeftWidth: 1,
     borderLeftColor: '#EEF2F7',
   },
   iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   value: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 21,
+    lineHeight: 24,
     fontWeight: '900',
     color: '#111827',
   },
