@@ -10,6 +10,7 @@ import {
   requireActorIsStaffForBusiness,
   requireCurrentUser,
 } from './guards';
+import { processReferralAfterJoin } from './referrals';
 
 // ---------------------------------------------------------------------------
 // Public resolve queries (no auth required -- used by landing page & join flow)
@@ -319,8 +320,11 @@ export const getMembershipActivity = query({
       .filter((event: any) =>
         [
           'STAMP_ADDED',
+          'REFERRAL_STAMP_GRANTED',
           'REWARD_REDEEMED',
+          'REFERRAL_BENEFIT_REDEEMED',
           'STAMP_REVERTED',
+          'REFERRAL_STAMP_REVOKED',
           'REWARD_REDEEM_REVERTED',
         ].includes(event.type)
       )
@@ -331,11 +335,17 @@ export const getMembershipActivity = query({
       const actionType =
         event.type === 'STAMP_ADDED'
           ? 'stamp_added'
-          : event.type === 'REWARD_REDEEMED'
-            ? 'reward_redeemed'
-            : event.type === 'STAMP_REVERTED'
-              ? 'stamp_reverted'
-              : 'reward_redeem_reverted';
+          : event.type === 'REFERRAL_STAMP_GRANTED'
+            ? 'referral_stamp_granted'
+            : event.type === 'REWARD_REDEEMED'
+              ? 'reward_redeemed'
+              : event.type === 'REFERRAL_BENEFIT_REDEEMED'
+                ? 'referral_benefit_redeemed'
+                : event.type === 'STAMP_REVERTED'
+                  ? 'stamp_reverted'
+                  : event.type === 'REFERRAL_STAMP_REVOKED'
+                    ? 'referral_stamp_revoked'
+                    : 'reward_redeem_reverted';
 
       return {
         id: event._id,
@@ -774,8 +784,12 @@ export const joinSelectedPrograms = mutation({
     programIds: v.array(v.id('loyaltyPrograms')),
     source: v.optional(v.string()),
     campaign: v.optional(v.string()),
+    referralCode: v.optional(v.string()),
   },
-  handler: async (ctx, { businessId, programIds, source, campaign }) => {
+  handler: async (
+    ctx,
+    { businessId, programIds, source, campaign, referralCode }
+  ) => {
     const user = await requireCurrentUser(ctx);
     const now = Date.now();
 
@@ -834,6 +848,8 @@ export const joinSelectedPrograms = mutation({
     const hasActiveBusinessMembership = allBusinessMemberships.some(
       (membership) => membership.isActive === true
     );
+    const hadAnyBusinessMembershipBeforeJoin =
+      allBusinessMemberships.length > 0;
     const willActivateBusinessMembership = uniqueProgramIds.some(
       (programId) => {
         const existing = membershipByProgramId.get(String(programId));
@@ -903,11 +919,21 @@ export const joinSelectedPrograms = mutation({
       });
     }
 
+    const referral = await processReferralAfterJoin(ctx, {
+      businessId,
+      referredUserId: user._id,
+      referralCode,
+      joinedMembershipIds: joinedPrograms.map((item) => item.membershipId),
+      joinedProgramStatuses: joinedPrograms.map((item) => item.status),
+      hadAnyBusinessMembershipBeforeJoin,
+    });
+
     return {
       ok: true,
       businessId,
       joinedCount: joinedPrograms.length,
       joinedPrograms,
+      referral,
     };
   },
 });

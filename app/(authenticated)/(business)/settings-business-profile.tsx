@@ -1232,7 +1232,8 @@ export default function BusinessSettingsProfileScreen() {
             {conflictLocked ? (
               <View className="mt-4 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-3 py-3">
                 <Text className="text-right text-xs text-[#92400E]">
-                  נמצאה גרסה חדשה של הנתונים. השמירה נעולה עד לטעינת הגרסה העדכנית.
+                  נמצאה גרסה חדשה של הנתונים. השמירה נעולה עד לטעינת הגרסה
+                  העדכנית.
                 </Text>
                 <Pressable
                   onPress={() => {

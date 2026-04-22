@@ -1,4 +1,4 @@
-import { useConvex } from 'convex/react';
+import { useConvex, useMutation } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -16,6 +16,7 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
   clearPendingJoin,
   consumePendingJoin,
+  savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
 
@@ -67,10 +68,18 @@ export default function JoinScreen() {
   const insets = useSafeAreaInsets();
   const convex = useConvex();
   const { user } = useUser();
+  const openCustomerReferralLink = useMutation(
+    api.referrals.openCustomerReferralLink
+  );
+  const openBusinessReferralLink = useMutation(
+    api.referrals.openBusinessReferralLink
+  );
 
   // Deep link query params
-  const { biz, src, camp } = useLocalSearchParams<{
+  const { biz, ref, bref, src, camp } = useLocalSearchParams<{
     biz?: string;
+    ref?: string;
+    bref?: string;
     src?: string;
     camp?: string;
   }>();
@@ -137,6 +146,88 @@ export default function JoinScreen() {
     [busy, convex]
   );
 
+  const doCustomerReferralJoin = useCallback(
+    async (refCode: string) => {
+      const normalized = (refCode ?? '').trim();
+      if (!normalized || busy) {
+        return;
+      }
+      setFeedback(null);
+      setBusy(true);
+      try {
+        const result = await openCustomerReferralLink({ code: normalized });
+        await clearPendingJoin();
+        router.replace({
+          pathname: '/(authenticated)/(customer)/business/[businessId]',
+          params: {
+            businessId: String(result.businessId),
+            join: 'true',
+            ref: result.code,
+            src: src || undefined,
+            camp: camp || undefined,
+            entry: 'referral',
+          },
+        } as any);
+      } catch (error) {
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code: error instanceof Error ? error.message : 'UNKNOWN',
+          context: 'openCustomerReferralLink',
+        });
+        setFeedback({
+          type: 'error',
+          message:
+            error instanceof Error && error.message === 'REFERRAL_LINK_EXPIRED'
+              ? 'קישור ההזמנה פג תוקף.'
+              : error instanceof Error && error.message === 'REFERRALS_DISABLED'
+                ? 'ההזמנות בעסק זה כבויות כרגע.'
+                : TEXT.joinFailed,
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, camp, openCustomerReferralLink, src]
+  );
+
+  const doBusinessReferralJoin = useCallback(
+    async (brefCode: string) => {
+      const normalized = (brefCode ?? '').trim();
+      if (!normalized || busy) {
+        return;
+      }
+      setFeedback(null);
+      setBusy(true);
+      try {
+        const result = await openBusinessReferralLink({ code: normalized });
+        await savePendingJoin({
+          bref: result.code,
+        });
+        router.replace({
+          pathname: '/(authenticated)/merchant/onboarding',
+          params: {
+            bref: result.code,
+          },
+        } as any);
+      } catch (error) {
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code: error instanceof Error ? error.message : 'UNKNOWN',
+          context: 'openBusinessReferralLink',
+        });
+        setFeedback({
+          type: 'error',
+          message:
+            error instanceof Error &&
+            error.message === 'BUSINESS_REFERRAL_LINK_EXPIRED'
+              ? 'קישור ההזמנה לעסק פג תוקף.'
+              : TEXT.joinFailed,
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, openBusinessReferralLink]
+  );
+
   // Auto-join from deep link URL params or deferred join
   useEffect(() => {
     if (deepLinkProcessedRef.current) return;
@@ -155,21 +246,53 @@ export default function JoinScreen() {
       return;
     }
 
+    if (ref) {
+      deepLinkProcessedRef.current = true;
+      void doCustomerReferralJoin(ref);
+      return;
+    }
+
+    if (bref) {
+      deepLinkProcessedRef.current = true;
+      void doBusinessReferralJoin(bref);
+      return;
+    }
+
     // Check for deferred join (saved before auth redirect)
     void (async () => {
       const pending = await consumePendingJoin();
       if (pending) {
         deepLinkProcessedRef.current = true;
-        track(ANALYTICS_EVENTS.joinOpenedInApp, {
-          businessPublicId: pending.biz,
-          src: pending.src,
-          camp: pending.camp,
-          trigger: 'deferred',
-        });
-        void doJoin(pending.biz, pending.src, pending.camp);
+        if (pending.biz) {
+          track(ANALYTICS_EVENTS.joinOpenedInApp, {
+            businessPublicId: pending.biz,
+            src: pending.src,
+            camp: pending.camp,
+            trigger: 'deferred',
+          });
+          void doJoin(pending.biz, pending.src, pending.camp);
+          return;
+        }
+        if (pending.ref) {
+          void doCustomerReferralJoin(pending.ref);
+          return;
+        }
+        if (pending.bref) {
+          void doBusinessReferralJoin(pending.bref);
+        }
       }
     })();
-  }, [biz, src, camp, user, doJoin]);
+  }, [
+    biz,
+    ref,
+    bref,
+    src,
+    camp,
+    user,
+    doJoin,
+    doCustomerReferralJoin,
+    doBusinessReferralJoin,
+  ]);
 
   const handleScan = useCallback(
     async (rawData: string) => {

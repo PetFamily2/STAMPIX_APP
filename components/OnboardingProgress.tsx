@@ -23,7 +23,8 @@ export function OnboardingProgress({
     normalizedTotal,
     Math.max(0, Math.floor(current))
   );
-  const progressPercent = `${(normalizedCurrent / normalizedTotal) * 100}%` as DimensionValue;
+  const progressPercent =
+    `${(normalizedCurrent / normalizedTotal) * 100}%` as DimensionValue;
 
   return (
     <View style={[styles.container, style]}>

@@ -1,4 +1,5 @@
 import { ConvexError, v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
@@ -1141,6 +1142,16 @@ export const syncBusinessSubscription = mutation({
       now,
     });
     await enforceCampaignLimitForBusiness(ctx, args.businessId);
+    try {
+      await ctx.runMutation(
+        internal.referrals.processBusinessReferralSubscriptionSyncInternal,
+        {
+          businessId: args.businessId,
+        }
+      );
+    } catch {
+      // Referral subscription sync is best-effort and must not break billing sync.
+    }
     return await getBusinessEntitlementsForBusinessId(ctx, args.businessId);
   },
 });

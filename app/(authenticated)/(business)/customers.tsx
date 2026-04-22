@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +33,11 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -171,10 +178,18 @@ export function CustomersHubContent() {
       ? filter
       : null;
 
-  const { activeBusinessId } = useActiveBusiness();
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const businessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canCreateCampaigns = businessCapabilities?.create_campaigns === true;
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('smartAnalytics');
   const smartCopy = getLockedAreaCopy('smartAnalytics', smartGate.requiredPlan);
+  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const customerList = (useQuery(
     api.customerCards.listBusinessCustomersBase,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
@@ -190,6 +205,8 @@ export function CustomersHubContent() {
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const [search, setSearch] = useState('');
+  const [isCreatingWinbackCampaign, setIsCreatingWinbackCampaign] =
+    useState(false);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -209,6 +226,10 @@ export function CustomersHubContent() {
       | 'subscription_inactive' = 'feature_locked'
   ) => {
     openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
+  };
+
+  const openCampaigns = () => {
+    router.push('/(authenticated)/(business)/campaigns');
   };
 
   const summary = snapshot?.summary ?? {
@@ -237,6 +258,70 @@ export function CustomersHubContent() {
   const rewardEligibleCustomers =
     rewardEligibilitySummary?.redeemableCustomers ?? 0;
   const rewardEligibleCards = rewardEligibilitySummary?.redeemableCards ?? 0;
+  const showAtRiskActionCard =
+    activeFilter === 'at_risk' ||
+    (!smartGate.isLocked && needsAttentionCustomers > 0);
+
+  const handleCreateAtRiskCampaign = async () => {
+    if (!activeBusinessId || isCreatingWinbackCampaign) {
+      return;
+    }
+
+    if (!canCreateCampaigns) {
+      Alert.alert(
+        'אין הרשאה',
+        'רק בעלים או מנהלים יכולים ליצור קמפיין ללקוחות בסיכון.'
+      );
+      return;
+    }
+
+    setIsCreatingWinbackCampaign(true);
+    try {
+      const created = await createCampaignDraft({
+        businessId: activeBusinessId,
+        type: 'winback',
+        rules: { audience: 'inactive_days', daysInactive: 30 },
+      });
+
+      router.push({
+        pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+        params: {
+          campaignId: String(created.campaignId),
+          businessId: String(activeBusinessId),
+        },
+      });
+    } catch (error) {
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        Alert.alert(
+          'לא ניתן ליצור קמפיין',
+          entitlementErrorToHebrewMessage(entitlementError),
+          [
+            {
+              text: 'שדרוג',
+              onPress: () =>
+                openUpgrade(
+                  'marketingHub',
+                  entitlementError.requiredPlan ?? null,
+                  entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+                    ? 'subscription_inactive'
+                    : 'feature_locked'
+                ),
+            },
+            { text: 'אישור', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+
+      Alert.alert(
+        'שגיאה',
+        error instanceof Error ? error.message : 'יצירת קמפיין החזרה נכשלה.'
+      );
+    } finally {
+      setIsCreatingWinbackCampaign(false);
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     const routeFilteredCustomers = activeFilter
@@ -439,6 +524,73 @@ export function CustomersHubContent() {
           </FeatureGate>
         </View>
 
+        {showAtRiskActionCard ? (
+          <SurfaceCard style={styles.atRiskActionCard}>
+            <View style={styles.atRiskActionHeader}>
+              <View style={styles.atRiskIconWrap}>
+                <Ionicons name="refresh-outline" size={22} color="#0F766E" />
+              </View>
+              <View style={styles.atRiskCopy}>
+                <Text className={tw.textStart} style={styles.atRiskTitle}>
+                  פעולה ללקוחות בסיכון
+                </Text>
+                <Text className={tw.textStart} style={styles.atRiskBody}>
+                  צרו הודעת "לא ראינו אתכם לאחרונה" עם הטבה, ערכו את הנוסח ושלחו
+                  אותה ללקוחות שלא חזרו בזמן.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.atRiskActions}>
+              <Pressable
+                disabled={isCreatingWinbackCampaign || !canCreateCampaigns}
+                onPress={() => {
+                  void handleCreateAtRiskCampaign();
+                }}
+                style={({ pressed }) => [
+                  styles.primaryAction,
+                  (!canCreateCampaigns || isCreatingWinbackCampaign) &&
+                    styles.actionDisabled,
+                  pressed && canCreateCampaigns
+                    ? styles.primaryActionPressed
+                    : null,
+                ]}
+              >
+                {isCreatingWinbackCampaign ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="megaphone-outline"
+                      size={17}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.primaryActionText}>
+                      צרו קמפיין החזרה
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={openCampaigns}
+                style={({ pressed }) => [
+                  styles.secondaryAction,
+                  pressed ? styles.secondaryActionPressed : null,
+                ]}
+              >
+                <Text style={styles.secondaryActionText}>כל הקמפיינים</Text>
+              </Pressable>
+            </View>
+
+            {!canCreateCampaigns ? (
+              <Text className={tw.textStart} style={styles.permissionHint}>
+                למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
+              </Text>
+            ) : null}
+          </SurfaceCard>
+        ) : null}
+
         <SurfaceCard style={styles.searchCard}>
           <View style={styles.searchRow}>
             <Ionicons name="search-outline" size={20} color="#B0BAC8" />
@@ -634,6 +786,93 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+  },
+  atRiskActionCard: {
+    marginTop: 16,
+  },
+  atRiskActionHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  atRiskIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#CCFBF1',
+  },
+  atRiskCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  atRiskTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  atRiskBody: {
+    marginTop: 5,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  atRiskActions: {
+    marginTop: 14,
+    flexDirection: 'row-reverse',
+    gap: 10,
+  },
+  primaryAction: {
+    minHeight: 44,
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: '#0F766E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row-reverse',
+    gap: 7,
+    paddingHorizontal: 14,
+  },
+  primaryActionPressed: {
+    opacity: 0.88,
+  },
+  secondaryAction: {
+    minHeight: 44,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#BFE7E2',
+    backgroundColor: '#F0FDFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  secondaryActionPressed: {
+    opacity: 0.82,
+  },
+  actionDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+  primaryActionText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  secondaryActionText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#0F766E',
+  },
+  permissionHint: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: '#B45309',
   },
   filterBadge: {
     alignSelf: 'flex-start',

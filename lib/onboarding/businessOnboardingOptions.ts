@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 
 export type BusinessExampleId =
   | 'hair_salon'
@@ -49,7 +49,7 @@ export const BUSINESS_EXAMPLES: Array<{
   },
   {
     id: 'tire_shop_puncture',
-    title: 'פנצ' + "ריה / צמיגים",
+    title: 'פנצ' + 'ריה / צמיגים',
     icon: 'car-sport-outline',
   },
   {

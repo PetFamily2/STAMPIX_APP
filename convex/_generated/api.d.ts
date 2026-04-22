@@ -45,6 +45,7 @@ import type * as migrations_removeManualSegments from "../migrations/removeManua
 import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
 import type * as pushNotifications from "../pushNotifications.js";
+import type * as referrals from "../referrals.js";
 import type * as retention from "../retention.js";
 import type * as scanTokens from "../scanTokens.js";
 import type * as scanner from "../scanner.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   otp: typeof otp;
   pushNotifications: typeof pushNotifications;
+  referrals: typeof referrals;
   retention: typeof retention;
   scanTokens: typeof scanTokens;
   scanner: typeof scanner;

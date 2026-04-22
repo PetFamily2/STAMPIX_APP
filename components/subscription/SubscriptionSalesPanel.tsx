@@ -306,12 +306,11 @@ export function SubscriptionSalesPanel({
             const optionLabel = isStarterPlan
               ? 'ללא חיוב'
               : BILLING_PERIOD_LABELS[period];
-            const optionSubline =
-              isStarterPlan
-                ? 'ללא חיוב'
-                : isYearly
-                  ? `חיוב ${yearlyBillingAmount} לשנה`
-                  : `חיוב ${monthlyBillingAmount} לחודש`;
+            const optionSubline = isStarterPlan
+              ? 'ללא חיוב'
+              : isYearly
+                ? `חיוב ${yearlyBillingAmount} לשנה`
+                : `חיוב ${monthlyBillingAmount} לחודש`;
 
             return (
               <Pressable

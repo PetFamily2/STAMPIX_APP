@@ -204,6 +204,8 @@ export default defineSchema({
     billingPeriod: v.optional(
       v.union(v.literal('monthly'), v.literal('yearly'), v.null())
     ),
+    b2bCreditMonthsEarned: v.optional(v.number()),
+    b2bCreditMonthsPending: v.optional(v.number()),
     customerSegmentationConfig: v.optional(
       v.object({
         riskDaysWithoutVisit: v.number(),
@@ -495,6 +497,277 @@ export default defineSchema({
     .index('by_userId_businessId', ['userId', 'businessId'])
     .index('by_userId_programId', ['userId', 'programId']),
 
+  referralConfigs: defineTable({
+    businessId: v.id('businesses'),
+    isEnabled: v.boolean(),
+    configVersion: v.number(),
+    rewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
+    rewardValue: v.number(),
+    benefitTitle: v.optional(v.string()),
+    benefitDescription: v.optional(v.string()),
+    benefitExpirationDays: v.optional(
+      v.union(v.literal(14), v.literal(30), v.literal(60), v.literal(90))
+    ),
+    rewardRecipients: v.union(
+      v.literal('referrer'),
+      v.literal('referred'),
+      v.literal('both')
+    ),
+    monthlyLimit: v.union(
+      v.literal('unlimited'),
+      v.literal(5),
+      v.literal(10),
+      v.literal(20),
+      v.literal(50)
+    ),
+    createdByUserId: v.id('users'),
+    updatedByUserId: v.id('users'),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_businessId', ['businessId']),
+
+  customerReferralLinks: defineTable({
+    code: v.string(),
+    businessId: v.id('businesses'),
+    referrerUserId: v.id('users'),
+    originProgramId: v.id('loyaltyPrograms'),
+    membershipId: v.optional(v.id('memberships')),
+    shareSurface: v.union(v.literal('card_screen'), v.literal('business_page')),
+    status: v.union(
+      v.literal('active'),
+      v.literal('expired'),
+      v.literal('disabled')
+    ),
+    expiresAt: v.number(),
+    openCount: v.number(),
+    lastOpenedAt: v.optional(v.number()),
+    lastOpenedByUserId: v.optional(v.id('users')),
+    lastOpenCountedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_code', ['code'])
+    .index('by_referrer_business_origin_status', [
+      'referrerUserId',
+      'businessId',
+      'originProgramId',
+      'status',
+    ])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_businessId_originProgramId', ['businessId', 'originProgramId'])
+    .index('by_membershipId', ['membershipId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
+
+  customerReferrals: defineTable({
+    businessId: v.id('businesses'),
+    referralLinkId: v.id('customerReferralLinks'),
+    referrerUserId: v.id('users'),
+    referredUserId: v.id('users'),
+    originProgramId: v.id('loyaltyPrograms'),
+    originMembershipId: v.optional(v.id('memberships')),
+    joinedMembershipIds: v.array(v.id('memberships')),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('qualified'),
+      v.literal('completed'),
+      v.literal('skipped'),
+      v.literal('invalid')
+    ),
+    skipReason: v.optional(v.string()),
+    rewardGrantStatus: v.union(
+      v.literal('not_started'),
+      v.literal('granted'),
+      v.literal('skipped_limit'),
+      v.literal('skipped_no_recipient')
+    ),
+    qualificationEventId: v.optional(v.id('events')),
+    qualifiedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    rewardDefinitionSnapshot: v.object({
+      configVersion: v.number(),
+      rewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
+      rewardValue: v.number(),
+      benefitTitle: v.optional(v.string()),
+      benefitDescription: v.optional(v.string()),
+      benefitExpirationDays: v.optional(
+        v.union(v.literal(14), v.literal(30), v.literal(60), v.literal(90))
+      ),
+      rewardRecipients: v.union(
+        v.literal('referrer'),
+        v.literal('referred'),
+        v.literal('both')
+      ),
+      monthlyLimit: v.union(
+        v.literal('unlimited'),
+        v.literal(5),
+        v.literal(10),
+        v.literal(20),
+        v.literal(50)
+      ),
+      originProgramId: v.id('loyaltyPrograms'),
+      originMembershipId: v.optional(v.id('memberships')),
+      createdAt: v.number(),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId_referredUserId', ['businessId', 'referredUserId'])
+    .index('by_referrerUserId_businessId_createdAt', [
+      'referrerUserId',
+      'businessId',
+      'createdAt',
+    ])
+    .index('by_businessId_status_createdAt', [
+      'businessId',
+      'status',
+      'createdAt',
+    ])
+    .index('by_referralLinkId', ['referralLinkId'])
+    .index('by_qualificationEventId', ['qualificationEventId'])
+    .index('by_originProgramId', ['originProgramId']),
+
+  referralRewards: defineTable({
+    customerReferralId: v.id('customerReferrals'),
+    businessId: v.id('businesses'),
+    recipientUserId: v.id('users'),
+    recipientRole: v.union(v.literal('referrer'), v.literal('referred')),
+    configuredRewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
+    actualRewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
+    conversionReason: v.optional(v.string()),
+    rewardValue: v.number(),
+    benefitTitle: v.optional(v.string()),
+    benefitDescription: v.optional(v.string()),
+    targetProgramId: v.optional(v.id('loyaltyPrograms')),
+    targetMembershipId: v.optional(v.id('memberships')),
+    status: v.union(
+      v.literal('granted'),
+      v.literal('redeemed'),
+      v.literal('expired'),
+      v.literal('skipped'),
+      v.literal('revoked')
+    ),
+    grantedEventId: v.optional(v.id('events')),
+    redeemedEventId: v.optional(v.id('events')),
+    qualificationEventId: v.id('events'),
+    expiresAt: v.optional(v.number()),
+    redeemedAt: v.optional(v.number()),
+    redeemedByUserId: v.optional(v.id('users')),
+    redemptionScanSessionId: v.optional(v.id('scanSessions')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_customerReferralId_recipientUserId', [
+      'customerReferralId',
+      'recipientUserId',
+    ])
+    .index('by_businessId_status_createdAt', [
+      'businessId',
+      'status',
+      'createdAt',
+    ])
+    .index('by_businessId_recipientUserId_status', [
+      'businessId',
+      'recipientUserId',
+      'status',
+    ])
+    .index('by_recipientUserId_status_expiresAt', [
+      'recipientUserId',
+      'status',
+      'expiresAt',
+    ])
+    .index('by_targetMembershipId_status_createdAt', [
+      'targetMembershipId',
+      'status',
+      'createdAt',
+    ])
+    .index('by_qualificationEventId', ['qualificationEventId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
+
+  businessReferralLinks: defineTable({
+    code: v.string(),
+    referrerBusinessId: v.id('businesses'),
+    createdByUserId: v.id('users'),
+    status: v.union(
+      v.literal('active'),
+      v.literal('expired'),
+      v.literal('disabled')
+    ),
+    expiresAt: v.number(),
+    openCount: v.number(),
+    lastOpenedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_code', ['code'])
+    .index('by_referrerBusinessId_status', ['referrerBusinessId', 'status'])
+    .index('by_createdByUserId', ['createdByUserId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
+
+  businessReferrals: defineTable({
+    businessReferralLinkId: v.id('businessReferralLinks'),
+    referrerBusinessId: v.id('businesses'),
+    referredBusinessId: v.id('businesses'),
+    createdByUserId: v.id('users'),
+    status: v.union(
+      v.literal('pending_subscription'),
+      v.literal('waiting_30_days'),
+      v.literal('credited'),
+      v.literal('skipped')
+    ),
+    skipReason: v.optional(v.string()),
+    paidSubscriptionDetectedAt: v.optional(v.number()),
+    qualificationDueAt: v.optional(v.number()),
+    subscriptionPlan: v.optional(
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
+    ),
+    billingPeriod: v.optional(
+      v.union(v.literal('monthly'), v.literal('yearly'))
+    ),
+    creditMonths: v.number(),
+    creditAppliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_referredBusinessId', ['referredBusinessId'])
+    .index('by_referrerBusinessId_status_createdAt', [
+      'referrerBusinessId',
+      'status',
+      'createdAt',
+    ])
+    .index('by_status_qualificationDueAt', ['status', 'qualificationDueAt'])
+    .index('by_businessReferralLinkId', ['businessReferralLinkId']),
+
+  referralAdminAuditLog: defineTable({
+    actorAdminUserId: v.id('users'),
+    action: v.union(
+      v.literal('disable_customer_referral_link'),
+      v.literal('disable_business_referral_link'),
+      v.literal('revoke_referral_reward'),
+      v.literal('mark_customer_referral_invalid')
+    ),
+    targetType: v.union(
+      v.literal('customerReferralLink'),
+      v.literal('businessReferralLink'),
+      v.literal('referralReward'),
+      v.literal('customerReferral')
+    ),
+    targetId: v.string(),
+    businessId: v.optional(v.id('businesses')),
+    customerReferralId: v.optional(v.id('customerReferrals')),
+    referralRewardId: v.optional(v.id('referralRewards')),
+    beforeSnapshot: v.optional(v.any()),
+    afterSnapshot: v.optional(v.any()),
+    reasonCode: v.string(),
+    reasonNote: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_actorAdminUserId_createdAt', ['actorAdminUserId', 'createdAt'])
+    .index('by_targetType_targetId', ['targetType', 'targetId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_customerReferralId', ['customerReferralId'])
+    .index('by_referralRewardId', ['referralRewardId'])
+    .index('by_createdAt', ['createdAt']),
+
   events: defineTable({
     type: v.string(), // e.g. STAMP_ADDED | REWARD_REDEEMED
     businessId: v.id('businesses'),
@@ -506,7 +779,9 @@ export default defineSchema({
       v.union(
         v.literal('scanner_commit'),
         v.literal('scanner_undo'),
-        v.literal('manual_adjustment')
+        v.literal('manual_adjustment'),
+        v.literal('referral_reward'),
+        v.literal('referral_benefit_redeem')
       )
     ),
     revertsEventId: v.optional(v.id('events')),
@@ -858,6 +1133,8 @@ export default defineSchema({
     ),
     toUserId: v.id('users'),
     channel: v.string(),
+    notificationType: v.optional(v.string()),
+    dedupeKey: v.optional(v.string()),
     status: v.string(),
     deliveryStatus: v.optional(v.string()),
     providerMessageId: v.optional(v.string()),
@@ -872,6 +1149,7 @@ export default defineSchema({
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
+    .index('by_toUserId_dedupeKey', ['toUserId', 'dedupeKey'])
     .index('by_createdAt', ['createdAt']),
 
   aiBusinessSnapshots: defineTable({

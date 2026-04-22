@@ -294,6 +294,12 @@ export default function CustomerTabsLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="referrals"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

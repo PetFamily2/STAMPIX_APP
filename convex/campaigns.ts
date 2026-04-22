@@ -1046,7 +1046,10 @@ export const setCampaignAutomationEnabled = mutation({
     enabled: v.boolean(),
     expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId, enabled, expectedUpdatedAt }) => {
+  handler: async (
+    ctx,
+    { businessId, campaignId, enabled, expectedUpdatedAt }
+  ) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1124,7 +1127,10 @@ export const scheduleCampaignOneTime = mutation({
     sendAt: v.number(),
     expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { businessId, campaignId, sendAt, expectedUpdatedAt }) => {
+  handler: async (
+    ctx,
+    { businessId, campaignId, sendAt, expectedUpdatedAt }
+  ) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1611,6 +1617,22 @@ export const listInboxForCustomer = query({
           ctx.db.get(log.businessId),
           log.campaignId ? ctx.db.get(log.campaignId) : Promise.resolve(null),
         ]);
+        const inboxPayload =
+          log.inboxPayload && typeof log.inboxPayload === 'object'
+            ? (log.inboxPayload as Record<string, unknown>)
+            : null;
+        const payloadTitle =
+          inboxPayload && typeof inboxPayload.title === 'string'
+            ? inboxPayload.title
+            : null;
+        const payloadBody =
+          inboxPayload && typeof inboxPayload.body === 'string'
+            ? inboxPayload.body
+            : null;
+        const destinationHref =
+          inboxPayload && typeof inboxPayload.destinationHref === 'string'
+            ? inboxPayload.destinationHref
+            : null;
 
         return {
           messageId: log._id,
@@ -1618,9 +1640,17 @@ export const listInboxForCustomer = query({
           businessId: log.businessId,
           businessName: business?.name ?? 'העסק',
           campaignType: campaign?.type ?? 'promo',
-          title: campaign?.messageTitle ?? campaign?.title ?? 'עדכון חדש מהעסק',
+          title:
+            payloadTitle ??
+            campaign?.messageTitle ??
+            campaign?.title ??
+            'עדכון חדש מהעסק',
           body:
-            campaign?.messageBody ?? 'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
+            payloadBody ??
+            campaign?.messageBody ??
+            'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
+          destinationHref,
+          notificationType: log.notificationType ?? null,
           createdAt: log.createdAt,
           readAt: log.readAt ?? null,
           status: log.status,

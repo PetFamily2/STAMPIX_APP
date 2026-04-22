@@ -141,6 +141,13 @@ const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
   'supportRequests',
+  'referralAdminAuditLog',
+  'businessReferrals',
+  'businessReferralLinks',
+  'referralRewards',
+  'customerReferrals',
+  'customerReferralLinks',
+  'referralConfigs',
   'pushDeliveryLog',
   'pushTokens',
   'messageLog',
@@ -188,6 +195,13 @@ type DeleteStats = {
   scanSessions: number;
   campaigns: number;
   subscriptions: number;
+  referralConfigs: number;
+  customerReferralLinks: number;
+  customerReferrals: number;
+  referralRewards: number;
+  businessReferralLinks: number;
+  businessReferrals: number;
+  referralAdminAuditLog: number;
   messageLog: number;
   pushTokens: number;
   pushDeliveryLog: number;
@@ -239,6 +253,13 @@ function emptyDeleteStats(): DeleteStats {
     scanSessions: 0,
     campaigns: 0,
     subscriptions: 0,
+    referralConfigs: 0,
+    customerReferralLinks: 0,
+    customerReferrals: 0,
+    referralRewards: 0,
+    businessReferralLinks: 0,
+    businessReferrals: 0,
+    referralAdminAuditLog: 0,
     messageLog: 0,
     pushTokens: 0,
     pushDeliveryLog: 0,
@@ -260,6 +281,13 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     apiKeys: 0,
     apiClients: 0,
     supportRequests: 0,
+    referralAdminAuditLog: 0,
+    businessReferrals: 0,
+    businessReferralLinks: 0,
+    referralRewards: 0,
+    customerReferrals: 0,
+    customerReferralLinks: 0,
+    referralConfigs: 0,
     pushDeliveryLog: 0,
     pushTokens: 0,
     messageLog: 0,

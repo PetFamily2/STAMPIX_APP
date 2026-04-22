@@ -1,6 +1,6 @@
 import { useMutation } from 'convex/react';
-import { useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,6 +24,10 @@ import { api } from '@/convex/_generated/api';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  consumePendingJoin,
+  savePendingJoin,
+} from '@/lib/deeplink/pendingJoin';
 import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
@@ -138,7 +142,7 @@ function parseManualAddressText(value: string) {
     const streetLine = commaSeparatedParts[0] ?? '';
     const city = commaSeparatedParts.slice(1).join(', ').trim();
     const streetNumberMatch = streetLine.match(
-      /(\d+[A-Za-z\u0590-\u05FF\-\/]*)\s*$/
+      /(\d+[A-Za-z\u0590-\u05FF\-/]*)\s*$/
     );
     const streetNumber = streetNumberMatch?.[1]?.trim() ?? '';
     const street = streetNumber
@@ -154,7 +158,7 @@ function parseManualAddressText(value: string) {
   }
 
   const streetWithNumberAndCityMatch = normalizedValue.match(
-    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-\/]*)\s+(.+)$/
+    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-/]*)\s+(.+)$/
   );
 
   if (streetWithNumberAndCityMatch) {
@@ -169,7 +173,7 @@ function parseManualAddressText(value: string) {
   }
 
   const streetWithNumberMatch = normalizedValue.match(
-    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-\/]*)$/
+    /^(.+?)\s+(\d+[A-Za-z\u0590-\u05FF\-/]*)$/
   );
 
   if (streetWithNumberMatch) {
@@ -231,11 +235,19 @@ export default function CreateBusinessScreen() {
   const updateBusinessAddress = useMutation(api.business.updateBusinessAddress);
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
-  const { businessName, flow } = useLocalSearchParams<{
+  const { businessName, flow, bref } = useLocalSearchParams<{
     businessName?: string;
     flow?: string;
+    bref?: string;
   }>();
+  const businessReferralCodeFromParams = useMemo(() => {
+    const raw = typeof bref === 'string' ? bref.trim() : '';
+    return raw.length > 0 ? raw : '';
+  }, [bref]);
   const isAdditionalFlow = isAdditionalBusinessFlow(flow);
+  const [businessReferralCode, setBusinessReferralCode] = useState(
+    businessReferralCodeFromParams
+  );
 
   const [addressQuery, setAddressQuery] = useState(
     businessOnboardingDraft.formattedAddress
@@ -280,6 +292,26 @@ export default function CreateBusinessScreen() {
     didSyncStepRef.current = true;
     void saveStep({ step: 'createBusiness', flow }).catch(() => {});
   }, [flow, saveStep]);
+
+  useEffect(() => {
+    if (businessReferralCodeFromParams) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const pending = await consumePendingJoin();
+      if (cancelled || !pending?.bref) {
+        return;
+      }
+      setBusinessReferralCode(pending.bref);
+      await savePendingJoin({
+        bref: pending.bref,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessReferralCodeFromParams]);
 
   useEffect(() => {
     const fromDraft = businessOnboardingDraft.businessName.trim();
@@ -590,6 +622,7 @@ export default function CreateBusinessScreen() {
         externalId: resolvedExternalId,
         logoUrl: businessDraft.logoUrl,
         colors: businessDraft.colors,
+        businessReferralCode: businessReferralCode || undefined,
         ...addressPayload,
       });
 
@@ -683,8 +716,8 @@ export default function CreateBusinessScreen() {
                   {isResolvingManualAddress
                     ? TEXT.resolvingManualAddress
                     : isSelectingPlace
-                    ? TEXT.loadingPlace
-                    : TEXT.loadingSuggestions}
+                      ? TEXT.loadingPlace
+                      : TEXT.loadingSuggestions}
                 </Text>
               </View>
             ) : null}
@@ -779,7 +812,9 @@ export default function CreateBusinessScreen() {
             </View>
           ) : (
             <View style={styles.emptyPreviewCard}>
-              <Text style={styles.emptyPreviewTitle}>{TEXT.manualPinTitle}</Text>
+              <Text style={styles.emptyPreviewTitle}>
+                {TEXT.manualPinTitle}
+              </Text>
               <Text style={styles.emptyPreviewText}>
                 {TEXT.manualPinSubtitle}
               </Text>
@@ -798,9 +833,7 @@ export default function CreateBusinessScreen() {
                       handleManualMapPress(latitude, longitude);
                     }}
                   >
-                    {manualMarker ? (
-                      <Marker coordinate={manualMarker} />
-                    ) : null}
+                    {manualMarker ? <Marker coordinate={manualMarker} /> : null}
                   </MapView>
                 </View>
               </View>

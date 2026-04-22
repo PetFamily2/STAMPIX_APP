@@ -46,7 +46,9 @@ export function UserAvatar({
           accessibilityLabel={`תמונת פרופיל של ${fullName?.trim() || 'המשתמש'}`}
         />
       ) : (
-        <Text style={[styles.fallback, { fontSize: Math.max(18, size * 0.34) }]}>
+        <Text
+          style={[styles.fallback, { fontSize: Math.max(18, size * 0.34) }]}
+        >
           {initials}
         </Text>
       )}

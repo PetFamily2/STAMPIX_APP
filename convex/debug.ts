@@ -211,7 +211,12 @@ export const setBusinessOwnerByEmail = mutation({
       updatedAt: Date.now(),
     });
 
-    return { ok: true, businessId, ownerUserId: user._id, email: normalizedEmail };
+    return {
+      ok: true,
+      businessId,
+      ownerUserId: user._id,
+      email: normalizedEmail,
+    };
   },
 });
 

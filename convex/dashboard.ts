@@ -338,7 +338,11 @@ function collectLifetimeMetricChanges(args: {
     customerUserId?: unknown;
     createdAt?: number;
   }>;
-  memberships: Array<{ userId?: unknown; createdAt?: number; _creationTime?: number }>;
+  memberships: Array<{
+    userId?: unknown;
+    createdAt?: number;
+    _creationTime?: number;
+  }>;
   now: number;
   windowDays?: number;
 }) {
@@ -374,7 +378,11 @@ function collectLifetimeMetricChanges(args: {
       const customerKey = String(event.customerUserId ?? '');
       const nextCount = (customerStampCounts.get(customerKey) ?? 0) + 1;
       customerStampCounts.set(customerKey, nextCount);
-      if (nextCount === 2 && createdAt >= windowStart && createdAt <= args.now) {
+      if (
+        nextCount === 2 &&
+        createdAt >= windowStart &&
+        createdAt <= args.now
+      ) {
         returningCustomersLast7Days += 1;
       }
       continue;
@@ -864,7 +872,8 @@ export const getBusinessDashboardDay = query({
     const actualNow = Date.now();
     const { selectedBounds, referenceNow, previousDayReferenceNow, isToday } =
       buildSelectedReferenceTimes(dayStart, actualNow);
-    const effectiveRangeDays = rangeDays === 7 || rangeDays === 30 ? rangeDays : 1;
+    const effectiveRangeDays =
+      rangeDays === 7 || rangeDays === 30 ? rangeDays : 1;
     const currentRangeStartParts = shiftCivilDate(
       {
         year: selectedBounds.year,
@@ -873,9 +882,13 @@ export const getBusinessDashboardDay = query({
       },
       -(effectiveRangeDays - 1)
     );
-    const currentRangeStartMs = zonedDateTimeToUtcTimestamp(currentRangeStartParts);
+    const currentRangeStartMs = zonedDateTimeToUtcTimestamp(
+      currentRangeStartParts
+    );
     const comparisonRangeEndMs =
-      effectiveRangeDays === 1 ? previousDayReferenceNow : currentRangeStartMs - 1;
+      effectiveRangeDays === 1
+        ? previousDayReferenceNow
+        : currentRangeStartMs - 1;
     const comparisonRangeEndBounds = getIsraelDayBounds(comparisonRangeEndMs);
     const comparisonRangeStartParts = shiftCivilDate(
       {

@@ -10,14 +10,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEY = 'pending_join_params';
 
 export type PendingJoinParams = {
-  biz: string;
+  biz?: string;
+  ref?: string;
+  bref?: string;
   src?: string;
   camp?: string;
   savedAt: number;
 };
 
-/** Max age for pending params: 1 hour */
-const MAX_AGE_MS = 60 * 60 * 1000;
+/** Max age for normal biz pending params: 1 hour */
+const MAX_BIZ_AGE_MS = 60 * 60 * 1000;
+/** Max age for referral params: 90 days */
+const MAX_REFERRAL_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
  * Save join params for later (e.g. before auth redirect).
@@ -25,7 +29,7 @@ const MAX_AGE_MS = 60 * 60 * 1000;
 export async function savePendingJoin(
   params: Omit<PendingJoinParams, 'savedAt'>
 ): Promise<void> {
-  if (!params.biz) return;
+  if (!params.biz && !params.ref && !params.bref) return;
   const data: PendingJoinParams = { ...params, savedAt: Date.now() };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -40,8 +44,12 @@ export async function consumePendingJoin(): Promise<PendingJoinParams | null> {
     await AsyncStorage.removeItem(STORAGE_KEY);
 
     const data = JSON.parse(raw) as PendingJoinParams;
-    if (!data.biz) return null;
-    if (Date.now() - data.savedAt > MAX_AGE_MS) return null;
+    if (!data.biz && !data.ref && !data.bref) return null;
+    const now = Date.now();
+    const age = now - data.savedAt;
+    const hasReferralCode = Boolean(data.ref || data.bref);
+    const maxAge = hasReferralCode ? MAX_REFERRAL_AGE_MS : MAX_BIZ_AGE_MS;
+    if (age > maxAge) return null;
 
     return data;
   } catch {

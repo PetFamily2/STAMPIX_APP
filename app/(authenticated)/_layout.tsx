@@ -40,10 +40,12 @@ const TEXT = {
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { preview, map, biz, src, camp } = useLocalSearchParams<{
+  const { preview, map, biz, ref, bref, src, camp } = useLocalSearchParams<{
     preview?: string;
     map?: string;
     biz?: string;
+    ref?: string;
+    bref?: string;
     src?: string;
     camp?: string;
   }>();
@@ -270,16 +272,14 @@ export default function AuthenticatedLayout() {
   ]);
 
   useEffect(() => {
-    if (
-      !isAuthenticated &&
-      !isPreviewMode &&
-      biz &&
-      !pendingJoinSaved.current
-    ) {
+    if (!isAuthenticated && !isPreviewMode && !pendingJoinSaved.current) {
+      if (!biz && !ref && !bref) {
+        return;
+      }
       pendingJoinSaved.current = true;
-      void savePendingJoin({ biz, src, camp });
+      void savePendingJoin({ biz, ref, bref, src, camp });
     }
-  }, [isAuthenticated, isPreviewMode, biz, src, camp]);
+  }, [isAuthenticated, isPreviewMode, biz, ref, bref, src, camp]);
 
   if (!isAuthenticated && !isPreviewMode && !isLoading) {
     return <Redirect href="/(auth)/sign-up" />;

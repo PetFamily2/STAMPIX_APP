@@ -22,4 +22,22 @@ crons.daily(
   internal.scanner.cleanupExpiredScanSessionsInternal
 );
 
+crons.daily(
+  'referral links and rewards expiration sweep daily',
+  { hourUTC: 1, minuteUTC: 20 },
+  internal.referrals.expireReferralLinksInternal
+);
+
+crons.daily(
+  'referral rewards expiration sweep daily',
+  { hourUTC: 1, minuteUTC: 35 },
+  internal.referrals.expireReferralRewardsInternal
+);
+
+crons.hourly(
+  'business referral credit sweep hourly',
+  { minuteUTC: 15 },
+  internal.referrals.processDueBusinessReferralCreditsInternal
+);
+
 export default crons;

@@ -156,9 +156,7 @@ export default function OnboardingBusinessCampaignRelevanceScreen() {
           <ToggleRow
             title="יום הולדת"
             value={birthdayCampaignRelevant}
-            onSelect={(value) =>
-              updateField('birthdayCampaignRelevant', value)
-            }
+            onSelect={(value) => updateField('birthdayCampaignRelevant', value)}
           />
           <ToggleRow
             title="יום הצטרפות"

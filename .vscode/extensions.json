@@ -1,6 +1,3 @@
 {
-    "recommendations": [
-        "expo.vscode-expo-tools",
-        "openai.chatgpt"
-    ]
+  "recommendations": ["expo.vscode-expo-tools", "openai.chatgpt"]
 }

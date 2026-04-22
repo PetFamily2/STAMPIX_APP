@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
@@ -13,12 +14,12 @@ import {
   requireActorIsStaffForBusiness,
   requireCurrentUser,
 } from './guards';
+import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
   generateJoinCode,
   generatePublicId,
 } from './lib/ids';
-import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   assertScanTokenSignature,
   getScanTokenIdentity,
@@ -689,6 +690,7 @@ export const createBusiness = mutation({
     city: v.string(),
     street: v.string(),
     streetNumber: v.string(),
+    businessReferralCode: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -704,6 +706,7 @@ export const createBusiness = mutation({
       city,
       street,
       streetNumber,
+      businessReferralCode,
     }
   ) => {
     const user = await requireCurrentUser(ctx);
@@ -744,6 +747,22 @@ export const createBusiness = mutation({
       },
       now: Date.now(),
     });
+
+    const normalizedReferralCode = businessReferralCode?.trim();
+    if (normalizedReferralCode) {
+      try {
+        await ctx.runMutation(
+          internal.referrals.linkBusinessReferralToNewBusiness,
+          {
+            newBusinessId: businessId,
+            createdByUserId: user._id,
+            referralCode: normalizedReferralCode,
+          }
+        );
+      } catch {
+        // Invalid B2B referral code must not block business creation flow.
+      }
+    }
 
     return { businessId };
   },

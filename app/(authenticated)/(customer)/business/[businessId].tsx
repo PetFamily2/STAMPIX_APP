@@ -95,11 +95,13 @@ export default function CustomerBusinessDetailsScreen() {
   const params = useLocalSearchParams<{
     businessId?: string;
     join?: string;
+    ref?: string;
     src?: string;
     camp?: string;
   }>();
   const businessIdParam = extractParam(params.businessId);
   const joinMode = extractParam(params.join) === 'true';
+  const joinReferralCode = extractParam(params.ref) || undefined;
   const joinSource = extractParam(params.src) || undefined;
   const joinCampaign = extractParam(params.camp) || undefined;
 
@@ -173,6 +175,7 @@ export default function CustomerBusinessDetailsScreen() {
         programIds: selectedProgramIds as Id<'loyaltyPrograms'>[],
         source: joinSource,
         campaign: joinCampaign,
+        referralCode: joinReferralCode,
       });
       setSelectedProgramIds([]);
       setFeedback({
@@ -186,6 +189,7 @@ export default function CustomerBusinessDetailsScreen() {
         joined_program_count: result.joinedCount,
         src: joinSource,
         camp: joinCampaign,
+        ref: joinReferralCode,
       });
     } catch (error) {
       setFeedback({

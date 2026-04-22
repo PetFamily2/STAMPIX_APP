@@ -78,9 +78,18 @@ export default function WalletScreen() {
     pendingJoinChecked.current = true;
     void (async () => {
       const pending = await consumePendingJoin();
-      if (pending?.biz) {
+      if (pending?.biz || pending?.ref || pending?.bref) {
         await savePendingJoin(pending);
-        router.push('/(authenticated)/join');
+        router.push({
+          pathname: '/(authenticated)/join',
+          params: {
+            biz: pending.biz,
+            ref: pending.ref,
+            bref: pending.bref,
+            src: pending.src,
+            camp: pending.camp,
+          },
+        });
       }
     })();
   }, [isAuthenticated]);
@@ -94,7 +103,10 @@ export default function WalletScreen() {
   const firstPendingStaffInvite = pendingStaffInvites[0] ?? null;
   const userDisplayName =
     sessionContext?.user?.fullName?.trim() ||
-    [sessionContext?.user?.firstName?.trim(), sessionContext?.user?.lastName?.trim()]
+    [
+      sessionContext?.user?.firstName?.trim(),
+      sessionContext?.user?.lastName?.trim(),
+    ]
       .filter(Boolean)
       .join(' ')
       .trim() ||

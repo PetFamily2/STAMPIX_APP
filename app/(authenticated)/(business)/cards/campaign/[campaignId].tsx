@@ -376,10 +376,7 @@ export default function CampaignDraftEditorScreen() {
     setMessageTitle(snapshot.messageTitle ?? '');
     setMessageBody(snapshot.messageBody ?? '');
     setDaysInput(
-      rulesInputFromDraft(
-        snapshot.type as CampaignType,
-        snapshot.rules
-      )
+      rulesInputFromDraft(snapshot.type as CampaignType, snapshot.rules)
     );
     setSelectedProgramId(
       snapshot.programId ? String(snapshot.programId) : 'all'
@@ -418,7 +415,10 @@ export default function CampaignDraftEditorScreen() {
     setMessageTitle(campaignDraft.messageTitle ?? '');
     setMessageBody(campaignDraft.messageBody ?? '');
     setDaysInput(
-      rulesInputFromDraft(campaignDraft.type as CampaignType, campaignDraft.rules)
+      rulesInputFromDraft(
+        campaignDraft.type as CampaignType,
+        campaignDraft.rules
+      )
     );
     setSelectedProgramId(
       campaignDraft.programId ? String(campaignDraft.programId) : 'all'
@@ -436,7 +436,9 @@ export default function CampaignDraftEditorScreen() {
       setScheduledForAt(null);
     }
     setBaseUpdatedAt(
-      typeof campaignDraft.updatedAt === 'number' ? campaignDraft.updatedAt : null
+      typeof campaignDraft.updatedAt === 'number'
+        ? campaignDraft.updatedAt
+        : null
     );
     setConflictLocked(false);
   }, [baseUpdatedAt, campaignDraft]);
@@ -1123,7 +1125,7 @@ export default function CampaignDraftEditorScreen() {
       let currentUpdatedAt =
         typeof saved?.updatedAt === 'number'
           ? saved.updatedAt
-          : baseUpdatedAt ?? undefined;
+          : (baseUpdatedAt ?? undefined);
       if (campaignDraft.scheduleMode === 'one_time') {
         const cleared = await clearCampaignOneTimeSchedule({
           businessId: selectedBusinessId,
@@ -1254,7 +1256,7 @@ export default function CampaignDraftEditorScreen() {
         expectedUpdatedAt:
           typeof saved?.updatedAt === 'number'
             ? saved.updatedAt
-            : baseUpdatedAt ?? undefined,
+            : (baseUpdatedAt ?? undefined),
       });
       if (typeof scheduled?.updatedAt === 'number') {
         setBaseUpdatedAt(scheduled.updatedAt);
@@ -1798,7 +1800,8 @@ export default function CampaignDraftEditorScreen() {
           {conflictLocked ? (
             <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
               <Text className="text-right text-xs text-[#92400E]">
-                נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה העדכנית.
+                נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה
+                העדכנית.
               </Text>
               <TouchableOpacity
                 onPress={() => {

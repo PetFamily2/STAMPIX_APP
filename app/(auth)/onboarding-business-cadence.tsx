@@ -16,9 +16,9 @@ import {
 import {
   BUSINESS_EXAMPLE_CADENCE_OPTIONS,
   BUSINESS_EXAMPLES,
-  CADENCE_LABELS,
   type BusinessCadenceId,
   type BusinessExampleId,
+  CADENCE_LABELS,
 } from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -37,7 +37,8 @@ export default function OnboardingBusinessCadenceScreen() {
     null;
   const selectedCadence =
     (businessOnboardingDraft.cadenceBand as BusinessCadenceId | null) ?? null;
-  const canContinue = selectedBusinessExample !== null && selectedCadence !== null;
+  const canContinue =
+    selectedBusinessExample !== null && selectedCadence !== null;
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'onboarding_business_cadence',
     role: 'business',

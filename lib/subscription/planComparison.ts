@@ -322,10 +322,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   }));
 
   const featureRows: ComparisonRow[] = (
-    [
-      'advancedReports',
-      'smartAnalytics',
-    ] as FeatureKey[]
+    ['advancedReports', 'smartAnalytics'] as FeatureKey[]
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
     label: FEATURE_ROW_LABELS[featureKey],

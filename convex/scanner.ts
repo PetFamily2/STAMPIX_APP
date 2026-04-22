@@ -16,6 +16,7 @@ import {
   type BusinessCapabilityMap,
   getRoleCapabilities,
 } from './lib/staffPermissions';
+import { qualifyCustomerReferralAfterStamp } from './referrals';
 import {
   assertScanTokenSignature,
   buildScanToken,
@@ -982,6 +983,29 @@ async function resolveScanSessionCommit(
             deviceId: session.deviceId,
           });
 
+    let referralQualification: {
+      rewardTriggered: boolean;
+      referralId: Id<'customerReferrals'> | null;
+      rewardIds: Id<'referralRewards'>[];
+      reason: string;
+    } | null = null;
+    if (
+      args.expectedAction === 'stamp' &&
+      result?.eventType === 'STAMP_ADDED'
+    ) {
+      referralQualification = await qualifyCustomerReferralAfterStamp(ctx, {
+        businessId: session.businessId,
+        referredUserId: session.customerId,
+        stampEventId: result.eventId,
+        stampCreatedAt: result.eventCreatedAt,
+        stampProgramId: session.programId,
+        stampMembershipId: result.membershipId,
+        actorUserId: actor._id,
+        scannerRuntimeSessionId: session.scannerRuntimeSessionId,
+        deviceId: session.deviceId,
+      });
+    }
+
     await consumeTokenEvent(ctx, {
       businessId: session.businessId,
       programId: session.programId,
@@ -999,6 +1023,17 @@ async function resolveScanSessionCommit(
       failedCode: undefined,
       result: {
         ...result,
+        referralQualification,
+        referralRewardTriggered:
+          referralQualification?.rewardTriggered === true,
+        qualificationEventId:
+          referralQualification?.rewardTriggered === true
+            ? result.eventId
+            : null,
+        undoBlockedReason:
+          referralQualification?.rewardTriggered === true
+            ? 'REFERRAL_REWARD_TRIGGERED'
+            : null,
         undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
       },
       committedAt: Date.now(),
@@ -1006,6 +1041,14 @@ async function resolveScanSessionCommit(
 
     return {
       ...result,
+      referralQualification,
+      referralRewardTriggered: referralQualification?.rewardTriggered === true,
+      qualificationEventId:
+        referralQualification?.rewardTriggered === true ? result.eventId : null,
+      undoBlockedReason:
+        referralQualification?.rewardTriggered === true
+          ? 'REFERRAL_REWARD_TRIGGERED'
+          : null,
       undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
     };
   } catch (error) {
@@ -1279,6 +1322,20 @@ export const undoLastScannerAction = mutation({
     }
     if (targetEvent.source !== 'scanner_commit') {
       throw new Error('UNDO_NOT_ALLOWED');
+    }
+
+    const linkedReferral = await ctx.db
+      .query('customerReferrals')
+      .withIndex('by_qualificationEventId', (q: any) =>
+        q.eq('qualificationEventId', targetEvent._id)
+      )
+      .first();
+    if (
+      linkedReferral &&
+      linkedReferral.rewardGrantStatus === 'granted' &&
+      linkedReferral.status === 'completed'
+    ) {
+      throw new Error('UNDO_BLOCKED_REFERRAL_REWARD');
     }
 
     const { actor } = await requireActorIsStaffForBusiness(

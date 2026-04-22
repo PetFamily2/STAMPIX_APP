@@ -1,7 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useConvexAuth } from 'convex/react';
-import { useRouter } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type NativeSyntheticEvent,
@@ -446,7 +445,9 @@ export default function OnboardingOtpScreen() {
             onPress={() => {
               void handleContinue();
             }}
-            disabled={!isComplete || isVerifying || isSending || isAwaitingSession}
+            disabled={
+              !isComplete || isVerifying || isSending || isAwaitingSession
+            }
           />
         </View>
       </View>

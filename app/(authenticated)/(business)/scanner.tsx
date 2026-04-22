@@ -163,6 +163,7 @@ const KNOWN_SCAN_ERROR_CODES = [
   'FEATURE_NOT_AVAILABLE',
   'PLAN_LIMIT_REACHED',
   'SUBSCRIPTION_INACTIVE',
+  'UNDO_BLOCKED_REFERRAL_REWARD',
 ] as const;
 
 const NON_RETRYABLE_COMMIT_CODES = new Set([
@@ -185,6 +186,7 @@ const NON_RETRYABLE_COMMIT_CODES = new Set([
   'FEATURE_NOT_AVAILABLE',
   'PLAN_LIMIT_REACHED',
   'SUBSCRIPTION_INACTIVE',
+  'UNDO_BLOCKED_REFERRAL_REWARD',
 ]);
 
 const getUndoPresentation = (actionMode: CommitActionMode) =>
@@ -265,6 +267,11 @@ const mapScanError = (error: unknown): { message: string; code: string } => {
       return { message: 'הסריקה הקודמת נדחתה. יש לסרוק מחדש.', code };
     case 'INVALID_SCAN_ACTION':
       return { message: 'פעולת הסריקה אינה תקינה.', code };
+    case 'UNDO_BLOCKED_REFERRAL_REWARD':
+      return {
+        message: 'לא ניתן לבטל את הניקוב כי הוא כבר הפעיל מתנת הזמנה.',
+        code,
+      };
     default:
       return { message: 'אירעה שגיאה בלתי צפויה. נסו שוב.', code };
   }

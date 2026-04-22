@@ -85,9 +85,7 @@ export default function OnboardingBusinessTypeScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() =>
-              safeDismissTo(BUSINESS_ONBOARDING_ROUTES.usageArea)
-            }
+            onPress={() => safeDismissTo(BUSINESS_ONBOARDING_ROUTES.usageArea)}
           />
           <OnboardingProgress
             total={BUSINESS_ONBOARDING_TOTAL_STEPS}
