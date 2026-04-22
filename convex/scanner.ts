@@ -1498,11 +1498,38 @@ export const addStamp = mutation({
       source: 'scanner_commit',
     });
 
+    let referralQualification: {
+      rewardTriggered: boolean;
+      referralId: Id<'customerReferrals'> | null;
+      rewardIds: Id<'referralRewards'>[];
+      reason: string;
+    } | null = null;
+    if (result.eventType === 'STAMP_ADDED') {
+      referralQualification = await qualifyCustomerReferralAfterStamp(ctx, {
+        businessId: args.businessId,
+        referredUserId: args.customerUserId,
+        stampEventId: result.eventId,
+        stampCreatedAt: result.eventCreatedAt,
+        stampProgramId: args.programId,
+        stampMembershipId: result.membershipId,
+        actorUserId: actor._id,
+      });
+    }
+
     return {
       membershipId: result.membershipId,
       currentStamps: result.currentStamps,
       maxStamps: result.maxStamps,
       canRedeemNow: result.canRedeemNow,
+      referralQualification,
+      referralRewardTriggered: referralQualification?.rewardTriggered === true,
+      qualificationEventId:
+        referralQualification?.rewardTriggered === true ? result.eventId : null,
+      undoBlockedReason:
+        referralQualification?.rewardTriggered === true
+          ? 'REFERRAL_REWARD_TRIGGERED'
+          : null,
+      undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
     };
   },
 });

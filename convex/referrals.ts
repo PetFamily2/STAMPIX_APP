@@ -161,11 +161,11 @@ async function ensureReferralConfigDoc(
   ctx: any,
   businessId: Id<'businesses'>,
   actorUserId: Id<'users'>
-) : Promise<Doc<'referralConfigs'>> {
-  const existing = await ctx.db
+): Promise<Doc<'referralConfigs'>> {
+  const existing = (await ctx.db
     .query('referralConfigs')
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-    .first() as Doc<'referralConfigs'> | null;
+    .first()) as Doc<'referralConfigs'> | null;
   if (existing) {
     return existing;
   }
@@ -223,7 +223,9 @@ async function getCustomerReferralDoc(
   ctx: any,
   customerReferralId: Id<'customerReferrals'>
 ) {
-  return (await ctx.db.get(customerReferralId)) as Doc<'customerReferrals'> | null;
+  return (await ctx.db.get(
+    customerReferralId
+  )) as Doc<'customerReferrals'> | null;
 }
 
 async function maybeMarkExpiredLink(
@@ -472,7 +474,7 @@ async function createOrReuseCustomerReferralLink(
     membershipId?: Id<'memberships'>;
     shareSurface: ShareSurface;
   }
-) : Promise<Doc<'customerReferralLinks'>> {
+): Promise<Doc<'customerReferralLinks'>> {
   const now = Date.now();
   const business = await getBusinessDoc(ctx, args.businessId);
   if (!business || business.isActive !== true) {
@@ -635,9 +637,9 @@ export async function processReferralAfterJoin(
 
   let originMembershipId = args.joinedMembershipIds[0];
   for (const membershipId of args.joinedMembershipIds) {
-    const membership = (await ctx.db.get(membershipId)) as
-      | Doc<'memberships'>
-      | null;
+    const membership = (await ctx.db.get(
+      membershipId
+    )) as Doc<'memberships'> | null;
     if (
       membership &&
       String(membership.programId) === String(link.originProgramId)
@@ -1596,9 +1598,9 @@ export const listBusinessReferralCustomers = query({
         const [referrer, referred, link] = await Promise.all([
           getUserDoc(ctx, row.referrerUserId as Id<'users'>),
           getUserDoc(ctx, row.referredUserId as Id<'users'>),
-          ctx.db.get(row.referralLinkId as Id<'customerReferralLinks'>) as Promise<
-            Doc<'customerReferralLinks'> | null
-          >,
+          ctx.db.get(
+            row.referralLinkId as Id<'customerReferralLinks'>
+          ) as Promise<Doc<'customerReferralLinks'> | null>,
         ]);
         return {
           referralId: row._id,
@@ -1743,7 +1745,10 @@ export const listCustomerAvailableReferralBenefits = query({
 
     return await Promise.all(
       active.map(async (row) => {
-        const referral = await getCustomerReferralDoc(ctx, row.customerReferralId);
+        const referral = await getCustomerReferralDoc(
+          ctx,
+          row.customerReferralId
+        );
         const referrerUser = referral?.referrerUserId
           ? await getUserDoc(ctx, referral.referrerUserId)
           : null;

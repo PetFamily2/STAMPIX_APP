@@ -1,7 +1,15 @@
 ﻿import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DailyKpiGrid } from '@/components/business-dashboard/DailyKpiGrid';
@@ -21,6 +29,7 @@ import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +52,7 @@ type BusinessRoute =
   | '/(authenticated)/(business)/scanner'
   | '/(authenticated)/(business)/settings'
   | '/(authenticated)/(business)/settings-business-profile'
+  | '/(authenticated)/(business)/settings-business-referrals'
   | '/(authenticated)/(business)/settings-business-subscription';
 
 type CustomerRouteFilter = 'near_reward' | 'at_risk' | 'new_customers';
@@ -197,6 +207,13 @@ export default function BusinessDashboardScreen() {
     activeBusiness,
     isLoading: isBusinessLoading,
   } = useActiveBusiness();
+  const businessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canViewBilling = businessCapabilities?.view_billing_state === true;
 
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] =
@@ -204,6 +221,7 @@ export default function BusinessDashboardScreen() {
   const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
     string | null
   >(null);
+  const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
 
   const dashboardSummary = useQuery(
     api.dashboard.getBusinessDashboardSummary,
@@ -223,6 +241,19 @@ export default function BusinessDashboardScreen() {
     api.aiRecommendations.executeRecommendationPrimaryCta
   );
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
+  const createBusinessReferralLink = useMutation(
+    api.referrals.getOrCreateBusinessReferralLink
+  );
+  const referralDashboard = useQuery(
+    api.referrals.getBusinessReferralDashboard,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const referralCreditSummary = useQuery(
+    api.referrals.getBusinessReferralCreditSummary,
+    activeBusinessId && canViewBilling
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -603,6 +634,45 @@ export default function BusinessDashboardScreen() {
     setSelectedDayStart(anchorNow);
   };
 
+  const handleShareBusinessReferral = async (mode: 'whatsapp' | 'copy') => {
+    if (!activeBusinessId || isB2bShareLoading) {
+      return;
+    }
+    try {
+      setIsB2bShareLoading(true);
+      const link = await createBusinessReferralLink({
+        businessId: activeBusinessId,
+      });
+      const message = `Invite your business network to StampAix and earn free subscription months.\n${link.url}`;
+
+      if (mode === 'whatsapp') {
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        const canOpen = await Linking.canOpenURL(whatsappUrl);
+        if (canOpen) {
+          await Linking.openURL(whatsappUrl);
+        } else {
+          await Share.share({ message });
+        }
+      } else {
+        const maybeNavigator = globalThis as {
+          navigator?: {
+            clipboard?: { writeText?: (value: string) => Promise<void> };
+          };
+        };
+        if (maybeNavigator.navigator?.clipboard?.writeText) {
+          await maybeNavigator.navigator.clipboard.writeText(link.url);
+        } else {
+          await Share.share({ message: link.url });
+        }
+        Alert.alert('', 'קישור הזמנה לעסק הועתק לשיתוף');
+      }
+    } catch {
+      Alert.alert('שגיאה', 'לא הצלחנו לייצר קישור הפניה עסקי כרגע.');
+    } finally {
+      setIsB2bShareLoading(false);
+    }
+  };
+
   if (isAppModeLoading || isBusinessLoading) {
     return <FullScreenLoading />;
   }
@@ -648,6 +718,98 @@ export default function BusinessDashboardScreen() {
           loadingCardKey={applyingRecommendationKey}
         />
 
+        <SurfaceCard elevated={false} padding="sm" radius="lg">
+          <View style={styles.referralHeaderRow}>
+            <View style={styles.referralHeaderTextWrap}>
+              <Text className={tw.textStart} style={styles.referralTitle}>
+                הפניות וצמיחה
+              </Text>
+              <Text className={tw.textStart} style={styles.referralSubtitle}>
+                תמונת מצב הפניות לקוחות וקרדיטי B2B
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.referralMetricsGrid}>
+            <View style={styles.referralMetricItem}>
+              <Text style={styles.referralMetricValue}>
+                {formatNumber(referralDashboard?.referralsGenerated ?? 0)}
+              </Text>
+              <Text style={styles.referralMetricLabel}>הפניות שנוצרו</Text>
+            </View>
+            <View style={styles.referralMetricItem}>
+              <Text style={styles.referralMetricValue}>
+                {formatNumber(referralDashboard?.referralsCompleted ?? 0)}
+              </Text>
+              <Text style={styles.referralMetricLabel}>הפניות שהושלמו</Text>
+            </View>
+            <View style={styles.referralMetricItem}>
+              <Text style={styles.referralMetricValue}>
+                {formatNumber(referralDashboard?.rewardsGranted ?? 0)}
+              </Text>
+              <Text style={styles.referralMetricLabel}>תגמולים שניתנו</Text>
+            </View>
+            <View style={styles.referralMetricItem}>
+              <Text style={styles.referralMetricValue}>
+                {formatNumber(referralDashboard?.rewardsRedeemed ?? 0)}
+              </Text>
+              <Text style={styles.referralMetricLabel}>תגמולים שמומשו</Text>
+            </View>
+          </View>
+
+          <View style={styles.referralCreditsRow}>
+            <Text style={styles.referralCreditsText}>
+              חודשי זיכוי B2B שנצברו:{' '}
+              {referralCreditSummary?.creditedMonths ??
+                referralDashboard?.b2bFreeMonthsEarned ??
+                0}
+              /24
+            </Text>
+          </View>
+
+          <View style={styles.referralActionsRow}>
+            <Pressable
+              onPress={() =>
+                openRoute(
+                  '/(authenticated)/(business)/settings-business-referrals'
+                )
+              }
+              style={({ pressed }) => [
+                styles.referralPrimaryButton,
+                pressed ? styles.referralPrimaryButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.referralPrimaryButtonText}>ניהול הפניות</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void handleShareBusinessReferral('whatsapp')}
+              disabled={isB2bShareLoading}
+              style={({ pressed }) => [
+                styles.referralSecondaryButton,
+                pressed ? styles.referralSecondaryButtonPressed : null,
+                isB2bShareLoading ? styles.referralButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.referralSecondaryButtonText}>
+                {isB2bShareLoading ? 'טוען...' : 'שיתוף B2B'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void handleShareBusinessReferral('copy')}
+              disabled={isB2bShareLoading}
+              style={({ pressed }) => [
+                styles.referralSecondaryButton,
+                pressed ? styles.referralSecondaryButtonPressed : null,
+                isB2bShareLoading ? styles.referralButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.referralSecondaryButtonText}>
+                העתקת קישור
+              </Text>
+            </Pressable>
+          </View>
+        </SurfaceCard>
+
         {dashboardDay === undefined ? (
           <SurfaceCard elevated={false} padding="sm" radius="lg">
             <Text className={tw.textStart} style={styles.loadingText}>
@@ -667,6 +829,110 @@ const styles = StyleSheet.create({
   },
   summaryCluster: {
     gap: 8,
+  },
+  referralHeaderRow: {
+    marginBottom: 8,
+  },
+  referralHeaderTextWrap: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  referralTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: DASHBOARD_TOKENS.colors.textPrimary,
+  },
+  referralSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DASHBOARD_TOKENS.colors.textMuted,
+  },
+  referralMetricsGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  referralMetricItem: {
+    width: '48%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCE6FB',
+    backgroundColor: '#F8FAFF',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  referralMetricValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F294B',
+    textAlign: 'right',
+  },
+  referralMetricLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  referralCreditsRow: {
+    marginTop: 10,
+    borderRadius: 10,
+    backgroundColor: '#EEF3FF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: 'flex-end',
+  },
+  referralCreditsText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E3A8A',
+    textAlign: 'right',
+  },
+  referralActionsRow: {
+    marginTop: 10,
+    flexDirection: 'row-reverse',
+    gap: 8,
+  },
+  referralPrimaryButton: {
+    flex: 1.4,
+    borderRadius: 10,
+    backgroundColor: '#1D4ED8',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralPrimaryButtonPressed: {
+    opacity: 0.86,
+  },
+  referralPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  referralSecondaryButton: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralSecondaryButtonPressed: {
+    opacity: 0.85,
+  },
+  referralSecondaryButtonText: {
+    color: '#1E40AF',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  referralButtonDisabled: {
+    opacity: 0.6,
   },
   loadingText: {
     fontSize: 13,

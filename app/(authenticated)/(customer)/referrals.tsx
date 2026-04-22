@@ -2,14 +2,11 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
@@ -104,7 +101,9 @@ export default function CustomerReferralsScreen() {
               subtitle="סטטוס הזמנות, זכאויות ומימושים"
               titleAccessory={
                 <BackButton
-                  onPress={() => router.push('/(authenticated)/(customer)/wallet')}
+                  onPress={() =>
+                    router.push('/(authenticated)/(customer)/wallet')
+                  }
                 />
               }
             />
@@ -187,7 +186,8 @@ export default function CustomerReferralsScreen() {
                   <Text style={styles.itemTitle}>{item.businessName}</Text>
                   <Text style={styles.itemState}>{mapReferralState(item)}</Text>
                   <Text style={styles.itemHint}>
-                    חבר שהזמנת עדיין לא ביצע ניקוב ראשון. ברגע שזה יקרה תקבלו מתנה.
+                    חבר שהזמנת עדיין לא ביצע ניקוב ראשון. ברגע שזה יקרה תקבלו
+                    מתנה.
                   </Text>
                   <Text style={styles.itemMeta}>
                     נוצר: {formatDateTime(item.createdAt)}
@@ -228,7 +228,7 @@ export default function CustomerReferralsScreen() {
                   <Text style={styles.itemHint}>
                     {item.actualRewardType === 'STAMP'
                       ? 'התקבל ניקוב מהזמנת חבר'
-                      : item.benefitTitle ?? 'הטבת הזמנה'}
+                      : (item.benefitTitle ?? 'הטבת הזמנה')}
                   </Text>
                   <Text style={styles.itemMeta}>
                     עודכן: {formatDateTime(item.redeemedAt ?? item.createdAt)}

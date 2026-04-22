@@ -1,7 +1,8 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -41,6 +42,7 @@ function formatDateTime(value: number) {
 }
 
 export default function RewardsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const inboxQuery = useQuery(api.campaigns.listInboxForCustomer);
@@ -54,6 +56,13 @@ export default function RewardsScreen() {
   const isLoading = inboxQuery === undefined || membershipsQuery === undefined;
   const isEmpty =
     !isLoading && redeemableRewards.length === 0 && inbox.length === 0;
+
+  const handleInboxPress = (destinationHref: string | null) => {
+    if (!destinationHref) {
+      return;
+    }
+    router.push(destinationHref as any);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -74,6 +83,34 @@ export default function RewardsScreen() {
             <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
           </View>
         </StickyScrollHeader>
+
+        <View style={styles.referralCard}>
+          <View style={styles.referralTextWrap}>
+            <Text style={styles.referralTitle}>
+              {
+                '\u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d7\u05d1\u05e8\u05d9\u05dd'
+              }
+            </Text>
+            <Text style={styles.referralSubtitle}>
+              {
+                '\u05de\u05e2\u05e7\u05d1 \u05d0\u05d7\u05e8 \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea \u05d5\u05de\u05ea\u05e0\u05d5\u05ea \u05e9\u05d4\u05ea\u05e7\u05d1\u05dc\u05d5'
+              }
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => router.push('/(authenticated)/(customer)/referrals')}
+            style={({ pressed }) => [
+              styles.referralButton,
+              pressed ? styles.referralButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.referralButtonText}>
+              {
+                '\u05dc\u05de\u05e1\u05da \u05d4\u05d4\u05d6\u05de\u05e0\u05d5\u05ea'
+              }
+            </Text>
+          </Pressable>
+        </View>
 
         {isLoading ? (
           <View style={styles.emptyCard}>
@@ -128,7 +165,18 @@ export default function RewardsScreen() {
             ) : null}
 
             {inbox.map((item) => (
-              <View key={item.messageId} style={styles.messageCard}>
+              <Pressable
+                key={item.messageId}
+                onPress={() => handleInboxPress(item.destinationHref)}
+                disabled={!item.destinationHref}
+                style={({ pressed }) => [
+                  styles.messageCard,
+                  item.destinationHref ? styles.messageCardWithAction : null,
+                  pressed && item.destinationHref
+                    ? styles.messageCardPressed
+                    : null,
+                ]}
+              >
                 <View style={styles.metaRow}>
                   <Text style={styles.metaText}>
                     {formatDateTime(item.createdAt)}
@@ -137,7 +185,7 @@ export default function RewardsScreen() {
                 </View>
                 <Text style={styles.messageTitle}>{item.title}</Text>
                 <Text style={styles.messageBody}>{item.body}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -181,6 +229,48 @@ const styles = StyleSheet.create({
   feedWrap: {
     marginTop: 18,
     gap: 10,
+  },
+  referralCard: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7E8FF',
+    padding: 14,
+    gap: 10,
+  },
+  referralTextWrap: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  referralTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1E3A8A',
+    textAlign: 'right',
+  },
+  referralSubtitle: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'right',
+  },
+  referralButton: {
+    alignSelf: 'flex-end',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  referralButtonPressed: {
+    opacity: 0.85,
+  },
+  referralButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center',
   },
   readyRewardsSection: {
     backgroundColor: '#FFFFFF',
@@ -255,6 +345,12 @@ const styles = StyleSheet.create({
     borderColor: '#E3E9FF',
     padding: 14,
     gap: 8,
+  },
+  messageCardWithAction: {
+    borderColor: '#D1E2FF',
+  },
+  messageCardPressed: {
+    opacity: 0.88,
   },
   metaRow: {
     flexDirection: 'row',

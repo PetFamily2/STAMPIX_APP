@@ -42,6 +42,20 @@ type TimelineItemType =
   | 'STAMP_REVERTED'
   | 'REWARD_REDEEM_REVERTED';
 
+type ReferralBenefitItem = {
+  rewardId: string;
+  businessId: string;
+  customerReferralId: string;
+  recipientUserId: string;
+  recipientRole: 'referrer' | 'referred';
+  benefitTitle: string;
+  benefitDescription: string | null;
+  expiresAt: number | null;
+  createdAt: number;
+  referrerUserId: string | null;
+  referrerName: string | null;
+};
+
 type ReasonCode =
   | 'mistake'
   | 'wrong_program'
@@ -176,6 +190,17 @@ function getReasonLabel(reasonCode: string | null) {
   return option?.label ?? null;
 }
 
+function formatBenefitExpiry(expiresAt: number | null) {
+  if (!expiresAt) {
+    return 'ללא תוקף';
+  }
+  return new Date(expiresAt).toLocaleDateString('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
 export default function BusinessCustomerCardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -192,6 +217,9 @@ export default function BusinessCustomerCardScreen() {
   const reverseCustomerCardEvent = useMutation(
     api.customerCards.reverseCustomerCardEvent
   );
+  const redeemReferralBenefit = useMutation(
+    api.referrals.redeemReferralBenefit
+  );
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedEventDetail, setSelectedEventDetail] = useState('');
@@ -200,6 +228,8 @@ export default function BusinessCustomerCardScreen() {
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isRedeemingReferralRewardId, setIsRedeemingReferralRewardId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -220,6 +250,26 @@ export default function BusinessCustomerCardScreen() {
         }
       : 'skip'
   );
+  const referralSummary = useQuery(
+    api.referrals.getBusinessCustomerReferralSummary,
+    activeBusinessId && customerUserId
+      ? {
+          businessId: activeBusinessId,
+          customerUserId: customerUserId as Id<'users'>,
+        }
+      : 'skip'
+  );
+  const referralBenefits =
+    (useQuery(
+      api.referrals.listCustomerAvailableReferralBenefits,
+      activeBusinessId && customerUserId
+        ? {
+            businessId: activeBusinessId,
+            customerUserId: customerUserId as Id<'users'>,
+            limit: 20,
+          }
+        : 'skip'
+    ) as ReferralBenefitItem[] | undefined) ?? [];
 
   const goBack = () => {
     if (isStaffRoute) {
@@ -274,6 +324,30 @@ export default function BusinessCustomerCardScreen() {
       setDialogError('לא ניתן להשלים את התיקון עבור פעולה זו.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRedeemReferralBenefit = async (rewardId: string) => {
+    if (
+      !activeBusinessId ||
+      isRedeemingReferralRewardId !== null ||
+      isSubmitting
+    ) {
+      return;
+    }
+
+    setIsRedeemingReferralRewardId(rewardId);
+    setFeedbackMessage(null);
+    try {
+      await redeemReferralBenefit({
+        businessId: activeBusinessId,
+        rewardId: rewardId as Id<'referralRewards'>,
+      });
+      setFeedbackMessage('הטבת ההפניה מומשה בהצלחה.');
+    } catch {
+      setFeedbackMessage('לא ניתן לממש כרגע את הטבת ההפניה שנבחרה.');
+    } finally {
+      setIsRedeemingReferralRewardId(null);
     }
   };
 
@@ -404,6 +478,98 @@ export default function BusinessCustomerCardScreen() {
                 <Text style={styles.statValue}>
                   {card.summary.redeemableProgramsCount}
                 </Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>הפניות והטבות לקוח</Text>
+              {referralSummary ? (
+                <View style={styles.referralSummaryCard}>
+                  <View style={styles.referralSummaryRow}>
+                    <Text style={styles.referralSummaryLabel}>הצטרף דרך:</Text>
+                    <Text style={styles.referralSummaryValue}>
+                      {referralSummary.referrerName ?? 'לקוח קיים בעסק'}
+                    </Text>
+                  </View>
+                  <View style={styles.referralSummaryRow}>
+                    <Text style={styles.referralSummaryLabel}>
+                      סטטוס הפניה:
+                    </Text>
+                    <Text style={styles.referralSummaryValue}>
+                      {referralSummary.status}
+                    </Text>
+                  </View>
+                  <View style={styles.referralSummaryRow}>
+                    <Text style={styles.referralSummaryLabel}>
+                      תגמולים שניתנו:
+                    </Text>
+                    <Text style={styles.referralSummaryValue}>
+                      {referralSummary.rewardsGranted}
+                    </Text>
+                  </View>
+                  <View style={styles.referralSummaryRow}>
+                    <Text style={styles.referralSummaryLabel}>
+                      תגמולים שמומשו:
+                    </Text>
+                    <Text style={styles.referralSummaryValue}>
+                      {referralSummary.rewardsRedeemed}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.referralEmptyText}>
+                  הלקוח לא מסומן כמצטרף דרך הפניה.
+                </Text>
+              )}
+
+              <View style={styles.referralBenefitsList}>
+                <Text style={styles.referralBenefitsTitle}>
+                  הטבות BENEFIT זמינות
+                </Text>
+                {referralBenefits.length === 0 ? (
+                  <Text style={styles.referralEmptyText}>
+                    אין כרגע הטבות הפניה פעילות למימוש.
+                  </Text>
+                ) : (
+                  referralBenefits.map((benefit) => {
+                    const isRedeeming =
+                      isRedeemingReferralRewardId === benefit.rewardId;
+                    return (
+                      <View
+                        key={benefit.rewardId}
+                        style={styles.referralBenefitItem}
+                      >
+                        <View style={styles.referralBenefitItemTextWrap}>
+                          <Text style={styles.referralBenefitItemTitle}>
+                            {benefit.benefitTitle}
+                          </Text>
+                          <Text style={styles.referralBenefitItemMeta}>
+                            תוקף: {formatBenefitExpiry(benefit.expiresAt)}
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() =>
+                            void handleRedeemReferralBenefit(benefit.rewardId)
+                          }
+                          disabled={
+                            isSubmitting || isRedeemingReferralRewardId !== null
+                          }
+                          style={({ pressed }) => [
+                            styles.referralRedeemButton,
+                            pressed ? styles.referralRedeemButtonPressed : null,
+                            isSubmitting || isRedeemingReferralRewardId !== null
+                              ? styles.referralRedeemButtonDisabled
+                              : null,
+                          ]}
+                        >
+                          <Text style={styles.referralRedeemButtonText}>
+                            {isRedeeming ? 'מממש...' : 'ממש'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </View>
 
@@ -771,6 +937,94 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#132849',
     textAlign: 'right',
+  },
+  referralSummaryCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DCE6FB',
+    backgroundColor: '#F8FAFF',
+    padding: 10,
+    gap: 6,
+  },
+  referralSummaryRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  referralSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  referralSummaryValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F294B',
+    textAlign: 'right',
+  },
+  referralBenefitsList: {
+    gap: 8,
+  },
+  referralBenefitsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#132849',
+    textAlign: 'right',
+  },
+  referralEmptyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  referralBenefitItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  referralBenefitItemTextWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  referralBenefitItemTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'right',
+  },
+  referralBenefitItemMeta: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  referralRedeemButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#16A34A',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  referralRedeemButtonPressed: {
+    opacity: 0.85,
+  },
+  referralRedeemButtonDisabled: {
+    opacity: 0.6,
+  },
+  referralRedeemButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#166534',
   },
   programsList: {
     gap: 10,

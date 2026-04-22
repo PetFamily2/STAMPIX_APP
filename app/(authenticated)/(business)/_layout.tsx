@@ -290,6 +290,12 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="settings-business-referrals"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="settings-business-address"
         options={{
           href: null,

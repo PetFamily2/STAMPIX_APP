@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -125,6 +128,15 @@ export default function BusinessSettingsSubscriptionScreen() {
     api.entitlements.getBusinessUsageSummary,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
+  const referralCreditSummary = useQuery(
+    api.referrals.getBusinessReferralCreditSummary,
+    activeBusinessId && capabilities?.view_billing_state === true
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
+  const createBusinessReferralLink = useMutation(
+    api.referrals.getOrCreateBusinessReferralLink
+  );
 
   const recommendedPlanParam = parsePlanParam(params.recommendedPlan);
   const upgradeReasonParam = parseUpgradeReasonParam(params.upgradeReason);
@@ -227,6 +239,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     useState<PlanId>('pro');
   const [comparisonBillingPeriod, setComparisonBillingPeriod] =
     useState<BillingPeriod>('monthly');
+  const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
 
   const openUpgrade = useCallback(
     (targetPlan?: 'pro' | 'premium') => {
@@ -251,6 +264,48 @@ export default function BusinessSettingsSubscriptionScreen() {
       featureKeyParam,
       upgradeReasonParam,
     ]
+  );
+
+  const handleShareBusinessReferral = useCallback(
+    async (mode: 'whatsapp' | 'copy') => {
+      if (!activeBusinessId || isB2bShareLoading) {
+        return;
+      }
+      try {
+        setIsB2bShareLoading(true);
+        const link = await createBusinessReferralLink({
+          businessId: activeBusinessId,
+        });
+        const message = `Invite your business network to StampAix and earn free subscription months.\n${link.url}`;
+
+        if (mode === 'whatsapp') {
+          const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+          const canOpen = await Linking.canOpenURL(whatsappUrl);
+          if (canOpen) {
+            await Linking.openURL(whatsappUrl);
+          } else {
+            await Share.share({ message });
+          }
+        } else {
+          const maybeNavigator = globalThis as {
+            navigator?: {
+              clipboard?: { writeText?: (value: string) => Promise<void> };
+            };
+          };
+          if (maybeNavigator.navigator?.clipboard?.writeText) {
+            await maybeNavigator.navigator.clipboard.writeText(link.url);
+          } else {
+            await Share.share({ message: link.url });
+          }
+          Alert.alert('', 'קישור ההזמנה לעסק הוכן לשיתוף');
+        }
+      } catch {
+        Alert.alert('שגיאה', 'לא הצלחנו ליצור קישור הפניה עסקי כרגע.');
+      } finally {
+        setIsB2bShareLoading(false);
+      }
+    },
+    [activeBusinessId, createBusinessReferralLink, isB2bShareLoading]
   );
 
   useEffect(() => {
@@ -420,6 +475,72 @@ export default function BusinessSettingsSubscriptionScreen() {
           </View>
         ) : null}
 
+        <View style={styles.b2bReferralCard}>
+          <Text style={styles.b2bReferralTitle}>הפניית עסקים (B2B)</Text>
+          <Text style={styles.b2bReferralSubtitle}>
+            זיכויי חודשים מחושבים בנפרד מ-RevenueCat ומנוהלים דרך Entitlements.
+          </Text>
+          <View style={styles.b2bReferralStatsRow}>
+            <View style={styles.b2bReferralStat}>
+              <Text style={styles.b2bReferralStatValue}>
+                {referralCreditSummary?.creditedMonths ?? 0}
+              </Text>
+              <Text style={styles.b2bReferralStatLabel}>חודשים שזוכו</Text>
+            </View>
+            <View style={styles.b2bReferralStat}>
+              <Text style={styles.b2bReferralStatValue}>
+                {referralCreditSummary?.pendingMonths ?? 0}
+              </Text>
+              <Text style={styles.b2bReferralStatLabel}>ממתינים ל-30 יום</Text>
+            </View>
+            <View style={styles.b2bReferralStat}>
+              <Text style={styles.b2bReferralStatValue}>
+                {referralCreditSummary?.remainingCapMonths ?? 24}
+              </Text>
+              <Text style={styles.b2bReferralStatLabel}>יתרה עד תקרה</Text>
+            </View>
+          </View>
+          <View style={styles.b2bReferralActionsRow}>
+            <Pressable
+              onPress={() => void handleShareBusinessReferral('whatsapp')}
+              disabled={isB2bShareLoading}
+              style={({ pressed }) => [
+                styles.b2bPrimaryButton,
+                pressed ? styles.b2bPrimaryButtonPressed : null,
+                isB2bShareLoading ? styles.b2bButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.b2bPrimaryButtonText}>
+                {isB2bShareLoading ? 'טוען...' : 'שיתוף ב-WhatsApp'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void handleShareBusinessReferral('copy')}
+              disabled={isB2bShareLoading}
+              style={({ pressed }) => [
+                styles.b2bSecondaryButton,
+                pressed ? styles.b2bSecondaryButtonPressed : null,
+                isB2bShareLoading ? styles.b2bButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.b2bSecondaryButtonText}>העתקת קישור</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                router.push(
+                  '/(authenticated)/(business)/settings-business-referrals'
+                )
+              }
+              style={({ pressed }) => [
+                styles.b2bSecondaryButton,
+                pressed ? styles.b2bSecondaryButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.b2bSecondaryButtonText}>ניהול הפניות</Text>
+            </Pressable>
+          </View>
+        </View>
+
         <View style={styles.panelWrap}>
           <SubscriptionSalesPanel
             plans={normalizedPlanCatalog}
@@ -554,6 +675,100 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '700',
     textAlign: TEXT_START,
+  },
+  b2bReferralCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DCE6FB',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    gap: 10,
+  },
+  b2bReferralTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1E3A8A',
+    textAlign: TEXT_START,
+  },
+  b2bReferralSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: TEXT_START,
+    lineHeight: 18,
+  },
+  b2bReferralStatsRow: {
+    flexDirection: ROW_DIRECTION,
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  b2bReferralStat: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCE6FB',
+    backgroundColor: '#F8FAFF',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    gap: 2,
+  },
+  b2bReferralStatValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F294B',
+    textAlign: TEXT_END,
+  },
+  b2bReferralStatLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: TEXT_END,
+  },
+  b2bReferralActionsRow: {
+    flexDirection: ROW_DIRECTION,
+    gap: 8,
+  },
+  b2bPrimaryButton: {
+    flex: 1.4,
+    borderRadius: 10,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  b2bPrimaryButtonPressed: {
+    opacity: 0.86,
+  },
+  b2bPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  b2bSecondaryButton: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  b2bSecondaryButtonPressed: {
+    opacity: 0.85,
+  },
+  b2bSecondaryButtonText: {
+    color: '#1E40AF',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  b2bButtonDisabled: {
+    opacity: 0.6,
   },
   panelWrap: {
     marginTop: 2,

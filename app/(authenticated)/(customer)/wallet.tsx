@@ -48,6 +48,11 @@ const TEXT = {
   pendingInviteAction: 'לצפייה ואישור',
 };
 
+const REFERRALS_TITLE =
+  '\u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d7\u05d1\u05e8\u05d9\u05dd';
+const REFERRALS_OPEN =
+  '\u05dc\u05de\u05e1\u05da \u05d4\u05d4\u05d6\u05de\u05e0\u05d5\u05ea';
+
 type WalletBusiness = {
   businessId: string;
   businessName: string;
@@ -96,6 +101,10 @@ export default function WalletScreen() {
 
   const businessesQuery = useQuery(
     api.memberships.byCustomerBusinesses,
+    isAuthenticated ? {} : 'skip'
+  );
+  const referralDashboard = useQuery(
+    api.referrals.getMyReferralDashboard,
     isAuthenticated ? {} : 'skip'
   );
   const businesses = (businessesQuery ?? []) as WalletBusiness[];
@@ -197,6 +206,34 @@ export default function WalletScreen() {
             </View>
           </Pressable>
         </View>
+
+        <Pressable
+          onPress={() => router.push('/(authenticated)/(customer)/referrals')}
+          style={({ pressed }) => [
+            styles.referralCard,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
+          <View style={styles.referralCardStats}>
+            <Text style={styles.referralCardStat}>
+              {'\u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea'}:{' '}
+              {referralDashboard?.pending ?? 0}
+            </Text>
+            <Text style={styles.referralCardStat}>
+              {'\u05d4\u05d5\u05e9\u05dc\u05de\u05d5'}:{' '}
+              {referralDashboard?.completed ?? 0}
+            </Text>
+            <Text style={styles.referralCardStat}>
+              {'\u05ea\u05d2\u05de\u05d5\u05dc\u05d9\u05dd'}:{' '}
+              {referralDashboard?.earned ?? 0}
+            </Text>
+          </View>
+          <View style={styles.referralOpenRow}>
+            <Ionicons name="chevron-back" size={14} color="#5B6475" />
+            <Text style={styles.referralOpenText}>{REFERRALS_OPEN}</Text>
+          </View>
+        </Pressable>
 
         {pendingStaffInvites.length > 0 ? (
           <View style={styles.pendingInviteCard}>
@@ -396,6 +433,44 @@ const styles = StyleSheet.create({
     color: '#1E3A8A',
     fontSize: 14,
     fontWeight: '900',
+  },
+  referralCard: {
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7E8FF',
+    padding: 14,
+    gap: 8,
+  },
+  referralCardTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1E3A8A',
+    textAlign: 'right',
+  },
+  referralCardStats: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  referralCardStat: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'right',
+  },
+  referralOpenRow: {
+    marginTop: 4,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  referralOpenText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5B6475',
+    textAlign: 'right',
   },
   pendingInviteCard: {
     marginTop: 12,

@@ -3,8 +3,11 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   Vibration,
@@ -65,6 +68,13 @@ const TEXT = {
   redeemButtonReady: '\u05d4\u05e6\u05d2 \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
   redeemButtonLocked:
     '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
+  shareInviteButton: '\u05d4\u05d6\u05de\u05df \u05d7\u05d1\u05e8',
+  shareViaWhatsApp: '\u05e9\u05d9\u05ea\u05d5\u05e3 \u05d1-WhatsApp',
+  copyInviteLink: '\u05d4\u05e2\u05ea\u05e7 \u05e7\u05d9\u05e9\u05d5\u05e8',
+  shareInviteError:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4',
+  inviteLinkCopied:
+    '\u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d4\u05d6\u05de\u05e0\u05d4 \u05de\u05d5\u05db\u05df \u05dc\u05e9\u05d9\u05ea\u05d5\u05e3',
   stampSuccessBanner: '✅ קיבלת ניקוב!',
 };
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
@@ -101,10 +111,14 @@ export default function CardDetailsScreen() {
   const createCustomerScanToken = useMutation(
     api.scanner.createCustomerScanToken
   );
+  const getOrCreateCustomerReferralLink = useMutation(
+    api.referrals.getOrCreateCustomerReferralLink
+  );
   const [scanTokenPayload, setScanTokenPayload] = useState<string | null>(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
+  const [isShareInviteLoading, setIsShareInviteLoading] = useState(false);
   const lastCelebratedStampAtRef = useRef(0);
   const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
   const [stampSuccessBannerMessage, setStampSuccessBannerMessage] = useState(
@@ -324,6 +338,67 @@ export default function CardDetailsScreen() {
     return `נוסף ניקוב בכרטיס ${item.programName}`;
   };
 
+  const buildInviteMessage = (url: string) =>
+    `Join me at ${membership.businessName} on StampAix and get a welcome reward after the first stamp.\n${url}`;
+
+  const handleShareInviteViaWhatsApp = async () => {
+    if (isShareInviteLoading) {
+      return;
+    }
+    try {
+      setIsShareInviteLoading(true);
+      const link = await getOrCreateCustomerReferralLink({
+        businessId: membership.businessId as Id<'businesses'>,
+        originProgramId: membership.programId as Id<'loyaltyPrograms'>,
+        membershipId: membership.membershipId as Id<'memberships'>,
+        shareSurface: 'card_screen',
+      });
+      const message = buildInviteMessage(link.url);
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
+      if (canOpenWhatsApp) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Share.share({ message });
+      }
+    } catch {
+      Alert.alert('Error', TEXT.shareInviteError);
+    } finally {
+      setIsShareInviteLoading(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (isShareInviteLoading) {
+      return;
+    }
+    try {
+      setIsShareInviteLoading(true);
+      const link = await getOrCreateCustomerReferralLink({
+        businessId: membership.businessId as Id<'businesses'>,
+        originProgramId: membership.programId as Id<'loyaltyPrograms'>,
+        membershipId: membership.membershipId as Id<'memberships'>,
+        shareSurface: 'card_screen',
+      });
+
+      const maybeNavigator = globalThis as {
+        navigator?: {
+          clipboard?: { writeText?: (value: string) => Promise<void> };
+        };
+      };
+      if (maybeNavigator.navigator?.clipboard?.writeText) {
+        await maybeNavigator.navigator.clipboard.writeText(link.url);
+      } else {
+        await Share.share({ message: link.url });
+      }
+      Alert.alert('', TEXT.inviteLinkCopied);
+    } catch {
+      Alert.alert('Error', TEXT.shareInviteError);
+    } finally {
+      setIsShareInviteLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <AnimatedActionBanner
@@ -454,6 +529,37 @@ export default function CardDetailsScreen() {
                       : TEXT.redeemButtonLocked}
                 </Text>
               </Pressable>
+
+              <View style={styles.inviteRow}>
+                <Pressable
+                  onPress={() => void handleShareInviteViaWhatsApp()}
+                  disabled={isShareInviteLoading}
+                  style={({ pressed }) => [
+                    styles.invitePrimaryButton,
+                    pressed ? styles.inviteButtonPressed : null,
+                    isShareInviteLoading ? styles.inviteButtonDisabled : null,
+                  ]}
+                >
+                  <Text style={styles.invitePrimaryButtonText}>
+                    {isShareInviteLoading
+                      ? TEXT.loading
+                      : TEXT.shareViaWhatsApp}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleCopyInviteLink()}
+                  disabled={isShareInviteLoading}
+                  style={({ pressed }) => [
+                    styles.inviteSecondaryButton,
+                    pressed ? styles.inviteButtonPressed : null,
+                    isShareInviteLoading ? styles.inviteButtonDisabled : null,
+                  ]}
+                >
+                  <Text style={styles.inviteSecondaryButtonText}>
+                    {TEXT.copyInviteLink}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </View>
@@ -649,6 +755,49 @@ const styles = StyleSheet.create({
   },
   redeemButtonTextDisabled: {
     color: '#5F6D86',
+  },
+  inviteRow: {
+    marginTop: 4,
+    flexDirection: 'row-reverse',
+    gap: 8,
+  },
+  invitePrimaryButton: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#EEF4FF',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invitePrimaryButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center',
+  },
+  inviteSecondaryButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D5DEEE',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inviteSecondaryButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  inviteButtonPressed: {
+    opacity: 0.86,
+  },
+  inviteButtonDisabled: {
+    opacity: 0.65,
   },
   cardTitle: {
     fontSize: 16,

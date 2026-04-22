@@ -4,8 +4,11 @@ import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -47,6 +50,15 @@ const TEXT = {
   stamps: 'ניקובים',
   redeemReady: 'מוכנה למימוש',
   openCard: 'פתח כרטיסיה',
+  shareInviteTitle: '\u05d4\u05d6\u05de\u05df \u05d7\u05d1\u05e8\u05d9\u05dd',
+  shareInviteSubtitle:
+    '\u05e9\u05ea\u05e3 \u05d0\u05ea \u05d4\u05e7\u05e9\u05d5\u05e8 \u05d5\u05db\u05e9\u05d4\u05d7\u05d1\u05e8 \u05d9\u05d1\u05e6\u05e2 \u05e0\u05d9\u05e7\u05d5\u05d1 \u05e8\u05d0\u05e9\u05d5\u05df \u05ea\u05e7\u05d1\u05dc\u05d5 \u05de\u05ea\u05e0\u05d4',
+  shareViaWhatsApp: '\u05e9\u05d9\u05ea\u05d5\u05e3 \u05d1-WhatsApp',
+  copyInviteLink: '\u05d4\u05e2\u05ea\u05e7 \u05e7\u05d9\u05e9\u05d5\u05e8',
+  shareInviteError:
+    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4',
+  inviteLinkCopied:
+    '\u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d4\u05d6\u05de\u05e0\u05d4 \u05de\u05d5\u05db\u05df \u05dc\u05e9\u05d9\u05ea\u05d5\u05e3',
 };
 
 const CUSTOMER_SCAN_BANNER_DURATION_MS = 5000;
@@ -114,9 +126,13 @@ export default function CustomerBusinessDetailsScreen() {
   const joinSelectedPrograms = useMutation(
     api.memberships.joinSelectedPrograms
   );
+  const getOrCreateCustomerReferralLink = useMutation(
+    api.referrals.getOrCreateCustomerReferralLink
+  );
 
   const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
   const [isJoining, setIsJoining] = useState(false);
+  const [isShareInviteLoading, setIsShareInviteLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'error' | 'success';
     message: string;
@@ -236,7 +252,72 @@ export default function CustomerBusinessDetailsScreen() {
   }
 
   const business = businessQuery.business;
+  const shareSeedProgram = joinedPrograms[0] ?? availablePrograms[0] ?? null;
   const canSubmitSelection = selectedCount > 0 && !isJoining;
+
+  const buildInviteMessage = (url: string) =>
+    `Join me at ${business.name} on StampAix and get a welcome reward after the first stamp.\n${url}`;
+
+  const handleShareInviteViaWhatsApp = async () => {
+    if (!shareSeedProgram || isShareInviteLoading) {
+      return;
+    }
+    try {
+      setIsShareInviteLoading(true);
+      const link = await getOrCreateCustomerReferralLink({
+        businessId: businessIdParam as Id<'businesses'>,
+        originProgramId: shareSeedProgram.programId as Id<'loyaltyPrograms'>,
+        membershipId: shareSeedProgram.membershipId
+          ? (shareSeedProgram.membershipId as Id<'memberships'>)
+          : undefined,
+        shareSurface: 'business_page',
+      });
+      const message = buildInviteMessage(link.url);
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
+      if (canOpenWhatsApp) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Share.share({ message });
+      }
+    } catch {
+      Alert.alert('Error', TEXT.shareInviteError);
+    } finally {
+      setIsShareInviteLoading(false);
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!shareSeedProgram || isShareInviteLoading) {
+      return;
+    }
+    try {
+      setIsShareInviteLoading(true);
+      const link = await getOrCreateCustomerReferralLink({
+        businessId: businessIdParam as Id<'businesses'>,
+        originProgramId: shareSeedProgram.programId as Id<'loyaltyPrograms'>,
+        membershipId: shareSeedProgram.membershipId
+          ? (shareSeedProgram.membershipId as Id<'memberships'>)
+          : undefined,
+        shareSurface: 'business_page',
+      });
+      const maybeNavigator = globalThis as {
+        navigator?: {
+          clipboard?: { writeText?: (value: string) => Promise<void> };
+        };
+      };
+      if (maybeNavigator.navigator?.clipboard?.writeText) {
+        await maybeNavigator.navigator.clipboard.writeText(link.url);
+      } else {
+        await Share.share({ message: link.url });
+      }
+      Alert.alert('', TEXT.inviteLinkCopied);
+    } catch {
+      Alert.alert('Error', TEXT.shareInviteError);
+    } finally {
+      setIsShareInviteLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -283,6 +364,41 @@ export default function CustomerBusinessDetailsScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{TEXT.joinHintTitle}</Text>
             <Text style={styles.infoSubtitle}>{TEXT.joinHintSubtitle}</Text>
+          </View>
+        ) : null}
+
+        {shareSeedProgram ? (
+          <View style={styles.shareCard}>
+            <Text style={styles.shareTitle}>{TEXT.shareInviteTitle}</Text>
+            <Text style={styles.shareSubtitle}>{TEXT.shareInviteSubtitle}</Text>
+            <View style={styles.shareActions}>
+              <Pressable
+                onPress={() => void handleShareInviteViaWhatsApp()}
+                disabled={isShareInviteLoading}
+                style={({ pressed }) => [
+                  styles.sharePrimaryButton,
+                  pressed ? styles.pressed : null,
+                  isShareInviteLoading ? styles.shareButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.sharePrimaryButtonText}>
+                  {isShareInviteLoading ? TEXT.joining : TEXT.shareViaWhatsApp}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleCopyInviteLink()}
+                disabled={isShareInviteLoading}
+                style={({ pressed }) => [
+                  styles.shareSecondaryButton,
+                  pressed ? styles.pressed : null,
+                  isShareInviteLoading ? styles.shareButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.shareSecondaryButtonText}>
+                  {TEXT.copyInviteLink}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -476,6 +592,66 @@ const styles = StyleSheet.create({
     color: '#5B6475',
     textAlign: 'right',
     lineHeight: 18,
+  },
+  shareCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7E8FF',
+    padding: 14,
+    gap: 8,
+  },
+  shareTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1E3A8A',
+    textAlign: 'right',
+  },
+  shareSubtitle: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'right',
+    lineHeight: 18,
+  },
+  shareActions: {
+    marginTop: 2,
+    flexDirection: 'row-reverse',
+    gap: 8,
+  },
+  sharePrimaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#EEF4FF',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sharePrimaryButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center',
+  },
+  shareSecondaryButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D5DEEE',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareSecondaryButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  shareButtonDisabled: {
+    opacity: 0.65,
   },
   sectionCard: {
     backgroundColor: '#FFFFFF',

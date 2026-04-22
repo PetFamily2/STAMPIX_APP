@@ -101,6 +101,15 @@ type CommitActionResult = {
   eventType: 'STAMP_ADDED' | 'REWARD_REDEEMED';
   eventCreatedAt: number;
   undoAvailableUntil?: number;
+  referralQualification?: {
+    rewardTriggered: boolean;
+    referralId: string | null;
+    rewardIds: string[];
+    reason: string;
+  } | null;
+  referralRewardTriggered?: boolean;
+  qualificationEventId?: string | null;
+  undoBlockedReason?: 'REFERRAL_REWARD_TRIGGERED' | null;
 };
 
 type UndoActionState = {
@@ -123,10 +132,26 @@ type UndoActionResult = {
 };
 
 type ScanResultBanner = {
+  customerUserId?: string;
   customerDisplayName: string;
   statusLabel: string;
   currentStamps: number;
   maxStamps: number;
+  undoBlockedReason?: 'REFERRAL_REWARD_TRIGGERED' | null;
+};
+
+type ReferralBenefitItem = {
+  rewardId: string;
+  businessId: string;
+  customerReferralId: string;
+  recipientUserId: string;
+  recipientRole: 'referrer' | 'referred';
+  benefitTitle: string;
+  benefitDescription: string | null;
+  expiresAt: number | null;
+  createdAt: number;
+  referrerUserId: string | null;
+  referrerName: string | null;
 };
 
 const BUSINESS_SUCCESS_BANNER_DURATION_MS = 30000;
@@ -164,6 +189,11 @@ const KNOWN_SCAN_ERROR_CODES = [
   'PLAN_LIMIT_REACHED',
   'SUBSCRIPTION_INACTIVE',
   'UNDO_BLOCKED_REFERRAL_REWARD',
+  'REFERRAL_REWARD_NOT_FOUND',
+  'INVALID_REWARD_TYPE',
+  'REWARD_NOT_AVAILABLE',
+  'REWARD_EXPIRED',
+  'REFERRAL_NOT_FOUND',
 ] as const;
 
 const NON_RETRYABLE_COMMIT_CODES = new Set([
@@ -187,6 +217,11 @@ const NON_RETRYABLE_COMMIT_CODES = new Set([
   'PLAN_LIMIT_REACHED',
   'SUBSCRIPTION_INACTIVE',
   'UNDO_BLOCKED_REFERRAL_REWARD',
+  'REFERRAL_REWARD_NOT_FOUND',
+  'INVALID_REWARD_TYPE',
+  'REWARD_NOT_AVAILABLE',
+  'REWARD_EXPIRED',
+  'REFERRAL_NOT_FOUND',
 ]);
 
 const getUndoPresentation = (actionMode: CommitActionMode) =>
@@ -225,6 +260,17 @@ const formatUndoCountdownLabel = (remainingMs: number) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
+const formatBenefitExpiryLabel = (expiresAt: number | null) => {
+  if (!expiresAt) {
+    return 'ללא תוקף';
+  }
+  return new Date(expiresAt).toLocaleDateString('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
 const resolveScanErrorCode = (error: unknown): string => {
   if (!(error instanceof Error)) {
     return 'UNKNOWN';
@@ -236,6 +282,21 @@ const resolveScanErrorCode = (error: unknown): string => {
 
 const mapScanError = (error: unknown): { message: string; code: string } => {
   const code = resolveScanErrorCode(error);
+  if (code === 'REFERRAL_REWARD_NOT_FOUND') {
+    return { message: 'הטבת ההפניה לא זמינה יותר.', code };
+  }
+  if (code === 'INVALID_REWARD_TYPE') {
+    return { message: 'אפשר לממש כאן רק הטבת BENEFIT.', code };
+  }
+  if (code === 'REWARD_NOT_AVAILABLE') {
+    return { message: 'ההטבה כבר לא זמינה למימוש.', code };
+  }
+  if (code === 'REWARD_EXPIRED') {
+    return { message: 'תוקף ההטבה פג ולא ניתן לממש אותה.', code };
+  }
+  if (code === 'REFERRAL_NOT_FOUND') {
+    return { message: 'פרטי ההפניה לא נמצאו.', code };
+  }
   switch (code) {
     case 'INVALID_QR':
       return { message: 'קוד QR לא תקין.', code };
@@ -391,6 +452,9 @@ export default function ScannerScreen() {
   const commitStamp = useMutation(api.scanner.commitStamp);
   const commitRedeem = useMutation(api.scanner.commitRedeem);
   const undoLastScannerAction = useMutation(api.scanner.undoLastScannerAction);
+  const redeemReferralBenefit = useMutation(
+    api.referrals.redeemReferralBenefit
+  );
   const [isResolving, setIsResolving] = useState(false);
   const [isStamping, setIsStamping] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
@@ -410,6 +474,27 @@ export default function ScannerScreen() {
   const [successBannerMessage, setSuccessBannerMessage] = useState(
     BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
   );
+  const [lastScannedCustomer, setLastScannedCustomer] = useState<{
+    userId: string;
+    displayName: string;
+  } | null>(null);
+  const [isRedeemingBenefitId, setIsRedeemingBenefitId] = useState<
+    string | null
+  >(null);
+  const [benefitActionMessage, setBenefitActionMessage] = useState<
+    string | null
+  >(null);
+  const referralBenefits =
+    (useQuery(
+      api.referrals.listCustomerAvailableReferralBenefits,
+      selectedBusiness?.businessId && lastScannedCustomer?.userId
+        ? {
+            businessId: selectedBusiness.businessId as Id<'businesses'>,
+            customerUserId: lastScannedCustomer.userId as Id<'users'>,
+            limit: 12,
+          }
+        : 'skip'
+    ) as ReferralBenefitItem[] | undefined) ?? [];
 
   const storageKey = activeBusinessId
     ? `scanner:lastProgram:${String(activeBusinessId)}`
@@ -589,6 +674,9 @@ export default function ScannerScreen() {
     setPendingRedeemSession(null);
     setRetrySession(null);
     setUndoState(null);
+    setLastScannedCustomer(null);
+    setBenefitActionMessage(null);
+    setIsRedeemingBenefitId(null);
   }, []);
 
   const queueScannerReset = useCallback((delayMs = 30000) => {
@@ -695,6 +783,9 @@ export default function ScannerScreen() {
       isFirstStampForCustomer: boolean;
     }) => {
       const isRedeem = params.actionMode === 'redeem';
+      const undoBlockedByReferral =
+        params.result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ||
+        params.result.referralRewardTriggered === true;
       const now = Date.now();
       const undoAvailableUntil =
         typeof params.result.undoAvailableUntil === 'number' &&
@@ -705,18 +796,28 @@ export default function ScannerScreen() {
       setPendingRedeemSession(null);
       setRetrySession(null);
       setUndoNow(now);
-      setUndoState({
-        eventId: params.result.eventId,
-        availableUntil: undoAvailableUntil,
-        customerDisplayName: params.session.customerDisplayName,
-        actionMode: params.actionMode,
+      if (undoBlockedByReferral) {
+        setUndoState(null);
+      } else {
+        setUndoState({
+          eventId: params.result.eventId,
+          availableUntil: undoAvailableUntil,
+          customerDisplayName: params.session.customerDisplayName,
+          actionMode: params.actionMode,
+        });
+      }
+      setLastScannedCustomer({
+        userId: params.session.customerUserId,
+        displayName: params.session.customerDisplayName,
       });
+      setBenefitActionMessage(null);
       setSuccessBannerMessage(
         isRedeem
           ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
           : BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
       );
       setResultBanner({
+        customerUserId: params.session.customerUserId,
         customerDisplayName: params.session.customerDisplayName,
         statusLabel: isRedeem
           ? 'הטבה מומשה בהצלחה'
@@ -725,6 +826,9 @@ export default function ScannerScreen() {
             : 'בתהליך צבירת ניקובים',
         currentStamps: params.result.currentStamps,
         maxStamps: params.result.maxStamps,
+        undoBlockedReason: undoBlockedByReferral
+          ? 'REFERRAL_REWARD_TRIGGERED'
+          : null,
       });
       Vibration.vibrate(120);
       setBusinessSuccessBannerKey((current) => current + 1);
@@ -918,6 +1022,8 @@ export default function ScannerScreen() {
       setPendingRedeemSession(null);
       setRetrySession(null);
       setUndoState(null);
+      setLastScannedCustomer(null);
+      setBenefitActionMessage(null);
 
       let shouldQueueReset = true;
       try {
@@ -937,6 +1043,10 @@ export default function ScannerScreen() {
           customerDisplayName: resolvedScan.customerDisplayName,
           membership: resolvedScan.membership,
         };
+        setLastScannedCustomer({
+          userId: resolvedScan.customerUserId,
+          displayName: resolvedScan.customerDisplayName,
+        });
 
         if (resolvedScan.resolution === 'REDEEM_AVAILABLE') {
           setPendingRedeemSession(resolvedSession);
@@ -992,6 +1102,54 @@ export default function ScannerScreen() {
       queueScannerReset();
     }
   }, [commitFromSession, isBusy, pendingRedeemSession, queueScannerReset]);
+
+  const handleRedeemReferralBenefit = useCallback(
+    async (rewardId: string) => {
+      if (
+        isBusy ||
+        isRedeemingBenefitId !== null ||
+        !selectedBusiness?.businessId ||
+        !scannerDeviceId
+      ) {
+        return;
+      }
+
+      setIsRedeemingBenefitId(rewardId);
+      setScanError(null);
+      setBenefitActionMessage(null);
+      try {
+        await redeemReferralBenefit({
+          businessId: selectedBusiness.businessId as Id<'businesses'>,
+          rewardId: rewardId as Id<'referralRewards'>,
+          scannerRuntimeSessionId,
+          deviceId: scannerDeviceId,
+        });
+        setBenefitActionMessage('הטבת ההפניה מומשה בהצלחה.');
+        setSuccessBannerMessage(BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM);
+        setBusinessSuccessBannerKey((current) => current + 1);
+        setResultBanner((current) =>
+          current
+            ? { ...current, statusLabel: 'הטבת הפניה מומשה בהצלחה' }
+            : current
+        );
+        queueScannerReset(20_000);
+      } catch (error) {
+        const mapped = mapScanError(error);
+        setScanError(`מימוש הטבת הפניה נכשל: ${mapped.message}`);
+      } finally {
+        setIsRedeemingBenefitId(null);
+      }
+    },
+    [
+      isBusy,
+      isRedeemingBenefitId,
+      queueScannerReset,
+      redeemReferralBenefit,
+      scannerDeviceId,
+      scannerRuntimeSessionId,
+      selectedBusiness?.businessId,
+    ]
+  );
 
   const handleRetryCommit = useCallback(async () => {
     if (!retrySession || isBusy) {
@@ -1451,6 +1609,14 @@ export default function ScannerScreen() {
                   {resultBanner.currentStamps}/{resultBanner.maxStamps}
                 </Text>
               </View>
+              {resultBanner.undoBlockedReason ===
+              'REFERRAL_REWARD_TRIGGERED' ? (
+                <View style={styles.undoBlockedBadge}>
+                  <Text style={styles.undoBlockedBadgeText}>
+                    לא ניתן לבטל את הניקוב כי הוא כבר הפעיל תגמול הפניה.
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {undoActionActive && undoPresentation ? (
               <View style={styles.undoSideBox}>
@@ -1479,6 +1645,67 @@ export default function ScannerScreen() {
                 </Pressable>
               </View>
             ) : null}
+          </View>
+        ) : null}
+
+        {lastScannedCustomer ? (
+          <View style={styles.referralBenefitsCard}>
+            <View style={styles.referralBenefitsHeader}>
+              <Text style={styles.referralBenefitsTitle}>
+                הטבות הפניה למימוש
+              </Text>
+              <Text style={styles.referralBenefitsSubtitle}>
+                {lastScannedCustomer.displayName}
+              </Text>
+            </View>
+            {benefitActionMessage ? (
+              <Text style={styles.referralBenefitsSuccess}>
+                {benefitActionMessage}
+              </Text>
+            ) : null}
+            {referralBenefits.length === 0 ? (
+              <Text style={styles.referralBenefitsEmpty}>
+                אין כרגע הטבות הפניה פעילות ללקוח הזה.
+              </Text>
+            ) : (
+              referralBenefits.map((benefit) => {
+                const isRedeeming = isRedeemingBenefitId === benefit.rewardId;
+                return (
+                  <View
+                    key={benefit.rewardId}
+                    style={styles.referralBenefitRow}
+                  >
+                    <View style={styles.referralBenefitTextWrap}>
+                      <Text style={styles.referralBenefitName}>
+                        {benefit.benefitTitle}
+                      </Text>
+                      <Text style={styles.referralBenefitMeta}>
+                        תוקף: {formatBenefitExpiryLabel(benefit.expiresAt)}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        void handleRedeemReferralBenefit(benefit.rewardId)
+                      }
+                      disabled={isBusy || isRedeemingBenefitId !== null}
+                      style={({ pressed }) => [
+                        styles.referralBenefitRedeemButton,
+                        pressed
+                          ? styles.referralBenefitRedeemButtonPressed
+                          : null,
+                        isBusy || isRedeemingBenefitId !== null
+                          ? styles.referralBenefitRedeemButtonDisabled
+                          : null,
+                      ]}
+                    >
+                      <Text style={styles.referralBenefitRedeemButtonLabel}>
+                        {isRedeeming ? 'מממש...' : 'ממש'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
           </View>
         ) : null}
       </ScrollView>
@@ -1863,6 +2090,112 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0B1220',
     textAlign: 'right',
+  },
+  undoBlockedBadge: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  undoBlockedBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B91C1C',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DCE6FB',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 10,
+  },
+  referralBenefitsHeader: {
+    gap: 2,
+    alignItems: 'flex-end',
+  },
+  referralBenefitsTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#132849',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitsSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitsSuccess: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitsEmpty: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  referralBenefitTextWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  referralBenefitName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralBenefitRedeemButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#16A34A',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralBenefitRedeemButtonPressed: {
+    opacity: 0.85,
+  },
+  referralBenefitRedeemButtonDisabled: {
+    opacity: 0.55,
+  },
+  referralBenefitRedeemButtonLabel: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#166534',
   },
   undoCompactAction: {
     marginTop: 2,
