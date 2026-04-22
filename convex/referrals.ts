@@ -1817,12 +1817,64 @@ export const getBusinessReferralPerformance = query({
       (row: any) => Number(row.createdAt) >= startAt
     );
 
+    const referrerCounts = new Map<string, number>();
+    const originProgramCounts = new Map<string, number>();
+    for (const row of scopedReferrals as any[]) {
+      const referrerId = String(row.referrerUserId ?? '');
+      if (referrerId) {
+        referrerCounts.set(
+          referrerId,
+          Number(referrerCounts.get(referrerId) ?? 0) + 1
+        );
+      }
+      const originProgramId = String(row.originProgramId ?? '');
+      if (originProgramId) {
+        originProgramCounts.set(
+          originProgramId,
+          Number(originProgramCounts.get(originProgramId) ?? 0) + 1
+        );
+      }
+    }
+
+    const topReferrerEntries = Array.from(referrerCounts.entries())
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5);
+    const topOriginProgramEntries = Array.from(originProgramCounts.entries())
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5);
+
+    const topReferrers = await Promise.all(
+      topReferrerEntries.map(async ([referrerUserId, count]) => {
+        const user = await getUserDoc(ctx, referrerUserId as Id<'users'>);
+        return {
+          referrerUserId,
+          count,
+          referrerName: user?.fullName ?? user?.email ?? null,
+        };
+      })
+    );
+    const topOriginPrograms = await Promise.all(
+      topOriginProgramEntries.map(async ([originProgramId, count]) => {
+        const program = await ctx.db.get(
+          originProgramId as Id<'loyaltyPrograms'>
+        );
+        return {
+          originProgramId,
+          count,
+          programTitle: program?.title ?? null,
+        };
+      })
+    );
+
     return {
       range: range ?? '30d',
       referralsGenerated: scopedLinks.length,
       referralsJoined: scopedReferrals.length,
       referralsQualified: scopedReferrals.filter(
         (row: any) => row.qualifiedAt != null
+      ).length,
+      referralsCompleted: scopedReferrals.filter(
+        (row: any) => row.status === 'completed'
       ).length,
       rewardsIssued: scopedRewards.filter(
         (row: any) => row.status === 'granted'
@@ -1836,6 +1888,8 @@ export const getBusinessReferralPerformance = query({
           row.status === 'granted' &&
           (!row.expiresAt || Number(row.expiresAt) > Date.now())
       ).length,
+      topReferrers,
+      topOriginPrograms,
     };
   },
 });

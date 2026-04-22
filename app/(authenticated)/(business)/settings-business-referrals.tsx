@@ -1,6 +1,6 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,15 +30,30 @@ type RewardType = 'STAMP' | 'BENEFIT';
 type RewardRecipients = 'referrer' | 'referred' | 'both';
 type MonthlyLimit = 'unlimited' | 5 | 10 | 20 | 50;
 type BenefitExpiration = 14 | 30 | 60 | 90;
+type ReferralTab = 'settings' | 'customers' | 'rewards' | 'performance';
 
 const MONTHLY_LIMIT_OPTIONS: MonthlyLimit[] = ['unlimited', 5, 10, 20, 50];
 const BENEFIT_EXPIRATION_OPTIONS: BenefitExpiration[] = [14, 30, 60, 90];
 
+function normalizeTab(value: string | undefined): ReferralTab {
+  if (
+    value === 'settings' ||
+    value === 'customers' ||
+    value === 'rewards' ||
+    value === 'performance'
+  ) {
+    return value;
+  }
+  return 'settings';
+}
+
 export default function BusinessReferralSettingsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+
   const capabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -54,11 +69,7 @@ export default function BusinessReferralSettingsScreen() {
 
   const configQuery = useQuery(
     api.referrals.getReferralConfig,
-    activeBusinessId && canViewSettings ? { businessId: activeBusinessId } : 'skip'
-  );
-  const dashboardQuery = useQuery(
-    api.referrals.getBusinessReferralDashboard,
-    activeBusinessId && canViewDashboard
+    activeBusinessId && canViewSettings
       ? { businessId: activeBusinessId }
       : 'skip'
   );
@@ -71,13 +82,13 @@ export default function BusinessReferralSettingsScreen() {
   const customersQuery = useQuery(
     api.referrals.listBusinessReferralCustomers,
     activeBusinessId && canViewCustomers
-      ? { businessId: activeBusinessId, limit: 40 }
+      ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const rewardsQuery = useQuery(
     api.referrals.listBusinessReferralRewards,
     activeBusinessId && canViewCustomers
-      ? { businessId: activeBusinessId, limit: 40 }
+      ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const b2bSummary = useQuery(
@@ -92,6 +103,9 @@ export default function BusinessReferralSettingsScreen() {
     api.referrals.getOrCreateBusinessReferralLink
   );
 
+  const [activeTab, setActiveTab] = useState<ReferralTab>(
+    normalizeTab(params.tab)
+  );
   const [isEnabled, setIsEnabled] = useState(true);
   const [rewardType, setRewardType] = useState<RewardType>('STAMP');
   const [rewardValueText, setRewardValueText] = useState('1');
@@ -104,6 +118,10 @@ export default function BusinessReferralSettingsScreen() {
   const [monthlyLimit, setMonthlyLimit] = useState<MonthlyLimit>(10);
   const [isSaving, setIsSaving] = useState(false);
   const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(normalizeTab(params.tab));
+  }, [params.tab]);
 
   useEffect(() => {
     if (!configQuery) {
@@ -144,6 +162,18 @@ export default function BusinessReferralSettingsScreen() {
     return parsed;
   }, [rewardValueText]);
 
+  const isPerformanceEmpty =
+    performanceQuery != null &&
+    performanceQuery.referralsGenerated === 0 &&
+    performanceQuery.referralsJoined === 0 &&
+    performanceQuery.referralsQualified === 0 &&
+    performanceQuery.referralsCompleted === 0 &&
+    performanceQuery.rewardsIssued === 0 &&
+    performanceQuery.rewardsRedeemed === 0 &&
+    performanceQuery.activeBenefits === 0 &&
+    (performanceQuery.topReferrers?.length ?? 0) === 0 &&
+    (performanceQuery.topOriginPrograms?.length ?? 0) === 0;
+
   const handleSaveConfig = async () => {
     if (!activeBusinessId || !canEditConfig || isSaving) {
       return;
@@ -162,9 +192,9 @@ export default function BusinessReferralSettingsScreen() {
         rewardRecipients,
         monthlyLimit,
       });
-      Alert.alert('', 'הגדרות ההזמנות נשמרו');
+      Alert.alert('', 'Referral settings saved');
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לשמור את הגדרות ההזמנות');
+      Alert.alert('Error', 'Failed to save referral settings');
     } finally {
       setIsSaving(false);
     }
@@ -200,10 +230,10 @@ export default function BusinessReferralSettingsScreen() {
         } else {
           await Share.share({ message: link.url });
         }
-        Alert.alert('', 'קישור ההזמנה מוכן לשיתוף');
+        Alert.alert('', 'Business referral link is ready to share');
       }
     } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו ליצור קישור הזמנה לעסק');
+      Alert.alert('Error', 'Failed to create business referral link');
     } finally {
       setIsB2bShareLoading(false);
     }
@@ -230,220 +260,226 @@ export default function BusinessReferralSettingsScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="הגדרות הזמנות"
-            subtitle="קונפיגורציה, ביצועים והטבות הפניה"
+            title="Referral Settings"
+            subtitle="Configuration, operations, and performance"
             titleAccessory={<BackButton onPress={() => router.back()} />}
           />
         </StickyScrollHeader>
 
-        {configQuery === undefined ? (
-          <View style={styles.card}>
-            <ActivityIndicator color="#2F6BFF" />
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>קונפיגורציית הזמנות לקוחות</Text>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>הפניות פעילות</Text>
-              <Pressable
-                onPress={() => canEditConfig && setIsEnabled((value) => !value)}
-                disabled={!canEditConfig}
+        <View style={styles.tabRow}>
+          {(
+            ['settings', 'customers', 'rewards', 'performance'] as ReferralTab[]
+          ).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={[
+                styles.tabButton,
+                activeTab === tab ? styles.tabButtonActive : null,
+              ]}
+            >
+              <Text
                 style={[
-                  styles.toggle,
-                  isEnabled ? styles.toggleOn : styles.toggleOff,
+                  styles.tabButtonText,
+                  activeTab === tab ? styles.tabButtonTextActive : null,
                 ]}
               >
-                <Text style={styles.toggleText}>
-                  {isEnabled ? 'פעיל' : 'כבוי'}
+                {tab}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {activeTab === 'settings' ? (
+          configQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Customer Referral Config</Text>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Referrals Enabled</Text>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setIsEnabled((value) => !value)
+                  }
+                  disabled={!canEditConfig}
+                  style={[
+                    styles.toggle,
+                    isEnabled ? styles.toggleOn : styles.toggleOff,
+                  ]}
+                >
+                  <Text style={styles.toggleText}>
+                    {isEnabled ? 'ON' : 'OFF'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Reward Type</Text>
+              <View style={styles.segmentRow}>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardType('STAMP')}
+                  style={[
+                    styles.segmentButton,
+                    rewardType === 'STAMP' ? styles.segmentButtonActive : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>STAMP</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardType('BENEFIT')}
+                  style={[
+                    styles.segmentButton,
+                    rewardType === 'BENEFIT'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>BENEFIT</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Reward Value</Text>
+              <TextInput
+                value={rewardValueText}
+                onChangeText={setRewardValueText}
+                keyboardType="number-pad"
+                editable={canEditConfig}
+                style={styles.input}
+              />
+
+              {rewardType === 'BENEFIT' ? (
+                <>
+                  <Text style={styles.label}>Benefit Title</Text>
+                  <TextInput
+                    value={benefitTitle}
+                    onChangeText={setBenefitTitle}
+                    editable={canEditConfig}
+                    style={styles.input}
+                  />
+
+                  <Text style={styles.label}>Benefit Description</Text>
+                  <TextInput
+                    value={benefitDescription}
+                    onChangeText={setBenefitDescription}
+                    editable={canEditConfig}
+                    multiline={true}
+                    style={[styles.input, styles.multilineInput]}
+                  />
+
+                  <Text style={styles.label}>Benefit Expiration Days</Text>
+                  <View style={styles.segmentRow}>
+                    {BENEFIT_EXPIRATION_OPTIONS.map((value) => (
+                      <Pressable
+                        key={String(value)}
+                        onPress={() =>
+                          canEditConfig && setBenefitExpirationDays(value)
+                        }
+                        style={[
+                          styles.segmentButtonCompact,
+                          benefitExpirationDays === value
+                            ? styles.segmentButtonActive
+                            : null,
+                        ]}
+                      >
+                        <Text style={styles.segmentText}>{value}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              <Text style={styles.label}>Reward Recipients</Text>
+              <View style={styles.segmentRow}>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setRewardRecipients('referrer')
+                  }
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'referrer'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>referrer</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setRewardRecipients('referred')
+                  }
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'referred'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>referred</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardRecipients('both')}
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'both'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>both</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Monthly Referrer Limit</Text>
+              <View style={styles.segmentRow}>
+                {MONTHLY_LIMIT_OPTIONS.map((limit) => (
+                  <Pressable
+                    key={String(limit)}
+                    onPress={() => canEditConfig && setMonthlyLimit(limit)}
+                    style={[
+                      styles.segmentButtonCompact,
+                      monthlyLimit === limit
+                        ? styles.segmentButtonActive
+                        : null,
+                    ]}
+                  >
+                    <Text style={styles.segmentText}>
+                      {limit === 'unlimited' ? '∞' : String(limit)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Pressable
+                onPress={() => void handleSaveConfig()}
+                disabled={!canEditConfig || isSaving}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed ? styles.pressed : null,
+                  !canEditConfig || isSaving ? styles.buttonDisabled : null,
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isSaving ? 'Saving...' : 'Save Settings'}
                 </Text>
               </Pressable>
             </View>
-
-            <Text style={styles.label}>סוג תגמול</Text>
-            <View style={styles.segmentRow}>
-              <Pressable
-                onPress={() => canEditConfig && setRewardType('STAMP')}
-                style={[
-                  styles.segmentButton,
-                  rewardType === 'STAMP' ? styles.segmentButtonActive : null,
-                ]}
-              >
-                <Text style={styles.segmentText}>STAMP</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => canEditConfig && setRewardType('BENEFIT')}
-                style={[
-                  styles.segmentButton,
-                  rewardType === 'BENEFIT' ? styles.segmentButtonActive : null,
-                ]}
-              >
-                <Text style={styles.segmentText}>BENEFIT</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.label}>כמות תגמול</Text>
-            <TextInput
-              value={rewardValueText}
-              onChangeText={setRewardValueText}
-              keyboardType="number-pad"
-              editable={canEditConfig}
-              style={styles.input}
-            />
-
-            {rewardType === 'BENEFIT' ? (
-              <>
-                <Text style={styles.label}>כותרת הטבה</Text>
-                <TextInput
-                  value={benefitTitle}
-                  onChangeText={setBenefitTitle}
-                  editable={canEditConfig}
-                  style={styles.input}
-                />
-
-                <Text style={styles.label}>תיאור הטבה</Text>
-                <TextInput
-                  value={benefitDescription}
-                  onChangeText={setBenefitDescription}
-                  editable={canEditConfig}
-                  multiline={true}
-                  style={[styles.input, styles.multilineInput]}
-                />
-
-                <Text style={styles.label}>תוקף הטבה (ימים)</Text>
-                <View style={styles.segmentRow}>
-                  {BENEFIT_EXPIRATION_OPTIONS.map((value) => (
-                    <Pressable
-                      key={String(value)}
-                      onPress={() =>
-                        canEditConfig && setBenefitExpirationDays(value)
-                      }
-                      style={[
-                        styles.segmentButtonCompact,
-                        benefitExpirationDays === value
-                          ? styles.segmentButtonActive
-                          : null,
-                      ]}
-                    >
-                      <Text style={styles.segmentText}>{value}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            ) : null}
-
-            <Text style={styles.label}>מקבלי תגמול</Text>
-            <View style={styles.segmentRow}>
-              <Pressable
-                onPress={() => canEditConfig && setRewardRecipients('referrer')}
-                style={[
-                  styles.segmentButtonCompact,
-                  rewardRecipients === 'referrer'
-                    ? styles.segmentButtonActive
-                    : null,
-                ]}
-              >
-                <Text style={styles.segmentText}>מזמין</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => canEditConfig && setRewardRecipients('referred')}
-                style={[
-                  styles.segmentButtonCompact,
-                  rewardRecipients === 'referred'
-                    ? styles.segmentButtonActive
-                    : null,
-                ]}
-              >
-                <Text style={styles.segmentText}>מוזמן</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => canEditConfig && setRewardRecipients('both')}
-                style={[
-                  styles.segmentButtonCompact,
-                  rewardRecipients === 'both'
-                    ? styles.segmentButtonActive
-                    : null,
-                ]}
-              >
-                <Text style={styles.segmentText}>שניהם</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.label}>מגבלה חודשית למזמין</Text>
-            <View style={styles.segmentRow}>
-              {MONTHLY_LIMIT_OPTIONS.map((limit) => (
-                <Pressable
-                  key={String(limit)}
-                  onPress={() => canEditConfig && setMonthlyLimit(limit)}
-                  style={[
-                    styles.segmentButtonCompact,
-                    monthlyLimit === limit ? styles.segmentButtonActive : null,
-                  ]}
-                >
-                  <Text style={styles.segmentText}>
-                    {limit === 'unlimited' ? '∞' : String(limit)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Pressable
-              onPress={() => void handleSaveConfig()}
-              disabled={!canEditConfig || isSaving}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed ? styles.pressed : null,
-                !canEditConfig || isSaving ? styles.buttonDisabled : null,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isSaving ? 'שומר...' : 'שמירת הגדרות'}
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {dashboardQuery ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>מדדי הפניות (30 ימים)</Text>
-            <Text style={styles.metricLine}>
-              נוצרו: {dashboardQuery.referralsGenerated}
-            </Text>
-            <Text style={styles.metricLine}>
-              הושלמו: {dashboardQuery.referralsCompleted}
-            </Text>
-            <Text style={styles.metricLine}>
-              תגמולים הוענקו: {dashboardQuery.rewardsGranted}
-            </Text>
-            <Text style={styles.metricLine}>
-              תגמולים מומשו: {dashboardQuery.rewardsRedeemed}
-            </Text>
-            <Text style={styles.metricLine}>
-              הטבות פעילות להמתנה: {dashboardQuery.activeBenefits}
-            </Text>
-            <Text style={styles.metricLine}>
-              חודשי זיכוי B2B: {dashboardQuery.b2bFreeMonthsEarned}
-            </Text>
-            {performanceQuery ? (
-              <Text style={styles.metricHint}>
-                הצטרפו דרך לינק: {performanceQuery.referralsJoined} · Qualified:{' '}
-                {performanceQuery.referralsQualified}
-              </Text>
-            ) : null}
-          </View>
+          )
         ) : null}
 
-        {canViewBilling ? (
+        {activeTab === 'settings' && canViewBilling ? (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Business Referral (B2B)</Text>
             <Text style={styles.metricLine}>
-              חודשי זיכוי שנצברו: {b2bSummary?.creditedMonths ?? 0}
+              Credited Months: {b2bSummary?.creditedMonths ?? 0}
             </Text>
             <Text style={styles.metricLine}>
-              חודשי זיכוי בהמתנה: {b2bSummary?.pendingMonths ?? 0}
+              Pending Months: {b2bSummary?.pendingMonths ?? 0}
             </Text>
             <Text style={styles.metricLine}>
-              יתרה עד תקרה: {b2bSummary?.remainingCapMonths ?? 24}
+              Remaining Cap Months: {b2bSummary?.remainingCapMonths ?? 24}
             </Text>
             <View style={styles.actionsRow}>
               <Pressable
@@ -457,7 +493,7 @@ export default function BusinessReferralSettingsScreen() {
                 ]}
               >
                 <Text style={styles.primaryButtonText}>
-                  {isB2bShareLoading ? 'טוען...' : 'שיתוף ב-WhatsApp'}
+                  {isB2bShareLoading ? 'Loading...' : 'Share WhatsApp'}
                 </Text>
               </Pressable>
               <Pressable
@@ -470,51 +506,166 @@ export default function BusinessReferralSettingsScreen() {
                   isB2bShareLoading ? styles.buttonDisabled : null,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>העתקת קישור</Text>
+                <Text style={styles.secondaryButtonText}>Copy Link</Text>
               </Pressable>
             </View>
           </View>
         ) : null}
 
-        {canViewCustomers ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>לקוחות שהצטרפו דרך הפניה</Text>
-            {(customersQuery ?? []).length === 0 ? (
-              <Text style={styles.emptyText}>אין נתוני הפניות עדיין</Text>
-            ) : (
-              (customersQuery ?? []).slice(0, 8).map((row) => (
-                <View key={String(row.referralId)} style={styles.listRow}>
-                  <Text style={styles.listPrimary}>
-                    {row.referredName ?? row.referredUserId}
-                  </Text>
-                  <Text style={styles.listSecondary}>
-                    מזמין: {row.referrerName ?? row.referrerUserId} ·{' '}
-                    {row.status}
-                  </Text>
-                </View>
-              ))
-            )}
-          </View>
+        {activeTab === 'customers' ? (
+          !canViewCustomers ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>
+                No permission to view customers.
+              </Text>
+            </View>
+          ) : customersQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Referred Customers</Text>
+              {customersQuery.length === 0 ? (
+                <Text style={styles.emptyText}>No referred customers yet.</Text>
+              ) : (
+                customersQuery.map((row) => (
+                  <View key={String(row.referralId)} style={styles.listRow}>
+                    <Text style={styles.listPrimary}>
+                      {row.referredName ?? row.referredUserId}
+                    </Text>
+                    <Text style={styles.listSecondary}>
+                      referrer: {row.referrerName ?? row.referrerUserId} ·{' '}
+                      {row.status}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )
         ) : null}
 
-        {canViewCustomers ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>תגמולים שהונפקו</Text>
-            {(rewardsQuery ?? []).length === 0 ? (
-              <Text style={styles.emptyText}>אין תגמולים להצגה</Text>
-            ) : (
-              (rewardsQuery ?? []).slice(0, 8).map((row) => (
-                <View key={String(row.rewardId)} style={styles.listRow}>
-                  <Text style={styles.listPrimary}>
-                    {row.recipientName ?? row.recipientUserId}
+        {activeTab === 'rewards' ? (
+          !canViewCustomers ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>
+                No permission to view rewards.
+              </Text>
+            </View>
+          ) : rewardsQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Issued Referral Rewards</Text>
+              {rewardsQuery.length === 0 ? (
+                <Text style={styles.emptyText}>No rewards to show.</Text>
+              ) : (
+                rewardsQuery.map((row) => (
+                  <View key={String(row.rewardId)} style={styles.listRow}>
+                    <Text style={styles.listPrimary}>
+                      {row.recipientName ?? row.recipientUserId}
+                    </Text>
+                    <Text style={styles.listSecondary}>
+                      {row.actualRewardType} · {row.status}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )
+        ) : null}
+
+        {activeTab === 'performance' ? (
+          !canViewDashboard ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>
+                No permission to view performance.
+              </Text>
+            </View>
+          ) : performanceQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+              <Text style={styles.emptyText}>Loading performance...</Text>
+            </View>
+          ) : isPerformanceEmpty ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Performance</Text>
+              <Text style={styles.emptyText}>
+                No referral performance data yet.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Performance</Text>
+              <Text style={styles.metricLine}>
+                referrals generated: {performanceQuery.referralsGenerated}
+              </Text>
+              <Text style={styles.metricLine}>
+                referrals joined: {performanceQuery.referralsJoined}
+              </Text>
+              <Text style={styles.metricLine}>
+                referrals qualified: {performanceQuery.referralsQualified}
+              </Text>
+              <Text style={styles.metricLine}>
+                referrals completed: {performanceQuery.referralsCompleted}
+              </Text>
+              <Text style={styles.metricLine}>
+                rewards issued: {performanceQuery.rewardsIssued}
+              </Text>
+              <Text style={styles.metricLine}>
+                rewards redeemed: {performanceQuery.rewardsRedeemed}
+              </Text>
+              <Text style={styles.metricLine}>
+                active benefits: {performanceQuery.activeBenefits}
+              </Text>
+
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>Top Referrers</Text>
+                {(performanceQuery.topReferrers ?? []).length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    No referrer ranking data.
                   </Text>
-                  <Text style={styles.listSecondary}>
-                    {row.actualRewardType} · {row.status}
-                  </Text>
-                </View>
-              ))
-            )}
-          </View>
+                ) : (
+                  (performanceQuery.topReferrers ?? []).map((row) => (
+                    <View
+                      key={String(row.referrerUserId)}
+                      style={styles.listRow}
+                    >
+                      <Text style={styles.listPrimary}>
+                        {row.referrerName ?? row.referrerUserId}
+                      </Text>
+                      <Text style={styles.listSecondary}>
+                        count: {row.count}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>Origin Programs</Text>
+                {(performanceQuery.topOriginPrograms ?? []).length === 0 ? (
+                  <Text style={styles.emptyText}>No origin program data.</Text>
+                ) : (
+                  (performanceQuery.topOriginPrograms ?? []).map((row) => (
+                    <View
+                      key={String(row.originProgramId)}
+                      style={styles.listRow}
+                    >
+                      <Text style={styles.listPrimary}>
+                        {row.programTitle ?? row.originProgramId}
+                      </Text>
+                      <Text style={styles.listSecondary}>
+                        count: {row.count}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+          )
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -529,6 +680,31 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     gap: 10,
+  },
+  tabRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tabButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F6F9FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tabButtonActive: {
+    borderColor: '#AFC9FF',
+    backgroundColor: '#EAF2FF',
+  },
+  tabButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  tabButtonTextActive: {
+    color: '#1D4ED8',
   },
   card: {
     borderRadius: 18,
@@ -671,12 +847,6 @@ const styles = StyleSheet.create({
     color: '#334155',
     textAlign: 'right',
   },
-  metricHint: {
-    marginTop: 2,
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'right',
-  },
   emptyText: {
     fontSize: 12,
     color: '#64748B',
@@ -699,6 +869,16 @@ const styles = StyleSheet.create({
   listSecondary: {
     fontSize: 12,
     color: '#475569',
+    textAlign: 'right',
+  },
+  subSection: {
+    marginTop: 8,
+    gap: 6,
+  },
+  subSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E293B',
     textAlign: 'right',
   },
   pressed: {

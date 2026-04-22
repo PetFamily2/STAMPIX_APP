@@ -367,6 +367,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(business)" />
       <Stack.Screen name="(staff)" />
+      <Stack.Screen name="admin" />
       <Stack.Screen name="join" />
       <Stack.Screen name="accept-invite" />
       <Stack.Screen name="card/index" />
