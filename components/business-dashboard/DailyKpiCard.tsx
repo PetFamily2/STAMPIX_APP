@@ -1,46 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { SurfaceCard, TrendIndicator } from '@/components/business-ui';
+import {
+  DASHBOARD_TOKENS,
+  type DashboardLayoutMode,
+  getDashboardLayout,
+} from '@/lib/design/dashboardTokens';
 import { tw } from '@/lib/rtl';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
 
 const TONE_MAP: Record<
   Tone,
-  {
-    bubble: readonly [string, string];
-    icon: string;
-  }
+  { iconBg: string; iconColor: string; trendColor: string; value: string }
 > = {
   teal: {
-    bubble: ['#EAF2FF', '#F4F8FF'],
-    icon: '#2563EB',
+    iconBg: '#DFF8F3',
+    iconColor: '#0F766E',
+    trendColor: '#16A34A',
+    value: '#16A34A',
   },
   violet: {
-    bubble: ['#DBEAFE', '#EFF6FF'],
-    icon: '#1D4ED8',
+    iconBg: '#F3E8FF',
+    iconColor: '#7C3AED',
+    trendColor: '#16A34A',
+    value: '#5B3DF5',
   },
   blue: {
-    bubble: ['#DFF4FF', '#F0F9FF'],
-    icon: '#0284C7',
+    iconBg: '#DBEAFE',
+    iconColor: '#1D4ED8',
+    trendColor: '#16A34A',
+    value: '#1473E6',
   },
   amber: {
-    bubble: ['#EAF2FF', '#F7FAFF'],
-    icon: '#2F6BFF',
+    iconBg: '#FEF3C7',
+    iconColor: '#B45309',
+    trendColor: '#16A34A',
+    value: '#EF4444',
   },
 };
 
 export function DailyKpiCard({
+  layoutMode,
   label,
-  metaLabel,
+  metaLabel: _metaLabel,
   value,
   icon,
   tone,
   trend,
   comparisonText,
 }: {
+  layoutMode: DashboardLayoutMode;
   label: string;
   metaLabel: string;
   value: string;
@@ -49,93 +59,110 @@ export function DailyKpiCard({
   trend: { direction: 'up' | 'down' | 'flat'; label: string } | null;
   comparisonText: string;
 }) {
+  const layout = getDashboardLayout(layoutMode);
   const palette = TONE_MAP[tone];
+  const trendLabel = trend ? trend.label : comparisonText;
 
   return (
-    <SurfaceCard radius="lg" padding="sm" elevated={false} style={styles.card}>
-      <View style={styles.headerRow}>
-        <LinearGradient colors={[...palette.bubble]} style={styles.iconBubble}>
-          <Ionicons name={icon} size={16} color={palette.icon} />
-        </LinearGradient>
-
-        <View style={styles.copyWrap}>
-          <Text className={tw.textStart} style={styles.label}>
-            {label}
-          </Text>
-          <Text className={tw.textStart} style={styles.metaLabel}>
-            {metaLabel}
-          </Text>
+    <View style={styles.metricItem}>
+      <View style={styles.iconArea}>
+        <View style={[styles.iconBubble, { backgroundColor: palette.iconBg }]}>
+          <Ionicons name={icon} size={18} color={palette.iconColor} />
         </View>
       </View>
 
-      <View style={styles.metricRow}>
-        <Text className={tw.textStart} numberOfLines={1} style={styles.value}>
-          {value}
+      <View style={styles.labelArea}>
+        <Text className={tw.textStart} numberOfLines={2} style={styles.label}>
+          {label}
         </Text>
-        <TrendIndicator trend={trend} />
       </View>
 
-      <Text className={tw.textStart} style={styles.comparisonText}>
-        {comparisonText}
-      </Text>
-    </SurfaceCard>
+      <View style={styles.valueArea}>
+        <Text
+          adjustsFontSizeToFit={true}
+          className={tw.textStart}
+          minimumFontScale={0.72}
+          numberOfLines={1}
+          style={[
+            styles.value,
+            {
+              color: palette.value,
+              fontSize: layout.kpiValueSize,
+              lineHeight: layout.kpiValueSize + 4,
+            },
+          ]}
+        >
+          {value}
+        </Text>
+      </View>
+
+      <View style={styles.trendArea}>
+        <Text
+          style={[styles.trendText, { color: palette.trendColor }]}
+          numberOfLines={1}
+        >
+          {trendLabel}
+        </Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    minHeight: 118,
-    justifyContent: 'space-between',
-    gap: 6,
-    borderColor: '#E6EBF4',
-    backgroundColor: '#FFFFFF',
-  },
-  headerRow: {
-    flexDirection: 'row-reverse',
+  metricItem: {
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    minHeight: 108,
   },
   iconBubble: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copyWrap: {
-    flex: 1,
-    alignItems: 'flex-end',
+  iconArea: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelArea: {
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  valueArea: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  trendArea: {
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   label: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  metaLabel: {
-    marginTop: 2,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '500',
-    color: '#64748B',
-  },
-  metricRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    color: DASHBOARD_TOKENS.colors.textMuted,
+    textAlign: 'center',
   },
   value: {
-    flexShrink: 1,
-    fontSize: 22,
-    lineHeight: 26,
-    fontWeight: '900',
-    color: '#111827',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+    textAlign: 'center',
+    letterSpacing: 0,
+    width: '100%',
   },
-  comparisonText: {
-    fontSize: 9,
-    lineHeight: 12,
+  trendText: {
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '600',
-    color: '#64748B',
+    textAlign: 'center',
   },
 });

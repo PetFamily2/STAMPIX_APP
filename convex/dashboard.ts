@@ -25,7 +25,7 @@ const TIME_ZONE_OFFSET_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit',
 });
-const TEMP_DASHBOARD_LARGE_NUMBERS = true;
+const TEMP_DASHBOARD_LARGE_NUMBERS = false;
 
 type RecommendationTone = 'critical' | 'warning' | 'neutral' | 'success';
 type RecommendationCtaKind =

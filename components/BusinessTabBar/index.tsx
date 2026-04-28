@@ -4,9 +4,9 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 
-const STANDARD_TAB_ICON_SIZE = 26;
-const STANDARD_TAB_BUBBLE_WIDTH = 50;
-const STANDARD_TAB_BUBBLE_HEIGHT = 32;
+const STANDARD_TAB_ICON_SIZE = 24;
+const STANDARD_TAB_BUBBLE_WIDTH = 46;
+const STANDARD_TAB_BUBBLE_HEIGHT = 30;
 const STANDARD_TAB_BUBBLE_RADIUS = STANDARD_TAB_BUBBLE_HEIGHT / 2;
 export const TAB_BAR_CONTENT_HEIGHT = 56;
 const STANDARD_TAB_ACTIVE_BACKGROUND = '#F1EEFF';
@@ -195,48 +195,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrTabBubbleShadow: {
-    marginTop: -58,
-    width: 96,
-    height: 102,
+    marginTop: -42,
+    width: 78,
+    height: 84,
     alignItems: 'center',
     justifyContent: 'flex-start',
     alignSelf: 'center',
     shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
-    elevation: 18,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 12,
   },
   qrTabBubbleShadowFocused: {
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    elevation: 22,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 14,
   },
   qrTabBubbleDepthOuter: {
     position: 'absolute',
-    top: 16,
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    top: 12,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: '#4F46E5',
     opacity: 0.16,
     transform: [{ scaleX: 0.96 }, { scaleY: 0.92 }],
   },
   qrTabBubbleDepthInner: {
     position: 'absolute',
-    top: 9,
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    top: 6,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#C7D2FE',
     opacity: 0.26,
     transform: [{ scaleX: 0.98 }, { scaleY: 0.96 }],
   },
   qrTabBubble: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -250,9 +250,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   qrTabLogo: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   qrTabLabel: {
     marginTop: 3,

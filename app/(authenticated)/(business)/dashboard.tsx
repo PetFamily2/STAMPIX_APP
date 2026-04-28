@@ -1,17 +1,21 @@
-﻿import { useMutation, useQuery } from 'convex/react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Linking,
   Pressable,
-  Share,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { B2BReferralSummary } from '@/components/business-dashboard/B2BReferralSummary';
+import { BusinessStatusCard } from '@/components/business-dashboard/BusinessStatusCard';
+import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
 import { DailyKpiGrid } from '@/components/business-dashboard/DailyKpiGrid';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
@@ -19,22 +23,23 @@ import {
   DateSelectorBar,
 } from '@/components/business-dashboard/DateSelectorBar';
 import { LifetimeMetricsRow } from '@/components/business-dashboard/LifetimeMetricsRow';
+import { QuickShortcutsGrid } from '@/components/business-dashboard/QuickShortcutsGrid';
 import { SmartRecommendationsPanel } from '@/components/business-dashboard/SmartRecommendationsPanel';
-import { BusinessPageShell, SurfaceCard } from '@/components/business-ui';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  DASHBOARD_TOKENS,
+  getDashboardLayout,
+  getDashboardLayoutMode,
+} from '@/lib/design/dashboardTokens';
 import { tw } from '@/lib/rtl';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
-
 const DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: ISRAEL_TIME_ZONE,
   year: 'numeric',
@@ -46,14 +51,16 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL', {
 });
 
 type BusinessRoute =
+  | '/(authenticated)/(business)/scanner'
   | '/(authenticated)/(business)/campaigns'
   | '/(authenticated)/(business)/customers'
   | '/(authenticated)/(business)/programs'
-  | '/(authenticated)/(business)/scanner'
   | '/(authenticated)/(business)/settings'
+  | '/(authenticated)/(business)/analytics'
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-referrals'
-  | '/(authenticated)/(business)/settings-business-subscription';
+  | '/(authenticated)/(business)/settings-business-subscription'
+  | '/(authenticated)/(business)/team/index';
 
 type CustomerRouteFilter = 'near_reward' | 'at_risk' | 'new_customers';
 type RecommendationActionKind =
@@ -65,8 +72,6 @@ type RecommendationActionKind =
   | 'view_customers'
   | 'view_subscription'
   | 'none';
-
-type DatePresetSelection = DatePresetKey;
 
 type DashboardRecommendationCard = {
   key: string;
@@ -92,7 +97,6 @@ function formatSignedNumber(value: number) {
   if (value === 0) {
     return '0';
   }
-
   return `${value > 0 ? '+' : '-'}${formatNumber(Math.abs(value))}`;
 }
 
@@ -104,17 +108,12 @@ function buildKpiTrend(value: number, previousValue: number) {
   if (value === previousValue) {
     return { direction: 'flat' as const, label: 'ללא שינוי' };
   }
-
   const delta = value - previousValue;
   if (previousValue <= 0) {
     return delta > 0
-      ? {
-          direction: 'up' as const,
-          label: `+${formatNumber(Math.abs(delta))}`,
-        }
+      ? { direction: 'up' as const, label: `+${formatNumber(Math.abs(delta))}` }
       : { direction: 'flat' as const, label: 'ללא שינוי' };
   }
-
   const percent = Math.round(Math.abs((delta / previousValue) * 100));
   return {
     direction: delta > 0 ? ('up' as const) : ('down' as const),
@@ -124,25 +123,6 @@ function buildKpiTrend(value: number, previousValue: number) {
 
 function localizeCtaLabel(label: string) {
   const normalized = label.trim().toLowerCase();
-
-  if (normalized === 'create first campaign') {
-    return 'צרו קמפיין ראשון';
-  }
-  if (normalized === 'create welcome campaign') {
-    return 'צרו קמפיין ברוכים הבאים';
-  }
-  if (normalized === 'create winback campaign') {
-    return 'צרו קמפיין החזרה';
-  }
-  if (normalized === 'view eligible customers') {
-    return 'צפו בלקוחות מתאימים';
-  }
-  if (normalized === 'create first card') {
-    return 'פתחו תוכנית ראשונה';
-  }
-  if (normalized === 'finish setup') {
-    return 'השלימו את ההגדרה';
-  }
   if (normalized === 'view subscription') {
     return 'צפו במנוי';
   }
@@ -150,39 +130,47 @@ function localizeCtaLabel(label: string) {
     return 'פתחו קמפיינים';
   }
   if (normalized === 'open cards') {
-    return 'פתחו תוכניות';
+    return 'פתחו כרטיסיות נאמנות';
   }
   if (normalized === 'view customers') {
     return 'צפו בלקוחות';
   }
-
+  if (normalized === 'finish setup') {
+    return 'השלימו את ההגדרה';
+  }
   return label;
 }
 
-function buildLoadingRecommendationCard(): DashboardRecommendationCard {
-  return {
-    key: 'loading_recommendations',
-    title: 'טוען המלצות',
-    body: 'אוספים את האותות התפעוליים כדי להציג את הפעולה הבאה.',
-    evidenceTags: [],
-    tone: 'neutral',
-    primaryCta: null,
-  };
+function buildEmptyRecommendationCards(): DashboardRecommendationCard[] {
+  return [
+    {
+      key: 'at_risk_customers',
+      title: 'לקוחות בסיכון',
+      body: '2 לקוחות בדרך לאיבוד. כדאי לפעול עכשיו.',
+      evidenceTags: [],
+      tone: 'critical',
+      primaryCta: {
+        kind: 'view_customers',
+        label: 'פתח לקוחות',
+        customerFilter: 'at_risk',
+      },
+    },
+    {
+      key: 'return_campaign',
+      title: 'הפעל קמפיין החזרה',
+      body: 'יש לקוחות שלא ביקרו ב-30 הימים האחרונים.',
+      evidenceTags: [],
+      tone: 'warning',
+      primaryCta: {
+        kind: 'open_campaign_draft',
+        label: 'צור קמפיין',
+        draftType: 'winback',
+      },
+    },
+  ];
 }
 
-function buildEmptyRecommendationCard(): DashboardRecommendationCard {
-  return {
-    key: 'no_urgent_actions',
-    title: 'אין פעולה דחופה כרגע',
-    body: 'העסק יציב כרגע ואין צורך בפעולה מיידית. נמשיך לעקוב ולהבליט הזדמנויות חדשות כשהן יופיעו.',
-    supportingText: 'המערכת תציג כאן המלצות חדשות כשיזוהו הזדמנויות פעולה.',
-    evidenceTags: [],
-    tone: 'success',
-    primaryCta: null,
-  };
-}
-
-function getRangeDaysForPreset(preset: DatePresetSelection) {
+function getRangeDaysForPreset(preset: DatePresetKey) {
   if (preset === 'last_7_days') {
     return 7;
   }
@@ -192,8 +180,20 @@ function getRangeDaysForPreset(preset: DatePresetSelection) {
   return 1;
 }
 
+function getDayStartForPreset(
+  preset: DatePresetKey,
+  anchorNow: number
+): number {
+  if (preset === 'yesterday') {
+    return anchorNow - DAY_MS;
+  }
+  return anchorNow;
+}
+
 export default function BusinessDashboardScreen() {
-  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const layoutMode = getDashboardLayoutMode(width);
+  const layout = getDashboardLayout(layoutMode);
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -207,21 +207,11 @@ export default function BusinessDashboardScreen() {
     activeBusiness,
     isLoading: isBusinessLoading,
   } = useActiveBusiness();
-  const businessCapabilities = activeBusiness
-    ? resolveBusinessCapabilities(
-        activeBusiness.capabilities ?? null,
-        activeBusiness.staffRole
-      )
-    : null;
-  const canViewBilling = businessCapabilities?.view_billing_state === true;
-
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
-  const [selectedPreset, setSelectedPreset] =
-    useState<DatePresetSelection>('today');
+  const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
   const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
     string | null
   >(null);
-  const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
 
   const dashboardSummary = useQuery(
     api.dashboard.getBusinessDashboardSummary,
@@ -237,23 +227,18 @@ export default function BusinessDashboardScreen() {
         }
       : 'skip'
   );
-  const executeRecommendationCta = useMutation(
-    api.aiRecommendations.executeRecommendationPrimaryCta
-  );
-  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
-  const createBusinessReferralLink = useMutation(
-    api.referrals.getOrCreateBusinessReferralLink
-  );
   const referralDashboard = useQuery(
     api.referrals.getBusinessReferralDashboard,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
-  const referralCreditSummary = useQuery(
-    api.referrals.getBusinessReferralCreditSummary,
-    activeBusinessId && canViewBilling
-      ? { businessId: activeBusinessId }
-      : 'skip'
+  const recentActivity = useQuery(
+    api.events.getRecentActivity,
+    activeBusinessId ? { businessId: activeBusinessId, limit: 5 } : 'skip'
   );
+  const executeRecommendationCta = useMutation(
+    api.aiRecommendations.executeRecommendationPrimaryCta
+  );
+  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -265,23 +250,12 @@ export default function BusinessDashboardScreen() {
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
   const anchorNow = dashboardSummary?.freshness?.generatedAt ?? Date.now();
-  const todayKey = getIsraelDayKey(anchorNow);
-  const selectedDayKey =
-    dashboardDay?.dateContext?.dayKey ?? getIsraelDayKey(selectedDayStart);
-  const activeRangeDays = dashboardDay?.dateContext?.rangeDays ?? 1;
-  const isRangeAggregation = activeRangeDays > 1;
-  const selectedDayContextLabel = isRangeAggregation
-    ? `${activeRangeDays} ימים`
-    : selectedDayKey === todayKey
-      ? 'היום'
-      : 'אתמול';
-
   const businessName =
     dashboardSummary?.business?.businessName?.trim() ||
     activeBusiness?.name?.trim() ||
     'העסק שלך';
   const currentUser = sessionContext?.user;
-  const dashboardDisplayName =
+  const displayName =
     currentUser?.firstName?.trim() ||
     currentUser?.fullName?.trim()?.split(/\s+/)[0] ||
     [currentUser?.firstName?.trim(), currentUser?.lastName?.trim()]
@@ -289,40 +263,36 @@ export default function BusinessDashboardScreen() {
       .join(' ')
       .trim() ||
     businessName;
-  const avatarUrl = currentUser?.avatarUrl ?? null;
 
   const lifetimeMetrics = dashboardSummary?.lifetimeMetrics;
   const lifetimeMetricChanges = dashboardSummary?.lifetimeMetricChanges;
   const lifetimeItems = [
     {
       key: 'lifetime_stamps',
-      label: 'סה"כ ניקובים',
+      label: 'לקוחות שניצלו מנטישה',
       value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
-      icon: 'ticket-outline' as const,
-      tone: 'teal' as const,
-      helperLabel: 'שבוע',
+      icon: 'shield-checkmark-outline' as const,
+      tone: 'amber' as const,
       helperValue: formatSignedNumber(
         lifetimeMetricChanges?.stampsLast7Days ?? 0
       ),
     },
     {
       key: 'lifetime_redemptions',
-      label: 'הטבות שמומשו',
+      label: 'הטבות שנוצלו',
       value: formatNumber(lifetimeMetrics?.totalRedemptionsAllTime ?? 0),
-      icon: 'gift-outline' as const,
+      icon: 'gift-outline-custom' as const,
       tone: 'violet' as const,
-      helperLabel: 'שבוע',
       helperValue: formatSignedNumber(
         lifetimeMetricChanges?.redemptionsLast7Days ?? 0
       ),
     },
     {
       key: 'lifetime_joined_customers',
-      label: 'לקוחות שהצטרפו',
+      label: 'ניקובים',
       value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
-      icon: 'person-add-outline' as const,
+      icon: 'stamp-outline-custom' as const,
       tone: 'blue' as const,
-      helperLabel: 'שבוע',
       helperValue: formatSignedNumber(
         lifetimeMetricChanges?.joinedCustomersLast7Days ?? 0
       ),
@@ -332,8 +302,7 @@ export default function BusinessDashboardScreen() {
       label: 'לקוחות חוזרים',
       value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
       icon: 'people-outline' as const,
-      tone: 'amber' as const,
-      helperLabel: 'שבוע',
+      tone: 'teal' as const,
       helperValue: formatSignedNumber(
         lifetimeMetricChanges?.returningCustomersLast7Days ?? 0
       ),
@@ -341,16 +310,22 @@ export default function BusinessDashboardScreen() {
   ];
 
   const kpis = dashboardDay?.kpis;
+  const selectedDayContextLabel =
+    dashboardDay?.dateContext?.dayKey === getIsraelDayKey(anchorNow)
+      ? 'היום'
+      : `${dashboardDay?.dateContext?.rangeDays ?? 1} ימים`;
   const rangeComparisonText =
-    activeRangeDays > 1 ? `מול ${activeRangeDays} קודמים` : 'מאתמול';
+    (dashboardDay?.dateContext?.rangeDays ?? 1) > 1
+      ? `מול ${dashboardDay?.dateContext?.rangeDays ?? 1} קודמים`
+      : 'מאתמול';
   const dailyKpiItems = [
     {
       key: 'stamps',
       label: 'ניקובים',
       metaLabel: selectedDayContextLabel,
       value: formatNumber(kpis?.stamps?.value ?? 0),
-      icon: 'ticket-outline' as const,
-      tone: 'teal' as const,
+      icon: 'scan-outline' as const,
+      tone: 'blue' as const,
       trend: buildKpiTrend(
         kpis?.stamps?.value ?? 0,
         kpis?.stamps?.previousValue ?? 0
@@ -359,7 +334,7 @@ export default function BusinessDashboardScreen() {
     },
     {
       key: 'redemptions',
-      label: 'הטבות',
+      label: 'הטבות שנוצלו',
       metaLabel: selectedDayContextLabel,
       value: formatNumber(kpis?.redemptions?.value ?? 0),
       icon: 'gift-outline' as const,
@@ -373,7 +348,7 @@ export default function BusinessDashboardScreen() {
     {
       key: 'activeCustomers',
       label: 'לקוחות פעילים',
-      metaLabel: '30 יום',
+      metaLabel: selectedDayContextLabel,
       value: formatNumber(kpis?.activeCustomers ?? 0),
       icon: 'people-outline' as const,
       tone: 'blue' as const,
@@ -386,9 +361,9 @@ export default function BusinessDashboardScreen() {
     {
       key: 'atRiskCustomers',
       label: 'לקוחות בסיכון',
-      metaLabel: 'מחזור צפוי',
+      metaLabel: selectedDayContextLabel,
       value: formatNumber(kpis?.atRiskCustomers ?? 0),
-      icon: 'alert-circle-outline' as const,
+      icon: 'warning-outline' as const,
       tone: 'amber' as const,
       trend: buildKpiTrend(
         kpis?.atRiskCustomers ?? 0,
@@ -397,155 +372,78 @@ export default function BusinessDashboardScreen() {
       comparisonText: rangeComparisonText,
     },
   ];
-  const recommendationCards = useMemo(() => {
-    if (dashboardSummary === undefined) {
-      return [buildLoadingRecommendationCard()];
-    }
 
+  const recommendationCards = useMemo(() => {
     const cards = (dashboardSummary?.recommendations?.cards ??
       []) as DashboardRecommendationCard[];
-
-    return (cards.length > 0 ? cards : [buildEmptyRecommendationCard()]).map(
-      (card) => ({
-        key: card.key,
-        title: card.title,
-        body: card.body,
-        supportingText: card.supportingText ?? '',
-        evidenceTags: Array.isArray(card.evidenceTags) ? card.evidenceTags : [],
-        tone: card.tone,
-        recommendationId: card.recommendationId ?? null,
-        primaryCta: card.primaryCta ?? null,
-        primaryCtaLabel: card.primaryCta?.label
-          ? localizeCtaLabel(card.primaryCta.label)
-          : null,
-      })
-    );
+    const source = cards.length > 0 ? cards : buildEmptyRecommendationCards();
+    return source.map((card) => ({
+      ...card,
+      primaryCtaLabel: card.primaryCta?.label
+        ? localizeCtaLabel(card.primaryCta.label)
+        : null,
+    }));
   }, [dashboardSummary]);
 
-  const recommendationCardsByKey = useMemo(
-    () =>
-      new Map(
-        recommendationCards.map((card) => [
-          card.key,
-          {
-            recommendationId: card.recommendationId,
-            primaryCta: card.primaryCta,
-          },
-        ])
-      ),
-    [recommendationCards]
-  );
-
-  const openRoute = (route: BusinessRoute) => {
-    router.push(route);
+  const openRoute = (route: BusinessRoute) => router.push(route as never);
+  const openCustomersWithFilter = (filter?: CustomerRouteFilter | null) => {
+    if (!filter) {
+      return openRoute('/(authenticated)/(business)/customers');
+    }
+    router.push({
+      pathname: '/(authenticated)/(business)/customers',
+      params: { filter },
+    });
   };
 
-  const openCustomersWithFilter = (filter?: CustomerRouteFilter | null) => {
-    if (filter) {
+  const openRecommendationTarget = async (
+    primaryCta: DashboardRecommendationCard['primaryCta']
+  ) => {
+    if (!primaryCta) {
+      return;
+    }
+    if (primaryCta.kind === 'open_campaign_draft' && activeBusinessId) {
+      const draftType =
+        primaryCta.draftType === 'welcome' ||
+        primaryCta.draftType === 'winback' ||
+        primaryCta.draftType === 'promo'
+          ? primaryCta.draftType
+          : 'promo';
+      const draft = await createCampaignDraft({
+        businessId: activeBusinessId,
+        type: draftType,
+        rules:
+          draftType === 'welcome'
+            ? { audience: 'new_customers', joinedWithinDays: 14 }
+            : draftType === 'winback'
+              ? { audience: 'inactive_days', daysInactive: 30 }
+              : { audience: 'all_active_members' },
+      });
       router.push({
-        pathname: '/(authenticated)/(business)/customers',
-        params: { filter },
+        pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+        params: {
+          campaignId: String(draft.campaignId),
+          businessId: String(activeBusinessId),
+        },
       });
       return;
     }
-
-    openRoute('/(authenticated)/(business)/customers');
-  };
-
-  const openCampaignDraft = async (
-    draftType: 'promo' | 'welcome' | 'winback'
-  ) => {
-    if (!activeBusinessId) {
-      return;
+    if (primaryCta.kind === 'view_customers') {
+      return openCustomersWithFilter(primaryCta.customerFilter ?? null);
     }
-
-    const draft = await createCampaignDraft({
-      businessId: activeBusinessId,
-      type: draftType,
-      rules:
-        draftType === 'welcome'
-          ? { audience: 'new_customers', joinedWithinDays: 14 }
-          : draftType === 'winback'
-            ? { audience: 'inactive_days', daysInactive: 30 }
-            : { audience: 'all_active_members' },
-    });
-
-    router.push({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
-      params: {
-        campaignId: String(draft.campaignId),
-        businessId: String(activeBusinessId),
-      },
-    });
-  };
-
-  const openRecommendationTarget = async (primaryCta: {
-    kind: RecommendationActionKind;
-    draftType?: 'welcome' | 'winback' | 'promo' | null;
-    customerFilter?: CustomerRouteFilter | null;
-  }) => {
-    switch (primaryCta.kind) {
-      case 'open_campaign_draft': {
-        const draftType =
-          primaryCta.draftType === 'welcome' ||
-          primaryCta.draftType === 'winback' ||
-          primaryCta.draftType === 'promo'
-            ? primaryCta.draftType
-            : 'promo';
-        await openCampaignDraft(draftType);
-        return;
-      }
-      case 'view_customers':
-        openCustomersWithFilter(primaryCta.customerFilter ?? null);
-        return;
-      case 'view_analytics':
-        openRoute('/(authenticated)/(business)/customers');
-        return;
-      case 'open_cards':
-        openRoute('/(authenticated)/(business)/programs');
-        return;
-      case 'open_campaigns':
-        openRoute('/(authenticated)/(business)/campaigns');
-        return;
-      case 'open_profile':
-        openRoute('/(authenticated)/(business)/settings-business-profile');
-        return;
-      case 'view_subscription':
-        openRoute('/(authenticated)/(business)/settings-business-subscription');
-        return;
-      default:
-        return;
+    if (primaryCta.kind === 'open_cards') {
+      return openRoute('/(authenticated)/(business)/programs');
     }
-  };
-
-  const openRecommendationDetails = (cardKey: string) => {
-    const card = recommendationCardsByKey.get(cardKey);
-    if (!card?.primaryCta) {
-      return;
+    if (primaryCta.kind === 'open_campaigns') {
+      return openRoute('/(authenticated)/(business)/campaigns');
     }
-
-    switch (card.primaryCta.kind) {
-      case 'open_campaign_draft':
-      case 'open_campaigns':
-        openRoute('/(authenticated)/(business)/campaigns');
-        return;
-      case 'view_customers':
-        openCustomersWithFilter(card.primaryCta.customerFilter ?? null);
-        return;
-      case 'view_analytics':
-        openRoute('/(authenticated)/(business)/customers');
-        return;
-      case 'open_cards':
-        openRoute('/(authenticated)/(business)/programs');
-        return;
-      case 'open_profile':
-        openRoute('/(authenticated)/(business)/settings-business-profile');
-        return;
-      case 'view_subscription':
-        openRoute('/(authenticated)/(business)/settings-business-subscription');
-        return;
-      default:
-        return;
+    if (primaryCta.kind === 'open_profile') {
+      return openRoute('/(authenticated)/(business)/settings-business-profile');
+    }
+    if (primaryCta.kind === 'view_subscription') {
+      return openRoute(
+        '/(authenticated)/(business)/settings-business-subscription'
+      );
     }
   };
 
@@ -553,24 +451,19 @@ export default function BusinessDashboardScreen() {
     if (!activeBusinessId || applyingRecommendationKey) {
       return;
     }
-
-    const card = recommendationCardsByKey.get(cardKey);
+    const card = recommendationCards.find((entry) => entry.key === cardKey);
     if (!card?.primaryCta || card.primaryCta.kind === 'none') {
       return;
     }
-
     setApplyingRecommendationKey(cardKey);
     try {
       if (!card.recommendationId) {
-        await openRecommendationTarget(card.primaryCta);
-        return;
+        return await openRecommendationTarget(card.primaryCta);
       }
-
       const result = await executeRecommendationCta({
         businessId: activeBusinessId,
         recommendationId: card.recommendationId as never,
       });
-
       if (result.kind === 'open_draft') {
         router.push({
           pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
@@ -582,27 +475,25 @@ export default function BusinessDashboardScreen() {
         return;
       }
       if (result.kind === 'view_customers') {
-        openCustomersWithFilter(result.customerFilter ?? null);
-        return;
-      }
-      if (result.kind === 'view_analytics') {
-        openRoute('/(authenticated)/(business)/customers');
-        return;
+        return openCustomersWithFilter(result.customerFilter ?? null);
       }
       if (result.kind === 'open_cards') {
-        openRoute('/(authenticated)/(business)/programs');
-        return;
+        return openRoute('/(authenticated)/(business)/programs');
       }
       if (result.kind === 'open_profile') {
-        openRoute('/(authenticated)/(business)/settings-business-profile');
-        return;
+        return openRoute(
+          '/(authenticated)/(business)/settings-business-profile'
+        );
       }
       if (result.kind === 'view_subscription') {
-        openRoute('/(authenticated)/(business)/settings-business-subscription');
-        return;
+        return openRoute(
+          '/(authenticated)/(business)/settings-business-subscription'
+        );
       }
-
-      await openRecommendationTarget(card.primaryCta);
+      if (result.kind === 'view_analytics') {
+        return openRoute('/(authenticated)/(business)/customers');
+      }
+      return await openRecommendationTarget(card.primaryCta);
     } catch (error) {
       Alert.alert(
         'שגיאה',
@@ -614,330 +505,329 @@ export default function BusinessDashboardScreen() {
   };
 
   const handleSelectPreset = (preset: DatePresetKey) => {
-    if (preset === 'today') {
-      setSelectedPreset('today');
-      setSelectedDayStart(anchorNow);
-      return;
-    }
-    if (preset === 'yesterday') {
-      setSelectedPreset('yesterday');
-      setSelectedDayStart(anchorNow - DAY_MS);
-      return;
-    }
-    if (preset === 'last_7_days') {
-      setSelectedPreset('last_7_days');
-      setSelectedDayStart(anchorNow);
-      return;
-    }
-
-    setSelectedPreset('last_30_days');
-    setSelectedDayStart(anchorNow);
-  };
-
-  const handleShareBusinessReferral = async (mode: 'whatsapp' | 'copy') => {
-    if (!activeBusinessId || isB2bShareLoading) {
-      return;
-    }
-    try {
-      setIsB2bShareLoading(true);
-      const link = await createBusinessReferralLink({
-        businessId: activeBusinessId,
-      });
-      const message = `Invite your business network to StampAix and earn free subscription months.\n${link.url}`;
-
-      if (mode === 'whatsapp') {
-        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-        const canOpen = await Linking.canOpenURL(whatsappUrl);
-        if (canOpen) {
-          await Linking.openURL(whatsappUrl);
-        } else {
-          await Share.share({ message });
-        }
-      } else {
-        const maybeNavigator = globalThis as {
-          navigator?: {
-            clipboard?: { writeText?: (value: string) => Promise<void> };
-          };
-        };
-        if (maybeNavigator.navigator?.clipboard?.writeText) {
-          await maybeNavigator.navigator.clipboard.writeText(link.url);
-        } else {
-          await Share.share({ message: link.url });
-        }
-        Alert.alert('', 'קישור הזמנה לעסק הועתק לשיתוף');
-      }
-    } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לייצר קישור הפניה עסקי כרגע.');
-    } finally {
-      setIsB2bShareLoading(false);
-    }
+    setSelectedPreset(preset);
+    setSelectedDayStart(getDayStartForPreset(preset, anchorNow));
   };
 
   if (isAppModeLoading || isBusinessLoading) {
     return <FullScreenLoading />;
   }
-
   if (!activeBusinessId && !isPreviewMode) {
     return <FullScreenLoading />;
   }
 
   return (
-    <BusinessPageShell
-      backgroundColor="#F4F5FB"
-      contentPaddingHorizontal={10}
-      stickyHeader={
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 6}
-          backgroundColor="#F4F5FB"
-        >
-          <DashboardHeader
-            displayName={dashboardDisplayName}
-            avatarUrl={avatarUrl}
-            onPressMenu={() =>
-              openRoute('/(authenticated)/(business)/settings')
-            }
-          />
-        </StickyScrollHeader>
-      }
-    >
-      <View style={styles.content}>
-        <LifetimeMetricsRow metrics={lifetimeItems} />
-
-        <DateSelectorBar value={selectedPreset} onChange={handleSelectPreset} />
-
-        <View style={styles.summaryCluster}>
-          <DailyKpiGrid items={dailyKpiItems} />
-        </View>
-
-        <SmartRecommendationsPanel
-          cards={recommendationCards}
-          onPressCta={(cardKey) => {
-            void handleRecommendationCta(cardKey);
-          }}
-          onPressDetails={openRecommendationDetails}
-          loadingCardKey={applyingRecommendationKey}
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: layout.pageHorizontalPadding,
+            gap: layout.sectionGap,
+          },
+        ]}
+      >
+        <DashboardHeader
+          layoutMode={layoutMode}
+          displayName={displayName}
+          businessName={businessName}
+          avatarUrl={currentUser?.avatarUrl ?? null}
+          notificationCount={0}
+          onPressNotifications={() =>
+            Alert.alert('התראות', 'אין התראות זמינות כרגע.')
+          }
+          onPressMenu={() => openRoute('/(authenticated)/(business)/settings')}
         />
 
-        <SurfaceCard elevated={false} padding="sm" radius="lg">
-          <View style={styles.referralHeaderRow}>
-            <View style={styles.referralHeaderTextWrap}>
-              <Text className={tw.textStart} style={styles.referralTitle}>
-                הפניות וצמיחה
-              </Text>
-              <Text className={tw.textStart} style={styles.referralSubtitle}>
-                תמונת מצב הפניות לקוחות וקרדיטי B2B
-              </Text>
-            </View>
-          </View>
+        <BusinessStatusCard
+          layoutMode={layoutMode}
+          plan={dashboardSummary?.business?.plan ?? ''}
+          profileIncomplete={
+            dashboardSummary?.business?.profileIncomplete ?? false
+          }
+          usageWarnings={
+            Array.isArray(
+              (dashboardSummary as { usageWarnings?: unknown })?.usageWarnings
+            )
+              ? (((dashboardSummary as { usageWarnings?: unknown })
+                  .usageWarnings ?? []) as string[])
+              : []
+          }
+        />
 
-          <View style={styles.referralMetricsGrid}>
-            <View style={styles.referralMetricItem}>
-              <Text style={styles.referralMetricValue}>
-                {formatNumber(referralDashboard?.referralsGenerated ?? 0)}
-              </Text>
-              <Text style={styles.referralMetricLabel}>הפניות שנוצרו</Text>
-            </View>
-            <View style={styles.referralMetricItem}>
-              <Text style={styles.referralMetricValue}>
-                {formatNumber(referralDashboard?.referralsCompleted ?? 0)}
-              </Text>
-              <Text style={styles.referralMetricLabel}>הפניות שהושלמו</Text>
-            </View>
-            <View style={styles.referralMetricItem}>
-              <Text style={styles.referralMetricValue}>
-                {formatNumber(referralDashboard?.rewardsGranted ?? 0)}
-              </Text>
-              <Text style={styles.referralMetricLabel}>תגמולים שניתנו</Text>
-            </View>
-            <View style={styles.referralMetricItem}>
-              <Text style={styles.referralMetricValue}>
-                {formatNumber(referralDashboard?.rewardsRedeemed ?? 0)}
-              </Text>
-              <Text style={styles.referralMetricLabel}>תגמולים שמומשו</Text>
-            </View>
-          </View>
-
-          <View style={styles.referralCreditsRow}>
-            <Text style={styles.referralCreditsText}>
-              חודשי זיכוי B2B שנצברו:{' '}
-              {referralCreditSummary?.creditedMonths ??
-                referralDashboard?.b2bFreeMonthsEarned ??
-                0}
-              /24
+        <View style={styles.section}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons
+              name="information-circle-outline"
+              size={18}
+              color="#64748B"
+            />
+            <Text
+              className={tw.textStart}
+              style={[
+                styles.sectionTitle,
+                {
+                  fontSize: layout.sectionTitleSize,
+                  lineHeight: layout.sectionTitleLineHeight,
+                },
+              ]}
+            >
+              מצטברים של העסק
             </Text>
           </View>
+          <LifetimeMetricsRow layoutMode={layoutMode} metrics={lifetimeItems} />
+        </View>
 
-          <View style={styles.referralActionsRow}>
-            <Pressable
-              onPress={() =>
-                openRoute(
-                  '/(authenticated)/(business)/settings-business-referrals'
-                )
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            פעולות מהירות
+          </Text>
+          <QuickShortcutsGrid
+            layoutMode={layoutMode}
+            items={[
+              {
+                key: 'scanner',
+                label: 'סריקה',
+                icon: 'scan-outline',
+                onPress: () => openRoute('/(authenticated)/(business)/scanner'),
+              },
+              {
+                key: 'customers',
+                label: 'לקוחות',
+                icon: 'people-outline',
+                onPress: () =>
+                  openRoute('/(authenticated)/(business)/customers'),
+              },
+              {
+                key: 'programs',
+                label: 'כרטיסיות',
+                icon: 'albums-outline',
+                onPress: () =>
+                  openRoute('/(authenticated)/(business)/programs'),
+              },
+              {
+                key: 'campaigns',
+                label: 'קמפיינים',
+                icon: 'megaphone-outline',
+                onPress: () =>
+                  openRoute('/(authenticated)/(business)/campaigns'),
+              },
+              {
+                key: 'referrals',
+                label: 'שיתוף',
+                icon: 'share-social-outline',
+                onPress: () =>
+                  openRoute(
+                    '/(authenticated)/(business)/settings-business-referrals'
+                  ),
+              },
+              {
+                key: 'team',
+                label: 'עובדים',
+                icon: 'person-add-outline',
+                onPress: () =>
+                  openRoute('/(authenticated)/(business)/team/index'),
+              },
+              {
+                key: 'subscription',
+                label: 'מנוי',
+                icon: 'card-outline',
+                onPress: () =>
+                  openRoute(
+                    '/(authenticated)/(business)/settings-business-subscription'
+                  ),
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            ביצועים לתקופה
+          </Text>
+          <DateSelectorBar
+            layoutMode={layoutMode}
+            value={selectedPreset}
+            onChange={handleSelectPreset}
+          />
+          <DailyKpiGrid layoutMode={layoutMode} items={dailyKpiItems} />
+        </View>
+
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            המלצות עבור
+          </Text>
+          <SmartRecommendationsPanel
+            layoutMode={layoutMode}
+            cards={recommendationCards}
+            onPressCta={(cardKey) => void handleRecommendationCta(cardKey)}
+            onPressDetails={(cardKey) => {
+              const card = recommendationCards.find(
+                (entry) => entry.key === cardKey
+              );
+              if (card?.primaryCta) {
+                void openRecommendationTarget(card.primaryCta);
               }
-              style={({ pressed }) => [
-                styles.referralPrimaryButton,
-                pressed ? styles.referralPrimaryButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.referralPrimaryButtonText}>ניהול הפניות</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void handleShareBusinessReferral('whatsapp')}
-              disabled={isB2bShareLoading}
-              style={({ pressed }) => [
-                styles.referralSecondaryButton,
-                pressed ? styles.referralSecondaryButtonPressed : null,
-                isB2bShareLoading ? styles.referralButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.referralSecondaryButtonText}>
-                {isB2bShareLoading ? 'טוען...' : 'שיתוף B2B'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void handleShareBusinessReferral('copy')}
-              disabled={isB2bShareLoading}
-              style={({ pressed }) => [
-                styles.referralSecondaryButton,
-                pressed ? styles.referralSecondaryButtonPressed : null,
-                isB2bShareLoading ? styles.referralButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.referralSecondaryButtonText}>
-                העתקת קישור
-              </Text>
-            </Pressable>
-          </View>
-        </SurfaceCard>
+            }}
+            loadingCardKey={applyingRecommendationKey}
+          />
+        </View>
 
-        {dashboardDay === undefined ? (
-          <SurfaceCard elevated={false} padding="sm" radius="lg">
-            <Text className={tw.textStart} style={styles.loadingText}>
-              מעדכן את מדדי היום הנבחר...
-            </Text>
-          </SurfaceCard>
+        {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.activityHeadingRow}>
+              <Pressable
+                onPress={() =>
+                  openRoute('/(authenticated)/(business)/analytics')
+                }
+              >
+                <Text style={styles.activityAction}>הצג הכל</Text>
+              </Pressable>
+              <Text
+                className={tw.textStart}
+                style={[
+                  styles.sectionTitle,
+                  {
+                    fontSize: layout.sectionTitleSize,
+                    lineHeight: layout.sectionTitleLineHeight,
+                  },
+                ]}
+              >
+                פעילות אחרונה
+              </Text>
+            </View>
+            <CompactActivitySummaryRow
+              layoutMode={layoutMode}
+              items={recentActivity.map(
+                (item: {
+                  id: unknown;
+                  type?: unknown;
+                  customer?: unknown;
+                  detail?: unknown;
+                  time?: unknown;
+                }) => ({
+                  key: String(item.id),
+                  type: item.type === 'reward' ? 'reward' : 'punch',
+                  customer: String(item.customer ?? 'לקוח'),
+                  detail: String(item.detail ?? ''),
+                  time: String(item.time ?? ''),
+                })
+              )}
+            />
+          </View>
         ) : null}
-      </View>
-    </BusinessPageShell>
+
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            שיתוף עסק מביא עסק
+          </Text>
+          <B2BReferralSummary
+            layoutMode={layoutMode}
+            items={[
+              {
+                key: 'generated',
+                label: 'נוצרו',
+                value: formatNumber(referralDashboard?.referralsGenerated ?? 0),
+              },
+              {
+                key: 'completed',
+                label: 'הושלמו',
+                value: formatNumber(referralDashboard?.referralsCompleted ?? 0),
+              },
+              {
+                key: 'granted',
+                label: 'הוענקו',
+                value: formatNumber(referralDashboard?.rewardsGranted ?? 0),
+              },
+              {
+                key: 'redeemed',
+                label: 'מומשו',
+                value: formatNumber(referralDashboard?.rewardsRedeemed ?? 0),
+              },
+            ]}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: DASHBOARD_TOKENS.pageBackground,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: DASHBOARD_TOKENS.pageBackground,
+  },
   content: {
-    paddingTop: 2,
+    paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
+    paddingTop: 16,
+    paddingBottom: 124,
+    gap: 22,
+  },
+  section: {
     gap: 10,
   },
-  summaryCluster: {
-    gap: 8,
+  sectionTitleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
   },
-  referralHeaderRow: {
-    marginBottom: 8,
-  },
-  referralHeaderTextWrap: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  referralTitle: {
-    fontSize: 15,
-    fontWeight: '900',
+  sectionTitle: {
+    fontSize: DASHBOARD_TOKENS.typography.sectionTitle.fontSize,
+    lineHeight: DASHBOARD_TOKENS.typography.sectionTitle.lineHeight,
+    fontWeight: DASHBOARD_TOKENS.typography.sectionTitle.fontWeight,
     color: DASHBOARD_TOKENS.colors.textPrimary,
   },
-  referralSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: DASHBOARD_TOKENS.colors.textMuted,
-  },
-  referralMetricsGrid: {
+  activityHeadingRow: {
     flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
-  referralMetricItem: {
-    width: '48%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DCE6FB',
-    backgroundColor: '#F8FAFF',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  referralMetricValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F294B',
-    textAlign: 'right',
-  },
-  referralMetricLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    textAlign: 'right',
-  },
-  referralCreditsRow: {
-    marginTop: 10,
-    borderRadius: 10,
-    backgroundColor: '#EEF3FF',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    alignItems: 'flex-end',
-  },
-  referralCreditsText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E3A8A',
-    textAlign: 'right',
-  },
-  referralActionsRow: {
-    marginTop: 10,
-    flexDirection: 'row-reverse',
-    gap: 8,
-  },
-  referralPrimaryButton: {
-    flex: 1.4,
-    borderRadius: 10,
-    backgroundColor: '#1D4ED8',
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  referralPrimaryButtonPressed: {
-    opacity: 0.86,
-  },
-  referralPrimaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  referralSecondaryButton: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  referralSecondaryButtonPressed: {
-    opacity: 0.85,
-  },
-  referralSecondaryButtonText: {
-    color: '#1E40AF',
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  referralButtonDisabled: {
-    opacity: 0.6,
-  },
-  loadingText: {
-    fontSize: 13,
+  activityAction: {
+    fontSize: 14,
     lineHeight: 18,
-    fontWeight: '600',
-    color: DASHBOARD_TOKENS.colors.textMuted,
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.brandBlue,
   },
 });

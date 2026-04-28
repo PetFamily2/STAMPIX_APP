@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,7 +7,11 @@ import {
   View,
 } from 'react-native';
 
-import { SurfaceCard } from '@/components/business-ui';
+import {
+  DASHBOARD_TOKENS,
+  type DashboardLayoutMode,
+  getDashboardLayout,
+} from '@/lib/design/dashboardTokens';
 import { tw } from '@/lib/rtl';
 
 type Tone = 'critical' | 'warning' | 'neutral' | 'success';
@@ -22,27 +25,30 @@ const PALETTE: Record<
     title: string;
     body: string;
     border: string;
+    bg: string;
     badgeBg: string;
     badgeText: string;
   }
 > = {
   critical: {
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-    icon: 'warning-outline',
+    iconBg: '#FFF2E6',
+    iconColor: '#F97316',
+    icon: 'people-outline',
     title: '#111827',
     body: '#475569',
     border: '#F0E7D6',
+    bg: '#FFFDFC',
     badgeBg: '#FFF5DB',
     badgeText: '#C27100',
   },
   warning: {
-    iconBg: '#EAF2FF',
-    iconColor: '#2563EB',
-    icon: 'sparkles-outline',
+    iconBg: '#DCFCE7',
+    iconColor: '#16A34A',
+    icon: 'megaphone-outline',
     title: '#111827',
     body: '#475569',
     border: '#DCE8FF',
+    bg: '#FAFFFC',
     badgeBg: '#EEF4FF',
     badgeText: '#2563EB',
   },
@@ -53,6 +59,7 @@ const PALETTE: Record<
     title: '#111827',
     body: '#475569',
     border: '#DCE8FF',
+    bg: '#FFFFFF',
     badgeBg: '#EEF4FF',
     badgeText: '#2563EB',
   },
@@ -63,12 +70,14 @@ const PALETTE: Record<
     title: '#111827',
     body: '#475569',
     border: '#DCE8FF',
+    bg: '#FFFFFF',
     badgeBg: '#EEF4FF',
     badgeText: '#2563EB',
   },
 };
 
 export function RecommendationActionCard({
+  layoutMode,
   title,
   body,
   supportingText,
@@ -82,6 +91,7 @@ export function RecommendationActionCard({
   badgeLabel,
   isLoading = false,
 }: {
+  layoutMode: DashboardLayoutMode;
   title: string;
   body: string;
   supportingText?: string;
@@ -95,21 +105,25 @@ export function RecommendationActionCard({
   badgeLabel?: string | null;
   isLoading?: boolean;
 }) {
+  const layout = getDashboardLayout(layoutMode);
   const palette = PALETTE[tone];
-  const hasPrimaryCta = Boolean(primaryCtaLabel && onPressCta);
+  const hasPrimaryCta = Boolean(
+    primaryCtaLabel && onPressCta && emphasis === 'primary'
+  );
   const hasSecondaryAction = Boolean(
     secondaryActionLabel && onPressSecondaryAction
   );
 
   return (
-    <SurfaceCard
-      elevated={emphasis === 'primary'}
-      padding={emphasis === 'primary' ? 'md' : 'sm'}
-      radius={emphasis === 'primary' ? 'hero' : 'lg'}
+    <View
       style={[
         styles.card,
-        emphasis === 'primary' ? styles.primaryCard : styles.secondaryCard,
-        { borderColor: palette.border },
+        {
+          borderRadius: layout.cardRadius,
+          borderColor: palette.border,
+          backgroundColor: palette.bg,
+          width: layout.recommendationCardWidthPrimary,
+        },
       ]}
     >
       <View style={styles.content}>
@@ -140,7 +154,7 @@ export function RecommendationActionCard({
           <View
             style={[styles.iconBubble, { backgroundColor: palette.iconBg }]}
           >
-            <Ionicons name={palette.icon} size={18} color={palette.iconColor} />
+            <Ionicons name={palette.icon} size={20} color={palette.iconColor} />
           </View>
         </View>
 
@@ -191,20 +205,13 @@ export function RecommendationActionCard({
                 disabled={isLoading}
                 style={styles.primaryCtaWrap}
               >
-                <LinearGradient
-                  colors={
-                    isLoading ? ['#93C5FD', '#93C5FD'] : ['#3B82F6', '#2563EB']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.primaryCtaGradient}
-                >
+                <View style={styles.primaryCta}>
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <Text style={styles.primaryCtaText}>{primaryCtaLabel}</Text>
                   )}
-                </LinearGradient>
+                </View>
               </Pressable>
             ) : null}
           </View>
@@ -222,19 +229,18 @@ export function RecommendationActionCard({
           </View>
         ) : null}
       </View>
-    </SurfaceCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-  },
-  primaryCard: {
     borderWidth: 1,
-  },
-  secondaryCard: {
-    borderWidth: 1,
+    minHeight: 150,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   content: {
     gap: 7,
@@ -246,9 +252,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -257,20 +263,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   body: {
     fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '500',
+    lineHeight: 17,
+    fontWeight: '400',
   },
   supportingText: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.textMuted,
   },
   tagsWrap: {
     alignItems: 'flex-end',
@@ -278,9 +284,9 @@ const styles = StyleSheet.create({
   },
   evidenceText: {
     fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '600',
-    color: '#64748B',
+    lineHeight: 14,
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.textMuted,
     textAlign: 'right',
   },
   primaryActionsRow: {
@@ -288,22 +294,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    marginTop: 2,
+    marginTop: 4,
   },
   primaryCtaWrap: {
     flex: 1,
   },
-  primaryCtaGradient: {
-    minHeight: 42,
-    borderRadius: 18,
+  primaryCta: {
+    minHeight: 34,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
+    backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
   },
   primaryCtaText: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',
   },
@@ -315,12 +322,12 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: {
     fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: '#64748B',
+    lineHeight: 15,
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.textMuted,
   },
   secondaryFooter: {
-    marginTop: 2,
+    marginTop: 4,
     alignItems: 'flex-start',
   },
   secondaryInlineAction: {
@@ -330,22 +337,22 @@ const styles = StyleSheet.create({
   },
   inlineActionText: {
     fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: '#64748B',
+    lineHeight: 15,
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.textMuted,
   },
   badge: {
-    minWidth: 44,
-    height: 24,
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    minWidth: 40,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
   },
   statusBox: {
     width: 28,

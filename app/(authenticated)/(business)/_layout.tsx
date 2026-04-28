@@ -20,9 +20,9 @@ import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingF
 const TEXT = {
   dashboard: 'מרכז ניהול',
   customers: 'לקוחות',
-  programs: 'תוכניות',
+  programs: 'כרטיסיות',
   campaigns: 'קמפיינים',
-  scanCustomer: 'סרוק לקוח',
+  scanCustomer: 'סריקה',
   settings: 'הגדרות',
 };
 
@@ -130,12 +130,12 @@ export default function BusinessTabsLayout() {
           shadowOffset: { width: 0, height: -8 },
           shadowOpacity: 0.08,
           shadowRadius: 18,
-          height: 72 + (insets.bottom || 0),
-          minHeight: 72 + (insets.bottom || 0),
-          paddingBottom: 8 + (insets.bottom || 0),
-          paddingTop: 8,
-          borderTopLeftRadius: 28,
-          borderTopRightRadius: 28,
+          height: 68 + (insets.bottom || 0),
+          minHeight: 68 + (insets.bottom || 0),
+          paddingBottom: 7 + (insets.bottom || 0),
+          paddingTop: 5,
+          borderTopLeftRadius: 26,
+          borderTopRightRadius: 26,
         },
         tabBarItemStyle: {
           height: TAB_BAR_CONTENT_HEIGHT,
