@@ -42,8 +42,8 @@ export function DateSelectorBar({
             style={[
               styles.pill,
               {
-                minHeight: layout.segmentedHeight,
-                borderRadius: layout.segmentedRadius,
+                minHeight: Math.max(26, layout.segmentedHeight - 14),
+                borderRadius: Math.max(9, layout.segmentedRadius - 8),
               },
               isActive ? styles.pillActive : styles.pillInactive,
             ]}
@@ -56,8 +56,8 @@ export function DateSelectorBar({
                 style={[
                   styles.activeGradient,
                   {
-                    minHeight: layout.segmentedHeight,
-                    borderRadius: layout.segmentedRadius,
+                    minHeight: Math.max(26, layout.segmentedHeight - 14),
+                    borderRadius: Math.max(9, layout.segmentedRadius - 8),
                   },
                 ]}
               >
@@ -82,17 +82,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 4,
-    gap: 4,
+    padding: 1,
+    gap: 1,
   },
   pill: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     overflow: 'hidden',
   },
   pillActive: {
@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 13,
     letterSpacing: 0,
   },
   labelActive: {

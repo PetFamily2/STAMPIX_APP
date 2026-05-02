@@ -37,6 +37,19 @@ function getIconForTone(tone: RecommendationCard['tone']) {
   return 'sparkles-outline' as const;
 }
 
+function getIconColorForTone(tone: RecommendationCard['tone']) {
+  if (tone === 'critical') {
+    return '#DC2626';
+  }
+  if (tone === 'warning') {
+    return '#D97706';
+  }
+  if (tone === 'success') {
+    return '#16A34A';
+  }
+  return '#64748B';
+}
+
 export function SmartRecommendationsPanel({
   layoutMode,
   cards,
@@ -79,44 +92,48 @@ export function SmartRecommendationsPanel({
           <View key={card.key}>
             <View style={styles.row}>
               <View style={styles.rowHeader}>
-                <Ionicons
-                  name={getIconForTone(card.tone)}
-                  size={19}
-                  color={isPriorityItem ? '#2563EB' : '#94A3B8'}
-                />
-                <Text
-                  className={tw.textStart}
-                  style={[
-                    styles.title,
-                    isPriorityItem ? styles.priorityTitle : styles.regularTitle,
-                  ]}
-                >
-                  {card.title}
-                </Text>
+                <View style={styles.titleGroup}>
+                  <Ionicons
+                    name={getIconForTone(card.tone)}
+                    size={19}
+                    color={getIconColorForTone(card.tone)}
+                  />
+                  <Text
+                    className={tw.textStart}
+                    style={[
+                      styles.title,
+                      isPriorityItem
+                        ? styles.priorityTitle
+                        : styles.regularTitle,
+                    ]}
+                  >
+                    {card.title}
+                  </Text>
+                </View>
+
+                {actionLabel && onPressAction ? (
+                  <Pressable
+                    style={styles.actionLink}
+                    onPress={onPressAction}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#2563EB" size="small" />
+                    ) : (
+                      <Text
+                        className={tw.textStart}
+                        style={styles.actionLinkText}
+                      >
+                        {`${actionLabel} >`}
+                      </Text>
+                    )}
+                  </Pressable>
+                ) : null}
               </View>
 
               <Text className={tw.textStart} style={styles.body}>
                 {card.body}
               </Text>
-
-              {actionLabel && onPressAction ? (
-                <Pressable
-                  style={styles.actionLink}
-                  onPress={onPressAction}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#2563EB" size="small" />
-                  ) : (
-                    <Text
-                      className={tw.textStart}
-                      style={styles.actionLinkText}
-                    >
-                      {`${actionLabel} >`}
-                    </Text>
-                  )}
-                </Pressable>
-              ) : null}
             </View>
 
             {index < normalizedCards.length - 1 ? (
@@ -142,8 +159,14 @@ const styles = StyleSheet.create({
   rowHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     alignSelf: 'stretch',
+    gap: 8,
+  },
+  titleGroup: {
+    flex: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     gap: 8,
   },
   title: {
@@ -170,15 +193,16 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actionLink: {
-    alignSelf: 'flex-end',
-    paddingTop: 1,
+    alignSelf: 'center',
+    marginRight: 'auto',
+    paddingTop: 0,
   },
   actionLinkText: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
     color: '#2563EB',
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   divider: {

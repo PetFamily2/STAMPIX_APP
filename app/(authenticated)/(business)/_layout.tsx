@@ -1,4 +1,4 @@
-import { useQuery } from 'convex/react';
+﻿import { useQuery } from 'convex/react';
 import { Redirect, Tabs, useLocalSearchParams, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,7 +18,7 @@ import {
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
-  dashboard: 'מרכז ניהול',
+  dashboard: 'בית',
   customers: 'לקוחות',
   programs: 'כרטיסיות',
   campaigns: 'קמפיינים',
@@ -304,3 +304,4 @@ export default function BusinessTabsLayout() {
     </Tabs>
   );
 }
+

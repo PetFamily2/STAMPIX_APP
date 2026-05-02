@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { UserAvatar } from '@/components/UserAvatar';
@@ -51,37 +51,38 @@ export function DashboardHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Pressable
-          onPress={onPressNotifications}
-          style={styles.notificationButton}
-          accessibilityRole="button"
-          accessibilityLabel="התראות עסק"
-        >
-          <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-          {notificationCount > 0 ? (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
+        <View style={styles.leftCluster}>
+          <Pressable
+            onPress={onPressNotifications}
+            style={styles.notificationButton}
+            accessibilityRole="button"
+            accessibilityLabel="התראות עסק"
+          >
+            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+            {notificationCount > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
 
-        <Text
-          className={tw.textStart}
-          style={[
-            styles.brandLine,
-            {
-              fontSize: layout.headerBrandSize,
-              lineHeight: layout.headerBrandSize + 6,
-            },
-          ]}
-        >
-          StampAix
-        </Text>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.brandLine,
+              {
+                fontSize: layout.headerBrandSize,
+                lineHeight: layout.headerBrandSize + 6,
+              },
+            ]}
+          >
+            StampAix
+          </Text>
+        </View>
 
         <View style={styles.rightActions}>
-          <Ionicons name="chevron-down" size={15} color="#64748B" />
           <Pressable
             onPress={onPressMenu}
             accessibilityRole="button"
@@ -143,13 +144,18 @@ export function DashboardHeader({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
-    paddingTop: 8,
+    gap: 8,
+    paddingTop: 0,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  leftCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   notificationButton: {
     width: 34,
@@ -161,7 +167,7 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 7,
+    gap: 4,
   },
   menuButton: {
     width: 32,
@@ -190,12 +196,12 @@ const styles = StyleSheet.create({
   },
   brandLine: {
     fontWeight: '700',
-    color: DASHBOARD_TOKENS.colors.brandBlue,
+    color: '#1E4ED8',
     letterSpacing: 0,
   },
   greetingRow: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: 1,
   },
   greetingLine: {
     fontWeight: '700',
@@ -204,10 +210,11 @@ const styles = StyleSheet.create({
   businessRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   businessName: {
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
   },
 });
+

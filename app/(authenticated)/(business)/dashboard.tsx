@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -13,10 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { B2BReferralSummary } from '@/components/business-dashboard/B2BReferralSummary';
+import { BusinessReferralCard } from '@/components/business-dashboard/BusinessReferralCard';
 import { BusinessStatusCard } from '@/components/business-dashboard/BusinessStatusCard';
 import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
-import { DailyKpiGrid } from '@/components/business-dashboard/DailyKpiGrid';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
   type DatePresetKey,
@@ -31,6 +31,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   DASHBOARD_TOKENS,
   getDashboardLayout,
@@ -93,7 +94,7 @@ function formatNumber(value: number) {
   return NUMBER_FORMATTER.format(value);
 }
 
-function formatSignedNumber(value: number) {
+function _formatSignedNumber(value: number) {
   const absoluteValue = formatNumber(Math.abs(value));
   if (value < 0) {
     return `↓ -${absoluteValue}`;
@@ -101,11 +102,11 @@ function formatSignedNumber(value: number) {
   return `↑ ${value === 0 ? '0' : `+${absoluteValue}`}`;
 }
 
-function getIsraelDayKey(timestamp: number) {
+function _getIsraelDayKey(timestamp: number) {
   return DAY_KEY_FORMATTER.format(new Date(timestamp));
 }
 
-function buildKpiTrend(value: number, previousValue: number) {
+function _buildKpiTrend(value: number, previousValue: number) {
   if (value === previousValue) {
     return { direction: 'up' as const, label: '↑ 0%' };
   }
@@ -218,11 +219,19 @@ export default function BusinessDashboardScreen() {
     activeBusiness,
     isLoading: isBusinessLoading,
   } = useActiveBusiness();
+  const businessCapabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+  const canViewBillingState = businessCapabilities?.view_billing_state === true;
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
   const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
     string | null
   >(null);
+  const [isReferralShareLoading, setIsReferralShareLoading] = useState(false);
 
   const dashboardSummary = useQuery(
     api.dashboard.getBusinessDashboardSummary,
@@ -238,9 +247,11 @@ export default function BusinessDashboardScreen() {
         }
       : 'skip'
   );
-  const referralDashboard = useQuery(
-    api.referrals.getBusinessReferralDashboard,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  const referralCreditSummary = useQuery(
+    api.referrals.getBusinessReferralCreditSummary,
+    activeBusinessId && canViewBillingState
+      ? { businessId: activeBusinessId }
+      : 'skip'
   );
   const recentActivity = useQuery(
     api.events.getRecentActivity,
@@ -250,6 +261,9 @@ export default function BusinessDashboardScreen() {
     api.aiRecommendations.executeRecommendationPrimaryCta
   );
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
+  const createBusinessReferralLink = useMutation(
+    api.referrals.getOrCreateBusinessReferralLink
+  );
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -276,37 +290,41 @@ export default function BusinessDashboardScreen() {
     businessName;
 
   const lifetimeMetrics = dashboardSummary?.lifetimeMetrics;
-  const lifetimeMetricChanges = dashboardSummary?.lifetimeMetricChanges;
-  const lifetimeItems = [
+  const kpis = dashboardDay?.kpis;
+  const selectedPeriodLabel =
+    selectedPreset === 'today'
+      ? 'היום'
+      : selectedPreset === 'last_7_days'
+        ? '7 ימים'
+        : selectedPreset === 'last_30_days'
+          ? '30 ימים'
+          : 'אתמול';
+  const formatPeriodDelta = (value: number) =>
+    `+${formatNumber(Math.max(0, value))} ${selectedPeriodLabel}`;
+  const unifiedKpiItems = [
     {
-      key: 'lifetime_stamps',
-      label: 'לקוחות שניצלו מנטישה',
-      value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
+      key: 'recovered_customers',
+      label: 'לקוחות שחזרו',
+      value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
       icon: 'shield-checkmark-outline' as const,
       tone: 'amber' as const,
-      helperValue: formatSignedNumber(
-        lifetimeMetricChanges?.stampsLast7Days ?? 0
-      ),
+      helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
+    },
+    {
+      key: 'lifetime_stamps',
+      label: 'ניקובים',
+      value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
+      icon: 'stamp-outline-custom' as const,
+      tone: 'blue' as const,
+      helperValue: formatPeriodDelta(kpis?.stamps?.value ?? 0),
     },
     {
       key: 'lifetime_redemptions',
-      label: 'הטבות שנוצלו',
+      label: 'הטבות',
       value: formatNumber(lifetimeMetrics?.totalRedemptionsAllTime ?? 0),
       icon: 'gift-outline-custom' as const,
       tone: 'violet' as const,
-      helperValue: formatSignedNumber(
-        lifetimeMetricChanges?.redemptionsLast7Days ?? 0
-      ),
-    },
-    {
-      key: 'lifetime_joined_customers',
-      label: 'ניקובים',
-      value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
-      icon: 'stamp-outline-custom' as const,
-      tone: 'blue' as const,
-      helperValue: formatSignedNumber(
-        lifetimeMetricChanges?.joinedCustomersLast7Days ?? 0
-      ),
+      helperValue: formatPeriodDelta(kpis?.redemptions?.value ?? 0),
     },
     {
       key: 'lifetime_returning_customers',
@@ -314,73 +332,7 @@ export default function BusinessDashboardScreen() {
       value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
       icon: 'people-outline' as const,
       tone: 'teal' as const,
-      helperValue: formatSignedNumber(
-        lifetimeMetricChanges?.returningCustomersLast7Days ?? 0
-      ),
-    },
-  ];
-
-  const kpis = dashboardDay?.kpis;
-  const selectedDayContextLabel =
-    dashboardDay?.dateContext?.dayKey === getIsraelDayKey(anchorNow)
-      ? 'היום'
-      : `${dashboardDay?.dateContext?.rangeDays ?? 1} ימים`;
-  const rangeComparisonText =
-    (dashboardDay?.dateContext?.rangeDays ?? 1) > 1
-      ? `מול ${dashboardDay?.dateContext?.rangeDays ?? 1} קודמים`
-      : 'מאתמול';
-  const dailyKpiItems = [
-    {
-      key: 'stamps',
-      label: 'ניקובים',
-      metaLabel: selectedDayContextLabel,
-      value: formatNumber(kpis?.stamps?.value ?? 0),
-      icon: 'scan-outline' as const,
-      tone: 'blue' as const,
-      trend: buildKpiTrend(
-        kpis?.stamps?.value ?? 0,
-        kpis?.stamps?.previousValue ?? 0
-      ),
-      comparisonText: rangeComparisonText,
-    },
-    {
-      key: 'redemptions',
-      label: 'הטבות שנוצלו',
-      metaLabel: selectedDayContextLabel,
-      value: formatNumber(kpis?.redemptions?.value ?? 0),
-      icon: 'gift-outline' as const,
-      tone: 'violet' as const,
-      trend: buildKpiTrend(
-        kpis?.redemptions?.value ?? 0,
-        kpis?.redemptions?.previousValue ?? 0
-      ),
-      comparisonText: rangeComparisonText,
-    },
-    {
-      key: 'activeCustomers',
-      label: 'לקוחות פעילים',
-      metaLabel: selectedDayContextLabel,
-      value: formatNumber(kpis?.activeCustomers ?? 0),
-      icon: 'people-outline' as const,
-      tone: 'blue' as const,
-      trend: buildKpiTrend(
-        kpis?.activeCustomers ?? 0,
-        kpis?.activeCustomersPreviousDay ?? 0
-      ),
-      comparisonText: rangeComparisonText,
-    },
-    {
-      key: 'atRiskCustomers',
-      label: 'לקוחות בסיכון',
-      metaLabel: selectedDayContextLabel,
-      value: formatNumber(kpis?.atRiskCustomers ?? 0),
-      icon: 'warning-outline' as const,
-      tone: 'amber' as const,
-      trend: buildKpiTrend(
-        kpis?.atRiskCustomers ?? 0,
-        kpis?.atRiskCustomersPreviousDay ?? 0
-      ),
-      comparisonText: rangeComparisonText,
+      helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
     },
   ];
 
@@ -388,13 +340,30 @@ export default function BusinessDashboardScreen() {
     const cards = (dashboardSummary?.recommendations?.cards ??
       []) as DashboardRecommendationCard[];
     const source = cards.length > 0 ? cards : buildEmptyRecommendationCards();
-    return source.map((card) => ({
+    const normalized = source.map((card) => ({
       ...card,
       primaryCtaLabel: card.primaryCta?.label
         ? localizeCtaLabel(card.primaryCta.label)
         : null,
     }));
-  }, [dashboardSummary]);
+    const hasAtRiskTask = normalized.some((card) => card.key === 'at_risk_task');
+    if (!hasAtRiskTask) {
+      normalized.unshift({
+        key: 'at_risk_task',
+        title: 'לקוחות בסיכון',
+        body: `${formatNumber(kpis?.atRiskCustomers ?? 0)} לקוחות לא ביקרו לאחרונה`,
+        evidenceTags: [],
+        tone: 'critical',
+        primaryCta: {
+          kind: 'view_customers',
+          label: 'פתח לקוחות',
+          customerFilter: 'at_risk',
+        },
+        primaryCtaLabel: 'פתח לקוחות',
+      });
+    }
+    return normalized;
+  }, [dashboardSummary, kpis?.atRiskCustomers]);
 
   const openRoute = (route: BusinessRoute) => router.push(route as never);
   const openCustomersWithFilter = (filter?: CustomerRouteFilter | null) => {
@@ -457,6 +426,40 @@ export default function BusinessDashboardScreen() {
       );
     }
   };
+
+  const handleShareBusinessReferral = useCallback(async () => {
+    if (!activeBusinessId || !canViewBillingState || isReferralShareLoading) {
+      return;
+    }
+
+    try {
+      setIsReferralShareLoading(true);
+      const link = await createBusinessReferralLink({
+        businessId: activeBusinessId,
+      });
+      const joinUrl = `https://app.stampaix.com/join?bref=${link.code}`;
+      const message = `I use StampAix to manage customer punch cards.
+
+If you run a business this might help you too.
+
+Join here:
+${joinUrl}`;
+      await Share.share({ message });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message === 'PAID_PLAN_REQUIRED'
+          ? 'השיתוף זמין אחרי הצטרפות למסלול בתשלום.'
+          : 'לא הצלחנו לפתוח את חלון השיתוף כרגע.';
+      Alert.alert('שגיאה', message);
+    } finally {
+      setIsReferralShareLoading(false);
+    }
+  }, [
+    activeBusinessId,
+    canViewBillingState,
+    createBusinessReferralLink,
+    isReferralShareLoading,
+  ]);
 
   const handleRecommendationCta = async (cardKey: string) => {
     if (!activeBusinessId || applyingRecommendationKey) {
@@ -584,10 +587,18 @@ export default function BusinessDashboardScreen() {
                 },
               ]}
             >
-              מצטברים של העסק
+              מצב העסק
             </Text>
           </View>
-          <LifetimeMetricsRow layoutMode={layoutMode} metrics={lifetimeItems} />
+          <DateSelectorBar
+            layoutMode={layoutMode}
+            value={selectedPreset}
+            onChange={handleSelectPreset}
+          />
+          <LifetimeMetricsRow
+            layoutMode={layoutMode}
+            metrics={unifiedKpiItems}
+          />
         </View>
 
         <View style={styles.section}>
@@ -674,28 +685,7 @@ export default function BusinessDashboardScreen() {
               },
             ]}
           >
-            ביצועים לתקופה
-          </Text>
-          <DateSelectorBar
-            layoutMode={layoutMode}
-            value={selectedPreset}
-            onChange={handleSelectPreset}
-          />
-          <DailyKpiGrid layoutMode={layoutMode} items={dailyKpiItems} />
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.sectionTitle,
-              {
-                fontSize: layout.sectionTitleSize,
-                lineHeight: layout.sectionTitleLineHeight,
-              },
-            ]}
-          >
-            המלצות עבור
+            נדרש טיפול
           </Text>
           <SmartRecommendationsPanel
             layoutMode={layoutMode}
@@ -758,42 +748,18 @@ export default function BusinessDashboardScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.sectionTitle,
-              {
-                fontSize: layout.sectionTitleSize,
-                lineHeight: layout.sectionTitleLineHeight,
-              },
-            ]}
-          >
-            שיתוף עסק מביא עסק
-          </Text>
-          <B2BReferralSummary
+          <BusinessReferralCard
             layoutMode={layoutMode}
-            items={[
-              {
-                key: 'generated',
-                label: 'נוצרו',
-                value: formatNumber(referralDashboard?.referralsGenerated ?? 0),
-              },
-              {
-                key: 'completed',
-                label: 'הושלמו',
-                value: formatNumber(referralDashboard?.referralsCompleted ?? 0),
-              },
-              {
-                key: 'granted',
-                label: 'הוענקו',
-                value: formatNumber(referralDashboard?.rewardsGranted ?? 0),
-              },
-              {
-                key: 'redeemed',
-                label: 'מומשו',
-                value: formatNumber(referralDashboard?.rewardsRedeemed ?? 0),
-              },
-            ]}
+            totalFreeMonthsEarned={referralCreditSummary?.creditedMonths ?? 0}
+            pendingInvitesCount={
+              referralCreditSummary?.pendingInvitesCount ?? 0
+            }
+            activeReferralsCount={
+              referralCreditSummary?.activeReferralsCount ?? 0
+            }
+            isShareLoading={isReferralShareLoading}
+            shareDisabled={!activeBusinessId || !canViewBillingState}
+            onPressShare={() => void handleShareBusinessReferral()}
           />
         </View>
       </ScrollView>
@@ -812,7 +778,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
-    paddingTop: 16,
+    paddingTop: 2,
     paddingBottom: 124,
     gap: 22,
   },

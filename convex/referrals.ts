@@ -2952,9 +2952,18 @@ export const getBusinessReferralCreditSummary = query({
           sum + Math.max(0, Number(row.creditMonths ?? 0)),
         0
       );
+    const pendingInvitesCount = rows.filter(
+      (row: any) =>
+        row.status === 'pending_subscription' || row.status === 'waiting_30_days'
+    ).length;
+    const activeReferralsCount = rows.filter(
+      (row: any) => row.status === 'credited'
+    ).length;
     return {
       creditedMonths,
       pendingMonths,
+      pendingInvitesCount,
+      activeReferralsCount,
       remainingCapMonths: Math.max(0, B2B_REWARD_CAP_MONTHS - creditedMonths),
       totalReferrals: rows.length,
     };

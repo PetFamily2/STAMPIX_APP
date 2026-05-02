@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
 
 import {
   DASHBOARD_TOKENS,
@@ -48,41 +48,34 @@ const TONE_MAP: Record<
 
 function StampOutlineIcon({ color }: { color: string }) {
   return (
-    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={4.8} r={2.1} stroke={color} strokeWidth={1.65} />
+    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 6.9v4.3"
+        d="M12 1.7c3 0 4.8 2.6 4.1 5.5-.5 2.1-1.7 4.3-2.6 6.3h-3c-.9-2-2.1-4.2-2.6-6.3-.7-2.9 1.1-5.5 4.1-5.5Z"
         stroke={color}
-        strokeWidth={1.65}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M9.2 11.2h5.6l1.4 3.4H7.8l1.4-3.4Z"
-        stroke={color}
-        strokeWidth={1.65}
+        strokeWidth={1.85}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Rect
-        x={6}
-        y={14.6}
-        width={12}
-        height={2.8}
-        rx={1.1}
+      <Path
+        d="M9.1 13.4h5.8v1.2c0 1.3-1 2.3-2.3 2.3h-1.2c-1.3 0-2.3-1-2.3-2.3v-1.2Z"
         stroke={color}
-        strokeWidth={1.65}
+        strokeWidth={1.85}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <Path
-        d="M5.4 20h13.2"
+        d="M4.7 16.6h4.4c.5.7 1.5 1 2.9 1s2.4-.3 2.9-1h4.4c1.5 0 2.7 1.2 2.7 2.7S20.8 22 19.3 22H4.7C3.2 22 2 20.8 2 19.3s1.2-2.7 2.7-2.7Z"
         stroke={color}
-        strokeWidth={1.65}
+        strokeWidth={1.85}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <Path
-        d="M8.2 17.4v1.1M12 17.4v1.1M15.8 17.4v1.1"
+        d="M4.1 21.8h15.8l.9 1.5H3.2l.9-1.5Z"
         stroke={color}
-        strokeWidth={1.45}
+        strokeWidth={1.85}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -90,7 +83,7 @@ function StampOutlineIcon({ color }: { color: string }) {
 
 function GiftOutlineIcon({ color }: { color: string }) {
   return (
-    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 7.3c-1.1-2.8-3.1-4-4.5-2.8-1.5 1.3.1 3 4.5 2.8Z"
         stroke={color}
@@ -158,12 +151,13 @@ function LifetimeIcon({
     return <GiftOutlineIcon color={color} />;
   }
 
-  return <Ionicons name={icon} size={26} color={color} />;
+  return <Ionicons name={icon} size={29} color={color} />;
 }
 
 export function LifetimeMetricsRow({
   layoutMode,
   metrics,
+  showIcons = true,
 }: {
   layoutMode: DashboardLayoutMode;
   metrics: Array<{
@@ -174,6 +168,7 @@ export function LifetimeMetricsRow({
     tone: 'teal' | 'violet' | 'blue' | 'amber';
     helperValue?: string;
   }>;
+  showIcons?: boolean;
 }) {
   const layout = getDashboardLayout(layoutMode);
 
@@ -191,9 +186,11 @@ export function LifetimeMetricsRow({
                 index < 3 ? styles.metricDivider : null,
               ]}
             >
-              <View style={styles.iconArea}>
-                <LifetimeIcon icon={metric.icon} color={palette.iconColor} />
-              </View>
+              {showIcons ? (
+                <View style={styles.iconArea}>
+                  <LifetimeIcon icon={metric.icon} color={palette.iconColor} />
+                </View>
+              ) : null}
 
               <View style={styles.labelArea}>
                 <Text
@@ -266,12 +263,12 @@ const styles = StyleSheet.create({
     borderLeftColor: '#EDF2F8',
   },
   iconArea: {
-    height: 36,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   labelArea: {
-    height: 32,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
