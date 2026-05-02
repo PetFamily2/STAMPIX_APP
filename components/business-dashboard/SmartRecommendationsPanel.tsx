@@ -1,14 +1,41 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
+import { tw } from '@/lib/rtl';
 
-import { RecommendationActionCard } from './RecommendationActionCard';
+type RecommendationCard = {
+  key: string;
+  tone: 'critical' | 'warning' | 'neutral' | 'success';
+  title: string;
+  body: string;
+  supportingText?: string;
+  evidenceTags: string[];
+  primaryCtaLabel?: string | null;
+};
+
+function getIconForTone(tone: RecommendationCard['tone']) {
+  if (tone === 'critical') {
+    return 'warning-outline' as const;
+  }
+  if (tone === 'warning') {
+    return 'megaphone-outline' as const;
+  }
+  if (tone === 'success') {
+    return 'checkmark-circle-outline' as const;
+  }
+  return 'sparkles-outline' as const;
+}
 
 export function SmartRecommendationsPanel({
   layoutMode,
@@ -18,28 +45,13 @@ export function SmartRecommendationsPanel({
   loadingCardKey,
 }: {
   layoutMode: DashboardLayoutMode;
-  cards: Array<{
-    key: string;
-    tone: 'critical' | 'warning' | 'neutral' | 'success';
-    title: string;
-    body: string;
-    supportingText?: string;
-    evidenceTags: string[];
-    primaryCtaLabel?: string | null;
-  }>;
+  cards: RecommendationCard[];
   onPressCta: (cardKey: string) => void;
   onPressDetails?: (cardKey: string) => void;
   loadingCardKey?: string | null;
 }) {
   const layout = getDashboardLayout(layoutMode);
   const normalizedCards = cards.slice(0, 3);
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const cardStride = useMemo(
-    () =>
-      layout.recommendationCardWidthPrimary + DASHBOARD_TOKENS.spacingGridGap,
-    [layout.recommendationCardWidthPrimary]
-  );
 
   if (normalizedCards.length === 0) {
     return (
@@ -52,56 +64,67 @@ export function SmartRecommendationsPanel({
 
   return (
     <View style={styles.panel}>
-      <ScrollView
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={cardStride}
-        decelerationRate="fast"
-        contentContainerStyle={styles.scrollContent}
-        onMomentumScrollEnd={(event) => {
-          const offsetX = event.nativeEvent.contentOffset.x;
-          const nextIndex = Math.round(offsetX / cardStride);
-          setActiveIndex(
-            Math.max(0, Math.min(nextIndex, normalizedCards.length - 1))
-          );
-        }}
-      >
-        {normalizedCards.map((card, index) => (
-          <RecommendationActionCard
-            key={card.key}
-            layoutMode={layoutMode}
-            title={card.title}
-            body={card.body}
-            supportingText={card.supportingText}
-            evidenceTags={card.evidenceTags}
-            primaryCtaLabel={card.primaryCtaLabel}
-            onPressCta={
-              card.primaryCtaLabel ? () => onPressCta(card.key) : null
-            }
-            secondaryActionLabel={onPressDetails ? 'פרטים' : null}
-            onPressSecondaryAction={
-              onPressDetails ? () => onPressDetails(card.key) : null
-            }
-            tone={card.tone}
-            emphasis={index === 0 ? 'primary' : 'secondary'}
-            isLoading={loadingCardKey === card.key}
-          />
-        ))}
-      </ScrollView>
+      {normalizedCards.map((card, index) => {
+        const isPriorityItem = index === 0;
+        const isLoading = loadingCardKey === card.key;
+        const actionLabel =
+          card.primaryCtaLabel || (onPressDetails ? 'פרטים' : null);
+        const onPressAction = card.primaryCtaLabel
+          ? () => onPressCta(card.key)
+          : onPressDetails
+            ? () => onPressDetails(card.key)
+            : null;
 
-      {normalizedCards.length > 1 ? (
-        <View style={styles.pagination}>
-          {normalizedCards.map((card, index) => (
-            <View
-              key={card.key}
-              style={[
-                styles.dot,
-                index === activeIndex ? styles.dotActive : null,
-              ]}
-            />
-          ))}
-        </View>
-      ) : null}
+        return (
+          <View key={card.key}>
+            <View style={styles.row}>
+              <View style={styles.rowHeader}>
+                <Ionicons
+                  name={getIconForTone(card.tone)}
+                  size={19}
+                  color={isPriorityItem ? '#2563EB' : '#94A3B8'}
+                />
+                <Text
+                  className={tw.textStart}
+                  style={[
+                    styles.title,
+                    isPriorityItem ? styles.priorityTitle : styles.regularTitle,
+                  ]}
+                >
+                  {card.title}
+                </Text>
+              </View>
+
+              <Text className={tw.textStart} style={styles.body}>
+                {card.body}
+              </Text>
+
+              {actionLabel && onPressAction ? (
+                <Pressable
+                  style={styles.actionLink}
+                  onPress={onPressAction}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#2563EB" size="small" />
+                  ) : (
+                    <Text
+                      className={tw.textStart}
+                      style={styles.actionLinkText}
+                    >
+                      {`${actionLabel} >`}
+                    </Text>
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
+
+            {index < normalizedCards.length - 1 ? (
+              <View style={styles.divider} />
+            ) : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -109,27 +132,58 @@ export function SmartRecommendationsPanel({
 const styles = StyleSheet.create({
   panel: {
     minHeight: 1,
-    gap: 12,
+    gap: 0,
   },
-  scrollContent: {
-    flexDirection: 'row-reverse',
-    gap: DASHBOARD_TOKENS.spacingGridGap,
-    paddingBottom: 2,
+  row: {
+    paddingVertical: 13,
+    gap: 4,
+    alignItems: 'flex-end',
   },
-  pagination: {
+  rowHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
     gap: 8,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#CBD5E1',
+  title: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#111827',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
-  dotActive: {
-    backgroundColor: '#4F46E5',
+  priorityTitle: {
+    fontWeight: '700',
+  },
+  regularTitle: {
+    fontWeight: '400',
+  },
+  body: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400',
+    color: '#475569',
+    textAlign: 'right',
+    alignSelf: 'stretch',
+    writingDirection: 'rtl',
+  },
+  actionLink: {
+    alignSelf: 'flex-end',
+    paddingTop: 1,
+  },
+  actionLinkText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#2563EB',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
   },
   emptyState: {
     minHeight: 72,

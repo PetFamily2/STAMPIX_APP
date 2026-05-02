@@ -62,15 +62,11 @@ export function DailyKpiCard({
   const layout = getDashboardLayout(layoutMode);
   const palette = TONE_MAP[tone];
   const trendLabel = trend ? trend.label : comparisonText;
+  const trendIconName = trend?.direction === 'down' ? 'arrow-down' : 'arrow-up';
+  const trendText = trendLabel.replace(/^[↑↓]\s*/, '');
 
   return (
     <View style={styles.metricItem}>
-      <View style={styles.iconArea}>
-        <View style={[styles.iconBubble, { backgroundColor: palette.iconBg }]}>
-          <Ionicons name={icon} size={18} color={palette.iconColor} />
-        </View>
-      </View>
-
       <View style={styles.labelArea}>
         <Text className={tw.textStart} numberOfLines={2} style={styles.label}>
           {label}
@@ -97,12 +93,29 @@ export function DailyKpiCard({
       </View>
 
       <View style={styles.trendArea}>
-        <Text
-          style={[styles.trendText, { color: palette.trendColor }]}
-          numberOfLines={1}
-        >
-          {trendLabel}
-        </Text>
+        {trend ? (
+          <View style={styles.trendInline}>
+            <Ionicons name={icon} size={11} color={palette.iconColor} />
+            <Text
+              style={[styles.trendText, { color: palette.trendColor }]}
+              numberOfLines={1}
+            >
+              {trendText}
+            </Text>
+            <Ionicons
+              name={trendIconName}
+              size={11}
+              color={palette.trendColor}
+            />
+          </View>
+        ) : (
+          <Text
+            style={[styles.trendText, { color: palette.trendColor }]}
+            numberOfLines={1}
+          >
+            {comparisonText}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -110,24 +123,13 @@ export function DailyKpiCard({
 
 const styles = StyleSheet.create({
   metricItem: {
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 108,
-  },
-  iconBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    minHeight: 90,
+    paddingTop: 2,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconArea: {
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   labelArea: {
-    height: 32,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -139,10 +141,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   trendArea: {
-    height: 16,
+    height: 14,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  trendInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
   },
   label: {
     fontSize: 12,
@@ -160,8 +168,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   trendText: {
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 11,
+    lineHeight: 13,
     fontWeight: '600',
     textAlign: 'center',
   },

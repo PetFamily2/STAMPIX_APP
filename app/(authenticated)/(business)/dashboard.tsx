@@ -94,10 +94,11 @@ function formatNumber(value: number) {
 }
 
 function formatSignedNumber(value: number) {
-  if (value === 0) {
-    return '0';
+  const absoluteValue = formatNumber(Math.abs(value));
+  if (value < 0) {
+    return `↓ -${absoluteValue}`;
   }
-  return `${value > 0 ? '+' : '-'}${formatNumber(Math.abs(value))}`;
+  return `↑ ${value === 0 ? '0' : `+${absoluteValue}`}`;
 }
 
 function getIsraelDayKey(timestamp: number) {
@@ -106,18 +107,28 @@ function getIsraelDayKey(timestamp: number) {
 
 function buildKpiTrend(value: number, previousValue: number) {
   if (value === previousValue) {
-    return { direction: 'flat' as const, label: 'ללא שינוי' };
+    return { direction: 'up' as const, label: '↑ 0%' };
   }
   const delta = value - previousValue;
   if (previousValue <= 0) {
-    return delta > 0
-      ? { direction: 'up' as const, label: `+${formatNumber(Math.abs(delta))}` }
-      : { direction: 'flat' as const, label: 'ללא שינוי' };
+    if (delta < 0) {
+      return {
+        direction: 'down' as const,
+        label: `↓ -${formatNumber(Math.abs(delta))}`,
+      };
+    }
+    return {
+      direction: 'up' as const,
+      label: `↑ +${formatNumber(Math.abs(delta))}`,
+    };
   }
   const percent = Math.round(Math.abs((delta / previousValue) * 100));
+  const direction = delta > 0 ? ('up' as const) : ('down' as const);
   return {
-    direction: delta > 0 ? ('up' as const) : ('down' as const),
-    label: `${delta > 0 ? '+' : '-'}${percent}%`,
+    direction,
+    label: `${direction === 'up' ? '↑' : '↓'} ${
+      delta > 0 ? '+' : '-'
+    }${percent}%`,
   };
 }
 
@@ -584,6 +595,7 @@ export default function BusinessDashboardScreen() {
             className={tw.textStart}
             style={[
               styles.sectionTitle,
+              styles.recommendationsSectionTitle,
               {
                 fontSize: layout.sectionTitleSize,
                 lineHeight: layout.sectionTitleLineHeight,
@@ -817,6 +829,11 @@ const styles = StyleSheet.create({
     lineHeight: DASHBOARD_TOKENS.typography.sectionTitle.lineHeight,
     fontWeight: DASHBOARD_TOKENS.typography.sectionTitle.fontWeight,
     color: DASHBOARD_TOKENS.colors.textPrimary,
+  },
+  recommendationsSectionTitle: {
+    textAlign: 'right',
+    alignSelf: 'stretch',
+    writingDirection: 'rtl',
   },
   activityHeadingRow: {
     flexDirection: 'row-reverse',
