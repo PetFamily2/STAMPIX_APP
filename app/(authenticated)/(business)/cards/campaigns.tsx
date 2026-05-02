@@ -203,6 +203,10 @@ export function CampaignsHubContent() {
     api.campaigns.listManagementCampaignsByBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
+  const referralConfig = useQuery(
+    api.referrals.getReferralConfig,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
   const campaigns = (campaignsQuery ?? []) as ManagementCampaign[];
   const programs =
     useQuery(
@@ -273,7 +277,11 @@ export function CampaignsHubContent() {
     [activeCampaigns]
   );
   const bestReachCampaign = topReachCampaigns[0] ?? null;
-  const campaignLimit = limitStatus('maxCampaigns', activeCampaigns.length);
+  const isReferralCampaignActive = referralConfig?.isEnabled === true;
+  const campaignLimit = limitStatus(
+    'maxCampaigns',
+    activeCampaigns.length + (isReferralCampaignActive ? 1 : 0)
+  );
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
@@ -474,6 +482,36 @@ export function CampaignsHubContent() {
             <Ionicons name="add" size={20} color="#FFFFFF" />
             <Text className="text-sm font-black text-white">צור קמפיין</Text>
           </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            router.push('/(authenticated)/(business)/settings-business-referrals')
+          }
+          className="mt-4 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
+        >
+          <View className={`${tw.flexRow} items-center justify-between gap-3`}>
+            <View className={`${tw.flexRow} flex-1 items-center gap-3`}>
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-[#DCFCE7]">
+                <Ionicons name="people-outline" size={20} color="#15803D" />
+              </View>
+              <View className="flex-1 items-end">
+                <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
+                  חבר מביא חבר
+                </Text>
+                <Text className={`mt-0.5 text-xs font-semibold ${tw.textStart}`} style={{ color: '#15803D' }}>
+                  תבנית קמפיין מוכנה
+                </Text>
+              </View>
+            </View>
+            <View className={`rounded-full px-3 py-1.5 ${isReferralCampaignActive ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'}`}>
+              <Text className={`text-xs font-extrabold ${isReferralCampaignActive ? 'text-white' : 'text-[#475569]'}`}>
+                {isReferralCampaignActive ? 'פעיל' : 'לא פעיל'}
+              </Text>
+            </View>
+          </View>
+          <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
+            הפעלה דרך מסך ההפניות. כשהוא פעיל הוא נספר במכסת הקמפיינים.
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.kpiGrid}>

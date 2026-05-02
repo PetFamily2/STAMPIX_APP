@@ -34,6 +34,12 @@ type ReferralTab = 'settings' | 'customers' | 'rewards' | 'performance';
 
 const MONTHLY_LIMIT_OPTIONS: MonthlyLimit[] = ['unlimited', 5, 10, 20, 50];
 const BENEFIT_EXPIRATION_OPTIONS: BenefitExpiration[] = [14, 30, 60, 90];
+const TAB_LABELS: Record<ReferralTab, string> = {
+  settings: 'הגדרות',
+  customers: 'לקוחות',
+  rewards: 'תגמולים',
+  performance: 'ביצועים',
+};
 
 function normalizeTab(value: string | undefined): ReferralTab {
   if (
@@ -192,9 +198,9 @@ export default function BusinessReferralSettingsScreen() {
         rewardRecipients,
         monthlyLimit,
       });
-      Alert.alert('', 'Referral settings saved');
+      Alert.alert('', 'הגדרות החבר-מביא-חבר נשמרו');
     } catch {
-      Alert.alert('Error', 'Failed to save referral settings');
+      Alert.alert('שגיאה', 'שמירת ההגדרות נכשלה');
     } finally {
       setIsSaving(false);
     }
@@ -209,7 +215,7 @@ export default function BusinessReferralSettingsScreen() {
       const link = await getOrCreateBusinessReferralLink({
         businessId: activeBusinessId,
       });
-      const message = `Invite your business network to StampAix and earn free subscription months.\n${link.url}`;
+      const message = `הזמינו בעלי עסקים ל-StampAix וקבלו חודשי מנוי מתנה.\n${link.url}`;
 
       if (mode === 'whatsapp') {
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -230,10 +236,10 @@ export default function BusinessReferralSettingsScreen() {
         } else {
           await Share.share({ message: link.url });
         }
-        Alert.alert('', 'Business referral link is ready to share');
+        Alert.alert('', 'קישור השיתוף מוכן');
       }
     } catch {
-      Alert.alert('Error', 'Failed to create business referral link');
+      Alert.alert('שגיאה', 'יצירת קישור שיתוף נכשלה');
     } finally {
       setIsB2bShareLoading(false);
     }
@@ -260,9 +266,13 @@ export default function BusinessReferralSettingsScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="Referral Settings"
-            subtitle="Configuration, operations, and performance"
-            titleAccessory={<BackButton onPress={() => router.back()} />}
+            title="חבר מביא חבר"
+            subtitle="הגדרות, פעילות וביצועים"
+            titleAccessory={
+              <BackButton
+                onPress={() => router.push('/(authenticated)/(business)/campaigns')}
+              />
+            }
           />
         </StickyScrollHeader>
 
@@ -284,7 +294,7 @@ export default function BusinessReferralSettingsScreen() {
                   activeTab === tab ? styles.tabButtonTextActive : null,
                 ]}
               >
-                {tab}
+                {TAB_LABELS[tab]}
               </Text>
             </Pressable>
           ))}
@@ -297,10 +307,10 @@ export default function BusinessReferralSettingsScreen() {
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Customer Referral Config</Text>
+              <Text style={styles.sectionTitle}>הגדרות חבר-מביא-חבר ללקוחות</Text>
 
               <View style={styles.row}>
-                <Text style={styles.label}>Referrals Enabled</Text>
+                <Text style={styles.label}>הפניות פעילות</Text>
                 <Pressable
                   onPress={() =>
                     canEditConfig && setIsEnabled((value) => !value)
@@ -312,12 +322,12 @@ export default function BusinessReferralSettingsScreen() {
                   ]}
                 >
                   <Text style={styles.toggleText}>
-                    {isEnabled ? 'ON' : 'OFF'}
+                    {isEnabled ? 'פעיל' : 'כבוי'}
                   </Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.label}>Reward Type</Text>
+              <Text style={styles.label}>סוג תגמול</Text>
               <View style={styles.segmentRow}>
                 <Pressable
                   onPress={() => canEditConfig && setRewardType('STAMP')}
@@ -326,7 +336,7 @@ export default function BusinessReferralSettingsScreen() {
                     rewardType === 'STAMP' ? styles.segmentButtonActive : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>STAMP</Text>
+                  <Text style={styles.segmentText}>ניקוב</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => canEditConfig && setRewardType('BENEFIT')}
@@ -337,11 +347,11 @@ export default function BusinessReferralSettingsScreen() {
                       : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>BENEFIT</Text>
+                  <Text style={styles.segmentText}>הטבה</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.label}>Reward Value</Text>
+              <Text style={styles.label}>ערך תגמול</Text>
               <TextInput
                 value={rewardValueText}
                 onChangeText={setRewardValueText}
@@ -352,7 +362,7 @@ export default function BusinessReferralSettingsScreen() {
 
               {rewardType === 'BENEFIT' ? (
                 <>
-                  <Text style={styles.label}>Benefit Title</Text>
+                  <Text style={styles.label}>כותרת הטבה</Text>
                   <TextInput
                     value={benefitTitle}
                     onChangeText={setBenefitTitle}
@@ -360,7 +370,7 @@ export default function BusinessReferralSettingsScreen() {
                     style={styles.input}
                   />
 
-                  <Text style={styles.label}>Benefit Description</Text>
+                  <Text style={styles.label}>תיאור הטבה</Text>
                   <TextInput
                     value={benefitDescription}
                     onChangeText={setBenefitDescription}
@@ -369,7 +379,7 @@ export default function BusinessReferralSettingsScreen() {
                     style={[styles.input, styles.multilineInput]}
                   />
 
-                  <Text style={styles.label}>Benefit Expiration Days</Text>
+                  <Text style={styles.label}>תוקף הטבה (ימים)</Text>
                   <View style={styles.segmentRow}>
                     {BENEFIT_EXPIRATION_OPTIONS.map((value) => (
                       <Pressable
@@ -391,7 +401,7 @@ export default function BusinessReferralSettingsScreen() {
                 </>
               ) : null}
 
-              <Text style={styles.label}>Reward Recipients</Text>
+              <Text style={styles.label}>מי מקבל תגמול</Text>
               <View style={styles.segmentRow}>
                 <Pressable
                   onPress={() =>
@@ -404,7 +414,7 @@ export default function BusinessReferralSettingsScreen() {
                       : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>referrer</Text>
+                  <Text style={styles.segmentText}>המפנה</Text>
                 </Pressable>
                 <Pressable
                   onPress={() =>
@@ -417,7 +427,7 @@ export default function BusinessReferralSettingsScreen() {
                       : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>referred</Text>
+                  <Text style={styles.segmentText}>המופנה</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => canEditConfig && setRewardRecipients('both')}
@@ -428,11 +438,11 @@ export default function BusinessReferralSettingsScreen() {
                       : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>both</Text>
+                  <Text style={styles.segmentText}>שניהם</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.label}>Monthly Referrer Limit</Text>
+              <Text style={styles.label}>מגבלת הפניות חודשית</Text>
               <View style={styles.segmentRow}>
                 {MONTHLY_LIMIT_OPTIONS.map((limit) => (
                   <Pressable
@@ -462,7 +472,7 @@ export default function BusinessReferralSettingsScreen() {
                 ]}
               >
                 <Text style={styles.primaryButtonText}>
-                  {isSaving ? 'Saving...' : 'Save Settings'}
+                  {isSaving ? 'שומר...' : 'שמירת הגדרות'}
                 </Text>
               </Pressable>
             </View>
@@ -471,15 +481,15 @@ export default function BusinessReferralSettingsScreen() {
 
         {activeTab === 'settings' && canViewBilling ? (
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Business Referral (B2B)</Text>
+            <Text style={styles.sectionTitle}>הפניית עסקים (B2B)</Text>
             <Text style={styles.metricLine}>
-              Credited Months: {b2bSummary?.creditedMonths ?? 0}
+              חודשים שזוכו: {b2bSummary?.creditedMonths ?? 0}
             </Text>
             <Text style={styles.metricLine}>
-              Pending Months: {b2bSummary?.pendingMonths ?? 0}
+              חודשים ממתינים: {b2bSummary?.pendingMonths ?? 0}
             </Text>
             <Text style={styles.metricLine}>
-              Remaining Cap Months: {b2bSummary?.remainingCapMonths ?? 24}
+              יתרה עד לתקרה: {b2bSummary?.remainingCapMonths ?? 24}
             </Text>
             <View style={styles.actionsRow}>
               <Pressable
@@ -493,7 +503,7 @@ export default function BusinessReferralSettingsScreen() {
                 ]}
               >
                 <Text style={styles.primaryButtonText}>
-                  {isB2bShareLoading ? 'Loading...' : 'Share WhatsApp'}
+                  {isB2bShareLoading ? 'טוען...' : 'שיתוף ב-WhatsApp'}
                 </Text>
               </Pressable>
               <Pressable
@@ -506,7 +516,7 @@ export default function BusinessReferralSettingsScreen() {
                   isB2bShareLoading ? styles.buttonDisabled : null,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>Copy Link</Text>
+                <Text style={styles.secondaryButtonText}>העתקת קישור</Text>
               </Pressable>
             </View>
           </View>
@@ -516,7 +526,7 @@ export default function BusinessReferralSettingsScreen() {
           !canViewCustomers ? (
             <View style={styles.card}>
               <Text style={styles.emptyText}>
-                No permission to view customers.
+                אין הרשאה לצפייה בלקוחות.
               </Text>
             </View>
           ) : customersQuery === undefined ? (
@@ -525,9 +535,9 @@ export default function BusinessReferralSettingsScreen() {
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Referred Customers</Text>
+              <Text style={styles.sectionTitle}>לקוחות שהופנו</Text>
               {customersQuery.length === 0 ? (
-                <Text style={styles.emptyText}>No referred customers yet.</Text>
+                <Text style={styles.emptyText}>עדיין אין לקוחות שהופנו.</Text>
               ) : (
                 customersQuery.map((row) => (
                   <View key={String(row.referralId)} style={styles.listRow}>
@@ -535,7 +545,7 @@ export default function BusinessReferralSettingsScreen() {
                       {row.referredName ?? row.referredUserId}
                     </Text>
                     <Text style={styles.listSecondary}>
-                      referrer: {row.referrerName ?? row.referrerUserId} ·{' '}
+                      מפנה: {row.referrerName ?? row.referrerUserId} ·{' '}
                       {row.status}
                     </Text>
                   </View>
@@ -549,7 +559,7 @@ export default function BusinessReferralSettingsScreen() {
           !canViewCustomers ? (
             <View style={styles.card}>
               <Text style={styles.emptyText}>
-                No permission to view rewards.
+                אין הרשאה לצפייה בתגמולים.
               </Text>
             </View>
           ) : rewardsQuery === undefined ? (
@@ -558,9 +568,9 @@ export default function BusinessReferralSettingsScreen() {
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Issued Referral Rewards</Text>
+              <Text style={styles.sectionTitle}>תגמולי הפניה שהונפקו</Text>
               {rewardsQuery.length === 0 ? (
-                <Text style={styles.emptyText}>No rewards to show.</Text>
+                <Text style={styles.emptyText}>אין תגמולים להצגה.</Text>
               ) : (
                 rewardsQuery.map((row) => (
                   <View key={String(row.rewardId)} style={styles.listRow}>
@@ -581,51 +591,51 @@ export default function BusinessReferralSettingsScreen() {
           !canViewDashboard ? (
             <View style={styles.card}>
               <Text style={styles.emptyText}>
-                No permission to view performance.
+                אין הרשאה לצפייה בביצועים.
               </Text>
             </View>
           ) : performanceQuery === undefined ? (
             <View style={styles.card}>
               <ActivityIndicator color="#2F6BFF" />
-              <Text style={styles.emptyText}>Loading performance...</Text>
+              <Text style={styles.emptyText}>טוען נתוני ביצועים...</Text>
             </View>
           ) : isPerformanceEmpty ? (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Performance</Text>
+              <Text style={styles.sectionTitle}>ביצועים</Text>
               <Text style={styles.emptyText}>
-                No referral performance data yet.
+                עדיין אין נתוני ביצועים להפניות.
               </Text>
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Performance</Text>
+              <Text style={styles.sectionTitle}>ביצועים</Text>
               <Text style={styles.metricLine}>
-                referrals generated: {performanceQuery.referralsGenerated}
+                הפניות שנוצרו: {performanceQuery.referralsGenerated}
               </Text>
               <Text style={styles.metricLine}>
-                referrals joined: {performanceQuery.referralsJoined}
+                הפניות שהצטרפו: {performanceQuery.referralsJoined}
               </Text>
               <Text style={styles.metricLine}>
-                referrals qualified: {performanceQuery.referralsQualified}
+                הפניות שעמדו בתנאים: {performanceQuery.referralsQualified}
               </Text>
               <Text style={styles.metricLine}>
-                referrals completed: {performanceQuery.referralsCompleted}
+                הפניות שהושלמו: {performanceQuery.referralsCompleted}
               </Text>
               <Text style={styles.metricLine}>
-                rewards issued: {performanceQuery.rewardsIssued}
+                תגמולים שהונפקו: {performanceQuery.rewardsIssued}
               </Text>
               <Text style={styles.metricLine}>
-                rewards redeemed: {performanceQuery.rewardsRedeemed}
+                תגמולים שמומשו: {performanceQuery.rewardsRedeemed}
               </Text>
               <Text style={styles.metricLine}>
-                active benefits: {performanceQuery.activeBenefits}
+                הטבות פעילות: {performanceQuery.activeBenefits}
               </Text>
 
               <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>Top Referrers</Text>
+                <Text style={styles.subSectionTitle}>מפנים מובילים</Text>
                 {(performanceQuery.topReferrers ?? []).length === 0 ? (
                   <Text style={styles.emptyText}>
-                    No referrer ranking data.
+                    אין נתוני דירוג מפנים.
                   </Text>
                 ) : (
                   (performanceQuery.topReferrers ?? []).map((row) => (
@@ -637,7 +647,7 @@ export default function BusinessReferralSettingsScreen() {
                         {row.referrerName ?? row.referrerUserId}
                       </Text>
                       <Text style={styles.listSecondary}>
-                        count: {row.count}
+                        כמות: {row.count}
                       </Text>
                     </View>
                   ))
@@ -645,9 +655,9 @@ export default function BusinessReferralSettingsScreen() {
               </View>
 
               <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>Origin Programs</Text>
+                <Text style={styles.subSectionTitle}>תוכניות מקור</Text>
                 {(performanceQuery.topOriginPrograms ?? []).length === 0 ? (
-                  <Text style={styles.emptyText}>No origin program data.</Text>
+                  <Text style={styles.emptyText}>אין נתונים על תוכניות מקור.</Text>
                 ) : (
                   (performanceQuery.topOriginPrograms ?? []).map((row) => (
                     <View
@@ -658,7 +668,7 @@ export default function BusinessReferralSettingsScreen() {
                         {row.programTitle ?? row.originProgramId}
                       </Text>
                       <Text style={styles.listSecondary}>
-                        count: {row.count}
+                        כמות: {row.count}
                       </Text>
                     </View>
                   ))

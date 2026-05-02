@@ -299,13 +299,17 @@ export default function BusinessDashboardScreen() {
         : selectedPreset === 'last_30_days'
           ? '30 ימים'
           : 'אתמול';
-  const formatPeriodDelta = (value: number) =>
-    `+${formatNumber(Math.max(0, value))} ${selectedPeriodLabel}`;
+  const formatPeriodDelta = (value: number) => ({
+    amount: `+${formatNumber(Math.max(0, value))}`,
+    period: selectedPeriodLabel,
+  });
   const unifiedKpiItems = [
     {
       key: 'recovered_customers',
       label: 'לקוחות שחזרו',
-      value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
+      value: formatNumber(
+        lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0
+      ),
       icon: 'shield-checkmark-outline' as const,
       tone: 'amber' as const,
       helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
@@ -313,7 +317,9 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_stamps',
       label: 'ניקובים',
-      value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
+      value: formatNumber(
+        lifetimeMetrics?.totalStampsAllTime ?? 0
+      ),
       icon: 'stamp-outline-custom' as const,
       tone: 'blue' as const,
       helperValue: formatPeriodDelta(kpis?.stamps?.value ?? 0),
@@ -321,7 +327,9 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_redemptions',
       label: 'הטבות',
-      value: formatNumber(lifetimeMetrics?.totalRedemptionsAllTime ?? 0),
+      value: formatNumber(
+        lifetimeMetrics?.totalRedemptionsAllTime ?? 0
+      ),
       icon: 'gift-outline-custom' as const,
       tone: 'violet' as const,
       helperValue: formatPeriodDelta(kpis?.redemptions?.value ?? 0),
@@ -329,7 +337,9 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_returning_customers',
       label: 'לקוחות חוזרים',
-      value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
+      value: formatNumber(
+        lifetimeMetrics?.returningCustomersAllTime ?? 0
+      ),
       icon: 'people-outline' as const,
       tone: 'teal' as const,
       helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
@@ -428,7 +438,7 @@ export default function BusinessDashboardScreen() {
   };
 
   const handleShareBusinessReferral = useCallback(async () => {
-    if (!activeBusinessId || !canViewBillingState || isReferralShareLoading) {
+    if (!activeBusinessId || isReferralShareLoading) {
       return;
     }
 
@@ -438,11 +448,11 @@ export default function BusinessDashboardScreen() {
         businessId: activeBusinessId,
       });
       const joinUrl = `https://app.stampaix.com/join?bref=${link.code}`;
-      const message = `I use StampAix to manage customer punch cards.
+      const message = `אני משתמש ב-StampAix לניהול כרטיסי ניקוב ללקוחות.
 
-If you run a business this might help you too.
+אם אתה בעל עסק זה יכול להתאים גם לך.
 
-Join here:
+הצטרף דרך הקישור שלי:
 ${joinUrl}`;
       await Share.share({ message });
     } catch (error) {
@@ -456,7 +466,6 @@ ${joinUrl}`;
     }
   }, [
     activeBusinessId,
-    canViewBillingState,
     createBusinessReferralLink,
     isReferralShareLoading,
   ]);
@@ -675,32 +684,51 @@ ${joinUrl}`;
         </View>
 
         <View style={styles.section}>
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.sectionTitle,
-              {
-                fontSize: layout.sectionTitleSize,
-                lineHeight: layout.sectionTitleLineHeight,
-              },
-            ]}
-          >
-            נדרש טיפול
-          </Text>
-          <SmartRecommendationsPanel
-            layoutMode={layoutMode}
-            cards={recommendationCards}
-            onPressCta={(cardKey) => void handleRecommendationCta(cardKey)}
-            onPressDetails={(cardKey) => {
-              const card = recommendationCards.find(
-                (entry) => entry.key === cardKey
-              );
-              if (card?.primaryCta) {
-                void openRecommendationTarget(card.primaryCta);
-              }
-            }}
-            loadingCardKey={applyingRecommendationKey}
-          />
+          <View style={styles.recommendationsCard}>
+            <View style={styles.recommendationsHeader}>
+              <View style={styles.recommendationsTopRow}>
+                <Text className={tw.textStart} style={styles.recommendationsMeta}>
+                  {`${Math.min(recommendationCards.length, 3)} פעולות פתוחות`}
+                </Text>
+
+                <View style={styles.recommendationsTitleRow}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={18}
+                    color="#D97706"
+                  />
+                  <Text
+                    className={tw.textStart}
+                    style={[
+                      styles.sectionTitle,
+                      styles.recommendationsSectionTitle,
+                      {
+                        fontSize: layout.sectionTitleSize,
+                        lineHeight: layout.sectionTitleLineHeight,
+                      },
+                    ]}
+                  >
+                    נדרש טיפול
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <SmartRecommendationsPanel
+              layoutMode={layoutMode}
+              cards={recommendationCards}
+              onPressCta={(cardKey) => void handleRecommendationCta(cardKey)}
+              onPressDetails={(cardKey) => {
+                const card = recommendationCards.find(
+                  (entry) => entry.key === cardKey
+                );
+                if (card?.primaryCta) {
+                  void openRecommendationTarget(card.primaryCta);
+                }
+              }}
+              loadingCardKey={applyingRecommendationKey}
+            />
+          </View>
         </View>
 
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
@@ -710,13 +738,17 @@ ${joinUrl}`;
                 onPress={() =>
                   openRoute('/(authenticated)/(business)/analytics')
                 }
+                style={styles.activityActionButton}
               >
-                <Text style={styles.activityAction}>הצג הכל</Text>
+                <Text className={tw.textStart} style={styles.activityAction}>
+                  הצג הכל
+                </Text>
               </Pressable>
               <Text
                 className={tw.textStart}
                 style={[
                   styles.sectionTitle,
+                  styles.activitySectionTitle,
                   {
                     fontSize: layout.sectionTitleSize,
                     lineHeight: layout.sectionTitleLineHeight,
@@ -758,7 +790,7 @@ ${joinUrl}`;
               referralCreditSummary?.activeReferralsCount ?? 0
             }
             isShareLoading={isReferralShareLoading}
-            shareDisabled={!activeBusinessId || !canViewBillingState}
+            shareDisabled={!activeBusinessId}
             onPressShare={() => void handleShareBusinessReferral()}
           />
         </View>
@@ -798,19 +830,63 @@ const styles = StyleSheet.create({
   },
   recommendationsSectionTitle: {
     textAlign: 'right',
+    alignSelf: 'auto',
+    writingDirection: 'rtl',
+  },
+  recommendationsCard: {
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 6,
+  },
+  recommendationsHeader: {
+    gap: 2,
+  },
+  recommendationsTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'stretch',
+    justifyContent: 'space-between',
+  },
+  recommendationsTitleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  recommendationsMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#9A3412',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   activityHeadingRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  activitySectionTitle: {
+    flex: 1,
+    textAlign: 'right',
+    alignSelf: 'stretch',
+    writingDirection: 'rtl',
   },
   activityAction: {
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '500',
     color: DASHBOARD_TOKENS.colors.brandBlue,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+  },
+  activityActionButton: {
+    transform: [{ translateX: 10 }],
   },
 });

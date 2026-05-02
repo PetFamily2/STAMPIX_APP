@@ -1,7 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+﻿import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Modal,
   Pressable,
   StyleSheet,
@@ -17,7 +19,9 @@ import {
 import { tw } from '@/lib/rtl';
 
 function formatMonthsLabel(value: number) {
-  return value === 1 ? 'חודש אחד' : `${value} חודשים`;
+  return value === 1
+    ? '\u05d7\u05d5\u05d3\u05e9 \u05d0\u05d7\u05d3'
+    : `${value} \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd`;
 }
 
 function buildStatusLine(
@@ -29,20 +33,20 @@ function buildStatusLine(
   if (pendingInvitesCount > 0) {
     parts.push(
       pendingInvitesCount === 1
-        ? 'הזמנה אחת ממתינה'
-        : `${pendingInvitesCount} הזמנות ממתינות`
+        ? '\u05d4\u05d6\u05de\u05e0\u05d4 \u05d0\u05d7\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d4'
+        : `${pendingInvitesCount} \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea`
     );
   }
 
   if (activeReferralsCount > 0) {
     parts.push(
       activeReferralsCount === 1
-        ? 'עסק פעיל אחד'
-        : `${activeReferralsCount} עסקים פעילים`
+        ? '\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05d0\u05d7\u05d3'
+        : `${activeReferralsCount} \u05e2\u05e1\u05e7\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd`
     );
   }
 
-  return parts.join(' • ');
+  return parts.join(' \u2022 ');
 }
 
 export function BusinessReferralCard({
@@ -64,6 +68,7 @@ export function BusinessReferralCard({
 }) {
   const layout = getDashboardLayout(layoutMode);
   const [isHowItWorksVisible, setIsHowItWorksVisible] = useState(false);
+  const ctaScale = useRef(new Animated.Value(1)).current;
   const earnedMonths = Math.max(0, Math.min(24, totalFreeMonthsEarned));
   const isMaxReached = earnedMonths >= 24;
   const hasEarnedRewards = earnedMonths > 0;
@@ -73,26 +78,93 @@ export function BusinessReferralCard({
   );
 
   const helperText = isMaxReached
-    ? 'הגעתם למקסימום הצבירה'
+    ? '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05e7\u05e1\u05d9\u05de\u05d5\u05dd \u05d4\u05e6\u05d1\u05d9\u05e8\u05d4'
     : statusLine ||
       (pendingInvitesCount === 0 && activeReferralsCount === 0
-        ? 'עדיין לא נשלחו הזמנות'
+        ? '\u05e9\u05dc\u05d7\u05d5 \u05d4\u05d6\u05de\u05e0\u05d4 \u05e8\u05d0\u05e9\u05d5\u05e0\u05d4 \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9 \u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d4\u05e2\u05e1\u05e7 \u05d9\u05e6\u05d8\u05e8\u05e3.'
         : '');
+
+  useEffect(() => {
+    if (shareDisabled || isShareLoading) {
+      ctaScale.stopAnimation();
+      ctaScale.setValue(1);
+      return;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ctaScale, {
+          toValue: 1.08,
+          duration: 620,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ctaScale, {
+          toValue: 1,
+          duration: 620,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    pulse.start();
+    return () => {
+      pulse.stop();
+      ctaScale.stopAnimation();
+      ctaScale.setValue(1);
+    };
+  }, [ctaScale, isShareLoading, shareDisabled]);
 
   return (
     <>
       <View style={[styles.card, { borderRadius: layout.cardRadius }]}>
         <View style={styles.textBlock}>
-          <Text className={tw.textStart} style={styles.title}>
-            מכירים בעל עסק?
-          </Text>
+          <View style={styles.topRow}>
+            <Text className={tw.textStart} style={styles.title}>
+              {'\u{1F4BC} \u05de\u05db\u05d9\u05e8\u05d9\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7?'}
+            </Text>
+
+            <Pressable
+              onPress={onPressShare}
+              disabled={shareDisabled || isShareLoading}
+              style={styles.primaryButtonTouchable}
+            >
+              <Animated.View
+                style={[
+                  styles.primaryButtonSurface,
+                  shareDisabled || isShareLoading
+                    ? styles.primaryButtonSurfaceDisabled
+                    : null,
+                  { transform: [{ scale: ctaScale }] },
+                ]}
+              >
+                {isShareLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <View style={styles.primaryButtonContent}>
+                    <View style={styles.primaryButtonIconWrap}>
+                      <Ionicons
+                        name="share-social-outline"
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                    <Text style={styles.primaryButtonText}>
+                      {'\u05e9\u05ea\u05e3 \u05d4\u05d6\u05de\u05e0\u05d4'}
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
+            </Pressable>
+          </View>
+
           <Text className={tw.textStart} style={styles.description}>
-            הזמינו אותו ל-StampAix וקבלו חודשי שימוש במתנה אחרי שיצטרף למסלול
-            בתשלום.
+            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-StampAix \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
           </Text>
           <Text className={tw.textStart} style={styles.progressText}>
-            {`עד כה הרווחתם: ${formatMonthsLabel(earnedMonths)}${
-              hasEarnedRewards ? ' 🎉' : ''
+            {`\u05e2\u05d3 \u05db\u05d4 \u05d4\u05e8\u05d5\u05d5\u05d7\u05ea\u05dd: ${formatMonthsLabel(earnedMonths)}${
+              hasEarnedRewards ? ' \u{1F389}' : ''
             }`}
           </Text>
           {helperText ? (
@@ -103,32 +175,11 @@ export function BusinessReferralCard({
         </View>
 
         <Pressable
-          onPress={onPressShare}
-          disabled={shareDisabled || isShareLoading}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            shareDisabled || isShareLoading ? styles.primaryButtonDisabled : null,
-            pressed && !shareDisabled && !isShareLoading
-              ? styles.primaryButtonPressed
-              : null,
-          ]}
-        >
-          {isShareLoading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <View style={styles.primaryButtonContent}>
-              <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>שתף הזמנה</Text>
-            </View>
-          )}
-        </Pressable>
-
-        <Pressable
           onPress={() => setIsHowItWorksVisible(true)}
           style={styles.secondaryLink}
         >
           <Text className={tw.textStart} style={styles.secondaryLinkText}>
-            איך זה עובד?
+            {'\u05d0\u05d9\u05da \u05d6\u05d4 \u05e2\u05d5\u05d1\u05d3?'}
           </Text>
         </Pressable>
       </View>
@@ -147,33 +198,33 @@ export function BusinessReferralCard({
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <Text className={tw.textStart} style={styles.sheetTitle}>
-              איך זה עובד?
+              {'\u05d0\u05d9\u05da \u05d6\u05d4 \u05e2\u05d5\u05d1\u05d3?'}
             </Text>
 
             <View style={styles.stepList}>
               <Text className={tw.textStart} style={styles.stepText}>
-                1. שתפו את הקישור עם בעל עסק
+                {'1. \u05e9\u05ea\u05e4\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d9\u05e9\u05d5\u05e8 \u05e2\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
-                2. העסק נרשם ל-StampAix
+                {'2. \u05d4\u05e2\u05e1\u05e7 \u05e0\u05e8\u05e9\u05dd \u05dc-StampAix'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
-                3. אחרי 30 יום של מנוי פעיל תקבלו את ההטבה
+                {'3. \u05d0\u05d7\u05e8\u05d9 30 \u05d9\u05d5\u05dd \u05de\u05e0\u05d5\u05d9 \u05e4\u05e2\u05d9\u05dc \u05ea\u05e7\u05d1\u05dc\u05d5 \u05ea\u05d2\u05de\u05d5\u05dc'}
               </Text>
             </View>
 
             <View style={styles.rewardsBox}>
               <Text className={tw.textStart} style={styles.rewardsTitle}>
-                התגמול
+                {'\u05ea\u05d2\u05de\u05d5\u05dc'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                מנוי חודשי: חודש חינם
+                {'\u05de\u05e0\u05d5\u05d9 \u05d7\u05d5\u05d3\u05e9\u05d9 \u2192 \u05d7\u05d5\u05d3\u05e9 \u05d7\u05d9\u05e0\u05dd'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                מנוי שנתי: 2 חודשים חינם
+                {'\u05de\u05e0\u05d5\u05d9 \u05e9\u05e0\u05ea\u05d9 \u2192 2 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd \u05d7\u05d9\u05e0\u05dd'}
               </Text>
               <Text className={tw.textStart} style={styles.limitText}>
-                אפשר לצבור עד 24 חודשים
+                {'\u05d0\u05e4\u05e9\u05e8 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e2\u05d3 24 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd.'}
               </Text>
             </View>
 
@@ -181,7 +232,9 @@ export function BusinessReferralCard({
               onPress={() => setIsHowItWorksVisible(false)}
               style={styles.closeButton}
             >
-              <Text style={styles.closeButtonText}>סגור</Text>
+              <Text style={styles.closeButtonText}>
+                {'\u05e1\u05d2\u05d5\u05e8'}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -195,6 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: DASHBOARD_TOKENS.colors.border,
+    overflow: 'visible',
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 14,
@@ -203,9 +257,16 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     gap: 6,
-    alignItems: 'flex-end',
+    alignItems: 'stretch',
+  },
+  topRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   title: {
+    flex: 1,
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '700',
@@ -242,28 +303,46 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     writingDirection: 'rtl',
   },
-  primaryButton: {
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
+  primaryButtonTouchable: {
+    alignSelf: 'auto',
+    width: 'auto',
+    marginRight: 0,
+    marginLeft: 12,
+  },
+  primaryButtonSurface: {
+    minHeight: 30,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    shadowColor: '#2F6BFF',
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  primaryButtonPressed: {
-    opacity: 0.92,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.55,
+  primaryButtonSurfaceDisabled: {
+    backgroundColor: '#93C5FD',
   },
   primaryButtonContent: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 4,
+  },
+  primaryButtonIconWrap: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   primaryButtonText: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '700',
     color: '#FFFFFF',
   },

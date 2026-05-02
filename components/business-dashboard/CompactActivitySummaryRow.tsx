@@ -24,7 +24,7 @@ export function CompactActivitySummaryRow({
   const layout = getDashboardLayout(layoutMode);
 
   return (
-    <View style={[styles.card, { borderRadius: layout.cardRadius }]}>
+    <View style={[styles.list, { borderRadius: layout.cardRadius }]}>
       {items.slice(0, 5).map((item, index) => (
         <View
           key={item.key}
@@ -33,33 +33,35 @@ export function CompactActivitySummaryRow({
             index < Math.min(items.length, 5) - 1 ? styles.rowDivider : null,
           ]}
         >
-          <View
-            style={[
-              styles.iconBubble,
-              item.type === 'reward' ? styles.rewardBubble : styles.punchBubble,
-            ]}
-          >
-            <Ionicons
-              name={item.type === 'reward' ? 'gift-outline' : 'scan-outline'}
-              size={20}
-              color={item.type === 'reward' ? '#7C3AED' : '#1D4ED8'}
-            />
-          </View>
-          <View style={styles.textWrap}>
-            <Text
-              className={tw.textStart}
-              numberOfLines={1}
-              style={styles.customer}
+          <View style={styles.rightGroup}>
+            <View
+              style={[
+                styles.iconBubble,
+                item.type === 'reward' ? styles.rewardBubble : styles.punchBubble,
+              ]}
             >
-              {item.customer}
-            </Text>
-            <Text
-              className={tw.textStart}
-              numberOfLines={1}
-              style={styles.detail}
-            >
-              {item.detail}
-            </Text>
+              <Ionicons
+                name={item.type === 'reward' ? 'gift-outline' : 'scan-outline'}
+                size={20}
+                color={item.type === 'reward' ? '#7C3AED' : '#1D4ED8'}
+              />
+            </View>
+            <View style={styles.textWrap}>
+              <Text
+                className={tw.textStart}
+                numberOfLines={1}
+                style={styles.customer}
+              >
+                {item.customer}
+              </Text>
+              <Text
+                className={tw.textStart}
+                numberOfLines={1}
+                style={styles.detail}
+              >
+                {item.detail}
+              </Text>
+            </View>
           </View>
           <View style={styles.timeWrap}>
             <Text style={styles.time}>{item.time}</Text>
@@ -71,11 +73,8 @@ export function CompactActivitySummaryRow({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: DASHBOARD_TOKENS.colors.border,
-    backgroundColor: '#FFFFFF',
-    ...DASHBOARD_TOKENS.cardShadowSoft,
+  list: {
+    backgroundColor: 'transparent',
   },
   row: {
     minHeight: 60,
@@ -83,7 +82,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row-reverse',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rightGroup: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   rowDivider: {
     borderBottomWidth: 1,
@@ -95,6 +100,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -8,
   },
   punchBubble: {
     backgroundColor: '#EEF4FF',
@@ -112,12 +118,14 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
+    textAlign: 'right',
   },
   detail: {
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '400',
     color: DASHBOARD_TOKENS.colors.textMuted,
+    textAlign: 'right',
   },
   timeWrap: {
     minWidth: 46,
@@ -128,5 +136,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
     color: DASHBOARD_TOKENS.colors.textMuted,
+    textAlign: 'left',
   },
 });

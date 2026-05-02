@@ -185,10 +185,16 @@ export const getRecentActivity = query({
           ? 'reward'
           : 'punch';
 
-      const timeLabel = new Date(event.createdAt).toLocaleTimeString('he-IL', {
+      const eventDate = new Date(event.createdAt);
+      const dateLabel = eventDate.toLocaleDateString('he-IL', {
+        day: '2-digit',
+        month: '2-digit',
+      });
+      const timeOfDayLabel = eventDate.toLocaleTimeString('he-IL', {
         hour: '2-digit',
         minute: '2-digit',
       });
+      const timeLabel = `${dateLabel} ${timeOfDayLabel}`;
 
       activity.push({
         id: String(event._id),

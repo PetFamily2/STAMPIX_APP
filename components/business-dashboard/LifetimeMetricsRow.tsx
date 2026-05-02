@@ -166,7 +166,10 @@ export function LifetimeMetricsRow({
     value: string;
     icon: LifetimeMetricIcon;
     tone: 'teal' | 'violet' | 'blue' | 'amber';
-    helperValue?: string;
+    helperValue?: {
+      amount: string;
+      period: string;
+    };
   }>;
   showIcons?: boolean;
 }) {
@@ -222,13 +225,30 @@ export function LifetimeMetricsRow({
               </View>
 
               <View style={styles.trendArea}>
-                <Text
-                  className={tw.textStart}
-                  numberOfLines={1}
-                  style={[styles.helperValue, { color: palette.helper }]}
-                >
-                  {metric.helperValue ?? ''}
-                </Text>
+                <View style={styles.helperRow}>
+                  <Text
+                    className={tw.textStart}
+                    numberOfLines={1}
+                    style={[
+                      styles.helperPeriod,
+                      styles.helperValue,
+                      { color: palette.helper },
+                    ]}
+                  >
+                    {metric.helperValue?.period ?? ''}
+                  </Text>
+                  <Text
+                    className={tw.textStart}
+                    numberOfLines={1}
+                    style={[
+                      styles.helperAmount,
+                      styles.helperValue,
+                      { color: palette.helper },
+                    ]}
+                  >
+                    {metric.helperValue?.amount ?? ''}
+                  </Text>
+                </View>
               </View>
             </View>
           );
@@ -281,9 +301,16 @@ const styles = StyleSheet.create({
   },
   trendArea: {
     height: 16,
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
     width: '100%',
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 1,
   },
   value: {
     fontWeight: '600',
@@ -304,6 +331,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
-    textAlign: 'center',
+  },
+  helperAmount: {
+    textAlign: 'right',
+    writingDirection: 'ltr',
+  },
+  helperPeriod: {
+    textAlign: 'left',
+    writingDirection: 'rtl',
   },
 });

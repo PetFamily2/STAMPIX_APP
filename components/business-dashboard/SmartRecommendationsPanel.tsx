@@ -90,7 +90,7 @@ export function SmartRecommendationsPanel({
 
         return (
           <View key={card.key}>
-            <View style={styles.row}>
+            <View style={[styles.row, isPriorityItem ? styles.priorityRow : null]}>
               <View style={styles.rowHeader}>
                 <View style={styles.titleGroup}>
                   <Ionicons
@@ -153,8 +153,14 @@ const styles = StyleSheet.create({
   },
   row: {
     paddingVertical: 13,
+    paddingHorizontal: 12,
     gap: 4,
     alignItems: 'flex-end',
+  },
+  priorityRow: {
+    borderRightWidth: 3,
+    borderRightColor: '#EA580C',
+    paddingRight: 9,
   },
   rowHeader: {
     flexDirection: 'row-reverse',

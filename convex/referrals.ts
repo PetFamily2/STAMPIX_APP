@@ -2,6 +2,10 @@ import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
+  assertEntitlement,
+  countActiveCampaignsForBusiness,
+} from './entitlements';
+import {
   getCurrentUserOrNull,
   requireActorHasBusinessCapability,
   requireCurrentUser,
@@ -1160,6 +1164,19 @@ export const saveReferralConfig = mutation({
         q.eq('businessId', args.businessId)
       )
       .first();
+
+    const wasEnabled = existing?.isEnabled === true;
+    const willEnable = args.isEnabled === true;
+    if (!wasEnabled && willEnable) {
+      const activeCampaigns = await countActiveCampaignsForBusiness(
+        ctx,
+        args.businessId
+      );
+      await assertEntitlement(ctx, args.businessId, {
+        limitKey: 'maxCampaigns',
+        currentValue: activeCampaigns + 1,
+      });
+    }
 
     const payload: ReferralConfigPayload = {
       isEnabled: args.isEnabled,
