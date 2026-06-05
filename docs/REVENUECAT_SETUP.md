@@ -1,6 +1,8 @@
 ﻿# RevenueCat Setup (iOS + Android)
 
-Last synced: 2026-03-16
+Last synced: 2026-06-05
+
+This is the RevenueCat source of truth for the project. Setup, deployment, and integration docs should link here instead of duplicating billing configuration details.
 
 This guide documents the variables and integration points actually used in code.
 

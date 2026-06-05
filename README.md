@@ -61,8 +61,8 @@ bun run type-check
 ## Documentation
 - `docs/README.md`
 - `docs/setup.md`
-- `docs/usage.md`
 - `docs/architecture.md`
+- `docs/routes.md`
 - `docs/deployment.md`
 - `docs/REVENUECAT_SETUP.md`
 - `docs/AUTH_LINKING_QA_CHECKLIST.md`

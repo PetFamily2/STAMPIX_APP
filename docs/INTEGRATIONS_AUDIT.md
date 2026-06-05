@@ -2,6 +2,8 @@
 
 Last updated: 2026-03-16
 
+This is a snapshot and execution log. For current setup, deployment, and billing instructions, use `docs/setup.md`, `docs/deployment.md`, and `docs/REVENUECAT_SETUP.md`.
+
 ## Scope
 - Full integration map for mobile app + Convex backend.
 - Production-readiness status (implemented, partial, missing).

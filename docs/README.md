@@ -1,100 +1,68 @@
-# STAMPAIX Docs
+# STAMPAIX Documentation
 
-Last synced: 2026-03-16
+Last synced: 2026-06-05
 
-## What this project is
-- Single Expo/React Native app for both customer and business experiences.
-- RTL-first UI (Hebrew focused) with explicit RTL helpers.
-- Convex backend for auth, realtime data, and server-side permissions.
-- QR-based loyalty: customer join via business QR and stamp flow via signed customer QR.
-- RevenueCat integration with preview-safe behavior when keys are missing.
+This is the canonical documentation hub for the project. Start here, then follow the specific source-of-truth document for the area you are working on.
 
-## Current routing model (source of truth)
-- Canonical route trees:
-  - `app/(auth)/*`
-  - `app/(authenticated)/(customer)/*`
-  - `app/(authenticated)/(business)/*`
-  - `app/(authenticated)/join`
-  - `app/(authenticated)/card/*`
-  - `app/(authenticated)/merchant/*`
-- `/(auth)/sign-in` is a legacy alias and currently redirects to `/(auth)/sign-up`.
-- No legacy wrapper route tree under `app/(authenticated)/business/*` or `app/(authenticated)/(business)/business/*`.
+## Project summary
+STAMPAIX is an Expo + React Native + Convex mobile app for customer loyalty, QR join flows, scanner workflows, business dashboards, staff workflows, subscriptions, referrals, campaigns, and support surfaces.
 
-## Core product scope (current)
-- Customer:
-  - Wallet, rewards, discovery, settings tabs.
-  - Join business by QR/deep link.
-  - Membership card with signed scan-token QR.
-- Business:
-  - Dashboard, scanner, team, analytics, settings tabs.
-  - Business QR screen.
-  - Merchant onboarding (create business + create program + preview card).
-- Platform:
-  - Convex Auth (Email OTP, Password, Google, Apple).
-  - Identity linking via provider IDs and verified email.
-  - Role-aware routing and name-capture onboarding gate.
+Core platform pieces:
+- Expo Router file-based navigation.
+- Convex Auth and Convex backend functions.
+- RevenueCat subscriptions.
+- RTL-first Hebrew-focused UI.
+- EAS build and submit infrastructure.
 
-## Environment variables
-Public app vars (Expo):
-- Convex:
-  - `EXPO_PUBLIC_CONVEX_URL_DEV`
-  - `EXPO_PUBLIC_CONVEX_URL_PROD`
-  - `EXPO_PUBLIC_CONVEX_URL` (legacy fallback)
-- RevenueCat:
-  - `EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`
-  - `EXPO_PUBLIC_MOCK_PAYMENTS`
-  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
-  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
-  - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` (legacy fallback)
-  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
-  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
-  - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY` (legacy fallback)
-  - `EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY`
-  - `EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY`
-  - `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY`
-  - `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY`
-- Legal URLs:
-  - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
-  - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
-- Other public integration vars:
-  - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
+## Canonical docs
+- `docs/setup.md` - local setup, daily workflow, commands, env basics, and troubleshooting.
+- `docs/architecture.md` - runtime architecture, provider stack, routing model, auth, permissions, data flows, storage, and payments overview.
+- `docs/routes.md` - current generated route map from `app/`.
+- `docs/deployment.md` - EAS build/submit infrastructure, production deployment, secrets, release checklist, and build troubleshooting.
+- `docs/REVENUECAT_SETUP.md` - RevenueCat source of truth for billing setup, variables, package mapping, runtime behavior, and tests.
+- `docs/spec/data-model.md` - Convex data model reference.
+- `docs/spec/roles.md` - roles and permissions reference.
+- `docs/spec/scanner-contract.md` - scanner UI-to-Convex contract.
+- `docs/AUTH_LINKING_QA_CHECKLIST.md` - auth and identity-linking QA scenarios.
+- `docs/decisions.md` - architectural decisions.
+- `docs/INTEGRATIONS_AUDIT.md` - integration readiness snapshot and remaining external work.
 
-Convex server vars:
-- `SCAN_TOKEN_SECRET`
-- `RESEND_API_KEY` (for email OTP)
-- `RESEND_FROM_EMAIL` (for email OTP)
-- `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
-- `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET`
-- `CONVEX_SITE_URL` (auth redirect safety)
-- `APP_STORE_URL` (optional join landing override)
-- `PLAY_STORE_URL` (optional join landing override)
-- `REVENUECAT_WEBHOOK_SECRET` (for webhook verification)
+## Current route model
+Use `docs/routes.md` for the full current route map.
 
-## Quick start
-1. Install dependencies:
-   - `bun install`
-2. Start Convex local dev:
-   - `bunx convex dev`
-3. Run app:
-   - `bun dev`
-4. Optional native runs:
-   - `bun run ios`
-   - `bun run android`
+High-level route groups:
+- `app/(auth)/*`
+- `app/(authenticated)/(customer)/*`
+- `app/(authenticated)/(business)/*`
+- `app/(authenticated)/(staff)/*`
+- `app/(authenticated)/admin/*`
+- `app/(authenticated)/merchant/*`
+- shared authenticated routes for join, invite acceptance, and cards
 
-## Quality checks
-- `bun run check`
-- `bun run type-check`
+## Environment references
+Local setup and common variables are documented in `docs/setup.md`.
 
-## Docs map
-- `docs/architecture.md` - runtime architecture and routing behavior
-- `docs/decisions.md` - architectural decisions (ADRs)
-- `docs/devlog.md` - delivery history
-- `docs/setup.md` - local setup
-- `docs/usage.md` - daily usage workflow
-- `docs/deployment.md` - deployment flow
-- `docs/EAS_INFRASTRUCTURE.md` - EAS commands and environment
-- `docs/REVENUECAT_SETUP.md` - RevenueCat setup details
-- `docs/AUTH_LINKING_QA_CHECKLIST.md` - auth-linking QA scenarios
-- `docs/INTEGRATIONS_AUDIT.md` - current external integrations status and production gaps
-- `docs/spec/*` - functional specs
-- `docs/spec/business-dashboard-v2-handoff.md` - dashboard V2 implementation handoff
+RevenueCat billing variables and package mapping are documented in `docs/REVENUECAT_SETUP.md`.
+
+Deployment/EAS secret expectations are documented in `docs/deployment.md`.
+
+## Archive policy
+Stale but useful historical material lives under `docs/archive/` instead of being deleted.
+
+Archive areas:
+- `docs/archive/merged/` - old docs whose content was merged into active docs.
+- `docs/archive/route-snapshots/` - old generated route and architecture snapshots.
+- `docs/archive/history/` - delivery history and devlog material.
+- `docs/archive/runbooks/` - release or migration runbooks.
+- `docs/archive/specs/` - stale product or implementation handoff specs.
+- `docs/archive/build-logs/` - meaningful historical build logs.
+
+Only clearly temporary artifacts such as tiny queue logs and checksum files should be deleted.
+
+## Recent cleanup
+On 2026-06-05:
+- `docs/usage.md` was merged into `docs/setup.md`.
+- `docs/EAS_INFRASTRUCTURE.md` was merged into `docs/deployment.md`.
+- `docs/spec/architecture.md` was merged into `docs/architecture.md`.
+- `ROUTES_REPORT.md` and `docs/spec/screens.md` were replaced by `docs/routes.md`.
+- Historical stale docs and useful build logs were moved into `docs/archive/`.

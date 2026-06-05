@@ -64,7 +64,7 @@ Last synced: 2026-02-18
   - Removed stale docs references to wrapper route trees.
   - Updated route map and architecture docs to current canonical navigation.
   - Updated setup/deployment/RevenueCat docs to current env layering.
-- Links: `docs/README.md`, `docs/architecture.md`, `docs/decisions.md`, `ROUTES_REPORT.md`
+- Links: `docs/README.md`, `docs/architecture.md`, `docs/decisions.md`, `docs/archive/route-snapshots/ROUTES_REPORT.md`
 
 ## Current status (as of 2026-02-18)
 - Working:

@@ -1,111 +1,121 @@
-﻿# Data Model (Convex) - Current
+# Data Model (Convex)
 
-Last synced: 2026-02-18
+Last synced: 2026-06-05
 
-## Core identity/auth tables
+This is a concise map of the active Convex schema. `convex/schema.ts` remains the implementation source of truth.
+
+## Identity and auth
 ### `users`
-Purpose: application user profile and app-level state.
+Application user profile and app-level state.
 
-Key fields:
-- `externalId?`
-- `email?`, `emailVerified?`
-- `firstName?`, `lastName?`, `fullName?`, `avatarUrl?`
-- `needsNameCapture?`, `postAuthOnboardingRequired?`
-- `role?` (`customer` | `merchant` | `staff` | `admin`)
-- subscription fields:
-  - `subscriptionPlan?` (`starter` | `pro` | `premium`)
-  - `subscriptionStatus?` (`active` | `inactive` | `cancelled`)
-  - `subscriptionProductId?`
-  - `subscriptionUpdatedAt?`
-- `isActive`
-- `createdAt`, `updatedAt`
+Important fields:
+- profile: `email`, `emailVerified`, `firstName`, `lastName`, `fullName`, `avatarUrl`
+- onboarding and mode: `customerOnboardedAt`, `businessOnboardedAt`, `activeMode`, `activeBusinessId`
+- role: `role` (`customer` | `merchant` | `staff` | `admin`), `isAdmin`
+- subscription mirror: `subscriptionPlan`, `subscriptionStatus`, `subscriptionProductId`, `subscriptionUpdatedAt`
+- lifecycle: `isActive`, `createdAt`, `updatedAt`
+
+Some older onboarding and role fields remain in schema for compatibility and migration safety.
 
 ### `userIdentities`
-Purpose: map auth provider identities to one `users` row.
+Maps provider identities to one `users` row.
 
-Fields:
-- `userId`
-- `provider` (`google` | `apple` | `email`)
-- `providerUserId`
-- `email?`
-- `createdAt`, `updatedAt`
+Providers:
+- `google`
+- `apple`
+- `email`
 
-### Convex auth system tables
-Provided by `authTables` plus project extension:
-- `authAccounts`, `authSessions`, `authRefreshTokens`, etc.
-- custom `authVerifiers` table.
+### Convex auth tables
+The schema includes `authTables` from Convex Auth plus the project-specific `authVerifiers` table.
 
-## Business and loyalty core
+## Business and staff
 ### `businesses`
-- `ownerUserId`
-- `externalId`
-- `businessPublicId?`
-- `joinCode?`
-- `name`, `logoUrl?`, `colors?`
-- subscription fields:
-  - `subscriptionPlan?` (`starter` | `pro` | `premium`)
-  - `billingPeriod?` (`monthly` | `yearly` | `null`)
-  - `subscriptionStatus?` (`active` | `trialing` | `past_due` | `canceled` | `inactive`)
-  - active retention usage is derived from `campaigns` (`type=retention_action`, `status=active`, `isActive=true`)
-- `isActive`, `createdAt`, `updatedAt`
+Business profile, public QR/join identity, location, onboarding snapshot, AI/retention profile, and subscription state.
+
+Key areas:
+- owner and identifiers: `ownerUserId`, `externalId`, `businessPublicId`, `joinCode`
+- profile: `name`, `shortDescription`, `logoUrl`, `colors`, address/location fields
+- onboarding and intelligence: `onboardingSnapshot`, `aiProfile`, `businessRetentionProfile`
+- billing: `subscriptionPlan`, `subscriptionStatus`, `billingPeriod`, subscription dates
+- lifecycle: `isActive`, `createdAt`, `updatedAt`
+
+### `businessOnboardingDrafts`
+Persists business onboarding draft state, current/farthest step, draft payloads, and completion state.
 
 ### `businessStaff`
-- `businessId`
-- `userId`
-- `staffRole` (`owner` | `manager` | `staff`)
-- `isActive`, `createdAt`, `updatedAt?`
+Business-specific authorization source.
 
+Roles:
+- `owner`
+- `manager`
+- `staff`
+
+Status and audit fields track activation, suspension, removal, role changes, and last-seen metadata.
+
+### `staffInvites` and `staffEvents`
+Invite lifecycle, invite acceptance, role changes, suspension/reactivation/removal, and staff audit events.
+
+## Loyalty and customer activity
 ### `loyaltyPrograms`
-- `businessId`
-- `title`, `rewardName`, `maxStamps`, `stampIcon`
-- `isActive`, `createdAt`, `updatedAt`
+Business loyalty card/program definitions, lifecycle state, card design fields, reward settings, and archival metadata.
 
 ### `memberships`
-- `userId`, `businessId`, `programId`
-- `currentStamps`, `lastStampAt?`
-- `joinSource?`, `joinCampaign?`
-- `isActive`, `createdAt`, `updatedAt`
+Customer membership in a business/program, stamp count, join attribution, and active state.
 
 ### `events`
-Purpose: audit log for stamp/redeem and related actions.
+Primary audit/event log for stamps, redemptions, customer activity, reversals, scanner sessions, and related business/customer actions.
 
-Fields:
-- `type`
-- `businessId`, `programId`
-- `membershipId?`
-- `actorUserId`, `customerUserId`
-- `metadata?`
-- `createdAt`
+### `scanSessions` and `scanTokenEvents`
+Scanner runtime state, signed token metadata, replay protection, commit status, and scan audit linkage.
 
-### `scanTokenEvents`
-Purpose: replay protection and scanner tracking.
+## Referrals
+### `referralConfigs`
+Business referral configuration, reward type/value, recipient policy, monthly limits, and versioning.
 
-Fields:
-- `businessId`, `programId`, `customerId`
-- `signature`
-- `tokenTimestamp`
-- `createdAt`
+### `customerReferralLinks`
+Customer-shareable referral links with status, expiry, open count, and attribution fields.
 
-### `emailOtps`
-Purpose: email OTP issuance/consumption tracking.
+### `customerReferrals`
+Referral qualification/completion state, reward grant status, source membership/program, and reward snapshots.
 
-Fields:
-- `email`, `code`
-- `status` (`pending` | `sent` | `failed` | `consumed` | `invalidated`)
-- `attempts`, `maxAttempts`, `expiresAt`
-- `createdAt`, `sentAt?`, `consumedAt?`, `failureReason?`
+## Campaigns, messaging, and intelligence
+### `campaigns`
+Campaign configuration, lifecycle, audience source, schedule, prepared audience, source context, and activation status.
 
-## Future-support tables (already in schema)
-- `campaigns`
-- `messageLog`
-- `pushTokens`
-- `pushDeliveryLog`
-- `apiClients`
-- `apiKeys`
+### `campaignRuns`
+Execution records for sent campaigns, delivery counts, summaries, and post-send metrics.
 
-## Practical model notes
-- App mode and role-based routing read from `users.role` + local appMode.
-- Scanner authorization uses `businessStaff` membership, not just `users.role`.
-- Subscription state is persisted on both `users` and `businesses`, with business entitlements enforced server-side.
-- Manual saved segments are no longer part of the MVP data model.
-- Campaign audiences are derived from deterministic campaign rules and canonical customer intelligence, not from business-authored segment definitions.
+### `messageLog`
+Message delivery/audit records across campaign and notification flows.
+
+### AI tables
+- `aiBusinessSnapshots`
+- `aiRecommendations`
+- `aiGenerationCache`
+- `aiUsageLedger`
+
+These support business insights, recommendations, cached AI output, and usage tracking.
+
+## Billing and entitlements
+### `subscriptions`
+Business subscription records with plan, period, provider, status, provider subscription id, and dates.
+
+Subscription state is also mirrored onto `businesses` and selected `users` fields for app flows.
+
+## Push notifications and support
+### `pushTokens` and `pushDeliveryLog`
+Expo push token registration, opt-out state, delivery logging, and campaign/message delivery linkage.
+
+### `supportRequests`
+User support submissions and handling state.
+
+## Integration scaffolding
+### `apiClients` and `apiKeys`
+Enterprise/API integration scaffolding with client, hashed key, scope, and usage metadata.
+
+## Practical notes
+- `businessStaff` is the business authorization source for server mutations.
+- `users.role` is useful for routing and mode hints, but it is not enough for business writes.
+- Scanner writes are server-authoritative and tied to scan sessions, scan token events, and audit events.
+- Campaign audiences are derived from canonical rules/intelligence, not legacy manually saved segments.
+- RevenueCat is the billing integration, but Convex stores the app's subscription/entitlement state.
