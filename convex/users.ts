@@ -2,7 +2,12 @@ import { getAuthUserId } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import type { Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server';
 import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
@@ -186,6 +191,7 @@ export type WipeAllDataHardResult = {
 type DeleteStats = {
   users: number;
   userIdentities: number;
+  businessOnboardingDrafts: number;
   businesses: number;
   businessStaff: number;
   loyaltyPrograms: number;
@@ -220,7 +226,8 @@ type DeleteStats = {
 type DeleteMyAccountHardErrorCode =
   | 'NOT_AUTHENTICATED'
   | 'MISSING_IDENTITY_SUBJECT'
-  | 'USER_NOT_FOUND';
+  | 'USER_NOT_FOUND'
+  | 'SOLE_OWNER_BUSINESS_BLOCKED';
 
 type DeleteMyAccountHardSuccess = {
   success: true;
@@ -234,6 +241,7 @@ type DeleteMyAccountHardError = {
   success: false;
   errorCode: DeleteMyAccountHardErrorCode;
   message: string;
+  blockedBusinessIds?: Id<'businesses'>[];
 };
 
 export type DeleteMyAccountHardResult =
@@ -244,6 +252,7 @@ function emptyDeleteStats(): DeleteStats {
   return {
     users: 0,
     userIdentities: 0,
+    businessOnboardingDrafts: 0,
     businesses: 0,
     businessStaff: 0,
     loyaltyPrograms: 0,
@@ -362,147 +371,135 @@ async function deleteByIndexInBatches(
   return deletedCount;
 }
 
-async function deleteApiClientsAndKeysForBusiness(
+async function redactUserReferenceByIndexInBatches(
   ctx: any,
-  businessId: Id<'businesses'>,
-  deleted: DeleteStats
-) {
-  while (true) {
-    const clients = await ctx.db
-      .query('apiClients')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .take(DELETE_BATCH_SIZE);
-
-    if (clients.length === 0) {
-      break;
-    }
-
-    for (const client of clients) {
-      deleted.apiKeys += await deleteByIndexInBatches(
-        ctx,
-        'apiKeys',
-        'by_clientId',
-        'clientId',
-        client._id
-      );
-      await ctx.db.delete(client._id);
-      deleted.apiClients += 1;
-    }
-  }
-}
-
-async function deleteBusinessGraph(
-  ctx: any,
-  businessId: Id<'businesses'>,
-  deleted: DeleteStats
-) {
-  // TODO: If media metadata / file storage tables are added, delete files here.
-  await deleteApiClientsAndKeysForBusiness(ctx, businessId, deleted);
-
-  deleted.messageLog += await deleteByIndexInBatches(
-    ctx,
-    'messageLog',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.pushDeliveryLog += await deleteByIndexInBatches(
-    ctx,
-    'pushDeliveryLog',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.campaigns += await deleteByIndexInBatches(
-    ctx,
-    'campaigns',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.subscriptions += await deleteByIndexInBatches(
-    ctx,
-    'subscriptions',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.scanTokenEvents += await deleteByIndexInBatches(
-    ctx,
-    'scanTokenEvents',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.scanSessions += await deleteByIndexInBatches(
-    ctx,
-    'scanSessions',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.events += await deleteByIndexInBatches(
-    ctx,
-    'events',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.memberships += await deleteByIndexInBatches(
-    ctx,
-    'memberships',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.loyaltyPrograms += await deleteByIndexInBatches(
-    ctx,
-    'loyaltyPrograms',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.businessStaff += await deleteByIndexInBatches(
-    ctx,
-    'businessStaff',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-  deleted.staffInvites += await deleteByIndexInBatches(
-    ctx,
-    'staffInvites',
-    'by_businessId',
-    'businessId',
-    businessId
-  );
-
-  await ctx.db.delete(businessId);
-  deleted.businesses += 1;
-}
-
-async function deleteOwnedBusinesses(
-  ctx: any,
+  tableName: string,
+  indexName: string,
+  fieldName: string,
   userId: Id<'users'>,
-  deleted: DeleteStats
+  batchSize = DELETE_BATCH_SIZE
 ) {
-  const deletedBusinessIds: Id<'businesses'>[] = [];
-
+  let redactedCount = 0;
   while (true) {
-    const ownedBusiness = await ctx.db
-      .query('businesses')
-      .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', userId))
-      .first();
+    const docs = await ctx.db
+      .query(tableName)
+      .withIndex(indexName, (q: any) => q.eq(fieldName, userId))
+      .take(batchSize);
 
-    if (!ownedBusiness) {
+    if (docs.length === 0) {
       break;
     }
 
-    deletedBusinessIds.push(ownedBusiness._id);
-    await deleteBusinessGraph(ctx, ownedBusiness._id, deleted);
+    for (const doc of docs) {
+      const patch: Record<string, unknown> = { [fieldName]: undefined };
+      if ('updatedAt' in doc) {
+        patch.updatedAt = Date.now();
+      }
+      await ctx.db.patch(doc._id, patch);
+      redactedCount += 1;
+    }
+  }
+  return redactedCount;
+}
+
+function isActiveOwnerStaff(staff: any) {
+  return (
+    staff?.staffRole === 'owner' && getBusinessStaffStatus(staff) === 'active'
+  );
+}
+
+function isActiveUserDoc(user: any) {
+  return user?.isActive === true;
+}
+
+async function selectDeterministicReplacementOwner(
+  ctx: any,
+  owners: any[],
+  deletingUserId: Id<'users'>
+) {
+  const validCandidates = [];
+  for (const candidate of owners) {
+    if (
+      String(candidate.userId) === String(deletingUserId) ||
+      !isActiveOwnerStaff(candidate)
+    ) {
+      continue;
+    }
+
+    const candidateUser = await ctx.db.get(candidate.userId);
+    if (!isActiveUserDoc(candidateUser)) {
+      continue;
+    }
+
+    validCandidates.push(candidate);
   }
 
-  return deletedBusinessIds;
+  return validCandidates.sort((left: any, right: any) => {
+    const createdAtDelta =
+      Number(left.createdAt ?? 0) - Number(right.createdAt ?? 0);
+    if (createdAtDelta !== 0) {
+      return createdAtDelta;
+    }
+    return String(left._id).localeCompare(String(right._id));
+  })[0];
+}
+
+async function assertCanDeleteUserWithoutOrphaningSoleOwnedBusiness(
+  ctx: any,
+  userId: Id<'users'>
+) {
+  const staffRows = await ctx.db
+    .query('businessStaff')
+    .withIndex('by_userId', (q: any) => q.eq('userId', userId))
+    .collect();
+
+  const activeOwnerRows = staffRows.filter(isActiveOwnerStaff);
+  const ownedBusinesses = await ctx.db
+    .query('businesses')
+    .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', userId))
+    .collect();
+  const businessIdsToCheck = Array.from(
+    new Set([
+      ...activeOwnerRows.map((row: any) => row.businessId),
+      ...ownedBusinesses.map((business: any) => business._id),
+    ])
+  );
+  const blockedBusinessIds: Id<'businesses'>[] = [];
+  const ownerReassignments: Array<{
+    businessId: Id<'businesses'>;
+    nextOwnerUserId: Id<'users'>;
+  }> = [];
+
+  for (const businessId of businessIdsToCheck) {
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive === false) {
+      continue;
+    }
+
+    const owners = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+      .collect();
+    const otherActiveOwner = await selectDeterministicReplacementOwner(
+      ctx,
+      owners,
+      userId
+    );
+
+    if (!otherActiveOwner) {
+      blockedBusinessIds.push(businessId);
+      continue;
+    }
+
+    if (String(business.ownerUserId) === String(userId)) {
+      ownerReassignments.push({
+        businessId,
+        nextOwnerUserId: otherActiveOwner.userId,
+      });
+    }
+  }
+
+  return { blockedBusinessIds, ownerReassignments };
 }
 
 async function deleteUserScopedBusinessData(
@@ -510,6 +507,13 @@ async function deleteUserScopedBusinessData(
   userId: Id<'users'>,
   deleted: DeleteStats
 ) {
+  deleted.businessOnboardingDrafts += await deleteByIndexInBatches(
+    ctx,
+    'businessOnboardingDrafts',
+    'by_userId',
+    'userId',
+    userId
+  );
   deleted.memberships += await deleteByIndexInBatches(
     ctx,
     'memberships',
@@ -524,28 +528,28 @@ async function deleteUserScopedBusinessData(
     'customerId',
     userId
   );
-  deleted.scanSessions += await deleteByIndexInBatches(
+  await redactUserReferenceByIndexInBatches(
     ctx,
     'scanSessions',
     'by_customerId',
     'customerId',
     userId
   );
-  deleted.scanSessions += await deleteByIndexInBatches(
+  await redactUserReferenceByIndexInBatches(
     ctx,
     'scanSessions',
     'by_actorUserId',
     'actorUserId',
     userId
   );
-  deleted.events += await deleteByIndexInBatches(
+  await redactUserReferenceByIndexInBatches(
     ctx,
     'events',
     'by_customerUserId',
     'customerUserId',
     userId
   );
-  deleted.events += await deleteByIndexInBatches(
+  await redactUserReferenceByIndexInBatches(
     ctx,
     'events',
     'by_actorUserId',
@@ -592,6 +596,48 @@ async function deleteUserScopedBusinessData(
     'staffInvites',
     'by_invitedByUserId',
     'invitedByUserId',
+    userId
+  );
+  deleted.referralRewards += await deleteByIndexInBatches(
+    ctx,
+    'referralRewards',
+    'by_recipientUserId_status_expiresAt',
+    'recipientUserId',
+    userId
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'customerReferralLinks',
+    'by_referrer_business_origin_status',
+    'referrerUserId',
+    userId
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'customerReferrals',
+    'by_referrerUserId_businessId_createdAt',
+    'referrerUserId',
+    userId
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'customerReferrals',
+    'by_referredUserId',
+    'referredUserId',
+    userId
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'businessReferralLinks',
+    'by_createdByUserId',
+    'createdByUserId',
+    userId
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'businessReferrals',
+    'by_createdByUserId',
+    'createdByUserId',
     userId
   );
 }
@@ -917,7 +963,7 @@ export const completeBusinessOnboarding = mutation({
   },
 });
 
-export const getById = query({
+export const getById = internalQuery({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
     return await ctx.db.get(userId);
@@ -925,7 +971,7 @@ export const getById = query({
 });
 
 // שליפת רשימת כל המשתמשים הפעילים
-export const listActive = query({
+export const listActive = internalQuery({
   args: {},
   handler: async (ctx) => {
     return await ctx.db
@@ -936,7 +982,7 @@ export const listActive = query({
 });
 
 // עדכון פרופיל המשתמש (למשל, שינוי שם)
-export const updateProfile = mutation({
+export const updateProfile = internalMutation({
   args: {
     userId: v.id('users'),
     fullName: v.optional(v.string()),
@@ -1084,26 +1130,8 @@ export const updateSubscriptionPlan = mutation({
     productId: v.optional(v.string()),
     status: v.optional(SUBSCRIPTION_STATUS_UNION),
   },
-  handler: async (ctx, { plan, productId, status }) => {
-    const user = await requireCurrentUser(ctx);
-    await patchSubscriptionPlan(ctx, user._id, plan, {
-      productId: productId ?? undefined,
-      status,
-    });
-    return user._id;
-  },
-});
-
-// מחיקת משתמש (פעולה למנהלים או למשתמש עצמו - כאן מיושם כמחיקה פיזית)
-export const remove = mutation({
-  args: { userId: v.id('users') },
-  handler: async (ctx, { userId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error('Not authenticated');
-    }
-
-    await ctx.db.delete(userId);
+  handler: async () => {
+    throw new Error('SUBSCRIPTION_CLIENT_SYNC_DISABLED');
   },
 });
 
@@ -1121,13 +1149,26 @@ export async function deleteMyAccountHardImpl(
     };
   }
 
-  // TODO: Add external cancellation/sync for RevenueCat/Stripe subscriptions.
+  const { blockedBusinessIds, ownerReassignments } =
+    await assertCanDeleteUserWithoutOrphaningSoleOwnedBusiness(ctx, user._id);
+  if (blockedBusinessIds.length > 0) {
+    return {
+      success: false,
+      errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
+      message:
+        'Account deletion is blocked because this account is the sole active owner of one or more businesses. Transfer ownership or delete the business through a separate explicit flow first.',
+      blockedBusinessIds,
+    };
+  }
+
+  for (const reassignment of ownerReassignments) {
+    await ctx.db.patch(reassignment.businessId, {
+      ownerUserId: reassignment.nextOwnerUserId,
+      updatedAt: Date.now(),
+    });
+  }
+
   const deleted = emptyDeleteStats();
-  const deletedBusinessIds = await deleteOwnedBusinesses(
-    ctx,
-    user._id,
-    deleted
-  );
 
   await deleteUserScopedBusinessData(ctx, user._id, deleted);
   deleted.userIdentities += await deleteByIndexInBatches(
@@ -1156,7 +1197,7 @@ export async function deleteMyAccountHardImpl(
     success: true,
     message: 'החשבון נמחק לצמיתות.',
     deletedUserId: user._id,
-    deletedBusinessIds,
+    deletedBusinessIds: [],
     deleted,
   };
 }
@@ -1187,7 +1228,7 @@ export async function wipeAllDataHardImpl(
   };
 }
 
-export const wipeAllDataHard = mutation({
+export const wipeAllDataHard = internalMutation({
   args: {},
   handler: async (ctx) => {
     return await wipeAllDataHardImpl(ctx);
@@ -1203,7 +1244,7 @@ export const deleteMyAccount = mutation({
 });
 
 // Debug: return raw auth identity (for diagnosis)
-export const debugIdentity = query({
+export const debugIdentity = internalQuery({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();

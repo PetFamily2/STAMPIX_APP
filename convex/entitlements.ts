@@ -1,11 +1,9 @@
 import { ConvexError, v } from 'convex/values';
-import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { internalQuery, mutation, query } from './_generated/server';
 import {
   getBusinessStaffStatus,
   requireActorHasBusinessCapability,
-  requireActorIsBusinessOwner,
 } from './guards';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
 
@@ -1078,85 +1076,12 @@ export const syncBusinessSubscription = mutation({
     ),
     providerSubscriptionId: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    await requireActorIsBusinessOwner(ctx, args.businessId);
-    const business = await getBusinessOrThrow(ctx, args.businessId);
-    const now = Date.now();
-    const plan = normalizeBusinessPlan(args.plan);
-    const status = normalizeSubscriptionStatus(args.status, plan);
-    const billingPeriod =
-      plan === 'starter'
-        ? null
-        : (args.period ?? business.billingPeriod ?? 'monthly');
-    const startAt = args.startAt ?? now;
-    const endAt = args.endAt ?? null;
-    const provider = args.provider ?? (plan === 'starter' ? 'manual' : 'mock');
-    const subscriptionPeriod = args.period ?? 'monthly';
-
-    await ctx.db.patch(args.businessId, {
-      subscriptionPlan: plan,
-      subscriptionStatus: status,
-      subscriptionStartAt: startAt,
-      subscriptionEndAt: endAt,
-      billingPeriod,
-      updatedAt: now,
-    });
-
-    const existingSubscription = await ctx.db
-      .query('subscriptions')
-      .withIndex('by_businessId', (q: any) =>
-        q.eq('businessId', args.businessId)
-      )
-      .first();
-
-    if (existingSubscription) {
-      await ctx.db.patch(existingSubscription._id, {
-        plan,
-        status,
-        period: subscriptionPeriod,
-        startAt,
-        endAt,
-        provider,
-        providerSubscriptionId: args.providerSubscriptionId,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert('subscriptions', {
-        businessId: args.businessId,
-        plan,
-        status,
-        period: subscriptionPeriod,
-        startAt,
-        endAt,
-        provider,
-        providerSubscriptionId: args.providerSubscriptionId,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    await enforceTeamAccessForPlanState(ctx, {
-      businessId: args.businessId,
-      plan,
-      status,
-      now,
-    });
-    await enforceCampaignLimitForBusiness(ctx, args.businessId);
-    try {
-      await ctx.runMutation(
-        internal.referrals.processBusinessReferralSubscriptionSyncInternal,
-        {
-          businessId: args.businessId,
-        }
-      );
-    } catch {
-      // Referral subscription sync is best-effort and must not break billing sync.
-    }
-    return await getBusinessEntitlementsForBusinessId(ctx, args.businessId);
+  handler: async () => {
+    throw new Error('SUBSCRIPTION_CLIENT_SYNC_DISABLED');
   },
 });
 
-export const debugEntitlementConstants = query({
+export const debugEntitlementConstants = internalQuery({
   args: {},
   handler: async () => {
     return {

@@ -134,7 +134,12 @@ export const getRecentActivity = query({
     const programCache = new Map<string, Doc<'loyaltyPrograms'> | null>();
 
     for (const event of sorted) {
-      const customer = await ctx.db.get(event.customerUserId);
+      if (!event.customerUserId) {
+        continue;
+      }
+      const customer = (await ctx.db.get(
+        event.customerUserId
+      )) as Doc<'users'> | null;
       if (!customer) {
         continue;
       }

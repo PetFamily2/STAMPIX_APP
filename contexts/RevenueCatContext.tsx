@@ -7,7 +7,6 @@
 // - מצב רכישות מדומות (mock)
 // - ייצור עם מפתחות אמיתיים
 
-import { useMutation } from 'convex/react';
 import Constants from 'expo-constants';
 import {
   createContext,
@@ -20,12 +19,15 @@ import {
 import { Alert } from 'react-native';
 import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
 import { useUser } from '@/contexts/UserContext';
-import { api } from '@/convex/_generated/api';
 import {
-  getPrimaryProductIdFromSubscriber,
   planFromRevenueCatSubscriber,
   type SubscriptionPlan,
 } from '@/lib/domain/subscriptions';
+import {
+  BILLING_UNAVAILABLE_MESSAGE_HE,
+  BILLING_UNAVAILABLE_TITLE_HE,
+  canStartRevenueCatPurchase,
+} from '@/lib/subscription/billingGuards';
 import {
   getCurrentPlatformRevenueCatApiKey,
   isRevenueCatConfigured,
@@ -140,28 +142,9 @@ export function RevenueCatProvider({
   const isExpoGo = isRunningInExpoGo();
   const isConfigured = isRevenueCatConfigured();
   const { user } = useUser();
-  const updateSubscriptionPlan = useMutation(api.users.updateSubscriptionPlan);
   const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
     string | null
   >(null);
-
-  const syncSubscriptionPlan = useCallback(
-    async (plan: SubscriptionPlan, productId?: string) => {
-      if (!PAYMENT_SYSTEM_ENABLED || !user) {
-        return;
-      }
-
-      try {
-        await updateSubscriptionPlan({
-          plan,
-          productId,
-        });
-      } catch (_error) {
-        // ignore failures
-      }
-    },
-    [updateSubscriptionPlan, user]
-  );
 
   const handleCustomerInfo = useCallback(
     async (customerInfo: any): Promise<SubscriptionPlan> => {
@@ -172,13 +155,9 @@ export function RevenueCatProvider({
 
       const plan = planFromRevenueCatSubscriber(customerInfo);
       setSubscriptionPlan(plan);
-      await syncSubscriptionPlan(
-        plan,
-        getPrimaryProductIdFromSubscriber(customerInfo)
-      );
       return plan;
     },
-    [syncSubscriptionPlan]
+    []
   );
 
   // ============================================================================
@@ -306,6 +285,14 @@ export function RevenueCatProvider({
       packageId: string,
       options?: PurchasePackageOptions
     ): Promise<boolean> => {
+      if (!canStartRevenueCatPurchase()) {
+        Alert.alert(
+          BILLING_UNAVAILABLE_TITLE_HE,
+          BILLING_UNAVAILABLE_MESSAGE_HE
+        );
+        return false;
+      }
+
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -381,6 +368,11 @@ export function RevenueCatProvider({
   // ============================================================================
 
   const restorePurchases = useCallback(async (): Promise<boolean> => {
+    if (!canStartRevenueCatPurchase()) {
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+      return false;
+    }
+
     // מצב רכישות מדומות
     if (MOCK_PAYMENTS) {
       await new Promise((resolve) => setTimeout(resolve, 1000));

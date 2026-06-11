@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildTrafficWindowsFromEvents,
   classifyTrafficValues,
+  collectBusinessActivity,
 } from '../analytics';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -91,5 +92,43 @@ describe('analytics traffic strength engine', () => {
     expect(summary.weakestWeekdays.length).toBeGreaterThan(0);
     expect(summary.strongestHourBlocks.length).toBeGreaterThan(0);
     expect(summary.weakestHourBlocks.length).toBeGreaterThan(0);
+  });
+});
+
+describe('analytics activity identity handling', () => {
+  test('counts aggregate events without counting an undefined customer', async () => {
+    const now = Date.now();
+    const events = [
+      {
+        _id: 'event_missing_customer',
+        businessId: 'business_1',
+        type: 'STAMP_ADDED',
+        customerUserId: undefined,
+        createdAt: now,
+      },
+      {
+        _id: 'event_known_customer',
+        businessId: 'business_1',
+        type: 'STAMP_ADDED',
+        customerUserId: 'customer_1',
+        createdAt: now,
+      },
+    ];
+    const ctx = {
+      db: {
+        query: () => ({
+          withIndex: () => ({
+            filter: () => ({
+              collect: async () => events,
+            }),
+          }),
+        }),
+      },
+    };
+
+    const activity = await collectBusinessActivity(ctx, 'business_1');
+
+    expect(activity.totals.stamps).toBe(2);
+    expect(activity.totals.uniqueCustomers).toBe(1);
   });
 });

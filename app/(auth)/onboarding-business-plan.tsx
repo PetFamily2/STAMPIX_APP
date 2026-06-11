@@ -1,7 +1,7 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
@@ -33,14 +33,10 @@ export default function OnboardingBusinessPlanScreen() {
   const didSyncStepRef = useRef(false);
   const isAdditionalFlow = isAdditionalBusinessFlow(flow);
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
-  const syncBusinessSubscription = useMutation(
-    api.entitlements.syncBusinessSubscription
-  );
 
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
 
   useEffect(() => {
@@ -74,7 +70,7 @@ export default function OnboardingBusinessPlanScreen() {
   );
 
   const handleContinue = async () => {
-    if (!businessId || isSubmitting) {
+    if (!businessId) {
       return;
     }
 
@@ -86,25 +82,12 @@ export default function OnboardingBusinessPlanScreen() {
     }
 
     if (selectedPlan === 'starter') {
-      setIsSubmitting(true);
-      try {
-        await syncBusinessSubscription({
-          businessId,
-          plan: 'starter',
-          status: 'active',
-          provider: 'manual',
-        });
-        safePush(
-          withBusinessOnboardingFlow(
-            BUSINESS_ONBOARDING_ROUTES.createProgram,
-            flow
-          )
-        );
-      } catch {
-        setError('לא הצלחנו לשמור את בחירת המסלול. נסו שוב.');
-      } finally {
-        setIsSubmitting(false);
-      }
+      safePush(
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createProgram,
+          flow
+        )
+      );
       return;
     }
 
@@ -137,13 +120,6 @@ export default function OnboardingBusinessPlanScreen() {
           <Text style={styles.title}>בחירת מסלול לעסק</Text>
         </View>
 
-        {isSubmitting && selectedPlan === 'starter' ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#2563EB" />
-            <Text style={styles.loadingText}>שומרים בחירה...</Text>
-          </View>
-        ) : null}
-
         <View style={styles.panelWrap}>
           <SubscriptionSalesPanel
             plans={planCatalog}
@@ -155,8 +131,8 @@ export default function OnboardingBusinessPlanScreen() {
             ctaLabel={
               selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך למסלול'
             }
-            ctaDisabled={isSubmitting}
-            ctaLoading={isSubmitting && selectedPlan === 'starter'}
+            ctaDisabled={false}
+            ctaLoading={false}
             footerNote={error ?? undefined}
             footerNoteTone={error ? 'error' : 'default'}
             onSelectPlan={(plan) => {

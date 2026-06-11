@@ -223,6 +223,24 @@ async function getUserDoc(ctx: any, userId: Id<'users'>) {
   return (await ctx.db.get(userId)) as Doc<'users'> | null;
 }
 
+async function getOptionalActiveUserDoc(
+  ctx: any,
+  userId: Id<'users'> | null | undefined
+) {
+  if (!userId) {
+    return null;
+  }
+  const user = await getUserDoc(ctx, userId);
+  return user?.isActive === true ? user : null;
+}
+
+function formatReferralUser(user: Doc<'users'> | null) {
+  return {
+    name: user?.fullName ?? user?.email ?? null,
+    isDeleted: user === null,
+  };
+}
+
 async function getCustomerReferralDoc(
   ctx: any,
   customerReferralId: Id<'customerReferrals'>
@@ -611,6 +629,9 @@ export async function processReferralAfterJoin(
   if (String(link.businessId) !== String(args.businessId)) {
     return { ok: true, skipped: 'business_mismatch' as const };
   }
+  if (!link.referrerUserId) {
+    return { ok: true, skipped: 'deleted_referrer' as const };
+  }
   if (String(link.referrerUserId) === String(args.referredUserId)) {
     return { ok: true, skipped: 'self_referral' as const };
   }
@@ -845,6 +866,26 @@ export async function qualifyCustomerReferralAfterStamp(
   }
 
   const now = Date.now();
+  if (
+    !latestBeforeQualification.referrerUserId ||
+    !latestBeforeQualification.referredUserId
+  ) {
+    await ctx.db.patch(referral._id, {
+      status: 'completed',
+      qualificationEventId: args.stampEventId,
+      qualifiedAt: now,
+      rewardGrantStatus: 'skipped_no_recipient',
+      updatedAt: now,
+      completedAt: now,
+    });
+    return {
+      rewardTriggered: false,
+      referralId: referral._id,
+      rewardIds: [] as Id<'referralRewards'>[],
+      reason: 'deleted_referral_user',
+    };
+  }
+
   await ctx.db.patch(referral._id, {
     status: 'qualified',
     qualificationEventId: args.stampEventId,
@@ -1398,17 +1439,21 @@ export const listMyCustomerReferrals = query({
       filtered.map(async (row: any) => {
         const [business, referrer, referred] = await Promise.all([
           getBusinessDoc(ctx, row.businessId as Id<'businesses'>),
-          getUserDoc(ctx, row.referrerUserId as Id<'users'>),
-          getUserDoc(ctx, row.referredUserId as Id<'users'>),
+          getOptionalActiveUserDoc(ctx, row.referrerUserId),
+          getOptionalActiveUserDoc(ctx, row.referredUserId),
         ]);
+        const referrerDisplay = formatReferralUser(referrer);
+        const referredDisplay = formatReferralUser(referred);
         return {
           referralId: row._id,
           businessId: row.businessId,
           businessName: business?.name ?? 'עסק',
-          referrerUserId: row.referrerUserId,
-          referrerName: referrer?.fullName ?? referrer?.email ?? null,
-          referredUserId: row.referredUserId,
-          referredName: referred?.fullName ?? referred?.email ?? null,
+          referrerUserId: row.referrerUserId ?? null,
+          referrerName: referrerDisplay.name,
+          referrerDeleted: referrerDisplay.isDeleted,
+          referredUserId: row.referredUserId ?? null,
+          referredName: referredDisplay.name,
+          referredDeleted: referredDisplay.isDeleted,
           status: row.status,
           skipReason: row.skipReason ?? null,
           rewardGrantStatus: row.rewardGrantStatus,
@@ -1613,21 +1658,25 @@ export const listBusinessReferralCustomers = query({
     return await Promise.all(
       filtered.map(async (row: any) => {
         const [referrer, referred, link] = await Promise.all([
-          getUserDoc(ctx, row.referrerUserId as Id<'users'>),
-          getUserDoc(ctx, row.referredUserId as Id<'users'>),
+          getOptionalActiveUserDoc(ctx, row.referrerUserId),
+          getOptionalActiveUserDoc(ctx, row.referredUserId),
           ctx.db.get(
             row.referralLinkId as Id<'customerReferralLinks'>
           ) as Promise<Doc<'customerReferralLinks'> | null>,
         ]);
+        const referrerDisplay = formatReferralUser(referrer);
+        const referredDisplay = formatReferralUser(referred);
         return {
           referralId: row._id,
           status: row.status,
           rewardGrantStatus: row.rewardGrantStatus,
           skipReason: row.skipReason ?? null,
-          referrerUserId: row.referrerUserId,
-          referrerName: referrer?.fullName ?? referrer?.email ?? null,
-          referredUserId: row.referredUserId,
-          referredName: referred?.fullName ?? referred?.email ?? null,
+          referrerUserId: row.referrerUserId ?? null,
+          referrerName: referrerDisplay.name,
+          referrerDeleted: referrerDisplay.isDeleted,
+          referredUserId: row.referredUserId ?? null,
+          referredName: referredDisplay.name,
+          referredDeleted: referredDisplay.isDeleted,
           originProgramId: row.originProgramId,
           referralCode: link?.code ?? null,
           qualifiedAt: row.qualifiedAt ?? null,
@@ -1862,7 +1911,10 @@ export const getBusinessReferralPerformance = query({
 
     const topReferrers = await Promise.all(
       topReferrerEntries.map(async ([referrerUserId, count]) => {
-        const user = await getUserDoc(ctx, referrerUserId as Id<'users'>);
+        const user = await getOptionalActiveUserDoc(
+          ctx,
+          referrerUserId as Id<'users'>
+        );
         return {
           referrerUserId,
           count,
@@ -1933,7 +1985,9 @@ export const getBusinessCustomerReferralSummary = query({
     }
 
     const [referrer, rewards] = await Promise.all([
-      getUserDoc(ctx, referral.referrerUserId),
+      referral.referrerUserId
+        ? getUserDoc(ctx, referral.referrerUserId)
+        : Promise.resolve(null),
       ctx.db
         .query('referralRewards')
         .withIndex('by_customerReferralId_recipientUserId', (q: any) =>
@@ -2251,8 +2305,10 @@ export const adminSearchReferralRecords = query({
     }> = [];
 
     for (const row of customerLinks as any[]) {
+      const referrerIdValue = row.referrerUserId;
+      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
       const haystack =
-        `${String(row._id)} ${row.code} ${String(row.businessId)} ${String(row.referrerUserId)}`.toLowerCase();
+        `${String(row._id)} ${row.code} ${String(row.businessId)} ${referrerUserId}`.toLowerCase();
       if (needle && !haystack.includes(needle)) continue;
       rows.push({
         targetType: 'customerReferralLink',
@@ -2273,8 +2329,12 @@ export const adminSearchReferralRecords = query({
       });
     }
     for (const row of customerReferrals as any[]) {
+      const referredIdValue = row.referredUserId;
+      const referrerIdValue = row.referrerUserId;
+      const referredUserId = referredIdValue ? String(referredIdValue) : '';
+      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
       const haystack =
-        `${String(row._id)} ${String(row.businessId)} ${String(row.referredUserId)} ${String(row.referrerUserId)}`.toLowerCase();
+        `${String(row._id)} ${String(row.businessId)} ${referredUserId} ${referrerUserId}`.toLowerCase();
       if (needle && !haystack.includes(needle)) continue;
       rows.push({
         targetType: 'customerReferral',
@@ -2971,7 +3031,8 @@ export const getBusinessReferralCreditSummary = query({
       );
     const pendingInvitesCount = rows.filter(
       (row: any) =>
-        row.status === 'pending_subscription' || row.status === 'waiting_30_days'
+        row.status === 'pending_subscription' ||
+        row.status === 'waiting_30_days'
     ).length;
     const activeReferralsCount = rows.filter(
       (row: any) => row.status === 'credited'

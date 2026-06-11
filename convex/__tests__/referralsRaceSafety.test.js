@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  listBusinessReferralCustomers,
+  listMyCustomerReferrals,
   processReferralAfterJoin,
   qualifyCustomerReferralAfterStamp,
 } from '../referrals';
@@ -78,6 +80,7 @@ class FakeDb {
   constructor(tables) {
     this.tables = tables;
     this.counter = 0;
+    this.getCalls = [];
   }
 
   query(tableName) {
@@ -92,6 +95,7 @@ class FakeDb {
   }
 
   async get(id) {
+    this.getCalls.push(id);
     for (const tableName of Object.keys(this.tables)) {
       const row = this.rows(tableName).find((doc) => doc._id === id);
       if (row) {
@@ -124,11 +128,11 @@ class FakeDb {
   }
 }
 
-function buildCtx(tables) {
+function buildCtx(tables, currentUserId = 'u_owner') {
   return {
     db: new FakeDb(tables),
     auth: {
-      getUserIdentity: async () => ({ subject: 'test_user' }),
+      getUserIdentity: async () => ({ subject: `${currentUserId}|session` }),
     },
   };
 }
@@ -405,5 +409,118 @@ describe('referral race safety', () => {
     expect(second.reason).toBe('no_pending_referral');
     expect(referral.qualificationEventId).toBe('evt_stamp_first');
     expect(ctx.db.rows('referralRewards')).toHaveLength(1);
+  });
+});
+
+describe('referral lists tolerate deleted users', () => {
+  test('customer referral list suppresses a deleted referrer user', async () => {
+    const tables = baseTables();
+    tables.users = tables.users.map((user) =>
+      user._id === 'u_referrer'
+        ? { ...user, isActive: false, fullName: 'Stale Referrer' }
+        : user
+    );
+    tables.customerReferrals.push({
+      _id: 'referral_deleted_referrer',
+      businessId: 'biz_1',
+      referralLinkId: 'link_1',
+      referrerUserId: 'u_referrer',
+      referredUserId: 'u_referred',
+      status: 'pending',
+      rewardGrantStatus: 'not_applicable',
+      createdAt: Date.now(),
+    });
+    const ctx = buildCtx(tables, 'u_referrer');
+
+    const rows = await listMyCustomerReferrals._handler(ctx, {});
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      referrerName: null,
+      referrerDeleted: true,
+      referredName: 'Referred',
+      referredDeleted: false,
+    });
+  });
+
+  test('customer referral list does not fetch a redacted referred user', async () => {
+    const tables = baseTables();
+    tables.customerReferrals.push({
+      _id: 'referral_deleted_referred',
+      businessId: 'biz_1',
+      referralLinkId: 'link_1',
+      referrerUserId: 'u_referrer',
+      referredUserId: undefined,
+      status: 'pending',
+      rewardGrantStatus: 'not_applicable',
+      createdAt: Date.now(),
+    });
+    const ctx = buildCtx(tables, 'u_referrer');
+
+    const rows = await listMyCustomerReferrals._handler(ctx, {});
+
+    expect(rows).toHaveLength(1);
+    expect(ctx.db.getCalls).not.toContain(undefined);
+    expect(rows[0]).toMatchObject({
+      referredUserId: null,
+      referredName: null,
+      referredDeleted: true,
+    });
+  });
+
+  test('business referral list does not fetch a redacted referrer user', async () => {
+    const tables = baseTables();
+    tables.customerReferrals.push({
+      _id: 'business_referral_deleted_referrer',
+      businessId: 'biz_1',
+      referralLinkId: 'link_1',
+      referrerUserId: undefined,
+      referredUserId: 'u_referred',
+      status: 'pending',
+      rewardGrantStatus: 'not_applicable',
+      createdAt: Date.now(),
+    });
+    const ctx = buildCtx(tables, 'u_owner');
+
+    const rows = await listBusinessReferralCustomers._handler(ctx, {
+      businessId: 'biz_1',
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(ctx.db.getCalls).not.toContain(undefined);
+    expect(rows[0]).toMatchObject({
+      referrerUserId: null,
+      referrerName: null,
+      referrerDeleted: true,
+      referredName: 'Referred',
+    });
+  });
+
+  test('business referral list does not fetch a redacted referred user', async () => {
+    const tables = baseTables();
+    tables.customerReferrals.push({
+      _id: 'business_referral_deleted_referred',
+      businessId: 'biz_1',
+      referralLinkId: 'link_1',
+      referrerUserId: 'u_referrer',
+      referredUserId: undefined,
+      status: 'pending',
+      rewardGrantStatus: 'not_applicable',
+      createdAt: Date.now(),
+    });
+    const ctx = buildCtx(tables, 'u_owner');
+
+    const rows = await listBusinessReferralCustomers._handler(ctx, {
+      businessId: 'biz_1',
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(ctx.db.getCalls).not.toContain(undefined);
+    expect(rows[0]).toMatchObject({
+      referrerName: 'Referrer',
+      referredUserId: null,
+      referredName: null,
+      referredDeleted: true,
+    });
   });
 });

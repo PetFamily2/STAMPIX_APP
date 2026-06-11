@@ -2357,8 +2357,9 @@ export const listBusinessStaffHistory = query({
 
     const userIds = new Set<string>();
     for (const event of sortedEvents) {
-      if (event.actorUserId) {
-        userIds.add(String(event.actorUserId));
+      const actorIdValue = event.actorUserId;
+      if (actorIdValue) {
+        userIds.add(String(actorIdValue));
       }
       if (event.targetUserId) {
         userIds.add(String(event.targetUserId));
@@ -2398,8 +2399,9 @@ export const listBusinessStaffHistory = query({
         : null;
       const inviteTargetRole = invite ? resolveInviteTargetRole(invite) : null;
 
-      const actorUser = event.actorUserId
-        ? (userById.get(String(event.actorUserId)) ?? null)
+      const actorIdValue = event.actorUserId;
+      const actorUser = actorIdValue
+        ? (userById.get(String(actorIdValue)) ?? null)
         : null;
       const targetUser = event.targetUserId
         ? (userById.get(String(event.targetUserId)) ?? null)

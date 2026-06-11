@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { reverseCustomerCardEvent } from '../customerCards';
+import {
+  getBusinessCustomerCard,
+  reverseCustomerCardEvent,
+} from '../customerCards';
 
 class FakeQuery {
   constructor(db, tableName) {
@@ -327,5 +330,49 @@ describe('customer card manual adjustments', () => {
         reasonCode: 'duplicate',
       })
     ).rejects.toThrow('MANUAL_ADJUSTMENT_NOT_LAST_EVENT');
+  });
+
+  test('customer card history preserves events with deleted actors', async () => {
+    const now = Date.now();
+    const tables = buildTables({
+      staffRole: 'owner',
+      extraEvents: [
+        {
+          _id: 'event_stamp_deleted_actor',
+          type: 'STAMP_ADDED',
+          businessId: 'business_1',
+          programId: 'program_1',
+          membershipId: 'membership_1',
+          actorUserId: undefined,
+          customerUserId: 'customer_1',
+          source: 'scanner_commit',
+          membershipStateBefore: {
+            currentStamps: 3,
+            lastStampAt: now - 2_000,
+            isActive: true,
+          },
+          membershipStateAfter: {
+            currentStamps: 4,
+            lastStampAt: now - 1_000,
+            isActive: true,
+          },
+          createdAt: now,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+
+    const result = await getBusinessCustomerCard._handler(ctx, {
+      businessId: 'business_1',
+      customerUserId: 'customer_1',
+      limit: 20,
+    });
+
+    const deletedActorEvent = result.timeline.find(
+      (event) => event.id === 'event_stamp_deleted_actor'
+    );
+    expect(deletedActorEvent).toBeTruthy();
+    expect(deletedActorEvent.actorName).toBe('משתמש שנמחק');
+    expect(result.summary.totalStampsAdded).toBe(2);
   });
 });

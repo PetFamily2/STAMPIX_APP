@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
@@ -31,13 +31,6 @@ const TEXT = {
     '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
   noCardsHint:
     '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05e2\u05e1\u05e7 \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d4\u05e1\u05ea\u05db\u05dc \u05d1\u05d2\u05d9\u05dc\u05d5\u05d9',
-  createDemo:
-    '\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
-  creating: '\u05d9\u05d5\u05e6\u05e8',
-  demoCreated:
-    '\u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5 \u05e0\u05d5\u05e6\u05e8 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4',
-  demoFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05d3\u05de\u05d5',
   businessFallback: '\u05e2\u05e1\u05e7',
   joinedPrograms:
     '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05dc\u05d9',
@@ -121,37 +114,7 @@ export default function WalletScreen() {
       .trim() ||
     undefined;
 
-  const seedMvp = useMutation(api.seed.seedMvp);
   const isLoading = isAuthenticated && businessesQuery === undefined;
-
-  const [seedStatus, setSeedStatus] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
-  const [seedBusy, setSeedBusy] = useState(false);
-
-  const handleCreateDemo = async () => {
-    if (seedBusy) {
-      return;
-    }
-
-    try {
-      setSeedBusy(true);
-      setSeedStatus(null);
-      await seedMvp({});
-      setSeedStatus({ type: 'success', message: TEXT.demoCreated });
-    } catch (error: unknown) {
-      setSeedStatus({
-        type: 'error',
-        message:
-          error instanceof Error && error.message
-            ? error.message
-            : TEXT.demoFailed,
-      });
-    } finally {
-      setSeedBusy(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -275,31 +238,6 @@ export default function WalletScreen() {
           <View style={styles.cardContainer}>
             <Text style={styles.emptyTitle}>{TEXT.noCards}</Text>
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
-
-            <Pressable
-              onPress={handleCreateDemo}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                (pressed || seedBusy) && styles.pressed,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {seedBusy ? TEXT.creating : TEXT.createDemo}
-              </Text>
-            </Pressable>
-
-            {seedStatus ? (
-              <Text
-                style={[
-                  styles.statusText,
-                  seedStatus.type === 'error'
-                    ? styles.statusError
-                    : styles.statusSuccess,
-                ]}
-              >
-                {seedStatus.message}
-              </Text>
-            ) : null}
           </View>
         ) : null}
 
@@ -539,34 +477,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: '600',
   },
-  secondaryButton: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-  },
-  secondaryButtonText: {
-    color: '#1A2B4A',
-    fontWeight: '900',
-  },
   pressed: {
     opacity: 0.85,
-  },
-  statusText: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  statusSuccess: {
-    color: '#0B922A',
-  },
-  statusError: {
-    color: '#D92D20',
   },
   metaRow: {
     marginTop: 10,

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,11 @@ import {
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import {
+  BILLING_UNAVAILABLE_MESSAGE_HE,
+  BILLING_UNAVAILABLE_TITLE_HE,
+  canStartRevenueCatPurchase,
+} from '@/lib/subscription/billingGuards';
 import { getUpgradeAreaLabel } from '@/lib/subscription/lockedAreaCopy';
 import {
   normalizePlanCatalog,
@@ -105,9 +110,6 @@ export function UpgradeModal({
 }: UpgradeModalProps) {
   const insets = useSafeAreaInsets();
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
-  const syncBusinessSubscription = useMutation(
-    api.entitlements.syncBusinessSubscription
-  );
   const { isConfigured, isExpoGo, purchasePackage } = useRevenueCat();
 
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'premium'>(
@@ -148,6 +150,14 @@ export function UpgradeModal({
 
     setIsSubmitting(true);
     try {
+      if (!canStartRevenueCatPurchase()) {
+        Alert.alert(
+          BILLING_UNAVAILABLE_TITLE_HE,
+          BILLING_UNAVAILABLE_MESSAGE_HE
+        );
+        return;
+      }
+
       const rcPackageId =
         REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
 
@@ -167,21 +177,6 @@ export function UpgradeModal({
         if (!purchased) {
           return;
         }
-      }
-
-      await syncBusinessSubscription({
-        businessId,
-        plan: selectedPlan,
-        status: 'active',
-        period: billingPeriod,
-        provider: isBillingLive ? 'revenuecat' : 'manual',
-      });
-
-      if (!isBillingLive) {
-        Alert.alert(
-          'מצב בדיקה',
-          'התשלומים כבויים כרגע, לכן עודכן מסלול בדיקה לעסק במקום רכישה אמיתית.'
-        );
       }
 
       onSuccess?.();

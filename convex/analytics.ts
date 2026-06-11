@@ -337,7 +337,9 @@ const ensureBucket = (map: Map<number, EventBucket>, key: number) => {
   return map.get(key)!;
 };
 
-async function collectBusinessActivity(
+const optionalIdKey = (value: unknown) => (value ? String(value) : null);
+
+export async function collectBusinessActivity(
   ctx: any,
   businessId: Id<'businesses'>
 ): Promise<BusinessActivityResponse> {
@@ -366,7 +368,7 @@ async function collectBusinessActivity(
   let totalRedemptions = 0;
 
   for (const event of events) {
-    const customerKey = String(event.customerUserId);
+    const customerKey = optionalIdKey(event.customerUserId);
     const dayKey = startOfUTCDay(event.createdAt);
     const weekKey = startOfUTCWeek(event.createdAt);
     const dailyBucket = ensureBucket(dailyBuckets, dayKey);
@@ -384,9 +386,11 @@ async function collectBusinessActivity(
       continue;
     }
 
-    dailyBucket.customers.add(customerKey);
-    weeklyBucket.customers.add(customerKey);
-    totalCustomers.add(customerKey);
+    if (customerKey) {
+      dailyBucket.customers.add(customerKey);
+      weeklyBucket.customers.add(customerKey);
+      totalCustomers.add(customerKey);
+    }
   }
 
   const daily: ActivityPeriod[] = [];

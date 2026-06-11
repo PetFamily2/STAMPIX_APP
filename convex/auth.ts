@@ -619,7 +619,10 @@ export const createOrUpdateUser = mutation({
     existingUserId: v.optional(v.id('users')),
   },
   handler: async (ctx, args) => {
-    return await createOrUpdateUserHandler(ctx, args);
+    if (args.profile || args.provider || args.existingUserId) {
+      throw new Error('PUBLIC_AUTH_LINKING_DISABLED');
+    }
+    return await createOrUpdateUserHandler(ctx, {});
   },
 });
 

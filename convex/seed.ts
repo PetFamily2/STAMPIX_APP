@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation } from './_generated/server';
+import { internalMutation } from './_generated/server';
 import { createBusinessForOwner } from './business';
 
 /**
@@ -17,7 +17,7 @@ type SeedOwnerArgs = {
   seedOwnerName?: string;
 };
 
-export const seedMvp = mutation({
+export const seedMvp = internalMutation({
   args: {
     businessName: v.optional(v.string()),
     programTitle: v.optional(v.string()),

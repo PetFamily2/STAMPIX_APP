@@ -1,501 +1,743 @@
 import { describe, expect, test } from 'bun:test';
+
 import { deleteMyAccountHardImpl } from '../users';
 
+const clone = (value) => JSON.parse(JSON.stringify(value));
+
 class FakeQuery {
-  constructor(db, tableName) {
-    this.db = db;
-    this.tableName = tableName;
-    this.predicates = [];
+  constructor(docs) {
+    this.docs = docs;
   }
 
-  withIndex(_indexName, builder) {
-    const conditions = [];
+  withIndex(_name, builder) {
+    if (!builder) {
+      return new FakeQuery(this.docs);
+    }
+    const predicates = [];
     const q = {
-      eq: (field, value) => {
-        conditions.push({ field, value });
+      eq(field, value) {
+        predicates.push((doc) => doc[field] === value);
         return q;
       },
     };
     builder(q);
-    this.predicates.push((doc) =>
-      conditions.every((condition) => doc[condition.field] === condition.value)
-    );
-    return this;
-  }
-
-  filter(_builder) {
-    return this;
-  }
-
-  docs() {
-    const docs = this.db.rows(this.tableName);
-    return docs.filter((doc) =>
-      this.predicates.every((predicate) => predicate(doc))
+    return new FakeQuery(
+      this.docs.filter((doc) => predicates.every((predicate) => predicate(doc)))
     );
   }
 
-  async first() {
-    return this.docs()[0] ?? null;
+  filter() {
+    return new FakeQuery(this.docs);
   }
 
-  async unique() {
-    const docs = this.docs();
-    if (docs.length === 0) return null;
-    if (docs.length > 1) {
-      throw new Error(`Expected unique result in ${this.tableName}`);
-    }
-    return docs[0];
-  }
-
-  async take(count) {
-    return this.docs().slice(0, count);
+  order() {
+    return this;
   }
 
   async collect() {
-    return this.docs();
+    return this.docs;
+  }
+
+  async take(n) {
+    return this.docs.slice(0, n);
+  }
+
+  async first() {
+    return this.docs[0] ?? null;
+  }
+
+  async unique() {
+    return this.docs[0] ?? null;
   }
 }
 
 class FakeDb {
   constructor(tables) {
-    this.tables = tables;
+    this.tables = clone(tables);
+    this.deleted = [];
   }
 
-  query(tableName) {
-    return new FakeQuery(this, tableName);
-  }
-
-  rows(tableName) {
-    if (!this.tables[tableName]) {
-      this.tables[tableName] = [];
-    }
-    return this.tables[tableName];
+  query(table) {
+    return new FakeQuery(this.tables[table] ?? []);
   }
 
   async get(id) {
-    for (const tableName of Object.keys(this.tables)) {
-      const row = this.rows(tableName).find((doc) => doc._id === id);
-      if (row) return row;
+    for (const docs of Object.values(this.tables)) {
+      const doc = docs.find((item) => item._id === id);
+      if (doc) {
+        return doc;
+      }
     }
     return null;
   }
 
-  async delete(id) {
-    for (const tableName of Object.keys(this.tables)) {
-      const rows = this.rows(tableName);
-      const index = rows.findIndex((doc) => doc._id === id);
-      if (index >= 0) {
-        rows.splice(index, 1);
+  async patch(id, updates) {
+    for (const docs of Object.values(this.tables)) {
+      const doc = docs.find((item) => item._id === id);
+      if (doc) {
+        Object.assign(doc, updates);
         return;
       }
     }
+    throw new Error(`Missing doc ${id}`);
+  }
+
+  async delete(id) {
+    for (const [table, docs] of Object.entries(this.tables)) {
+      const index = docs.findIndex((item) => item._id === id);
+      if (index >= 0) {
+        const [doc] = docs.splice(index, 1);
+        this.deleted.push({ table, id, doc });
+        return;
+      }
+    }
+    throw new Error(`Missing doc ${id}`);
+  }
+
+  rows(table) {
+    return this.tables[table] ?? [];
   }
 }
 
-function buildCtx(tables, subject) {
+function buildCtx(tables, userId = 'u_customer') {
+  const db = new FakeDb(tables);
   return {
-    db: new FakeDb(tables),
+    db,
     auth: {
-      getUserIdentity: async () => (subject ? { subject } : null),
+      async getUserIdentity() {
+        return {
+          subject: `${userId}|session`,
+          email: `${userId}@example.com`,
+        };
+      },
     },
   };
 }
 
 describe('deleteMyAccountHardImpl', () => {
-  test('customer deletion removes all user-scoped rows and auth mappings', async () => {
-    const tables = {
+  test('deletes only the authenticated user personal graph', async () => {
+    const ctx = buildCtx({
       users: [
         {
           _id: 'u_customer',
-          externalId: 'ext_customer',
           email: 'customer@example.com',
+          externalId: 'auth|u_customer',
         },
-        { _id: 'u_owner', externalId: 'ext_owner', email: 'owner@example.com' },
+        {
+          _id: 'u_other',
+          email: 'other@example.com',
+          externalId: 'auth|u_other',
+        },
       ],
-      businesses: [{ _id: 'b_owner', ownerUserId: 'u_owner' }],
+      businesses: [{ _id: 'b_keep', ownerUserId: 'u_other', name: 'Keep' }],
       businessStaff: [
         {
-          _id: 'bs_owner',
-          businessId: 'b_owner',
-          userId: 'u_owner',
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_other',
           staffRole: 'owner',
-          isActive: true,
+          status: 'active',
         },
         {
-          _id: 'bs_customer_other',
-          businessId: 'b_owner',
+          _id: 'staff_customer',
+          businessId: 'b_keep',
           userId: 'u_customer',
           staffRole: 'staff',
-          isActive: true,
+          status: 'active',
         },
       ],
-      loyaltyPrograms: [{ _id: 'p_owner', businessId: 'b_owner' }],
       memberships: [
+        { _id: 'm_customer', userId: 'u_customer', businessId: 'b_keep' },
+        { _id: 'm_other', userId: 'u_other', businessId: 'b_keep' },
+      ],
+      businessOnboardingDrafts: [
+        { _id: 'draft_customer', userId: 'u_customer' },
+        { _id: 'draft_other', userId: 'u_other' },
+      ],
+      customerReferralLinks: [
         {
-          _id: 'm_customer',
-          userId: 'u_customer',
-          businessId: 'b_owner',
-          programId: 'p_owner',
+          _id: 'crl_customer',
+          businessId: 'b_keep',
+          referrerUserId: 'u_customer',
+        },
+        { _id: 'crl_other', businessId: 'b_keep', referrerUserId: 'u_other' },
+      ],
+      customerReferrals: [
+        {
+          _id: 'cr_customer',
+          linkId: 'crl_customer',
+          businessId: 'b_keep',
+          referrerUserId: 'u_customer',
+          referredUserId: 'u_other',
         },
         {
-          _id: 'm_owner',
-          userId: 'u_owner',
-          businessId: 'b_owner',
-          programId: 'p_owner',
+          _id: 'cr_referred',
+          linkId: 'crl_other',
+          businessId: 'b_keep',
+          referrerUserId: 'u_other',
+          referredUserId: 'u_customer',
+        },
+        {
+          _id: 'cr_other',
+          linkId: 'crl_other',
+          businessId: 'b_keep',
+          referrerUserId: 'u_other',
+          referredUserId: 'u_someone',
+        },
+      ],
+      referralRewards: [
+        {
+          _id: 'rr_customer',
+          customerReferralId: 'cr_customer',
+          recipientUserId: 'u_customer',
+        },
+        {
+          _id: 'rr_referred',
+          customerReferralId: 'cr_referred',
+          recipientUserId: 'u_other',
+        },
+        {
+          _id: 'rr_other',
+          customerReferralId: 'cr_other',
+          recipientUserId: 'u_other',
+        },
+      ],
+      businessReferralLinks: [
+        {
+          _id: 'brl_customer',
+          businessId: 'b_keep',
+          createdByUserId: 'u_customer',
+        },
+        { _id: 'brl_other', businessId: 'b_keep', createdByUserId: 'u_other' },
+      ],
+      businessReferrals: [
+        {
+          _id: 'br_customer',
+          businessId: 'b_keep',
+          businessReferralLinkId: 'brl_customer',
+          createdByUserId: 'u_customer',
+        },
+        {
+          _id: 'br_other',
+          businessId: 'b_keep',
+          businessReferralLinkId: 'brl_other',
+          createdByUserId: 'u_other',
         },
       ],
       events: [
         {
-          _id: 'e_customer',
-          businessId: 'b_owner',
-          programId: 'p_owner',
-          customerUserId: 'u_customer',
-          actorUserId: 'u_owner',
-        },
-        {
-          _id: 'e_actor',
-          businessId: 'b_owner',
-          programId: 'p_owner',
-          customerUserId: 'u_owner',
+          _id: 'event_customer',
           actorUserId: 'u_customer',
-        },
-      ],
-      scanTokenEvents: [
-        {
-          _id: 'ste_customer',
-          businessId: 'b_owner',
-          programId: 'p_owner',
-          customerId: 'u_customer',
+          customerUserId: 'u_other',
         },
         {
-          _id: 'ste_owner',
-          businessId: 'b_owner',
-          programId: 'p_owner',
-          customerId: 'u_owner',
+          _id: 'event_other',
+          actorUserId: 'u_other',
+          customerUserId: 'u_other',
+        },
+        {
+          _id: 'event_deleted_customer',
+          actorUserId: 'u_other',
+          customerUserId: 'u_customer',
         },
       ],
       scanSessions: [
         {
-          _id: 'ss_customer',
-          businessId: 'b_owner',
-          programId: 'p_owner',
+          _id: 'scan_customer',
           customerId: 'u_customer',
-          actorUserId: 'u_owner',
+          actorUserId: 'u_other',
         },
         {
-          _id: 'ss_actor_customer',
-          businessId: 'b_owner',
-          programId: 'p_owner',
-          customerId: 'u_owner',
+          _id: 'scan_actor',
+          customerId: 'u_other',
           actorUserId: 'u_customer',
         },
+        { _id: 'scan_other', customerId: 'u_other', actorUserId: 'u_other' },
+      ],
+      supportRequests: [
+        { _id: 'support_customer', userId: 'u_customer' },
+        { _id: 'support_other', userId: 'u_other' },
+      ],
+      pushTokens: [
+        { _id: 'push_customer', userId: 'u_customer' },
+        { _id: 'push_other', userId: 'u_other' },
       ],
       messageLog: [
-        { _id: 'ml_customer', businessId: 'b_owner', toUserId: 'u_customer' },
-        { _id: 'ml_owner', businessId: 'b_owner', toUserId: 'u_owner' },
+        { _id: 'msg_customer', toUserId: 'u_customer' },
+        { _id: 'msg_other', toUserId: 'u_other' },
       ],
-      authAccounts: [
-        { _id: 'aa_customer', userId: 'u_customer', provider: 'password' },
+      authAccounts: [{ _id: 'acct_customer', userId: 'u_customer' }],
+      authSessions: [{ _id: 'sess_customer', userId: 'u_customer' }],
+      authRefreshTokens: [
+        { _id: 'refresh_customer', sessionId: 'sess_customer' },
       ],
       authVerificationCodes: [
-        { _id: 'avc_customer', accountId: 'aa_customer' },
+        { _id: 'verify_customer', accountId: 'acct_customer' },
       ],
-      authSessions: [{ _id: 'as_customer', userId: 'u_customer' }],
-      authRefreshTokens: [{ _id: 'art_customer', sessionId: 'as_customer' }],
-      authVerifiers: [{ _id: 'aver_customer', sessionId: 'as_customer' }],
-      emailOtps: [
-        { _id: 'otp_customer', email: 'customer@example.com' },
-        { _id: 'otp_other', email: 'someone-else@example.com' },
-      ],
-    };
+      authVerifiers: [{ _id: 'verifier_customer', sessionId: 'sess_customer' }],
+      emailOtps: [{ _id: 'otp_customer', email: 'customer@example.com' }],
+    });
 
-    const ctx = buildCtx(tables, 'u_customer');
     const result = await deleteMyAccountHardImpl(ctx);
 
     expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.deletedBusinessIds).toHaveLength(0);
+    expect(result.deletedBusinessIds).toEqual([]);
+    expect(ctx.db.rows('users').map((doc) => doc._id)).toEqual(['u_other']);
+    expect(ctx.db.rows('businesses').map((doc) => doc._id)).toEqual(['b_keep']);
+    expect(ctx.db.rows('businessStaff').map((doc) => doc._id)).toEqual([
+      'staff_owner',
+    ]);
+    expect(ctx.db.rows('memberships').map((doc) => doc._id)).toEqual([
+      'm_other',
+    ]);
     expect(
-      ctx.db.rows('users').find((row) => row._id === 'u_customer')
-    ).toBeUndefined();
+      ctx.db.rows('businessOnboardingDrafts').map((doc) => doc._id)
+    ).toEqual(['draft_other']);
     expect(
-      ctx.db.rows('users').find((row) => row._id === 'u_owner')
-    ).toBeDefined();
-
+      ctx.db
+        .rows('customerReferralLinks')
+        .map((doc) => [doc._id, doc.referrerUserId])
+    ).toEqual([
+      ['crl_customer', undefined],
+      ['crl_other', 'u_other'],
+    ]);
     expect(
-      ctx.db.rows('memberships').some((row) => row.userId === 'u_customer')
-    ).toBe(false);
+      ctx.db
+        .rows('customerReferrals')
+        .map((doc) => [doc._id, doc.referrerUserId, doc.referredUserId])
+    ).toEqual([
+      ['cr_customer', undefined, 'u_other'],
+      ['cr_referred', 'u_other', undefined],
+      ['cr_other', 'u_other', 'u_someone'],
+    ]);
+    expect(ctx.db.rows('referralRewards').map((doc) => doc._id)).toEqual([
+      'rr_referred',
+      'rr_other',
+    ]);
     expect(
-      ctx.db.rows('businessStaff').some((row) => row.userId === 'u_customer')
-    ).toBe(false);
+      ctx.db
+        .rows('businessReferralLinks')
+        .map((doc) => [doc._id, doc.createdByUserId])
+    ).toEqual([
+      ['brl_customer', undefined],
+      ['brl_other', 'u_other'],
+    ]);
+    expect(
+      ctx.db
+        .rows('businessReferrals')
+        .map((doc) => [doc._id, doc.createdByUserId])
+    ).toEqual([
+      ['br_customer', undefined],
+      ['br_other', 'u_other'],
+    ]);
     expect(
       ctx.db
         .rows('events')
-        .some(
-          (row) =>
-            row.customerUserId === 'u_customer' ||
-            row.actorUserId === 'u_customer'
-        )
-    ).toBe(false);
-    expect(
-      ctx.db
-        .rows('scanTokenEvents')
-        .some((row) => row.customerId === 'u_customer')
-    ).toBe(false);
+        .map((doc) => [doc._id, doc.actorUserId, doc.customerUserId])
+    ).toEqual([
+      ['event_customer', undefined, 'u_other'],
+      ['event_other', 'u_other', 'u_other'],
+      ['event_deleted_customer', 'u_other', undefined],
+    ]);
     expect(
       ctx.db
         .rows('scanSessions')
-        .some(
-          (row) =>
-            row.customerId === 'u_customer' || row.actorUserId === 'u_customer'
-        )
-    ).toBe(false);
-    expect(
-      ctx.db.rows('messageLog').some((row) => row.toUserId === 'u_customer')
-    ).toBe(false);
-
-    expect(ctx.db.rows('authAccounts')).toHaveLength(0);
-    expect(ctx.db.rows('authVerificationCodes')).toHaveLength(0);
-    expect(ctx.db.rows('authSessions')).toHaveLength(0);
-    expect(ctx.db.rows('authRefreshTokens')).toHaveLength(0);
-    expect(ctx.db.rows('authVerifiers')).toHaveLength(0);
-    expect(
-      ctx.db
-        .rows('emailOtps')
-        .some((row) => row.email === 'customer@example.com')
-    ).toBe(false);
-    expect(
-      ctx.db
-        .rows('emailOtps')
-        .some((row) => row.email === 'someone-else@example.com')
-    ).toBe(true);
+        .map((doc) => [doc._id, doc.customerId, doc.actorUserId])
+    ).toEqual([
+      ['scan_customer', undefined, 'u_other'],
+      ['scan_actor', 'u_other', undefined],
+      ['scan_other', 'u_other', 'u_other'],
+    ]);
+    expect(ctx.db.rows('supportRequests').map((doc) => doc._id)).toEqual([
+      'support_other',
+    ]);
+    expect(ctx.db.rows('pushTokens').map((doc) => doc._id)).toEqual([
+      'push_other',
+    ]);
+    expect(ctx.db.rows('messageLog').map((doc) => doc._id)).toEqual([
+      'msg_other',
+    ]);
+    expect(ctx.db.rows('authAccounts')).toEqual([]);
+    expect(ctx.db.rows('authSessions')).toEqual([]);
+    expect(ctx.db.rows('authRefreshTokens')).toEqual([]);
+    expect(ctx.db.rows('authVerificationCodes')).toEqual([]);
+    expect(ctx.db.rows('authVerifiers')).toEqual([]);
+    expect(ctx.db.rows('emailOtps')).toEqual([]);
   });
 
-  test('owner deletion removes owned business graph and user-scoped rows', async () => {
-    const tables = {
-      users: [
-        { _id: 'u_owner', externalId: 'ext_owner', email: 'owner@example.com' },
-        { _id: 'u_staff', externalId: 'ext_staff', email: 'staff@example.com' },
-        {
-          _id: 'u_customer',
-          externalId: 'ext_customer',
-          email: 'customer@example.com',
-        },
-        {
-          _id: 'u_other_owner',
-          externalId: 'ext_other_owner',
-          email: 'other@example.com',
-        },
-      ],
-      businesses: [
-        { _id: 'b_owned', ownerUserId: 'u_owner' },
-        { _id: 'b_other', ownerUserId: 'u_other_owner' },
-      ],
-      businessStaff: [
-        {
-          _id: 'bs_owned_owner',
-          businessId: 'b_owned',
-          userId: 'u_owner',
-          staffRole: 'owner',
-          isActive: true,
-        },
-        {
-          _id: 'bs_owned_staff',
-          businessId: 'b_owned',
-          userId: 'u_staff',
-          staffRole: 'staff',
-          isActive: true,
-        },
-        {
-          _id: 'bs_other_owner_is_staff',
-          businessId: 'b_other',
-          userId: 'u_owner',
-          staffRole: 'staff',
-          isActive: true,
-        },
-      ],
-      loyaltyPrograms: [
-        { _id: 'p_owned_1', businessId: 'b_owned' },
-        { _id: 'p_other', businessId: 'b_other' },
-      ],
-      memberships: [
-        {
-          _id: 'm_owned_customer',
-          userId: 'u_customer',
-          businessId: 'b_owned',
-          programId: 'p_owned_1',
-        },
-        {
-          _id: 'm_owner_other_business',
-          userId: 'u_owner',
-          businessId: 'b_other',
-          programId: 'p_other',
-        },
-      ],
-      events: [
-        {
-          _id: 'e_owned',
-          businessId: 'b_owned',
-          programId: 'p_owned_1',
-          customerUserId: 'u_customer',
-          actorUserId: 'u_owner',
-        },
-        {
-          _id: 'e_other_actor_owner',
-          businessId: 'b_other',
-          programId: 'p_other',
-          customerUserId: 'u_customer',
-          actorUserId: 'u_owner',
-        },
-      ],
-      scanTokenEvents: [
-        {
-          _id: 'ste_owned',
-          businessId: 'b_owned',
-          programId: 'p_owned_1',
-          customerId: 'u_customer',
-        },
-        {
-          _id: 'ste_other_owner',
-          businessId: 'b_other',
-          programId: 'p_other',
-          customerId: 'u_owner',
-        },
-      ],
-      scanSessions: [
-        {
-          _id: 'ss_owned',
-          businessId: 'b_owned',
-          programId: 'p_owned_1',
-          customerId: 'u_customer',
-          actorUserId: 'u_owner',
-        },
-        {
-          _id: 'ss_other_owner',
-          businessId: 'b_other',
-          programId: 'p_other',
-          customerId: 'u_owner',
-          actorUserId: 'u_staff',
-        },
-      ],
-      campaigns: [
-        { _id: 'camp_owned', businessId: 'b_owned' },
-        { _id: 'camp_other', businessId: 'b_other' },
-      ],
-      messageLog: [
-        { _id: 'ml_owned', businessId: 'b_owned', toUserId: 'u_customer' },
-        {
-          _id: 'ml_other_to_owner',
-          businessId: 'b_other',
-          toUserId: 'u_owner',
-        },
-      ],
-      apiClients: [
-        { _id: 'ac_owned', businessId: 'b_owned' },
-        { _id: 'ac_other', businessId: 'b_other' },
-      ],
-      apiKeys: [
-        { _id: 'ak_owned', clientId: 'ac_owned' },
-        { _id: 'ak_other', clientId: 'ac_other' },
-      ],
-      authAccounts: [
-        { _id: 'aa_owner', userId: 'u_owner', provider: 'password' },
-      ],
-      authVerificationCodes: [{ _id: 'avc_owner', accountId: 'aa_owner' }],
-      authSessions: [{ _id: 'as_owner', userId: 'u_owner' }],
-      authRefreshTokens: [{ _id: 'art_owner', sessionId: 'as_owner' }],
-      authVerifiers: [{ _id: 'aver_owner', sessionId: 'as_owner' }],
-      emailOtps: [{ _id: 'otp_owner', email: 'owner@example.com' }],
-    };
+  test('blocks deletion for the sole active business owner without deleting data', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+          },
+        ],
+        businesses: [{ _id: 'b_owned', ownerUserId: 'u_owner', name: 'Owned' }],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_owned',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+          },
+        ],
+        memberships: [
+          { _id: 'm_owner', userId: 'u_owner', businessId: 'b_owned' },
+        ],
+        authAccounts: [{ _id: 'acct_owner', userId: 'u_owner' }],
+      },
+      'u_owner'
+    );
 
-    const ctx = buildCtx(tables, 'u_owner');
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
+      blockedBusinessIds: ['b_owned'],
+    });
+    expect(ctx.db.rows('users').map((doc) => doc._id)).toEqual(['u_owner']);
+    expect(ctx.db.rows('businesses').map((doc) => doc._id)).toEqual([
+      'b_owned',
+    ]);
+    expect(ctx.db.rows('businessStaff').map((doc) => doc._id)).toEqual([
+      'staff_owner',
+    ]);
+    expect(ctx.db.rows('memberships').map((doc) => doc._id)).toEqual([
+      'm_owner',
+    ]);
+    expect(ctx.db.rows('authAccounts').map((doc) => doc._id)).toEqual([
+      'acct_owner',
+    ]);
+    expect(ctx.db.deleted).toEqual([]);
+  });
+
+  test('allows an owner to delete their account and deterministically reassigns to another active owner', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_other_owner',
+            email: 'other-owner@example.com',
+            externalId: 'auth|u_other_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_late_owner',
+            email: 'late-owner@example.com',
+            externalId: 'auth|u_late_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_tie_owner',
+            email: 'tie-owner@example.com',
+            externalId: 'auth|u_tie_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_inactive_owner',
+            email: 'inactive-owner@example.com',
+            externalId: 'auth|u_inactive_owner',
+            isActive: false,
+          },
+          {
+            _id: 'u_customer',
+            email: 'customer@example.com',
+            externalId: 'auth|u_customer',
+            isActive: true,
+          },
+        ],
+        businesses: [{ _id: 'b_owned', ownerUserId: 'u_owner', name: 'Owned' }],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_owned',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 100,
+          },
+          {
+            _id: 'staff_other_owner',
+            businessId: 'b_owned',
+            userId: 'u_other_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 20,
+          },
+          {
+            _id: 'staff_late_owner',
+            businessId: 'b_owned',
+            userId: 'u_late_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 40,
+          },
+          {
+            _id: 'staff_tie_owner',
+            businessId: 'b_owned',
+            userId: 'u_tie_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 20,
+          },
+          {
+            _id: 'staff_inactive_owner',
+            businessId: 'b_owned',
+            userId: 'u_inactive_owner',
+            staffRole: 'owner',
+            status: 'inactive',
+            createdAt: 1,
+          },
+          {
+            _id: 'staff_customer',
+            businessId: 'b_owned',
+            userId: 'u_customer',
+            staffRole: 'staff',
+            status: 'active',
+          },
+        ],
+        loyaltyPrograms: [{ _id: 'lp_keep', businessId: 'b_owned' }],
+        campaigns: [{ _id: 'campaign_keep', businessId: 'b_owned' }],
+        subscriptions: [{ _id: 'sub_keep', businessId: 'b_owned' }],
+        apiClients: [{ _id: 'api_client_keep', businessId: 'b_owned' }],
+        apiKeys: [{ _id: 'api_key_keep', businessId: 'b_owned' }],
+        memberships: [
+          { _id: 'm_owner', userId: 'u_owner', businessId: 'b_owned' },
+          { _id: 'm_customer', userId: 'u_customer', businessId: 'b_owned' },
+        ],
+        scanSessions: [
+          {
+            _id: 'scan_owner',
+            customerId: 'u_owner',
+            actorUserId: 'u_customer',
+          },
+        ],
+        authAccounts: [{ _id: 'acct_owner', userId: 'u_owner' }],
+      },
+      'u_owner'
+    );
+
     const result = await deleteMyAccountHardImpl(ctx);
 
     expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    expect(result.deletedBusinessIds).toEqual(['b_owned']);
-    expect(
-      ctx.db.rows('users').find((row) => row._id === 'u_owner')
-    ).toBeUndefined();
-    expect(
-      ctx.db.rows('users').find((row) => row._id === 'u_staff')
-    ).toBeDefined();
-    expect(
-      ctx.db.rows('users').find((row) => row._id === 'u_customer')
-    ).toBeDefined();
-
-    expect(ctx.db.rows('businesses').some((row) => row._id === 'b_owned')).toBe(
-      false
-    );
-    expect(ctx.db.rows('businesses').some((row) => row._id === 'b_other')).toBe(
-      true
-    );
-
-    expect(
-      ctx.db.rows('businessStaff').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('loyaltyPrograms').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('memberships').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('events').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('scanTokenEvents').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('scanSessions').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('campaigns').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('messageLog').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('apiClients').some((row) => row.businessId === 'b_owned')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('apiKeys').some((row) => row.clientId === 'ac_owned')
-    ).toBe(false);
-
-    expect(
-      ctx.db.rows('memberships').some((row) => row.userId === 'u_owner')
-    ).toBe(false);
-    expect(
-      ctx.db.rows('businessStaff').some((row) => row.userId === 'u_owner')
-    ).toBe(false);
+    expect(result.deletedBusinessIds).toEqual([]);
     expect(
       ctx.db
-        .rows('events')
-        .some(
-          (row) =>
-            row.customerUserId === 'u_owner' || row.actorUserId === 'u_owner'
-        )
-    ).toBe(false);
-    expect(
-      ctx.db.rows('scanTokenEvents').some((row) => row.customerId === 'u_owner')
-    ).toBe(false);
+        .rows('users')
+        .map((doc) => doc._id)
+        .sort()
+    ).toEqual([
+      'u_customer',
+      'u_inactive_owner',
+      'u_late_owner',
+      'u_other_owner',
+      'u_tie_owner',
+    ]);
+    expect(ctx.db.rows('businesses')).toHaveLength(1);
+    expect(ctx.db.rows('businesses')[0].ownerUserId).toBe('u_other_owner');
     expect(
       ctx.db
-        .rows('scanSessions')
-        .some(
-          (row) => row.customerId === 'u_owner' || row.actorUserId === 'u_owner'
-        )
-    ).toBe(false);
-    expect(
-      ctx.db.rows('messageLog').some((row) => row.toUserId === 'u_owner')
-    ).toBe(false);
+        .rows('businessStaff')
+        .map((doc) => doc._id)
+        .sort()
+    ).toEqual([
+      'staff_customer',
+      'staff_inactive_owner',
+      'staff_late_owner',
+      'staff_other_owner',
+      'staff_tie_owner',
+    ]);
+    expect(ctx.db.rows('loyaltyPrograms').map((doc) => doc._id)).toEqual([
+      'lp_keep',
+    ]);
+    expect(ctx.db.rows('campaigns').map((doc) => doc._id)).toEqual([
+      'campaign_keep',
+    ]);
+    expect(ctx.db.rows('subscriptions').map((doc) => doc._id)).toEqual([
+      'sub_keep',
+    ]);
+    expect(ctx.db.rows('apiClients').map((doc) => doc._id)).toEqual([
+      'api_client_keep',
+    ]);
+    expect(ctx.db.rows('apiKeys').map((doc) => doc._id)).toEqual([
+      'api_key_keep',
+    ]);
+    expect(ctx.db.rows('memberships').map((doc) => doc._id)).toEqual([
+      'm_customer',
+    ]);
+    expect(ctx.db.rows('scanSessions')).toEqual([
+      {
+        _id: 'scan_owner',
+        customerId: undefined,
+        actorUserId: 'u_customer',
+      },
+    ]);
+    expect(ctx.db.rows('authAccounts')).toEqual([]);
+  });
 
-    expect(ctx.db.rows('authAccounts')).toHaveLength(0);
-    expect(ctx.db.rows('authVerificationCodes')).toHaveLength(0);
-    expect(ctx.db.rows('authSessions')).toHaveLength(0);
-    expect(ctx.db.rows('authRefreshTokens')).toHaveLength(0);
-    expect(ctx.db.rows('authVerifiers')).toHaveLength(0);
+  test('skips missing and inactive owner users before selecting a later valid owner', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_inactive_owner',
+            email: 'inactive-owner@example.com',
+            externalId: 'auth|u_inactive_owner',
+            isActive: false,
+          },
+          {
+            _id: 'u_valid_owner',
+            email: 'valid-owner@example.com',
+            externalId: 'auth|u_valid_owner',
+            isActive: true,
+          },
+        ],
+        businesses: [{ _id: 'b_owned', ownerUserId: 'u_owner', name: 'Owned' }],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_owned',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 1,
+          },
+          {
+            _id: 'staff_missing_owner',
+            businessId: 'b_owned',
+            userId: 'u_missing_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 2,
+          },
+          {
+            _id: 'staff_inactive_owner',
+            businessId: 'b_owned',
+            userId: 'u_inactive_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 3,
+          },
+          {
+            _id: 'staff_valid_owner',
+            businessId: 'b_owned',
+            userId: 'u_valid_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 4,
+          },
+        ],
+      },
+      'u_owner'
+    );
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('businesses')[0].ownerUserId).toBe('u_valid_owner');
+    expect(
+      ctx.db
+        .rows('businessStaff')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual([
+      'staff_inactive_owner',
+      'staff_missing_owner',
+      'staff_valid_owner',
+    ]);
+  });
+
+  test('blocks deletion before mutation when all replacement owner users are invalid', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_inactive_owner',
+            email: 'inactive-owner@example.com',
+            externalId: 'auth|u_inactive_owner',
+            isActive: false,
+          },
+        ],
+        businesses: [{ _id: 'b_owned', ownerUserId: 'u_owner', name: 'Owned' }],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_owned',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 1,
+          },
+          {
+            _id: 'staff_missing_owner',
+            businessId: 'b_owned',
+            userId: 'u_missing_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 2,
+          },
+          {
+            _id: 'staff_inactive_owner',
+            businessId: 'b_owned',
+            userId: 'u_inactive_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 3,
+          },
+        ],
+        memberships: [
+          { _id: 'm_owner', userId: 'u_owner', businessId: 'b_owned' },
+        ],
+      },
+      'u_owner'
+    );
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
+      blockedBusinessIds: ['b_owned'],
+    });
+    expect(ctx.db.rows('businesses')[0].ownerUserId).toBe('u_owner');
+    expect(
+      ctx.db
+        .rows('users')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['u_inactive_owner', 'u_owner']);
+    expect(
+      ctx.db
+        .rows('businessStaff')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['staff_inactive_owner', 'staff_missing_owner', 'staff_owner']);
+    expect(ctx.db.rows('memberships').map((row) => row._id)).toEqual([
+      'm_owner',
+    ]);
+    expect(ctx.db.deleted).toEqual([]);
   });
 });

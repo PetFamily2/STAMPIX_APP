@@ -66,7 +66,9 @@ class FakeQuery {
 
   async unique() {
     const docs = this.docs();
-    if (docs.length === 0) return null;
+    if (docs.length === 0) {
+      return null;
+    }
     if (docs.length > 1) {
       throw new Error(`Expected unique result in ${this.tableName}`);
     }
@@ -102,7 +104,9 @@ class FakeDb {
   async get(id) {
     for (const tableName of Object.keys(this.tables)) {
       const row = this.rows(tableName).find((doc) => doc._id === id);
-      if (row) return row;
+      if (row) {
+        return row;
+      }
     }
     return null;
   }
@@ -186,6 +190,13 @@ describe('wipeAllDataHardImpl', () => {
       messageLog: 1,
       pushTokens: 0,
       pushDeliveryLog: 0,
+      referralAdminAuditLog: 0,
+      referralRewards: 0,
+      customerReferrals: 0,
+      customerReferralLinks: 0,
+      referralConfigs: 0,
+      businessReferrals: 0,
+      businessReferralLinks: 0,
       campaigns: 1,
       subscriptions: 1,
       scanSessions: 1,

@@ -529,7 +529,7 @@ export default defineSchema({
   customerReferralLinks: defineTable({
     code: v.string(),
     businessId: v.id('businesses'),
-    referrerUserId: v.id('users'),
+    referrerUserId: v.optional(v.id('users')),
     originProgramId: v.id('loyaltyPrograms'),
     membershipId: v.optional(v.id('memberships')),
     shareSurface: v.union(v.literal('card_screen'), v.literal('business_page')),
@@ -561,8 +561,8 @@ export default defineSchema({
   customerReferrals: defineTable({
     businessId: v.id('businesses'),
     referralLinkId: v.id('customerReferralLinks'),
-    referrerUserId: v.id('users'),
-    referredUserId: v.id('users'),
+    referrerUserId: v.optional(v.id('users')),
+    referredUserId: v.optional(v.id('users')),
     originProgramId: v.id('loyaltyPrograms'),
     originMembershipId: v.optional(v.id('memberships')),
     joinedMembershipIds: v.array(v.id('memberships')),
@@ -612,6 +612,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_businessId_referredUserId', ['businessId', 'referredUserId'])
+    .index('by_referredUserId', ['referredUserId'])
     .index('by_referrerUserId_businessId_createdAt', [
       'referrerUserId',
       'businessId',
@@ -686,7 +687,7 @@ export default defineSchema({
   businessReferralLinks: defineTable({
     code: v.string(),
     referrerBusinessId: v.id('businesses'),
-    createdByUserId: v.id('users'),
+    createdByUserId: v.optional(v.id('users')),
     status: v.union(
       v.literal('active'),
       v.literal('expired'),
@@ -707,7 +708,7 @@ export default defineSchema({
     businessReferralLinkId: v.id('businessReferralLinks'),
     referrerBusinessId: v.id('businesses'),
     referredBusinessId: v.id('businesses'),
-    createdByUserId: v.id('users'),
+    createdByUserId: v.optional(v.id('users')),
     status: v.union(
       v.literal('pending_subscription'),
       v.literal('waiting_30_days'),
@@ -735,7 +736,8 @@ export default defineSchema({
       'createdAt',
     ])
     .index('by_status_qualificationDueAt', ['status', 'qualificationDueAt'])
-    .index('by_businessReferralLinkId', ['businessReferralLinkId']),
+    .index('by_businessReferralLinkId', ['businessReferralLinkId'])
+    .index('by_createdByUserId', ['createdByUserId']),
 
   referralAdminAuditLog: defineTable({
     actorAdminUserId: v.id('users'),
@@ -773,8 +775,8 @@ export default defineSchema({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     membershipId: v.optional(v.id('memberships')),
-    actorUserId: v.id('users'),
-    customerUserId: v.id('users'),
+    actorUserId: v.optional(v.id('users')),
+    customerUserId: v.optional(v.id('users')),
     source: v.optional(
       v.union(
         v.literal('scanner_commit'),
@@ -828,8 +830,8 @@ export default defineSchema({
   scanSessions: defineTable({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
-    customerId: v.id('users'),
-    actorUserId: v.id('users'),
+    customerId: v.optional(v.id('users')),
+    actorUserId: v.optional(v.id('users')),
     scannerRuntimeSessionId: v.optional(v.string()),
     deviceId: v.optional(v.string()),
     actionType: v.union(v.literal('stamp'), v.literal('redeem')),

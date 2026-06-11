@@ -135,6 +135,10 @@ const TEXT = {
     '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
   deleteUnknownError:
     '\u05de\u05d7\u05d9\u05e7\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05e0\u05db\u05e9\u05dc\u05d4 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
+  soleOwnerDeleteBlockedTitle:
+    '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
+  soleOwnerDeleteBlockedMessage:
+    '\u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d4\u05d6\u05d4 \u05d4\u05d5\u05d0 \u05d4\u05d1\u05e2\u05dc\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc \u05d4\u05d9\u05d7\u05d9\u05d3 \u05e9\u05dc \u05e2\u05e1\u05e7. \u05db\u05d3\u05d9 \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d9\u05e9 \u05dc\u05d4\u05e2\u05d1\u05d9\u05e8 \u05ea\u05d7\u05d9\u05dc\u05d4 \u05d0\u05ea \u05d4\u05d1\u05e2\u05dc\u05d5\u05ea \u05d0\u05d5 \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7 \u05d1\u05ea\u05d4\u05dc\u05d9\u05da \u05e0\u05e4\u05e8\u05d3.',
   deleteSuccessTitle:
     '\u05d4\u05de\u05d7\u05d9\u05e7\u05d4 \u05d4\u05d5\u05e9\u05dc\u05de\u05d4',
   deleteSuccessPrefix:
@@ -284,7 +288,7 @@ export default function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const sessionContext = useSessionContext();
   const user = sessionContext?.user;
-  const wipeAllDataHard = useMutation(api.users.wipeAllDataHard);
+  const deleteMyAccountHard = useMutation(api.users.deleteMyAccountHard);
   const setActiveMode = useMutation(api.users.setActiveMode);
   const setMyMarketingProfile = useMutation(api.users.setMyMarketingProfile);
   const { setAppMode } = useAppMode();
@@ -462,7 +466,18 @@ export default function SettingsScreen() {
 
     try {
       setDeleteBusy(true);
-      const result = await wipeAllDataHard({});
+      const result = await deleteMyAccountHard({});
+      if (!result.success) {
+        if (result.errorCode === 'SOLE_OWNER_BUSINESS_BLOCKED') {
+          Alert.alert(
+            TEXT.soleOwnerDeleteBlockedTitle,
+            TEXT.soleOwnerDeleteBlockedMessage
+          );
+          return;
+        }
+        Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
+        return;
+      }
       await cleanupSignedInSession();
 
       setDeleteModalVisible(false);
@@ -470,7 +485,7 @@ export default function SettingsScreen() {
       setDeleteConfirmationText('');
       Alert.alert(
         TEXT.deleteSuccessTitle,
-        `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(result.counts)}`,
+        `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(result.deleted)}`,
         [
           {
             text: TEXT.ok,
@@ -479,11 +494,8 @@ export default function SettingsScreen() {
         ],
         { cancelable: false }
       );
-    } catch (error) {
-      Alert.alert(
-        TEXT.deleteFailedTitle,
-        toErrorMessage(error, TEXT.deleteUnknownError)
-      );
+    } catch {
+      Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
     } finally {
       setDeleteBusy(false);
     }

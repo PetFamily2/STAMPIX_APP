@@ -1,9 +1,9 @@
 import { v } from 'convex/values';
-import { mutation } from './_generated/server';
+import { internalMutation } from './_generated/server';
 import { requireCurrentUser } from './guards';
 import { normalizeEmailAddress } from './lib/email';
 
-export const linkMeAsOwner = mutation({
+export const linkMeAsOwner = internalMutation({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, { businessId }) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -55,7 +55,7 @@ export const linkMeAsOwner = mutation({
   },
 });
 
-export const linkEmailAsOwner = mutation({
+export const linkEmailAsOwner = internalMutation({
   args: { businessId: v.id('businesses'), email: v.string() },
   handler: async (ctx, { businessId, email }) => {
     const normalizedEmail = normalizeEmailAddress(email);
@@ -106,7 +106,7 @@ export const linkEmailAsOwner = mutation({
   },
 });
 
-export const setUserEmailByExternalId = mutation({
+export const setUserEmailByExternalId = internalMutation({
   args: { externalId: v.string(), email: v.string() },
   handler: async (ctx, { externalId, email }) => {
     const user = await ctx.db
@@ -126,7 +126,7 @@ export const setUserEmailByExternalId = mutation({
   },
 });
 
-export const listStaffForBusiness = mutation({
+export const listStaffForBusiness = internalMutation({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, { businessId }) => {
     const staff = await ctx.db
@@ -146,7 +146,7 @@ export const listStaffForBusiness = mutation({
   },
 });
 
-export const whoAmI = mutation({
+export const whoAmI = internalMutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -167,7 +167,7 @@ export const whoAmI = mutation({
   },
 });
 
-export const findUsersByEmailLower = mutation({
+export const findUsersByEmailLower = internalMutation({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
     const target = normalizeEmailAddress(email);
@@ -190,7 +190,7 @@ export const findUsersByEmailLower = mutation({
   },
 });
 
-export const setBusinessOwnerByEmail = mutation({
+export const setBusinessOwnerByEmail = internalMutation({
   args: { businessId: v.id('businesses'), email: v.string() },
   handler: async (ctx, { businessId, email }) => {
     const normalizedEmail = normalizeEmailAddress(email);
@@ -221,7 +221,7 @@ export const setBusinessOwnerByEmail = mutation({
 });
 
 // Creates a demo membership for the CURRENT authenticated user (so Wallet isn't empty)
-export const createDemoMembershipForMe = mutation({
+export const createDemoMembershipForMe = internalMutation({
   args: {},
   handler: async (ctx) => {
     const user = await requireCurrentUser(ctx);
@@ -325,7 +325,7 @@ export const createDemoMembershipForMe = mutation({
  * Creates demo business + program + membership for a given externalId.
  * Intended for `npx convex run` (no auth identity).
  */
-export const createDemoMembershipForExternalId = mutation({
+export const createDemoMembershipForExternalId = internalMutation({
   args: {
     externalId: v.string(),
     fullName: v.optional(v.string()),

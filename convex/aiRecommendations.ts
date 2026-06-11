@@ -34,6 +34,8 @@ const MIN_CUSTOMERS = 20;
 const MIN_ACTIVITY_DAYS = 30;
 const MIN_VISITS_LAST_30D = 10;
 
+const optionalIdKey = (value: unknown) => (value ? String(value) : null);
+
 const CARD_CHANGE_COOLDOWN_DAYS = 10;
 const CAMPAIGN_COOLDOWN_DAYS = 14;
 const REPEATED_EVENT_COOLDOWN_DAYS = 14;
@@ -2064,8 +2066,9 @@ async function refreshReadyCampaignRuns(input: {
       const returnedCustomers = new Set<string>();
       let rewardRedemptions14d = 0;
       for (const event of eventsInWindow) {
-        if (event.type === 'STAMP_ADDED') {
-          returnedCustomers.add(String(event.customerUserId));
+        const customerKey = optionalIdKey(event.customerUserId);
+        if (event.type === 'STAMP_ADDED' && customerKey) {
+          returnedCustomers.add(customerKey);
         } else if (event.type === 'REWARD_REDEEMED') {
           rewardRedemptions14d += 1;
         }
@@ -2090,7 +2093,7 @@ async function refreshReadyCampaignRuns(input: {
   return nextRuns;
 }
 
-function computeCoreMetrics(input: {
+export function computeCoreMetrics(input: {
   memberships: Doc<'memberships'>[];
   events: Doc<'events'>[];
   campaignRuns: Doc<'campaignRuns'>[];
@@ -2136,7 +2139,10 @@ function computeCoreMetrics(input: {
   const customersWithStamp = new Set<string>();
   let lastRewardRedeemedAt: number | null = null;
   for (const event of activityEvents) {
-    const key = String(event.customerUserId);
+    const key = optionalIdKey(event.customerUserId);
+    if (!key) {
+      continue;
+    }
     const current = lastActivityByCustomer.get(key) ?? 0;
     if (event.createdAt > current) {
       lastActivityByCustomer.set(key, event.createdAt);

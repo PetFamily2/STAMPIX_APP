@@ -289,7 +289,9 @@ function applyTemporaryLargeNumberActivitySummary(summary: {
   };
 }
 
-function collectLifetimeMetrics(
+const optionalIdKey = (value: unknown) => (value ? String(value) : null);
+
+export function collectLifetimeMetrics(
   events: Array<{
     type?: string;
     customerUserId?: unknown;
@@ -304,11 +306,13 @@ function collectLifetimeMetrics(
   for (const event of events) {
     if (event.type === 'STAMP_ADDED') {
       totalStampsAllTime += 1;
-      const customerKey = String(event.customerUserId);
-      stampCountsByCustomer.set(
-        customerKey,
-        (stampCountsByCustomer.get(customerKey) ?? 0) + 1
-      );
+      const customerKey = optionalIdKey(event.customerUserId);
+      if (customerKey) {
+        stampCountsByCustomer.set(
+          customerKey,
+          (stampCountsByCustomer.get(customerKey) ?? 0) + 1
+        );
+      }
       continue;
     }
 
@@ -332,7 +336,7 @@ function collectLifetimeMetrics(
   };
 }
 
-function collectLifetimeMetricChanges(args: {
+export function collectLifetimeMetricChanges(args: {
   events: Array<{
     type?: string;
     customerUserId?: unknown;
@@ -375,15 +379,17 @@ function collectLifetimeMetricChanges(args: {
         stampsLast7Days += 1;
       }
 
-      const customerKey = String(event.customerUserId ?? '');
-      const nextCount = (customerStampCounts.get(customerKey) ?? 0) + 1;
-      customerStampCounts.set(customerKey, nextCount);
-      if (
-        nextCount === 2 &&
-        createdAt >= windowStart &&
-        createdAt <= args.now
-      ) {
-        returningCustomersLast7Days += 1;
+      const customerKey = optionalIdKey(event.customerUserId);
+      if (customerKey) {
+        const nextCount = (customerStampCounts.get(customerKey) ?? 0) + 1;
+        customerStampCounts.set(customerKey, nextCount);
+        if (
+          nextCount === 2 &&
+          createdAt >= windowStart &&
+          createdAt <= args.now
+        ) {
+          returningCustomersLast7Days += 1;
+        }
       }
       continue;
     }
@@ -946,10 +952,16 @@ export const getBusinessDashboardDay = query({
       if (createdAt >= currentRangeStartMs && createdAt <= referenceNow) {
         if (event.type === 'STAMP_ADDED') {
           stamps += 1;
-          staffActors.add(String(event.actorUserId));
+          const actorKey = optionalIdKey(event.actorUserId);
+          if (actorKey) {
+            staffActors.add(actorKey);
+          }
         } else if (event.type === 'REWARD_REDEEMED') {
           redemptions += 1;
-          staffActors.add(String(event.actorUserId));
+          const actorKey = optionalIdKey(event.actorUserId);
+          if (actorKey) {
+            staffActors.add(actorKey);
+          }
         }
       } else if (
         createdAt >= comparisonRangeStartMs &&

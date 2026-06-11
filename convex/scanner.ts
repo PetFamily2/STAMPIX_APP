@@ -514,7 +514,9 @@ async function hasNewerScanInRuntimeSession(
 
   return sessions.some(
     (session: any) =>
-      session.createdAt > params.createdAfter &&
+      (session.createdAt > params.createdAfter ||
+        (session.createdAt === params.createdAfter &&
+          session.status === 'ready')) &&
       String(session.actorUserId) === String(params.actorUserId) &&
       String(session.businessId) === String(params.businessId)
   );
@@ -1473,7 +1475,7 @@ export const cleanupExpiredScanSessionsInternal = internalMutation({
  * Legacy endpoint kept for migration safety.
  * New scanner flow should use resolveScan + commitStamp.
  */
-export const addStamp = mutation({
+export const addStamp = internalMutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
@@ -1538,7 +1540,7 @@ export const addStamp = mutation({
  * Legacy endpoint kept for migration safety.
  * New scanner flow should use resolveScan + commitRedeem.
  */
-export const redeemReward = mutation({
+export const redeemReward = internalMutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),

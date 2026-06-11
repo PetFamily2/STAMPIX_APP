@@ -15,6 +15,8 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const optionalIdKey = (value: unknown) => (value ? String(value) : null);
+
 export type CustomerLifecycleStatus = LegacyLifecycleStatus;
 
 export type RetentionOpportunityKey =
@@ -224,7 +226,10 @@ export function buildDashboardLifecycleCountsFromStampEvents(
       continue;
     }
 
-    const customerKey = String(event.customerUserId);
+    const customerKey = optionalIdKey(event.customerUserId);
+    if (!customerKey) {
+      continue;
+    }
     const history = stampHistoryByCustomer.get(customerKey) ?? [];
     history.push(event.createdAt);
     stampHistoryByCustomer.set(customerKey, history);
@@ -682,7 +687,10 @@ export async function buildCustomerLifecycleSnapshotForBusiness(
     if (event.type !== 'STAMP_ADDED' && event.type !== 'REWARD_REDEEMED') {
       continue;
     }
-    const key = String(event.customerUserId);
+    const key = optionalIdKey(event.customerUserId);
+    if (!key) {
+      continue;
+    }
     const currentLastVisit = lastVisitByCustomer.get(key) ?? 0;
     if (event.createdAt > currentLastVisit) {
       lastVisitByCustomer.set(key, event.createdAt);

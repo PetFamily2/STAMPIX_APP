@@ -33,6 +33,11 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import {
+  BILLING_UNAVAILABLE_MESSAGE_HE,
+  BILLING_UNAVAILABLE_TITLE_HE,
+  canStartRevenueCatPurchase,
+} from '@/lib/subscription/billingGuards';
+import {
   buildComparisonRows,
   normalizePlanCatalog,
   type PlanId,
@@ -173,6 +178,11 @@ export default function PaywallScreen() {
       return;
     }
 
+    if (!canStartRevenueCatPurchase()) {
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+      return;
+    }
+
     setIsPurchasing(true);
     trackContinue({
       plan: selectedPlan,
@@ -219,6 +229,11 @@ export default function PaywallScreen() {
       return;
     }
 
+    if (!canStartRevenueCatPurchase()) {
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+      return;
+    }
+
     if (isExpoGo) {
       Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.');
       return;
@@ -252,6 +267,11 @@ export default function PaywallScreen() {
       return;
     }
 
+    if (!canStartRevenueCatPurchase()) {
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+      return;
+    }
+
     if (isExpoGo) {
       Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go.');
       return;
@@ -271,6 +291,11 @@ export default function PaywallScreen() {
 
   const handleRestore = async () => {
     if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
+      return;
+    }
+
+    if (!canStartRevenueCatPurchase()) {
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
       return;
     }
 

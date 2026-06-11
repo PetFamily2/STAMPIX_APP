@@ -16,6 +16,8 @@ type ProgramLifecycle = 'draft' | 'active' | 'archived';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_TIMELINE_LIMIT = 100;
 const MAX_TIMELINE_LIMIT = 200;
+const DELETED_ACTOR_NAME = 'משתמש שנמחק';
+const optionalIdKey = (value: unknown) => (value ? String(value) : null);
 
 const BALANCE_EVENT_TYPES = new Set([
   'STAMP_ADDED',
@@ -193,7 +195,8 @@ async function loadMembershipForEventOrThrow(ctx: any, event: any) {
   if (String(membership.programId) !== String(event.programId)) {
     throw new Error('EVENT_PROGRAM_MISMATCH');
   }
-  if (String(membership.userId) !== String(event.customerUserId)) {
+  const eventCustomerKey = optionalIdKey(event.customerUserId);
+  if (!eventCustomerKey || String(membership.userId) !== eventCustomerKey) {
     throw new Error('EVENT_CUSTOMER_MISMATCH');
   }
 
@@ -299,7 +302,14 @@ export const getBusinessCustomerCard = query({
       .collect();
 
     const actorUserIds = [
-      ...new Set(events.map((event) => String(event.actorUserId))),
+      ...new Set(
+        events
+          .map((event) => event.actorUserId)
+          .filter((actorUserId): actorUserId is Id<'users'> =>
+            Boolean(actorUserId)
+          )
+          .map((actorUserId) => String(actorUserId))
+      ),
     ];
     const actorUsers = await Promise.all(
       actorUserIds.map((actorUserId) => ctx.db.get(actorUserId as Id<'users'>))
@@ -496,6 +506,7 @@ export const getBusinessCustomerCard = query({
         );
         const isLatestOnMembership =
           latestMembershipEventId === String(event._id);
+        const actorKey = optionalIdKey(event.actorUserId);
 
         return {
           id: String(event._id),
@@ -508,7 +519,9 @@ export const getBusinessCustomerCard = query({
           programId: program?._id ?? null,
           programTitle: program?.title ?? null,
           detail: displayDetail,
-          actorName: actorNameById.get(String(event.actorUserId)) ?? null,
+          actorName: actorKey
+            ? (actorNameById.get(actorKey) ?? DELETED_ACTOR_NAME)
+            : DELETED_ACTOR_NAME,
           isReversible:
             canManualAdjust &&
             REVERSIBLE_EVENT_TYPES.has(event.type) &&

@@ -638,13 +638,17 @@ export default function BusinessReferralSettingsScreen() {
                     אין נתוני דירוג מפנים.
                   </Text>
                 ) : (
-                  (performanceQuery.topReferrers ?? []).map((row) => (
+                  (performanceQuery.topReferrers ?? []).map((row, index) => (
                     <View
-                      key={String(row.referrerUserId)}
+                      key={
+                        row.referrerUserId
+                          ? `referrer-${row.referrerUserId}`
+                          : `deleted-referrer-${index}`
+                      }
                       style={styles.listRow}
                     >
                       <Text style={styles.listPrimary}>
-                        {row.referrerName ?? row.referrerUserId}
+                        {row.referrerName ?? 'משתמש שנמחק'}
                       </Text>
                       <Text style={styles.listSecondary}>
                         כמות: {row.count}

@@ -1,6 +1,6 @@
 # Current Product Status
 
-Last scanned: 2026-06-05
+Last scanned: 2026-06-11
 
 This report is based on the current codebase, especially `app/`, `screens/`,
 `components/`, `contexts/`, `lib/`, `config/`, `convex/`, `app.json`, and
@@ -70,8 +70,7 @@ and several external-service gaps that block store-ready release.
 
 ### Customer Shell
 
-- `wallet.tsx`: customer wallet, pending invite banner, referral summary, demo
-  seed action.
+- `wallet.tsx`: customer wallet, pending invite banner, and referral summary.
 - `rewards.tsx`: campaign/reward inbox.
 - `discovery.tsx`: map/location based business discovery.
 - `show-qr.tsx`: customer QR for scanning.
@@ -192,8 +191,8 @@ Convex Auth tables.
 - Convex: database, functions, cron jobs, HTTP routes, Convex Auth.
 - Convex Auth providers: email OTP, password, Google, Apple.
 - RevenueCat: `react-native-purchases`, `react-native-purchases-ui`,
-  `RevenueCatProvider`, business upgrade modal, package id config, mock payment
-  mode.
+  `RevenueCatProvider`, business upgrade modal, package id config, and
+  development-gated mock payment mode.
 - Google Maps/Places: address autocomplete, geocoding, discovery/map features.
 - Expo Push Notifications: client token registration and Convex delivery via
   Expo push API.
@@ -224,16 +223,18 @@ Convex Auth tables.
 - Push token registration, token disabling, delivery logging, and Expo push
   send action.
 - Business entitlements and plan-limit enforcement modules.
-- Hard account deletion implementation and local session cleanup.
+- Scoped current-user account deletion implementation and local session cleanup.
 - Convex tests for scanner, staff permissions, referrals, entitlements,
   deletion, business, analytics, customer lifecycle, and migrations.
 
 ## 10. Features That Appear Partially Implemented
 
-- RevenueCat billing: client purchase/restore and business subscription sync
-  exist, but no RevenueCat webhook route is present in `convex/http.ts`, so
-  renewals, cancellations, refunds, and cross-device lifecycle changes are not
-  fully server-authoritative.
+- RevenueCat billing: production purchase/restore entry points are intentionally
+  blocked before RevenueCat SDK purchase calls, and public client-side
+  subscription writes fail closed until a server-authoritative RevenueCat
+  webhook route is implemented. No RevenueCat webhook route is present in
+  `convex/http.ts`, so renewals, cancellations, refunds, and cross-device
+  lifecycle changes are not fully server-authoritative.
 - Analytics: `lib/analytics/index.ts` defaults to console logging; PostHog and
   Firebase providers are placeholders.
 - AI recommendations: Convex module is substantial, but it depends on
@@ -250,42 +251,42 @@ Convex Auth tables.
   tree.
 - Legacy retention module: several legacy APIs intentionally return disabled or
   migration messages while the newer campaigns flow is used.
-- Payment identity: business upgrade uses `business:<businessId>` identity, but
-  the auth paywall path updates user subscription state instead of a specific
-  business subscription.
+- Payment identity: paid production purchasing is disabled until Phase B. Any
+  future business upgrade flow should continue to use `business:<businessId>`
+  identity and server-authoritative entitlement writes.
 
 ## 11. Features That Appear Broken Or Incomplete
 
 - Email sign-up for a new email appears blocked: `sign-up-email.tsx` checks
   `api.auth.getEmailSignInStatus` and shows an account-not-found state instead
   of sending OTP for a new account.
-- Customer settings account deletion calls `api.users.wipeAllDataHard`, which
-  deletes all project data after user confirmation. This is not scoped to the
-  current account and is a critical production defect.
-- `convex/debug.ts` exposes owner/staff/user mutation helpers to authenticated
-  callers without an admin/development-only gate.
-- `convex/seed.ts` exposes `seedMvp`, and the customer wallet renders a
-  "create demo card" action that calls it. This can create demo business data in
-  a production deployment.
-- `users.remove` deletes an arbitrary user id after only checking that some
-  identity exists, not that the caller owns or administers that user.
+- Production account deletion now uses scoped current-user deletion, preserves
+  business-owned scan/event/referral history by redacting deleted user
+  references, and blocks sole active business owners from orphaning a business.
+  A separate explicit business deletion/transfer flow is still needed for
+  owners who want to remove or transfer a business.
+- Referral, customer-card, dashboard, lifecycle, analytics, and AI readers now
+  tolerate redacted user references without fetching missing users or counting
+  synthetic `undefined` customer/staff identities.
+- Seed/debug maintenance operations have been internalized and the customer
+  wallet demo seed action was removed. Development seed/debug access now needs
+  server-side internal invocation or local tooling rather than public client
+  calls.
 - No server-side RevenueCat webhook means subscription state can drift after
   cancellation, refund, renewal failure, or purchase outside the current device.
 - Native permission declarations are incomplete for flows that use camera,
   image picker/photo library, location, maps, and notifications.
 - App Store/Google Play legal and store URLs depend on external pages and
   listings that are not verifiable from the codebase.
-- Debug identity and generated debug API exports are present in the deployable
-  Convex surface.
+- Generated Convex `fullApi` still lists modules for typing, but seed/debug
+  functions are internal-only and filtered out of the public `api` surface.
 
 ## 12. Missing MVP Flows
 
 - Safe new-user email OTP registration flow.
 - Server-authoritative billing lifecycle sync from RevenueCat webhooks.
 - Real production analytics provider with privacy-safe event tracking.
-- Production-safe data deletion that deletes only the current user's account
-  graph, not the whole project database.
-- Production-safe removal or gating of seed/debug/admin repair operations.
+- Explicit business deletion or ownership-transfer flow for sole active owners.
 - End-to-end App Store/Play deep-link verification for `/join`.
 - Verified legal pages for privacy policy, terms, camera, location, push,
   purchases, and account deletion.
@@ -297,21 +298,16 @@ Convex Auth tables.
 
 ## 13. Production Blockers
 
-1. Customer-facing account deletion currently invokes `wipeAllDataHard` and can
-   wipe all project data.
-2. Seed/demo and debug Convex functions are deployable and not clearly gated to
-   development/admin-only usage.
-3. Wallet exposes a demo seed action to authenticated customers.
-4. New email sign-up appears blocked for users without existing accounts.
-5. Billing has no RevenueCat webhook endpoint for authoritative subscription
+1. New email sign-up appears blocked for users without existing accounts.
+2. Billing has no RevenueCat webhook endpoint for authoritative subscription
    lifecycle updates.
-6. Analytics is not production-grade; provider integrations are placeholders.
-7. Native permissions and store disclosure configuration are incomplete for
+3. Analytics is not production-grade; provider integrations are placeholders.
+4. Native permissions and store disclosure configuration are incomplete for
    camera, location, media/photo selection, notifications, and maps.
-8. Store URLs, legal URLs, universal links, and Android app links require
+5. Store URLs, legal URLs, universal links, and Android app links require
    production verification outside the codebase.
-9. Push notification credentials and real-device delivery need production QA.
-10. EAS production builds and submissions have scripts, but no current build
+6. Push notification credentials and real-device delivery need production QA.
+7. EAS production builds and submissions have scripts, but no current build
     result is proven by this code scan.
 
 ## 14. App Store / Google Play Blockers
@@ -323,7 +319,8 @@ Convex Auth tables.
   a final app listing URL must be configured before release.
 - Privacy policy and terms URLs default to `https://stampix.app/legal/privacy`
   and `/terms`; those pages must be live and match app behavior.
-- Account deletion must be scoped correctly and safe before store review.
+- Sole-owner business transfer/deletion UX must be completed before store
+  review if owners need to remove their account while owning a business.
 - RevenueCat products, offerings, entitlements, sandbox tests, and production
   product ids must match the app config.
 - Apple and Google OAuth production client configuration must match bundle id,
@@ -338,48 +335,44 @@ Convex Auth tables.
 
 ## 15. Recommended Next 30 Tasks
 
-1. Replace customer account deletion with scoped `deleteMyAccountHard`; remove
-   `wipeAllDataHard` from customer UI.
-2. Gate or remove `wipeAllDataHard` from production Convex deployments.
-3. Gate or remove `convex/debug.ts` production mutations.
-4. Remove or development-gate the customer wallet demo seed action.
-5. Gate or remove `convex/seed.ts` from production usage.
-6. Fix new-user email OTP sign-up in `sign-up-email.tsx`.
-7. Add tests for new email sign-up, existing email sign-in, and OAuth account
+1. Fix new-user email OTP sign-up in `sign-up-email.tsx`.
+2. Add tests for new email sign-up, existing email sign-in, and OAuth account
    linking.
-8. Add a RevenueCat webhook HTTP route and verify lifecycle sync.
-9. Make business billing identity consistent across onboarding, paywall,
+3. Add a RevenueCat webhook HTTP route and verify lifecycle sync.
+4. Make business billing identity consistent across onboarding, paywall,
    upgrade modal, restore, and entitlement checks.
-10. Configure real RevenueCat products, offerings, package ids, and sandbox QA.
-11. Complete `app.json` native permissions and iOS usage descriptions for
+5. Add explicit business ownership transfer and business deletion flows for
+   sole active owners.
+6. Configure real RevenueCat products, offerings, package ids, and sandbox QA.
+7. Complete `app.json` native permissions and iOS usage descriptions for
     camera, location, photo/media access, maps, notifications, and purchases.
-12. Verify Apple/Google OAuth production redirect and bundle/package settings.
-13. Configure and restrict Google Maps/Places API keys.
-14. Configure Resend production sender/domain and OTP deliverability.
-15. Configure `SCAN_TOKEN_SECRET` and key rotation policy for production.
-16. Configure APNs/FCM/EAS push credentials and test push delivery on devices.
-17. Replace analytics console/stub providers with a real provider or disable
+8. Verify Apple/Google OAuth production redirect and bundle/package settings.
+9. Configure and restrict Google Maps/Places API keys.
+10. Configure Resend production sender/domain and OTP deliverability.
+11. Configure `SCAN_TOKEN_SECRET` and key rotation policy for production.
+12. Configure APNs/FCM/EAS push credentials and test push delivery on devices.
+13. Replace analytics console/stub providers with a real provider or disable
     analytics UI/events explicitly for MVP.
-18. Decide whether OpenRouter AI is an MVP requirement; configure it or hide AI
+14. Decide whether OpenRouter AI is an MVP requirement; configure it or hide AI
     recommendation surfaces when unavailable.
-19. Move admin support inbox to an explicit admin route or document the
+15. Move admin support inbox to an explicit admin route or document the
     merchant alias route as intentional.
-20. Audit all route aliases under `merchant/` and remove or redirect stale ones
+16. Audit all route aliases under `merchant/` and remove or redirect stale ones
     before release.
-21. Verify role permissions on every business/staff screen with owner, manager,
+17. Verify role permissions on every business/staff screen with owner, manager,
     staff, admin, and customer accounts.
-22. Run end-to-end QA for business onboarding through first published program.
-23. Run end-to-end QA for customer join, referral attribution, stamp, redeem,
+18. Run end-to-end QA for business onboarding through first published program.
+19. Run end-to-end QA for customer join, referral attribution, stamp, redeem,
     and undo.
-24. Run end-to-end QA for campaign draft, audience estimate, send now,
+20. Run end-to-end QA for campaign draft, audience estimate, send now,
     scheduled automation, push delivery, and reward inbox display.
-25. Run end-to-end QA for team invite, accept invite, staff routing, and staff
+21. Run end-to-end QA for team invite, accept invite, staff routing, and staff
     scanner.
-26. Verify legal pages, privacy/data-safety disclosures, and account deletion
+22. Verify legal pages, privacy/data-safety disclosures, and account deletion
     copy against actual app behavior.
-27. Verify universal links and Android app links for `/join`.
-28. Run `bun run check:full` and the available Convex/lib tests on a clean
+23. Verify universal links and Android app links for `/join`.
+24. Run `bun run check:full` and the available Convex/lib tests on a clean
     checkout.
-29. Produce EAS preview builds for iOS and Android and test on real devices.
-30. Prepare App Store/Google Play metadata, screenshots, review notes, privacy
+25. Produce EAS preview builds for iOS and Android and test on real devices.
+26. Prepare App Store/Google Play metadata, screenshots, review notes, privacy
     forms, and production environment variables.
