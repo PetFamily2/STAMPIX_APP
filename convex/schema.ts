@@ -1107,6 +1107,21 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_providerSubscriptionId', ['providerSubscriptionId']),
 
+  revenueCatWebhookEvents: defineTable({
+    eventId: v.string(),
+    eventType: v.string(),
+    appUserId: v.string(),
+    businessId: v.optional(v.id('businesses')),
+    productId: v.optional(v.string()),
+    entitlementIds: v.optional(v.array(v.string())),
+    status: v.union(v.literal('processed'), v.literal('ignored')),
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+    rawEvent: v.any(),
+  })
+    .index('by_eventId', ['eventId'])
+    .index('by_businessId', ['businessId']),
+
   messageLog: defineTable({
     businessId: v.id('businesses'),
     campaignId: v.optional(v.id('campaigns')),

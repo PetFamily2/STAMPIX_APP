@@ -1,6 +1,11 @@
 import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalQuery, mutation, query } from './_generated/server';
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server';
 import {
   getBusinessStaffStatus,
   requireActorHasBusinessCapability,
@@ -16,6 +21,11 @@ export type BusinessSubscriptionStatus =
   | 'canceled'
   | 'inactive';
 export type BillingPeriod = 'monthly' | 'yearly';
+
+export type RevenueCatPlanMapping = {
+  plan: Exclude<BusinessPlan, 'starter'>;
+  period: BillingPeriod;
+};
 
 export type CanonicalFeatureKey =
   | 'team'
@@ -260,8 +270,204 @@ const ACTIVE_PAID_STATUSES: BusinessSubscriptionStatus[] = [
   'trialing',
 ];
 
+const DEFAULT_REVENUECAT_PRODUCT_MAP: Record<string, RevenueCatPlanMapping> = {
+  pro_monthly: { plan: 'pro', period: 'monthly' },
+  pro_yearly: { plan: 'pro', period: 'yearly' },
+  pro_annual: { plan: 'pro', period: 'yearly' },
+  premium_monthly: { plan: 'premium', period: 'monthly' },
+  premium_yearly: { plan: 'premium', period: 'yearly' },
+  premium_annual: { plan: 'premium', period: 'yearly' },
+};
+
+const DEFAULT_REVENUECAT_ENTITLEMENT_MAP: Record<
+  string,
+  Exclude<BusinessPlan, 'starter'>
+> = {
+  pro: 'pro',
+  premium: 'premium',
+};
+
+const REVENUECAT_ACTIVATION_EVENT_TYPES = new Set([
+  'INITIAL_PURCHASE',
+  'NON_RENEWING_PURCHASE',
+  'RENEWAL',
+  'PRODUCT_CHANGE',
+  'UNCANCELLATION',
+  'TRIAL_STARTED',
+]);
+
+const REVENUECAT_DOWNGRADE_EVENT_TYPES = new Set(['EXPIRATION', 'REFUND']);
+
+const REVENUECAT_PAST_DUE_EVENT_TYPES = new Set(['BILLING_ISSUE']);
+const REVENUECAT_CANCELLATION_EVENT_TYPES = new Set(['CANCELLATION']);
+
 function throwEntitlementError(payload: EntitlementErrorPayload): never {
   throw new ConvexError(payload);
+}
+
+function splitEnvList(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function addProductAliases(
+  map: Map<string, RevenueCatPlanMapping>,
+  envName: string,
+  mapping: RevenueCatPlanMapping
+) {
+  for (const productId of splitEnvList(process.env[envName])) {
+    map.set(productId, mapping);
+  }
+}
+
+function addEntitlementAliases(
+  map: Map<string, Exclude<BusinessPlan, 'starter'>>,
+  envName: string,
+  plan: Exclude<BusinessPlan, 'starter'>
+) {
+  for (const entitlementId of splitEnvList(process.env[envName])) {
+    map.set(entitlementId, plan);
+  }
+}
+
+function buildRevenueCatProductMap() {
+  const map = new Map<string, RevenueCatPlanMapping>(
+    Object.entries(DEFAULT_REVENUECAT_PRODUCT_MAP)
+  );
+
+  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PRO_MONTHLY', {
+    plan: 'pro',
+    period: 'monthly',
+  });
+  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PRO_YEARLY', {
+    plan: 'pro',
+    period: 'yearly',
+  });
+  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PREMIUM_MONTHLY', {
+    plan: 'premium',
+    period: 'monthly',
+  });
+  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY', {
+    plan: 'premium',
+    period: 'yearly',
+  });
+
+  return map;
+}
+
+function buildRevenueCatEntitlementMap() {
+  const map = new Map<string, Exclude<BusinessPlan, 'starter'>>(
+    Object.entries(DEFAULT_REVENUECAT_ENTITLEMENT_MAP)
+  );
+
+  addEntitlementAliases(map, 'REVENUECAT_ENTITLEMENT_IDS_PRO', 'pro');
+  addEntitlementAliases(map, 'REVENUECAT_ENTITLEMENT_IDS_PREMIUM', 'premium');
+
+  return map;
+}
+
+export function resolveRevenueCatPlanMapping(args: {
+  productId?: string;
+  entitlementIds?: string[];
+}): RevenueCatPlanMapping {
+  const productMap = buildRevenueCatProductMap();
+  const entitlementMap = buildRevenueCatEntitlementMap();
+
+  const entitlementPlans: Exclude<BusinessPlan, 'starter'>[] = [];
+  for (const entitlementId of args.entitlementIds ?? []) {
+    const entitlementPlan = entitlementMap.get(entitlementId);
+    if (!entitlementPlan) {
+      throw new Error('REVENUECAT_UNSUPPORTED_ENTITLEMENT');
+    }
+    entitlementPlans.push(entitlementPlan);
+  }
+
+  if (!args.productId) {
+    throw new Error('REVENUECAT_MISSING_PRODUCT_ID');
+  }
+
+  const productMapping = productMap.get(args.productId);
+  if (!productMapping) {
+    throw new Error('REVENUECAT_UNSUPPORTED_PRODUCT');
+  }
+
+  const mappings: RevenueCatPlanMapping[] = [
+    productMapping,
+    ...entitlementPlans.map((entitlementPlan) => ({
+      plan: entitlementPlan,
+      period: productMapping.period,
+    })),
+  ];
+
+  const [first] = mappings;
+  for (const mapping of mappings.slice(1)) {
+    if (mapping.plan !== first.plan) {
+      throw new Error('REVENUECAT_PLAN_IDENTIFIER_CONFLICT');
+    }
+  }
+
+  return first;
+}
+
+function normalizeRevenueCatSubscriptionStatus(
+  eventType: string
+): BusinessSubscriptionStatus {
+  if (eventType === 'TRIAL_STARTED') {
+    return 'trialing';
+  }
+  if (REVENUECAT_PAST_DUE_EVENT_TYPES.has(eventType)) {
+    return 'past_due';
+  }
+  if (eventType === 'CANCELLATION') {
+    return 'canceled';
+  }
+  if (
+    eventType === 'EXPIRATION' ||
+    eventType === 'REFUND' ||
+    eventType === 'SUBSCRIPTION_PAUSED'
+  ) {
+    return 'inactive';
+  }
+  return 'active';
+}
+
+function shouldDowngradeBusinessForRevenueCatEvent(eventType: string) {
+  return REVENUECAT_DOWNGRADE_EVENT_TYPES.has(eventType);
+}
+
+function assertSupportedRevenueCatEventType(eventType: string) {
+  if (
+    REVENUECAT_ACTIVATION_EVENT_TYPES.has(eventType) ||
+    REVENUECAT_DOWNGRADE_EVENT_TYPES.has(eventType) ||
+    REVENUECAT_PAST_DUE_EVENT_TYPES.has(eventType) ||
+    REVENUECAT_CANCELLATION_EVENT_TYPES.has(eventType)
+  ) {
+    return;
+  }
+
+  throw new Error('REVENUECAT_UNSUPPORTED_EVENT_TYPE');
+}
+
+type RevenueCatBusinessIdNormalizer = {
+  db: {
+    normalizeId: (
+      tableName: 'businesses',
+      id: string
+    ) => Id<'businesses'> | null;
+  };
+};
+
+function normalizeRevenueCatBusinessIdOrThrow(
+  ctx: RevenueCatBusinessIdNormalizer,
+  businessId: string
+): Id<'businesses'> {
+  const normalizedId = ctx.db.normalizeId('businesses', businessId);
+  if (!normalizedId) {
+    throw new Error('REVENUECAT_INVALID_APP_USER_ID');
+  }
+  return normalizedId;
 }
 
 export function normalizeBusinessPlan(value: unknown): BusinessPlan {
@@ -303,10 +509,15 @@ function normalizeFeatureKey(featureKey: FeatureKey): CanonicalFeatureKey {
 
 function isPaidPlanSubscriptionActive(
   plan: BusinessPlan,
-  status: BusinessSubscriptionStatus
+  status: BusinessSubscriptionStatus,
+  endAt: number | null,
+  now = Date.now()
 ): boolean {
   if (plan === 'starter') {
     return true;
+  }
+  if (status === 'canceled') {
+    return typeof endAt === 'number' && endAt > now;
   }
   return ACTIVE_PAID_STATUSES.includes(status);
 }
@@ -324,7 +535,12 @@ function resolveBusinessSubscriptionState(
     startAt: business.subscriptionStartAt ?? null,
     endAt: business.subscriptionEndAt ?? null,
     billingPeriod: normalizeBillingPeriod(business.billingPeriod),
-    isSubscriptionActive: isPaidPlanSubscriptionActive(plan, status),
+    isSubscriptionActive: isPaidPlanSubscriptionActive(
+      plan,
+      status,
+      business.subscriptionEndAt ?? null,
+      _now
+    ),
   };
 }
 
@@ -949,9 +1165,14 @@ type StaffRole = 'owner' | 'manager' | 'staff';
 
 export function isTeamDisabledByPlanOrStatus(
   plan: BusinessPlan,
-  status: BusinessSubscriptionStatus
+  status: BusinessSubscriptionStatus,
+  subscriptionEndAt?: number | null,
+  now = Date.now()
 ) {
-  return plan === 'starter' || !isPaidPlanSubscriptionActive(plan, status);
+  return (
+    plan === 'starter' ||
+    !isPaidPlanSubscriptionActive(plan, status, subscriptionEndAt ?? null, now)
+  );
 }
 
 async function writePlanTeamEvent(
@@ -988,10 +1209,18 @@ export async function enforceTeamAccessForPlanState(
     businessId: Id<'businesses'>;
     plan: BusinessPlan;
     status: BusinessSubscriptionStatus;
+    subscriptionEndAt?: number | null;
     now: number;
   }
 ) {
-  if (!isTeamDisabledByPlanOrStatus(args.plan, args.status)) {
+  if (
+    !isTeamDisabledByPlanOrStatus(
+      args.plan,
+      args.status,
+      args.subscriptionEndAt,
+      args.now
+    )
+  ) {
     return;
   }
 
@@ -1054,6 +1283,212 @@ export async function enforceTeamAccessForPlanState(
     });
   }
 }
+
+async function findRevenueCatSubscriptionRow(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    providerSubscriptionId?: string;
+  }
+) {
+  if (args.providerSubscriptionId) {
+    const byProviderSubscriptionId = await ctx.db
+      .query('subscriptions')
+      .withIndex('by_providerSubscriptionId', (q: any) =>
+        q.eq('providerSubscriptionId', args.providerSubscriptionId)
+      )
+      .first();
+
+    if (byProviderSubscriptionId) {
+      return byProviderSubscriptionId;
+    }
+  }
+
+  const businessSubscriptions = await ctx.db
+    .query('subscriptions')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
+    .collect();
+
+  return (
+    businessSubscriptions
+      .filter((subscription: any) => subscription.provider === 'revenuecat')
+      .sort((left: any, right: any) => {
+        const updatedDelta = (right.updatedAt ?? 0) - (left.updatedAt ?? 0);
+        if (updatedDelta !== 0) {
+          return updatedDelta;
+        }
+        return String(left._id).localeCompare(String(right._id));
+      })[0] ?? null
+  );
+}
+
+async function upsertRevenueCatSubscriptionRow(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    plan: Exclude<BusinessPlan, 'starter'>;
+    status: BusinessSubscriptionStatus;
+    period: BillingPeriod;
+    startAt: number;
+    endAt: number | null;
+    providerSubscriptionId?: string;
+    now: number;
+  }
+) {
+  const existing = await findRevenueCatSubscriptionRow(ctx, {
+    businessId: args.businessId,
+    providerSubscriptionId: args.providerSubscriptionId,
+  });
+  const payload = {
+    businessId: args.businessId,
+    plan: args.plan,
+    status: args.status,
+    period: args.period,
+    startAt: args.startAt,
+    endAt: args.endAt,
+    provider: 'revenuecat' as const,
+    providerSubscriptionId: args.providerSubscriptionId,
+    updatedAt: args.now,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    return existing._id;
+  }
+
+  return await ctx.db.insert('subscriptions', {
+    ...payload,
+    createdAt: args.now,
+  });
+}
+
+export const applyRevenueCatWebhookEvent = internalMutation({
+  args: {
+    eventId: v.string(),
+    eventType: v.string(),
+    appUserId: v.string(),
+    businessId: v.string(),
+    productId: v.optional(v.string()),
+    entitlementIds: v.optional(v.array(v.string())),
+    plan: v.optional(v.union(v.literal('pro'), v.literal('premium'))),
+    period: v.optional(v.union(v.literal('monthly'), v.literal('yearly'))),
+    purchasedAt: v.optional(v.number()),
+    expirationAt: v.optional(v.union(v.number(), v.null())),
+    providerSubscriptionId: v.optional(v.string()),
+    rawEvent: v.any(),
+  },
+  handler: async (ctx, args) => {
+    assertSupportedRevenueCatEventType(args.eventType);
+    const mapping = resolveRevenueCatPlanMapping({
+      productId: args.productId,
+      entitlementIds: args.entitlementIds,
+    });
+    if (args.plan !== undefined && args.plan !== mapping.plan) {
+      throw new Error('REVENUECAT_PLAN_IDENTIFIER_CONFLICT');
+    }
+    if (args.period !== undefined && args.period !== mapping.period) {
+      throw new Error('REVENUECAT_PERIOD_IDENTIFIER_CONFLICT');
+    }
+    const businessId = normalizeRevenueCatBusinessIdOrThrow(
+      ctx,
+      args.businessId
+    );
+
+    const existingEvent = await ctx.db
+      .query('revenueCatWebhookEvents')
+      .withIndex('by_eventId', (q: any) => q.eq('eventId', args.eventId))
+      .first();
+    if (existingEvent) {
+      return {
+        ok: true,
+        duplicate: true,
+        eventId: args.eventId,
+        businessId,
+      };
+    }
+
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const now = Date.now();
+    const providerStatus = normalizeRevenueCatSubscriptionStatus(
+      args.eventType
+    );
+    const shouldDowngrade = shouldDowngradeBusinessForRevenueCatEvent(
+      args.eventType
+    );
+    const startAt = args.purchasedAt ?? business.subscriptionStartAt ?? now;
+    const endAt =
+      args.expirationAt === undefined
+        ? (business.subscriptionEndAt ?? null)
+        : args.expirationAt;
+    const nextBusinessPlan: BusinessPlan = shouldDowngrade
+      ? 'starter'
+      : mapping.plan;
+    const nextBusinessStatus: BusinessSubscriptionStatus = shouldDowngrade
+      ? 'active'
+      : providerStatus;
+    const nextBusinessPeriod: BillingPeriod | null = shouldDowngrade
+      ? null
+      : mapping.period;
+    const nextBusinessStartAt = shouldDowngrade
+      ? (business.subscriptionStartAt ?? startAt)
+      : startAt;
+    const nextBusinessEndAt = shouldDowngrade ? (endAt ?? now) : endAt;
+
+    await ctx.db.insert('revenueCatWebhookEvents', {
+      eventId: args.eventId,
+      eventType: args.eventType,
+      appUserId: args.appUserId,
+      businessId,
+      productId: args.productId,
+      entitlementIds: args.entitlementIds,
+      status: 'processed',
+      receivedAt: now,
+      processedAt: now,
+      rawEvent: args.rawEvent,
+    });
+
+    await upsertRevenueCatSubscriptionRow(ctx, {
+      businessId,
+      plan: mapping.plan,
+      status: providerStatus,
+      period: mapping.period,
+      startAt,
+      endAt,
+      providerSubscriptionId: args.providerSubscriptionId,
+      now,
+    });
+
+    await ctx.db.patch(businessId, {
+      subscriptionPlan: nextBusinessPlan,
+      subscriptionStatus: nextBusinessStatus,
+      subscriptionStartAt: nextBusinessStartAt,
+      subscriptionEndAt: nextBusinessEndAt,
+      billingPeriod: nextBusinessPeriod,
+      updatedAt: now,
+    });
+
+    await enforceTeamAccessForPlanState(ctx, {
+      businessId,
+      plan: nextBusinessPlan,
+      status: nextBusinessStatus,
+      subscriptionEndAt: nextBusinessEndAt,
+      now,
+    });
+
+    return {
+      ok: true,
+      duplicate: false,
+      eventId: args.eventId,
+      businessId,
+      plan: nextBusinessPlan,
+      status: nextBusinessStatus,
+    };
+  },
+});
 
 export const syncBusinessSubscription = mutation({
   args: {
