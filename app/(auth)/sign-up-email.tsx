@@ -1,5 +1,4 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useConvex } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -16,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
-import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -39,7 +37,6 @@ function isValidEmail(value: string) {
 }
 
 export default function SignUpEmailScreen() {
-  const convex = useConvex();
   const router = useRouter();
   const { signIn } = useAuthActions();
   const { preview, map } = useLocalSearchParams<{
@@ -89,14 +86,6 @@ export default function SignUpEmailScreen() {
     setBusy(true);
 
     try {
-      const status = await convex.query(api.auth.getEmailSignInStatus, {
-        email: normalizedEmail,
-      });
-      if (!status.exists) {
-        setError(TEXT.accountNotFound);
-        return;
-      }
-
       await signIn('email', {
         email: normalizedEmail,
       });
