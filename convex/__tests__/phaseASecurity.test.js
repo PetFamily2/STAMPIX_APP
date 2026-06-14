@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { canStartRevenueCatPurchase } from '../../lib/subscription/billingGuards';
+import {
+  canStartRevenueCatPurchase,
+  evaluateRevenueCatBillingGuard,
+  isServerConfirmedPaidEntitlement,
+} from '../../lib/subscription/billingGuards';
 import { createOrUpdateUser } from '../auth';
 import * as debugFunctions from '../debug';
 import {
@@ -30,9 +34,9 @@ async function expectRejectsWithCode(fn, code) {
 
 function expectGuardBefore(source, targetNeedle) {
   const targetIndex = source.indexOf(targetNeedle);
-  const guardIndex = source.lastIndexOf(
-    'if (!canStartRevenueCatPurchase())',
-    targetIndex
+  const guardIndex = Math.max(
+    source.lastIndexOf('evaluateRevenueCatBillingGuard', targetIndex),
+    source.lastIndexOf('canStartRevenueCatPurchase', targetIndex)
   );
 
   expect(targetIndex).toBeGreaterThanOrEqual(0);
@@ -139,8 +143,74 @@ describe('Phase A client-forgery denials', () => {
     }
   });
 
-  test('production billing guard blocks RevenueCat purchase start', () => {
+  test('billing guard is disabled by default without explicit inputs', () => {
     expect(canStartRevenueCatPurchase()).toBe(false);
+  });
+
+  test('billing guard requires payment, server billing, config, package, native build, and business identity', () => {
+    const enabled = {
+      paymentSystemEnabled: true,
+      serverAuthoritativeBillingEnabled: true,
+      isRevenueCatConfigured: true,
+      isExpoGo: false,
+      packageId: 'pro_monthly',
+      businessAppUserId: 'business:abc123',
+    };
+
+    expect(evaluateRevenueCatBillingGuard(enabled)).toMatchObject({
+      canStart: true,
+    });
+
+    for (const [key, value, code] of [
+      ['paymentSystemEnabled', false, 'payment_disabled'],
+      ['serverAuthoritativeBillingEnabled', false, 'server_billing_disabled'],
+      ['isRevenueCatConfigured', false, 'revenuecat_not_configured'],
+      ['isExpoGo', true, 'expo_go'],
+      ['packageId', null, 'missing_package'],
+      ['businessAppUserId', 'user:abc123', 'invalid_business_identity'],
+    ]) {
+      expect(
+        evaluateRevenueCatBillingGuard({ ...enabled, [key]: value })
+      ).toMatchObject({ canStart: false, code });
+    }
+  });
+
+  test('server entitlement confirmation requires active paid Convex state', () => {
+    expect(
+      isServerConfirmedPaidEntitlement(
+        {
+          plan: 'pro',
+          effectivePlan: 'pro',
+          billingPeriod: 'monthly',
+          isSubscriptionActive: true,
+        },
+        'pro',
+        'monthly'
+      )
+    ).toBe(true);
+
+    expect(
+      isServerConfirmedPaidEntitlement(
+        {
+          plan: 'pro',
+          effectivePlan: 'pro',
+          billingPeriod: 'monthly',
+          isSubscriptionActive: false,
+        },
+        'pro',
+        'monthly'
+      )
+    ).toBe(false);
+
+    expect(
+      isServerConfirmedPaidEntitlement(
+        {
+          entitlements: { active: { pro: {} } },
+        },
+        'pro',
+        'monthly'
+      )
+    ).toBe(false);
   });
 
   test('RevenueCat purchase SDK call is guarded before invocation', () => {
@@ -160,8 +230,8 @@ describe('Phase A client-forgery denials', () => {
 
     expectGuardBefore(source, 'RevenueCatUI.presentPaywallIfNeeded');
     expectGuardBefore(source, 'RevenueCatUI.presentCustomerCenter');
-    expectGuardBefore(source, 'restorePurchases()');
-    expectGuardBefore(source, 'purchasePackage(packageId)');
+    expectGuardBefore(source, 'restorePurchases({');
+    expectGuardBefore(source, 'purchasePackage(packageId');
   });
 
   test('UpgradeModal checks billing guard before starting purchase flow', () => {
@@ -171,6 +241,22 @@ describe('Phase A client-forgery denials', () => {
     );
 
     expectGuardBefore(source, 'purchasePackage(rcPackageId');
+  });
+
+  test('UpgradeModal waits for server entitlement confirmation after purchase and restore', () => {
+    const source = readFileSync(
+      'components/subscription/UpgradeModal.tsx',
+      'utf8'
+    );
+
+    expect(source).toContain('syncUserSubscription: false');
+    expect(source).toContain("'pending_purchase'");
+    expect(source).toContain("'pending_restore'");
+    expect(source).toContain("setSyncStatus('timeout')");
+    expect(source).toContain('SERVER_SYNC_TIMEOUT_MESSAGE_HE');
+    expect(source).toContain('isServerConfirmedPaidEntitlement');
+    expect(source).toContain('restorePurchases({');
+    expect(source).not.toContain('syncBusinessSubscription');
   });
 
   test('business plan onboarding does not expose a RevenueCat purchase entry point', () => {

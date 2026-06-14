@@ -1,5 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { useQuery } from 'convex/react';
+import { useConvex, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { X } from 'lucide-react-native';
@@ -27,6 +27,7 @@ import {
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
 } from '@/config/appConfig';
 import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -35,7 +36,13 @@ import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import {
   BILLING_UNAVAILABLE_MESSAGE_HE,
   BILLING_UNAVAILABLE_TITLE_HE,
+  buildRevenueCatBusinessAppUserId,
   canStartRevenueCatPurchase,
+  evaluateRevenueCatBillingGuard,
+  isServerConfirmedPaidEntitlement,
+  SERVER_AUTHORITATIVE_BILLING_ENABLED,
+  SERVER_SYNC_PENDING_MESSAGE_HE,
+  SERVER_SYNC_TIMEOUT_MESSAGE_HE,
 } from '@/lib/subscription/billingGuards';
 import {
   buildComparisonRows,
@@ -43,8 +50,17 @@ import {
   type PlanId,
 } from '@/lib/subscription/planComparison';
 
+const SERVER_SYNC_TIMEOUT_MS = 30_000;
+const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function PaywallScreen() {
   const insets = useSafeAreaInsets();
+  const convex = useConvex();
+  const { businessId } = useOnboarding();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -78,6 +94,9 @@ export default function PaywallScreen() {
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [serverSyncMessage, setServerSyncMessage] = useState<string | null>(
+    null
+  );
 
   const resolvePackageId = useCallback(
     (plan: PlanId, period: BillingPeriod): string | null => {
@@ -105,6 +124,62 @@ export default function PaywallScreen() {
       return payload;
     },
     [resolvePackageId]
+  );
+
+  const buildBillingGuard = useCallback(
+    (packageId: string | null) =>
+      evaluateRevenueCatBillingGuard({
+        paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
+        serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
+        isRevenueCatConfigured: isConfigured,
+        isExpoGo,
+        packageId,
+        businessAppUserId: buildRevenueCatBusinessAppUserId(
+          businessId ? String(businessId) : null
+        ),
+      }),
+    [businessId, isConfigured, isExpoGo]
+  );
+
+  const waitForServerEntitlements = useCallback(
+    async (
+      mode: 'purchase' | 'restore',
+      plan: 'pro' | 'premium',
+      period: BillingPeriod
+    ) => {
+      if (!businessId) {
+        return false;
+      }
+
+      const deadline = Date.now() + SERVER_SYNC_TIMEOUT_MS;
+      setServerSyncMessage(SERVER_SYNC_PENDING_MESSAGE_HE);
+
+      while (Date.now() <= deadline) {
+        try {
+          const entitlements = await convex.query(
+            api.entitlements.getBusinessEntitlements,
+            { businessId }
+          );
+          const confirmed =
+            mode === 'purchase'
+              ? isServerConfirmedPaidEntitlement(entitlements, plan, period)
+              : isServerConfirmedPaidEntitlement(entitlements);
+
+          if (confirmed) {
+            setServerSyncMessage(null);
+            return true;
+          }
+        } catch {
+          // The webhook and Convex subscription state may lag briefly.
+        }
+
+        await sleep(SERVER_SYNC_POLL_INTERVAL_MS);
+      }
+
+      setServerSyncMessage(SERVER_SYNC_TIMEOUT_MESSAGE_HE);
+      return false;
+    },
+    [businessId, convex]
   );
 
   useFocusEffect(
@@ -178,8 +253,15 @@ export default function PaywallScreen() {
       return;
     }
 
-    if (!canStartRevenueCatPurchase()) {
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+    const billingGuard = buildBillingGuard(packageId);
+    const businessAppUserId = buildRevenueCatBusinessAppUserId(
+      businessId ? String(businessId) : null
+    );
+    if (!billingGuard.canStart || !businessAppUserId) {
+      const guardMessage =
+        billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setServerSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
       return;
     }
 
@@ -196,16 +278,26 @@ export default function PaywallScreen() {
     });
 
     try {
-      const success = await purchasePackage(packageId);
+      const success = await purchasePackage(packageId, {
+        appUserId: businessAppUserId,
+        syncUserSubscription: false,
+      });
       if (success) {
-        trackEvent(ANALYTICS_EVENTS.purchaseCompleted, {
-          plan_id: packageId,
-          plan: selectedPlan,
-          billing_period: billingPeriod,
-        });
-        completeStep();
-        finishOnboarding();
-        safeBack('/(auth)/sign-up');
+        const confirmed = await waitForServerEntitlements(
+          'purchase',
+          selectedPlan === 'premium' ? 'premium' : 'pro',
+          billingPeriod
+        );
+        if (confirmed) {
+          trackEvent(ANALYTICS_EVENTS.purchaseCompleted, {
+            plan_id: packageId,
+            plan: selectedPlan,
+            billing_period: billingPeriod,
+          });
+          completeStep();
+          finishOnboarding();
+          safeBack('/(auth)/sign-up');
+        }
         return;
       }
 
@@ -294,18 +386,36 @@ export default function PaywallScreen() {
       return;
     }
 
-    if (!canStartRevenueCatPurchase()) {
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
+    const packageId = resolvePackageId(selectedPlan, billingPeriod);
+    const billingGuard = buildBillingGuard(packageId);
+    const businessAppUserId = buildRevenueCatBusinessAppUserId(
+      businessId ? String(businessId) : null
+    );
+    if (!billingGuard.canStart || !businessAppUserId) {
+      const guardMessage =
+        billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setServerSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
       return;
     }
 
     setIsRestoring(true);
     try {
-      const success = await restorePurchases();
+      const success = await restorePurchases({
+        appUserId: businessAppUserId,
+        syncUserSubscription: false,
+      });
       if (success) {
-        completeStep();
-        finishOnboarding();
-        safeBack('/(auth)/sign-up');
+        const confirmed = await waitForServerEntitlements(
+          'restore',
+          selectedPlan === 'premium' ? 'premium' : 'pro',
+          billingPeriod
+        );
+        if (confirmed) {
+          completeStep();
+          finishOnboarding();
+          safeBack('/(auth)/sign-up');
+        }
       }
     } finally {
       setIsRestoring(false);
@@ -315,6 +425,9 @@ export default function PaywallScreen() {
   const handleOpenLegalDocument = () => {
     void WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL);
   };
+
+  const footerNote =
+    serverSyncMessage ?? 'אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך.';
 
   if (isLoading) {
     return (
@@ -410,7 +523,8 @@ export default function PaywallScreen() {
                 : isPreviewMode || !PAYMENT_SYSTEM_ENABLED
             }
             ctaLoading={isPurchasing}
-            footerNote="אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך."
+            footerNote={footerNote}
+            footerNoteTone={serverSyncMessage ? 'error' : 'default'}
             footerInsetBottom={Math.max(insets.bottom, 12)}
             footerBottomSlot={
               <View style={styles.footerLinkRow}>

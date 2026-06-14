@@ -24,9 +24,9 @@ import {
   type SubscriptionPlan,
 } from '@/lib/domain/subscriptions';
 import {
-  BILLING_UNAVAILABLE_MESSAGE_HE,
   BILLING_UNAVAILABLE_TITLE_HE,
-  canStartRevenueCatPurchase,
+  evaluateRevenueCatBillingGuard,
+  SERVER_AUTHORITATIVE_BILLING_ENABLED,
 } from '@/lib/subscription/billingGuards';
 import {
   getCurrentPlatformRevenueCatApiKey,
@@ -53,6 +53,11 @@ type PurchasePackageOptions = {
   syncUserSubscription?: boolean;
 };
 
+type RestorePurchasesOptions = {
+  appUserId?: string;
+  syncUserSubscription?: boolean;
+};
+
 // מבנה הקונטקסט
 type RevenueCatContextType = {
   // מצב
@@ -70,7 +75,7 @@ type RevenueCatContextType = {
     packageId: string,
     options?: PurchasePackageOptions
   ) => Promise<boolean>;
-  restorePurchases: () => Promise<boolean>;
+  restorePurchases: (options?: RestorePurchasesOptions) => Promise<boolean>;
   refreshPurchaserInfo: () => Promise<void>;
 };
 
@@ -147,7 +152,7 @@ export function RevenueCatProvider({
   >(null);
 
   const handleCustomerInfo = useCallback(
-    async (customerInfo: any): Promise<SubscriptionPlan> => {
+    async (customerInfo: unknown): Promise<SubscriptionPlan> => {
       if (!customerInfo) {
         setSubscriptionPlan('starter');
         return 'starter';
@@ -285,11 +290,18 @@ export function RevenueCatProvider({
       packageId: string,
       options?: PurchasePackageOptions
     ): Promise<boolean> => {
-      if (!canStartRevenueCatPurchase()) {
-        Alert.alert(
-          BILLING_UNAVAILABLE_TITLE_HE,
-          BILLING_UNAVAILABLE_MESSAGE_HE
-        );
+      const overrideAppUserId = options?.appUserId?.trim();
+      const billingGuard = evaluateRevenueCatBillingGuard({
+        paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
+        serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
+        isRevenueCatConfigured: isConfigured,
+        isExpoGo,
+        packageId,
+        businessAppUserId: overrideAppUserId,
+      });
+
+      if (!billingGuard.canStart) {
+        Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, billingGuard.message);
         return false;
       }
 
@@ -322,7 +334,6 @@ export function RevenueCatProvider({
 
       try {
         const Purchases = (await import('react-native-purchases')).default;
-        const overrideAppUserId = options?.appUserId?.trim();
         if (overrideAppUserId) {
           await Purchases.logIn(overrideAppUserId);
           setLastIdentifiedUserId(overrideAppUserId);
@@ -367,49 +378,70 @@ export function RevenueCatProvider({
   // שחזור רכישות
   // ============================================================================
 
-  const restorePurchases = useCallback(async (): Promise<boolean> => {
-    if (!canStartRevenueCatPurchase()) {
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
-      return false;
-    }
+  const restorePurchases = useCallback(
+    async (options?: RestorePurchasesOptions): Promise<boolean> => {
+      const overrideAppUserId = options?.appUserId?.trim();
+      const billingGuard = evaluateRevenueCatBillingGuard({
+        paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
+        serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
+        isRevenueCatConfigured: isConfigured,
+        isExpoGo,
+        packageId: 'restore',
+        businessAppUserId: overrideAppUserId,
+      });
 
-    // מצב רכישות מדומות
-    if (MOCK_PAYMENTS) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      Alert.alert('שחזור', 'לא נמצאו רכישות קודמות (מצב בדיקה)');
-      return false;
-    }
-
-    // Expo Go
-    if (isExpoGo) {
-      Alert.alert('מצב פיתוח', 'שחזור רכישות לא זמין ב-Expo Go');
-      return false;
-    }
-
-    // אין מפתחות
-    if (!isConfigured) {
-      Alert.alert('לא מוגדר', 'מפתחות RevenueCat לא מוגדרים');
-      return false;
-    }
-
-    try {
-      const Purchases = (await import('react-native-purchases')).default;
-      const customerInfo = await Purchases.restorePurchases();
-      const plan = await handleCustomerInfo(customerInfo);
-      const isPaid = plan !== 'starter';
-
-      if (isPaid) {
-        Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
-      } else {
-        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות');
+      if (!billingGuard.canStart) {
+        Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, billingGuard.message);
+        return false;
       }
 
-      return isPaid;
-    } catch (_error) {
-      Alert.alert('שגיאה', 'שחזור הרכישות נכשל אנא נסה שוב');
-      return false;
-    }
-  }, [isExpoGo, isConfigured, handleCustomerInfo]);
+      // מצב רכישות מדומות
+      if (MOCK_PAYMENTS) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות (מצב בדיקה)');
+        return false;
+      }
+
+      // Expo Go
+      if (isExpoGo) {
+        Alert.alert('מצב פיתוח', 'שחזור רכישות לא זמין ב-Expo Go');
+        return false;
+      }
+
+      // אין מפתחות
+      if (!isConfigured) {
+        Alert.alert('לא מוגדר', 'מפתחות RevenueCat לא מוגדרים');
+        return false;
+      }
+
+      try {
+        const Purchases = (await import('react-native-purchases')).default;
+        if (overrideAppUserId) {
+          await Purchases.logIn(overrideAppUserId);
+          setLastIdentifiedUserId(overrideAppUserId);
+        }
+        const customerInfo = await Purchases.restorePurchases();
+        const shouldSyncUserSubscription =
+          options?.syncUserSubscription !== false;
+        const plan = shouldSyncUserSubscription
+          ? await handleCustomerInfo(customerInfo)
+          : planFromRevenueCatSubscriber(customerInfo);
+        const isPaid = plan !== 'starter';
+
+        if (isPaid) {
+          Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
+        } else {
+          Alert.alert('שחזור', 'לא נמצאו רכישות קודמות');
+        }
+
+        return isPaid;
+      } catch (_error) {
+        Alert.alert('שגיאה', 'שחזור הרכישות נכשל אנא נסה שוב');
+        return false;
+      }
+    },
+    [isExpoGo, isConfigured, handleCustomerInfo]
+  );
 
   // ============================================================================
   // רענון מידע רוכש

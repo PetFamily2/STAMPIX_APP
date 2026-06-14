@@ -1,5 +1,5 @@
-import { useQuery } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useConvex, useQuery } from 'convex/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,9 +13,13 @@ import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import {
-  BILLING_UNAVAILABLE_MESSAGE_HE,
   BILLING_UNAVAILABLE_TITLE_HE,
-  canStartRevenueCatPurchase,
+  buildRevenueCatBusinessAppUserId,
+  evaluateRevenueCatBillingGuard,
+  isServerConfirmedPaidEntitlement,
+  SERVER_AUTHORITATIVE_BILLING_ENABLED,
+  SERVER_SYNC_PENDING_MESSAGE_HE,
+  SERVER_SYNC_TIMEOUT_MESSAGE_HE,
 } from '@/lib/subscription/billingGuards';
 import { getUpgradeAreaLabel } from '@/lib/subscription/lockedAreaCopy';
 import {
@@ -28,6 +32,15 @@ const PLAN_LABELS: Record<'pro' | 'premium', string> = {
   pro: 'Pro',
   premium: 'Pro Max',
 };
+
+const SERVER_SYNC_TIMEOUT_MS = 30_000;
+const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
+
+type BillingSyncStatus =
+  | 'idle'
+  | 'pending_purchase'
+  | 'pending_restore'
+  | 'timeout';
 
 type UpgradeModalProps = {
   visible: boolean;
@@ -51,8 +64,8 @@ const PLAN_REASON_COPY: Record<string, string> = {
   onboarding_plan: 'אפשר להתחיל עם Starter או לבחור מסלול בתשלום כבר עכשיו.',
 };
 
-function buildRevenueCatBusinessAppUserId(businessId: Id<'businesses'>) {
-  return `business:${String(businessId)}`;
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildFallbackPlans(): PlanCatalogItem[] {
@@ -109,8 +122,10 @@ export function UpgradeModal({
   onSuccess,
 }: UpgradeModalProps) {
   const insets = useSafeAreaInsets();
+  const convex = useConvex();
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
-  const { isConfigured, isExpoGo, purchasePackage } = useRevenueCat();
+  const { isConfigured, isExpoGo, purchasePackage, restorePurchases } =
+    useRevenueCat();
 
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'premium'>(
     initialPlan
@@ -118,6 +133,13 @@ export function UpgradeModal({
   const [billingPeriod, setBillingPeriod] =
     useState<BillingPeriod>(initialBillingPeriod);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<BillingSyncStatus>('idle');
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    mode: 'purchase' | 'restore';
+    plan: 'pro' | 'premium';
+    billingPeriod: BillingPeriod;
+  } | null>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -126,6 +148,9 @@ export function UpgradeModal({
 
     setSelectedPlan(initialPlan);
     setBillingPeriod(initialBillingPeriod);
+    setSyncStatus('idle');
+    setSyncMessage(null);
+    setPendingConfirmation(null);
   }, [initialBillingPeriod, initialPlan, visible]);
 
   const paidPlans = useMemo(() => {
@@ -141,52 +166,164 @@ export function UpgradeModal({
     PLAN_REASON_COPY[reason] ??
     'שדרוג פותח יותר יכולות ניהול קמפיינים ופעילות לקוחות.';
   const featureAreaLabel = getUpgradeAreaLabel(featureKey);
-  const isBillingLive = PAYMENT_SYSTEM_ENABLED && isConfigured && !isExpoGo;
+  const rcPackageId =
+    REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
+  const businessAppUserId = buildRevenueCatBusinessAppUserId(
+    businessId ? String(businessId) : null
+  );
+  const billingGuard = evaluateRevenueCatBillingGuard({
+    paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
+    serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
+    isRevenueCatConfigured: isConfigured,
+    isExpoGo,
+    packageId: rcPackageId,
+    businessAppUserId,
+  });
+  const isBillingLive = billingGuard.canStart;
+  const isWaitingForServer =
+    syncStatus === 'pending_purchase' || syncStatus === 'pending_restore';
+  const isBusy = isSubmitting || isWaitingForServer;
 
-  const handleUpgrade = async () => {
-    if (!businessId || isSubmitting) {
+  const waitForServerEntitlements = useCallback(
+    async (
+      mode: 'purchase' | 'restore',
+      plan: 'pro' | 'premium',
+      period: BillingPeriod
+    ) => {
+      if (!businessId) {
+        return false;
+      }
+
+      const deadline = Date.now() + SERVER_SYNC_TIMEOUT_MS;
+      setPendingConfirmation({ mode, plan, billingPeriod: period });
+      setSyncStatus(
+        mode === 'purchase' ? 'pending_purchase' : 'pending_restore'
+      );
+      setSyncMessage(SERVER_SYNC_PENDING_MESSAGE_HE);
+
+      while (Date.now() <= deadline) {
+        try {
+          const entitlements = await convex.query(
+            api.entitlements.getBusinessEntitlements,
+            { businessId }
+          );
+          const confirmed =
+            mode === 'purchase'
+              ? isServerConfirmedPaidEntitlement(entitlements, plan, period)
+              : isServerConfirmedPaidEntitlement(entitlements);
+
+          if (confirmed) {
+            setSyncStatus('idle');
+            setSyncMessage(null);
+            setPendingConfirmation(null);
+            onSuccess?.();
+            onClose();
+            return true;
+          }
+        } catch {
+          // Brief Convex/network lag is expected while the webhook is processed.
+        }
+
+        await sleep(SERVER_SYNC_POLL_INTERVAL_MS);
+      }
+
+      setSyncStatus('timeout');
+      setSyncMessage(SERVER_SYNC_TIMEOUT_MESSAGE_HE);
+      return false;
+    },
+    [businessId, convex, onClose, onSuccess]
+  );
+
+  const retryServerSync = async () => {
+    if (!pendingConfirmation || isBusy) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      if (!canStartRevenueCatPurchase()) {
-        Alert.alert(
-          BILLING_UNAVAILABLE_TITLE_HE,
-          BILLING_UNAVAILABLE_MESSAGE_HE
-        );
+      await waitForServerEntitlements(
+        pendingConfirmation.mode,
+        pendingConfirmation.plan,
+        pendingConfirmation.billingPeriod
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    if (syncStatus === 'timeout' && pendingConfirmation) {
+      await retryServerSync();
+      return;
+    }
+
+    if (!businessId || isBusy) {
+      return;
+    }
+
+    if (!billingGuard.canStart || !rcPackageId || !businessAppUserId) {
+      const guardMessage =
+        billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const purchased = await purchasePackage(rcPackageId, {
+        appUserId: businessAppUserId,
+        syncUserSubscription: false,
+      });
+      if (!purchased) {
         return;
       }
 
-      const rcPackageId =
-        REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
-
-      if (isBillingLive) {
-        if (!rcPackageId) {
-          Alert.alert(
-            'תצורה חסרה',
-            'לא הוגדר מזהה RevenueCat למסלול ולמחזור החיוב שנבחרו.'
-          );
-          return;
-        }
-
-        const purchased = await purchasePackage(rcPackageId, {
-          appUserId: buildRevenueCatBusinessAppUserId(businessId),
-          syncUserSubscription: false,
-        });
-        if (!purchased) {
-          return;
-        }
-      }
-
-      onSuccess?.();
-      onClose();
+      await waitForServerEntitlements('purchase', selectedPlan, billingPeriod);
     } catch {
       Alert.alert('שגיאה', 'לא הצלחנו להשלים את השדרוג. נסו שוב.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleRestore = async () => {
+    if (!businessId || isBusy) {
+      return;
+    }
+
+    if (!billingGuard.canStart || !businessAppUserId) {
+      const guardMessage =
+        billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const restored = await restorePurchases({
+        appUserId: businessAppUserId,
+        syncUserSubscription: false,
+      });
+      if (!restored) {
+        return;
+      }
+
+      await waitForServerEntitlements('restore', selectedPlan, billingPeriod);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const ctaLabel =
+    syncStatus === 'timeout'
+      ? 'בדיקה חוזרת'
+      : isWaitingForServer
+        ? 'מאמתים...'
+        : isBillingLive
+          ? 'המשך לרכישה'
+          : 'רכישה לא זמינה';
 
   return (
     <Modal
@@ -207,11 +344,8 @@ export function UpgradeModal({
 
           {!isBillingLive ? (
             <View style={styles.devBanner}>
-              <Text style={styles.devBannerTitle}>מצב בדיקה</Text>
-              <Text style={styles.devBannerText}>
-                רכישה אמיתית לא זמינה כרגע. לחיצה על הכפתור תעדכן לעסק מסלול
-                בדיקה כדי לאפשר לכם להמשיך לבדוק את המוצר.
-              </Text>
+              <Text style={styles.devBannerTitle}>חיוב לא זמין</Text>
+              <Text style={styles.devBannerText}>{billingGuard.message}</Text>
             </View>
           ) : null}
 
@@ -228,14 +362,31 @@ export function UpgradeModal({
               billingPeriod={billingPeriod}
               visiblePlans={['pro', 'premium']}
               context="upgrade"
-              ctaLabel={isBillingLive ? 'המשך לרכישה' : 'הפעלת מסלול בדיקה'}
-              ctaDisabled={isSubmitting}
-              ctaLoading={isSubmitting}
+              ctaLabel={ctaLabel}
+              ctaDisabled={isBusy}
+              ctaLoading={isBusy}
+              footerNote={syncMessage ?? undefined}
+              footerNoteTone={syncStatus === 'timeout' ? 'error' : 'default'}
               footerInsetBottom={Math.max(insets.bottom, 6)}
               footerBottomSlot={
-                <Pressable onPress={onClose} style={styles.cancelButton}>
-                  <Text style={styles.cancelText}>אולי אחר כך</Text>
-                </Pressable>
+                <View style={styles.footerActionsRow}>
+                  <Pressable
+                    disabled={isBusy}
+                    onPress={() => {
+                      void handleRestore();
+                    }}
+                    style={styles.cancelButton}
+                  >
+                    <Text style={styles.cancelText}>שחזור רכישות</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={isBusy}
+                    onPress={onClose}
+                    style={styles.cancelButton}
+                  >
+                    <Text style={styles.cancelText}>אולי אחר כך</Text>
+                  </Pressable>
+                </View>
               }
               onSelectPlan={(plan) =>
                 setSelectedPlan(plan === 'premium' ? 'premium' : 'pro')
@@ -333,6 +484,12 @@ const styles = StyleSheet.create({
   panelWrap: {
     flex: 1,
     paddingTop: 10,
+  },
+  footerActionsRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
   },
   cancelButton: {
     minHeight: 34,
