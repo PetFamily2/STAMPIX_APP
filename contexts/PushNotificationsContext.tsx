@@ -19,6 +19,17 @@ export const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stampaix.customerNotificationsEnabled';
 export const LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stamprix.customerNotificationsEnabled';
+const ANDROID_NOTIFICATION_CHANNEL_ID = 'default';
+const ANDROID_NOTIFICATION_CHANNEL_NAME = 'STAMPAIX';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 type NotificationPermissionStatus =
   | 'granted'
@@ -55,6 +66,24 @@ function resolvePushPlatform(): 'ios' | 'android' | null {
     return 'android';
   }
   return null;
+}
+
+function isUnsupportedPushRuntime() {
+  return Constants.appOwnership === 'expo';
+}
+
+async function ensureAndroidNotificationChannel() {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  await Notifications.setNotificationChannelAsync(
+    ANDROID_NOTIFICATION_CHANNEL_ID,
+    {
+      name: ANDROID_NOTIFICATION_CHANNEL_NAME,
+      importance: Notifications.AndroidImportance.DEFAULT,
+    }
+  );
 }
 
 function normalizePermissionStatus(
@@ -144,7 +173,7 @@ export function PushNotificationsProvider({
       token: string | null;
     }> => {
       const pushPlatform = resolvePushPlatform();
-      if (!pushPlatform) {
+      if (!pushPlatform || isUnsupportedPushRuntime()) {
         return {
           permissionStatus: 'unavailable',
           registered: false,
@@ -158,7 +187,15 @@ export function PushNotificationsProvider({
           existingPermissions.status
         );
 
-        if (permissionStatus !== 'granted' && askPermission) {
+        if (permissionStatus === 'denied') {
+          return {
+            permissionStatus,
+            registered: false,
+            token: null,
+          };
+        }
+
+        if (permissionStatus === 'undetermined' && askPermission) {
           const requested = await Notifications.requestPermissionsAsync();
           permissionStatus = normalizePermissionStatus(requested.status);
         }
@@ -171,17 +208,20 @@ export function PushNotificationsProvider({
           };
         }
 
-        if (pushPlatform === 'android') {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.DEFAULT,
-          });
+        const projectId = resolveExpoProjectId();
+        if (!projectId) {
+          return {
+            permissionStatus: 'unavailable',
+            registered: false,
+            token: null,
+          };
         }
 
-        const projectId = resolveExpoProjectId();
-        const tokenResponse = projectId
-          ? await Notifications.getExpoPushTokenAsync({ projectId })
-          : await Notifications.getExpoPushTokenAsync();
+        await ensureAndroidNotificationChannel();
+
+        const tokenResponse = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
         const nextToken = tokenResponse.data?.trim() ?? '';
 
         if (!nextToken) {

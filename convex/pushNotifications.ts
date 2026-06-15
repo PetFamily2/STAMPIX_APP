@@ -4,6 +4,7 @@ import { mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const EXPO_PUSH_DEFAULT_CHANNEL_ID = 'default';
 
 type PushPlatform = 'ios' | 'android';
 
@@ -106,6 +107,7 @@ export async function sendPushNotificationToUser(
     title: args.title,
     body: args.body,
     sound: 'default',
+    channelId: EXPO_PUSH_DEFAULT_CHANNEL_ID,
     data: {
       businessId: String(args.businessId),
       campaignId: args.campaignId ? String(args.campaignId) : null,

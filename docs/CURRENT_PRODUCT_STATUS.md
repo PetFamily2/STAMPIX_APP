@@ -1,6 +1,6 @@
 # Current Product Status
 
-Last scanned: 2026-06-11
+Last scanned: 2026-06-15
 
 This report is based on the current codebase, especially `app/`, `screens/`,
 `components/`, `contexts/`, `lib/`, `config/`, `convex/`, `app.json`, and
@@ -244,8 +244,12 @@ Convex Auth tables.
   `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` when set, and `app.json` declares the
   permission copy. The app still needs a configured and restricted key plus
   real-device build verification.
-- Push notifications: app and backend code exist, but production readiness
-  depends on APNs/FCM/EAS credential configuration and real-device testing.
+- Push notifications: app and backend code now include foreground presentation,
+  Expo Go/runtime fail-closed registration, EAS project-id-required token
+  registration, a stable Android default channel, Convex token disablement,
+  delivery logging, no-token skips, and DeviceNotRegistered deactivation tests.
+  Production readiness still depends on APNs/FCM/EAS credential configuration,
+  a dedicated Android notification icon asset, and real-device testing.
 - Store/deep-link landing: `convex/http.ts` serves `/join`, preserves join and
   referral params, and opens the app through `stampix://join`. App Store URL
   still defaults to an App Store search URL unless a real listing URL is
@@ -314,7 +318,8 @@ Convex Auth tables.
    camera, location, media/photo selection, notifications, and maps.
 5. Store URLs, legal URLs, universal links, and Android app links require
    production verification outside the codebase.
-6. Push notification credentials and real-device delivery need production QA.
+6. Push notification APNs/FCM/EAS credentials, a dedicated Android notification
+   icon asset, and real-device delivery need production QA.
 7. EAS production builds and submissions have scripts, but no current build
     result is proven by this code scan.
 
@@ -338,7 +343,8 @@ Convex Auth tables.
   `https://stampix.app/.well-known/apple-app-site-association`; Android app
   links require `https://stampix.app/.well-known/assetlinks.json` with valid
   production SHA-256 fingerprints.
-- Push notifications require APNs/FCM setup and real-device tests.
+- Push notifications require APNs/FCM setup, a dedicated Android notification
+  icon asset, and real-device tests.
 - Store privacy labels/data safety forms must reflect Convex Auth, location,
   camera QR scanning, push tokens, purchases, referrals, analytics, support
   requests, and AI usage.
@@ -360,7 +366,8 @@ Convex Auth tables.
 9. Configure and restrict Google Maps/Places API keys.
 10. Configure Resend production sender/domain and OTP deliverability.
 11. Configure `SCAN_TOKEN_SECRET` and key rotation policy for production.
-12. Configure APNs/FCM/EAS push credentials and test push delivery on devices.
+12. Configure APNs/FCM/EAS push credentials, add a dedicated Android
+    notification icon asset, and test push delivery on devices.
 13. Replace analytics console/stub providers with a real provider or disable
     analytics UI/events explicitly for MVP.
 14. Decide whether OpenRouter AI is an MVP requirement; configure it or hide AI

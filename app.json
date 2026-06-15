@@ -92,7 +92,13 @@
           "photosPermission": "STAMPAIX lets businesses choose images for loyalty cards and programs."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "color": "#2F6BFF",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-localization",
         {

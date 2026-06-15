@@ -116,10 +116,37 @@ bunx convex deploy
 - `bun run type-check` passes.
 - EAS secrets contain the intended Convex URL values.
 - RevenueCat production keys and package ids are configured if payments are enabled.
-- Push notification credentials are configured in EAS for production testing.
+- Push notification APNs/FCM credentials are configured in EAS for production testing.
+- A dedicated Android notification icon asset is added before store release.
 - Store fallback URLs are configured through `APP_STORE_URL` and `PLAY_STORE_URL` when available.
 - Legal URLs point to published public pages.
 - Deep-link domain verification files are hosted for the production domain.
+
+## Push notification readiness
+
+The app registers Expo push tokens only on supported native iOS/Android runtimes
+with notification permission granted and an EAS project id available. Expo Go is
+treated as unsupported for production push registration.
+
+Native config:
+- Android default FCM channel id: `default`.
+- Runtime Android channel name: `STAMPAIX`.
+- Android notification tint color: `#2F6BFF`.
+- No notification icon is configured yet because the repo does not contain a
+  dedicated 96x96 all-white transparent Android notification icon asset.
+
+Backend behavior:
+- Active tokens are stored in Convex `pushTokens`.
+- Disabled tokens are marked inactive.
+- Sends with no active token log `skipped_no_push_token`.
+- Expo send failures are logged in `pushDeliveryLog`.
+- `DeviceNotRegistered` responses deactivate the token.
+
+Production credential blockers:
+- APNs key/certificate configured through EAS credentials.
+- FCM V1 credentials configured through EAS credentials.
+- Real iOS and Android device tests using preview/production builds.
+- Campaign push fanout is not wired in C3.1.
 
 ## Deep link domain verification
 
