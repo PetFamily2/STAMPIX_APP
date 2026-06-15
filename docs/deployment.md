@@ -141,12 +141,16 @@ Backend behavior:
 - Sends with no active token log `skipped_no_push_token`.
 - Expo send failures are logged in `pushDeliveryLog`.
 - `DeviceNotRegistered` responses deactivate the token.
+- Campaigns with `push` in their channel list keep creating the inbox
+  `messageLog` row and attempt best-effort push delivery.
+- Referral reward notifications keep the existing inbox flow and attempt
+  best-effort push delivery.
 
 Production credential blockers:
 - APNs key/certificate configured through EAS credentials.
 - FCM V1 credentials configured through EAS credentials.
 - Real iOS and Android device tests using preview/production builds.
-- Campaign push fanout is not wired in C3.1.
+- Large queued fanout/retry infrastructure is not wired in C3.2.
 
 ## Deep link domain verification
 

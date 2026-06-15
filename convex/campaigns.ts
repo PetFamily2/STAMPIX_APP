@@ -14,6 +14,7 @@ import {
 } from './guards';
 import { recordCampaignRun } from './lib/campaignRuns';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
+import { sendPushNotificationToUser } from './pushNotifications';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
@@ -57,6 +58,14 @@ type CampaignDeliveryStats = {
   reachedMessagesAllTime: number;
   lastSentAt: number | null;
 };
+type CampaignPushCandidate = {
+  _id: Id<'campaigns'>;
+  businessId: Id<'businesses'>;
+  title?: unknown;
+  messageTitle?: unknown;
+  messageBody?: unknown;
+  channels?: unknown;
+};
 
 const MANAGEMENT_CAMPAIGN_TYPE_UNION = v.union(
   v.literal('welcome'),
@@ -69,6 +78,42 @@ const MANAGEMENT_CAMPAIGN_TYPE_UNION = v.union(
 function normalizeText(value: string | undefined, fallback: string) {
   const normalized = value?.trim();
   return normalized && normalized.length > 0 ? normalized : fallback;
+}
+
+function normalizeUnknownText(value: unknown, fallback: string) {
+  return normalizeText(typeof value === 'string' ? value : undefined, fallback);
+}
+
+function campaignHasPushChannel(campaign: { channels?: unknown }) {
+  return Array.isArray(campaign.channels) && campaign.channels.includes('push');
+}
+
+async function attemptCampaignPushDelivery(
+  ctx: unknown,
+  campaign: CampaignPushCandidate,
+  userId: Id<'users'>
+) {
+  if (!campaignHasPushChannel(campaign)) {
+    return;
+  }
+
+  try {
+    await sendPushNotificationToUser(ctx, {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      toUserId: userId,
+      title: normalizeUnknownText(
+        campaign.messageTitle ?? campaign.title,
+        'New STAMPAIX update'
+      ),
+      body: normalizeUnknownText(
+        campaign.messageBody,
+        'Open STAMPAIX to view the latest business update.'
+      ),
+    });
+  } catch {
+    // Push is best-effort; campaign inbox delivery remains authoritative.
+  }
 }
 
 function normalizeEditableManagementStatus(
@@ -580,6 +625,7 @@ async function sendAutomationForCampaign(
       status: 'sent',
       createdAt: now,
     });
+    await attemptCampaignPushDelivery(ctx, campaign, userId);
 
     userHistory.push(now);
     historyByUserId.set(userKey, userHistory);
@@ -639,6 +685,7 @@ async function sendCampaignDeliveryOnce(
       status: 'sent',
       createdAt: now,
     });
+    await attemptCampaignPushDelivery(ctx, campaign, userId);
     sentCount += 1;
   }
 

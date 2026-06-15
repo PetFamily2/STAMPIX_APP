@@ -248,8 +248,12 @@ Convex Auth tables.
   Expo Go/runtime fail-closed registration, EAS project-id-required token
   registration, a stable Android default channel, Convex token disablement,
   delivery logging, no-token skips, and DeviceNotRegistered deactivation tests.
-  Production readiness still depends on APNs/FCM/EAS credential configuration,
-  a dedicated Android notification icon asset, and real-device testing.
+  Campaigns whose channel list includes `push` now keep the inbox `messageLog`
+  delivery and attempt best-effort Expo push delivery. Referral reward
+  notifications keep their existing inbox behavior and are covered for push
+  attempts. Production readiness still depends on APNs/FCM/EAS credential
+  configuration, a dedicated Android notification icon asset, and real-device
+  testing.
 - Store/deep-link landing: `convex/http.ts` serves `/join`, preserves join and
   referral params, and opens the app through `stampix://join`. App Store URL
   still defaults to an App Store search URL unless a real listing URL is
@@ -382,7 +386,8 @@ Convex Auth tables.
 19. Run end-to-end QA for customer join, referral attribution, stamp, redeem,
     and undo.
 20. Run end-to-end QA for campaign draft, audience estimate, send now,
-    scheduled automation, push delivery, and reward inbox display.
+    scheduled automation, push delivery for push-channel campaigns, referral
+    reward push delivery, and reward inbox display.
 21. Run end-to-end QA for team invite, accept invite, staff routing, and staff
     scanner.
 22. Verify legal pages, privacy/data-safety disclosures, and account deletion
