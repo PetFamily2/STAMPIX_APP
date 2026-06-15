@@ -225,13 +225,31 @@ describe('Phase A client-forgery denials', () => {
     expectGuardBefore(source, 'Purchases.restorePurchases');
   });
 
-  test('auth paywall RevenueCat UI entry points are guarded before invocation', () => {
+  test('auth paywall native RevenueCat UI paths are explicitly disabled', () => {
     const source = readFileSync('app/(auth)/paywall/index.tsx', 'utf8');
 
-    expectGuardBefore(source, 'RevenueCatUI.presentPaywallIfNeeded');
-    expectGuardBefore(source, 'RevenueCatUI.presentCustomerCenter');
+    expect(source).toContain('NATIVE_REVENUECAT_UI_ENABLED = false');
+    expect(source).toContain('isNativeRevenueCatUiDisabled');
+    expect(source).toContain('selectedBillingGuard.canStart');
+    expect(source).not.toContain('RevenueCatUI.presentPaywallIfNeeded');
+    expect(source).not.toContain('RevenueCatUI.presentCustomerCenter');
     expectGuardBefore(source, 'restorePurchases({');
     expectGuardBefore(source, 'purchasePackage(packageId');
+  });
+
+  test('auth paywall disabled states use the full billing guard', () => {
+    const source = readFileSync('app/(auth)/paywall/index.tsx', 'utf8');
+
+    expect(source).toContain('isSelectedPaidBillingReady');
+    expect(source).toContain('selectedBillingGuard.canStart');
+    expect(source).toContain('ctaDisabled={');
+    expect(source).toContain('!isSelectedPaidBillingReady');
+    expect(source).toContain(
+      'disabled={isRestoring || !selectedBillingGuard.canStart}'
+    );
+    expect(source).not.toContain(
+      'isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED'
+    );
   });
 
   test('UpgradeModal checks billing guard before starting purchase flow', () => {
@@ -248,6 +266,10 @@ describe('Phase A client-forgery denials', () => {
       'components/subscription/UpgradeModal.tsx',
       'utf8'
     );
+    const authPaywallSource = readFileSync(
+      'app/(auth)/paywall/index.tsx',
+      'utf8'
+    );
 
     expect(source).toContain('syncUserSubscription: false');
     expect(source).toContain("'pending_purchase'");
@@ -256,7 +278,33 @@ describe('Phase A client-forgery denials', () => {
     expect(source).toContain('SERVER_SYNC_TIMEOUT_MESSAGE_HE');
     expect(source).toContain('isServerConfirmedPaidEntitlement');
     expect(source).toContain('restorePurchases({');
+    expect(source).toContain("waitForServerEntitlements('purchase'");
+    expect(source).toContain("waitForServerEntitlements('restore'");
     expect(source).not.toContain('syncBusinessSubscription');
+    expect(authPaywallSource).toContain('syncUserSubscription: false');
+    expect(authPaywallSource).toContain('isServerConfirmedPaidEntitlement');
+    expect(authPaywallSource).toContain('waitForServerEntitlements(');
+  });
+
+  test('RevenueCat context cannot grant local premium from customer info', () => {
+    const source = readFileSync('contexts/RevenueCatContext.tsx', 'utf8');
+
+    expect(source).not.toContain('planFromRevenueCatSubscriber');
+    expect(source).not.toContain('setSubscriptionPlan');
+    expect(source).not.toContain('handleCustomerInfo');
+    expect(source).not.toContain('const shouldSyncUserSubscription');
+    expect(source).not.toContain("return plan !== 'starter'");
+    expect(source).not.toContain("subscriptionPlan !== 'starter'");
+    expect(source).not.toContain('const isPaid');
+    expect(source).not.toContain(
+      "Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!')"
+    );
+    expect(source).toContain('רכישות מדומות לא מעניקות הרשאות');
+    expect(source).toContain(
+      "const subscriptionPlan: SubscriptionPlan = 'starter'"
+    );
+    expect(source).toContain('const isPremium = false');
+    expect(source).toContain('await Purchases.getCustomerInfo();');
   });
 
   test('business plan onboarding does not expose a RevenueCat purchase entry point', () => {

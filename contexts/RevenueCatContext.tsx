@@ -19,10 +19,7 @@ import {
 import { Alert } from 'react-native';
 import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
 import { useUser } from '@/contexts/UserContext';
-import {
-  planFromRevenueCatSubscriber,
-  type SubscriptionPlan,
-} from '@/lib/domain/subscriptions';
+import type { SubscriptionPlan } from '@/lib/domain/subscriptions';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   evaluateRevenueCatBillingGuard,
@@ -138,8 +135,6 @@ export function RevenueCatProvider({
   children: React.ReactNode;
 }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [subscriptionPlan, setSubscriptionPlan] =
-    useState<SubscriptionPlan>('starter');
   const [packages, setPackages] = useState<PackageInfo[]>(PREVIEW_PACKAGES);
   const [isInitialized, setIsInitialized] = useState(false);
   const didInitializationRun = useRef(false);
@@ -150,20 +145,6 @@ export function RevenueCatProvider({
   const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
     string | null
   >(null);
-
-  const handleCustomerInfo = useCallback(
-    async (customerInfo: unknown): Promise<SubscriptionPlan> => {
-      if (!customerInfo) {
-        setSubscriptionPlan('starter');
-        return 'starter';
-      }
-
-      const plan = planFromRevenueCatSubscriber(customerInfo);
-      setSubscriptionPlan(plan);
-      return plan;
-    },
-    []
-  );
 
   // ============================================================================
   // אתחול
@@ -178,7 +159,6 @@ export function RevenueCatProvider({
 
     async function initialize() {
       if (!PAYMENT_SYSTEM_ENABLED) {
-        setSubscriptionPlan('starter');
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
         setIsInitialized(true);
@@ -225,8 +205,7 @@ export function RevenueCatProvider({
           setPackages(loadedPackages);
         }
 
-        const customerInfo = await Purchases.getCustomerInfo();
-        await handleCustomerInfo(customerInfo);
+        await Purchases.getCustomerInfo();
         setIsInitialized(true);
       } catch (_error) {
         setPackages(PREVIEW_PACKAGES);
@@ -237,7 +216,7 @@ export function RevenueCatProvider({
     }
 
     initialize();
-  }, [handleCustomerInfo, isConfigured, isExpoGo]);
+  }, [isConfigured, isExpoGo]);
 
   useEffect(() => {
     if (!isInitialized || isExpoGo || !isConfigured) {
@@ -308,10 +287,11 @@ export function RevenueCatProvider({
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        const nextPlan = /\bpremium\b/i.test(packageId) ? 'premium' : 'pro';
-        setSubscriptionPlan(nextPlan);
-        Alert.alert('הצלחה', 'הרכישה הושלמה בהצלחה (מצב בדיקה)');
-        return true;
+        Alert.alert(
+          BILLING_UNAVAILABLE_TITLE_HE,
+          'רכישות מדומות לא מעניקות הרשאות. המנוי יאושר רק אחרי סנכרון שרת.'
+        );
+        return false;
       }
 
       // Expo Go - לא ניתן לבצע רכישות
@@ -347,14 +327,8 @@ export function RevenueCatProvider({
           throw new Error(`חבילה ${packageId} לא נמצאה`);
         }
 
-        const { customerInfo } =
-          await Purchases.purchasePackage(packageToPurchase);
-        const shouldSyncUserSubscription =
-          options?.syncUserSubscription !== false;
-        const plan = shouldSyncUserSubscription
-          ? await handleCustomerInfo(customerInfo)
-          : planFromRevenueCatSubscriber(customerInfo);
-        return plan !== 'starter';
+        await Purchases.purchasePackage(packageToPurchase);
+        return true;
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error ? error.message : 'שגיאה לא ידועה';
@@ -371,7 +345,7 @@ export function RevenueCatProvider({
         return false;
       }
     },
-    [isExpoGo, isConfigured, handleCustomerInfo]
+    [isExpoGo, isConfigured]
   );
 
   // ============================================================================
@@ -420,27 +394,14 @@ export function RevenueCatProvider({
           await Purchases.logIn(overrideAppUserId);
           setLastIdentifiedUserId(overrideAppUserId);
         }
-        const customerInfo = await Purchases.restorePurchases();
-        const shouldSyncUserSubscription =
-          options?.syncUserSubscription !== false;
-        const plan = shouldSyncUserSubscription
-          ? await handleCustomerInfo(customerInfo)
-          : planFromRevenueCatSubscriber(customerInfo);
-        const isPaid = plan !== 'starter';
-
-        if (isPaid) {
-          Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!');
-        } else {
-          Alert.alert('שחזור', 'לא נמצאו רכישות קודמות');
-        }
-
-        return isPaid;
+        await Purchases.restorePurchases();
+        return true;
       } catch (_error) {
         Alert.alert('שגיאה', 'שחזור הרכישות נכשל אנא נסה שוב');
         return false;
       }
     },
-    [isExpoGo, isConfigured, handleCustomerInfo]
+    [isExpoGo, isConfigured]
   );
 
   // ============================================================================
@@ -454,18 +415,18 @@ export function RevenueCatProvider({
 
     try {
       const Purchases = (await import('react-native-purchases')).default;
-      const customerInfo = await Purchases.getCustomerInfo();
-      await handleCustomerInfo(customerInfo);
+      await Purchases.getCustomerInfo();
     } catch (_error) {
       // שגיאה בשקט - לא צריך להציג למשתמש
     }
-  }, [isConfigured, isExpoGo, isInitialized, handleCustomerInfo]);
+  }, [isConfigured, isExpoGo, isInitialized]);
 
   // ============================================================================
   // רינדור
   // ============================================================================
 
-  const isPremium = subscriptionPlan !== 'starter';
+  const subscriptionPlan: SubscriptionPlan = 'starter';
+  const isPremium = false;
 
   return (
     <RevenueCatContext.Provider

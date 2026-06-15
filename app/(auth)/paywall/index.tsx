@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -34,10 +33,8 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import {
-  BILLING_UNAVAILABLE_MESSAGE_HE,
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
-  canStartRevenueCatPurchase,
   evaluateRevenueCatBillingGuard,
   isServerConfirmedPaidEntitlement,
   SERVER_AUTHORITATIVE_BILLING_ENABLED,
@@ -52,6 +49,9 @@ import {
 
 const SERVER_SYNC_TIMEOUT_MS = 30_000;
 const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
+const NATIVE_REVENUECAT_UI_ENABLED = false;
+const NATIVE_REVENUECAT_UI_UNAVAILABLE_HE =
+  'מסך RevenueCat המובנה לא זמין כרגע. השתמשו במסלול הרכישה המאומת באפליקציה.';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -181,6 +181,13 @@ export default function PaywallScreen() {
     },
     [businessId, convex]
   );
+
+  const selectedPackageId = resolvePackageId(selectedPlan, billingPeriod);
+  const selectedBillingGuard = buildBillingGuard(selectedPackageId);
+  const isSelectedPaidBillingReady =
+    selectedPlan !== 'starter' && selectedBillingGuard.canStart;
+  const isNativeRevenueCatUiDisabled =
+    !NATIVE_REVENUECAT_UI_ENABLED || !selectedBillingGuard.canStart;
 
   useFocusEffect(
     useCallback(() => {
@@ -317,68 +324,33 @@ export default function PaywallScreen() {
   };
 
   const handleShowPaywall = async () => {
-    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
+    if (!selectedBillingGuard.canStart) {
+      const guardMessage =
+        selectedBillingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setServerSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
       return;
     }
 
-    if (!canStartRevenueCatPurchase()) {
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
-      return;
-    }
-
-    if (isExpoGo) {
-      Alert.alert('Expo Go', 'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.');
-      return;
-    }
-
-    if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
-      return;
-    }
-
-    try {
-      const result = await RevenueCatUI.presentPaywallIfNeeded({
-        requiredEntitlementIdentifier: 'stampix_pro',
-      });
-
-      if (
-        result === PAYWALL_RESULT.PURCHASED ||
-        result === PAYWALL_RESULT.RESTORED
-      ) {
-        completeStep();
-        finishOnboarding();
-        safeBack('/(auth)/sign-up');
-      }
-    } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ה-Paywall. נסו שוב.');
-    }
+    Alert.alert(
+      BILLING_UNAVAILABLE_TITLE_HE,
+      NATIVE_REVENUECAT_UI_UNAVAILABLE_HE
+    );
   };
 
   const handleCustomerCenter = async () => {
-    if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
+    if (!selectedBillingGuard.canStart) {
+      const guardMessage =
+        selectedBillingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+      setServerSyncMessage(guardMessage);
+      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
       return;
     }
 
-    if (!canStartRevenueCatPurchase()) {
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, BILLING_UNAVAILABLE_MESSAGE_HE);
-      return;
-    }
-
-    if (isExpoGo) {
-      Alert.alert('Expo Go', 'Customer Center לא זמין ב-Expo Go.');
-      return;
-    }
-
-    if (!isConfigured) {
-      Alert.alert('תצורה חסרה', 'נא לבדוק מפתחות RevenueCat בסביבה.');
-      return;
-    }
-
-    try {
-      await RevenueCatUI.presentCustomerCenter();
-    } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את Customer Center. נסו שוב.');
-    }
+    Alert.alert(
+      BILLING_UNAVAILABLE_TITLE_HE,
+      NATIVE_REVENUECAT_UI_UNAVAILABLE_HE
+    );
   };
 
   const handleRestore = async () => {
@@ -475,13 +447,13 @@ export default function PaywallScreen() {
         <View style={styles.utilityLinksRow}>
           <TouchableOpacity
             onPress={handleShowPaywall}
-            disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
+            disabled={isNativeRevenueCatUiDisabled}
             style={styles.utilityLinkButton}
           >
             <Text
               style={[
                 styles.utilityLinkText,
-                isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+                isNativeRevenueCatUiDisabled
                   ? styles.utilityLinkTextDisabled
                   : null,
               ]}
@@ -491,13 +463,13 @@ export default function PaywallScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCustomerCenter}
-            disabled={isPreviewMode || !PAYMENT_SYSTEM_ENABLED}
+            disabled={isNativeRevenueCatUiDisabled}
             style={styles.utilityLinkButton}
           >
             <Text
               style={[
                 styles.utilityLinkText,
-                isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+                isNativeRevenueCatUiDisabled
                   ? styles.utilityLinkTextDisabled
                   : null,
               ]}
@@ -518,9 +490,7 @@ export default function PaywallScreen() {
               selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לרכישה'
             }
             ctaDisabled={
-              selectedPlan === 'starter'
-                ? false
-                : isPreviewMode || !PAYMENT_SYSTEM_ENABLED
+              selectedPlan === 'starter' ? false : !isSelectedPaidBillingReady
             }
             ctaLoading={isPurchasing}
             footerNote={footerNote}
@@ -532,9 +502,7 @@ export default function PaywallScreen() {
                   onPress={() => {
                     void handleRestore();
                   }}
-                  disabled={
-                    isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED
-                  }
+                  disabled={isRestoring || !selectedBillingGuard.canStart}
                 >
                   {isRestoring ? (
                     <ActivityIndicator size="small" color="#94A3B8" />
