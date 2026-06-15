@@ -239,9 +239,11 @@ Convex Auth tables.
   Firebase providers are placeholders.
 - AI recommendations: Convex module is substantial, but it depends on
   `OPENROUTER_API_KEY` and should degrade cleanly when disabled or exhausted.
-- Discovery/address search: Google Maps/Places code exists, but the app cannot
-  provide those flows without a configured and restricted
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`.
+- Discovery/address search: Google Maps/Places code exists. Native Google Maps
+  keys are injected by dynamic Expo config from
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` when set, and `app.json` declares the
+  permission copy. The app still needs a configured and restricted key plus
+  real-device build verification.
 - Push notifications: app and backend code exist, but production readiness
   depends on APNs/FCM/EAS credential configuration and real-device testing.
 - Store/deep-link landing: `convex/http.ts` serves `/join`, but App Store URL
@@ -274,8 +276,10 @@ Convex Auth tables.
   calls.
 - No server-side RevenueCat webhook means subscription state can drift after
   cancellation, refund, renewal failure, or purchase outside the current device.
-- Native permission declarations are incomplete for flows that use camera,
-  image picker/photo library, location, maps, and notifications.
+- Native permission declarations in `app.json` now cover the used camera,
+  image picker/photo library, foreground location, maps, and notification
+  flows. Store disclosure copy and generated native build verification are
+  still required.
 - App Store/Google Play legal and store URLs depend on external pages and
   listings that are not verifiable from the codebase.
 - Generated Convex `fullApi` still lists modules for typing, but seed/debug
@@ -302,7 +306,8 @@ Convex Auth tables.
 2. Billing has no RevenueCat webhook endpoint for authoritative subscription
    lifecycle updates.
 3. Analytics is not production-grade; provider integrations are placeholders.
-4. Native permissions and store disclosure configuration are incomplete for
+4. Native permissions were added to `app.json`, but store disclosure
+   configuration and generated native build verification are still required for
    camera, location, media/photo selection, notifications, and maps.
 5. Store URLs, legal URLs, universal links, and Android app links require
    production verification outside the codebase.
@@ -313,8 +318,9 @@ Convex Auth tables.
 ## 14. App Store / Google Play Blockers
 
 - App requires camera, location, notifications, image picker/photo access, and
-  in-app purchases, but `app.json` does not contain a complete set of iOS usage
-  descriptions or Android permissions/config for every used native capability.
+  in-app purchases. `app.json` now contains native permission declarations for
+  the used camera/location/photo/notification/map capabilities, but generated
+  native builds and store privacy disclosures still need verification.
 - The iOS App Store URL defaults to a search URL in backend join fallback code;
   a final app listing URL must be configured before release.
 - Privacy policy and terms URLs default to `https://stampix.app/legal/privacy`
@@ -344,8 +350,8 @@ Convex Auth tables.
 5. Add explicit business ownership transfer and business deletion flows for
    sole active owners.
 6. Configure real RevenueCat products, offerings, package ids, and sandbox QA.
-7. Complete `app.json` native permissions and iOS usage descriptions for
-    camera, location, photo/media access, maps, notifications, and purchases.
+7. Verify generated native builds and store disclosure copy for the `app.json`
+   camera, location, photo/media, maps, and notification configuration.
 8. Verify Apple/Google OAuth production redirect and bundle/package settings.
 9. Configure and restrict Google Maps/Places API keys.
 10. Configure Resend production sender/domain and OTP deliverability.

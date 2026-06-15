@@ -20,7 +20,10 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "ExpoLocalization_supportsRTL": true,
-        "ExpoLocalization_forcesRTL": true
+        "ExpoLocalization_forcesRTL": true,
+        "NSCameraUsageDescription": "STAMPAIX uses the camera to scan customer and business QR codes.",
+        "NSLocationWhenInUseUsageDescription": "STAMPAIX uses your location to show nearby participating businesses.",
+        "NSPhotoLibraryUsageDescription": "STAMPAIX lets businesses choose images for loyalty cards and programs."
       }
     },
     "android": {
@@ -29,7 +32,17 @@
         "backgroundColor": "#FDFDFD"
       },
       "edgeToEdgeEnabled": false,
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "package": "com.stampix.stampix",
       "intentFilters": [
         {
@@ -60,6 +73,25 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "STAMPAIX uses the camera to scan customer and business QR codes.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "STAMPAIX uses your location to show nearby participating businesses."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "STAMPAIX lets businesses choose images for loyalty cards and programs."
+        }
+      ],
       "expo-notifications",
       [
         "expo-localization",
