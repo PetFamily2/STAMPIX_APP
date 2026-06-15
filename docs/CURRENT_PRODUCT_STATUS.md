@@ -281,9 +281,8 @@ Convex Auth tables.
 - C5.1 does not run cloud EAS builds or configure external credentials; preview
   and production build success still require EAS credentials/secrets and
   real-device QA.
-- Local Expo config validation completes, but prebuild output reports an
-  Android status bar/splash color conflict and an Android 16 edge-to-edge
-  rollout warning that should be resolved before release builds.
+- C5.2 cleared the previous Expo prebuild warnings by matching the Android
+  status bar and splash colors and enabling Android edge-to-edge.
 
 ## 11. Features That Appear Broken Or Incomplete
 

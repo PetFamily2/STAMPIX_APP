@@ -31,7 +31,7 @@
         "foregroundImage": "./assets/images/StampAix_LOGO_S.png",
         "backgroundColor": "#FDFDFD"
       },
-      "edgeToEdgeEnabled": false,
+      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -61,7 +61,7 @@
     },
     "androidStatusBar": {
       "translucent": false,
-      "backgroundColor": "#EEF4FF",
+      "backgroundColor": "#FDFDFD",
       "barStyle": "dark-content"
     },
     "web": {

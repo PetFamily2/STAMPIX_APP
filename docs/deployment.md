@@ -168,9 +168,8 @@ Also verify:
   dedicated notification icon asset is still missing.
 - Bundle/package/domain values remain `com.stampix.stampix`, `stampix`, and
   `stampix.app`.
-- Resolve Expo prebuild warnings before release; the current config reports an
-  Android status bar/splash color conflict and an Android 16 edge-to-edge
-  rollout warning.
+- C5.2 cleared the previous Expo prebuild warnings by matching the Android
+  status bar and splash colors and enabling Android edge-to-edge.
 
 Preview build checklist:
 - EAS profile: `preview`.
