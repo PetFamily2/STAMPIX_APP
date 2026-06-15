@@ -8,8 +8,8 @@ import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
 
-const AUTH_REDIRECT_APP_PREFIXES = [
-  'stampix://',
+const AUTH_REDIRECT_APP_PREFIXES = ['stampix://'] as const;
+const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
   'exp://',
   'exps://',
   'https://auth.expo.io/',
@@ -376,15 +376,60 @@ async function linkIdentityToUser(
   return userId;
 }
 
-function resolveAuthRedirectUrl(redirectTo: string): string {
+function isProductionRuntime(
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
+  const explicitEnvValues = [
+    env.NODE_ENV,
+    env.APP_ENV,
+    env.EXPO_PUBLIC_APP_ENV,
+    env.CONVEX_ENV,
+    env.ENVIRONMENT,
+    env.VERCEL_ENV,
+  ];
+
+  if (
+    explicitEnvValues.some((value) =>
+      ['prod', 'production'].includes(value?.trim().toLowerCase() ?? '')
+    )
+  ) {
+    return true;
+  }
+
+  return (
+    env.CONVEX_DEPLOYMENT?.trim().toLowerCase().startsWith('prod:') === true
+  );
+}
+
+export function isAllowedAuthAppRedirect(
+  redirectTo: string,
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
   const isAppDeepLink = AUTH_REDIRECT_APP_PREFIXES.some((prefix) =>
     redirectTo.startsWith(prefix)
   );
   if (isAppDeepLink) {
+    return true;
+  }
+
+  if (isProductionRuntime(env)) {
+    return false;
+  }
+
+  return AUTH_REDIRECT_EXPO_DEV_PREFIXES.some((prefix) =>
+    redirectTo.startsWith(prefix)
+  );
+}
+
+export function resolveAuthRedirectUrl(
+  redirectTo: string,
+  env: Partial<Record<string, string | undefined>> = process.env
+): string {
+  if (isAllowedAuthAppRedirect(redirectTo, env)) {
     return redirectTo;
   }
 
-  const siteUrl = process.env.CONVEX_SITE_URL ?? process.env.SITE_URL;
+  const siteUrl = env.CONVEX_SITE_URL ?? env.SITE_URL;
   if (!siteUrl) {
     throw new Error(
       'Missing auth site URL. Set CONVEX_SITE_URL (recommended) or SITE_URL.'

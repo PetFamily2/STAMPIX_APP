@@ -121,6 +121,24 @@ bunx convex deploy
 - Legal URLs point to published public pages.
 - Deep-link domain verification files are hosted for the production domain.
 
+## Deep link domain verification
+
+Universal links and Android app links require files hosted by the production
+web domain. Do not place secrets in these files.
+
+iOS:
+- Host `https://stampix.app/.well-known/apple-app-site-association`.
+- Serve it as `application/json`, with no redirect.
+- Include the production app id in the form `<APPLE_TEAM_ID>.com.stampix.stampix`.
+- Scope matching to the `/join*` path.
+
+Android:
+- Host `https://stampix.app/.well-known/assetlinks.json`.
+- Serve it as `application/json`, with no redirect.
+- Include package `com.stampix.stampix`.
+- Include the production Android signing certificate SHA-256 fingerprints.
+- Use relation `delegate_permission/common.handle_all_urls`.
+
 ## Troubleshooting
 - If EAS fails early on Windows, run `bun install` and retry.
 - If Metro cache causes confusing behavior, run `bun dev --clear`.

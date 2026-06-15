@@ -246,8 +246,10 @@ Convex Auth tables.
   real-device build verification.
 - Push notifications: app and backend code exist, but production readiness
   depends on APNs/FCM/EAS credential configuration and real-device testing.
-- Store/deep-link landing: `convex/http.ts` serves `/join`, but App Store URL
-  defaults to an App Store search URL unless a real listing URL is configured.
+- Store/deep-link landing: `convex/http.ts` serves `/join`, preserves join and
+  referral params, and opens the app through `stampix://join`. App Store URL
+  still defaults to an App Store search URL unless a real listing URL is
+  configured.
 - Admin support: support backend and admin UI exist, but the route is currently
   under `merchant/support-inbox.tsx` rather than the guarded `admin/` route
   tree.
@@ -291,7 +293,8 @@ Convex Auth tables.
 - Server-authoritative billing lifecycle sync from RevenueCat webhooks.
 - Real production analytics provider with privacy-safe event tracking.
 - Explicit business deletion or ownership-transfer flow for sole active owners.
-- End-to-end App Store/Play deep-link verification for `/join`.
+- End-to-end App Store/Play deep-link verification for `/join`, including
+  hosted AASA and Android asset links files.
 - Verified legal pages for privacy policy, terms, camera, location, push,
   purchases, and account deletion.
 - Store-ready permission prompts and native permission strings.
@@ -331,9 +334,10 @@ Convex Auth tables.
   product ids must match the app config.
 - Apple and Google OAuth production client configuration must match bundle id,
   package name, redirects, and associated domains.
-- Universal links require a valid Apple App Site Association file for
-  `stampix.app`; Android app links require valid asset links and SHA
-  fingerprints.
+- Universal links require a valid Apple App Site Association file at
+  `https://stampix.app/.well-known/apple-app-site-association`; Android app
+  links require `https://stampix.app/.well-known/assetlinks.json` with valid
+  production SHA-256 fingerprints.
 - Push notifications require APNs/FCM setup and real-device tests.
 - Store privacy labels/data safety forms must reflect Convex Auth, location,
   camera QR scanning, push tokens, purchases, referrals, analytics, support

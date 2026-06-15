@@ -31,12 +31,12 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   DASHBOARD_TOKENS,
   getDashboardLayout,
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -307,9 +307,7 @@ export default function BusinessDashboardScreen() {
     {
       key: 'recovered_customers',
       label: 'לקוחות שחזרו',
-      value: formatNumber(
-        lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0
-      ),
+      value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
       icon: 'shield-checkmark-outline' as const,
       tone: 'amber' as const,
       helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
@@ -317,9 +315,7 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_stamps',
       label: 'ניקובים',
-      value: formatNumber(
-        lifetimeMetrics?.totalStampsAllTime ?? 0
-      ),
+      value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
       icon: 'stamp-outline-custom' as const,
       tone: 'blue' as const,
       helperValue: formatPeriodDelta(kpis?.stamps?.value ?? 0),
@@ -327,9 +323,7 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_redemptions',
       label: 'הטבות',
-      value: formatNumber(
-        lifetimeMetrics?.totalRedemptionsAllTime ?? 0
-      ),
+      value: formatNumber(lifetimeMetrics?.totalRedemptionsAllTime ?? 0),
       icon: 'gift-outline-custom' as const,
       tone: 'violet' as const,
       helperValue: formatPeriodDelta(kpis?.redemptions?.value ?? 0),
@@ -337,9 +331,7 @@ export default function BusinessDashboardScreen() {
     {
       key: 'lifetime_returning_customers',
       label: 'לקוחות חוזרים',
-      value: formatNumber(
-        lifetimeMetrics?.returningCustomersAllTime ?? 0
-      ),
+      value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
       icon: 'people-outline' as const,
       tone: 'teal' as const,
       helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
@@ -356,7 +348,9 @@ export default function BusinessDashboardScreen() {
         ? localizeCtaLabel(card.primaryCta.label)
         : null,
     }));
-    const hasAtRiskTask = normalized.some((card) => card.key === 'at_risk_task');
+    const hasAtRiskTask = normalized.some(
+      (card) => card.key === 'at_risk_task'
+    );
     if (!hasAtRiskTask) {
       normalized.unshift({
         key: 'at_risk_task',
@@ -447,7 +441,7 @@ export default function BusinessDashboardScreen() {
       const link = await createBusinessReferralLink({
         businessId: activeBusinessId,
       });
-      const joinUrl = `https://app.stampaix.com/join?bref=${link.code}`;
+      const joinUrl = `https://stampix.app/join?bref=${link.code}`;
       const message = `אני משתמש ב-StampAix לניהול כרטיסי ניקוב ללקוחות.
 
 אם אתה בעל עסק זה יכול להתאים גם לך.
@@ -464,11 +458,7 @@ ${joinUrl}`;
     } finally {
       setIsReferralShareLoading(false);
     }
-  }, [
-    activeBusinessId,
-    createBusinessReferralLink,
-    isReferralShareLoading,
-  ]);
+  }, [activeBusinessId, createBusinessReferralLink, isReferralShareLoading]);
 
   const handleRecommendationCta = async (cardKey: string) => {
     if (!activeBusinessId || applyingRecommendationKey) {
@@ -687,7 +677,10 @@ ${joinUrl}`;
           <View style={styles.recommendationsCard}>
             <View style={styles.recommendationsHeader}>
               <View style={styles.recommendationsTopRow}>
-                <Text className={tw.textStart} style={styles.recommendationsMeta}>
+                <Text
+                  className={tw.textStart}
+                  style={styles.recommendationsMeta}
+                >
                   {`${Math.min(recommendationCards.length, 3)} פעולות פתוחות`}
                 </Text>
 

@@ -9,6 +9,7 @@ const http = httpRouter();
 const DEFAULT_APP_STORE_URL = 'https://apps.apple.com/us/search?term=STAMPAIX';
 const DEFAULT_PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.stampix.stampix';
+const APP_JOIN_URL = 'stampix://join';
 
 function resolveStoreUrl(value: string | undefined, fallbackUrl: string) {
   const normalized = value?.trim();
@@ -19,6 +20,40 @@ function resolveStoreUrl(value: string | undefined, fallbackUrl: string) {
     return fallbackUrl;
   }
   return normalized;
+}
+
+type JoinLinkParams = {
+  biz?: string | null;
+  ref?: string | null;
+  bref?: string | null;
+  src?: string | null;
+  camp?: string | null;
+};
+
+function buildJoinSearchParams(params: JoinLinkParams) {
+  const searchParams = new URLSearchParams();
+  const orderedParams = [
+    ['biz', params.biz],
+    ['ref', params.ref],
+    ['bref', params.bref],
+    ['src', params.src],
+    ['camp', params.camp],
+  ] as const;
+
+  for (const [key, value] of orderedParams) {
+    const normalized = value?.trim();
+    if (normalized) {
+      searchParams.set(key, normalized);
+    }
+  }
+
+  return searchParams;
+}
+
+export function buildJoinFallbackOpenAppUrl(params: JoinLinkParams) {
+  const searchParams = buildJoinSearchParams(params);
+  const query = searchParams.toString();
+  return query ? `${APP_JOIN_URL}?${query}` : APP_JOIN_URL;
 }
 
 const APP_STORE_URL = resolveStoreUrl(
@@ -272,6 +307,8 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
     const bizId = url.searchParams.get('biz') ?? '';
+    const ref = url.searchParams.get('ref') ?? '';
+    const bref = url.searchParams.get('bref') ?? '';
     const src = url.searchParams.get('src') ?? '';
     const camp = url.searchParams.get('camp') ?? '';
 
@@ -291,8 +328,13 @@ http.route({
       }
     }
 
-    // Build the deep link that opens the app (same URL the user is on)
-    const appDeepLink = `https://stampix.app/join?biz=${encodeURIComponent(bizId)}${src ? `&src=${encodeURIComponent(src)}` : ''}${camp ? `&camp=${encodeURIComponent(camp)}` : ''}`;
+    const appDeepLink = buildJoinFallbackOpenAppUrl({
+      biz: bizId,
+      ref,
+      bref,
+      src,
+      camp,
+    });
 
     const html = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
