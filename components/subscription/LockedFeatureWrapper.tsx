@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import type { ReactNode } from 'react';
 import {
   Pressable,
@@ -50,11 +49,6 @@ export function FeatureGate({
       <View style={styles.content}>{children}</View>
       {isLocked ? (
         <View style={styles.overlay} pointerEvents="box-none">
-          <BlurView
-            intensity={35}
-            tint="light"
-            style={StyleSheet.absoluteFill}
-          />
           <View style={styles.scrim} />
           <View style={styles.lockCard}>
             <View style={styles.iconWrap}>

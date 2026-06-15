@@ -283,6 +283,13 @@ Convex Auth tables.
   real-device QA.
 - C5.2 cleared the previous Expo prebuild warnings by matching the Android
   status bar and splash colors and enabling Android edge-to-edge.
+- The failed Android preview build
+  `a4eb9b89-e068-482a-aca2-7af6eb6ecdf5` was traced to `expo-blur` resolving
+  `com.github.Dimezis:BlurView:version-2.0.6` from JitPack with HTTP 403.
+  The app no longer imports `expo-blur`, removing that native dependency from
+  Android builds. `expo-image-picker` was also aligned to the SDK 54-compatible
+  `~17.0.11` package line; a new Android preview build is still required to
+  prove cloud build success.
 
 ## 11. Features That Appear Broken Or Incomplete
 
@@ -341,8 +348,9 @@ Convex Auth tables.
    production verification outside the codebase.
 6. Push notification APNs/FCM/EAS credentials, a dedicated Android notification
    icon asset, and real-device delivery need production QA.
-7. EAS preview/production build scripts and local readiness docs exist, but no
-   cloud build result is proven by this code scan.
+7. The known Android preview Gradle failure from the `expo-blur` JitPack
+   dependency was fixed, but a new successful EAS preview/production build is
+   not yet proven by this code scan.
 
 ## 14. App Store / Google Play Blockers
 
