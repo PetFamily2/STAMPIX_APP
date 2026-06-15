@@ -115,12 +115,57 @@ bunx convex deploy
 - `bun run check` passes.
 - `bun run type-check` passes.
 - EAS secrets contain the intended Convex URL values.
+- Google OAuth production client is configured for the Convex Auth callback URL.
+- Apple Sign In production client and secret are configured for the Convex Auth callback URL.
 - RevenueCat production keys and package ids are configured if payments are enabled.
 - Push notification APNs/FCM credentials are configured in EAS for production testing.
 - A dedicated Android notification icon asset is added before store release.
 - Store fallback URLs are configured through `APP_STORE_URL` and `PLAY_STORE_URL` when available.
 - Legal URLs point to published public pages.
 - Deep-link domain verification files are hosted for the production domain.
+
+## OAuth production readiness
+
+Convex Auth owns the provider callback URLs. The native app starts OAuth and
+returns to the app through `stampix://oauth-callback`, but Google and Apple must
+redirect back to the Convex HTTP site first.
+
+Production app identity:
+- iOS bundle id: `com.stampix.stampix`.
+- Android package: `com.stampix.stampix`.
+- App scheme: `stampix`.
+- Production web/domain assumption: `stampix.app`.
+
+Convex production environment:
+- `CONVEX_SITE_URL` must be the deployed Convex HTTP site origin, with no path.
+- `SITE_URL` is only a fallback for auth helpers; prefer `CONVEX_SITE_URL`.
+- `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` must come from the production Google OAuth client.
+- `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET` must come from the production Apple Sign In configuration.
+
+Google Cloud Console:
+- Configure the OAuth consent screen for production use.
+- Add the OAuth consent authorized domain for the Convex callback host.
+- Create a Web application OAuth client for Convex Auth.
+- Add authorized redirect URI:
+  `<CONVEX_SITE_URL>/api/auth/callback/google`.
+- Store the Web client id in `AUTH_GOOGLE_ID`.
+- Store the Web client secret in `AUTH_GOOGLE_SECRET`.
+
+Apple Developer:
+- Enable Sign in with Apple for the App ID matching `com.stampix.stampix`.
+- Configure a Services ID/client id for the web callback used by Convex Auth.
+- Link the Services ID to the app identifier when required by Apple.
+- Add return URL:
+  `<CONVEX_SITE_URL>/api/auth/callback/apple`.
+- Register and verify the callback domain if Apple requires domain verification.
+- Store the Apple client id in `AUTH_APPLE_ID`.
+- Store the generated Apple client secret JWT in `AUTH_APPLE_SECRET`.
+
+Redirect safety:
+- Production allows app redirects such as `stampix://oauth-callback`.
+- Production blocks Expo development redirects: `exp://`, `exps://`, and
+  `https://auth.expo.io/`.
+- Expo development redirects are allowed only outside production environments.
 
 ## Push notification readiness
 

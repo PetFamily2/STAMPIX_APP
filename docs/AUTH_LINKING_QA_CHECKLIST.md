@@ -1,6 +1,6 @@
 ﻿# Auth Linking QA Checklist
 
-Last synced: 2026-02-18
+Last synced: 2026-06-15
 
 ## Scope
 Validate account linking and onboarding behavior across:
@@ -10,8 +10,32 @@ Validate account linking and onboarding behavior across:
 
 ## Preconditions
 - Convex auth providers are configured.
-- `CONVEX_SITE_URL` is configured.
+- `CONVEX_SITE_URL` is configured to the production Convex HTTP site origin.
+- `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set in the target Convex environment.
+- `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET` are set in the target Convex environment.
 - App can reach Convex deployment.
+
+## Production OAuth dashboard setup
+
+Google:
+- Use a production Web application OAuth client.
+- Authorized redirect URI:
+  `<CONVEX_SITE_URL>/api/auth/callback/google`.
+- OAuth consent screen is production-ready and includes the callback host as an authorized domain.
+- The Web client id and secret match `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
+
+Apple:
+- Sign in with Apple is enabled for bundle id `com.stampix.stampix`.
+- The Apple Services ID/client id used by Convex Auth is linked to the app identifier when required.
+- Return URL:
+  `<CONVEX_SITE_URL>/api/auth/callback/apple`.
+- Callback domain verification is complete if required by Apple.
+- The Apple client id and client secret JWT match `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET`.
+
+Native app assumptions:
+- App scheme is `stampix`.
+- OAuth app callback remains `stampix://oauth-callback`.
+- iOS bundle id and Android package are both `com.stampix.stampix`.
 
 ## Scenario 1: New Google user
 1. Start at `/(auth)/welcome`.
@@ -58,8 +82,12 @@ Checks:
 4. Verify continue button is disabled until first and last names are non-empty.
 
 ## Scenario 6: Redirect safety
-1. Validate OAuth starts with safe relative redirect (`redirectTo: '/'`).
-2. Validate auth callback succeeds only for allowed redirect patterns in server callback.
+1. Validate production allows `stampix://oauth-callback`.
+2. Validate production blocks `exp://`, `exps://`, and `https://auth.expo.io/`.
+3. Validate development may allow Expo dev redirects.
+4. Validate relative auth redirects resolve through `CONVEX_SITE_URL`.
+5. Validate `SITE_URL` fallback works only when `CONVEX_SITE_URL` is missing.
+6. Validate relative auth redirects fail when neither `CONVEX_SITE_URL` nor `SITE_URL` is configured.
 
 ## Regression checks
 - Business role user lands in `/(authenticated)/(business)/dashboard`.

@@ -67,6 +67,9 @@ describe('Phase C2 OAuth redirect safety', () => {
       isAllowedAuthAppRedirect('exp://127.0.0.1:8081', productionEnv)
     ).toBeFalse();
     expect(
+      isAllowedAuthAppRedirect('exps://127.0.0.1:8081', productionEnv)
+    ).toBeFalse();
+    expect(
       isAllowedAuthAppRedirect('https://auth.expo.io/@owner/app', productionEnv)
     ).toBeFalse();
   });
@@ -83,6 +86,9 @@ describe('Phase C2 OAuth redirect safety', () => {
     expect(
       resolveAuthRedirectUrl('https://auth.expo.io/@owner/app', developmentEnv)
     ).toBe('https://auth.expo.io/@owner/app');
+    expect(
+      resolveAuthRedirectUrl('exps://127.0.0.1:8081', developmentEnv)
+    ).toBe('exps://127.0.0.1:8081');
   });
 
   test('production resolves safe relative redirects through the site URL', () => {
@@ -92,5 +98,22 @@ describe('Phase C2 OAuth redirect safety', () => {
         CONVEX_SITE_URL: 'https://stampix.app',
       })
     ).toBe('https://stampix.app/oauth-callback');
+  });
+
+  test('SITE_URL fallback is used only when CONVEX_SITE_URL is missing', () => {
+    expect(
+      resolveAuthRedirectUrl('/oauth-callback', {
+        NODE_ENV: 'production',
+        SITE_URL: 'https://stampix-fallback.example',
+      })
+    ).toBe('https://stampix-fallback.example/oauth-callback');
+  });
+
+  test('relative OAuth redirects require a configured auth site URL', () => {
+    expect(() =>
+      resolveAuthRedirectUrl('/oauth-callback', {
+        NODE_ENV: 'production',
+      })
+    ).toThrow('Missing auth site URL');
   });
 });
