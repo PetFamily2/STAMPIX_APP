@@ -198,7 +198,8 @@ Convex Auth tables.
   Expo push API.
 - Resend: email OTP delivery for auth/onboarding.
 - OpenRouter: AI recommendation generation.
-- EAS: build and submit scripts plus EAS project id in `app.json`.
+- EAS: build and submit scripts, Windows-safe EAS wrapper, EAS profiles, and
+  EAS project id in `app.json`.
 - Analytics: abstraction exists, but current providers are console/stub level.
 
 ## 9. Features That Appear Implemented
@@ -267,6 +268,23 @@ Convex Auth tables.
   future business upgrade flow should continue to use `business:<businessId>`
   identity and server-authoritative entitlement writes.
 
+### EAS Build Readiness
+
+- Local readiness docs now map the actual `package.json` EAS scripts to the
+  `development`, `ios-simulator`, `preview`, and `production` profiles in
+  `eas.json`.
+- Preview readiness is documented as internal distribution, Android APK, iOS
+  physical-device build, and channel `preview`.
+- Production readiness is documented as store distribution, Android app bundle,
+  iOS App Store/TestFlight build, channel `production`, and remote
+  auto-incremented app versioning.
+- C5.1 does not run cloud EAS builds or configure external credentials; preview
+  and production build success still require EAS credentials/secrets and
+  real-device QA.
+- Local Expo config validation completes, but prebuild output reports an
+  Android status bar/splash color conflict and an Android 16 edge-to-edge
+  rollout warning that should be resolved before release builds.
+
 ## 11. Features That Appear Broken Or Incomplete
 
 - Email sign-up for a new email appears blocked: `sign-up-email.tsx` checks
@@ -324,8 +342,8 @@ Convex Auth tables.
    production verification outside the codebase.
 6. Push notification APNs/FCM/EAS credentials, a dedicated Android notification
    icon asset, and real-device delivery need production QA.
-7. EAS production builds and submissions have scripts, but no current build
-    result is proven by this code scan.
+7. EAS preview/production build scripts and local readiness docs exist, but no
+   cloud build result is proven by this code scan.
 
 ## 14. App Store / Google Play Blockers
 

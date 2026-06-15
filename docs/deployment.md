@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Last synced: 2026-06-05
+Last synced: 2026-06-15
 
 This is the canonical deployment and EAS infrastructure guide. The older `docs/EAS_INFRASTRUCTURE.md` content was merged here and the original file was archived at `docs/archive/merged/EAS_INFRASTRUCTURE.md`.
 
@@ -46,13 +46,20 @@ RevenueCat when billing is enabled:
 - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
 - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
+- `EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY`
+- `EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY`
+- `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY`
+- `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY`
 
 Other public integration values:
 - `EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`
+- `EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED`
 - `EXPO_PUBLIC_MOCK_PAYMENTS`
 - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
 - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
+- `EXPO_PUBLIC_APP_STORE_URL` and `EXPO_PUBLIC_PLAY_STORE_URL` only as optional join-page fallbacks.
+- `EXPO_PUBLIC_ANALYTICS_PROVIDER` if a non-console analytics provider is enabled.
 
 Convex server values:
 - `CONVEX_SITE_URL`
@@ -61,9 +68,17 @@ Convex server values:
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
 - `SCAN_TOKEN_SECRET`
+- `SCAN_TOKEN_KID` when scan-token key ids are used.
 - `APP_STORE_URL`
 - `PLAY_STORE_URL`
 - `REVENUECAT_WEBHOOK_SECRET` when webhook sync is enabled
+- `REVENUECAT_PRODUCT_IDS_PRO_MONTHLY`
+- `REVENUECAT_PRODUCT_IDS_PRO_YEARLY`
+- `REVENUECAT_PRODUCT_IDS_PREMIUM_MONTHLY`
+- `REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY`
+- `REVENUECAT_ENTITLEMENT_IDS_PRO`
+- `REVENUECAT_ENTITLEMENT_IDS_PREMIUM`
+- `OPENROUTER_API_KEY` and `OPENROUTER_SITE_URL` if AI recommendations are enabled.
 
 RevenueCat remains documented in detail in `docs/REVENUECAT_SETUP.md`.
 
@@ -114,6 +129,8 @@ bunx convex deploy
 ## Pre-release checklist
 - `bun run check` passes.
 - `bun run type-check` passes.
+- `bunx expo config --type public` and `bunx expo config --type prebuild`
+  complete for the target env.
 - EAS secrets contain the intended Convex URL values.
 - Google OAuth production client is configured for the Convex Auth callback URL.
 - Apple Sign In production client and secret are configured for the Convex Auth callback URL.
@@ -123,6 +140,84 @@ bunx convex deploy
 - Store fallback URLs are configured through `APP_STORE_URL` and `PLAY_STORE_URL` when available.
 - Legal URLs point to published public pages.
 - Deep-link domain verification files are hosted for the production domain.
+
+## EAS local build readiness
+
+This repo is ready for local EAS readiness checks, but C5.1 does not run cloud
+EAS builds or configure external credentials.
+
+Local validation before any EAS build:
+```bash
+bunx expo config --type public
+bunx expo config --type prebuild
+bun run type-check
+bun test convex/__tests__
+```
+
+Also verify:
+- `bun run eas:whoami` returns the Expo account with access to project
+  `74e10cc1-aece-4da6-8049-e62cc8adf17d`.
+- `bun run eas:secrets:list` shows the required variables for the selected EAS
+  environment.
+- `app.config.ts` injects native Google Maps keys from
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; the native config must not contain the
+  literal env var name.
+- Generated prebuild config still blocks `RECORD_AUDIO` and
+  `WRITE_EXTERNAL_STORAGE`.
+- Android notification config uses channel `default` and color `#2F6BFF`; a
+  dedicated notification icon asset is still missing.
+- Bundle/package/domain values remain `com.stampix.stampix`, `stampix`, and
+  `stampix.app`.
+- Resolve Expo prebuild warnings before release; the current config reports an
+  Android status bar/splash color conflict and an Android 16 edge-to-edge
+  rollout warning.
+
+Preview build checklist:
+- EAS profile: `preview`.
+- Distribution: internal.
+- Android artifact: APK.
+- iOS artifact: physical-device internal build, not simulator.
+- Channel: `preview`.
+- Commands, after local checks pass:
+  ```bash
+  bun run eas:build:android:preview
+  bun run eas:build:ios:preview
+  bun run eas:build:all:preview
+  ```
+- If iOS credentials need an interactive setup pass:
+  ```bash
+  bun run eas:credentials:ios:preview
+  bun run eas:build:ios:preview:interactive
+  ```
+- Required external readiness: APNs/FCM credentials for push QA, restricted
+  Maps/Places key, Convex preview/prod URL choice, OAuth provider callbacks,
+  RevenueCat sandbox products if billing is tested, and legal/store fallback
+  URLs if join fallback is tested.
+
+Production build checklist:
+- EAS profile: `production`.
+- Distribution: store build.
+- Android artifact: app bundle.
+- iOS artifact: App Store/TestFlight build, not simulator.
+- Channel: `production`.
+- Versioning: EAS remote app version source with production auto-increment.
+- Commands, after preview QA and local checks pass:
+  ```bash
+  bun run eas:build:android:production
+  bun run eas:build:ios:production
+  bun run eas:build:all:production
+  ```
+- Submit commands, only after store listings and credentials are ready:
+  ```bash
+  bun run eas:submit:android:production
+  bun run eas:submit:ios:production
+  bun run testflight
+  ```
+- Required external readiness: App Store Connect and Google Play app records,
+  production APNs/FCM credentials, hosted AASA and assetlinks files, production
+  OAuth clients, RevenueCat production products/webhook secret, public legal
+  pages, final store URLs, Resend sender/domain, scan-token secret, and any
+  enabled AI/analytics provider secrets.
 
 ## OAuth production readiness
 
