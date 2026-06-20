@@ -316,6 +316,9 @@ Convex Auth tables.
   still required.
 - App Store/Google Play legal and store URLs depend on external pages and
   listings that are not verifiable from the codebase.
+- D2 adds in-app Hebrew legal fallback screens for privacy policy, terms of
+  service, and account deletion. Hosted public legal URLs are still required
+  for store review and must match the in-app behavior.
 - Generated Convex `fullApi` still lists modules for typing, but seed/debug
   functions are internal-only and filtered out of the public `api` surface.
 
@@ -327,8 +330,9 @@ Convex Auth tables.
 - Explicit business deletion or ownership-transfer flow for sole active owners.
 - End-to-end App Store/Play deep-link verification for `/join`, including
   hosted AASA and Android asset links files.
-- Verified legal pages for privacy policy, terms, camera, location, push,
-  purchases, and account deletion.
+- Hosted public legal pages for privacy policy and terms, plus store
+  privacy/data-safety disclosures for camera, location, push, purchases, AI,
+  support requests, and account deletion.
 - Store-ready permission prompts and native permission strings.
 - Full purchase QA for business plans, restore purchases, cancellation, refund,
   and entitlement downgrade.
@@ -360,8 +364,10 @@ Convex Auth tables.
   native builds and store privacy disclosures still need verification.
 - The iOS App Store URL defaults to a search URL in backend join fallback code;
   a final app listing URL must be configured before release.
-- Privacy policy and terms URLs default to `https://stampix.app/legal/privacy`
-  and `/terms`; those pages must be live and match app behavior.
+- In-app Hebrew fallback documents now exist for privacy policy, terms of
+  service, and account deletion. Privacy policy and terms URLs still default to
+  `https://stampix.app/legal/privacy` and `/terms`; those public pages must be
+  live and match app behavior before store submission.
 - Sole-owner business transfer/deletion UX must be completed before store
   review if owners need to remove their account while owning a business.
 - RevenueCat products, offerings, entitlements, sandbox tests, and production
@@ -415,8 +421,8 @@ Convex Auth tables.
     reward push delivery, and reward inbox display.
 21. Run end-to-end QA for team invite, accept invite, staff routing, and staff
     scanner.
-22. Verify legal pages, privacy/data-safety disclosures, and account deletion
-    copy against actual app behavior.
+22. Publish and verify public legal pages, privacy/data-safety disclosures, and
+    account deletion copy against actual app behavior.
 23. Verify universal links and Android app links for `/join`.
 24. Run `bun run check:full` and the available Convex/lib tests on a clean
     checkout.

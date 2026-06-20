@@ -96,9 +96,11 @@ This is a snapshot and execution log. For current setup, deployment, and billing
   - legal URLs now normalize to public defaults:
     - `https://stampix.app/legal/privacy`
     - `https://stampix.app/legal/terms`
-  - sign-up, paywall, and settings now open external legal URLs.
+  - sign-up, paywall, customer settings, and business account settings now open
+    in-app Hebrew legal fallback screens for terms, privacy, and account
+    deletion policy.
 - Gap:
-  - publish final legal pages and final legal text review.
+  - publish final public legal pages and final legal text review.
 
 ### Analytics Provider
 - Status: `pending`.

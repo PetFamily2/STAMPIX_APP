@@ -1,4 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -19,7 +20,36 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
+import { safePush } from '@/lib/navigation';
 import { tw } from '@/lib/rtl';
+
+type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
+
+const LEGAL_ROWS: Array<{
+  document: LegalDocumentKey;
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  {
+    document: 'terms',
+    title: 'תנאי שימוש',
+    subtitle: 'כללי השימוש ב-STAMPAIX לעסקים וללקוחות',
+    icon: 'document-text-outline',
+  },
+  {
+    document: 'privacy',
+    title: 'מדיניות פרטיות',
+    subtitle: 'איך נשמר ומנוהל המידע בחשבון',
+    icon: 'shield-checkmark-outline',
+  },
+  {
+    document: 'deletion',
+    title: 'מדיניות מחיקת חשבון',
+    subtitle: 'מידע בלבד: מה נמחק, מה נשמר ומגבלת בעלים יחיד',
+    icon: 'information-circle-outline',
+  },
+];
 
 export default function BusinessSettingsAccountScreen() {
   const insets = useSafeAreaInsets();
@@ -51,6 +81,10 @@ export default function BusinessSettingsAccountScreen() {
     } finally {
       setIsSigningOut(false);
     }
+  };
+
+  const openLegalDocument = (document: LegalDocumentKey) => {
+    safePush(`/(authenticated)/settings-legal?document=${document}`);
   };
 
   return (
@@ -117,6 +151,49 @@ export default function BusinessSettingsAccountScreen() {
               <Text className="text-xs text-[#64748B]">טלפון</Text>
             </View>
           </View>
+        </View>
+
+        <View className="gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
+          <Text
+            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+          >
+            מסמכים ומדיניות
+          </Text>
+
+          {LEGAL_ROWS.map((row) => (
+            <Pressable
+              key={row.document}
+              onPress={() => openLegalDocument(row.document)}
+              style={({ pressed }) => [
+                {
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: '#E3E9FF',
+                  backgroundColor: '#FFFFFF',
+                  paddingHorizontal: 14,
+                  paddingVertical: 14,
+                  opacity: pressed ? 0.88 : 1,
+                },
+              ]}
+            >
+              <View className="flex-row-reverse items-center justify-between gap-3">
+                <View className="h-[38px] w-[38px] items-center justify-center rounded-full border border-[#DCE6FF] bg-[#EEF3FF]">
+                  <Ionicons name={row.icon} size={18} color="#1D4ED8" />
+                </View>
+
+                <View className="flex-1 items-end">
+                  <Text className="text-right text-[15px] font-extrabold text-[#111827]">
+                    {row.title}
+                  </Text>
+                  <Text className="mt-1 text-right text-xs font-medium text-[#64748B]">
+                    {row.subtitle}
+                  </Text>
+                </View>
+
+                <Ionicons name="chevron-back" size={18} color="#94A3B8" />
+              </View>
+            </Pressable>
+          ))}
         </View>
 
         <TouchableOpacity

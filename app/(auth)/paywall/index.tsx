@@ -1,7 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useConvex, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -25,12 +24,11 @@ import {
   PAYMENT_SYSTEM_ENABLED,
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
 } from '@/config/appConfig';
-import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { safeBack } from '@/lib/navigation';
+import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
@@ -395,7 +393,7 @@ export default function PaywallScreen() {
   };
 
   const handleOpenLegalDocument = () => {
-    void WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL);
+    safePush('/(auth)/paywall/legal?document=terms');
   };
 
   const footerNote =

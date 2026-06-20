@@ -5,7 +5,6 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
 import { router, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,7 +24,6 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
-import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { useAppMode } from '@/contexts/AppModeContext';
 import {
   LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY,
@@ -38,6 +36,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
+import { safePush } from '@/lib/navigation';
 
 const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
 // Legacy typo key kept for migration only.
@@ -45,6 +44,7 @@ const LEGACY_APP_MODE_STORAGE_KEY = 'stamprix.appMode';
 const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
 
 type IconName = keyof typeof Ionicons.glyphMap;
+type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
 const TEXT = {
   quickWalletTitle: '\u05d4\u05d0\u05e8\u05e0\u05e7',
@@ -78,6 +78,10 @@ const TEXT = {
     '\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05e4\u05e8\u05d8\u05d9\u05d5\u05ea',
   privacySubtitle:
     '\u05d0\u05d9\u05da \u05d0\u05e0\u05d7\u05e0\u05d5 \u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05dc \u05d4\u05de\u05d9\u05d3\u05e2 \u05e9\u05dc\u05db\u05dd',
+  accountDeletionPolicyTitle:
+    '\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
+  accountDeletionPolicySubtitle:
+    '\u05de\u05d4 \u05e0\u05de\u05d7\u05e7, \u05de\u05d4 \u05e0\u05e9\u05de\u05e8 \u05d5\u05de\u05d2\u05d1\u05dc\u05ea \u05d1\u05e2\u05dc\u05d9\u05dd \u05d9\u05d7\u05d9\u05d3',
   sectionAccount:
     '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d7\u05e9\u05d1\u05d5\u05df',
   logoutTitle:
@@ -97,8 +101,6 @@ const TEXT = {
     'STAMPAIX - \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9\u05ea \u05e4\u05e9\u05d5\u05d8\u05d4 \u05dc\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   helpCenterText:
     '\u05e6\u05e8\u05d9\u05db\u05d9\u05dd \u05e2\u05d6\u05e8\u05d4? \u05e4\u05e0\u05d5 \u05d0\u05dc\u05d9\u05e0\u05d5 \u05d3\u05e8\u05da \u05de\u05e8\u05db\u05d6 \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-  legalOpenFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e4\u05ea\u05d5\u05d7 \u05d0\u05ea \u05d4\u05de\u05e1\u05de\u05da \u05d4\u05de\u05e9\u05e4\u05d8\u05d9',
   notificationsSaveFailed:
     '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
   marketingSaveFailed:
@@ -355,20 +357,20 @@ export default function SettingsScreen() {
     router.push('/(authenticated)/(customer)/account-details');
   };
 
-  const openLegalUrl = async (url: string) => {
-    try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch (error) {
-      Alert.alert(TEXT.errorTitle, toErrorMessage(error, TEXT.legalOpenFailed));
-    }
+  const openLegalDocument = (document: LegalDocumentKey) => {
+    safePush(`/(authenticated)/settings-legal?document=${document}`);
   };
 
   const openTermsOfService = () => {
-    void openLegalUrl(TERMS_OF_SERVICE_URL);
+    openLegalDocument('terms');
   };
 
   const openPrivacyPolicy = () => {
-    void openLegalUrl(PRIVACY_POLICY_URL);
+    openLegalDocument('privacy');
+  };
+
+  const openAccountDeletionPolicy = () => {
+    openLegalDocument('deletion');
   };
 
   const handleLogout = async () => {
@@ -746,6 +748,12 @@ export default function SettingsScreen() {
             subtitle={TEXT.privacySubtitle}
             icon="shield-checkmark-outline"
             onPress={openPrivacyPolicy}
+          />
+          <MenuRow
+            title={TEXT.accountDeletionPolicyTitle}
+            subtitle={TEXT.accountDeletionPolicySubtitle}
+            icon="information-circle-outline"
+            onPress={openAccountDeletionPolicy}
           />
         </View>
 

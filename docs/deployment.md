@@ -218,6 +218,29 @@ Production build checklist:
   pages, final store URLs, Resend sender/domain, scan-token secret, and any
   enabled AI/analytics provider secrets.
 
+## Legal and policy readiness
+
+The app includes Hebrew in-app fallback screens for:
+- Privacy Policy.
+- Terms of Service.
+- Account Deletion.
+
+These screens are intended to keep the app readable when a public page is not
+available from the device. They do not replace the hosted legal pages required
+by App Store Connect and Google Play.
+
+Before store submission:
+- Publish the privacy policy at `EXPO_PUBLIC_PRIVACY_POLICY_URL` or the default
+  `https://stampix.app/legal/privacy`.
+- Publish the terms of service at `EXPO_PUBLIC_TERMS_OF_SERVICE_URL` or the
+  default `https://stampix.app/legal/terms`.
+- Confirm both hosted pages match the in-app behavior for Convex Auth, account
+  deletion, camera QR scanning, location/maps, push tokens, purchases,
+  referrals, analytics, support requests, and any enabled AI features.
+- Keep account deletion routed through the existing in-app deletion flow; the
+  policy page must not describe a different deletion rule than
+  `deleteMyAccountHard`.
+
 ## OAuth production readiness
 
 Convex Auth owns the provider callback URLs. The native app starts OAuth and
