@@ -37,7 +37,9 @@ export function CompactActivitySummaryRow({
             <View
               style={[
                 styles.iconBubble,
-                item.type === 'reward' ? styles.rewardBubble : styles.punchBubble,
+                item.type === 'reward'
+                  ? styles.rewardBubble
+                  : styles.punchBubble,
               ]}
             >
               <Ionicons
@@ -136,6 +138,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
     color: DASHBOARD_TOKENS.colors.textMuted,
-    textAlign: 'left',
+    textAlign: 'right',
   },
 });

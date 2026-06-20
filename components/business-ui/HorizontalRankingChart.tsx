@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowTextWrap: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -102,12 +102,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
+    textAlign: 'left',
   },
   track: {
     height: 8,
     borderRadius: 999,
     backgroundColor: '#E8EEF7',
     overflow: 'hidden',
+    alignItems: 'flex-end',
   },
   fill: {
     height: '100%',

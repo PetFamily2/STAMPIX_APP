@@ -175,8 +175,11 @@ export default function ProgramCustomerCardPreview({
           </View>
 
           <View style={styles.walletStampGroups}>
-            {walletStampGroups.map((group, gi) => (
-              <View key={gi} style={styles.walletStampGroup}>
+            {walletStampGroups.map((group) => (
+              <View
+                key={`wallet-stamp-group-${group[0] ?? 'empty'}`}
+                style={styles.walletStampGroup}
+              >
                 {group.map((dotId) => (
                   <View
                     key={dotId}
@@ -620,6 +623,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '900',
-    textAlign: 'left',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

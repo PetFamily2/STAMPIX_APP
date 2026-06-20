@@ -485,7 +485,9 @@ export function CampaignsHubContent() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
-            router.push('/(authenticated)/(business)/settings-business-referrals')
+            router.push(
+              '/(authenticated)/(business)/settings-business-referrals'
+            )
           }
           className="mt-4 rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
         >
@@ -495,16 +497,25 @@ export function CampaignsHubContent() {
                 <Ionicons name="people-outline" size={20} color="#15803D" />
               </View>
               <View className="flex-1 items-end">
-                <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
+                <Text
+                  className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                >
                   חבר מביא חבר
                 </Text>
-                <Text className={`mt-0.5 text-xs font-semibold ${tw.textStart}`} style={{ color: '#15803D' }}>
+                <Text
+                  className={`mt-0.5 text-xs font-semibold ${tw.textStart}`}
+                  style={{ color: '#15803D' }}
+                >
                   תבנית קמפיין מוכנה
                 </Text>
               </View>
             </View>
-            <View className={`rounded-full px-3 py-1.5 ${isReferralCampaignActive ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'}`}>
-              <Text className={`text-xs font-extrabold ${isReferralCampaignActive ? 'text-white' : 'text-[#475569]'}`}>
+            <View
+              className={`rounded-full px-3 py-1.5 ${isReferralCampaignActive ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'}`}
+            >
+              <Text
+                className={`text-xs font-extrabold ${isReferralCampaignActive ? 'text-white' : 'text-[#475569]'}`}
+              >
                 {isReferralCampaignActive ? 'פעיל' : 'לא פעיל'}
               </Text>
             </View>
@@ -804,7 +815,7 @@ export default function CampaignsHubRoute() {
 const styles = StyleSheet.create({
   kpiGrid: {
     marginTop: 16,
-    flexDirection: 'row',
+    flexDirection: ROW_DIRECTION,
     flexWrap: 'wrap',
     gap: 12,
   },

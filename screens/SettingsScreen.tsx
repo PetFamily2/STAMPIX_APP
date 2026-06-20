@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalBusyRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 8,

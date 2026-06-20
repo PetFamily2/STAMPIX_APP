@@ -22,7 +22,7 @@ export function ListRow({
 }: ListRowProps) {
   return (
     <View
-      className={`bg-white rounded-[30px] border border-gray-100 p-4 flex-row items-center justify-between shadow-sm ${className}`}
+      className={`bg-white rounded-[30px] border border-gray-100 p-4 ${tw.flexRow} items-center justify-between shadow-sm ${className}`}
     >
       <View className={`${tw.flexRow} items-center gap-3 flex-1`}>
         {leading}

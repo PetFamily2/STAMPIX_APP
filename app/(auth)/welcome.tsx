@@ -87,7 +87,7 @@ export default function WelcomeScreen() {
         <View className="mb-auto">
           {/* Feature 1 - Customer Engagement */}
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row items-start gap-4">
+            <View className="flex-row-reverse items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <Heart size={24} color="#2563eb" fill="#dbeafe" />
               </View>
@@ -104,7 +104,7 @@ export default function WelcomeScreen() {
 
           {/* Feature 2 - Business Growth */}
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row items-start gap-4">
+            <View className="flex-row-reverse items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <TrendingUp size={24} color="#2563eb" />
               </View>
@@ -133,7 +133,7 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           {/* Existing Account Link */}
-          <View className="flex-row justify-center items-center gap-2">
+          <View className="flex-row-reverse justify-center items-center gap-2">
             <Link href="/(auth)/sign-up" asChild={true}>
               <TouchableOpacity>
                 <Text className="text-blue-600 font-semibold text-base">

@@ -818,7 +818,7 @@ export default function BusinessTeamManagementScreen() {
           <View
             style={{
               marginTop: 16,
-              flexDirection: 'row',
+              flexDirection: 'row-reverse',
               flexWrap: 'wrap',
               gap: 12,
             }}

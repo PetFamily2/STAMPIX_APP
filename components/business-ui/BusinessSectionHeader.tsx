@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textMuted,
   },
   actionWrap: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 2,
     minHeight: 24,
@@ -86,6 +86,8 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.brandBlue,
     fontSize: 12,
     fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   accessory: {
     width: '100%',

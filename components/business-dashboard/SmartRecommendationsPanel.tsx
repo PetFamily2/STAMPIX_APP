@@ -90,7 +90,9 @@ export function SmartRecommendationsPanel({
 
         return (
           <View key={card.key}>
-            <View style={[styles.row, isPriorityItem ? styles.priorityRow : null]}>
+            <View
+              style={[styles.row, isPriorityItem ? styles.priorityRow : null]}
+            >
               <View style={styles.rowHeader}>
                 <View style={styles.titleGroup}>
                   <Ionicons
@@ -124,7 +126,7 @@ export function SmartRecommendationsPanel({
                         className={tw.textStart}
                         style={styles.actionLinkText}
                       >
-                        {`${actionLabel} >`}
+                        {`${actionLabel} <`}
                       </Text>
                     )}
                   </Pressable>
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
     color: '#2563EB',
-    textAlign: 'left',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   divider: {

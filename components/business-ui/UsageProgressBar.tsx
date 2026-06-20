@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#E2E8F0',
     overflow: 'hidden',
+    alignItems: 'flex-end',
   },
   fill: {
     height: '100%',

@@ -2207,7 +2207,7 @@ const styles = StyleSheet.create({
     borderColor: '#2F6BFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
     shadowColor: '#2F6BFF',

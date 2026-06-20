@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 10,
     alignItems: 'flex-start',
   },
@@ -130,5 +130,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 12,
     fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

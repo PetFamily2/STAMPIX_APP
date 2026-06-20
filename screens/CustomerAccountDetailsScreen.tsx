@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
 import { router } from 'expo-router';
@@ -284,7 +283,7 @@ export default function CustomerAccountDetailsScreen() {
                     placeholderTextColor="#94A3B8"
                     keyboardType="phone-pad"
                     style={styles.phoneInput}
-                    textAlign="left"
+                    textAlign="right"
                   />
                 ) : (
                   <Text style={styles.detailValue}>{phone}</Text>
@@ -529,12 +528,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    textAlign: 'left',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   phoneEditWrap: {
     flex: 1,
     gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
   },
   phoneInput: {
     width: '100%',
@@ -547,9 +547,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   phoneActionRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 8,
   },
   smallButtonSecondary: {
@@ -566,6 +568,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   smallButtonPrimary: {
     minHeight: 34,
@@ -579,6 +583,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   marketingToggle: {
     minHeight: 34,
@@ -599,6 +605,8 @@ const styles = StyleSheet.create({
   marketingToggleText: {
     fontSize: 12,
     fontWeight: '700',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   marketingToggleTextOn: {
     color: '#1D4ED8',
@@ -643,5 +651,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
 });

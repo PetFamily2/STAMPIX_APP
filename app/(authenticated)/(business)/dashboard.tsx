@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
     color: '#9A3412',
-    textAlign: 'left',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   activityHeadingRow: {
@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
     color: DASHBOARD_TOKENS.colors.brandBlue,
-    textAlign: 'left',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   activityActionButton: {

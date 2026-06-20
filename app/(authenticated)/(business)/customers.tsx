@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
   },
   kpiGrid: {
     marginTop: 16,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 12,
   },
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   searchRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
   },
@@ -775,10 +775,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1A2B4A',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   listHeader: {
     marginTop: 16,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -875,7 +877,7 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   filterBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     marginTop: 8,
     borderRadius: 999,
     backgroundColor: '#E8F1FF',
@@ -886,6 +888,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#1D4ED8',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   listWrap: {
     marginTop: 10,
@@ -900,7 +904,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   customerRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,

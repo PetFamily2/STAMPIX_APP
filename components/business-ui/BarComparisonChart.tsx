@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   plotArea: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'flex-end',
     gap: 10,
   },
@@ -131,5 +131,6 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     backgroundColor: '#93C5FD',
+    alignSelf: 'flex-end',
   },
 });

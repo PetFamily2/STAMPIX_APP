@@ -54,10 +54,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   textInactive: {
     fontSize: 18,
     fontWeight: '700',
     color: '#6b7280',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
 });

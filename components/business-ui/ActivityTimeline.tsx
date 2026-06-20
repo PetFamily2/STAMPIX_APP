@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 54,
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 10,
     alignItems: 'flex-start',
   },
@@ -147,5 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
+    textAlign: 'left',
   },
 });

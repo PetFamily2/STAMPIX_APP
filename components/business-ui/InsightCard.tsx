@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
   },
   iconWrap: {
@@ -127,5 +127,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
 });

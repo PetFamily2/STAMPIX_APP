@@ -328,8 +328,7 @@ const styles = StyleSheet.create({
   },
   joinBusinessRow: {
     width: '100%',
-    direction: 'ltr',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     marginTop: 0,
   },
   joinBusinessButton: {
@@ -341,7 +340,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   joinBusinessButtonContent: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
   },
@@ -371,6 +370,8 @@ const styles = StyleSheet.create({
     color: '#1E3A8A',
     fontSize: 14,
     fontWeight: '900',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   referralCard: {
     marginTop: 12,

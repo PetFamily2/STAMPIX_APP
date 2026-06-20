@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     textAlign: 'center',
+    writingDirection: 'rtl',
   },
   optionTextWithIcon: {
     paddingHorizontal: 28,

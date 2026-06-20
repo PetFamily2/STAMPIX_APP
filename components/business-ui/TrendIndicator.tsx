@@ -34,7 +34,7 @@ export function TrendIndicator({ trend }: { trend?: Trend | null }) {
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 3,
@@ -45,5 +45,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

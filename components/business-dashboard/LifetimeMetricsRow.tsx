@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   helperRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     writingDirection: 'ltr',
   },
   helperPeriod: {
-    textAlign: 'left',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
 });
