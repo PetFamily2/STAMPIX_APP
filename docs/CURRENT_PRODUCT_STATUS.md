@@ -228,14 +228,22 @@ Convex Auth tables.
 - Convex tests for scanner, staff permissions, referrals, entitlements,
   deletion, business, analytics, customer lifecycle, and migrations.
 
+### Current Business Plan Table
+
+| Plan | Monthly | Yearly | Cards | Customers | Campaigns | Recurring campaigns | AI/month | Team seats |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Starter | free | free | 1 | 30 | 1 | 0 | 0 | 0 |
+| Pro | ILS 129 | ILS 1238 | 5 | 2000 | 5 | 5 | 100 | 5 |
+| Premium | ILS 249 | ILS 2390 | 10 | 10000 | 10 | 15 | 300 | 20 |
+
 ## 10. Features That Appear Partially Implemented
 
-- RevenueCat billing: production purchase/restore entry points are intentionally
-  blocked before RevenueCat SDK purchase calls, and public client-side
-  subscription writes fail closed until a server-authoritative RevenueCat
-  webhook route is implemented. No RevenueCat webhook route is present in
-  `convex/http.ts`, so renewals, cancellations, refunds, and cross-device
-  lifecycle changes are not fully server-authoritative.
+- RevenueCat billing: production purchase/restore entry points are guarded
+  before RevenueCat SDK purchase calls, public client-side subscription writes
+  fail closed, and `convex/http.ts` registers `/revenuecat/webhook` for
+  server-authoritative lifecycle updates. Production readiness still requires
+  real RevenueCat products, entitlement ids, webhook secret configuration, and
+  sandbox/device QA.
 - Analytics: `lib/analytics/index.ts` defaults to console logging; PostHog and
   Firebase providers are placeholders.
 - AI recommendations: Convex module is substantial, but it depends on
@@ -264,9 +272,8 @@ Convex Auth tables.
   tree.
 - Legacy retention module: several legacy APIs intentionally return disabled or
   migration messages while the newer campaigns flow is used.
-- Payment identity: paid production purchasing is disabled until Phase B. Any
-  future business upgrade flow should continue to use `business:<businessId>`
-  identity and server-authoritative entitlement writes.
+- Payment identity: paid business upgrades use `business:<businessId>` identity
+  and wait for server-authoritative entitlement confirmation.
 
 ### EAS Build Readiness
 
@@ -308,8 +315,9 @@ Convex Auth tables.
   wallet demo seed action was removed. Development seed/debug access now needs
   server-side internal invocation or local tooling rather than public client
   calls.
-- No server-side RevenueCat webhook means subscription state can drift after
-  cancellation, refund, renewal failure, or purchase outside the current device.
+- RevenueCat webhook code exists, but production drift can still occur until
+  the live RevenueCat dashboard, webhook secret, product ids, and sandbox
+  lifecycle events are verified end to end.
 - Native permission declarations in `app.json` now cover the used camera,
   image picker/photo library, foreground location, maps, and notification
   flows. Store disclosure copy and generated native build verification are
@@ -325,7 +333,8 @@ Convex Auth tables.
 ## 12. Missing MVP Flows
 
 - Safe new-user email OTP registration flow.
-- Server-authoritative billing lifecycle sync from RevenueCat webhooks.
+- Production verification of server-authoritative RevenueCat webhook lifecycle
+  sync.
 - Real production analytics provider with privacy-safe event tracking.
 - Explicit business deletion or ownership-transfer flow for sole active owners.
 - End-to-end App Store/Play deep-link verification for `/join`, including
@@ -342,8 +351,9 @@ Convex Auth tables.
 ## 13. Production Blockers
 
 1. New email sign-up appears blocked for users without existing accounts.
-2. Billing has no RevenueCat webhook endpoint for authoritative subscription
-   lifecycle updates.
+2. Billing webhook code exists, but RevenueCat production products, webhook
+   secret, product ids, entitlement ids, sandbox lifecycle QA, and store purchase
+   QA are still required.
 3. Analytics is not production-grade; provider integrations are placeholders.
 4. Native permissions were added to `app.json`, but store disclosure
    configuration and generated native build verification are still required for
@@ -389,7 +399,8 @@ Convex Auth tables.
 1. Fix new-user email OTP sign-up in `sign-up-email.tsx`.
 2. Add tests for new email sign-up, existing email sign-in, and OAuth account
    linking.
-3. Add a RevenueCat webhook HTTP route and verify lifecycle sync.
+3. Verify the RevenueCat webhook HTTP route and lifecycle sync with sandbox
+   purchase, renewal, cancellation, refund, and billing issue events.
 4. Make business billing identity consistent across onboarding, paywall,
    upgrade modal, restore, and entitlement checks.
 5. Add explicit business ownership transfer and business deletion flows for

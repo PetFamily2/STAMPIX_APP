@@ -47,7 +47,7 @@ const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
 const PLAN_LABELS: Record<PlanId, string> = {
   starter: 'Starter',
   pro: 'Pro',
-  premium: 'Pro Max',
+  premium: 'Premium',
 };
 
 const STATUS_LABELS: Record<string, string> = {

@@ -103,7 +103,7 @@ function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
   const labels: Record<PlanId, string> = {
     starter: 'Starter',
     pro: 'Pro',
-    premium: 'Pro Max',
+    premium: 'Premium',
   };
 
   return {
@@ -278,7 +278,7 @@ export function formatPlanPrice(value: number): string {
 }
 
 function formatLimitValue(limitValue: number): string {
-  return limitValue === 0 ? '-' : String(limitValue);
+  return String(limitValue);
 }
 
 export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {

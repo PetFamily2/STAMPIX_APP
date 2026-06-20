@@ -30,7 +30,7 @@ import { SubscriptionSalesPanel } from './SubscriptionSalesPanel';
 
 const PLAN_LABELS: Record<'pro' | 'premium', string> = {
   pro: 'Pro',
-  premium: 'Pro Max',
+  premium: 'Premium',
 };
 
 const SERVER_SYNC_TIMEOUT_MS = 30_000;

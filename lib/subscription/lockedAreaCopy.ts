@@ -25,7 +25,7 @@ type LockedAreaDefinition = {
 const PLAN_LABELS: Record<'starter' | 'pro' | 'premium', string> = {
   starter: 'Starter',
   pro: 'Pro',
-  premium: 'Pro Max',
+  premium: 'Premium',
 };
 
 const FEATURE_KEY_ALIAS_MAP: Record<string, LockedAreaKey> = {
@@ -63,17 +63,20 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
   },
   marketingHub: {
-    sectionTitle: 'Campaign workspace',
-    lockedTitle: 'Campaign workspace is locked on this plan',
+    sectionTitle:
+      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
+    lockedTitle:
+      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05de\u05d5\u05d2\u05d1\u05dc \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
     lockedSubtitle: (requiredPlanLabel) =>
-      `Campaign activation is available on ${
-        requiredPlanLabel ?? 'a higher plan'
-      }.`,
+      requiredPlanLabel
+        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05d4\u05e4\u05e2\u05dc\u05ea \u05d9\u05d5\u05ea\u05e8 \u05de\u05d4\u05dc\u05db\u05d9 \u05e7\u05de\u05e4\u05d9\u05d9\u05df.`
+        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8 \u05d9\u05e4\u05ea\u05d7 \u05d9\u05d5\u05ea\u05e8 \u05d9\u05db\u05d5\u05dc\u05d5\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05df.',
     benefits: [
-      'Identify campaign opportunities automatically',
-      'Activate campaign drafts with explicit approval',
+      '\u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05e4\u05e2\u05d9\u05dc \u05d0\u05d7\u05d3 \u05d1-Starter',
+      '\u05e2\u05d3 5 \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d1-Pro \u05d5-10 \u05d1-Premium',
     ],
-    upgradeAreaLabel: 'Campaign workspace',
+    upgradeAreaLabel:
+      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
   },
   smartAnalytics: {
     sectionTitle:
@@ -142,17 +145,20 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
       '\u05de\u05d2\u05d1\u05dc\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
   },
   maxActiveRetentionActions: {
-    sectionTitle: 'Recurring campaigns limit',
-    lockedTitle: 'You reached the recurring campaigns limit',
+    sectionTitle:
+      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
+    lockedTitle:
+      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d4\u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `Upgrade to ${requiredPlanLabel} to activate more recurring campaigns.`
-        : 'Upgrade to a higher plan to activate more recurring campaigns.',
+        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05d4\u05e4\u05e2\u05dc\u05ea \u05d9\u05d5\u05ea\u05e8 \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd.`
+        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05e4\u05ea\u05d7 \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d5\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05e0\u05d5\u05e1\u05e4\u05d5\u05ea.',
     benefits: [
-      'Run multiple recurring campaigns in parallel',
-      'Control campaign volume without losing coverage',
+      '\u05d1-Starter \u05d0\u05d9\u05df \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
+      '\u05e2\u05d3 5 \u05d1-Pro \u05d5-15 \u05d1-Premium',
     ],
-    upgradeAreaLabel: 'Recurring campaigns limit',
+    upgradeAreaLabel:
+      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
   },
   maxCampaigns: {
     sectionTitle:

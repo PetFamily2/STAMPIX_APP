@@ -24,7 +24,7 @@ export type FeatureGateProps = {
 const PLAN_LABEL: Record<'starter' | 'pro' | 'premium', string> = {
   starter: 'Starter',
   pro: 'Pro',
-  premium: 'Pro Max',
+  premium: 'Premium',
 };
 
 export function FeatureGate({

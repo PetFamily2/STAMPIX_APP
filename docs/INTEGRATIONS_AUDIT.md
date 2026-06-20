@@ -18,7 +18,7 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - Phase 1: documentation baseline: `completed`.
 - Phase 2: public release blockers (store/legal): `completed in code`, `pending external publishing`.
 - Phase 3: auth completeness (Apple): `partially completed` (fail-fast config added), `pending env + Apple portal`.
-- Phase 4: billing redesign + RevenueCat readiness: `partially completed` (business-scoped appUserId), `pending webhook lifecycle sync`.
+- Phase 4: billing redesign + RevenueCat readiness: `completed in code` for business-scoped appUserId and webhook sync, `pending RevenueCat dashboard/env/sandbox QA`.
 - Phase 5: push notifications end-to-end: `completed in code`.
 - Phase 6: analytics provider: `pending`.
 
@@ -46,9 +46,13 @@ This is a snapshot and execution log. For current setup, deployment, and billing
   - Runtime config is now env-driven (`EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`, `EXPO_PUBLIC_MOCK_PAYMENTS`).
   - Package mapping remains env-driven (`EXPO_PUBLIC_RC_PACKAGE_*`).
   - Business upgrade flow now purchases with business-scoped RevenueCat app user id (`business:<businessId>`).
+  - `/revenuecat/webhook` is registered in Convex HTTP and updates
+    `businesses` + `subscriptions` through server-authoritative lifecycle
+    events.
+  - User-facing business plans are Starter, Pro, and Premium.
 - Gap:
-  - Webhook-based lifecycle sync (cancel/downgrade/refund) is still missing.
-  - Final entitlement naming in dashboard must match plan inference contract.
+  - RevenueCat dashboard products, package ids, product ids, entitlement ids,
+    webhook secret, and sandbox lifecycle QA must match the app contract.
 
 ### Push Notifications (Expo)
 - Status: `implemented end-to-end in app + backend`.
@@ -152,8 +156,8 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - Configure and verify Apple auth env in Convex:
   - `AUTH_APPLE_ID`
   - `AUTH_APPLE_SECRET`
-- Implement RevenueCat webhook endpoint and signature verification.
-- Map webhook events to `businesses` + `subscriptions` lifecycle updates.
+- Verify RevenueCat webhook endpoint, secret, and lifecycle mapping with
+  sandbox purchase, renewal, cancellation, refund, and billing issue events.
 
 ### P1 - Push production readiness
 - Configure APNs/FCM credentials in EAS.
@@ -192,7 +196,7 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - `SCAN_TOKEN_SECRET`
 - `APP_STORE_URL` (optional override for `/join`)
 - `PLAY_STORE_URL` (optional override for `/join`)
-- `REVENUECAT_WEBHOOK_SECRET` (when webhook is implemented)
+- `REVENUECAT_WEBHOOK_SECRET`
 
 ## Verification Checklist
 - `bun run check`
@@ -203,4 +207,5 @@ This is a snapshot and execution log. For current setup, deployment, and billing
   - send campaign push -> delivery log created.
 - Billing test (dev build):
   - business upgrade triggers RevenueCat purchase with business-scoped identity,
-  - Convex business subscription sync mutation updates plan/status.
+  - RevenueCat webhook updates Convex `businesses` + `subscriptions`,
+  - public Convex business subscription sync mutation remains disabled.

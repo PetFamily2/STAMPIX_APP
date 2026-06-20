@@ -234,7 +234,7 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
     },
   },
   premium: {
-    displayName: 'Pro Max',
+    displayName: 'Premium',
     pricing: {
       monthly: 249,
       yearly: 2390,
