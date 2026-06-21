@@ -36,6 +36,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { IS_RTL, tw } from '@/lib/rtl';
+import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ManagementCampaignType =
@@ -48,6 +49,11 @@ type MarketingTopTab = 'campaigns' | 'loyalty';
 const TEXT_START = IS_RTL ? 'right' : 'left';
 const TEXT_END = IS_RTL ? 'left' : 'right';
 const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
+const PLAN_LABELS = {
+  starter: 'Starter',
+  pro: 'Pro',
+  premium: 'Premium',
+} as const;
 
 type ManagementCampaign = {
   campaignId: Id<'campaigns'>;
@@ -164,6 +170,38 @@ function PlanUsageTile({
   );
 }
 
+function MarketingAccessTile({
+  eyebrow,
+  title,
+  body,
+  accentColor,
+  accentBg,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  accentColor: string;
+  accentBg: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.accessTile,
+        {
+          borderColor: accentBg,
+          backgroundColor: '#F8FAFF',
+        },
+      ]}
+    >
+      <Text style={[styles.accessTileEyebrow, { color: accentColor }]}>
+        {eyebrow}
+      </Text>
+      <Text style={styles.accessTileTitle}>{title}</Text>
+      <Text style={styles.accessTileBody}>{body}</Text>
+    </View>
+  );
+}
+
 export function CampaignsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -187,6 +225,7 @@ export function CampaignsHubContent() {
   const {
     entitlements,
     limitStatus,
+    gate,
     isLoading: isEntitlementsLoading,
   } = useEntitlements(activeBusinessId);
 
@@ -279,9 +318,25 @@ export function CampaignsHubContent() {
   const bestReachCampaign = topReachCampaigns[0] ?? null;
   const isReferralCampaignActive = referralConfig?.isEnabled === true;
   const campaignLimit = limitStatus('maxCampaigns');
+  const marketingAiGate = gate('canUseMarketingHubAI');
+  const aiExecutionsLimit = limitStatus('maxAiExecutionsPerMonth');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
+  const requiredPlanForAi =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxAiExecutionsPerMonth ??
+    marketingAiGate.requiredPlan ??
+    'pro';
+  const marketingHubCopy = getLockedAreaCopy(
+    'marketingHub',
+    marketingAiGate.requiredPlan
+  );
+  const aiQuotaCopy = getLockedAreaCopy(
+    'maxAiExecutionsPerMonth',
+    requiredPlanForAi
+  );
+  const currentPlanLabel = entitlements ? PLAN_LABELS[entitlements.plan] : null;
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
     canViewCampaigns &&
@@ -464,7 +519,7 @@ export function CampaignsHubContent() {
         >
           <BusinessScreenHeader
             title="קמפיינים"
-            subtitle="ניהול קמפיינים קלאסיים לעסק"
+            subtitle="קמפיינים ידניים לפי מכסת המסלול, עם AI מ-Pro"
           />
         </StickyScrollHeader>
 
@@ -480,6 +535,110 @@ export function CampaignsHubContent() {
             <Text className="text-sm font-black text-white">צור קמפיין</Text>
           </View>
         </TouchableOpacity>
+
+        {!isEntitlementsLoading ? (
+          <View className="mt-4 rounded-3xl border border-[#DCE7F8] bg-white p-5">
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              איך השיווק זמין במסלול שלכם
+            </Text>
+            <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
+              קמפיינים ידניים זמינים לפי מכסת המסלול. המלצות ופעולות AI מתחילות
+              מ-Pro, וב-Starter יש 0 פעולות AI.
+            </Text>
+            <View style={styles.accessGrid}>
+              <MarketingAccessTile
+                eyebrow="קמפיינים ידניים"
+                title={`${campaignLimit.currentValue}/${campaignLimit.limitValue} פעילים במסלול ${currentPlanLabel ?? ''}`.trim()}
+                body={
+                  campaignLimit.isAtLimit
+                    ? 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג כדי לפתוח מקום נוסף.'
+                    : `אפשר ליצור ולנהל קמפיינים ידניים כל עוד נשאר מקום במכסת המסלול. נותרו ${formatNumber(campaignLimit.remaining)} מקומות פעילים.`
+                }
+                accentColor="#1D4ED8"
+                accentBg="#DBEAFE"
+              />
+              <MarketingAccessTile
+                eyebrow="AI לקמפיינים"
+                title={
+                  marketingAiGate.isLocked
+                    ? 'לא זמין ב-Starter'
+                    : `${aiExecutionsLimit.currentValue}/${aiExecutionsLimit.limitValue} פעולות AI החודש`
+                }
+                body={
+                  marketingAiGate.isLocked
+                    ? 'המלצות ופעולות AI זמינות רק מ-Pro. במסלול Starter אין פעולות AI, אבל קמפיינים ידניים נשארים זמינים לפי המכסה.'
+                    : aiExecutionsLimit.isAtLimit
+                      ? 'נוצלה כל מכסת ה-AI החודשית. קמפיינים ידניים עדיין זמינים לפי מכסת המסלול.'
+                      : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות הקמפיינים הידניים.'
+                }
+                accentColor="#7C3AED"
+                accentBg="#EDE9FE"
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {!isEntitlementsLoading && marketingAiGate.isLocked ? (
+          <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <Text
+              className={`text-sm font-black text-blue-900 ${tw.textStart}`}
+            >
+              {marketingHubCopy.lockedTitle}
+            </Text>
+            <Text
+              className={`mt-1 text-xs font-semibold text-blue-700 ${tw.textStart}`}
+            >
+              {marketingHubCopy.lockedSubtitle}
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                openSubscriptionComparison(router, {
+                  featureKey: 'marketingHub',
+                  requiredPlan: marketingAiGate.requiredPlan,
+                  reason:
+                    marketingAiGate.reason === 'subscription_inactive'
+                      ? 'subscription_inactive'
+                      : 'feature_locked',
+                })
+              }
+              className="mt-3 self-end rounded-full bg-[#1D4ED8] px-3 py-1.5"
+            >
+              <Text className="text-xs font-black text-white">שדרוג</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {!isEntitlementsLoading &&
+        !marketingAiGate.isLocked &&
+        aiExecutionsLimit.isAtLimit ? (
+          <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <Text
+              className={`text-sm font-black text-amber-900 ${tw.textStart}`}
+            >
+              {aiQuotaCopy.lockedTitle}
+            </Text>
+            <Text
+              className={`mt-1 text-xs font-semibold text-amber-700 ${tw.textStart}`}
+            >
+              {aiQuotaCopy.lockedSubtitle}
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                openSubscriptionComparison(router, {
+                  featureKey: 'maxAiExecutionsPerMonth',
+                  requiredPlan: requiredPlanForAi,
+                  reason: 'limit_reached',
+                })
+              }
+              className="mt-3 self-end rounded-full bg-[#B45309] px-3 py-1.5"
+            >
+              <Text className="text-xs font-black text-white">שדרוג</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <TouchableOpacity
           onPress={() =>
             router.push(
@@ -834,6 +993,41 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexDirection: ROW_DIRECTION,
     gap: 8,
+  },
+  accessGrid: {
+    marginTop: 12,
+    flexDirection: ROW_DIRECTION,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  accessTile: {
+    width: '48%',
+    minHeight: 128,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    gap: 6,
+  },
+  accessTileEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: TEXT_START,
+  },
+  accessTileTitle: {
+    color: '#0F172A',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '900',
+    textAlign: TEXT_START,
+  },
+  accessTileBody: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: TEXT_START,
   },
   usageChip: {
     flex: 1,
