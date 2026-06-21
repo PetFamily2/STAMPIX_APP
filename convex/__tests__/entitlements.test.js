@@ -5,6 +5,7 @@ import {
   getRequiredPlanForLimit,
   REQUIRED_PLAN_BY_FEATURE,
 } from '../entitlements';
+import { saveReferralConfig } from '../referrals';
 
 function buildBusiness(overrides = {}) {
   const now = Date.now();
@@ -27,11 +28,34 @@ function buildBusiness(overrides = {}) {
 }
 
 function buildCtxWithBusiness(businessDoc) {
+  const now = Date.now();
   const state = {
     business: { ...businessDoc },
     campaigns: [],
     referralConfigs: [],
     aiUsageLedger: [],
+    users: [
+      {
+        _id: 'user_1',
+        isActive: true,
+        fullName: 'Owner',
+        email: 'owner@example.test',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    businessStaff: [
+      {
+        _id: 'staff_owner_1',
+        businessId: businessDoc._id,
+        userId: 'user_1',
+        staffRole: 'owner',
+        status: 'active',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
   };
 
   const buildArrayQuery = (rows) => {
@@ -50,6 +74,12 @@ function buildCtxWithBusiness(businessDoc) {
         if (id === state.business._id) {
           return state.business;
         }
+        for (const tableName of ['users', 'businessStaff', 'referralConfigs']) {
+          const row = state[tableName].find((item) => item._id === id);
+          if (row) {
+            return row;
+          }
+        }
         return null;
       },
       query: (tableName) => {
@@ -62,10 +92,26 @@ function buildCtxWithBusiness(businessDoc) {
         if (tableName === 'aiUsageLedger') {
           return buildArrayQuery(state.aiUsageLedger);
         }
+        if (tableName === 'users') {
+          return buildArrayQuery(state.users);
+        }
+        if (tableName === 'businessStaff') {
+          return buildArrayQuery(state.businessStaff);
+        }
         throw new Error(`UNSUPPORTED_QUERY_TABLE:${tableName}`);
       },
       patch: async (id, patch) => {
         if (id !== state.business._id) {
+          const referralIndex = state.referralConfigs.findIndex(
+            (row) => row._id === id
+          );
+          if (referralIndex >= 0) {
+            state.referralConfigs[referralIndex] = {
+              ...state.referralConfigs[referralIndex],
+              ...patch,
+            };
+            return;
+          }
           throw new Error('UNEXPECTED_PATCH_TARGET');
         }
         state.business = {
@@ -73,6 +119,9 @@ function buildCtxWithBusiness(businessDoc) {
           ...patch,
         };
       },
+    },
+    auth: {
+      getUserIdentity: async () => ({ subject: 'user_1|session' }),
     },
   };
 
@@ -405,6 +454,69 @@ describe('business entitlements', () => {
         ).resolves.toBeDefined();
       }
     }
+  });
+
+  test('starter with no referral config is already at 1/1 because default referral is enabled', async () => {
+    const business = buildBusiness({
+      _id: 'starter_default_referral_campaign_limit',
+      subscriptionPlan: 'starter',
+      subscriptionStatus: 'active',
+    });
+    const { ctx } = buildCtxWithBusiness(business);
+
+    const usedCampaigns = await countActiveCampaignsForBusiness(
+      ctx,
+      business._id
+    );
+    expect(usedCampaigns).toBe(1);
+
+    const campaignError = await getConvexErrorData(() =>
+      assertEntitlement(ctx, business._id, {
+        limitKey: 'maxCampaigns',
+        currentValue: usedCampaigns,
+      })
+    );
+    expect(campaignError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(campaignError?.limitKey).toBe('maxCampaigns');
+    expect(campaignError?.limitValue).toBe(1);
+    expect(campaignError?.currentValue).toBe(1);
+    expect(campaignError?.requiredPlan).toBe('pro');
+  });
+
+  test('saveReferralConfig enabling disabled referral when starter campaign limit is full returns PLAN_LIMIT_REACHED', async () => {
+    const business = buildBusiness({
+      _id: 'starter_enable_referral_at_campaign_limit',
+      subscriptionPlan: 'starter',
+      subscriptionStatus: 'active',
+    });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({ businessId: business._id, isEnabled: false }),
+    ];
+    state.campaigns = [buildCampaign(0, { businessId: business._id })];
+
+    const activeCampaignsBeforeEnable = await countActiveCampaignsForBusiness(
+      ctx,
+      business._id
+    );
+    expect(activeCampaignsBeforeEnable).toBe(1);
+
+    const campaignError = await getConvexErrorData(() =>
+      saveReferralConfig._handler(ctx, {
+        businessId: business._id,
+        isEnabled: true,
+        rewardType: 'STAMP',
+        rewardValue: 1,
+        rewardRecipients: 'both',
+        monthlyLimit: 10,
+      })
+    );
+    expect(campaignError?.code).toBe('PLAN_LIMIT_REACHED');
+    expect(campaignError?.limitKey).toBe('maxCampaigns');
+    expect(campaignError?.limitValue).toBe(1);
+    expect(campaignError?.currentValue).toBe(2);
+    expect(campaignError?.requiredPlan).toBe('pro');
+    expect(state.referralConfigs[0].isEnabled).toBe(false);
   });
 
   test('required plan mapping is correct for all feature keys', () => {

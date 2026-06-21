@@ -90,7 +90,7 @@ describe('campaign counting rules for entitlement limits', () => {
     ).resolves.toBe(3);
   });
 
-  test('missing referral config counts as one active campaign quota slot', async () => {
+  test('missing referral config counts as one slot because default referral config is enabled', async () => {
     expect(countsTowardReferralCampaignQuota(null)).toBe(true);
 
     await expect(

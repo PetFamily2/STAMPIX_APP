@@ -315,7 +315,13 @@ export function CampaignsHubContent() {
     [activeCampaigns]
   );
   const bestReachCampaign = topReachCampaigns[0] ?? null;
-  const isReferralCampaignActive = referralConfig?.isEnabled === true;
+  const isReferralConfigLoading = referralConfig === undefined;
+  const isReferralCampaignActive = referralConfig?.isEnabled !== false;
+  const referralCampaignBadgeLabel = isReferralConfigLoading
+    ? 'טוען'
+    : isReferralCampaignActive
+      ? 'פעיל'
+      : 'כבוי';
   const campaignLimit = limitStatus('maxCampaigns');
   const recurringLimit = limitStatus('maxActiveRetentionActions');
   const aiExecutionsLimit = limitStatus('maxAiExecutionsPerMonth');
@@ -358,6 +364,14 @@ export function CampaignsHubContent() {
     !isEntitlementsLoading &&
     aiExecutionsLimit.limitValue > 0 &&
     aiExecutionsLimit.isAtLimit;
+  const isStarterCampaignLimitFilledByReferral =
+    entitlements?.plan === 'starter' &&
+    campaignLimit.limitValue === 1 &&
+    campaignLimit.isAtLimit &&
+    isReferralCampaignActive;
+  const campaignLimitReachedCopy = isStarterCampaignLimitFilledByReferral
+    ? 'ב-Starter יש מקום אחד במכסת הקמפיינים. קמפיין ההפניות פעיל כברירת מחדל ומשתמש במקום הזה; אפשר לכבות אותו במסך ההפניות או לשדרג.'
+    : 'הגעתם למכסה הפעילה. המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל; אפשר לארכב קמפיין קיים או לשדרג כדי לפתוח מקום נוסף.';
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
     canViewCampaigns &&
@@ -555,7 +569,7 @@ export function CampaignsHubContent() {
         >
           <BusinessScreenHeader
             title="קמפיינים"
-            subtitle="קמפיינים ידניים לפי מכסת המסלול, עם AI מ-Pro"
+            subtitle="קמפיינים לפי מכסת המסלול, עם AI מ-Pro"
           />
         </StickyScrollHeader>
 
@@ -580,17 +594,17 @@ export function CampaignsHubContent() {
               איך השיווק זמין במסלול שלכם
             </Text>
             <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-              קמפיינים ידניים זמינים לפי מכסת המסלול. המלצות ופעולות AI מתחילות
-              מ-Pro, וב-Starter יש 0 פעולות AI.
+              מכסת הקמפיינים כוללת קמפיינים ידניים וגם קמפיין הפניות פעיל.
+              המלצות ופעולות AI מתחילות מ-Pro, וב-Starter יש 0 פעולות AI.
             </Text>
             <View style={styles.accessGrid}>
               <MarketingAccessTile
-                eyebrow="קמפיינים ידניים"
+                eyebrow="מכסת קמפיינים"
                 title={`${campaignLimit.currentValue}/${campaignLimit.limitValue} פעילים במסלול ${currentPlanLabel ?? ''}`.trim()}
                 body={
                   campaignLimit.isAtLimit
-                    ? 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג כדי לפתוח מקום נוסף.'
-                    : `אפשר ליצור ולנהל קמפיינים ידניים כל עוד נשאר מקום במכסת המסלול. נותרו ${formatNumber(campaignLimit.remaining)} מקומות פעילים.`
+                    ? campaignLimitReachedCopy
+                    : `אפשר ליצור ולנהל קמפיינים ידניים כל עוד נשאר מקום במכסה אחרי קמפיין הפניות פעיל, אם הוא מופעל. נותרו ${formatNumber(campaignLimit.remaining)} מקומות פעילים.`
                 }
                 accentColor="#1D4ED8"
                 accentBg="#DBEAFE"
@@ -604,10 +618,10 @@ export function CampaignsHubContent() {
                 }
                 body={
                   isAiUnavailableOnCurrentPlan
-                    ? 'AI לקמפיינים מתחיל מ-Pro. במסלול הנוכחי אין פעולות AI, אבל קמפיינים ידניים נשארים זמינים לפי המכסה.'
+                    ? 'AI לקמפיינים מתחיל מ-Pro. במסלול הנוכחי אין פעולות AI, אבל קמפיינים נשארים זמינים לפי המכסה.'
                     : isAiQuotaReached
-                      ? 'נוצלה כל מכסת ה-AI החודשית. קמפיינים ידניים עדיין זמינים לפי מכסת המסלול.'
-                      : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות הקמפיינים הידניים.'
+                      ? 'נוצלה כל מכסת ה-AI החודשית. קמפיינים עדיין זמינים לפי מכסת המסלול.'
+                      : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות הקמפיינים.'
                 }
                 accentColor="#7C3AED"
                 accentBg="#EDE9FE"
@@ -777,17 +791,18 @@ export function CampaignsHubContent() {
               </View>
             </View>
             <View
-              className={`rounded-full px-3 py-1.5 ${isReferralCampaignActive ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'}`}
+              className={`rounded-full px-3 py-1.5 ${isReferralCampaignActive && !isReferralConfigLoading ? 'bg-[#16A34A]' : 'bg-[#E2E8F0]'}`}
             >
               <Text
-                className={`text-xs font-extrabold ${isReferralCampaignActive ? 'text-white' : 'text-[#475569]'}`}
+                className={`text-xs font-extrabold ${isReferralCampaignActive && !isReferralConfigLoading ? 'text-white' : 'text-[#475569]'}`}
               >
-                {isReferralCampaignActive ? 'פעיל' : 'לא פעיל'}
+                {referralCampaignBadgeLabel}
               </Text>
             </View>
           </View>
           <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
-            הפעלה דרך מסך ההפניות. כשהוא פעיל הוא נספר במכסת הקמפיינים.
+            קמפיין ההפניות פעיל כברירת מחדל כשאין הגדרה שמורה. כשהוא פעיל הוא
+            נספר כמקום אחד במכסת הקמפיינים.
           </Text>
         </TouchableOpacity>
 
@@ -847,9 +862,7 @@ export function CampaignsHubContent() {
                 <Text
                   className={`flex-1 text-xs text-[#B45309] ${tw.textStart}`}
                 >
-                  {
-                    'הגעתם למכסה הפעילה. אפשר להעביר קמפיין קיים לארכיון או לשדרג מסלול.'
-                  }
+                  {campaignLimitReachedCopy}
                 </Text>
                 <TouchableOpacity
                   onPress={() => openCampaignsUpgrade()}

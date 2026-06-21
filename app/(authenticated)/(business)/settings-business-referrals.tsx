@@ -24,7 +24,13 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type RewardType = 'STAMP' | 'BENEFIT';
 type RewardRecipients = 'referrer' | 'referred' | 'both';
@@ -72,6 +78,10 @@ export default function BusinessReferralSettingsScreen() {
   const canViewDashboard = capabilities?.access_dashboard === true;
   const canViewCustomers = capabilities?.access_customers === true;
   const canViewBilling = capabilities?.view_billing_state === true;
+  const canViewUsageQuota = capabilities?.view_usage_quota === true;
+  const { entitlements } = useEntitlements(
+    activeBusinessId && canViewUsageQuota ? activeBusinessId : null
+  );
 
   const configQuery = useQuery(
     api.referrals.getReferralConfig,
@@ -179,6 +189,23 @@ export default function BusinessReferralSettingsScreen() {
     performanceQuery.activeBenefits === 0 &&
     (performanceQuery.topReferrers?.length ?? 0) === 0 &&
     (performanceQuery.topOriginPrograms?.length ?? 0) === 0;
+  const requiredPlanForCampaigns =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxCampaigns ?? 'pro';
+
+  const openCampaignsUpgrade = (
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForCampaigns
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCampaigns',
+      requiredPlan,
+      reason: 'limit_reached',
+    });
+  };
 
   const handleSaveConfig = async () => {
     if (!activeBusinessId || !canEditConfig || isSaving) {
@@ -199,7 +226,31 @@ export default function BusinessReferralSettingsScreen() {
         monthlyLimit,
       });
       Alert.alert('', 'הגדרות החבר-מביא-חבר נשמרו');
-    } catch {
+    } catch (error) {
+      const entitlementError = getEntitlementError(error);
+      if (
+        isEnabled &&
+        entitlementError?.code === 'PLAN_LIMIT_REACHED' &&
+        entitlementError.limitKey === 'maxCampaigns'
+      ) {
+        Alert.alert(
+          'מכסת קמפיינים מלאה',
+          `${entitlementErrorToHebrewMessage(
+            entitlementError
+          )}\n\nקמפיין הפניות פעיל נספר כמקום אחד במכסת הקמפיינים. אפשר לכבות או לארכב קמפיין קיים, או לשדרג מסלול כדי להפעיל הפניות.`,
+          [
+            { text: 'סגור', style: 'cancel' },
+            {
+              text: 'שדרוג',
+              onPress: () =>
+                openCampaignsUpgrade(
+                  entitlementError.requiredPlan ?? requiredPlanForCampaigns
+                ),
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert('שגיאה', 'שמירת ההגדרות נכשלה');
     } finally {
       setIsSaving(false);
@@ -270,7 +321,9 @@ export default function BusinessReferralSettingsScreen() {
             subtitle="הגדרות, פעילות וביצועים"
             titleAccessory={
               <BackButton
-                onPress={() => router.push('/(authenticated)/(business)/campaigns')}
+                onPress={() =>
+                  router.push('/(authenticated)/(business)/campaigns')
+                }
               />
             }
           />
@@ -307,7 +360,9 @@ export default function BusinessReferralSettingsScreen() {
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>הגדרות חבר-מביא-חבר ללקוחות</Text>
+              <Text style={styles.sectionTitle}>
+                הגדרות חבר-מביא-חבר ללקוחות
+              </Text>
 
               <View style={styles.row}>
                 <Text style={styles.label}>הפניות פעילות</Text>
@@ -326,6 +381,10 @@ export default function BusinessReferralSettingsScreen() {
                   </Text>
                 </Pressable>
               </View>
+              <Text style={styles.quotaNote}>
+                קמפיין הפניות פעיל נספר כמקום אחד במכסת הקמפיינים של המסלול.
+                כשההפניות כבויות, הן לא נספרות במכסה.
+              </Text>
 
               <Text style={styles.label}>סוג תגמול</Text>
               <View style={styles.segmentRow}>
@@ -525,9 +584,7 @@ export default function BusinessReferralSettingsScreen() {
         {activeTab === 'customers' ? (
           !canViewCustomers ? (
             <View style={styles.card}>
-              <Text style={styles.emptyText}>
-                אין הרשאה לצפייה בלקוחות.
-              </Text>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בלקוחות.</Text>
             </View>
           ) : customersQuery === undefined ? (
             <View style={styles.card}>
@@ -558,9 +615,7 @@ export default function BusinessReferralSettingsScreen() {
         {activeTab === 'rewards' ? (
           !canViewCustomers ? (
             <View style={styles.card}>
-              <Text style={styles.emptyText}>
-                אין הרשאה לצפייה בתגמולים.
-              </Text>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בתגמולים.</Text>
             </View>
           ) : rewardsQuery === undefined ? (
             <View style={styles.card}>
@@ -590,9 +645,7 @@ export default function BusinessReferralSettingsScreen() {
         {activeTab === 'performance' ? (
           !canViewDashboard ? (
             <View style={styles.card}>
-              <Text style={styles.emptyText}>
-                אין הרשאה לצפייה בביצועים.
-              </Text>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בביצועים.</Text>
             </View>
           ) : performanceQuery === undefined ? (
             <View style={styles.card}>
@@ -634,9 +687,7 @@ export default function BusinessReferralSettingsScreen() {
               <View style={styles.subSection}>
                 <Text style={styles.subSectionTitle}>מפנים מובילים</Text>
                 {(performanceQuery.topReferrers ?? []).length === 0 ? (
-                  <Text style={styles.emptyText}>
-                    אין נתוני דירוג מפנים.
-                  </Text>
+                  <Text style={styles.emptyText}>אין נתוני דירוג מפנים.</Text>
                 ) : (
                   (performanceQuery.topReferrers ?? []).map((row, index) => (
                     <View
@@ -661,7 +712,9 @@ export default function BusinessReferralSettingsScreen() {
               <View style={styles.subSection}>
                 <Text style={styles.subSectionTitle}>תוכניות מקור</Text>
                 {(performanceQuery.topOriginPrograms ?? []).length === 0 ? (
-                  <Text style={styles.emptyText}>אין נתונים על תוכניות מקור.</Text>
+                  <Text style={styles.emptyText}>
+                    אין נתונים על תוכניות מקור.
+                  </Text>
                 ) : (
                   (performanceQuery.topOriginPrograms ?? []).map((row) => (
                     <View
@@ -744,6 +797,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
+    textAlign: 'right',
+  },
+  quotaNote: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    padding: 10,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E40AF',
+    lineHeight: 18,
     textAlign: 'right',
   },
   toggle: {

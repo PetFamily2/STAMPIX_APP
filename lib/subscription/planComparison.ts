@@ -53,7 +53,7 @@ const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסי ניקוב',
   maxCustomers: 'לקוחות (רשימה בכל המסלולים)',
   maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים ידניים (לפי מכסה)',
+  maxCampaigns: 'קמפיינים פעילים (ידניים + הפניות)',
   maxAiExecutionsPerMonth: 'פעולות AI חודשיות (מ-Pro)',
   maxTeamSeats: 'ניהול צוות',
 };
@@ -62,7 +62,7 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסים',
   maxCustomers: 'לקוחות',
   maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים ידניים',
+  maxCampaigns: 'קמפיינים פעילים',
   maxAiExecutionsPerMonth: 'AI מ-Pro',
   maxTeamSeats: 'ניהול צוות',
 };
@@ -83,7 +83,7 @@ const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
 
 export const PLAN_COMPARISON_CLARITY_NOTES = [
   'רשימת לקוחות וניהול בסיסי — בכל המסלולים.',
-  'מרכז הקמפיינים: קמפיינים ידניים לפי מכסת המסלול; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
+  'מרכז הקמפיינים: המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
   'דוחות מתקדמים — ייפתחו בקרוב במסלול Pro; אין מסך דוחות פעיל כרגע.',
 ] as const;
 
