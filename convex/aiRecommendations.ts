@@ -2362,6 +2362,14 @@ async function writeUsageLedger(input: {
   recommendationId?: Id<'aiRecommendations'>;
   createdAt: number;
 }) {
+  if (input.cacheHit !== true) {
+    await assertAiExecutionQuotaAvailable(
+      input.ctx,
+      input.businessId,
+      input.createdAt
+    );
+  }
+
   await input.ctx.db.insert('aiUsageLedger', {
     businessId: input.businessId,
     monthKey: monthKeyFromTimestamp(input.createdAt),
@@ -2375,6 +2383,36 @@ async function writeUsageLedger(input: {
     recommendationId: input.recommendationId,
     createdAt: input.createdAt,
   });
+}
+
+export async function assertAiExecutionQuotaAvailable(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  now = Date.now()
+) {
+  const monthKey = monthKeyFromTimestamp(now);
+  const usageRows = await ctx.db
+    .query('aiUsageLedger')
+    .withIndex('by_businessId_monthKey', (q: any) =>
+      q.eq('businessId', businessId).eq('monthKey', monthKey)
+    )
+    .collect();
+  const aiExecutionsThisMonth = usageRows.filter(
+    (row: any) => row.status === 'success' && row.cacheHit !== true
+  ).length;
+
+  return assertEntitlement(ctx, businessId, {
+    limitKey: 'maxAiExecutionsPerMonth',
+    currentValue: aiExecutionsThisMonth,
+  });
+}
+
+function isAiMonthlyQuotaError(error: unknown) {
+  const data = (error as { data?: Record<string, unknown> } | null)?.data;
+  return (
+    data?.code === 'PLAN_LIMIT_REACHED' &&
+    data?.limitKey === 'maxAiExecutionsPerMonth'
+  );
 }
 
 function buildDecision(input: {
@@ -2793,6 +2831,27 @@ export const listActiveBusinessesForRecommendationSweepInternal = internalQuery(
     },
   }
 );
+
+export const assertAiExecutionQuotaAvailableInternal = internalQuery({
+  args: {
+    businessId: v.id('businesses'),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, { businessId, now }) => {
+    const entitlements = await assertAiExecutionQuotaAvailable(
+      ctx,
+      businessId,
+      now ?? Date.now()
+    );
+    return {
+      ok: true as const,
+      plan: entitlements.plan,
+      limit: entitlements.limits.maxAiExecutionsPerMonth,
+      used: entitlements.usage.aiExecutionsThisMonth,
+      remaining: entitlements.usage.aiExecutionsThisMonthRemaining,
+    };
+  },
+});
 
 export const evaluateBusinessRecommendationInternal = internalMutation({
   args: {
@@ -3379,6 +3438,8 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    await assertAiExecutionQuotaAvailable(ctx, args.businessId, args.now);
+
     const snapshotRow = await ctx.db.get(args.snapshotId);
     if (!snapshotRow) {
       throw new Error('SNAPSHOT_NOT_FOUND');
@@ -3450,6 +3511,59 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
   },
 });
 
+export const finalizeAiRecommendationQuotaFallbackInternal = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    snapshotId: v.id('aiBusinessSnapshots'),
+    stateKey: v.string(),
+    goal: GOAL_UNION,
+    outputType: RECOMMENDATION_TYPE_UNION,
+    primaryCta: v.object({
+      kind: PRIMARY_CTA_KIND_UNION,
+      label: v.string(),
+      draftType: v.optional(CAMPAIGN_DRAFT_TYPE_UNION),
+      customerFilter: v.optional(CUSTOMER_FILTER_UNION),
+      routeTab: v.optional(v.string()),
+      highlightTarget: v.optional(v.string()),
+    }),
+    packageNote: v.optional(v.string()),
+    dedupeKey: v.string(),
+    relatedCampaignRunId: v.optional(v.id('campaignRuns')),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const snapshotRow = await ctx.db.get(args.snapshotId);
+    if (!snapshotRow) {
+      throw new Error('SNAPSHOT_NOT_FOUND');
+    }
+    const snapshot = snapshotRow.snapshot as BusinessHealthSnapshot;
+    const display = buildRecommendationDisplayPayload({
+      state: args.stateKey as BusinessState,
+      snapshot,
+      packageNote: args.packageNote ?? packageNoteForReason('QUOTA_EXHAUSTED'),
+      primaryCtaOverride: args.primaryCta,
+    });
+
+    const recommendationId = await createRecommendationRecord({
+      ctx,
+      businessId: args.businessId,
+      snapshotId: args.snapshotId,
+      stateKey: args.stateKey as BusinessState,
+      goal: args.goal,
+      source: 'fixed',
+      action: 'show_fixed',
+      outputType: args.outputType,
+      display,
+      dedupeKey: args.dedupeKey,
+      relatedCampaignRunId: args.relatedCampaignRunId,
+      guardrailReason: 'QUOTA_EXHAUSTED',
+      now: args.now,
+    });
+
+    return { ok: true, recommendationId };
+  },
+});
+
 export const finalizeAiRecommendationFailureInternal = internalMutation({
   args: {
     businessId: v.id('businesses'),
@@ -3515,6 +3629,11 @@ export const finalizeAiRecommendationFailureInternal = internalMutation({
       costEstimate: Math.max(0, args.costEstimate),
       recommendationId,
       createdAt: args.now,
+    }).catch((error) => {
+      if (isAiMonthlyQuotaError(error)) {
+        return;
+      }
+      throw error;
     });
 
     return { ok: true, recommendationId };
@@ -3571,15 +3690,21 @@ export const runRecommendationSweepInternal = internalAction({
         continue;
       }
 
-      const aiResult = await callGeminiJson({
-        prompt: evaluation.prompt,
-        expectedType: evaluation.outputType,
-        expectedLanguage: evaluation.expectedLanguage,
-      });
-
-      if (aiResult.ok) {
+      try {
+        await ctx.runQuery(
+          internal.aiRecommendations.assertAiExecutionQuotaAvailableInternal,
+          {
+            businessId: evaluation.businessId,
+            now,
+          }
+        );
+      } catch (error) {
+        if (!isAiMonthlyQuotaError(error)) {
+          throw error;
+        }
         await ctx.runMutation(
-          internal.aiRecommendations.finalizeAiRecommendationSuccessInternal,
+          internal.aiRecommendations
+            .finalizeAiRecommendationQuotaFallbackInternal,
           {
             businessId: evaluation.businessId,
             snapshotId: evaluation.snapshotId,
@@ -3587,21 +3712,73 @@ export const runRecommendationSweepInternal = internalAction({
             goal: evaluation.goal,
             outputType: evaluation.outputType,
             primaryCta: evaluation.primaryCta,
-            packageNote: evaluation.packageNote,
+            packageNote:
+              evaluation.packageNote ?? packageNoteForReason('QUOTA_EXHAUSTED'),
             dedupeKey: evaluation.dedupeKey,
-            promptHash: evaluation.promptHash,
-            cacheKey: evaluation.cacheKey,
-            inputSignature: evaluation.inputSignature,
-            title: aiResult.output.title,
-            message: aiResult.output.message,
-            inputTokens: aiResult.inputTokens,
-            outputTokens: aiResult.outputTokens,
-            costEstimate: aiResult.costEstimate,
             relatedCampaignRunId: evaluation.relatedCampaignRunId,
             now,
           }
         );
-        aiSuccessCount += 1;
+        fixedCount += 1;
+        continue;
+      }
+
+      const aiResult = await callGeminiJson({
+        prompt: evaluation.prompt,
+        expectedType: evaluation.outputType,
+        expectedLanguage: evaluation.expectedLanguage,
+      });
+
+      if (aiResult.ok) {
+        try {
+          await ctx.runMutation(
+            internal.aiRecommendations.finalizeAiRecommendationSuccessInternal,
+            {
+              businessId: evaluation.businessId,
+              snapshotId: evaluation.snapshotId,
+              stateKey: evaluation.topState,
+              goal: evaluation.goal,
+              outputType: evaluation.outputType,
+              primaryCta: evaluation.primaryCta,
+              packageNote: evaluation.packageNote,
+              dedupeKey: evaluation.dedupeKey,
+              promptHash: evaluation.promptHash,
+              cacheKey: evaluation.cacheKey,
+              inputSignature: evaluation.inputSignature,
+              title: aiResult.output.title,
+              message: aiResult.output.message,
+              inputTokens: aiResult.inputTokens,
+              outputTokens: aiResult.outputTokens,
+              costEstimate: aiResult.costEstimate,
+              relatedCampaignRunId: evaluation.relatedCampaignRunId,
+              now,
+            }
+          );
+          aiSuccessCount += 1;
+        } catch (error) {
+          if (!isAiMonthlyQuotaError(error)) {
+            throw error;
+          }
+          await ctx.runMutation(
+            internal.aiRecommendations
+              .finalizeAiRecommendationQuotaFallbackInternal,
+            {
+              businessId: evaluation.businessId,
+              snapshotId: evaluation.snapshotId,
+              stateKey: evaluation.topState,
+              goal: evaluation.goal,
+              outputType: evaluation.outputType,
+              primaryCta: evaluation.primaryCta,
+              packageNote:
+                evaluation.packageNote ??
+                packageNoteForReason('QUOTA_EXHAUSTED'),
+              dedupeKey: evaluation.dedupeKey,
+              relatedCampaignRunId: evaluation.relatedCampaignRunId,
+              now,
+            }
+          );
+          fixedCount += 1;
+        }
       } else {
         await ctx.runMutation(
           internal.aiRecommendations.finalizeAiRecommendationFailureInternal,
