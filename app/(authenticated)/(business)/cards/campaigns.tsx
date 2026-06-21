@@ -225,7 +225,6 @@ export function CampaignsHubContent() {
   const {
     entitlements,
     limitStatus,
-    gate,
     isLoading: isEntitlementsLoading,
   } = useEntitlements(activeBusinessId);
 
@@ -318,25 +317,24 @@ export function CampaignsHubContent() {
   const bestReachCampaign = topReachCampaigns[0] ?? null;
   const isReferralCampaignActive = referralConfig?.isEnabled === true;
   const campaignLimit = limitStatus('maxCampaigns');
-  const marketingAiGate = gate('canUseMarketingHubAI');
   const aiExecutionsLimit = limitStatus('maxAiExecutionsPerMonth');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
   const requiredPlanForAi =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
-      ?.maxAiExecutionsPerMonth ??
-    marketingAiGate.requiredPlan ??
-    'pro';
-  const marketingHubCopy = getLockedAreaCopy(
-    'marketingHub',
-    marketingAiGate.requiredPlan
-  );
+      ?.maxAiExecutionsPerMonth ?? 'pro';
   const aiQuotaCopy = getLockedAreaCopy(
     'maxAiExecutionsPerMonth',
     requiredPlanForAi
   );
   const currentPlanLabel = entitlements ? PLAN_LABELS[entitlements.plan] : null;
+  const isAiUnavailableOnCurrentPlan =
+    !isEntitlementsLoading && aiExecutionsLimit.limitValue === 0;
+  const isAiQuotaReached =
+    !isEntitlementsLoading &&
+    aiExecutionsLimit.limitValue > 0 &&
+    aiExecutionsLimit.isAtLimit;
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
     canViewCampaigns &&
@@ -562,14 +560,14 @@ export function CampaignsHubContent() {
               <MarketingAccessTile
                 eyebrow="AI לקמפיינים"
                 title={
-                  marketingAiGate.isLocked
-                    ? 'לא זמין ב-Starter'
+                  isAiUnavailableOnCurrentPlan
+                    ? 'לא זמין במסלול הנוכחי'
                     : `${aiExecutionsLimit.currentValue}/${aiExecutionsLimit.limitValue} פעולות AI החודש`
                 }
                 body={
-                  marketingAiGate.isLocked
-                    ? 'המלצות ופעולות AI זמינות רק מ-Pro. במסלול Starter אין פעולות AI, אבל קמפיינים ידניים נשארים זמינים לפי המכסה.'
-                    : aiExecutionsLimit.isAtLimit
+                  isAiUnavailableOnCurrentPlan
+                    ? 'AI לקמפיינים מתחיל מ-Pro. במסלול הנוכחי אין פעולות AI, אבל קמפיינים ידניים נשארים זמינים לפי המכסה.'
+                    : isAiQuotaReached
                       ? 'נוצלה כל מכסת ה-AI החודשית. קמפיינים ידניים עדיין זמינים לפי מכסת המסלול.'
                       : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות הקמפיינים הידניים.'
                 }
@@ -580,27 +578,24 @@ export function CampaignsHubContent() {
           </View>
         ) : null}
 
-        {!isEntitlementsLoading && marketingAiGate.isLocked ? (
+        {isAiUnavailableOnCurrentPlan ? (
           <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
             <Text
               className={`text-sm font-black text-blue-900 ${tw.textStart}`}
             >
-              {marketingHubCopy.lockedTitle}
+              AI לקמפיינים מתחיל מ-Pro
             </Text>
             <Text
               className={`mt-1 text-xs font-semibold text-blue-700 ${tw.textStart}`}
             >
-              {marketingHubCopy.lockedSubtitle}
+              {aiQuotaCopy.lockedSubtitle}
             </Text>
             <TouchableOpacity
               onPress={() =>
                 openSubscriptionComparison(router, {
-                  featureKey: 'marketingHub',
-                  requiredPlan: marketingAiGate.requiredPlan,
-                  reason:
-                    marketingAiGate.reason === 'subscription_inactive'
-                      ? 'subscription_inactive'
-                      : 'feature_locked',
+                  featureKey: 'maxAiExecutionsPerMonth',
+                  requiredPlan: requiredPlanForAi,
+                  reason: 'feature_locked',
                 })
               }
               className="mt-3 self-end rounded-full bg-[#1D4ED8] px-3 py-1.5"
@@ -610,9 +605,7 @@ export function CampaignsHubContent() {
           </View>
         ) : null}
 
-        {!isEntitlementsLoading &&
-        !marketingAiGate.isLocked &&
-        aiExecutionsLimit.isAtLimit ? (
+        {isAiQuotaReached ? (
           <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
             <Text
               className={`text-sm font-black text-amber-900 ${tw.textStart}`}
