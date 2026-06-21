@@ -26,7 +26,11 @@ Starter, Pro, and Premium.
 Starter is not a RevenueCat product. Pro and Premium are paid RevenueCat-backed
 plans.
 
-## 3) App environment variables
+## 3) Client / EAS build environment variables
+These `EXPO_PUBLIC_*` values are bundled into the Expo app at build time. Set
+them in EAS for preview/production builds, or in local `.env` files for local
+development.
+
 Recommended (env-separated):
 ```env
 # Convex
@@ -51,15 +55,6 @@ EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY="pro_monthly"
 EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY="pro_yearly"
 EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY="premium_monthly"
 EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY="premium_yearly"
-
-# Server webhook and product aliases
-REVENUECAT_WEBHOOK_SECRET="whsec_..."
-REVENUECAT_PRODUCT_IDS_PRO_MONTHLY="pro_monthly"
-REVENUECAT_PRODUCT_IDS_PRO_YEARLY="pro_yearly,pro_annual"
-REVENUECAT_PRODUCT_IDS_PREMIUM_MONTHLY="premium_monthly"
-REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY="premium_yearly,premium_annual"
-REVENUECAT_ENTITLEMENT_IDS_PRO="pro"
-REVENUECAT_ENTITLEMENT_IDS_PREMIUM="premium"
 ```
 
 Fallback (legacy single vars are still supported):
@@ -69,7 +64,32 @@ EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY="appl_..."
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY="goog_..."
 ```
 
-## 4) EAS secrets (example)
+## 4) Convex backend environment variables
+These values are read only by Convex server code. Do not set them as EAS app
+secrets unless another deployment process explicitly mirrors Convex env from
+EAS; the mobile client does not need these values.
+
+```env
+# Required when `/revenuecat/webhook` is enabled
+REVENUECAT_WEBHOOK_SECRET="whsec_..."
+
+# Optional product aliases used by the webhook mapper
+REVENUECAT_PRODUCT_IDS_PRO_MONTHLY="pro_monthly"
+REVENUECAT_PRODUCT_IDS_PRO_YEARLY="pro_yearly,pro_annual"
+REVENUECAT_PRODUCT_IDS_PREMIUM_MONTHLY="premium_monthly"
+REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY="premium_yearly,premium_annual"
+
+# Optional entitlement aliases used by the webhook mapper
+REVENUECAT_ENTITLEMENT_IDS_PRO="pro"
+REVENUECAT_ENTITLEMENT_IDS_PREMIUM="premium"
+```
+
+If the alias variables are omitted, the backend uses the default product ids
+`pro_monthly`, `pro_yearly`, `pro_annual`, `premium_monthly`,
+`premium_yearly`, and `premium_annual`, plus entitlement ids `pro` and
+`premium`.
+
+## 5) EAS secrets (client build values only)
 ```bash
 # Convex (recommended)
 bunx eas-cli secret:create --scope project --name EXPO_PUBLIC_CONVEX_URL_DEV --value "https://your-dev.convex.cloud"
@@ -82,12 +102,12 @@ bunx eas-cli secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_GOOGLE_
 # RevenueCat optional dev keys
 bunx eas-cli secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV --value "appl_..."
 bunx eas-cli secret:create --scope project --name EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV --value "goog_..."
-
-# Optional webhook
-bunx eas-cli secret:create --scope project --name REVENUECAT_WEBHOOK_SECRET --value "whsec_..."
 ```
 
-## 5) Runtime behavior in this project
+Set `REVENUECAT_WEBHOOK_SECRET` and webhook product/entitlement aliases in
+Convex environment configuration, not in the EAS client build secret list.
+
+## 6) Runtime behavior in this project
 RevenueCat integration lives in `contexts/RevenueCatContext.tsx`.
 
 Behavior:
@@ -110,7 +130,7 @@ Related config:
 - `convex/entitlements.ts` maps product and entitlement ids to `pro` or
   `premium`.
 
-## 6) Test flow
+## 7) Test flow
 1. Build a development client (not Expo Go).
 2. Open paywall screen.
 3. Test purchase flow.
@@ -118,7 +138,7 @@ Related config:
 5. Verify RevenueCat sends the webhook to `/revenuecat/webhook`.
 6. Verify business subscription fields (`businesses` + `subscriptions`) were synced after webhook processing.
 
-## 7) Common issues
+## 8) Common issues
 - Purchases unavailable in Expo Go: expected behavior.
 - No offerings/packages: check product-entitlement mapping in RevenueCat dashboard.
 - Purchase button disabled: verify `EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`,
