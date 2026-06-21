@@ -30,8 +30,13 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
@@ -379,6 +384,20 @@ export default function ProgramDetailsScreen() {
     }
   };
 
+  const openCardsUpgrade = (
+    requiredPlan: 'starter' | 'pro' | 'premium' | null = 'pro',
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCards',
+      requiredPlan,
+      reason,
+    });
+  };
+
   const handlePublish = async () => {
     if (!canManage || lifecycle !== 'draft' || isSubmitting) {
       return;
@@ -416,6 +435,22 @@ export default function ProgramDetailsScreen() {
               },
             },
           ]
+        );
+        return;
+      }
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        Alert.alert(
+          '\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05e1\u05dc\u05d5\u05dc',
+          entitlementErrorToHebrewMessage(entitlementError)
+        );
+        openCardsUpgrade(
+          entitlementError.requiredPlan ?? 'pro',
+          entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+            ? 'subscription_inactive'
+            : entitlementError.code === 'PLAN_LIMIT_REACHED'
+              ? 'limit_reached'
+              : 'feature_locked'
         );
         return;
       }
