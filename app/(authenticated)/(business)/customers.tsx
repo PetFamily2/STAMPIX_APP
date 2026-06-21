@@ -25,6 +25,7 @@ import {
   KpiCard,
   SurfaceCard,
 } from '@/components/business-ui';
+import { UsageProgressBar } from '@/components/business-ui/UsageProgressBar';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { IS_DEV_MODE } from '@/config/appConfig';
@@ -194,7 +195,8 @@ export function CustomersHubContent() {
       )
     : null;
   const canCreateCampaigns = businessCapabilities?.create_campaigns === true;
-  const { entitlements, gate } = useEntitlements(activeBusinessId);
+  const canViewUsageQuota = businessCapabilities?.view_usage_quota === true;
+  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
   const smartGate = gate('smartAnalytics');
   const smartCopy = getLockedAreaCopy('smartAnalytics', smartGate.requiredPlan);
   const smartPlanLabel = smartGate.requiredPlan
@@ -217,6 +219,12 @@ export function CustomersHubContent() {
     api.memberships.getBusinessRewardEligibilitySummary,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
+  const usageSummary = useQuery(
+    api.entitlements.getBusinessUsageSummary,
+    activeBusinessId && canViewUsageQuota
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
   const [search, setSearch] = useState('');
   const [isCreatingWinbackCampaign, setIsCreatingWinbackCampaign] =
     useState(false);
@@ -224,6 +232,26 @@ export function CustomersHubContent() {
     smartGate.isLocked && isInsightsCustomerFilter(activeFilter);
   const effectiveFilter = hasLockedInsightsFilter ? null : activeFilter;
   const showLifecycleInsights = !smartGate.isLocked;
+  const customerLimitRequiredPlan =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxCustomers ?? null;
+  const customerLimitCopy = getLockedAreaCopy(
+    'maxCustomers',
+    customerLimitRequiredPlan
+  );
+  const customersUsed =
+    typeof usageSummary?.customersUsed === 'number' &&
+    Number.isFinite(usageSummary.customersUsed)
+      ? usageSummary.customersUsed
+      : null;
+  const customerLimitStatus =
+    entitlements && customersUsed !== null
+      ? limitStatus('maxCustomers', customersUsed)
+      : null;
+  const showCustomerUsageStatus =
+    canViewUsageQuota &&
+    customerLimitStatus !== null &&
+    customerLimitStatus.limitValue > 0;
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -653,6 +681,78 @@ export function CustomersHubContent() {
           ) : null}
         </SurfaceCard>
 
+        {showCustomerUsageStatus ? (
+          <SurfaceCard
+            style={[
+              styles.customerUsageCard,
+              customerLimitStatus.isAtLimit
+                ? styles.customerUsageCardAtLimit
+                : customerLimitStatus.isNearLimit
+                  ? styles.customerUsageCardNearLimit
+                  : null,
+            ]}
+          >
+            <View style={styles.customerUsageHeader}>
+              <View style={styles.customerUsageIconWrap}>
+                <Ionicons name="people-outline" size={20} color="#1D4ED8" />
+              </View>
+              <View style={styles.customerUsageCopy}>
+                <Text
+                  className={tw.textStart}
+                  style={styles.customerUsageTitle}
+                >
+                  {customerLimitStatus.isAtLimit
+                    ? customerLimitCopy.lockedTitle
+                    : 'מכסת לקוחות'}
+                </Text>
+                <Text className={tw.textStart} style={styles.customerUsageBody}>
+                  {customerLimitStatus.isAtLimit
+                    ? `${customerLimitCopy.lockedSubtitle} אפשר להמשיך לחפש, לפתוח ולנהל לקוחות קיימים.`
+                    : customerLimitStatus.isNearLimit
+                      ? `אתם מתקרבים למכסת הלקוחות במסלול הנוכחי. נותרו ${formatNumber(
+                          customerLimitStatus.remaining
+                        )} מקומות פנויים.`
+                      : 'רואים כאן כמה לקוחות פעילים כבר נספרו מתוך המכסה במסלול הנוכחי.'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.customerUsageProgressWrap}>
+              <UsageProgressBar
+                label="לקוחות בשימוש"
+                used={customerLimitStatus.currentValue}
+                limit={customerLimitStatus.limitValue}
+                accent="#1D4ED8"
+              />
+            </View>
+
+            {customerLimitStatus.isAtLimit ? (
+              <View style={styles.customerUsageUpgradeRow}>
+                <Text className={tw.textStart} style={styles.customerUsageHint}>
+                  הוספת לקוחות חדשים תצריך שדרוג מסלול.
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    openUpgrade(
+                      'maxCustomers',
+                      customerLimitRequiredPlan,
+                      'limit_reached'
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.customerUsageUpgradeButton,
+                    pressed ? styles.customerUsageUpgradeButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.customerUsageUpgradeButtonText}>
+                    שדרוג
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </SurfaceCard>
+        ) : null}
+
         <SurfaceCard style={styles.searchCard}>
           <View style={styles.searchRow}>
             <Ionicons name="search-outline" size={20} color="#B0BAC8" />
@@ -851,6 +951,82 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
     color: '#1D4ED8',
+  },
+  customerUsageCard: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#DCE7F8',
+  },
+  customerUsageCardNearLimit: {
+    borderColor: '#FCD34D',
+    backgroundColor: '#FFFDF5',
+  },
+  customerUsageCardAtLimit: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFF7ED',
+  },
+  customerUsageHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  customerUsageIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F1FF',
+  },
+  customerUsageCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  customerUsageTitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  customerUsageBody: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  customerUsageProgressWrap: {
+    marginTop: 14,
+  },
+  customerUsageUpgradeRow: {
+    marginTop: 14,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  customerUsageHint: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  customerUsageUpgradeButton: {
+    minHeight: 36,
+    borderRadius: 999,
+    backgroundColor: '#1D4ED8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  customerUsageUpgradeButtonPressed: {
+    opacity: 0.88,
+  },
+  customerUsageUpgradeButtonText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   searchCard: {
     marginTop: 18,
