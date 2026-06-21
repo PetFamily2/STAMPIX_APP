@@ -121,6 +121,24 @@ function toBusinessOnboardingDraft(
       source.weakTimePromosRelevant === false
         ? source.weakTimePromosRelevant
         : null,
+    shortDescription:
+      typeof source.shortDescription === 'string'
+        ? source.shortDescription
+        : undefined,
+    businessPhone:
+      typeof source.businessPhone === 'string'
+        ? source.businessPhone
+        : undefined,
+    serviceTypes: Array.isArray(source.serviceTypes)
+      ? source.serviceTypes.filter(
+          (entry): entry is string => typeof entry === 'string'
+        )
+      : undefined,
+    serviceTags: Array.isArray(source.serviceTags)
+      ? source.serviceTags.filter(
+          (entry): entry is string => typeof entry === 'string'
+        )
+      : undefined,
     formattedAddress:
       typeof source.formattedAddress === 'string'
         ? source.formattedAddress

@@ -1157,7 +1157,7 @@ function hasBusinessAddress(business: {
   );
 }
 
-function computeBusinessProfileCompletion(business: {
+export function computeBusinessProfileCompletion(business: {
   name: string;
   shortDescription?: string;
   businessPhone?: string;
@@ -1260,6 +1260,35 @@ export const getBusinessSettings = query({
       colors: business.colors ?? null,
       profileCompletion,
       updatedAt: business.updatedAt,
+    };
+  },
+});
+
+export const assertBusinessOnboardingReady = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+
+    const profileCompletion = computeBusinessProfileCompletion(business);
+    if (!profileCompletion.isComplete) {
+      throw new Error(
+        `BUSINESS_PROFILE_INCOMPLETE:${profileCompletion.missingFields.join(',')}`
+      );
+    }
+
+    return {
+      businessId,
+      profileCompletion,
     };
   },
 });

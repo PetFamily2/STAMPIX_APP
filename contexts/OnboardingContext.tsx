@@ -35,6 +35,10 @@ export type BusinessOnboardingDraft = {
   birthdayCampaignRelevant: boolean | null;
   joinAnniversaryCampaignRelevant: boolean | null;
   weakTimePromosRelevant: boolean | null;
+  shortDescription: string;
+  businessPhone: string;
+  serviceTypes: string[];
+  serviceTags: string[];
   formattedAddress: string;
   placeId: string;
   locationLat: number | null;
@@ -100,6 +104,10 @@ const defaultBusinessOnboardingDraft: BusinessOnboardingDraft = {
   birthdayCampaignRelevant: null,
   joinAnniversaryCampaignRelevant: null,
   weakTimePromosRelevant: null,
+  shortDescription: '',
+  businessPhone: '',
+  serviceTypes: [],
+  serviceTags: [],
   formattedAddress: '',
   placeId: '',
   locationLat: null,

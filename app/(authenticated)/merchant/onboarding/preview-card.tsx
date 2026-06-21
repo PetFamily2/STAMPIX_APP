@@ -45,6 +45,8 @@ const TEXT = {
   fallbackReward: 'מתנה שתרצו להעניק ללקוחות',
   errorTitle: 'שגיאה',
   errorMessage: 'לא הצלחנו להשלים את האונבורדינג העסקי. נסו שוב.',
+  profileIncompleteMessage:
+    'חסרים פרטים בפרופיל העסק. חזרו לשלב פרטי העסק והשלימו את השדות הנדרשים לפני פרסום.',
   selected: 'נבחר',
 };
 
@@ -336,6 +338,9 @@ export default function PreviewCardScreen() {
   const saveBusinessOnboardingSnapshot = useMutation(
     api.business.saveBusinessOnboardingSnapshot
   );
+  const assertBusinessOnboardingReady = useMutation(
+    api.business.assertBusinessOnboardingReady
+  );
   const setActiveMode = useMutation(api.users.setActiveMode);
   const { setAppMode } = useAppMode();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
@@ -439,6 +444,27 @@ export default function PreviewCardScreen() {
 
     setIsFinishing(true);
     try {
+      await saveBusinessOnboardingSnapshot({
+        businessId,
+        discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
+        reason: businessOnboardingDraft.reason ?? undefined,
+        usageAreas:
+          businessOnboardingDraft.usageAreas.length > 0
+            ? businessOnboardingDraft.usageAreas
+            : undefined,
+        ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
+        businessExample: businessOnboardingDraft.businessExample ?? undefined,
+        cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
+        birthdayCampaignRelevant:
+          businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
+        joinAnniversaryCampaignRelevant:
+          businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
+        weakTimePromosRelevant:
+          businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
+      });
+
+      await assertBusinessOnboardingReady({ businessId });
+
       const normalizedTitle =
         programDraft.title.trim() || programDraft.rewardName.trim();
       const normalizedReward =
@@ -465,25 +491,7 @@ export default function PreviewCardScreen() {
         programId,
       });
 
-      await saveBusinessOnboardingSnapshot({
-        businessId,
-        discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
-        reason: businessOnboardingDraft.reason ?? undefined,
-        usageAreas:
-          businessOnboardingDraft.usageAreas.length > 0
-            ? businessOnboardingDraft.usageAreas
-            : undefined,
-        ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
-        businessExample: businessOnboardingDraft.businessExample ?? undefined,
-        cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
-        birthdayCampaignRelevant:
-          businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
-        joinAnniversaryCampaignRelevant:
-          businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
-        weakTimePromosRelevant:
-          businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
-      });
-      await completeBusinessOnboarding({});
+      await completeBusinessOnboarding({ businessId });
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');
       try {
@@ -497,8 +505,13 @@ export default function PreviewCardScreen() {
       }
       reset();
       safePush('/(authenticated)/(business)/scanner');
-    } catch {
-      Alert.alert(TEXT.errorTitle, TEXT.errorMessage);
+    } catch (finishError) {
+      const message =
+        finishError instanceof Error &&
+        finishError.message.includes('BUSINESS_PROFILE_INCOMPLETE')
+          ? TEXT.profileIncompleteMessage
+          : TEXT.errorMessage;
+      Alert.alert(TEXT.errorTitle, message);
     } finally {
       setIsFinishing(false);
     }
@@ -512,7 +525,7 @@ export default function PreviewCardScreen() {
             onPress={() =>
               safeDismissTo(
                 withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.createProgram,
+                  BUSINESS_ONBOARDING_ROUTES.businessBasics,
                   flow
                 )
               )

@@ -207,7 +207,10 @@ export default function CreateProgramScreen() {
       });
 
       safePush(
-        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.businessBasics,
+          flow
+        )
       );
     } catch (submitError: unknown) {
       setError(toErrorMessage(submitError, TEXT.errorFallback));

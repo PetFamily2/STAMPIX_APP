@@ -24,6 +24,7 @@ const BUSINESS_ONBOARDING_STEP_UNION = v.union(
   v.literal('businessCampaignRelevance'),
   v.literal('plan'),
   v.literal('createProgram'),
+  v.literal('businessBasics'),
   v.literal('previewCard')
 );
 
@@ -41,6 +42,7 @@ type BusinessOnboardingStep =
   | 'businessCampaignRelevance'
   | 'plan'
   | 'createProgram'
+  | 'businessBasics'
   | 'previewCard';
 
 const DEFAULT_STEP_ORDER: Record<BusinessOnboardingStep, number> = {
@@ -55,7 +57,8 @@ const DEFAULT_STEP_ORDER: Record<BusinessOnboardingStep, number> = {
   businessCampaignRelevance: 9,
   plan: 10,
   createProgram: 11,
-  previewCard: 12,
+  businessBasics: 12,
+  previewCard: 13,
 };
 
 const ADDITIONAL_STEP_ORDER: Partial<Record<BusinessOnboardingStep, number>> = {
@@ -63,7 +66,8 @@ const ADDITIONAL_STEP_ORDER: Partial<Record<BusinessOnboardingStep, number>> = {
   createBusiness: 2,
   plan: 3,
   createProgram: 4,
-  previewCard: 5,
+  businessBasics: 5,
+  previewCard: 6,
 };
 
 function resolveStepOrder(

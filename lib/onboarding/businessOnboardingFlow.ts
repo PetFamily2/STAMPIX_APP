@@ -11,6 +11,7 @@ export const BUSINESS_ONBOARDING_ROUTES = {
   plan: '/(auth)/onboarding-business-plan',
   createBusiness: '/(authenticated)/merchant/onboarding/create-business',
   createProgram: '/(authenticated)/merchant/onboarding/create-program',
+  businessBasics: '/(authenticated)/merchant/onboarding/business-basics',
   previewCard: '/(authenticated)/merchant/onboarding/preview-card',
 } as const;
 
@@ -26,7 +27,8 @@ export const BUSINESS_ONBOARDING_PROGRESS = {
   businessCampaignRelevance: 9,
   plan: 10,
   createProgram: 11,
-  previewCard: 12,
+  businessBasics: 12,
+  previewCard: 13,
 } as const;
 
 export const BUSINESS_ONBOARDING_TOTAL_STEPS =
@@ -47,7 +49,8 @@ const ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS = {
   createBusiness: 2,
   plan: 3,
   createProgram: 4,
-  previewCard: 5,
+  businessBasics: 5,
+  previewCard: 6,
 } as const;
 
 const ADDITIONAL_FLOW_ALLOWED_STEPS = new Set(

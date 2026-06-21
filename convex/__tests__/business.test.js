@@ -1,12 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  assertBusinessOnboardingReady,
   getBusinessesNearby,
   getBusinessSettings,
   saveBusinessOnboardingSnapshot,
   updateBusinessAddress,
   updateBusinessProfile,
 } from '../business';
+import { completeBusinessOnboarding } from '../users';
 
 function buildUser(overrides = {}) {
   return {
@@ -75,6 +77,15 @@ function createMockCtx({
         state.businessStaff.get(id) ??
         null,
       patch: async (id, patch) => {
+        if (state.users.has(id)) {
+          const current = state.users.get(id);
+          state.users.set(id, {
+            ...current,
+            ...patch,
+          });
+          return;
+        }
+
         if (state.businesses.has(id)) {
           const current = state.businesses.get(id);
           state.businesses.set(id, {
@@ -246,6 +257,142 @@ describe('business profile settings and discovery filters', () => {
 
     expect(settings.profileCompletion.isComplete).toBe(true);
     expect(settings.profileCompletion.missingFields).toEqual([]);
+  });
+
+  test('assertBusinessOnboardingReady blocks incomplete business profiles', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: '',
+          businessPhone: '',
+          serviceTypes: [],
+          serviceTags: [],
+          placeId: 'place_1',
+          formattedAddress: 'Test Address 10',
+          location: { lat: 32.08, lng: 34.78 },
+          onboardingSnapshot: {
+            discoverySource: 'search',
+            reason: 'insights',
+            usageAreas: ['citywide'],
+            ownerAgeRange: '25-34',
+            businessExample: 'hair_salon',
+            birthdayCampaignRelevant: true,
+            joinAnniversaryCampaignRelevant: true,
+            weakTimePromosRelevant: true,
+            collectedAt: Date.now(),
+          },
+        }),
+      ],
+    });
+
+    await expect(
+      assertBusinessOnboardingReady._handler(ctx, {
+        businessId: 'business_1',
+      })
+    ).rejects.toThrow('BUSINESS_PROFILE_INCOMPLETE');
+  });
+
+  test('assertBusinessOnboardingReady allows complete business profiles', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: 'Business short description',
+          businessPhone: '+972 50-123-4567',
+          serviceTypes: ['beauty'],
+          serviceTags: ['nails'],
+          placeId: 'place_1',
+          formattedAddress: 'Test Address 10',
+          location: { lat: 32.08, lng: 34.78 },
+          onboardingSnapshot: {
+            discoverySource: 'search',
+            reason: 'insights',
+            usageAreas: ['citywide'],
+            ownerAgeRange: '25-34',
+            businessExample: 'hair_salon',
+            birthdayCampaignRelevant: true,
+            joinAnniversaryCampaignRelevant: true,
+            weakTimePromosRelevant: true,
+            collectedAt: Date.now(),
+          },
+        }),
+      ],
+    });
+
+    const result = await assertBusinessOnboardingReady._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    expect(result.profileCompletion.isComplete).toBe(true);
+  });
+
+  test('completeBusinessOnboarding rejects incomplete profile without patching onboarding flag', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: '',
+          businessPhone: '',
+          serviceTypes: [],
+          serviceTags: [],
+          placeId: 'place_1',
+          formattedAddress: 'Test Address 10',
+          location: { lat: 32.08, lng: 34.78 },
+          onboardingSnapshot: {
+            discoverySource: 'search',
+            reason: 'insights',
+            usageAreas: ['citywide'],
+            ownerAgeRange: '25-34',
+            businessExample: 'hair_salon',
+            birthdayCampaignRelevant: true,
+            joinAnniversaryCampaignRelevant: true,
+            weakTimePromosRelevant: true,
+            collectedAt: Date.now(),
+          },
+        }),
+      ],
+    });
+
+    await expect(
+      completeBusinessOnboarding._handler(ctx, {
+        businessId: 'business_1',
+      })
+    ).rejects.toThrow('BUSINESS_PROFILE_INCOMPLETE');
+
+    expect(state.users.get('user_owner').businessOnboardedAt).toBeUndefined();
+  });
+
+  test('completeBusinessOnboarding patches onboarding flag for complete profile', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          shortDescription: 'Business short description',
+          businessPhone: '+972 50-123-4567',
+          serviceTypes: ['beauty'],
+          serviceTags: ['nails'],
+          placeId: 'place_1',
+          formattedAddress: 'Test Address 10',
+          location: { lat: 32.08, lng: 34.78 },
+          onboardingSnapshot: {
+            discoverySource: 'search',
+            reason: 'insights',
+            usageAreas: ['citywide'],
+            ownerAgeRange: '25-34',
+            businessExample: 'hair_salon',
+            birthdayCampaignRelevant: true,
+            joinAnniversaryCampaignRelevant: true,
+            weakTimePromosRelevant: true,
+            collectedAt: Date.now(),
+          },
+        }),
+      ],
+    });
+
+    await completeBusinessOnboarding._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    const updatedUser = state.users.get('user_owner');
+    expect(typeof updatedUser.businessOnboardedAt).toBe('number');
+    expect(typeof updatedUser.updatedAt).toBe('number');
   });
 
   test('staff role cannot update business profile', async () => {

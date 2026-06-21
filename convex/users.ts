@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from './_generated/server';
+import { computeBusinessProfileCompletion } from './business';
 import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
@@ -953,9 +954,42 @@ export const completeCustomerOnboarding = mutation({
 });
 
 export const completeBusinessOnboarding = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    businessId: v.optional(v.id('businesses')),
+  },
+  handler: async (ctx, { businessId }) => {
     const user = await requireCurrentUser(ctx);
+    const targetBusinessId = businessId ?? user.activeBusinessId;
+
+    if (targetBusinessId) {
+      const business = await ctx.db.get(targetBusinessId);
+      if (!business || business.isActive !== true) {
+        throw new Error('BUSINESS_INACTIVE');
+      }
+
+      const staffRecord = await ctx.db
+        .query('businessStaff')
+        .withIndex('by_businessId_userId', (q) =>
+          q.eq('businessId', targetBusinessId).eq('userId', user._id)
+        )
+        .first();
+      if (
+        String(business.ownerUserId) !== String(user._id) &&
+        (!staffRecord || getBusinessStaffStatus(staffRecord) !== 'active')
+      ) {
+        throw new Error('NOT_AUTHORIZED');
+      }
+
+      const profileCompletion = computeBusinessProfileCompletion(business);
+      if (!profileCompletion.isComplete) {
+        throw new Error(
+          `BUSINESS_PROFILE_INCOMPLETE:${profileCompletion.missingFields.join(',')}`
+        );
+      }
+    } else if (!user.businessOnboardedAt) {
+      throw new Error('BUSINESS_REQUIRED');
+    }
+
     await ctx.db.patch(user._id, {
       businessOnboardedAt: Date.now(),
       updatedAt: Date.now(),
