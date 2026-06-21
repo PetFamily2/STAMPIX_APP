@@ -10,6 +10,49 @@ import { tw } from '@/lib/rtl';
 
 type StatusTone = 'danger' | 'warning' | 'neutral' | 'success';
 
+const SUBSCRIPTION_STATUS_COPY: Partial<
+  Record<
+    string,
+    {
+      title: string;
+      subtitle: string;
+      tone: StatusTone;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  >
+> = {
+  expired: {
+    title: 'המנוי הסתיים',
+    subtitle: 'נדרש חידוש או עדכון חבילה כדי להמשיך לעבוד ללא מגבלות.',
+    tone: 'danger',
+    icon: 'alert-circle-outline',
+  },
+  inactive: {
+    title: 'המנוי לא פעיל',
+    subtitle: 'יש להפעיל או לעדכן את החבילה כדי לחזור לעבודה מלאה.',
+    tone: 'danger',
+    icon: 'alert-circle-outline',
+  },
+  canceled: {
+    title: 'המנוי בוטל',
+    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה.',
+    tone: 'warning',
+    icon: 'alert-circle-outline',
+  },
+  cancelled: {
+    title: 'המנוי בוטל',
+    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה.',
+    tone: 'warning',
+    icon: 'alert-circle-outline',
+  },
+  past_due: {
+    title: 'יש בעיית חיוב במנוי',
+    subtitle: 'נדרש להסדיר את התשלום כדי למנוע הגבלות על הפעילות.',
+    tone: 'warning',
+    icon: 'alert-circle-outline',
+  },
+};
+
 function buildStatus(args: {
   plan: string;
   profileIncomplete: boolean;
@@ -22,15 +65,16 @@ function buildStatus(args: {
   const hasNearLimit = args.usageWarnings.some((warning) =>
     warning.endsWith('_limit_near')
   );
-  const planExpired =
-    normalizedPlan === 'expired' ||
-    normalizedPlan === 'inactive' ||
-    hasReachedLimit;
+  const subscriptionStatus = SUBSCRIPTION_STATUS_COPY[normalizedPlan];
 
-  if (planExpired) {
+  if (subscriptionStatus) {
+    return subscriptionStatus;
+  }
+  if (hasReachedLimit) {
     return {
-      title: 'המנוי הסתיים',
-      subtitle: 'נדרש עדכון חבילה כדי להמשיך לעבוד ללא מגבלות.',
+      title: 'הגעת למגבלת החבילה',
+      subtitle:
+        'נוצלה מלוא המכסה של החבילה הנוכחית. נדרש עדכון חבילה כדי להמשיך בפעולות נוספות.',
       tone: 'danger' as StatusTone,
       icon: 'alert-circle-outline' as keyof typeof Ionicons.glyphMap,
     };
