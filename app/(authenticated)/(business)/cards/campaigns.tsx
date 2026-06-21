@@ -317,18 +317,41 @@ export function CampaignsHubContent() {
   const bestReachCampaign = topReachCampaigns[0] ?? null;
   const isReferralCampaignActive = referralConfig?.isEnabled === true;
   const campaignLimit = limitStatus('maxCampaigns');
+  const recurringLimit = limitStatus('maxActiveRetentionActions');
   const aiExecutionsLimit = limitStatus('maxAiExecutionsPerMonth');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
+  const requiredPlanForRecurring =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxActiveRetentionActions ?? 'pro';
   const requiredPlanForAi =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxAiExecutionsPerMonth ?? 'pro';
+  const recurringQuotaCopy = getLockedAreaCopy(
+    'maxActiveRetentionActions',
+    requiredPlanForRecurring
+  );
   const aiQuotaCopy = getLockedAreaCopy(
     'maxAiExecutionsPerMonth',
     requiredPlanForAi
   );
   const currentPlanLabel = entitlements ? PLAN_LABELS[entitlements.plan] : null;
+  const hasReliableRecurringEntitlementData =
+    !isEntitlementsLoading &&
+    entitlements !== null &&
+    Number.isFinite(entitlements.usage.activeRetentionActions) &&
+    Number.isFinite(entitlements.limits.maxActiveRetentionActions);
+  const isRecurringUnavailableOnCurrentPlan =
+    hasReliableRecurringEntitlementData && recurringLimit.limitValue === 0;
+  const isRecurringLimitReached =
+    hasReliableRecurringEntitlementData &&
+    recurringLimit.limitValue > 0 &&
+    recurringLimit.isAtLimit;
+  const isRecurringNearLimit =
+    hasReliableRecurringEntitlementData &&
+    recurringLimit.limitValue > 0 &&
+    recurringLimit.isNearLimit;
   const isAiUnavailableOnCurrentPlan =
     !isEntitlementsLoading && aiExecutionsLimit.limitValue === 0;
   const isAiQuotaReached =
@@ -366,6 +389,21 @@ export function CampaignsHubContent() {
       featureKey: 'maxCampaigns',
       requiredPlan,
       reason: 'limit_reached',
+    });
+  };
+
+  const openRecurringUpgrade = (
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForRecurring,
+    reason: 'feature_locked' | 'limit_reached' = 'limit_reached'
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxActiveRetentionActions',
+      requiredPlan,
+      reason,
     });
   };
 
@@ -629,6 +667,85 @@ export function CampaignsHubContent() {
             >
               <Text className="text-xs font-black text-white">שדרוג</Text>
             </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {!isEntitlementsLoading ? (
+          <View className="mt-4 rounded-2xl border border-[#DCE7F8] bg-white px-4 py-3">
+            <View
+              className={`${tw.flexRow} items-center justify-between gap-2`}
+            >
+              <Text
+                className={`flex-1 text-xs font-bold text-[#1A2B4A] ${tw.textStart}`}
+              >
+                קמפיינים אוטומטיים / חוזרים
+              </Text>
+              {hasReliableRecurringEntitlementData ? (
+                <Text className="text-xs font-black text-[#0F766E]">
+                  {`${formatNumber(recurringLimit.currentValue)}/${formatNumber(recurringLimit.limitValue)}`}
+                </Text>
+              ) : null}
+            </View>
+            <Text className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}>
+              {isRecurringUnavailableOnCurrentPlan
+                ? 'המסלול הנוכחי לא כולל קמפיינים אוטומטיים. קמפיינים חוזרים זמינים החל ממסלול Pro.'
+                : hasReliableRecurringEntitlementData
+                  ? `כרגע פעילים ${formatNumber(recurringLimit.currentValue)} מתוך ${formatNumber(recurringLimit.limitValue)} קמפיינים אוטומטיים במסלול ${currentPlanLabel ?? ''}.`.trim()
+                  : 'השימוש בקמפיינים אוטומטיים יוצג כאן ברגע שנתוני המסלול יהיו זמינים.'}
+            </Text>
+            {hasReliableRecurringEntitlementData &&
+            recurringLimit.limitValue > 0 ? (
+              <View className="mt-3">
+                <UsageProgressBar
+                  label="שימוש במכסת קמפיינים אוטומטיים"
+                  used={recurringLimit.currentValue}
+                  limit={recurringLimit.limitValue}
+                  accent={DASHBOARD_TOKENS.colors.teal}
+                />
+              </View>
+            ) : null}
+            {isRecurringUnavailableOnCurrentPlan ? (
+              <View
+                className={`${tw.flexRow} mt-3 items-center justify-between gap-3`}
+              >
+                <Text
+                  className={`flex-1 text-xs text-[#1D4ED8] ${tw.textStart}`}
+                >
+                  {recurringQuotaCopy.lockedSubtitle}
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    openRecurringUpgrade(
+                      requiredPlanForRecurring,
+                      'feature_locked'
+                    )
+                  }
+                  className="rounded-full bg-[#1D4ED8] px-3 py-1.5"
+                >
+                  <Text className="text-xs font-black text-white">שדרוג</Text>
+                </TouchableOpacity>
+              </View>
+            ) : isRecurringLimitReached ? (
+              <View
+                className={`${tw.flexRow} mt-3 items-center justify-between gap-3`}
+              >
+                <Text
+                  className={`flex-1 text-xs text-[#B45309] ${tw.textStart}`}
+                >
+                  {recurringQuotaCopy.lockedSubtitle}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => openRecurringUpgrade()}
+                  className="rounded-full bg-[#B45309] px-3 py-1.5"
+                >
+                  <Text className="text-xs font-black text-white">שדרוג</Text>
+                </TouchableOpacity>
+              </View>
+            ) : isRecurringNearLimit ? (
+              <Text className={`mt-3 text-xs text-[#B45309] ${tw.textStart}`}>
+                {`נשארו עוד ${formatNumber(recurringLimit.remaining)} מקומות לקמפיינים אוטומטיים במסלול הנוכחי.`}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
