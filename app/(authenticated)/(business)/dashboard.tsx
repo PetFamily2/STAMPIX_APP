@@ -33,6 +33,10 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
+  DASHBOARD_CUSTOMER_NAV_LABELS,
+  resolveDashboardCustomerInsightsNavLabel,
+} from '@/lib/dashboard/navigationCopy';
+import {
   DASHBOARD_TOKENS,
   getDashboardLayout,
   getDashboardLayoutMode,
@@ -135,26 +139,6 @@ function _buildKpiTrend(value: number, previousValue: number) {
   };
 }
 
-function localizeCtaLabel(label: string) {
-  const normalized = label.trim().toLowerCase();
-  if (normalized === 'view subscription') {
-    return 'צפו במנוי';
-  }
-  if (normalized === 'open campaigns') {
-    return 'פתחו קמפיינים';
-  }
-  if (normalized === 'open cards') {
-    return 'פתחו כרטיסיות נאמנות';
-  }
-  if (normalized === 'view customers') {
-    return 'צפו בלקוחות';
-  }
-  if (normalized === 'finish setup') {
-    return 'השלימו את ההגדרה';
-  }
-  return label;
-}
-
 function buildEmptyRecommendationCards(): DashboardRecommendationCard[] {
   return [
     {
@@ -165,7 +149,7 @@ function buildEmptyRecommendationCards(): DashboardRecommendationCard[] {
       tone: 'critical',
       primaryCta: {
         kind: 'view_customers',
-        label: 'פתח לקוחות',
+        label: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
         customerFilter: 'at_risk',
       },
     },
@@ -354,9 +338,10 @@ export default function BusinessDashboardScreen() {
     const source = cards.length > 0 ? cards : buildEmptyRecommendationCards();
     const normalized = source.map((card) => ({
       ...card,
-      primaryCtaLabel: card.primaryCta?.label
-        ? localizeCtaLabel(card.primaryCta.label)
-        : null,
+      primaryCtaLabel: resolveDashboardCustomerInsightsNavLabel(
+        card.primaryCta,
+        { key: card.key, title: card.title }
+      ),
     }));
     const hasAtRiskTask = normalized.some(
       (card) => card.key === 'at_risk_task'
@@ -370,10 +355,10 @@ export default function BusinessDashboardScreen() {
         tone: 'critical',
         primaryCta: {
           kind: 'view_customers',
-          label: 'פתח לקוחות',
+          label: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
           customerFilter: 'at_risk',
         },
-        primaryCtaLabel: 'פתח לקוחות',
+        primaryCtaLabel: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
       });
     }
     return normalized;
@@ -664,7 +649,7 @@ ${joinUrl}`;
               },
               {
                 key: 'customers',
-                label: 'לקוחות',
+                label: DASHBOARD_CUSTOMER_NAV_LABELS.customers,
                 icon: 'people-outline',
                 onPress: () =>
                   openRoute('/(authenticated)/(business)/customers'),
@@ -780,7 +765,7 @@ ${joinUrl}`;
                 style={styles.activityActionButton}
               >
                 <Text className={tw.textStart} style={styles.activityAction}>
-                  הצג הכל
+                  {DASHBOARD_CUSTOMER_NAV_LABELS.insights}
                 </Text>
               </Pressable>
               <Text
