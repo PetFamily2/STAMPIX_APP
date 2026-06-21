@@ -848,6 +848,7 @@ export const getBusinessDashboardSummary = query({
           usageWarnings,
         }),
       },
+      usageWarnings,
       freshness: {
         generatedAt: now,
       },
