@@ -1206,7 +1206,7 @@ export const saveReferralConfig = mutation({
       )
       .first();
 
-    const wasEnabled = existing?.isEnabled === true;
+    const wasEnabled = existing ? existing.isEnabled === true : true;
     const willEnable = args.isEnabled === true;
     if (!wasEnabled && willEnable) {
       const activeCampaigns = await countActiveCampaignsForBusiness(

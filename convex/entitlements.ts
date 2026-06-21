@@ -886,6 +886,25 @@ export function countsTowardCampaignDefinitions(campaign: any) {
   return true;
 }
 
+export function countsTowardReferralCampaignQuota(referralConfig: any) {
+  if (!referralConfig) {
+    return true;
+  }
+  return referralConfig.isEnabled === true;
+}
+
+export async function countReferralCampaignsForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  const referralConfig = await ctx.db
+    .query('referralConfigs')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .first();
+
+  return countsTowardReferralCampaignQuota(referralConfig) ? 1 : 0;
+}
+
 export function countsTowardRecurringLiveLimit(campaign: any) {
   if (campaign?.isActive !== true) {
     return false;
@@ -940,7 +959,13 @@ export async function countActiveCampaignsForBusiness(
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .collect();
 
-  return campaigns.filter(countsTowardCampaignDefinitions).length;
+  const referralCampaigns = await countReferralCampaignsForBusiness(
+    ctx,
+    businessId
+  );
+  return (
+    campaigns.filter(countsTowardCampaignDefinitions).length + referralCampaigns
+  );
 }
 
 export async function assertCampaignsNotOverLimit(

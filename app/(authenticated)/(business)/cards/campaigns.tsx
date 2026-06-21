@@ -278,10 +278,7 @@ export function CampaignsHubContent() {
   );
   const bestReachCampaign = topReachCampaigns[0] ?? null;
   const isReferralCampaignActive = referralConfig?.isEnabled === true;
-  const campaignLimit = limitStatus(
-    'maxCampaigns',
-    activeCampaigns.length + (isReferralCampaignActive ? 1 : 0)
-  );
+  const campaignLimit = limitStatus('maxCampaigns');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';

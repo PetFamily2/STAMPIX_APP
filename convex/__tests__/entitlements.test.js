@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   assertEntitlement,
+  countActiveCampaignsForBusiness,
   getRequiredPlanForLimit,
   REQUIRED_PLAN_BY_FEATURE,
 } from '../entitlements';
@@ -29,25 +30,16 @@ function buildCtxWithBusiness(businessDoc) {
   const state = {
     business: { ...businessDoc },
     campaigns: [],
+    referralConfigs: [],
     aiUsageLedger: [],
   };
 
-  const buildCampaignQuery = () => {
+  const buildArrayQuery = (rows) => {
     const chain = {
       withIndex: () => chain,
       filter: () => chain,
-      collect: async () => state.campaigns,
-      first: async () => state.campaigns[0] ?? null,
-    };
-    return chain;
-  };
-
-  const buildAiUsageLedgerQuery = () => {
-    const chain = {
-      withIndex: () => chain,
-      filter: () => chain,
-      collect: async () => state.aiUsageLedger,
-      first: async () => state.aiUsageLedger[0] ?? null,
+      collect: async () => rows,
+      first: async () => rows[0] ?? null,
     };
     return chain;
   };
@@ -62,10 +54,13 @@ function buildCtxWithBusiness(businessDoc) {
       },
       query: (tableName) => {
         if (tableName === 'campaigns') {
-          return buildCampaignQuery();
+          return buildArrayQuery(state.campaigns);
+        }
+        if (tableName === 'referralConfigs') {
+          return buildArrayQuery(state.referralConfigs);
         }
         if (tableName === 'aiUsageLedger') {
-          return buildAiUsageLedgerQuery();
+          return buildArrayQuery(state.aiUsageLedger);
         }
         throw new Error(`UNSUPPORTED_QUERY_TABLE:${tableName}`);
       },
@@ -82,6 +77,38 @@ function buildCtxWithBusiness(businessDoc) {
   };
 
   return { ctx, state };
+}
+
+function buildCampaign(index, overrides = {}) {
+  return {
+    _id: `campaign_${index}`,
+    businessId: 'business_1',
+    isActive: true,
+    activationStatus: 'active',
+    status: 'active',
+    type: 'promo',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  };
+}
+
+function buildReferralConfig(overrides = {}) {
+  return {
+    _id: 'referral_config_1',
+    businessId: 'business_1',
+    isEnabled: true,
+    configVersion: 1,
+    rewardType: 'STAMP',
+    rewardValue: 1,
+    rewardRecipients: 'both',
+    monthlyLimit: 10,
+    createdByUserId: 'user_1',
+    updatedByUserId: 'user_1',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  };
 }
 
 async function getConvexErrorData(work) {
@@ -324,6 +351,60 @@ describe('business entitlements', () => {
     expect(aiMonthlyError?.code).toBe('PLAN_LIMIT_REACHED');
     expect(aiMonthlyError?.limitValue).toBe(300);
     expect(aiMonthlyError?.limitType).toBe('ai_executions_monthly');
+  });
+
+  test('maxCampaigns includes enabled referral campaign without changing plan caps', async () => {
+    const cases = [
+      { plan: 'starter', limit: 1, requiredPlan: 'pro' },
+      { plan: 'pro', limit: 5, requiredPlan: 'premium' },
+      { plan: 'premium', limit: 10, requiredPlan: undefined },
+    ];
+
+    for (const item of cases) {
+      const business = buildBusiness({
+        _id: `${item.plan}_campaign_limit_with_referral`,
+        subscriptionPlan: item.plan,
+        subscriptionStatus: 'active',
+      });
+      const { ctx, state } = buildCtxWithBusiness(business);
+      state.referralConfigs = [
+        buildReferralConfig({ businessId: business._id, isEnabled: true }),
+      ];
+      state.campaigns = Array.from({ length: item.limit - 1 }, (_, index) =>
+        buildCampaign(index, { businessId: business._id })
+      );
+
+      const usedAtLimit = await countActiveCampaignsForBusiness(
+        ctx,
+        business._id
+      );
+      expect(usedAtLimit).toBe(item.limit);
+
+      const campaignError = await getConvexErrorData(() =>
+        assertEntitlement(ctx, business._id, {
+          limitKey: 'maxCampaigns',
+          currentValue: usedAtLimit,
+        })
+      );
+      expect(campaignError?.code).toBe('PLAN_LIMIT_REACHED');
+      expect(campaignError?.limitValue).toBe(item.limit);
+      expect(campaignError?.requiredPlan).toBe(item.requiredPlan);
+
+      if (item.limit > 1) {
+        state.campaigns = state.campaigns.slice(0, item.limit - 2);
+        const usedBelowLimit = await countActiveCampaignsForBusiness(
+          ctx,
+          business._id
+        );
+        expect(usedBelowLimit).toBe(item.limit - 1);
+        await expect(
+          assertEntitlement(ctx, business._id, {
+            limitKey: 'maxCampaigns',
+            currentValue: usedBelowLimit,
+          })
+        ).resolves.toBeDefined();
+      }
+    }
   });
 
   test('required plan mapping is correct for all feature keys', () => {
