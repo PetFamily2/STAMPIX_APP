@@ -20,6 +20,8 @@ export function QuickShortcutsGrid({
     label: string;
     icon: ShortcutIcon;
     onPress: () => void;
+    badgeLabel?: string;
+    isLocked?: boolean;
   }>;
 }) {
   const layout = getDashboardLayout(layoutMode);
@@ -51,12 +53,34 @@ export function QuickShortcutsGrid({
             <Ionicons
               name={item.icon}
               size={25}
-              color={DASHBOARD_TOKENS.colors.brandBlue}
+              color={
+                item.isLocked ? '#64748B' : DASHBOARD_TOKENS.colors.brandBlue
+              }
             />
           </View>
           <Text className={tw.textStart} numberOfLines={2} style={styles.label}>
             {item.label}
           </Text>
+          {item.badgeLabel ? (
+            <View
+              style={[
+                styles.badge,
+                item.isLocked ? styles.lockedBadge : styles.neutralBadge,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.badgeText,
+                  item.isLocked
+                    ? styles.lockedBadgeText
+                    : styles.neutralBadgeText,
+                ]}
+              >
+                {item.badgeLabel}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       ))}
     </View>
@@ -101,5 +125,31 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0,
+  },
+  badge: {
+    minHeight: 18,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedBadge: {
+    backgroundColor: '#FEF3C7',
+  },
+  neutralBadge: {
+    backgroundColor: '#EAF1FF',
+  },
+  badgeText: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  lockedBadgeText: {
+    color: '#92400E',
+  },
+  neutralBadgeText: {
+    color: '#1D4ED8',
   },
 });

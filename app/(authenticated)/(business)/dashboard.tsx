@@ -31,6 +31,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import {
   DASHBOARD_TOKENS,
   getDashboardLayout,
@@ -38,6 +39,7 @@ import {
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
@@ -226,6 +228,8 @@ export default function BusinessDashboardScreen() {
       )
     : null;
   const canViewBillingState = businessCapabilities?.view_billing_state === true;
+  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
+  const teamGate = gate('team');
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
   const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
@@ -257,6 +261,12 @@ export default function BusinessDashboardScreen() {
     api.events.getRecentActivity,
     activeBusinessId ? { businessId: activeBusinessId, limit: 5 } : 'skip'
   );
+  const teamSummary = useQuery(
+    api.business.getBusinessTeamSummary,
+    activeBusinessId && entitlements && !teamGate.isLocked
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  ) as { usedSeats: number; maxSeats: number } | null | undefined;
   const executeRecommendationCta = useMutation(
     api.aiRecommendations.executeRecommendationPrimaryCta
   );
@@ -370,6 +380,35 @@ export default function BusinessDashboardScreen() {
   }, [dashboardSummary, kpis?.atRiskCustomers]);
 
   const openRoute = (route: BusinessRoute) => router.push(route as never);
+  const teamSeatStatus = teamSummary
+    ? limitStatus('maxTeamSeats', teamSummary.usedSeats)
+    : null;
+  const isTeamSeatLimitReached = teamSeatStatus?.isAtLimit === true;
+  const teamSeatRequiredPlan =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxTeamSeats ?? null;
+  const openTeamShortcut = () => {
+    if (teamGate.isLocked) {
+      openSubscriptionComparison(router, {
+        featureKey: 'team',
+        requiredPlan: teamGate.requiredPlan,
+        reason:
+          teamGate.reason === 'subscription_inactive'
+            ? 'subscription_inactive'
+            : 'feature_locked',
+      });
+      return;
+    }
+    if (isTeamSeatLimitReached) {
+      openSubscriptionComparison(router, {
+        featureKey: 'maxTeamSeats',
+        requiredPlan: teamSeatRequiredPlan,
+        reason: 'limit_reached',
+      });
+      return;
+    }
+    openRoute('/(authenticated)/(business)/team/index');
+  };
   const openCustomersWithFilter = (filter?: CustomerRouteFilter | null) => {
     if (!filter) {
       return openRoute('/(authenticated)/(business)/customers');
@@ -656,9 +695,16 @@ ${joinUrl}`;
               {
                 key: 'team',
                 label: 'עובדים',
-                icon: 'person-add-outline',
-                onPress: () =>
-                  openRoute('/(authenticated)/(business)/team/index'),
+                icon: teamGate.isLocked
+                  ? 'lock-closed-outline'
+                  : 'person-add-outline',
+                badgeLabel: teamGate.isLocked
+                  ? 'נעול'
+                  : isTeamSeatLimitReached
+                    ? 'מלא'
+                    : undefined,
+                isLocked: teamGate.isLocked || isTeamSeatLimitReached,
+                onPress: openTeamShortcut,
               },
               {
                 key: 'subscription',

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -94,6 +93,48 @@ function formatLimit(used: number, limit: number) {
   return `${used}/${limit}`;
 }
 
+function resolveTeamSeatUsageChip(args: {
+  isTeamFeatureLocked: boolean;
+  entitlementsLoaded: boolean;
+  teamSummary: { usedSeats: number; maxSeats: number } | null | undefined;
+  limitValue: number;
+}) {
+  if (args.isTeamFeatureLocked) {
+    return {
+      value: '—',
+      hint: 'לא זמין',
+      showSpinner: false,
+      hasReliableUsage: false,
+    };
+  }
+
+  if (!args.entitlementsLoaded || args.teamSummary === undefined) {
+    return {
+      value: '',
+      hint: 'מושבים',
+      showSpinner: true,
+      hasReliableUsage: false,
+    };
+  }
+
+  if (args.teamSummary === null) {
+    return {
+      value: '—',
+      hint: 'לא זמין',
+      showSpinner: false,
+      hasReliableUsage: false,
+    };
+  }
+
+  return {
+    value: formatLimit(args.teamSummary.usedSeats, args.limitValue),
+    hint: 'מושבים',
+    showSpinner: false,
+    hasReliableUsage: true,
+    usedSeats: args.teamSummary.usedSeats,
+  };
+}
+
 export default function BusinessSettingsSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -114,20 +155,24 @@ export default function BusinessSettingsSubscriptionScreen() {
       )
     : null;
 
-  if (activeBusiness && capabilities?.view_billing_state !== true) {
-    return <Redirect href="/(authenticated)/(business)/settings" />;
-  }
-
   const {
     entitlements,
     planCatalog: planCatalogQuery,
     limitStatus,
+    gate,
     isLoading,
   } = useEntitlements(activeBusinessId);
+  const teamGate = gate('team');
   const usageSummary = useQuery(
     api.entitlements.getBusinessUsageSummary,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
+  const teamSummary = useQuery(
+    api.business.getBusinessTeamSummary,
+    activeBusinessId && entitlements && !teamGate.isLocked
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  ) as { usedSeats: number; maxSeats: number } | null | undefined;
   const referralCreditSummary = useQuery(
     api.referrals.getBusinessReferralCreditSummary,
     activeBusinessId && capabilities?.view_billing_state === true
@@ -179,6 +224,16 @@ export default function BusinessSettingsSubscriptionScreen() {
       entitlements?.usage.aiExecutionsThisMonth ??
       0
   );
+  const teamSeatLimitValue = limitStatus('maxTeamSeats').limitValue;
+  const teamSeatUsageChip = resolveTeamSeatUsageChip({
+    isTeamFeatureLocked: teamGate.isLocked,
+    entitlementsLoaded: entitlements !== null && entitlements !== undefined,
+    teamSummary,
+    limitValue: teamSeatLimitValue,
+  });
+  const teamSeatsStatus = teamSeatUsageChip.hasReliableUsage
+    ? limitStatus('maxTeamSeats', teamSeatUsageChip.usedSeats)
+    : limitStatus('maxTeamSeats');
 
   const usageWarnings = useMemo(() => {
     const warnings: string[] = [];
@@ -218,6 +273,17 @@ export default function BusinessSettingsSubscriptionScreen() {
         )}`
       );
     }
+    if (
+      teamSeatUsageChip.hasReliableUsage &&
+      (teamSeatsStatus.isNearLimit || teamSeatsStatus.isAtLimit)
+    ) {
+      warnings.push(
+        `צוות ${formatLimit(
+          teamSeatsStatus.currentValue,
+          teamSeatsStatus.limitValue
+        )}`
+      );
+    }
 
     return warnings;
   }, [
@@ -226,6 +292,8 @@ export default function BusinessSettingsSubscriptionScreen() {
     cardsStatus,
     customersStatus,
     retentionStatus,
+    teamSeatUsageChip.hasReliableUsage,
+    teamSeatsStatus,
   ]);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
@@ -350,6 +418,10 @@ export default function BusinessSettingsSubscriptionScreen() {
     recommendedPlanParam,
   ]);
 
+  if (activeBusiness && capabilities?.view_billing_state !== true) {
+    return <Redirect href="/(authenticated)/(business)/settings" />;
+  }
+
   if (!activeBusinessId) {
     return (
       <SafeAreaView style={styles.emptyState}>
@@ -420,6 +492,13 @@ export default function BusinessSettingsSubscriptionScreen() {
       ),
       hint: 'חודשי',
     },
+    {
+      key: 'team_seats_usage',
+      label: 'צוות',
+      value: teamSeatUsageChip.value,
+      hint: teamSeatUsageChip.hint,
+      showSpinner: teamSeatUsageChip.showSpinner,
+    },
   ];
 
   return (
@@ -449,7 +528,9 @@ export default function BusinessSettingsSubscriptionScreen() {
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
             <View key={item.key} style={styles.usageChip}>
-              {isLoading || usageSummary === undefined ? (
+              {isLoading ||
+              usageSummary === undefined ||
+              item.showSpinner === true ? (
                 <ActivityIndicator size="small" color="#2F6BFF" />
               ) : (
                 <>

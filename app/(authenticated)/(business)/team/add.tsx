@@ -1,4 +1,4 @@
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -62,9 +62,25 @@ export default function AddBusinessStaffScreen() {
     : null;
   const canManageTeam = activeBusinessCapabilities?.manage_team === true;
 
-  const { gate } = useEntitlements(activeBusinessId);
+  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
   const teamGate = gate('team');
   const teamCopy = getLockedAreaCopy('team', teamGate.requiredPlan);
+  const queryArgs =
+    activeBusinessId && entitlements && !teamGate.isLocked
+      ? { businessId: activeBusinessId }
+      : 'skip';
+  const summary = useQuery(api.business.getBusinessTeamSummary, queryArgs) as
+    | { usedSeats: number; maxSeats: number }
+    | null
+    | undefined;
+  const seatLimitStatus = summary
+    ? limitStatus('maxTeamSeats', summary.usedSeats)
+    : null;
+  const seatLimitRequiredPlan =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxTeamSeats ?? null;
+  const teamSeatCopy = getLockedAreaCopy('maxTeamSeats', seatLimitRequiredPlan);
+  const isTeamSeatLimitReached = seatLimitStatus?.isAtLimit === true;
 
   const inviteStaffByScanToken = useMutation(
     api.business.inviteBusinessStaffByScanToken
@@ -109,7 +125,7 @@ export default function AddBusinessStaffScreen() {
     if (entitlementError) {
       setInviteError(entitlementErrorToHebrewMessage(entitlementError));
       openUpgrade(
-        entitlementError.featureKey ?? 'team',
+        entitlementError.limitKey ?? entitlementError.featureKey ?? 'team',
         entitlementError.requiredPlan ?? 'pro',
         entitlementError.code === 'SUBSCRIPTION_INACTIVE'
           ? 'subscription_inactive'
@@ -140,6 +156,12 @@ export default function AddBusinessStaffScreen() {
       return;
     }
     if (!canManageTeam || isInvitingByScan) {
+      return;
+    }
+    if (isTeamSeatLimitReached) {
+      setInviteError(teamSeatCopy.lockedSubtitle);
+      openUpgrade('maxTeamSeats', seatLimitRequiredPlan, 'limit_reached');
+      setScannerResetKey((current) => current + 1);
       return;
     }
 
@@ -275,20 +297,49 @@ export default function AddBusinessStaffScreen() {
                 \u05e4\u05e8\u05d8\u05d9 \u05d4\u05e2\u05d5\u05d1\u05d3
                 \u05de\u05d4\u05e1\u05e8\u05d9\u05e7\u05d4.
               </Text>
-              <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
-                <QrScanner
-                  onScan={handleInviteByScan}
-                  resetKey={scannerResetKey}
-                  isBusy={isInvitingByScan}
-                  caption={
-                    isInvitingByScan
-                      ? '\u05de\u05e2\u05d1\u05d3 \u05d4\u05d6\u05de\u05e0\u05d4...'
-                      : scannedStaffDetails
-                        ? '\u05d4\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05e7\u05dc\u05d8\u05d4. \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1.'
-                        : '\u05e1\u05e8\u05e7\u05d5 \u05e7\u05d5\u05d3 QR \u05e2\u05d5\u05d1\u05d3'
-                  }
-                />
-              </View>
+              {isTeamSeatLimitReached ? (
+                <View className="mt-1 min-h-[180px] justify-center rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <Text
+                    className={`text-base font-black text-amber-800 ${tw.textStart}`}
+                  >
+                    {teamSeatCopy.lockedTitle}
+                  </Text>
+                  <Text
+                    className={`mt-2 text-sm font-semibold text-amber-700 ${tw.textStart}`}
+                  >
+                    {teamSeatCopy.lockedSubtitle}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      openUpgrade(
+                        'maxTeamSeats',
+                        seatLimitRequiredPlan,
+                        'limit_reached'
+                      )
+                    }
+                    className="mt-4 rounded-2xl bg-[#1E40AF] px-4 py-3"
+                  >
+                    <Text className="text-center text-sm font-black text-white">
+                      שדרוג לניהול צוות גדול יותר
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
+                  <QrScanner
+                    onScan={handleInviteByScan}
+                    resetKey={scannerResetKey}
+                    isBusy={isInvitingByScan}
+                    caption={
+                      isInvitingByScan
+                        ? '\u05de\u05e2\u05d1\u05d3 \u05d4\u05d6\u05de\u05e0\u05d4...'
+                        : scannedStaffDetails
+                          ? '\u05d4\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05e7\u05dc\u05d8\u05d4. \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1.'
+                          : '\u05e1\u05e8\u05e7\u05d5 \u05e7\u05d5\u05d3 QR \u05e2\u05d5\u05d1\u05d3'
+                    }
+                  />
+                </View>
+              )}
             </View>
 
             {inviteError ? (
@@ -350,18 +401,31 @@ export default function AddBusinessStaffScreen() {
           <View className="mt-4 gap-2">
             <TouchableOpacity
               disabled={isInvitingByScan}
-              onPress={handleScanAgain}
+              onPress={
+                isTeamSeatLimitReached
+                  ? () =>
+                      openUpgrade(
+                        'maxTeamSeats',
+                        seatLimitRequiredPlan,
+                        'limit_reached'
+                      )
+                  : handleScanAgain
+              }
               className={`rounded-2xl border px-4 py-3 ${
                 isInvitingByScan
                   ? 'border-[#CBD5E1] bg-[#F1F5F9]'
-                  : 'border-[#C7DBFF] bg-[#EEF4FF]'
+                  : isTeamSeatLimitReached
+                    ? 'border-[#1E40AF] bg-[#EFF4FF]'
+                    : 'border-[#C7DBFF] bg-[#EEF4FF]'
               }`}
             >
               {isInvitingByScan ? (
                 <ActivityIndicator color="#94A3B8" />
               ) : (
                 <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                  \u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1
+                  {isTeamSeatLimitReached
+                    ? 'שדרוג להוספת עובד'
+                    : '\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1'}
                 </Text>
               )}
             </TouchableOpacity>

@@ -212,7 +212,7 @@ export default function BusinessTeamManagementScreen() {
     : null;
   const canManageTeam = activeBusinessCapabilities?.manage_team === true;
 
-  const { entitlements, gate } = useEntitlements(activeBusinessId);
+  const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
   const teamGate = gate('team');
   const teamCopy = getLockedAreaCopy('team', teamGate.requiredPlan);
 
@@ -285,7 +285,7 @@ export default function BusinessTeamManagementScreen() {
     if (entitlementError) {
       setInviteError(entitlementErrorToHebrewMessage(entitlementError));
       openUpgrade(
-        entitlementError.featureKey ?? 'team',
+        entitlementError.limitKey ?? entitlementError.featureKey ?? 'team',
         entitlementError.requiredPlan ?? 'pro',
         entitlementError.code === 'SUBSCRIPTION_INACTIVE'
           ? 'subscription_inactive'
@@ -472,6 +472,14 @@ export default function BusinessTeamManagementScreen() {
   const seatUsageLabel = summary
     ? `${summary.usedSeats}/${summary.maxSeats}`
     : '--';
+  const seatLimitStatus = summary
+    ? limitStatus('maxTeamSeats', summary.usedSeats)
+    : null;
+  const seatLimitRequiredPlan =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxTeamSeats ?? null;
+  const teamSeatCopy = getLockedAreaCopy('maxTeamSeats', seatLimitRequiredPlan);
+  const isTeamSeatLimitReached = seatLimitStatus?.isAtLimit === true;
   const seatUsagePercent =
     summary && summary.maxSeats > 0
       ? Math.min(100, Math.round((summary.usedSeats / summary.maxSeats) * 100))
@@ -677,6 +685,14 @@ export default function BusinessTeamManagementScreen() {
     canManageTeam &&
     invite.status === 'pending' &&
     (isOwner || invite.targetRole === 'staff');
+
+  const handleAddStaffPress = () => {
+    if (isTeamSeatLimitReached) {
+      openUpgrade('maxTeamSeats', seatLimitRequiredPlan, 'limit_reached');
+      return;
+    }
+    router.push('/(authenticated)/(business)/team/add');
+  };
 
   const getInviteResolvedAt = (invite: TeamInviteRow) => {
     if (invite.status === 'accepted') {
@@ -900,17 +916,40 @@ export default function BusinessTeamManagementScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push('/(authenticated)/(business)/team/add')}
+            onPress={handleAddStaffPress}
             disabled={!canManageTeam}
             className={`mt-4 rounded-3xl px-4 py-4 ${
-              canManageTeam ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+              canManageTeam && !isTeamSeatLimitReached
+                ? 'bg-[#2F6BFF]'
+                : canManageTeam
+                  ? 'bg-[#1E40AF]'
+                  : 'bg-[#CBD5E1]'
             }`}
           >
             <View className={`${tw.flexRow} items-center justify-center gap-2`}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Ionicons
+                name={isTeamSeatLimitReached ? 'lock-closed' : 'add'}
+                size={20}
+                color="#FFFFFF"
+              />
               <Text className="text-sm font-black text-white">הוספת עובד</Text>
             </View>
           </TouchableOpacity>
+
+          {isTeamSeatLimitReached ? (
+            <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <Text
+                className={`text-sm font-black text-amber-800 ${tw.textStart}`}
+              >
+                {teamSeatCopy.lockedTitle}
+              </Text>
+              <Text
+                className={`mt-1 text-xs font-semibold text-amber-700 ${tw.textStart}`}
+              >
+                {teamSeatCopy.lockedSubtitle}
+              </Text>
+            </View>
+          ) : null}
 
           {inviteError ? (
             <View className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
