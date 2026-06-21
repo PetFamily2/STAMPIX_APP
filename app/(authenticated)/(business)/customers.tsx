@@ -160,6 +160,14 @@ function buildActiveFilterLabel(activeFilter: CustomerRouteFilter) {
   return 'מסונן: לקוחות חדשים';
 }
 
+function isInsightsCustomerFilter(activeFilter: CustomerRouteFilter | null) {
+  return (
+    activeFilter === 'near_reward' ||
+    activeFilter === 'at_risk' ||
+    activeFilter === 'new_customers'
+  );
+}
+
 export function CustomersHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -189,6 +197,11 @@ export function CustomersHubContent() {
   const { entitlements, gate } = useEntitlements(activeBusinessId);
   const smartGate = gate('smartAnalytics');
   const smartCopy = getLockedAreaCopy('smartAnalytics', smartGate.requiredPlan);
+  const smartPlanLabel = smartGate.requiredPlan
+    ? { starter: 'Starter', pro: 'Pro', premium: 'Premium' }[
+        smartGate.requiredPlan
+      ]
+    : 'מסלול מתקדם יותר';
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const customerList = (useQuery(
     api.customerCards.listBusinessCustomersBase,
@@ -207,6 +220,10 @@ export function CustomersHubContent() {
   const [search, setSearch] = useState('');
   const [isCreatingWinbackCampaign, setIsCreatingWinbackCampaign] =
     useState(false);
+  const hasLockedInsightsFilter =
+    smartGate.isLocked && isInsightsCustomerFilter(activeFilter);
+  const effectiveFilter = hasLockedInsightsFilter ? null : activeFilter;
+  const showLifecycleInsights = !smartGate.isLocked;
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -259,8 +276,8 @@ export function CustomersHubContent() {
     rewardEligibilitySummary?.redeemableCustomers ?? 0;
   const rewardEligibleCards = rewardEligibilitySummary?.redeemableCards ?? 0;
   const showAtRiskActionCard =
-    activeFilter === 'at_risk' ||
-    (!smartGate.isLocked && needsAttentionCustomers > 0);
+    !smartGate.isLocked &&
+    (effectiveFilter === 'at_risk' || needsAttentionCustomers > 0);
 
   const handleCreateAtRiskCampaign = async () => {
     if (!activeBusinessId || isCreatingWinbackCampaign) {
@@ -301,11 +318,15 @@ export function CustomersHubContent() {
               text: 'שדרוג',
               onPress: () =>
                 openUpgrade(
-                  'marketingHub',
+                  entitlementError.limitKey ??
+                    entitlementError.featureKey ??
+                    'marketingHub',
                   entitlementError.requiredPlan ?? null,
                   entitlementError.code === 'SUBSCRIPTION_INACTIVE'
                     ? 'subscription_inactive'
-                    : 'feature_locked'
+                    : entitlementError.code === 'PLAN_LIMIT_REACHED'
+                      ? 'limit_reached'
+                      : 'feature_locked'
                 ),
             },
             { text: 'אישור', style: 'cancel' },
@@ -324,16 +345,16 @@ export function CustomersHubContent() {
   };
 
   const filteredCustomers = useMemo(() => {
-    const routeFilteredCustomers = activeFilter
+    const routeFilteredCustomers = effectiveFilter
       ? customerList.filter((customer) => {
           const state = resolveCustomerState(customer);
-          if (activeFilter === 'near_reward') {
+          if (effectiveFilter === 'near_reward') {
             return state === 'CLOSE_TO_REWARD';
           }
-          if (activeFilter === 'at_risk') {
+          if (effectiveFilter === 'at_risk') {
             return state === 'NEEDS_NURTURE' || state === 'NEEDS_WINBACK';
           }
-          if (activeFilter === 'reward_eligible') {
+          if (effectiveFilter === 'reward_eligible') {
             return (
               Number(customer.rewardThreshold) > 0 &&
               Number(customer.loyaltyProgress) >=
@@ -352,7 +373,7 @@ export function CustomersHubContent() {
         .toLowerCase()
         .includes(normalizedSearch)
     );
-  }, [activeFilter, customerList, search]);
+  }, [customerList, effectiveFilter, search]);
 
   const customerHealthChart = useMemo(
     () => [
@@ -384,15 +405,17 @@ export function CustomersHubContent() {
 
   const topActiveCustomers = useMemo(
     () =>
-      customerList
-        .slice()
-        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
-        .slice(0, 5)
-        .map((customer) => ({
-          label: customer.name,
-          value: Number(customer.visitCount ?? 0),
-        })),
-    [customerList]
+      smartGate.isLocked
+        ? []
+        : customerList
+            .slice()
+            .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+            .slice(0, 5)
+            .map((customer) => ({
+              label: customer.name,
+              value: Number(customer.visitCount ?? 0),
+            })),
+    [customerList, smartGate.isLocked]
   );
 
   const openCustomerCard = (customerUserId: string) => {
@@ -418,58 +441,19 @@ export function CustomersHubContent() {
         >
           <BusinessScreenHeader
             title="לקוחות"
-            subtitle="מצב לקוחות, דרגות ערך ותובנות"
+            subtitle="רשימת לקוחות, חיפוש וניהול בסיסי זמינים תמיד. KPI ותובנות לפי מסלול."
           />
         </StickyScrollHeader>
 
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="לקוחות פעילים"
-              value={
-                smartGate.isLocked
-                  ? '--'
-                  : formatNumber(summary.activeCustomers)
-              }
-              icon="people-outline"
-              tone="blue"
-            />
-          </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="לקוחות בסיכון"
-              value={
-                smartGate.isLocked
-                  ? '--'
-                  : formatNumber(needsAttentionCustomers)
-              }
-              icon="alert-circle-outline"
-              tone="red"
-            />
-          </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="קרובים להטבה"
-              value={
-                smartGate.isLocked ? '--' : formatNumber(closeToRewardCustomers)
-              }
-              icon="gift-outline"
-              tone="amber"
-            />
-          </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="VIP / Loyal"
-              value={
-                smartGate.isLocked
-                  ? '--'
-                  : `${formatNumber(summary.vipCustomers ?? 0)} / ${formatNumber(summary.loyalCustomers ?? 0)}`
-              }
-              icon="diamond-outline"
-              tone="violet"
-            />
-          </View>
-        </View>
+        <SurfaceCard style={styles.sectionGuideCard}>
+          <Text className={tw.textStart} style={styles.sectionTitle}>
+            תובנות לקוחות
+          </Text>
+          <Text className={tw.textStart} style={styles.sectionBody}>
+            KPI, תרשימי בריאות לקוחות ופעולות ללקוחות בסיכון זמינים במסגרת
+            תובנות הלקוחות במסלול {smartPlanLabel}.
+          </Text>
+        </SurfaceCard>
 
         <View style={{ marginTop: 16 }}>
           <FeatureGate
@@ -488,108 +472,186 @@ export function CustomersHubContent() {
             subtitle={smartCopy.lockedSubtitle}
             benefits={smartCopy.benefits}
           >
-            <View style={styles.analyticsStack}>
-              <DonutChartCard
-                title="הרכב בריאות לקוחות"
-                subtitle="פילוח מצב הלקוחות בעסק"
-                centerLabel="סה״כ לקוחות"
-                centerValue={
-                  smartGate.isLocked
-                    ? '--'
-                    : formatNumber(summary.totalCustomers)
-                }
-                data={customerHealthChart}
-              />
-              <HorizontalRankingChart
-                title="לקוחות פעילים מובילים"
-                subtitle="דירוג לפי מספר ביקורים"
-                data={topActiveCustomers}
-                color={DASHBOARD_TOKENS.colors.violet}
-              />
-              <InsightCard
-                title="תובנת שימור"
-                body={
-                  smartGate.isLocked
-                    ? 'שדרוג למסלול מתקדם יפתח תובנות לקוחות בזמן אמת.'
-                    : `יש כרגע ${formatNumber(closeToRewardCustomers)} לקוחות קרובים להטבה ו-${formatNumber(
-                        needsAttentionCustomers
-                      )} שדורשים פעולה.`
-                }
-                tags={[
-                  `זכאים למימוש: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCustomers)}`,
-                  `כרטיסיות מלאות: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCards)}`,
-                ]}
-              />
+            <View style={styles.insightsSection}>
+              <View style={styles.kpiGrid}>
+                <View style={styles.kpiCell}>
+                  <KpiCard
+                    label="לקוחות פעילים"
+                    value={
+                      smartGate.isLocked
+                        ? '--'
+                        : formatNumber(summary.activeCustomers)
+                    }
+                    icon="people-outline"
+                    tone="blue"
+                  />
+                </View>
+                <View style={styles.kpiCell}>
+                  <KpiCard
+                    label="לקוחות בסיכון"
+                    value={
+                      smartGate.isLocked
+                        ? '--'
+                        : formatNumber(needsAttentionCustomers)
+                    }
+                    icon="alert-circle-outline"
+                    tone="red"
+                  />
+                </View>
+                <View style={styles.kpiCell}>
+                  <KpiCard
+                    label="קרובים להטבה"
+                    value={
+                      smartGate.isLocked
+                        ? '--'
+                        : formatNumber(closeToRewardCustomers)
+                    }
+                    icon="gift-outline"
+                    tone="amber"
+                  />
+                </View>
+                <View style={styles.kpiCell}>
+                  <KpiCard
+                    label="VIP / Loyal"
+                    value={
+                      smartGate.isLocked
+                        ? '--'
+                        : `${formatNumber(summary.vipCustomers ?? 0)} / ${formatNumber(summary.loyalCustomers ?? 0)}`
+                    }
+                    icon="diamond-outline"
+                    tone="violet"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.analyticsStack}>
+                <DonutChartCard
+                  title="הרכב בריאות לקוחות"
+                  subtitle="פילוח מצב הלקוחות בעסק"
+                  centerLabel="סה״כ לקוחות"
+                  centerValue={
+                    smartGate.isLocked
+                      ? '--'
+                      : formatNumber(summary.totalCustomers)
+                  }
+                  data={customerHealthChart}
+                />
+                <HorizontalRankingChart
+                  title="לקוחות פעילים מובילים"
+                  subtitle="דירוג לפי מספר ביקורים"
+                  data={topActiveCustomers}
+                  color={DASHBOARD_TOKENS.colors.violet}
+                />
+                <InsightCard
+                  title="תובנת שימור"
+                  body={
+                    smartGate.isLocked
+                      ? 'שדרוג למסלול מתקדם יפתח תובנות לקוחות בזמן אמת.'
+                      : `יש כרגע ${formatNumber(closeToRewardCustomers)} לקוחות קרובים להטבה ו-${formatNumber(
+                          needsAttentionCustomers
+                        )} שדורשים פעולה.`
+                  }
+                  tags={[
+                    `זכאים למימוש: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCustomers)}`,
+                    `כרטיסיות מלאות: ${smartGate.isLocked ? '--' : formatNumber(rewardEligibleCards)}`,
+                  ]}
+                />
+              </View>
+
+              {showAtRiskActionCard ? (
+                <SurfaceCard style={styles.atRiskActionCard}>
+                  <View style={styles.atRiskActionHeader}>
+                    <View style={styles.atRiskIconWrap}>
+                      <Ionicons
+                        name="refresh-outline"
+                        size={22}
+                        color="#0F766E"
+                      />
+                    </View>
+                    <View style={styles.atRiskCopy}>
+                      <Text className={tw.textStart} style={styles.atRiskTitle}>
+                        פעולה ללקוחות בסיכון
+                      </Text>
+                      <Text className={tw.textStart} style={styles.atRiskBody}>
+                        צרו הודעת "לא ראינו אתכם לאחרונה" עם הטבה, ערכו את הנוסח
+                        ושלחו אותה ללקוחות שלא חזרו בזמן.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.atRiskActions}>
+                    <Pressable
+                      disabled={
+                        isCreatingWinbackCampaign || !canCreateCampaigns
+                      }
+                      onPress={() => {
+                        void handleCreateAtRiskCampaign();
+                      }}
+                      style={({ pressed }) => [
+                        styles.primaryAction,
+                        (!canCreateCampaigns || isCreatingWinbackCampaign) &&
+                          styles.actionDisabled,
+                        pressed && canCreateCampaigns
+                          ? styles.primaryActionPressed
+                          : null,
+                      ]}
+                    >
+                      {isCreatingWinbackCampaign ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="megaphone-outline"
+                            size={17}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.primaryActionText}>
+                            צרו קמפיין החזרה
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+
+                    <Pressable
+                      onPress={openCampaigns}
+                      style={({ pressed }) => [
+                        styles.secondaryAction,
+                        pressed ? styles.secondaryActionPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.secondaryActionText}>
+                        כל הקמפיינים
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {!canCreateCampaigns ? (
+                    <Text
+                      className={tw.textStart}
+                      style={styles.permissionHint}
+                    >
+                      למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
+                    </Text>
+                  ) : null}
+                </SurfaceCard>
+              ) : null}
             </View>
           </FeatureGate>
         </View>
 
-        {showAtRiskActionCard ? (
-          <SurfaceCard style={styles.atRiskActionCard}>
-            <View style={styles.atRiskActionHeader}>
-              <View style={styles.atRiskIconWrap}>
-                <Ionicons name="refresh-outline" size={22} color="#0F766E" />
-              </View>
-              <View style={styles.atRiskCopy}>
-                <Text className={tw.textStart} style={styles.atRiskTitle}>
-                  פעולה ללקוחות בסיכון
-                </Text>
-                <Text className={tw.textStart} style={styles.atRiskBody}>
-                  צרו הודעת "לא ראינו אתכם לאחרונה" עם הטבה, ערכו את הנוסח ושלחו
-                  אותה ללקוחות שלא חזרו בזמן.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.atRiskActions}>
-              <Pressable
-                disabled={isCreatingWinbackCampaign || !canCreateCampaigns}
-                onPress={() => {
-                  void handleCreateAtRiskCampaign();
-                }}
-                style={({ pressed }) => [
-                  styles.primaryAction,
-                  (!canCreateCampaigns || isCreatingWinbackCampaign) &&
-                    styles.actionDisabled,
-                  pressed && canCreateCampaigns
-                    ? styles.primaryActionPressed
-                    : null,
-                ]}
-              >
-                {isCreatingWinbackCampaign ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="megaphone-outline"
-                      size={17}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.primaryActionText}>
-                      צרו קמפיין החזרה
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-
-              <Pressable
-                onPress={openCampaigns}
-                style={({ pressed }) => [
-                  styles.secondaryAction,
-                  pressed ? styles.secondaryActionPressed : null,
-                ]}
-              >
-                <Text style={styles.secondaryActionText}>כל הקמפיינים</Text>
-              </Pressable>
-            </View>
-
-            {!canCreateCampaigns ? (
-              <Text className={tw.textStart} style={styles.permissionHint}>
-                למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
-              </Text>
-            ) : null}
-          </SurfaceCard>
-        ) : null}
+        <SurfaceCard style={styles.sectionGuideCard}>
+          <Text className={tw.textStart} style={styles.sectionTitle}>
+            רשימת לקוחות
+          </Text>
+          <Text className={tw.textStart} style={styles.sectionBody}>
+            חיפוש, פתיחת כרטיס לקוח וניהול בסיסי זמינים בכל המסלולים.
+          </Text>
+          {hasLockedInsightsFilter ? (
+            <Text className={tw.textStart} style={styles.sectionHint}>
+              {`הסינון שביקשת מבוסס על תובנות לקוחות וזמין במסלול ${smartPlanLabel}. כרגע מוצגת רשימת הלקוחות המלאה.`}
+            </Text>
+          ) : null}
+        </SurfaceCard>
 
         <SurfaceCard style={styles.searchCard}>
           <View style={styles.searchRow}>
@@ -614,10 +676,10 @@ export function CustomersHubContent() {
           >{`${formatNumber(customerList.length)} סה"כ`}</Text>
         </View>
 
-        {activeFilter ? (
+        {effectiveFilter ? (
           <View style={styles.filterBadge}>
             <Text style={styles.filterBadgeText}>
-              {buildActiveFilterLabel(activeFilter)}
+              {buildActiveFilterLabel(effectiveFilter)}
             </Text>
           </View>
         ) : null}
@@ -667,45 +729,48 @@ export function CustomersHubContent() {
                       >
                         {customer.phone ?? 'ללא טלפון'}
                       </Text>
-                      <View style={styles.badges}>
-                        <View
-                          style={[
-                            styles.badge,
-                            {
-                              backgroundColor: STATE_COLORS[customerState].bg,
-                            },
-                          ]}
-                        >
-                          <Text
+                      {showLifecycleInsights ? (
+                        <View style={styles.badges}>
+                          <View
                             style={[
-                              styles.badgeText,
-                              { color: STATE_COLORS[customerState].fg },
-                            ]}
-                          >
-                            {STATE_LABELS[customerState]}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.badge,
-                            {
-                              backgroundColor:
-                                VALUE_TIER_COLORS[customerValueTier].bg,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.badgeText,
+                              styles.badge,
                               {
-                                color: VALUE_TIER_COLORS[customerValueTier].fg,
+                                backgroundColor: STATE_COLORS[customerState].bg,
                               },
                             ]}
                           >
-                            {VALUE_TIER_LABELS[customerValueTier]}
-                          </Text>
+                            <Text
+                              style={[
+                                styles.badgeText,
+                                { color: STATE_COLORS[customerState].fg },
+                              ]}
+                            >
+                              {STATE_LABELS[customerState]}
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.badge,
+                              {
+                                backgroundColor:
+                                  VALUE_TIER_COLORS[customerValueTier].bg,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.badgeText,
+                                {
+                                  color:
+                                    VALUE_TIER_COLORS[customerValueTier].fg,
+                                },
+                              ]}
+                            >
+                              {VALUE_TIER_LABELS[customerValueTier]}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
+                      ) : null}
                       <Text
                         className={tw.textStart}
                         style={styles.progressText}
@@ -751,7 +816,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiGrid: {
-    marginTop: 16,
     flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 12,
@@ -761,6 +825,32 @@ const styles = StyleSheet.create({
   },
   analyticsStack: {
     gap: 14,
+  },
+  insightsSection: {
+    gap: 16,
+  },
+  sectionGuideCard: {
+    marginTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  sectionBody: {
+    marginTop: 5,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  sectionHint: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#1D4ED8',
   },
   searchCard: {
     marginTop: 18,
