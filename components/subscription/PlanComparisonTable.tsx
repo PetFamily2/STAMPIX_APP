@@ -11,6 +11,7 @@ import { IS_RTL } from '@/lib/rtl';
 import {
   buildComparisonRows,
   type ComparisonRow,
+  PLAN_COMPARISON_CLARITY_NOTES,
   type PlanCatalogItem,
   type PlanId,
 } from '@/lib/subscription/planComparison';
@@ -84,153 +85,166 @@ export function PlanComparisonTable({
   const canSelectHeaders = headerSelectable && Boolean(onSelectPlan);
 
   return (
-    <View style={styles.table}>
-      <View style={styles.tableHeaderRow}>
-        <View
-          style={[
-            styles.featureCell,
-            styles.headerCell,
-            { flex: featureColumnFlex },
-          ]}
-        >
-          <Text
+    <View style={styles.wrapper}>
+      <View style={styles.table}>
+        <View style={styles.tableHeaderRow}>
+          <View
             style={[
-              styles.headerText,
-              isNarrow ? styles.headerTextNarrow : null,
+              styles.featureCell,
+              styles.headerCell,
+              { flex: featureColumnFlex },
             ]}
           >
-            פירוט
-          </Text>
-        </View>
-        {orderedPlans.map((plan) => {
-          const isSelected = selectedPlan === plan.plan;
-          const isCurrentPlan = currentPlan === plan.plan;
-          const headerCellStyle = [
-            styles.planCell,
-            styles.headerCell,
-            { flex: planColumnFlex },
-            isSelected ? styles.selectedColumn : null,
-            canSelectHeaders ? styles.headerCellSelectable : null,
-          ];
-          const headerContent = (
-            <View style={styles.headerPlanContent}>
-              {isCurrentPlan ? (
-                <View
-                  style={[
-                    styles.headerCurrentPlanBadge,
-                    isSelected ? styles.headerCurrentPlanBadgeActive : null,
-                  ]}
-                >
-                  <Text
-                    style={styles.headerCurrentPlanBadgeText}
-                    numberOfLines={2}
+            <Text
+              style={[
+                styles.headerText,
+                isNarrow ? styles.headerTextNarrow : null,
+              ]}
+            >
+              פירוט
+            </Text>
+          </View>
+          {orderedPlans.map((plan) => {
+            const isSelected = selectedPlan === plan.plan;
+            const isCurrentPlan = currentPlan === plan.plan;
+            const headerCellStyle = [
+              styles.planCell,
+              styles.headerCell,
+              { flex: planColumnFlex },
+              isSelected ? styles.selectedColumn : null,
+              canSelectHeaders ? styles.headerCellSelectable : null,
+            ];
+            const headerContent = (
+              <View style={styles.headerPlanContent}>
+                {isCurrentPlan ? (
+                  <View
+                    style={[
+                      styles.headerCurrentPlanBadge,
+                      isSelected ? styles.headerCurrentPlanBadgeActive : null,
+                    ]}
                   >
-                    המסלול הפעיל
-                  </Text>
-                </View>
-              ) : null}
-              <Text
-                style={[
-                  styles.headerText,
-                  isNarrow ? styles.headerTextNarrow : null,
-                  isSelected ? styles.headerTextActive : null,
-                ]}
-                numberOfLines={2}
-              >
-                {plan.label}
-              </Text>
-            </View>
-          );
-
-          if (canSelectHeaders && onSelectPlan) {
-            return (
-              <Pressable
-                key={plan.plan}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => onSelectPlan(plan.plan)}
-                style={headerCellStyle}
-              >
-                {headerContent}
-              </Pressable>
+                    <Text
+                      style={styles.headerCurrentPlanBadgeText}
+                      numberOfLines={2}
+                    >
+                      המסלול הפעיל
+                    </Text>
+                  </View>
+                ) : null}
+                <Text
+                  style={[
+                    styles.headerText,
+                    isNarrow ? styles.headerTextNarrow : null,
+                    isSelected ? styles.headerTextActive : null,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {plan.label}
+                </Text>
+              </View>
             );
-          }
+
+            if (canSelectHeaders && onSelectPlan) {
+              return (
+                <Pressable
+                  key={plan.plan}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => onSelectPlan(plan.plan)}
+                  style={headerCellStyle}
+                >
+                  {headerContent}
+                </Pressable>
+              );
+            }
+
+            return (
+              <View key={plan.plan} style={headerCellStyle}>
+                {headerContent}
+              </View>
+            );
+          })}
+        </View>
+
+        {comparisonRows.map((row) => {
+          const isMarketingHubRow = row.id === 'feature:marketingHub';
+          const isRecurringCampaignsRow =
+            row.id === 'limit:maxActiveRetentionActions';
+          const shouldUseCompactLabel =
+            (isNarrow || isRecurringCampaignsRow) && row.compactLabel;
 
           return (
-            <View key={plan.plan} style={headerCellStyle}>
-              {headerContent}
+            <View key={row.id} style={styles.tableRow}>
+              <View
+                style={[
+                  styles.featureCell,
+                  { flex: featureColumnFlex },
+                  isRecurringCampaignsRow ? styles.featureCellTight : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.featureLabel,
+                    isNarrow ? styles.featureLabelNarrow : null,
+                  ]}
+                  numberOfLines={
+                    isMarketingHubRow || isRecurringCampaignsRow ? 1 : 2
+                  }
+                >
+                  {shouldUseCompactLabel ? row.compactLabel : row.label}
+                </Text>
+              </View>
+              {orderedPlans.map((plan) => {
+                const { text, isPositive } = renderCellText(row, plan.plan);
+                const isBooleanCell = row.cells[plan.plan].type === 'boolean';
+
+                return (
+                  <View
+                    key={`${row.id}:${plan.plan}`}
+                    style={[
+                      styles.planCell,
+                      { flex: planColumnFlex },
+                      selectedPlan === plan.plan ? styles.selectedColumn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.cellText,
+                        isNarrow ? styles.cellTextNarrow : null,
+                        isBooleanCell && !isPositive
+                          ? styles.cellTextMuted
+                          : null,
+                        isBooleanCell && isPositive
+                          ? styles.cellTextPositive
+                          : null,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {text}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           );
         })}
       </View>
 
-      {comparisonRows.map((row) => {
-        const isMarketingHubRow = row.id === 'feature:marketingHub';
-        const isRecurringCampaignsRow =
-          row.id === 'limit:maxActiveRetentionActions';
-        const shouldUseCompactLabel =
-          (isNarrow || isRecurringCampaignsRow) && row.compactLabel;
-
-        return (
-          <View key={row.id} style={styles.tableRow}>
-            <View
-              style={[
-                styles.featureCell,
-                { flex: featureColumnFlex },
-                isRecurringCampaignsRow ? styles.featureCellTight : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.featureLabel,
-                  isNarrow ? styles.featureLabelNarrow : null,
-                ]}
-                numberOfLines={
-                  isMarketingHubRow || isRecurringCampaignsRow ? 1 : 2
-                }
-              >
-                {shouldUseCompactLabel ? row.compactLabel : row.label}
-              </Text>
-            </View>
-            {orderedPlans.map((plan) => {
-              const { text, isPositive } = renderCellText(row, plan.plan);
-              const isBooleanCell = row.cells[plan.plan].type === 'boolean';
-
-              return (
-                <View
-                  key={`${row.id}:${plan.plan}`}
-                  style={[
-                    styles.planCell,
-                    { flex: planColumnFlex },
-                    selectedPlan === plan.plan ? styles.selectedColumn : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.cellText,
-                      isNarrow ? styles.cellTextNarrow : null,
-                      isBooleanCell && !isPositive
-                        ? styles.cellTextMuted
-                        : null,
-                      isBooleanCell && isPositive
-                        ? styles.cellTextPositive
-                        : null,
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {text}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        );
-      })}
+      <View style={styles.notesWrap}>
+        {PLAN_COMPARISON_CLARITY_NOTES.map((note) => (
+          <Text key={note} style={styles.noteText}>
+            {note}
+          </Text>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    gap: 8,
+  },
   table: {
     borderRadius: 22,
     borderWidth: 1,
@@ -338,5 +352,16 @@ const styles = StyleSheet.create({
   },
   cellTextPositive: {
     color: '#15803D',
+  },
+  notesWrap: {
+    gap: 4,
+    paddingHorizontal: 4,
+  },
+  noteText: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    textAlign: IS_RTL ? 'right' : 'left',
   },
 });

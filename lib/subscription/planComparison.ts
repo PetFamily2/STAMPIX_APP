@@ -51,10 +51,10 @@ const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסי ניקוב',
-  maxCustomers: 'לקוחות',
+  maxCustomers: 'לקוחות (רשימה בכל המסלולים)',
   maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים',
-  maxAiExecutionsPerMonth: 'פעולות AI',
+  maxCampaigns: 'קמפיינים ידניים (לפי מכסה)',
+  maxAiExecutionsPerMonth: 'פעולות AI חודשיות (מ-Pro)',
   maxTeamSeats: 'ניהול צוות',
 };
 
@@ -62,24 +62,30 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסים',
   maxCustomers: 'לקוחות',
   maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים',
-  maxAiExecutionsPerMonth: 'AI חודשי',
+  maxCampaigns: 'קמפיינים ידניים',
+  maxAiExecutionsPerMonth: 'AI מ-Pro',
   maxTeamSeats: 'ניהול צוות',
 };
 
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   team: 'ניהול צוות',
-  advancedReports: 'דוחות מתקדמים',
-  marketingHub: 'מרכז הקמפיינים',
-  smartAnalytics: 'זיהוי לקוחות בסכנת נטישה',
+  advancedReports: 'דוחות מתקדמים (בקרוב)',
+  marketingHub: 'מרכז קמפיינים (ידני)',
+  smartAnalytics: 'תובנות לקוחות',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
   team: 'צוות',
-  advancedReports: 'דוחות',
-  marketingHub: 'קמפיינים',
-  smartAnalytics: 'סכנת נטישה',
+  advancedReports: 'דוחות (בקרוב)',
+  marketingHub: 'קמפיינים ידניים',
+  smartAnalytics: 'תובנות',
 };
+
+export const PLAN_COMPARISON_CLARITY_NOTES = [
+  'רשימת לקוחות וניהול בסיסי — בכל המסלולים.',
+  'מרכז הקמפיינים: קמפיינים ידניים לפי מכסת המסלול; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
+  'דוחות מתקדמים — ייפתחו בקרוב במסלול Pro; אין מסך דוחות פעיל כרגע.',
+] as const;
 
 function isPlanId(value: unknown): value is PlanId {
   return value === 'starter' || value === 'pro' || value === 'premium';
@@ -321,8 +327,8 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
     },
   }));
 
-  const featureRows: ComparisonRow[] = (
-    ['advancedReports', 'smartAnalytics'] as FeatureKey[]
+  const booleanFeatureRows: ComparisonRow[] = (
+    ['smartAnalytics', 'marketingHub'] as FeatureKey[]
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
     label: FEATURE_ROW_LABELS[featureKey],
@@ -343,7 +349,18 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
     },
   }));
 
-  return [...limitRows, ...featureRows];
+  const advancedReportsRow: ComparisonRow = {
+    id: 'feature:advancedReports',
+    label: FEATURE_ROW_LABELS.advancedReports,
+    compactLabel: FEATURE_ROW_COMPACT_LABELS.advancedReports,
+    cells: {
+      starter: { type: 'text', value: '—' },
+      pro: { type: 'text', value: 'בקרוב' },
+      premium: { type: 'text', value: 'בקרוב' },
+    },
+  };
+
+  return [...limitRows, ...booleanFeatureRows, advancedReportsRow];
 }
 
 export function getPlanPriceForPeriod(
