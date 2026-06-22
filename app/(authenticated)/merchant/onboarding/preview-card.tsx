@@ -45,6 +45,8 @@ const TEXT = {
   fallbackReward: 'מתנה שתרצו להעניק ללקוחות',
   errorTitle: 'שגיאה',
   errorMessage: 'לא הצלחנו להשלים את האונבורדינג העסקי. נסו שוב.',
+  activeBusinessError:
+    'לא הצלחנו לבחור את העסק הפעיל. נסו שוב לפני המעבר לניהול העסק.',
   profileIncompleteMessage:
     'חסרים פרטים בפרופיל העסק. חזרו לשלב פרטי העסק והשלימו את השדות הנדרשים לפני פרסום.',
   selected: 'נבחר',
@@ -341,6 +343,7 @@ export default function PreviewCardScreen() {
   const assertBusinessOnboardingReady = useMutation(
     api.business.assertBusinessOnboardingReady
   );
+  const setActiveBusiness = useMutation(api.users.setActiveBusiness);
   const setActiveMode = useMutation(api.users.setActiveMode);
   const { setAppMode } = useAppMode();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
@@ -492,6 +495,7 @@ export default function PreviewCardScreen() {
       });
 
       await completeBusinessOnboarding({ businessId });
+      await setActiveBusiness({ businessId });
       await setActiveMode({ mode: 'business' });
       await setAppMode('business');
       try {
@@ -504,13 +508,16 @@ export default function PreviewCardScreen() {
         // Completion should continue even if draft status update fails.
       }
       reset();
-      safePush('/(authenticated)/(business)/scanner');
+      safePush('/(authenticated)/(business)/dashboard');
     } catch (finishError) {
       const message =
         finishError instanceof Error &&
         finishError.message.includes('BUSINESS_PROFILE_INCOMPLETE')
           ? TEXT.profileIncompleteMessage
-          : TEXT.errorMessage;
+          : finishError instanceof Error &&
+              finishError.message.includes('BUSINESS_NOT_AVAILABLE')
+            ? TEXT.activeBusinessError
+            : TEXT.errorMessage;
       Alert.alert(TEXT.errorTitle, message);
     } finally {
       setIsFinishing(false);

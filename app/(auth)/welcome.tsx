@@ -1,5 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, TrendingUp } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { BackHandler, Image, Text, TouchableOpacity, View } from 'react-native';
@@ -10,6 +10,23 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+
+const TEXT = {
+  titleLine1: 'העסק והלקוחות',
+  titleLine2A: 'נפגשים',
+  titleLine2B: 'ב',
+  titleLine2C: 'דיגיטל',
+  subtitle: 'מצטרפים למהפכה הדיגיטלית\nכל הכרטיסיות בכיס אחד, ב-QR',
+  featureCustomerTitle: 'ללקוחות שאוהבים לקבל',
+  featureCustomerBody:
+    'צוברים חתימות, עוקבים אחרי ההטבות ומקבלים מתנות מהעסקים',
+  featureBusinessTitle: 'לעסקים שרוצים לגדול',
+  featureBusinessBody:
+    'מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי שיווק',
+  getStarted: 'בואו נתחיל',
+  emailEntry: 'כניסה או הרשמה באימייל',
+  emailEntryHint: 'יש לכם כבר אימייל?',
+};
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -48,7 +65,6 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* כפתור יציאה במצב תצוגה מקדימה */}
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       <View className="flex-1 px-6 py-8">
@@ -56,7 +72,7 @@ export default function WelcomeScreen() {
           <BackButton onPress={handleBack} />
           <View className="w-11 h-11" />
         </View>
-        {/* Logo */}
+
         <View className="items-center mb-6 -mt-2">
           <View className="items-center justify-center">
             <Image
@@ -68,24 +84,21 @@ export default function WelcomeScreen() {
           </View>
         </View>
 
-        {/* Main Title */}
         <View className="mb-8">
           <Text className="text-[34px] font-black text-gray-900 text-center mb-1">
-            העסק והלקוחות
+            {TEXT.titleLine1}
           </Text>
           <Text className="text-[34px] font-black text-center mb-3">
-            <Text className="text-gray-900">נפגשים</Text>{' '}
-            <Text className="text-gray-900">ב</Text>
-            <Text className="text-blue-600">דיגיטל</Text>
+            <Text className="text-gray-900">{TEXT.titleLine2A}</Text>{' '}
+            <Text className="text-gray-900">{TEXT.titleLine2B}</Text>
+            <Text className="text-blue-600">{TEXT.titleLine2C}</Text>
           </Text>
           <Text className="text-base text-gray-500 text-center leading-6">
-            מצטרפים למהפכה הדיגיטלית{'\n'}כל הכרטיסיות בכיס אחד, ב-QR
+            {TEXT.subtitle}
           </Text>
         </View>
 
-        {/* Feature Cards */}
         <View className="mb-auto">
-          {/* Feature 1 - Customer Engagement */}
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
             <View className="flex-row-reverse items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
@@ -93,16 +106,15 @@ export default function WelcomeScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-base font-extrabold text-gray-900 mb-1 text-right">
-                  ללקוחות שאוהבים לקבל
+                  {TEXT.featureCustomerTitle}
                 </Text>
                 <Text className="text-sm text-gray-500 text-right leading-5">
-                  צוברים חתימות, עוקבים אחרי ההטבות ומקבלים מתנות מהעסקים
+                  {TEXT.featureCustomerBody}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Feature 2 - Business Growth */}
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
             <View className="flex-row-reverse items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
@@ -110,38 +122,36 @@ export default function WelcomeScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-base font-extrabold text-gray-900 mb-1 text-right">
-                  לעסקים שרוצים לגדול
+                  {TEXT.featureBusinessTitle}
                 </Text>
                 <Text className="text-sm text-gray-500 text-right leading-5">
-                  מנהלים מועדון לקוחות חכם, מודדים מדדים ברורים ומשתמשים בכלי
-                  שיווק
+                  {TEXT.featureBusinessBody}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Bottom Section */}
         <View className="mt-10">
-          {/* Get Started Button */}
           <TouchableOpacity
             className="bg-blue-600 rounded-full px-10 py-4 items-center mb-4 shadow-[0_10px_30px_rgba(37,99,235,0.25)]"
             onPress={handleGetStarted}
             activeOpacity={0.8}
           >
-            <Text className="text-white text-lg font-bold">בואו נתחיל</Text>
+            <Text className="text-white text-lg font-bold">
+              {TEXT.getStarted}
+            </Text>
           </TouchableOpacity>
 
-          {/* Existing Account Link */}
           <View className="flex-row-reverse justify-center items-center gap-2">
-            <Link href="/(auth)/sign-up" asChild={true}>
-              <TouchableOpacity>
-                <Text className="text-blue-600 font-semibold text-base">
-                  יש לי חשבון
-                </Text>
-              </TouchableOpacity>
-            </Link>
-            <Text className="text-gray-500 text-base">כבר רשומים?</Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
+              <Text className="text-blue-600 font-semibold text-base">
+                {TEXT.emailEntry}
+              </Text>
+            </TouchableOpacity>
+            <Text className="text-gray-500 text-base">
+              {TEXT.emailEntryHint}
+            </Text>
           </View>
         </View>
       </View>

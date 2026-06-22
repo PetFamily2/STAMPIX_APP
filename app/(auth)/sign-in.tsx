@@ -1,5 +1,21 @@
-import { Redirect } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
 export default function SignInScreen() {
-  return <Redirect href="/(auth)/sign-up" />;
+  const { preview, map } = useLocalSearchParams<{
+    preview?: string;
+    map?: string;
+  }>();
+
+  return (
+    <Redirect
+      href={{
+        pathname: '/(auth)/sign-up-email',
+        params: {
+          ...(preview ? { preview } : {}),
+          ...(map ? { map } : {}),
+          entry: 'sign-in',
+        },
+      }}
+    />
+  );
 }

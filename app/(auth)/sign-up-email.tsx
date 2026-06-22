@@ -39,9 +39,10 @@ function isValidEmail(value: string) {
 export default function SignUpEmailScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, entry } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    entry?: string;
   }>();
   const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
   const [email, setEmail] = useState('');
@@ -51,6 +52,10 @@ export default function SignUpEmailScreen() {
   const canSubmit = useMemo(() => isValidEmail(email), [email]);
 
   const handleBack = () => {
+    if (entry === 'sign-in') {
+      safeBack('/(auth)/welcome');
+      return;
+    }
     safeBack('/(auth)/sign-up');
   };
 
@@ -89,9 +94,14 @@ export default function SignUpEmailScreen() {
       await signIn('email', {
         email: normalizedEmail,
       });
-      router.push(
-        `/(auth)/onboarding-client-otp?contact=${encodeURIComponent(normalizedEmail)}&sent=1`
-      );
+      router.push({
+        pathname: '/(auth)/onboarding-client-otp',
+        params: {
+          contact: normalizedEmail,
+          sent: '1',
+          ...(entry === 'sign-in' ? { entry } : {}),
+        },
+      });
     } catch (err: unknown) {
       setError(mapSendError(err));
     } finally {
