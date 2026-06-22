@@ -5,7 +5,7 @@ import { Slot } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
@@ -16,6 +16,7 @@ import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
+import { rtlBaseView } from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 // אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
@@ -115,7 +116,9 @@ export default function RootLayout() {
                 <OnboardingProvider>
                   <RevenueCatProvider>
                     <RootErrorBoundary>
-                      <Slot />
+                      <View style={styles.rtlRoot}>
+                        <Slot />
+                      </View>
                     </RootErrorBoundary>
                   </RevenueCatProvider>
                 </OnboardingProvider>
@@ -127,3 +130,10 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  rtlRoot: {
+    flex: 1,
+    ...rtlBaseView,
+  },
+});

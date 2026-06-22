@@ -16,7 +16,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 function formatMonthsLabel(value: number) {
   return value === 1
@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 14,
     gap: 12,
+    ...rtlBaseView,
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   textBlock: {
@@ -260,10 +261,11 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   topRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    ...rtlBaseView,
   },
   title: {
     flex: 1,
@@ -306,8 +308,6 @@ const styles = StyleSheet.create({
   primaryButtonTouchable: {
     alignSelf: 'auto',
     width: 'auto',
-    marginRight: 0,
-    marginLeft: 12,
   },
   primaryButtonSurface: {
     minHeight: 30,
@@ -327,10 +327,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#93C5FD',
   },
   primaryButtonContent: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    ...rtlBaseView,
   },
   primaryButtonIconWrap: {
     width: 18,
@@ -371,6 +372,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     gap: 14,
+    ...rtlBaseView,
   },
   sheetHandle: {
     width: 44,

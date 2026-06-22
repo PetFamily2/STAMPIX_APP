@@ -12,7 +12,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 type RecommendationCard = {
   key: string;
@@ -157,7 +157,8 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 12,
     gap: 4,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+    ...rtlBaseView,
   },
   priorityRow: {
     borderRightWidth: 3,
@@ -165,17 +166,19 @@ const styles = StyleSheet.create({
     paddingRight: 9,
   },
   rowHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     alignSelf: 'stretch',
     gap: 8,
+    ...rtlBaseView,
   },
   titleGroup: {
     flex: 1,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    ...rtlBaseView,
   },
   title: {
     flex: 1,
@@ -202,7 +205,6 @@ const styles = StyleSheet.create({
   },
   actionLink: {
     alignSelf: 'center',
-    marginRight: 'auto',
     paddingTop: 0,
   },
   actionLinkText: {
@@ -224,9 +226,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: DASHBOARD_TOKENS.spacingCardInner,
+    ...rtlBaseView,
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   emptyText: {

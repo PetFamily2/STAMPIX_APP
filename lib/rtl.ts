@@ -151,3 +151,12 @@ export const iconTransform = {
   /** סיבוב ב-180 מעלות עבור RTL */
   rotate180: IS_RTL ? [{ rotate: '180deg' }] : [],
 };
+
+export const rtlBaseView: ViewStyle = {
+  direction: 'rtl',
+};
+
+export const rtlBaseText: TextStyle = {
+  writingDirection: 'rtl',
+  textAlign: 'right',
+};

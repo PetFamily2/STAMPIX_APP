@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 export function CompactActivitySummaryRow({
   layoutMode,
@@ -82,15 +82,17 @@ const styles = StyleSheet.create({
     minHeight: 60,
     paddingHorizontal: 18,
     paddingVertical: 12,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...rtlBaseView,
   },
   rightGroup: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    ...rtlBaseView,
   },
   rowDivider: {
     borderBottomWidth: 1,
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: 4,
   },
   customer: {

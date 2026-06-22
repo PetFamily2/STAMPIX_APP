@@ -42,7 +42,7 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -708,13 +708,6 @@ ${joinUrl}`;
           <View style={styles.recommendationsCard}>
             <View style={styles.recommendationsHeader}>
               <View style={styles.recommendationsTopRow}>
-                <Text
-                  className={tw.textStart}
-                  style={styles.recommendationsMeta}
-                >
-                  {`${Math.min(recommendationCards.length, 3)} פעולות פתוחות`}
-                </Text>
-
                 <View style={styles.recommendationsTitleRow}>
                   <Ionicons
                     name="alert-circle-outline"
@@ -735,6 +728,13 @@ ${joinUrl}`;
                     נדרש טיפול
                   </Text>
                 </View>
+
+                <Text
+                  className={tw.textStart}
+                  style={styles.recommendationsMeta}
+                >
+                  {`${Math.min(recommendationCards.length, 3)} פעולות פתוחות`}
+                </Text>
               </View>
             </View>
 
@@ -758,16 +758,6 @@ ${joinUrl}`;
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.activityHeadingRow}>
-              <Pressable
-                onPress={() =>
-                  openRoute('/(authenticated)/(business)/analytics')
-                }
-                style={styles.activityActionButton}
-              >
-                <Text className={tw.textStart} style={styles.activityAction}>
-                  {DASHBOARD_CUSTOMER_NAV_LABELS.insights}
-                </Text>
-              </Pressable>
               <Text
                 className={tw.textStart}
                 style={[
@@ -781,6 +771,16 @@ ${joinUrl}`;
               >
                 פעילות אחרונה
               </Text>
+              <Pressable
+                onPress={() =>
+                  openRoute('/(authenticated)/(business)/analytics')
+                }
+                style={styles.activityActionButton}
+              >
+                <Text className={tw.textStart} style={styles.activityAction}>
+                  {DASHBOARD_CUSTOMER_NAV_LABELS.insights}
+                </Text>
+              </Pressable>
             </View>
             <CompactActivitySummaryRow
               layoutMode={layoutMode}
@@ -827,24 +827,29 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: DASHBOARD_TOKENS.pageBackground,
+    ...rtlBaseView,
   },
   scroll: {
     flex: 1,
     backgroundColor: DASHBOARD_TOKENS.pageBackground,
+    ...rtlBaseView,
   },
   content: {
     paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
     paddingTop: 2,
     paddingBottom: 124,
     gap: 22,
+    ...rtlBaseView,
   },
   section: {
     gap: 10,
+    ...rtlBaseView,
   },
   sectionTitleRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    ...rtlBaseView,
   },
   sectionTitle: {
     fontSize: DASHBOARD_TOKENS.typography.sectionTitle.fontSize,
@@ -875,12 +880,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'stretch',
     justifyContent: 'space-between',
+    ...rtlBaseView,
   },
   recommendationsTitleRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     gap: 6,
+    ...rtlBaseView,
   },
   recommendationsMeta: {
     fontSize: 12,
@@ -895,6 +902,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    ...rtlBaseView,
   },
   activitySectionTitle: {
     flex: 1,
@@ -911,6 +919,6 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   activityActionButton: {
-    transform: [{ translateX: 10 }],
+    alignSelf: 'center',
   },
 });

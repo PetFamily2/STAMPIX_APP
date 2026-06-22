@@ -155,6 +155,47 @@ export default function BusinessTabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: TEXT.dashboard,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.dashboard}
+              icon="grid-outline"
+              isActive={activeTabName === 'dashboard'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="customers"
+        options={{
+          title: TEXT.customers,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.customers}
+              icon="people-outline"
+              isActive={activeTabName === 'customers'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scanner"
+        options={{
+          title: TEXT.scanCustomer,
+          tabBarButton: (props) => (
+            <ScannerTabButton
+              props={props}
+              title={TEXT.scanCustomer}
+              isActive={activeTabName === 'scanner'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="programs"
         options={{
           title: TEXT.programs,
@@ -178,47 +219,6 @@ export default function BusinessTabsLayout() {
               title={TEXT.campaigns}
               icon="megaphone-outline"
               isActive={activeTabName === 'campaigns'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scanner"
-        options={{
-          title: TEXT.scanCustomer,
-          tabBarButton: (props) => (
-            <ScannerTabButton
-              props={props}
-              title={TEXT.scanCustomer}
-              isActive={activeTabName === 'scanner'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="customers"
-        options={{
-          title: TEXT.customers,
-          tabBarButton: (props) => (
-            <StandardTabButton
-              props={props}
-              title={TEXT.customers}
-              icon="people-outline"
-              isActive={activeTabName === 'customers'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: TEXT.dashboard,
-          tabBarButton: (props) => (
-            <StandardTabButton
-              props={props}
-              title={TEXT.dashboard}
-              icon="grid-outline"
-              isActive={activeTabName === 'dashboard'}
             />
           ),
         }}

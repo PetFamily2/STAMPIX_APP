@@ -144,29 +144,30 @@ export default function CustomerTabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="settings"
+        name="wallet"
         options={{
-          title: TEXT.settings,
+          title: TEXT.wallet,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.settings}
-              icon="settings-outline"
-              isActive={activeTabName === 'settings'}
+              title={TEXT.wallet}
+              icon="wallet-outline"
+              isActive={activeTabName === 'wallet'}
             />
           ),
         }}
       />
       <Tabs.Screen
-        name="rewards"
+        name="discovery"
         options={{
-          title: TEXT.rewards,
+          title: TEXT.discovery,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.rewards}
-              icon="gift-outline"
-              isActive={activeTabName === 'rewards'}
+              title={TEXT.discovery}
+              icon="compass-outline"
+              iconSize={DISCOVERY_TAB_ICON_SIZE}
+              isActive={activeTabName === 'discovery'}
             />
           ),
         }}
@@ -242,30 +243,29 @@ export default function CustomerTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="discovery"
+        name="rewards"
         options={{
-          title: TEXT.discovery,
+          title: TEXT.rewards,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.discovery}
-              icon="compass-outline"
-              iconSize={DISCOVERY_TAB_ICON_SIZE}
-              isActive={activeTabName === 'discovery'}
+              title={TEXT.rewards}
+              icon="gift-outline"
+              isActive={activeTabName === 'rewards'}
             />
           ),
         }}
       />
       <Tabs.Screen
-        name="wallet"
+        name="settings"
         options={{
-          title: TEXT.wallet,
+          title: TEXT.settings,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.wallet}
-              icon="wallet-outline"
-              isActive={activeTabName === 'wallet'}
+              title={TEXT.settings}
+              icon="settings-outline"
+              isActive={activeTabName === 'settings'}
             />
           ),
         }}

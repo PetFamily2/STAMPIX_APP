@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 type StatusTone = 'danger' | 'warning' | 'neutral' | 'success';
 
@@ -215,9 +215,10 @@ const styles = StyleSheet.create({
     minHeight: 92,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    ...rtlBaseView,
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   storeBubble: {
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
   textWrap: {
     flex: 1,
     gap: 3,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 18,

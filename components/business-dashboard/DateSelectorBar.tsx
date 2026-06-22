@@ -6,6 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
+import { rtlBaseView } from '@/lib/rtl';
 
 export type DatePresetKey =
   | 'today'
@@ -79,7 +80,7 @@ export function DateSelectorBar({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
     borderRadius: 10,
@@ -87,6 +88,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 1,
     gap: 1,
+    ...rtlBaseView,
   },
   pill: {
     flex: 1,

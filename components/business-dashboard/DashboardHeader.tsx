@@ -7,7 +7,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { rtlBaseText, rtlBaseView } from '@/lib/rtl';
 
 function getGreeting() {
   const hour = Number(
@@ -51,37 +51,6 @@ export function DashboardHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.leftCluster}>
-          <Pressable
-            onPress={onPressNotifications}
-            style={styles.notificationButton}
-            accessibilityRole="button"
-            accessibilityLabel="התראות עסק"
-          >
-            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-            {notificationCount > 0 ? (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {notificationCount > 9 ? '9+' : notificationCount}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.brandLine,
-              {
-                fontSize: layout.headerBrandSize,
-                lineHeight: layout.headerBrandSize + 6,
-              },
-            ]}
-          >
-            StampAix
-          </Text>
-        </View>
-
         <View style={styles.rightActions}>
           <Pressable
             onPress={onPressMenu}
@@ -103,11 +72,40 @@ export function DashboardHeader({
             <Ionicons name="menu-outline" size={30} color="#1E3A8A" />
           </Pressable>
         </View>
+
+        <View style={styles.leftCluster}>
+          <Pressable
+            onPress={onPressNotifications}
+            style={styles.notificationButton}
+            accessibilityRole="button"
+            accessibilityLabel="התראות עסק"
+          >
+            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+            {notificationCount > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          <Text
+            style={[
+              styles.brandLine,
+              {
+                fontSize: layout.headerBrandSize,
+                lineHeight: layout.headerBrandSize + 6,
+              },
+            ]}
+          >
+            StampAix
+          </Text>
+        </View>
       </View>
 
       <View style={styles.greetingRow}>
         <Text
-          className={tw.textStart}
           numberOfLines={1}
           style={[
             styles.greetingLine,
@@ -120,10 +118,8 @@ export function DashboardHeader({
           {greetingWithName}
         </Text>
         <View style={styles.businessRow}>
-          <Ionicons name="chevron-down" size={16} color="#334155" />
           {businessName ? (
             <Text
-              className={tw.textStart}
               numberOfLines={1}
               style={[
                 styles.businessName,
@@ -136,6 +132,7 @@ export function DashboardHeader({
               {businessName}
             </Text>
           ) : null}
+          <Ionicons name="chevron-down" size={16} color="#334155" />
         </View>
       </View>
     </View>
@@ -146,6 +143,7 @@ const styles = StyleSheet.create({
   container: {
     gap: 8,
     paddingTop: 0,
+    ...rtlBaseView,
   },
   topRow: {
     flexDirection: 'row',
@@ -156,6 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    ...rtlBaseView,
   },
   notificationButton: {
     width: 34,
@@ -165,9 +164,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   rightActions: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    ...rtlBaseView,
   },
   menuButton: {
     width: 32,
@@ -198,23 +198,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E4ED8',
     letterSpacing: 0,
+    textAlign: 'left',
+    writingDirection: 'ltr',
   },
   greetingRow: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: 1,
+    ...rtlBaseView,
   },
   greetingLine: {
     fontWeight: '700',
     color: DASHBOARD_TOKENS.colors.textPrimary,
+    alignSelf: 'stretch',
+    ...rtlBaseText,
   },
   businessRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    ...rtlBaseView,
   },
   businessName: {
+    flexShrink: 1,
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
+    ...rtlBaseText,
   },
 });
 
