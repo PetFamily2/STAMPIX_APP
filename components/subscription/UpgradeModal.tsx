@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   footerActionsRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,

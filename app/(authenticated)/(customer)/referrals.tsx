@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     marginTop: 2,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   summaryCard: {
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     marginTop: 6,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   tabButton: {

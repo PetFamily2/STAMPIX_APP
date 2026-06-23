@@ -68,7 +68,7 @@ export default function WelcomeScreen() {
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       <View className="flex-1 px-6 py-8">
-        <View className="flex-row-reverse items-center justify-between">
+        <View className="flex-row items-center justify-between">
           <BackButton onPress={handleBack} />
           <View className="w-11 h-11" />
         </View>
@@ -100,7 +100,7 @@ export default function WelcomeScreen() {
 
         <View className="mb-auto">
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row-reverse items-start gap-4">
+            <View className="flex-row items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <Heart size={24} color="#2563eb" fill="#dbeafe" />
               </View>
@@ -116,7 +116,7 @@ export default function WelcomeScreen() {
           </View>
 
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row-reverse items-start gap-4">
+            <View className="flex-row items-start gap-4">
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <TrendingUp size={24} color="#2563eb" />
               </View>
@@ -143,7 +143,7 @@ export default function WelcomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View className="flex-row-reverse justify-center items-center gap-2">
+          <View className="flex-row justify-center items-center gap-2">
             <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
               <Text className="text-blue-600 font-semibold text-base">
                 {TEXT.emailEntry}

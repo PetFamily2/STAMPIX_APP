@@ -61,7 +61,7 @@ export default function CardDetailsScreen() {
         >
           <View
             style={{
-              flexDirection: 'row-reverse',
+              flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
@@ -97,7 +97,7 @@ export default function CardDetailsScreen() {
         >
           <View
             style={{
-              flexDirection: 'row-reverse',
+              flexDirection: 'row',
               alignItems: 'center',
               gap: 10,
             }}
@@ -179,7 +179,7 @@ export default function CardDetailsScreen() {
               borderWidth: 1,
               borderColor: '#E6EBF5',
               padding: 14,
-              flexDirection: 'row-reverse',
+              flexDirection: 'row',
               flexWrap: 'wrap',
               gap: 10,
               justifyContent: 'flex-start',
@@ -249,7 +249,7 @@ export default function CardDetailsScreen() {
           >
             <View
               style={{
-                flexDirection: 'row-reverse',
+                flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}

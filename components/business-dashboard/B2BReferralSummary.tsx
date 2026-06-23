@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   row: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'stretch',
   },
   statItem: {

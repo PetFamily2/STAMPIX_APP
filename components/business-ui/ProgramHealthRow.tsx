@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   head: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 10,
     alignItems: 'flex-start',
   },

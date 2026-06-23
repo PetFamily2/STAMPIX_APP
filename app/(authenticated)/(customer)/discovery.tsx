@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   panelHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     color: '#D94A33',
   },
   filterHeaderRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
   },
   filterChipsWrap: {
     marginTop: 12,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   },
   sortButtonsRow: {
     alignSelf: 'stretch',
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   sortButton: {
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   businessHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -931,13 +931,13 @@ const styles = StyleSheet.create({
   },
   savedBusinessMetaRow: {
     marginTop: 10,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   metaChipsWrap: {
     marginTop: 10,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
   },

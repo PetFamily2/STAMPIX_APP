@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   inlineStatusRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   previewMetaRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },

@@ -23,8 +23,8 @@ export const IS_RTL = true;
  * ב-RTL: הפריטים צריכים לזרום מימין לשמאל
  */
 export const flexDirection = {
-  row: (IS_RTL ? 'row-reverse' : 'row') as FlexStyle['flexDirection'],
-  rowReverse: (IS_RTL ? 'row' : 'row-reverse') as FlexStyle['flexDirection'],
+  row: 'row' as FlexStyle['flexDirection'],
+  rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
   col: 'column' as FlexStyle['flexDirection'],
   colReverse: 'column-reverse' as FlexStyle['flexDirection'],
 };
@@ -44,8 +44,8 @@ export const textAlign = {
  * ב-RTL: 'start' משמעותו צד ימין
  */
 export const justifyContent = {
-  start: (IS_RTL ? 'flex-end' : 'flex-start') as FlexStyle['justifyContent'],
-  end: (IS_RTL ? 'flex-start' : 'flex-end') as FlexStyle['justifyContent'],
+  start: 'flex-start' as FlexStyle['justifyContent'],
+  end: 'flex-end' as FlexStyle['justifyContent'],
   center: 'center' as FlexStyle['justifyContent'],
   between: 'space-between' as FlexStyle['justifyContent'],
   around: 'space-around' as FlexStyle['justifyContent'],
@@ -56,8 +56,8 @@ export const justifyContent = {
  * קבלת יישור הפריטים (Align Items) הנכון
  */
 export const alignItems = {
-  start: (IS_RTL ? 'flex-end' : 'flex-start') as FlexStyle['alignItems'],
-  end: (IS_RTL ? 'flex-start' : 'flex-end') as FlexStyle['alignItems'],
+  start: 'flex-start' as FlexStyle['alignItems'],
+  end: 'flex-end' as FlexStyle['alignItems'],
   center: 'center' as FlexStyle['alignItems'],
   stretch: 'stretch' as FlexStyle['alignItems'],
 };
@@ -68,20 +68,16 @@ export const alignItems = {
  */
 export const spacing = {
   /** צד ההתחלה (ימין ב-RTL, שמאל ב-LTR) */
-  marginStart: (value: number): ViewStyle =>
-    IS_RTL ? { marginRight: value } : { marginLeft: value },
+  marginStart: (value: number): ViewStyle => ({ marginStart: value }),
 
   /** צד הסיום (שמאל ב-RTL, ימין ב-LTR) */
-  marginEnd: (value: number): ViewStyle =>
-    IS_RTL ? { marginLeft: value } : { marginRight: value },
+  marginEnd: (value: number): ViewStyle => ({ marginEnd: value }),
 
   /** ריפוד צד ההתחלה */
-  paddingStart: (value: number): ViewStyle =>
-    IS_RTL ? { paddingRight: value } : { paddingLeft: value },
+  paddingStart: (value: number): ViewStyle => ({ paddingStart: value }),
 
   /** ריפוד צד הסיום */
-  paddingEnd: (value: number): ViewStyle =>
-    IS_RTL ? { paddingLeft: value } : { paddingRight: value },
+  paddingEnd: (value: number): ViewStyle => ({ paddingEnd: value }),
 };
 
 /**
@@ -89,12 +85,10 @@ export const spacing = {
  */
 export const position = {
   /** מיקום התחלה (ימין ב-RTL, שמאל ב-LTR) */
-  start: (value: number): ViewStyle =>
-    IS_RTL ? { right: value } : { left: value },
+  start: (value: number): ViewStyle => ({ start: value }),
 
   /** מיקום סיום (שמאל ב-RTL, ימין ב-LTR) */
-  end: (value: number): ViewStyle =>
-    IS_RTL ? { left: value } : { right: value },
+  end: (value: number): ViewStyle => ({ end: value }),
 };
 
 /**
@@ -103,31 +97,31 @@ export const position = {
  */
 export const tw = {
   /** שורת Flex שמכבדת RTL */
-  flexRow: IS_RTL ? 'flex-row-reverse' : 'flex-row',
+  flexRow: 'flex-row',
 
   /** יישור טקסט לתוכן ראשי */
   textStart: IS_RTL ? 'text-right' : 'text-left',
   textEnd: IS_RTL ? 'text-left' : 'text-right',
 
   /** יישור תוכן (Justify) */
-  justifyStart: IS_RTL ? 'justify-end' : 'justify-start',
-  justifyEnd: IS_RTL ? 'justify-start' : 'justify-end',
+  justifyStart: 'justify-start',
+  justifyEnd: 'justify-end',
 
   /** יישור פריטים (Items) */
-  itemsStart: IS_RTL ? 'items-end' : 'items-start',
-  itemsEnd: IS_RTL ? 'items-start' : 'items-end',
+  itemsStart: 'items-start',
+  itemsEnd: 'items-end',
 
   /** יישור עצמי (Self) */
-  selfStart: IS_RTL ? 'self-end' : 'self-start',
-  selfEnd: IS_RTL ? 'self-start' : 'self-end',
+  selfStart: 'self-start',
+  selfEnd: 'self-end',
 
   /** ריפוד (Padding) - צד ההתחלה */
-  ps: (size: number | string) => (IS_RTL ? `pr-${size}` : `pl-${size}`),
-  pe: (size: number | string) => (IS_RTL ? `pl-${size}` : `pr-${size}`),
+  ps: (size: number | string) => `ps-${size}`,
+  pe: (size: number | string) => `pe-${size}`,
 
   /** שוליים (Margin) - צד ההתחלה */
-  ms: (size: number | string) => (IS_RTL ? `mr-${size}` : `ml-${size}`),
-  me: (size: number | string) => (IS_RTL ? `ml-${size}` : `mr-${size}`),
+  ms: (size: number | string) => `ms-${size}`,
+  me: (size: number | string) => `me-${size}`,
 };
 
 /**

@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tabRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   row: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   segmentRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionsRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   actionButton: {

@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textPrimary,
   },
   legendWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
   legendItem: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,

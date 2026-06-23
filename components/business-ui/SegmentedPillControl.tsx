@@ -41,7 +41,7 @@ export function SegmentedPillControl<T extends string>({
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,

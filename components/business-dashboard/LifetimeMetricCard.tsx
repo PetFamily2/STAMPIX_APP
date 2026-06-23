@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   metricRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 4,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   footerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     borderTopWidth: 1,

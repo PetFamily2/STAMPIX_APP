@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   optionsWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   tagInputRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tagChip: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   submittingRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },

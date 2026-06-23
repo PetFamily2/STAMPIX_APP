@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 54,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 10,
     alignItems: 'flex-start',
   },

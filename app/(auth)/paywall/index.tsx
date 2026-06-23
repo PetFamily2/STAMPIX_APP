@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   utilityLinksRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 8,
     marginTop: 10,
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   footerLinkRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'center',
     gap: 22,
     paddingTop: 2,

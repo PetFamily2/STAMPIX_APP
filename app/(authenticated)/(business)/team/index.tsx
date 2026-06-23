@@ -579,7 +579,7 @@ export default function BusinessTeamManagementScreen() {
           </View>
         </View>
 
-        <View className="mt-3 flex-row-reverse flex-wrap gap-2">
+        <View className="mt-3 flex-row flex-wrap gap-2">
           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
             <Text className="text-[11px] font-bold text-[#1D4ED8]">
               {ROLE_LABEL[member.staffRole]}
@@ -600,7 +600,7 @@ export default function BusinessTeamManagementScreen() {
         </View>
 
         {canShowActions ? (
-          <View className="mt-3 flex-row-reverse flex-wrap gap-2">
+          <View className="mt-3 flex-row flex-wrap gap-2">
             {isOwner && member.staffRole === 'staff'
               ? renderActionButton(
                   'קדם למנהל',
@@ -761,7 +761,7 @@ export default function BusinessTeamManagementScreen() {
           </View>
         </View>
 
-        <View className="mt-3 flex-row-reverse flex-wrap gap-2">
+        <View className="mt-3 flex-row flex-wrap gap-2">
           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
             <Text className="text-[11px] font-bold text-[#1D4ED8]">
               {invite.targetRole === 'manager' ? 'מנהל' : 'עובד'}
@@ -834,7 +834,7 @@ export default function BusinessTeamManagementScreen() {
           <View
             style={{
               marginTop: 16,
-              flexDirection: 'row-reverse',
+              flexDirection: 'row',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -1132,7 +1132,7 @@ export default function BusinessTeamManagementScreen() {
                           </View>
                         </View>
 
-                        <View className="mt-3 flex-row-reverse flex-wrap gap-2">
+                        <View className="mt-3 flex-row flex-wrap gap-2">
                           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                             <Text className="text-[11px] font-bold text-[#1D4ED8]">
                               {invite.targetRole === 'manager'

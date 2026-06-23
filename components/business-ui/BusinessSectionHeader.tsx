@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textMuted,
   },
   actionWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
     minHeight: 24,

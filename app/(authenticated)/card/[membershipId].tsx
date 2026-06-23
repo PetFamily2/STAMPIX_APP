@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   },
   inviteRow: {
     marginTop: 4,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   invitePrimaryButton: {

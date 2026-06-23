@@ -109,7 +109,7 @@ export default function AcceptInviteScreen() {
           backgroundColor="#E9F0FF"
         >
           <View className="px-6 pt-6 pb-8">
-            <View className="flex-row-reverse items-center justify-between">
+            <View className="flex-row items-center justify-between">
               <BackButton
                 onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
               />

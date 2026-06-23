@@ -1542,7 +1542,6 @@ export default function ScannerScreen() {
                     name="gift-outline"
                     size={24}
                     color="#16A34A"
-                    style={{ marginRight: 10 }}
                   />
                   <Text style={styles.redeemSideButtonLabel}>
                     {isStamping ? 'מממשים...' : 'ממש הטבה'}
@@ -1563,7 +1562,6 @@ export default function ScannerScreen() {
                     name="close-outline"
                     size={24}
                     color="#DC2626"
-                    style={{ marginRight: 10 }}
                   />
                   <Text style={styles.cancelSideButtonLabel}>ביטול</Text>
                 </Pressable>
@@ -1639,7 +1637,6 @@ export default function ScannerScreen() {
                     name="arrow-undo-outline"
                     size={24}
                     color="#DC2626"
-                    style={{ marginRight: 10 }}
                   />
                   <Text style={styles.undoSideButtonLabel}>ביטול</Text>
                 </Pressable>
@@ -1867,7 +1864,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
   },
   redeemRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'stretch',
     gap: 12,
   },
@@ -2010,7 +2007,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resultBannerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'stretch',
     gap: 12,
   },
@@ -2076,7 +2073,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   resultRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -2152,7 +2149,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
     padding: 10,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -2207,7 +2204,7 @@ const styles = StyleSheet.create({
     borderColor: '#2F6BFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     shadowColor: '#2F6BFF',
@@ -2250,7 +2247,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   undoCardTopRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,

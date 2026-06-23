@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   optionSelected: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionUnselected: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,

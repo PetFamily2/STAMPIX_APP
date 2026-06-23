@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },

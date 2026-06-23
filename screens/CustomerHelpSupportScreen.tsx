@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   faqHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },

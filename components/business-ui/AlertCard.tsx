@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   row: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 10,
     alignItems: 'flex-start',
   },

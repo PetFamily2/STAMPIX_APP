@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   loadingRow: {
     marginTop: 8,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },

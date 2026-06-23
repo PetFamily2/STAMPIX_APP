@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   header: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionsWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   submittingRow: {
     marginTop: 8,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },

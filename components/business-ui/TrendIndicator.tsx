@@ -34,7 +34,7 @@ export function TrendIndicator({ trend }: { trend?: Trend | null }) {
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 3,

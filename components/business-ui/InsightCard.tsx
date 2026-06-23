@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
   },
   iconWrap: {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   tagsWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },

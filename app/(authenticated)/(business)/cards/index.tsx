@@ -604,7 +604,7 @@ export function LoyaltyCardsHubContent() {
 const styles = StyleSheet.create({
   kpiGrid: {
     marginTop: 16,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },

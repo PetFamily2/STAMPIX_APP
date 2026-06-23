@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   tabs: {
     backgroundColor: '#E5E7EB',
     borderRadius: 14,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 4,
     marginTop: 14,
     padding: 4,

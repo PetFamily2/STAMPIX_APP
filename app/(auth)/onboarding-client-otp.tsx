@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   headerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },

@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   },
   shareActions: {
     marginTop: 2,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   sharePrimaryButton: {
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   programFooterRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   joinedDetails: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
     flexWrap: 'wrap',

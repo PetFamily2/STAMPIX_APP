@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kpiGrid: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
   },
   customerUsageHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
   },
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   customerUsageUpgradeRow: {
     marginTop: 14,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   searchRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     marginTop: 16,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   atRiskActionHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
   },
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   atRiskActions: {
     marginTop: 14,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 10,
   },
   primaryAction: {
@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F766E',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 7,
     paddingHorizontal: 14,
   },
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   customerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
@@ -1200,7 +1200,7 @@ const styles = StyleSheet.create({
   },
   badges: {
     marginTop: 8,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 6,
     flexWrap: 'wrap',
   },

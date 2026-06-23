@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   requestHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 10,

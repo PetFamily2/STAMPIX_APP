@@ -84,7 +84,7 @@ function MenuRow({
     >
       <View
         style={{
-          flexDirection: 'row-reverse',
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 10,
@@ -318,7 +318,7 @@ export default function BusinessSettingsScreen() {
           >
             <View
               style={{
-                flexDirection: 'row-reverse',
+                flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
@@ -571,7 +571,7 @@ export default function BusinessSettingsScreen() {
                         paddingHorizontal: 12,
                         paddingVertical: 10,
                         opacity: pressed ? 0.86 : 1,
-                        flexDirection: 'row-reverse',
+                        flexDirection: 'row',
                         alignItems: 'center',
                         gap: 10,
                       },
@@ -627,7 +627,7 @@ export default function BusinessSettingsScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   opacity: pressed ? 0.86 : 1,
-                  flexDirection: 'row-reverse',
+                  flexDirection: 'row',
                   alignItems: 'center',
                   gap: 10,
                 },

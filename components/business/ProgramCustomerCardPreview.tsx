@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     left: -20,
   },
   headerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   },
   stampsLine: {
     width: '100%',
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-45deg' }],
   },
   footerRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 8,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   walletTopRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
@@ -578,13 +578,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(140,100,0,0.48)',
   },
   walletStampGroups: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     flexWrap: 'nowrap',
   },
   walletStampGroup: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   walletBottomRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,

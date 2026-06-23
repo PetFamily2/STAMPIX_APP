@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   readyRewardHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -360,7 +360,8 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 11,
     color: '#6B7280',
-    textAlign: 'left',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   badge: {
     fontSize: 11,

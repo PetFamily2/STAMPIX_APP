@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   topRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   primaryActionsRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   secondaryActionButton: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 4,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   secondaryInlineAction: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
   },

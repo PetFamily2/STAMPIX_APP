@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   profileHero: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 12,
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   phoneActionRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   smallButtonSecondary: {
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   dateInputs: {
     flex: 1,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
   },
   dateInput: {

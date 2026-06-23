@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowTextWrap: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,

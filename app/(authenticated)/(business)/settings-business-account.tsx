@@ -115,7 +115,7 @@ export default function BusinessSettingsAccountScreen() {
             חשבון משתמש
           </Text>
 
-          <View className="mt-4 flex-row-reverse items-center gap-3 border-b border-[#F1F5F9] pb-4">
+          <View className="mt-4 flex-row items-center gap-3 border-b border-[#F1F5F9] pb-4">
             <UserAvatar
               avatarUrl={user?.avatarUrl}
               fullName={userFullName}
@@ -176,7 +176,7 @@ export default function BusinessSettingsAccountScreen() {
                 },
               ]}
             >
-              <View className="flex-row-reverse items-center justify-between gap-3">
+              <View className="flex-row items-center justify-between gap-3">
                 <View className="h-[38px] w-[38px] items-center justify-center rounded-full border border-[#DCE6FF] bg-[#EEF3FF]">
                   <Ionicons name={row.icon} size={18} color="#1D4ED8" />
                 </View>

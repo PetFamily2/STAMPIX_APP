@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   heroTopRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   chipsRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   statsGrid: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   referralSummaryRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
@@ -985,7 +985,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
     padding: 10,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
     borderColor: '#E3E9FA',
     backgroundColor: '#FAFCFF',
     padding: 10,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
   },
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timelineTitleRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
   },
@@ -1123,7 +1123,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
-    textAlign: 'left',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   modalBackdrop: {
     flex: 1,
@@ -1158,7 +1159,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   reasonList: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     justifyContent: 'flex-end',
@@ -1202,7 +1203,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   modalActions: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     gap: 10,
     marginTop: 4,
   },

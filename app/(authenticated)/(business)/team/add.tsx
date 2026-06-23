@@ -255,7 +255,7 @@ export default function AddBusinessStaffScreen() {
               >
                 1. \u05d1\u05d7\u05e8\u05d5 \u05ea\u05e4\u05e7\u05d9\u05d3
               </Text>
-              <View className="flex-row-reverse gap-2">
+              <View className="flex-row gap-2">
                 <TouchableOpacity
                   onPress={() => setInviteRole('staff')}
                   className={`rounded-xl border px-4 py-2 ${
