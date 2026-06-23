@@ -8,6 +8,10 @@ import {
 } from '@/lib/design/dashboardTokens';
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
+function formatSecondaryTimeLabel(value: string) {
+  return `\u200E${value}\u200E`;
+}
+
 export function CompactActivitySummaryRow({
   layoutMode,
   items,
@@ -66,7 +70,7 @@ export function CompactActivitySummaryRow({
             </View>
           </View>
           <View style={styles.timeWrap}>
-            <Text style={styles.time}>{item.time}</Text>
+            <Text style={styles.time}>{formatSecondaryTimeLabel(item.time)}</Text>
           </View>
         </View>
       ))}
@@ -132,13 +136,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: DASHBOARD_TOKENS.colors.textMuted,
     textAlign: 'right',
-    writingDirection: 'rtl',
+    writingDirection: 'auto',
     alignSelf: 'stretch',
   },
   timeWrap: {
     minWidth: 46,
     alignItems: 'flex-start',
     flexShrink: 0,
+    direction: 'ltr',
   },
   time: {
     fontSize: 12,

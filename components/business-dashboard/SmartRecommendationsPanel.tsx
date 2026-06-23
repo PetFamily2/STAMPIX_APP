@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   actionLink: {
     alignSelf: 'flex-end',
-    paddingTop: 0,
+    paddingTop: 2,
   },
   actionLinkText: {
     fontWeight: '600',

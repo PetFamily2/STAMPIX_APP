@@ -441,8 +441,8 @@ export default function BusinessSettingsScreen() {
           ) : null}
           {canEditBusiness ? (
             <MenuRow
-              title="\u05d4\u05e4\u05e0\u05d9\u05d5\u05ea \u05d5\u05d4\u05d6\u05de\u05e0\u05d5\u05ea"
-              subtitle="\u05ea\u05d2\u05de\u05d5\u05dc\u05d9 \u05d4\u05d6\u05de\u05e0\u05ea \u05d7\u05d1\u05e8\u05d9\u05dd \u05d5\u05de\u05e2\u05e7\u05d1 \u05d1\u05d9\u05e6\u05d5\u05e2\u05d9\u05dd"
+              title="הפניות והזמנות"
+              subtitle="תגמולי הזמנת חברים ומעקב ביצועים"
               icon="gift-outline"
               onPress={() =>
                 router.push(

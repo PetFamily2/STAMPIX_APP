@@ -127,6 +127,12 @@ export function BusinessReferralCard({
                 {'\u05de\u05db\u05d9\u05e8\u05d9\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7?'}
               </Text>
             </View>
+          </View>
+
+          <Text className={tw.textStart} style={styles.description}>
+            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-\u200EStampAix\u200E \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
+          </Text>
+          <View style={styles.ctaRow}>
             <Pressable
               onPress={onPressShare}
               disabled={shareDisabled || isShareLoading}
@@ -156,14 +162,10 @@ export function BusinessReferralCard({
                       {'\u05e9\u05ea\u05e3 \u05d4\u05d6\u05de\u05e0\u05d4'}
                     </Text>
                   </View>
-              )}
-            </Animated.View>
-          </Pressable>
+                )}
+              </Animated.View>
+            </Pressable>
           </View>
-
-          <Text className={tw.textStart} style={styles.description}>
-            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-\u200EStampAix\u200E \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
-          </Text>
           <Text className={tw.textStart} style={styles.progressText}>
             {`\u05e2\u05d3 \u05db\u05d4 \u05d4\u05e8\u05d5\u05d5\u05d7\u05ea\u05dd: ${formatMonthsLabel(earnedMonths)}${
               hasEarnedRewards ? ' \u{1F389}' : ''
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
   },
   topRow: {
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 2,
     ...rtlBaseView,
   },
   titleRow: {
@@ -316,6 +318,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     alignSelf: 'stretch',
     writingDirection: 'rtl',
+  },
+  ctaRow: {
+    alignItems: 'flex-end',
+    marginTop: 2,
   },
   primaryButtonTouchable: {
     alignSelf: 'flex-end',

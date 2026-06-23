@@ -37,6 +37,7 @@ export function RtlActionLink({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      hitSlop={6}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: 3,
+    gap: 5,
     ...rtlBaseView,
   },
   label: {

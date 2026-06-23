@@ -156,7 +156,7 @@ export default function QrScanner({
             style={styles.tapToResetOverlay}
             onPress={onTapWhileScanned}
             accessibilityRole="button"
-            accessibilityLabel="\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1"
+            accessibilityLabel="סרוק שוב"
           />
         ) : null}
       </View>

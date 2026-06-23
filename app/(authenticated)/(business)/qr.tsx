@@ -44,7 +44,7 @@ export default function BusinessJoinQrScreen() {
       >
         <StickyScrollHeader topPadding={12} backgroundColor="#E9F0FF">
           <View style={styles.header}>
-            <BrandPageHeader title="\u05e7\u05d5\u05d3 \u05d4\u05e6\u05d8\u05e8\u05e4\u05d5\u05ea" />
+            <BrandPageHeader title="קוד הצטרפות" />
           </View>
         </StickyScrollHeader>
 
