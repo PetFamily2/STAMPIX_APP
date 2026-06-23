@@ -1,132 +1,106 @@
 /**
- * כלי עזר ל-RTL - תמיכה מפורשת בימין-לשמאל שעובדת ב:
- * - Expo Go (פיתוח)
- * - Development builds
- * - Production builds
- * - iOS ו-Android באופן עקבי
+ * RTL helpers for a Hebrew-first app.
  *
- * מודול זה לא מסתמך על I18nManager מהסיבות הבאות:
- * 1. I18nManager.forceRTL() דורש הפעלה מחדש של האפליקציה
- * 2. הוא לא עובד ב-Expo Go
- * 3. iOS ו-Android מתנהגים בצורה שונה
- *
- * במקום זאת, אנו מגדירים במפורש סגנונות RTL ומשתמשים בהם ישירות.
+ * React Native native RTL is the preferred path. If the runtime still reports
+ * LTR, these helpers provide a manual fallback for shared row/start/end usage.
  */
 
-import type { FlexStyle, TextStyle, ViewStyle } from 'react-native'; // ייבוא טיפוסים של סגנונות
+import { I18nManager } from 'react-native';
+import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 
-// קונפיגורציית האפליקציה - שנה ל-true עבור שפות RTL (עברית, ערבית וכו')
 export const IS_RTL = true;
+export const IS_NATIVE_RTL = I18nManager.isRTL;
+export const NEEDS_MANUAL_RTL = IS_RTL && !IS_NATIVE_RTL;
 
-/**
- * קבלת כיוון ה-Flex הנכון עבור שורות
- * ב-RTL: הפריטים צריכים לזרום מימין לשמאל
- */
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+I18nManager.swapLeftAndRightInRTL(true);
+
+if (__DEV__) {
+  console.info(
+    `[rtl] desired=${IS_RTL} native=${IS_NATIVE_RTL} swap=${I18nManager.doLeftAndRightSwapInRTL}`
+  );
+}
+
 export const flexDirection = {
-  row: 'row' as FlexStyle['flexDirection'],
-  rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
+  row: (NEEDS_MANUAL_RTL ? 'row-reverse' : 'row') as FlexStyle['flexDirection'],
+  rowReverse: (NEEDS_MANUAL_RTL
+    ? 'row'
+    : 'row-reverse') as FlexStyle['flexDirection'],
   col: 'column' as FlexStyle['flexDirection'],
   colReverse: 'column-reverse' as FlexStyle['flexDirection'],
 };
 
-/**
- * קבלת יישור הטקסט הנכון
- * ב-RTL: הטקסט צריך להיות מיושר לימין
- */
 export const textAlign = {
   start: (IS_RTL ? 'right' : 'left') as TextStyle['textAlign'],
   end: (IS_RTL ? 'left' : 'right') as TextStyle['textAlign'],
   center: 'center' as TextStyle['textAlign'],
 };
 
-/**
- * קבלת יישור התוכן (Justify Content) הנכון
- * ב-RTL: 'start' משמעותו צד ימין
- */
 export const justifyContent = {
-  start: 'flex-start' as FlexStyle['justifyContent'],
-  end: 'flex-end' as FlexStyle['justifyContent'],
+  start: (NEEDS_MANUAL_RTL
+    ? 'flex-end'
+    : 'flex-start') as FlexStyle['justifyContent'],
+  end: (NEEDS_MANUAL_RTL
+    ? 'flex-start'
+    : 'flex-end') as FlexStyle['justifyContent'],
   center: 'center' as FlexStyle['justifyContent'],
   between: 'space-between' as FlexStyle['justifyContent'],
   around: 'space-around' as FlexStyle['justifyContent'],
   evenly: 'space-evenly' as FlexStyle['justifyContent'],
 };
 
-/**
- * קבלת יישור הפריטים (Align Items) הנכון
- */
 export const alignItems = {
-  start: 'flex-start' as FlexStyle['alignItems'],
-  end: 'flex-end' as FlexStyle['alignItems'],
+  start: (NEEDS_MANUAL_RTL
+    ? 'flex-end'
+    : 'flex-start') as FlexStyle['alignItems'],
+  end: (NEEDS_MANUAL_RTL
+    ? 'flex-start'
+    : 'flex-end') as FlexStyle['alignItems'],
   center: 'center' as FlexStyle['alignItems'],
   stretch: 'stretch' as FlexStyle['alignItems'],
 };
 
-/**
- * כלי מרווח (Spacing) שמכבדים RTL
- * השתמש באלה במקום marginLeft/marginRight, paddingLeft/paddingRight
- */
 export const spacing = {
-  /** צד ההתחלה (ימין ב-RTL, שמאל ב-LTR) */
-  marginStart: (value: number): ViewStyle => ({ marginStart: value }),
-
-  /** צד הסיום (שמאל ב-RTL, ימין ב-LTR) */
-  marginEnd: (value: number): ViewStyle => ({ marginEnd: value }),
-
-  /** ריפוד צד ההתחלה */
-  paddingStart: (value: number): ViewStyle => ({ paddingStart: value }),
-
-  /** ריפוד צד הסיום */
-  paddingEnd: (value: number): ViewStyle => ({ paddingEnd: value }),
+  marginStart: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { marginRight: value } : { marginStart: value },
+  marginEnd: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { marginLeft: value } : { marginEnd: value },
+  paddingStart: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { paddingRight: value } : { paddingStart: value },
+  paddingEnd: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { paddingLeft: value } : { paddingEnd: value },
 };
 
-/**
- * כלי מיקום (Position) שמכבדים RTL
- */
 export const position = {
-  /** מיקום התחלה (ימין ב-RTL, שמאל ב-LTR) */
-  start: (value: number): ViewStyle => ({ start: value }),
-
-  /** מיקום סיום (שמאל ב-RTL, ימין ב-LTR) */
-  end: (value: number): ViewStyle => ({ end: value }),
+  start: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { right: value } : { start: value },
+  end: (value: number): ViewStyle =>
+    NEEDS_MANUAL_RTL ? { left: value } : { end: value },
 };
 
-/**
- * עזרי NativeWind/Tailwind עבור RTL
- * השתמש באלה כדי לקבל את מחלקות ה-Tailwind הנכונות לפריסות RTL
- */
 export const tw = {
-  /** שורת Flex שמכבדת RTL */
-  flexRow: 'flex-row',
+  flexRow: NEEDS_MANUAL_RTL ? 'flex-row-reverse' : 'flex-row',
 
-  /** יישור טקסט לתוכן ראשי */
   textStart: IS_RTL ? 'text-right' : 'text-left',
   textEnd: IS_RTL ? 'text-left' : 'text-right',
 
-  /** יישור תוכן (Justify) */
-  justifyStart: 'justify-start',
-  justifyEnd: 'justify-end',
+  justifyStart: NEEDS_MANUAL_RTL ? 'justify-end' : 'justify-start',
+  justifyEnd: NEEDS_MANUAL_RTL ? 'justify-start' : 'justify-end',
 
-  /** יישור פריטים (Items) */
-  itemsStart: 'items-start',
-  itemsEnd: 'items-end',
+  itemsStart: NEEDS_MANUAL_RTL ? 'items-end' : 'items-start',
+  itemsEnd: NEEDS_MANUAL_RTL ? 'items-start' : 'items-end',
 
-  /** יישור עצמי (Self) */
-  selfStart: 'self-start',
-  selfEnd: 'self-end',
+  selfStart: NEEDS_MANUAL_RTL ? 'self-end' : 'self-start',
+  selfEnd: NEEDS_MANUAL_RTL ? 'self-start' : 'self-end',
 
-  /** ריפוד (Padding) - צד ההתחלה */
-  ps: (size: number | string) => `ps-${size}`,
-  pe: (size: number | string) => `pe-${size}`,
+  ps: (size: number | string) => (NEEDS_MANUAL_RTL ? `pr-${size}` : `ps-${size}`),
+  pe: (size: number | string) => (NEEDS_MANUAL_RTL ? `pl-${size}` : `pe-${size}`),
 
-  /** שוליים (Margin) - צד ההתחלה */
-  ms: (size: number | string) => `ms-${size}`,
-  me: (size: number | string) => `me-${size}`,
+  ms: (size: number | string) => (NEEDS_MANUAL_RTL ? `mr-${size}` : `ms-${size}`),
+  me: (size: number | string) => (NEEDS_MANUAL_RTL ? `ml-${size}` : `me-${size}`),
 };
 
-/**
- * פונקציית עזר ליצירת אובייקטי סגנון מותאמי RTL
- */
 export function rtlStyle<T extends ViewStyle | TextStyle>(
   ltrStyle: T,
   rtlStyle: T
@@ -134,15 +108,8 @@ export function rtlStyle<T extends ViewStyle | TextStyle>(
   return IS_RTL ? rtlStyle : ltrStyle;
 }
 
-/**
- * שינוי טרנספורמציה (סיבוב) לאייקונים/חיצים שצריכים להתהפך ב-RTL
- * למשל: חץ חזרה, חץ המורה לכיוון מסוים
- */
 export const iconTransform = {
-  /** היפוך אופקי עבור RTL (למשל, חץ חזרה) */
   flipHorizontal: IS_RTL ? [{ scaleX: -1 }] : [],
-
-  /** סיבוב ב-180 מעלות עבור RTL */
   rotate180: IS_RTL ? [{ rotate: '180deg' }] : [],
 };
 

@@ -126,7 +126,7 @@ export default function BusinessSettingsAccountScreen() {
                 {userFullName}
               </Text>
               <Text className="text-right text-xs font-semibold text-[#64748B]">
-                {user?.email || '׳׳ ׳׳•׳’׳“׳¨'}
+                {user?.email || 'לא מוגדר'}
               </Text>
             </View>
           </View>

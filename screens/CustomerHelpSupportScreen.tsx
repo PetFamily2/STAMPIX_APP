@@ -324,6 +324,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#111827',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   counterRow: {
     alignItems: 'flex-end',

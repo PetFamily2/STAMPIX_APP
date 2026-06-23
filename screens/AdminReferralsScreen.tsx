@@ -518,6 +518,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFBFD',
     paddingHorizontal: 12,
     textAlign: 'right',
+    writingDirection: 'rtl',
     color: '#111827',
     fontWeight: '600',
   },
@@ -531,6 +532,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   itemCard: {
     borderRadius: 12,
@@ -546,6 +548,7 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontWeight: '600',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   actionButton: {
     marginTop: 4,

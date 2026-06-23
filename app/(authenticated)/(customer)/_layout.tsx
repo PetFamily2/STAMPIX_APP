@@ -113,6 +113,7 @@ export default function CustomerTabsLayout() {
         headerShown: false,
         tabBarHideOnKeyboard: false,
         tabBarStyle: {
+          direction: 'rtl',
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
           overflow: 'visible',
@@ -127,6 +128,7 @@ export default function CustomerTabsLayout() {
           paddingTop: 8,
         },
         tabBarItemStyle: {
+          direction: 'rtl',
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },

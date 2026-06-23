@@ -396,6 +396,7 @@ export default function JoinScreen() {
             borderWidth: 1,
             borderColor: '#E3E9FF',
             padding: 16,
+            direction: 'rtl',
           }}
         >
           <Text
@@ -438,7 +439,14 @@ export default function JoinScreen() {
               marginTop: 12,
             })}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontWeight: '900',
+                textAlign: 'right',
+                writingDirection: 'rtl',
+              }}
+            >
               {busy ? TEXT.checking : TEXT.join}
             </Text>
           </Pressable>
@@ -455,7 +463,14 @@ export default function JoinScreen() {
               marginTop: 10,
             })}
           >
-            <Text style={{ color: '#2F6BFF', fontWeight: '900' }}>
+            <Text
+              style={{
+                color: '#2F6BFF',
+                fontWeight: '900',
+                textAlign: 'right',
+                writingDirection: 'rtl',
+              }}
+            >
               {TEXT.scanAgain}
             </Text>
           </Pressable>

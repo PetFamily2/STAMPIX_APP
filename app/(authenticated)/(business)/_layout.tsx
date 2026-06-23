@@ -121,6 +121,7 @@ export default function BusinessTabsLayout() {
         headerShown: false,
         tabBarHideOnKeyboard: false,
         tabBarStyle: {
+          direction: 'rtl',
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E6EAF3',
@@ -138,6 +139,7 @@ export default function BusinessTabsLayout() {
           borderTopRightRadius: 26,
         },
         tabBarItemStyle: {
+          direction: 'rtl',
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },

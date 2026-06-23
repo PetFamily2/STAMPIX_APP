@@ -19,17 +19,15 @@ import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
 import { rtlBaseView } from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
-// אסטרטגיית RTL (ראה docs/rtl-knowhow.md):
-// 1. RTL ידני ומפורש (lib/rtl.ts + styles במסכים)
-// 2. ללא RTL אוטומטי ברמת Native, כדי למנוע היפוך כפול (double inversion)
-// 3. סידור ידני של טאב-בר ואייקונים לפי הצורך במסכים עצמם
+// RTL strategy: prefer Expo/RN native RTL, with shared helpers providing a
+// manual fallback only if the runtime still reports LTR.
 
-// שימוש בפונקציית הקונפיגורציה לבחירת כתובת Convex לפי הסביבה
+// Resolve the Convex URL from environment-aware configuration.
 const convexUrl = getConvexUrl();
 const convex = new ConvexReactClient(convexUrl);
 
-// אחסון מאובטח של הטוקן (Token) באמצעות expo-secure-store
-// זה קריטי לשמירה על אבטחת המידע של המשתמש
+// Store auth tokens in expo-secure-store.
+// This keeps user session data out of plain AsyncStorage.
 const secureStorage = {
   getItem: async (key: string) => {
     try {
@@ -42,14 +40,14 @@ const secureStorage = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch {
-      // טיפול שקט בשגיאות שמירה
+      // Ignore secure storage write failures; auth will retry through provider state.
     }
   },
   removeItem: async (key: string) => {
     try {
       await SecureStore.deleteItemAsync(key);
     } catch {
-      // טיפול שקט בשגיאות מחיקה
+      // Ignore secure storage delete failures; auth state handles cleanup fallback.
     }
   },
 };
