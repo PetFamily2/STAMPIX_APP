@@ -26,7 +26,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
-import { tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type ProfileCompletionField =
   | 'name'
@@ -84,10 +84,11 @@ function MenuRow({
     >
       <View
         style={{
-          flexDirection: 'row',
+          flexDirection: flexDirection.row,
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 10,
+          ...rtlBaseView,
         }}
       >
         <View
@@ -112,6 +113,7 @@ function MenuRow({
               fontWeight: '800',
               color: '#111827',
               textAlign: 'right',
+              writingDirection: 'rtl',
             }}
           >
             {title}
@@ -123,6 +125,7 @@ function MenuRow({
               fontWeight: '500',
               color: '#64748B',
               textAlign: 'right',
+              writingDirection: 'rtl',
             }}
           >
             {subtitle}

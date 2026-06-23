@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 
 const toneMap = {
@@ -93,9 +93,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 10,
     alignItems: 'flex-start',
+    ...rtlBaseView,
   },
   iconWrap: {
     width: 34,
@@ -111,12 +112,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   subtitle: {
     marginTop: 3,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   cta: {
     alignSelf: 'flex-end',

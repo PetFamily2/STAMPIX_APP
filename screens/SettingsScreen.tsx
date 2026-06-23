@@ -37,6 +37,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
 // Legacy typo key kept for migration only.
@@ -910,9 +911,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   staffBusinessButtonInner: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
+    ...rtlBaseView,
   },
   staffBusinessIconShell: {
     width: 42,
@@ -933,15 +935,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   staffBusinessAction: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 4,
+    ...rtlBaseView,
   },
   staffBusinessActionText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#1D4ED8',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   staffBusinessesCard: {
     borderRadius: 18,
@@ -970,9 +974,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   staffBusinessRowInner: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
+    ...rtlBaseView,
   },
   staffBusinessRowTextWrap: {
     flex: 1,
@@ -1012,7 +1017,12 @@ const styles = StyleSheet.create({
     borderColor: '#FECACA',
     backgroundColor: '#FFF7F7',
   },
-  menuRowInner: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  menuRowInner: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 11,
+    ...rtlBaseView,
+  },
   menuIconShell: {
     width: 40,
     height: 40,
@@ -1037,6 +1047,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#18181B',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   menuTitleDanger: { color: '#B42318' },
   menuSubtitle: {
@@ -1045,6 +1056,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6B7280',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   notificationToggleRow: {
     borderRadius: 18,

@@ -20,6 +20,7 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: '\u05d4\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05d9',
@@ -193,8 +194,8 @@ export default function WalletScreen() {
             </Text>
           </View>
           <View style={styles.referralOpenRow}>
-            <Ionicons name="chevron-back" size={14} color="#5B6475" />
             <Text style={styles.referralOpenText}>{REFERRALS_OPEN}</Text>
+            <Ionicons name="chevron-back" size={14} color="#5B6475" />
           </View>
         </Pressable>
 
@@ -298,8 +299,8 @@ export default function WalletScreen() {
                     </View>
 
                     <View style={styles.openRow}>
-                      <Ionicons name="chevron-back" size={14} color="#5B6475" />
                       <Text style={styles.openText}>{TEXT.openBusiness}</Text>
+                      <Ionicons name="chevron-back" size={14} color="#5B6475" />
                     </View>
                   </Pressable>
                 );
@@ -401,15 +402,17 @@ const styles = StyleSheet.create({
   },
   referralOpenRow: {
     marginTop: 4,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
+    ...rtlBaseView,
   },
   referralOpenText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#5B6475',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   pendingInviteCard: {
     marginTop: 12,
@@ -495,14 +498,16 @@ const styles = StyleSheet.create({
   },
   openRow: {
     marginTop: 12,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
+    ...rtlBaseView,
   },
   openText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#5B6475',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 
 export type TimelineItem = {
@@ -57,15 +57,6 @@ export function ActivityTimeline({
           const color = markerColor(item.type);
           return (
             <View key={item.id} style={styles.row}>
-              <View style={styles.info}>
-                <Text className={tw.textStart} style={styles.rowTitle}>
-                  {item.title}
-                </Text>
-                <Text className={tw.textStart} style={styles.rowSubtitle}>
-                  {item.subtitle}
-                </Text>
-              </View>
-              <Text style={styles.time}>{item.timeLabel}</Text>
               <View style={styles.markerWrap}>
                 {index < items.length - 1 ? <View style={styles.line} /> : null}
                 <View style={[styles.marker, { backgroundColor: color }]}>
@@ -76,6 +67,15 @@ export function ActivityTimeline({
                   />
                 </View>
               </View>
+              <View style={styles.info}>
+                <Text className={tw.textStart} style={styles.rowTitle}>
+                  {item.title}
+                </Text>
+                <Text className={tw.textStart} style={styles.rowSubtitle}>
+                  {item.subtitle}
+                </Text>
+              </View>
+              <Text style={styles.time}>{item.timeLabel}</Text>
             </View>
           );
         })}
@@ -104,9 +104,10 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 54,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 10,
     alignItems: 'flex-start',
+    ...rtlBaseView,
   },
   markerWrap: {
     width: 22,
@@ -135,12 +136,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: DASHBOARD_TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'auto',
+    alignSelf: 'stretch',
   },
   rowSubtitle: {
     marginTop: 2,
     fontSize: 12,
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    alignSelf: 'stretch',
   },
   time: {
     marginTop: 1,
@@ -148,5 +155,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748B',
     textAlign: 'left',
+    writingDirection: 'ltr',
   },
 });

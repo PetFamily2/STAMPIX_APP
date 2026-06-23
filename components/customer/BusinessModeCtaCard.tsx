@@ -21,6 +21,7 @@ import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   hostTitle:
@@ -329,9 +330,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   hostCardInner: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
+    ...rtlBaseView,
   },
   hostIconShell: {
     width: 42,
@@ -362,11 +364,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
     minWidth: 118,
+    ...rtlBaseView,
   },
   hostButtonAccent: {
     minWidth: 168,
@@ -383,5 +386,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

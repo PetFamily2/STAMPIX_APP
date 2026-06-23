@@ -12,7 +12,8 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { RtlActionLink } from '@/components/ui/RtlActionLink';
 
 type Tone = 'critical' | 'warning' | 'neutral' | 'success';
 
@@ -128,6 +129,21 @@ export function RecommendationActionCard({
     >
       <View style={styles.content}>
         <View style={styles.topRow}>
+          <View
+            style={[styles.iconBubble, { backgroundColor: palette.iconBg }]}
+          >
+            <Ionicons name={palette.icon} size={20} color={palette.iconColor} />
+          </View>
+
+          <View style={styles.titleWrap}>
+            <Text
+              className={tw.textStart}
+              style={[styles.title, { color: palette.title }]}
+            >
+              {title}
+            </Text>
+          </View>
+
           {emphasis === 'primary' ? (
             <View style={styles.statusBox}>
               <Ionicons name="checkbox-outline" size={22} color="#94A3B8" />
@@ -139,23 +155,8 @@ export function RecommendationActionCard({
               </Text>
             </View>
           ) : (
-            <View />
+            <View style={styles.statusBox} />
           )}
-
-          <View style={styles.titleWrap}>
-            <Text
-              className={tw.textStart}
-              style={[styles.title, { color: palette.title }]}
-            >
-              {title}
-            </Text>
-          </View>
-
-          <View
-            style={[styles.iconBubble, { backgroundColor: palette.iconBg }]}
-          >
-            <Ionicons name={palette.icon} size={20} color={palette.iconColor} />
-          </View>
         </View>
 
         <Text
@@ -186,15 +187,13 @@ export function RecommendationActionCard({
         {emphasis === 'primary' ? (
           <View style={styles.primaryActionsRow}>
             {hasSecondaryAction ? (
-              <Pressable
+              <RtlActionLink
+                label={secondaryActionLabel ?? ''}
                 onPress={onPressSecondaryAction as () => void}
                 style={styles.secondaryActionButton}
-              >
-                <Text style={styles.secondaryActionText}>
-                  {secondaryActionLabel}
-                </Text>
-                <Ionicons name="chevron-back" size={15} color="#64748B" />
-              </Pressable>
+                textStyle={styles.secondaryActionText}
+                color={DASHBOARD_TOKENS.colors.textMuted}
+              />
             ) : (
               <View />
             )}
@@ -217,15 +216,13 @@ export function RecommendationActionCard({
           </View>
         ) : hasSecondaryAction ? (
           <View style={styles.secondaryFooter}>
-            <Pressable
+            <RtlActionLink
+              label={secondaryActionLabel ?? ''}
               onPress={onPressSecondaryAction as () => void}
               style={styles.secondaryInlineAction}
-            >
-              <Text style={styles.inlineActionText}>
-                {secondaryActionLabel}
-              </Text>
-              <Ionicons name="chevron-back" size={14} color="#64748B" />
-            </Pressable>
+              textStyle={styles.inlineActionText}
+              color={DASHBOARD_TOKENS.colors.textMuted}
+            />
           </View>
         ) : null}
       </View>
@@ -246,10 +243,11 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   topRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
+    ...rtlBaseView,
   },
   iconBubble: {
     width: 42,
@@ -290,11 +288,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   primaryActionsRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
     marginTop: 4,
+    ...rtlBaseView,
   },
   primaryCtaWrap: {
     flex: 1,
@@ -315,9 +314,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   secondaryActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     paddingHorizontal: 4,
   },
   secondaryActionText: {
@@ -331,9 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   secondaryInlineAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+    alignSelf: 'flex-start',
   },
   inlineActionText: {
     fontSize: 12,

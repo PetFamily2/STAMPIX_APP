@@ -1,18 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { RtlActionLink } from '@/components/ui/RtlActionLink';
 
 type RecommendationCard = {
   key: string;
@@ -113,29 +108,21 @@ export function SmartRecommendationsPanel({
                   </Text>
                 </View>
 
-                {actionLabel && onPressAction ? (
-                  <Pressable
-                    style={styles.actionLink}
-                    onPress={onPressAction}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#2563EB" size="small" />
-                    ) : (
-                      <Text
-                        className={tw.textStart}
-                        style={styles.actionLinkText}
-                      >
-                        {`${actionLabel} <`}
-                      </Text>
-                    )}
-                  </Pressable>
-                ) : null}
               </View>
 
               <Text className={tw.textStart} style={styles.body}>
                 {card.body}
               </Text>
+
+              {actionLabel && onPressAction ? (
+                <RtlActionLink
+                  label={actionLabel}
+                  onPress={onPressAction}
+                  loading={isLoading}
+                  style={styles.actionLink}
+                  textStyle={styles.actionLinkText}
+                />
+              ) : null}
             </View>
 
             {index < normalizedCards.length - 1 ? (
@@ -156,8 +143,8 @@ const styles = StyleSheet.create({
   row: {
     paddingVertical: 13,
     paddingHorizontal: 12,
-    gap: 4,
-    alignItems: 'flex-start',
+    gap: 7,
+    alignItems: 'stretch',
     ...rtlBaseView,
   },
   priorityRow: {
@@ -166,16 +153,16 @@ const styles = StyleSheet.create({
     paddingRight: 9,
   },
   rowHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignSelf: 'stretch',
     gap: 8,
     ...rtlBaseView,
   },
   titleGroup: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
     ...rtlBaseView,
@@ -204,16 +191,11 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actionLink: {
-    alignSelf: 'center',
+    alignSelf: 'flex-end',
     paddingTop: 0,
   },
   actionLinkText: {
-    fontSize: 13,
-    lineHeight: 18,
     fontWeight: '600',
-    color: '#2563EB',
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   divider: {
     height: 1,
@@ -226,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
     paddingHorizontal: DASHBOARD_TOKENS.spacingCardInner,
     ...rtlBaseView,

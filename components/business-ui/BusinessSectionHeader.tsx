@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { RtlActionLink } from '@/components/ui/RtlActionLink';
 
 export function BusinessSectionHeader({
   title,
@@ -21,18 +21,6 @@ export function BusinessSectionHeader({
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        {actionLabel && onPressAction ? (
-          <Pressable onPress={onPressAction} style={styles.actionWrap}>
-            <Text style={styles.action}>{actionLabel}</Text>
-            <Ionicons
-              name="chevron-back"
-              size={14}
-              color={DASHBOARD_TOKENS.colors.brandBlue}
-            />
-          </Pressable>
-        ) : (
-          <View />
-        )}
         <View style={styles.titleWrap}>
           <Text className={tw.textStart} style={styles.title}>
             {title}
@@ -43,6 +31,17 @@ export function BusinessSectionHeader({
             </Text>
           ) : null}
         </View>
+        {actionLabel && onPressAction ? (
+          <RtlActionLink
+            label={actionLabel}
+            onPress={onPressAction}
+            style={styles.actionWrap}
+            textStyle={styles.action}
+            color={DASHBOARD_TOKENS.colors.brandBlue}
+          />
+        ) : (
+          <View />
+        )}
       </View>
       {accessory ? <View style={styles.accessory}>{accessory}</View> : null}
     </View>
@@ -54,10 +53,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
+    ...rtlBaseView,
   },
   titleWrap: {
     flex: 1,
@@ -77,17 +77,12 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textMuted,
   },
   actionWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
     minHeight: 24,
+    alignSelf: 'flex-start',
   },
   action: {
-    color: DASHBOARD_TOKENS.colors.brandBlue,
     fontSize: 12,
     fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   accessory: {
     width: '100%',

@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 export function CompactActivitySummaryRow({
   layoutMode,
@@ -82,13 +82,14 @@ const styles = StyleSheet.create({
     minHeight: 60,
     paddingHorizontal: 18,
     paddingVertical: 12,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
     ...rtlBaseView,
   },
   rightGroup: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
     flex: 1,
@@ -104,7 +105,6 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: -8,
   },
   punchBubble: {
     backgroundColor: '#EEF4FF',
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     gap: 4,
   },
   customer: {
@@ -123,6 +123,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
     textAlign: 'right',
+    writingDirection: 'auto',
+    alignSelf: 'stretch',
   },
   detail: {
     fontSize: 13,
@@ -130,16 +132,20 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: DASHBOARD_TOKENS.colors.textMuted,
     textAlign: 'right',
+    writingDirection: 'rtl',
+    alignSelf: 'stretch',
   },
   timeWrap: {
     minWidth: 46,
     alignItems: 'flex-start',
+    flexShrink: 0,
   },
   time: {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
     color: DASHBOARD_TOKENS.colors.textMuted,
-    textAlign: 'right',
+    textAlign: 'left',
+    writingDirection: 'ltr',
   },
 });

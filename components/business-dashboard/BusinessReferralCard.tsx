@@ -16,7 +16,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 function formatMonthsLabel(value: number) {
   return value === 1
@@ -121,10 +121,12 @@ export function BusinessReferralCard({
       <View style={[styles.card, { borderRadius: layout.cardRadius }]}>
         <View style={styles.textBlock}>
           <View style={styles.topRow}>
-            <Text className={tw.textStart} style={styles.title}>
-              {'\u{1F4BC} \u05de\u05db\u05d9\u05e8\u05d9\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7?'}
-            </Text>
-
+            <View style={styles.titleRow}>
+              <Text style={styles.titleEmoji}>{'\u{1F4BC}'}</Text>
+              <Text className={tw.textStart} style={styles.title}>
+                {'\u05de\u05db\u05d9\u05e8\u05d9\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7?'}
+              </Text>
+            </View>
             <Pressable
               onPress={onPressShare}
               disabled={shareDisabled || isShareLoading}
@@ -154,13 +156,13 @@ export function BusinessReferralCard({
                       {'\u05e9\u05ea\u05e3 \u05d4\u05d6\u05de\u05e0\u05d4'}
                     </Text>
                   </View>
-                )}
-              </Animated.View>
-            </Pressable>
+              )}
+            </Animated.View>
+          </Pressable>
           </View>
 
           <Text className={tw.textStart} style={styles.description}>
-            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-StampAix \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
+            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-\u200EStampAix\u200E \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
           </Text>
           <Text className={tw.textStart} style={styles.progressText}>
             {`\u05e2\u05d3 \u05db\u05d4 \u05d4\u05e8\u05d5\u05d5\u05d7\u05ea\u05dd: ${formatMonthsLabel(earnedMonths)}${
@@ -206,7 +208,7 @@ export function BusinessReferralCard({
                 {'1. \u05e9\u05ea\u05e4\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d9\u05e9\u05d5\u05e8 \u05e2\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
-                {'2. \u05d4\u05e2\u05e1\u05e7 \u05e0\u05e8\u05e9\u05dd \u05dc-StampAix'}
+                {'2. \u05d4\u05e2\u05e1\u05e7 \u05e0\u05e8\u05e9\u05dd \u05dc-\u200EStampAix\u200E'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
                 {'3. \u05d0\u05d7\u05e8\u05d9 30 \u05d9\u05d5\u05dd \u05de\u05e0\u05d5\u05d9 \u05e4\u05e2\u05d9\u05dc \u05ea\u05e7\u05d1\u05dc\u05d5 \u05ea\u05d2\u05de\u05d5\u05dc'}
@@ -218,10 +220,10 @@ export function BusinessReferralCard({
                 {'\u05ea\u05d2\u05de\u05d5\u05dc'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                {'\u05de\u05e0\u05d5\u05d9 \u05d7\u05d5\u05d3\u05e9\u05d9 \u2192 \u05d7\u05d5\u05d3\u05e9 \u05d7\u05d9\u05e0\u05dd'}
+                {'\u05de\u05e0\u05d5\u05d9 \u05d7\u05d5\u05d3\u05e9\u05d9 \u200E\u2192\u200E \u05d7\u05d5\u05d3\u05e9 \u05d7\u05d9\u05e0\u05dd'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                {'\u05de\u05e0\u05d5\u05d9 \u05e9\u05e0\u05ea\u05d9 \u2192 2 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd \u05d7\u05d9\u05e0\u05dd'}
+                {'\u05de\u05e0\u05d5\u05d9 \u05e9\u05e0\u05ea\u05d9 \u200E\u2192\u200E 2 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd \u05d7\u05d9\u05e0\u05dd'}
               </Text>
               <Text className={tw.textStart} style={styles.limitText}>
                 {'\u05d0\u05e4\u05e9\u05e8 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e2\u05d3 24 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd.'}
@@ -261,11 +263,21 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    alignItems: 'flex-end',
+    gap: 10,
     ...rtlBaseView,
+  },
+  titleRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'stretch',
+    ...rtlBaseView,
+  },
+  titleEmoji: {
+    fontSize: 18,
+    lineHeight: 24,
+    textAlign: 'right',
   },
   title: {
     flex: 1,
@@ -306,7 +318,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   primaryButtonTouchable: {
-    alignSelf: 'auto',
+    alignSelf: 'flex-end',
     width: 'auto',
   },
   primaryButtonSurface: {
@@ -327,7 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#93C5FD',
   },
   primaryButtonContent: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -346,6 +358,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   secondaryLink: {
     alignSelf: 'center',
