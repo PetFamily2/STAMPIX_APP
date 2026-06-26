@@ -6,6 +6,7 @@ import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { safeBack } from '@/lib/navigation';
+import { flexDirection } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -323,7 +324,7 @@ const styles = StyleSheet.create({
   tabs: {
     backgroundColor: '#E5E7EB',
     borderRadius: 14,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 4,
     marginTop: 14,
     padding: 4,

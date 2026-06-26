@@ -25,6 +25,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { flexDirection } from '@/lib/rtl';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -601,7 +602,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -680,7 +681,7 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   optionsWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -705,7 +706,7 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   tagInputRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },
@@ -724,7 +725,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tagChip: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
@@ -753,7 +754,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   submittingRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },

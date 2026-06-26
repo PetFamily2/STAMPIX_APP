@@ -5,8 +5,8 @@
  * LTR, these helpers provide a manual fallback for shared row/start/end usage.
  */
 
-import { I18nManager } from 'react-native';
 import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
+import { I18nManager } from 'react-native';
 
 export const IS_RTL = true;
 export const IS_NATIVE_RTL = I18nManager.isRTL;
@@ -15,12 +15,6 @@ export const NEEDS_MANUAL_RTL = IS_RTL && !IS_NATIVE_RTL;
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 I18nManager.swapLeftAndRightInRTL(true);
-
-if (__DEV__) {
-  console.info(
-    `[rtl] desired=${IS_RTL} native=${IS_NATIVE_RTL} swap=${I18nManager.doLeftAndRightSwapInRTL}`
-  );
-}
 
 export const flexDirection = {
   row: (NEEDS_MANUAL_RTL ? 'row-reverse' : 'row') as FlexStyle['flexDirection'],
@@ -94,11 +88,15 @@ export const tw = {
   selfStart: NEEDS_MANUAL_RTL ? 'self-end' : 'self-start',
   selfEnd: NEEDS_MANUAL_RTL ? 'self-start' : 'self-end',
 
-  ps: (size: number | string) => (NEEDS_MANUAL_RTL ? `pr-${size}` : `ps-${size}`),
-  pe: (size: number | string) => (NEEDS_MANUAL_RTL ? `pl-${size}` : `pe-${size}`),
+  ps: (size: number | string) =>
+    NEEDS_MANUAL_RTL ? `pr-${size}` : `ps-${size}`,
+  pe: (size: number | string) =>
+    NEEDS_MANUAL_RTL ? `pl-${size}` : `pe-${size}`,
 
-  ms: (size: number | string) => (NEEDS_MANUAL_RTL ? `mr-${size}` : `ms-${size}`),
-  me: (size: number | string) => (NEEDS_MANUAL_RTL ? `ml-${size}` : `me-${size}`),
+  ms: (size: number | string) =>
+    NEEDS_MANUAL_RTL ? `mr-${size}` : `ms-${size}`,
+  me: (size: number | string) =>
+    NEEDS_MANUAL_RTL ? `ml-${size}` : `me-${size}`,
 };
 
 export function rtlStyle<T extends ViewStyle | TextStyle>(
@@ -120,4 +118,19 @@ export const rtlBaseView: ViewStyle = {
 export const rtlBaseText: TextStyle = {
   writingDirection: 'rtl',
   textAlign: 'right',
+};
+
+export const rtlAutoText: TextStyle = {
+  writingDirection: 'auto',
+  textAlign: 'right',
+};
+
+export const rtlCenterText: TextStyle = {
+  writingDirection: 'rtl',
+  textAlign: 'center',
+};
+
+export const ltrBaseText: TextStyle = {
+  writingDirection: 'ltr',
+  textAlign: 'left',
 };

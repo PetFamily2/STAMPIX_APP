@@ -30,6 +30,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type RewardType = 'STAMP' | 'BENEFIT';
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tabRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -788,7 +789,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -832,7 +833,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   segmentRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -914,7 +915,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionsRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   actionButton: {

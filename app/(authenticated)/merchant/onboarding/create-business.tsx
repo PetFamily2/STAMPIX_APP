@@ -38,6 +38,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { flexDirection } from '@/lib/rtl';
 
 const DEFAULT_MANUAL_REGION: Region = {
   latitude: 32.0853,
@@ -47,55 +48,35 @@ const DEFAULT_MANUAL_REGION: Region = {
 };
 
 const TEXT = {
-  title:
-    '\u05de\u05d4 \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7?',
-  subtitle:
-    '\u05d1\u05d7\u05e8\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea \u05d0\u05de\u05d9\u05ea\u05d9\u05ea \u05de\u05e8\u05e9\u05d9\u05de\u05ea \u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05d5\u05d0\u05e9\u05e8\u05d5 \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
-  searchLabel: '\u05d7\u05d9\u05e4\u05d5\u05e9 \u05db\u05ea\u05d5\u05d1\u05ea',
-  searchPlaceholder:
-    '\u05d4\u05ea\u05d7\u05d9\u05dc\u05d5 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05dc\u05d0\u05d4',
-  selectedAddressLabel:
-    '\u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05e9\u05e0\u05d1\u05d7\u05e8\u05d4',
-  mapLabel: '\u05ea\u05e6\u05d5\u05d2\u05ea \u05de\u05e4\u05d4',
-  continue:
-    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05d5\u05d4\u05de\u05e9\u05da',
-  createBusiness: '\u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05e1\u05e7',
-  updateBusiness:
-    '\u05de\u05e2\u05d3\u05db\u05e0\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea',
-  loadingSuggestions:
-    '\u05de\u05d7\u05e4\u05e9\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05d5\u05ea...',
-  loadingPlace:
-    '\u05d8\u05d5\u05e2\u05e0\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea...',
-  resolvingManualAddress:
-    '\u05de\u05d0\u05ea\u05e8\u05d9\u05dd \u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05e4\u05d9 \u05d4\u05d8\u05e7\u05e1\u05d8 \u05e9\u05d4\u05d5\u05d6\u05df...',
-  noSuggestions:
-    '\u05dc\u05d0 \u05e0\u05de\u05e6\u05d0\u05d5 \u05db\u05ea\u05d5\u05d1\u05d5\u05ea \u05ea\u05d5\u05d0\u05de\u05d5\u05ea. \u05e0\u05e1\u05d5 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05d3\u05d5\u05d9\u05e7\u05ea \u05d9\u05d5\u05ea\u05e8.',
-  manualAddressCta:
-    '\u05d0\u05d9\u05ea\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05e4\u05d9 \u05d4\u05d8\u05e7\u05e1\u05d8 \u05e9\u05d4\u05d5\u05d6\u05df',
-  addressRequired:
-    '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05ea\u05d5\u05da \u05e8\u05e9\u05d9\u05de\u05ea \u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05dc\u05e4\u05e0\u05d9 \u05d4\u05d4\u05de\u05e9\u05da.',
+  title: 'מה הכתובת של העסק?',
+  subtitle: 'בחרו כתובת אמיתית מרשימת ההצעות ואשרו את המיקום על המפה',
+  searchLabel: 'חיפוש כתובת',
+  searchPlaceholder: 'התחילו להקליד כתובת מלאה',
+  selectedAddressLabel: 'הכתובת שנבחרה',
+  mapLabel: 'תצוגת מפה',
+  continue: 'אישור כתובת והמשך',
+  createBusiness: 'שומרים עסק',
+  updateBusiness: 'מעדכנים כתובת',
+  loadingSuggestions: 'מחפשים כתובות...',
+  loadingPlace: 'טוענים כתובת...',
+  resolvingManualAddress: 'מאתרים כתובת לפי הטקסט שהוזן...',
+  noSuggestions: 'לא נמצאו כתובות תואמות. נסו להקליד כתובת מדויקת יותר.',
+  manualAddressCta: 'איתור כתובת לפי הטקסט שהוזן',
+  addressRequired: 'יש לבחור כתובת מתוך רשימת ההצעות לפני ההמשך.',
   manualAddressResolutionError:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d0\u05ea\u05e8 \u05d0\u05ea \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05d4\u05d6\u05d5. \u05e0\u05e1\u05d5 \u05dc\u05d4\u05d6\u05d9\u05df \u05db\u05ea\u05d5\u05d1\u05ea \u05de\u05dc\u05d0\u05d4 \u05d9\u05d5\u05ea\u05e8 \u05db\u05d5\u05dc\u05dc \u05e2\u05d9\u05e8.',
-  manualPinTitle:
-    '\u05d0\u05dd \u05d4\u05db\u05ea\u05d5\u05d1\u05ea \u05dc\u05d0 \u05de\u05d0\u05d5\u05ea\u05e8\u05ea, \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e0\u05e2\u05d5\u05e5 \u05d0\u05ea \u05d4\u05de\u05d9\u05e7\u05d5\u05dd \u05d9\u05d3\u05e0\u05d9\u05ea \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
-  manualPinSubtitle:
-    '\u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea, \u05dc\u05d7\u05e6\u05d5 \u05e2\u05dc \u05d4\u05de\u05e4\u05d4 \u05d1\u05de\u05d9\u05e7\u05d5\u05dd \u05d4\u05de\u05d3\u05d5\u05d9\u05e7, \u05d5\u05d0\u05d6 \u05d0\u05e9\u05e8\u05d5.',
-  manualPinCta:
-    '\u05d0\u05e9\u05d5\u05e8 \u05db\u05ea\u05d5\u05d1\u05ea \u05d9\u05d3\u05e0\u05d9\u05ea \u05e2\u05dc \u05d4\u05de\u05e4\u05d4',
-  manualPinRequired:
-    '\u05db\u05d3\u05d9 \u05dc\u05d4\u05de\u05e9\u05d9\u05da, \u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 \u05db\u05ea\u05d5\u05d1\u05ea \u05d5\u05d1\u05d7\u05e8\u05d5 \u05de\u05d9\u05e7\u05d5\u05dd \u05e2\u05dc \u05d4\u05de\u05e4\u05d4.',
+    'לא הצלחנו לאתר את הכתובת הזו. נסו להזין כתובת מלאה יותר כולל עיר.',
+  manualPinTitle: 'אם הכתובת לא מאותרת, אפשר לנעוץ את המיקום ידנית על המפה',
+  manualPinSubtitle: 'הקלידו כתובת, לחצו על המפה במיקום המדויק, ואז אשרו.',
+  manualPinCta: 'אשור כתובת ידנית על המפה',
+  manualPinRequired: 'כדי להמשיך, הקלידו כתובת ובחרו מיקום על המפה.',
   googleKeyMissing:
-    '\u05d7\u05e1\u05e8 EXPO_PUBLIC_GOOGLE_MAPS_API_KEY \u05d5\u05dc\u05db\u05df \u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d8\u05e2\u05d5\u05df \u05d4\u05e9\u05dc\u05de\u05ea \u05db\u05ea\u05d5\u05d1\u05ea.',
-  autocompleteError:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d8\u05e2\u05d5\u05df \u05d4\u05e6\u05e2\u05d5\u05ea \u05db\u05ea\u05d5\u05d1\u05ea. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
-  placeDetailsError:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d8\u05e2\u05d5\u05df \u05d0\u05ea \u05e4\u05e8\u05d8\u05d9 \u05d4\u05db\u05ea\u05d5\u05d1\u05ea. \u05e0\u05e1\u05d5 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05e9\u05d5\u05d1.',
-  createError:
-    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d9\u05e6\u05d9\u05e8\u05ea \u05d4\u05e2\u05e1\u05e7',
-  updateError:
-    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e2\u05d3\u05db\u05d5\u05df \u05db\u05ea\u05d5\u05d1\u05ea \u05d4\u05e2\u05e1\u05e7',
-  cityFallback: '\u05dc\u05dc\u05d0 \u05e2\u05d9\u05e8',
-  streetFallback: '\u05dc\u05dc\u05d0 \u05e8\u05d7\u05d5\u05d1',
+    'חסר EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ולכן לא ניתן לטעון השלמת כתובת.',
+  autocompleteError: 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.',
+  placeDetailsError: 'לא הצלחנו לטעון את פרטי הכתובת. נסו לבחור שוב.',
+  createError: 'שגיאה ביצירת העסק',
+  updateError: 'שגיאה בעדכון כתובת העסק',
+  cityFallback: 'ללא עיר',
+  streetFallback: 'ללא רחוב',
 };
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -891,7 +872,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -946,7 +927,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   inlineStatusRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },
@@ -1036,7 +1017,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   previewMetaRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },

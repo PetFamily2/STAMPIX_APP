@@ -12,6 +12,7 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
+import { flexDirection } from '@/lib/rtl';
 
 type ReferralTab = 'pending' | 'completed' | 'rewards';
 
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     marginTop: 2,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   summaryCard: {
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     marginTop: 6,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   tabButton: {

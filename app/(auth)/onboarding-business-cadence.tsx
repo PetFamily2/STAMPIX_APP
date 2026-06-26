@@ -22,6 +22,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'כל כמה זמן לקוחות חוזרים',
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

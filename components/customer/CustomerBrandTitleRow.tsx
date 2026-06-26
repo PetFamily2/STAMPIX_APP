@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { rtlBaseText, rtlBaseView } from '@/lib/rtl';
+import {
+  flexDirection,
+  ltrBaseText,
+  rtlAutoText,
+  rtlBaseView,
+  spacing,
+} from '@/lib/rtl';
 
 type CustomerBrandTitleRowProps = {
   title: string;
@@ -49,7 +55,7 @@ const styles = StyleSheet.create({
   row: {
     width: '100%',
     minHeight: 30,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
     ...rtlBaseView,
@@ -61,12 +67,11 @@ const styles = StyleSheet.create({
     direction: 'ltr',
   },
   brand: {
-    textAlign: 'left',
-    writingDirection: 'ltr',
     fontSize: 22,
     lineHeight: 26,
     color: '#2F6BFF',
     fontWeight: '900',
+    ...ltrBaseText,
   },
   brandAccent: {
     fontSize: 26,
@@ -76,8 +81,8 @@ const styles = StyleSheet.create({
   },
   titleWrap: {
     flex: 1,
-    marginRight: 12,
-    flexDirection: 'row',
+    ...spacing.marginEnd(12),
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 16,
@@ -89,6 +94,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1A2B4A',
     flexShrink: 1,
-    ...rtlBaseText,
+    ...rtlAutoText,
   },
 });

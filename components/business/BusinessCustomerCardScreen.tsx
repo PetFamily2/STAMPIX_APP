@@ -26,6 +26,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { flexDirection } from '@/lib/rtl';
 
 type CustomerState =
   | 'NEW'
@@ -834,7 +835,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   heroTopRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
   },
@@ -864,7 +865,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   chipsRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
@@ -897,7 +898,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   statsGrid: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
@@ -947,7 +948,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   referralSummaryRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
@@ -985,7 +986,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
     padding: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -1053,7 +1054,7 @@ const styles = StyleSheet.create({
     borderColor: '#E3E9FA',
     backgroundColor: '#FAFCFF',
     padding: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     gap: 10,
   },
@@ -1072,7 +1073,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timelineTitleRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
     alignItems: 'center',
   },
@@ -1159,7 +1160,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   reasonList: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
     justifyContent: 'flex-end',
@@ -1203,7 +1204,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 10,
     marginTop: 4,
   },

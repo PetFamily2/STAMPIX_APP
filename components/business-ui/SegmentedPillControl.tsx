@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
+import { flexDirection } from '@/lib/rtl';
 
 export function SegmentedPillControl<T extends string>({
   items,
@@ -41,7 +42,7 @@ export function SegmentedPillControl<T extends string>({
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,

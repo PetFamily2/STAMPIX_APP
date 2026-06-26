@@ -24,18 +24,12 @@ import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 
 const TEXT = {
-  loadingTitle:
-    '\u05d1\u05d5\u05e0\u05d4 \u05dc\u05da \u05d7\u05d5\u05d5\u05d9\u05d4 \u05de\u05d5\u05ea\u05d0\u05de\u05ea',
-  loadingSubtitleCustomer:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05da',
-  loadingSubtitleBusiness:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05de\u05e8\u05db\u05d6 \u05d4\u05e0\u05d9\u05d4\u05d5\u05dc',
-  loadingSubtitleStaff:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05e1\u05d5\u05e8\u05e7 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-  loadingSubtitleBusinessOnboarding:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05de\u05de\u05e9\u05d9\u05db\u05d9\u05dd \u05dc\u05d4\u05d2\u05d3\u05e8\u05ea \u05d4\u05e2\u05e1\u05e7',
-  loadingSubtitleDefault:
-    '\u05db\u05de\u05d4 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d5\u05e0\u05db\u05e0\u05e1\u05d9\u05dd \u05dc\u05d7\u05e9\u05d1\u05d5\u05df \u05e9\u05dc\u05da',
+  loadingTitle: 'בונה לך חוויה מותאמת',
+  loadingSubtitleCustomer: 'כמה שניות ונכנסים לארנק שלך',
+  loadingSubtitleBusiness: 'כמה שניות ונכנסים למרכז הניהול',
+  loadingSubtitleStaff: 'כמה שניות ונכנסים לסורק לקוחות',
+  loadingSubtitleBusinessOnboarding: 'כמה שניות וממשיכים להגדרת העסק',
+  loadingSubtitleDefault: 'כמה שניות ונכנסים לחשבון שלך',
 };
 
 export default function AuthenticatedLayout() {

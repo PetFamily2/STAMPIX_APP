@@ -10,6 +10,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { rtlCenterText, tw } from '@/lib/rtl';
 
 const TEXT = {
   titleLine1: 'העסק והלקוחות',
@@ -68,7 +69,7 @@ export default function WelcomeScreen() {
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       <View className="flex-1 px-6 py-8">
-        <View className="flex-row items-center justify-between">
+        <View className={`${tw.flexRow} items-center justify-between`}>
           <BackButton onPress={handleBack} />
           <View className="w-11 h-11" />
         </View>
@@ -85,22 +86,31 @@ export default function WelcomeScreen() {
         </View>
 
         <View className="mb-8">
-          <Text className="text-[34px] font-black text-gray-900 text-center mb-1">
+          <Text
+            className="text-[34px] font-black text-gray-900 text-center mb-1"
+            style={rtlCenterText}
+          >
             {TEXT.titleLine1}
           </Text>
-          <Text className="text-[34px] font-black text-center mb-3">
+          <Text
+            className="text-[34px] font-black text-center mb-3"
+            style={rtlCenterText}
+          >
             <Text className="text-gray-900">{TEXT.titleLine2A}</Text>{' '}
             <Text className="text-gray-900">{TEXT.titleLine2B}</Text>
             <Text className="text-blue-600">{TEXT.titleLine2C}</Text>
           </Text>
-          <Text className="text-base text-gray-500 text-center leading-6">
+          <Text
+            className="text-base text-gray-500 text-center leading-6"
+            style={rtlCenterText}
+          >
             {TEXT.subtitle}
           </Text>
         </View>
 
         <View className="mb-auto">
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row items-start gap-4">
+            <View className={`${tw.flexRow} items-start gap-4`}>
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <Heart size={24} color="#2563eb" fill="#dbeafe" />
               </View>
@@ -116,7 +126,7 @@ export default function WelcomeScreen() {
           </View>
 
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className="flex-row items-start gap-4">
+            <View className={`${tw.flexRow} items-start gap-4`}>
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <TrendingUp size={24} color="#2563eb" />
               </View>
@@ -138,18 +148,24 @@ export default function WelcomeScreen() {
             onPress={handleGetStarted}
             activeOpacity={0.8}
           >
-            <Text className="text-white text-lg font-bold">
+            <Text
+              className="text-white text-lg font-bold"
+              style={rtlCenterText}
+            >
               {TEXT.getStarted}
             </Text>
           </TouchableOpacity>
 
-          <View className="flex-row justify-center items-center gap-2">
+          <View className={`${tw.flexRow} justify-center items-center gap-2`}>
             <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
-              <Text className="text-blue-600 font-semibold text-base">
+              <Text
+                className="text-blue-600 font-semibold text-base"
+                style={rtlCenterText}
+              >
                 {TEXT.emailEntry}
               </Text>
             </TouchableOpacity>
-            <Text className="text-gray-500 text-base">
+            <Text className="text-gray-500 text-base" style={rtlCenterText}>
               {TEXT.emailEntryHint}
             </Text>
           </View>

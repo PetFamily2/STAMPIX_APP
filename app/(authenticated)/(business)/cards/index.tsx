@@ -34,7 +34,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 
 type MarketingTopTab = 'campaigns' | 'loyalty';
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -79,8 +79,7 @@ const TEXT = {
   inUseLabel: 'נספרים במגבלה',
   customersLabel: 'לקוחות פעילים',
   activeLabel: 'בכרטיסים פעילים',
-  redemptionsLabel:
-    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05de\u05d5\u05de\u05e9\u05d5',
+  redemptionsLabel: 'כרטיסיות שמומשו',
   days30Label: '30 יום',
   limitReached: 'הגעתם למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   nearLimit: 'אתם מתקרבים למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
@@ -604,7 +603,7 @@ export function LoyaltyCardsHubContent() {
 const styles = StyleSheet.create({
   kpiGrid: {
     marginTop: 16,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 12,
   },

@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SurfaceCard } from '@/components/business-ui';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
 
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   metricRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 4,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   footerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'flex-end',
     borderTopWidth: 1,

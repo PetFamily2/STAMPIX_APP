@@ -1218,8 +1218,8 @@ export default function CampaignDraftEditorScreen() {
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
       Alert.alert(
-        '\u05d7\u05e8\u05d9\u05d2\u05d4 \u05de\u05d4\u05de\u05db\u05e1\u05d4',
-        '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05d4\u05e4\u05e2\u05d9\u05dc \u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05d7\u05d3\u05e9 \u05db\u05d0\u05e9\u05e8 \u05e7\u05d9\u05d9\u05de\u05ea \u05d7\u05e8\u05d9\u05d2\u05d4 \u05de\u05de\u05db\u05e1\u05ea \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd.'
+        'חריגה מהמכסה',
+        'לא ניתן להפעיל קמפיין חדש כאשר קיימת חריגה ממכסת הקמפיינים.'
       );
       openCampaignsUpgrade();
       return;
@@ -1230,10 +1230,7 @@ export default function CampaignDraftEditorScreen() {
 
     const sendAt = resolvedScheduledForAt;
     if (sendAt < Date.now() + MIN_SCHEDULE_LEAD_MS) {
-      Alert.alert(
-        '\u05d6\u05de\u05df \u05dc\u05d0 \u05ea\u05e7\u05d9\u05df',
-        '\u05d9\u05e9 \u05dc\u05d1\u05d7\u05d5\u05e8 \u05d6\u05de\u05df \u05e9\u05dc\u05d9\u05d7\u05d4 \u05d1\u05e2\u05ea\u05d9\u05d3.'
-      );
+      Alert.alert('זמן לא תקין', 'יש לבחור זמן שליחה בעתיד.');
       return;
     }
 
@@ -1261,16 +1258,12 @@ export default function CampaignDraftEditorScreen() {
       if (typeof scheduled?.updatedAt === 'number') {
         setBaseUpdatedAt(scheduled.updatedAt);
       }
-      Alert.alert(
-        '\u05e0\u05e9\u05de\u05e8 \u05d5\u05d4\u05d5\u05e4\u05e2\u05dc',
-        `\u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05d9\u05d9\u05e9\u05dc\u05d7 \u05d1-${oneTimeScheduleDisplay}.`,
-        [
-          {
-            text: '\u05d0\u05d9\u05e9\u05d5\u05e8',
-            onPress: goBackToCampaignList,
-          },
-        ]
-      );
+      Alert.alert('נשמר והופעל', `הקמפיין יישלח ב-${oneTimeScheduleDisplay}.`, [
+        {
+          text: 'אישור',
+          onPress: goBackToCampaignList,
+        },
+      ]);
     } catch (error) {
       if (handleEntitlementError(error)) {
         return;
@@ -1298,10 +1291,8 @@ export default function CampaignDraftEditorScreen() {
         return;
       }
       Alert.alert(
-        '\u05e9\u05d2\u05d9\u05d0\u05d4',
-        error instanceof Error
-          ? error.message
-          : '\u05e9\u05de\u05d9\u05e8\u05d4 \u05d0\u05d5 \u05ea\u05d6\u05de\u05d5\u05df \u05e0\u05db\u05e9\u05dc\u05d5.'
+        'שגיאה',
+        error instanceof Error ? error.message : 'שמירה או תזמון נכשלו.'
       );
     } finally {
       setIsSubmitting(false);
@@ -1498,8 +1489,7 @@ export default function CampaignDraftEditorScreen() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              \u05d0\u05d5\u05e4\u05df \u05e9\u05dc\u05d9\u05d7\u05d4
-              \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9\u05ea
+              אופן שליחה חד-פעמית
             </Text>
             <View className={`${tw.flexRow} gap-2`}>
               <TouchableOpacity
@@ -1519,7 +1509,7 @@ export default function CampaignDraftEditorScreen() {
                     !isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
                   }`}
                 >
-                  \u05e9\u05dc\u05d9\u05d7\u05d4 \u05e2\u05db\u05e9\u05d9\u05d5
+                  שליחה עכשיו
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1536,16 +1526,14 @@ export default function CampaignDraftEditorScreen() {
                     isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
                   }`}
                 >
-                  \u05ea\u05d6\u05de\u05d5\u05df
-                  \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9
+                  תזמון חד-פעמי
                 </Text>
               </TouchableOpacity>
             </View>
             {isOneTimeMode ? (
               <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
                 <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
-                  \u05d6\u05de\u05df \u05e9\u05dc\u05d9\u05d7\u05d4
-                  \u05e0\u05d1\u05d7\u05e8: {oneTimeScheduleDisplay}
+                  זמן שליחה נבחר: {oneTimeScheduleDisplay}
                 </Text>
                 <View className={`${tw.flexRow} flex-wrap gap-2`}>
                   <TouchableOpacity
@@ -1554,7 +1542,7 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      \u05de\u05d7\u05e8 10:00
+                      מחר 10:00
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1563,7 +1551,7 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      \u05de\u05d7\u05e8 18:00
+                      מחר 18:00
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1572,30 +1560,19 @@ export default function CampaignDraftEditorScreen() {
                     className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
                   >
                     <Text className="text-xs font-bold text-[#334155]">
-                      +3 \u05d9\u05de\u05d9\u05dd 10:00
+                      +3 ימים 10:00
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                \u05e9\u05dc\u05d9\u05d7\u05d4 \u05e2\u05db\u05e9\u05d9\u05d5
-                \u05d1\u05de\u05e0\u05d5\u05d0\u05dc:
-                \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05df
-                \u05e0\u05e9\u05de\u05e8 \u05d5\u05e0\u05e9\u05dc\u05d7
-                \u05e8\u05e7 \u05dc\u05d0\u05d7\u05e8
-                \u05d0\u05d9\u05e9\u05d5\u05e8.
+                שליחה עכשיו במנואל: הקמפיין נשמר ונשלח רק לאחר אישור.
               </Text>
             )}
             <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-              Starter \u05d9\u05db\u05d5\u05dc \u05dc\u05e9\u05dc\u05d5\u05d7
-              \u05e2\u05db\u05e9\u05d9\u05d5
-              \u05d5\u05dc\u05ea\u05d6\u05de\u05df
-              \u05e9\u05dc\u05d9\u05d7\u05d4
-              \u05d7\u05d3-\u05e4\u05e2\u05de\u05d9\u05ea.
-              \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4
-              \u05de\u05d7\u05d6\u05d5\u05e8\u05d9\u05ea
-              \u05d7\u05e1\u05d5\u05de\u05d4 \u05d1-Starter.
+              Starter יכול לשלוח עכשיו ולתזמן שליחה חד-פעמית. אוטומציה מחזורית
+              חסומה ב-Starter.
             </Text>
           </View>
 
@@ -1891,8 +1868,7 @@ export default function CampaignDraftEditorScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text className="text-center text-sm font-bold text-white">
-                \u05d4\u05e2\u05d1\u05e8
-                \u05dc\u05d0\u05e8\u05db\u05d9\u05d5\u05df
+                העבר לארכיון
               </Text>
             )}
           </TouchableOpacity>

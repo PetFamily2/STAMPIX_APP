@@ -35,46 +35,34 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  qrCreateFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 QR',
-  missingDetails:
-    '\u05d7\u05e1\u05e8\u05d9\u05dd \u05e4\u05e8\u05d8\u05d9 \u05db\u05e8\u05d8\u05d9\u05e1',
-  cardNotFoundTitle:
-    '\u05dc\u05d0 \u05de\u05e6\u05d0\u05e0\u05d5 \u05d0\u05ea \u05d4\u05db\u05e8\u05d8\u05d9\u05e1',
-  cardNotFoundSubtitle:
-    '\u05e0\u05e1\u05d4 \u05dc\u05d7\u05d6\u05d5\u05e8 \u05dc\u05de\u05e1\u05da \u05d4\u05d0\u05e8\u05e0\u05e7 \u05d5\u05dc\u05d1\u05d7\u05d5\u05e8 \u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05d4\u05e8\u05e9\u05d9\u05de\u05d4',
-  cardDetails: '\u05e4\u05e8\u05d8\u05d9 \u05db\u05e8\u05d8\u05d9\u05e1',
-  personalQr: '\u05e7\u05d5\u05d3 QR \u05dc\u05e7\u05d5\u05d7',
-  personalQrSubtitle:
-    '\u05d4\u05e8\u05d0\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d5\u05d3 \u05d1\u05e7\u05d5\u05e4\u05d4. \u05d4\u05e2\u05e1\u05e7 \u05d1\u05d5\u05d7\u05e8 \u05d0\u05ea \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05dc\u05e4\u05e2\u05d5\u05dc\u05d4.',
+  qrCreateFailed: 'לא הצלחנו ליצור QR',
+  missingDetails: 'חסרים פרטי כרטיס',
+  cardNotFoundTitle: 'לא מצאנו את הכרטיס',
+  cardNotFoundSubtitle: 'נסה לחזור למסך הארנק ולבחור כרטיס מהרשימה',
+  cardDetails: 'פרטי כרטיס',
+  personalQr: 'קוד QR לקוח',
+  personalQrSubtitle: 'הראו את הקוד בקופה. העסק בוחר את התוכנית לפעולה.',
   personalQrRedeemSubtitle:
-    '\u05d4\u05e7\u05d5\u05d3 \u05d4\u05d6\u05d4 \u05db\u05dc\u05dc\u05d9 \u05dc\u05dc\u05e7\u05d5\u05d7. \u05d1\u05d1\u05d9\u05d6\u05e0\u05e1 \u05d1\u05d5\u05d7\u05e8\u05d9\u05dd \u05d0\u05ea \u05d4\u05ea\u05d5\u05db\u05e0\u05d9\u05ea \u05dc\u05e0\u05d9\u05e7\u05d5\u05d1 \u05d0\u05d5 \u05dc\u05de\u05d9\u05de\u05d5\u05e9.',
-  qrExpired:
-    '\u05ea\u05d5\u05e7\u05e3 \u05d4-QR \u05e4\u05d2. \u05e8\u05e2\u05e0\u05e0\u05d5 \u05e7\u05d5\u05d3 \u05d7\u05d3\u05e9.',
-  qrLoading: '\u05d8\u05d5\u05e2\u05df QR',
-  refreshCta: '\u05e8\u05e2\u05e0\u05d5\u05df QR',
-  loading: '\u05d8\u05d5\u05e2\u05df',
-  cardReadyTitle:
-    '\u05d4\u05db\u05e8\u05d8\u05d9\u05e1 \u05de\u05dc\u05d0 - \u05de\u05d7\u05db\u05d4 \u05dc\u05da \u05de\u05ea\u05e0\u05d4',
-  cardReadySubtitle:
-    '\u05d4\u05de\u05d9\u05de\u05d5\u05e9 \u05de\u05ea\u05d1\u05e6\u05e2 \u05d1\u05d1\u05d9\u05e7\u05d5\u05e8 \u05d4\u05d1\u05d0 \u05d1\u05e2\u05e1\u05e7\u05d4 \u05e0\u05e4\u05e8\u05d3\u05ea',
-  cardPendingTitle:
-    '\u05de\u05de\u05e9\u05d9\u05db\u05d9\u05dd \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd',
-  cardPendingPrefix: '\u05e0\u05d5\u05ea\u05e8\u05d5',
-  cardPendingSuffix:
-    '\u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05dc\u05de\u05ea\u05e0\u05d4',
-  redeemButtonReady: '\u05d4\u05e6\u05d2 \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
-  redeemButtonLocked:
-    '\u05dc\u05d0 \u05d6\u05de\u05d9\u05df \u05e2\u05d3\u05d9\u05d9\u05df',
-  shareInviteButton: '\u05d4\u05d6\u05de\u05df \u05d7\u05d1\u05e8',
-  shareViaWhatsApp: '\u05e9\u05d9\u05ea\u05d5\u05e3 \u05d1-WhatsApp',
-  copyInviteLink: '\u05d4\u05e2\u05ea\u05e7 \u05e7\u05d9\u05e9\u05d5\u05e8',
-  shareInviteError:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4',
-  inviteLinkCopied:
-    '\u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d4\u05d6\u05de\u05e0\u05d4 \u05de\u05d5\u05db\u05df \u05dc\u05e9\u05d9\u05ea\u05d5\u05e3',
+    'הקוד הזה כללי ללקוח. בביזנס בוחרים את התוכנית לניקוב או למימוש.',
+  qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
+  qrLoading: 'טוען QR',
+  refreshCta: 'רענון QR',
+  loading: 'טוען',
+  cardReadyTitle: 'הכרטיס מלא - מחכה לך מתנה',
+  cardReadySubtitle: 'המימוש מתבצע בביקור הבא בעסקה נפרדת',
+  cardPendingTitle: 'ממשיכים לצבור ניקובים',
+  cardPendingPrefix: 'נותרו',
+  cardPendingSuffix: 'ניקובים למתנה',
+  redeemButtonReady: 'הצג למימוש',
+  redeemButtonLocked: 'לא זמין עדיין',
+  shareInviteButton: 'הזמן חבר',
+  shareViaWhatsApp: 'שיתוף ב-WhatsApp',
+  copyInviteLink: 'העתק קישור',
+  shareInviteError: 'לא הצלחנו ליצור קישור הזמנה',
+  inviteLinkCopied: 'קישור ההזמנה מוכן לשיתוף',
   stampSuccessBanner: '✅ קיבלת ניקוב!',
 };
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
@@ -758,7 +746,7 @@ const styles = StyleSheet.create({
   },
   inviteRow: {
     marginTop: 4,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   invitePrimaryButton: {

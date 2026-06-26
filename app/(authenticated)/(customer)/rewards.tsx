@@ -11,6 +11,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הטבות והודעות',
@@ -86,15 +87,9 @@ export default function RewardsScreen() {
 
         <View style={styles.referralCard}>
           <View style={styles.referralTextWrap}>
-            <Text style={styles.referralTitle}>
-              {
-                '\u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d7\u05d1\u05e8\u05d9\u05dd'
-              }
-            </Text>
+            <Text style={styles.referralTitle}>{'הזמנות חברים'}</Text>
             <Text style={styles.referralSubtitle}>
-              {
-                '\u05de\u05e2\u05e7\u05d1 \u05d0\u05d7\u05e8 \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea \u05d5\u05de\u05ea\u05e0\u05d5\u05ea \u05e9\u05d4\u05ea\u05e7\u05d1\u05dc\u05d5'
-              }
+              {'מעקב אחר הזמנות ממתינות ומתנות שהתקבלו'}
             </Text>
           </View>
           <Pressable
@@ -104,11 +99,7 @@ export default function RewardsScreen() {
               pressed ? styles.referralButtonPressed : null,
             ]}
           >
-            <Text style={styles.referralButtonText}>
-              {
-                '\u05dc\u05de\u05e1\u05da \u05d4\u05d4\u05d6\u05de\u05e0\u05d5\u05ea'
-              }
-            </Text>
+            <Text style={styles.referralButtonText}>{'למסך ההזמנות'}</Text>
           </Pressable>
         </View>
 
@@ -303,7 +294,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   readyRewardHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -353,7 +344,7 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   metaRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

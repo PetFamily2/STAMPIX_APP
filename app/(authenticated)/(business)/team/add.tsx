@@ -142,16 +142,12 @@ export default function AddBusinessStaffScreen() {
       return;
     }
 
-    setInviteError(
-      '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05db\u05dc\u05dc\u05d9\u05ea.'
-    );
+    setInviteError('שגיאה כללית.');
   };
 
   const handleInviteByScan = async (rawData: string) => {
     if (!activeBusinessId) {
-      setInviteError(
-        '\u05dc\u05d0 \u05e0\u05d1\u05d7\u05e8 \u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc.'
-      );
+      setInviteError('לא נבחר עסק פעיל.');
       setScannerResetKey((current) => current + 1);
       return;
     }
@@ -184,9 +180,7 @@ export default function AddBusinessStaffScreen() {
       });
 
       setScannedStaffDetails(result.invitedUser);
-      setInviteSuccess(
-        '\u05d4\u05d6\u05de\u05e0\u05d4 \u05e0\u05e9\u05dc\u05d7\u05d4 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4 \u05d5\u05e0\u05e8\u05e9\u05de\u05d4 \u05d1\u05d4\u05d9\u05e1\u05d8\u05d5\u05e8\u05d9\u05d9\u05ea \u05d4\u05e6\u05d5\u05d5\u05ea.'
-      );
+      setInviteSuccess('הזמנה נשלחה בהצלחה ונרשמה בהיסטוריית הצוות.');
     } catch (error) {
       handleMutationError(error);
       setScannerResetKey((current) => current + 1);
@@ -253,9 +247,9 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                1. \u05d1\u05d7\u05e8\u05d5 \u05ea\u05e4\u05e7\u05d9\u05d3
+                1. בחרו תפקיד
               </Text>
-              <View className="flex-row gap-2">
+              <View className={`${tw.flexRow} gap-2`}>
                 <TouchableOpacity
                   onPress={() => setInviteRole('staff')}
                   className={`rounded-xl border px-4 py-2 ${
@@ -264,9 +258,7 @@ export default function AddBusinessStaffScreen() {
                       : 'border-[#D6E3FF] bg-white'
                   }`}
                 >
-                  <Text className="text-xs font-bold text-[#1D4ED8]">
-                    \u05e2\u05d5\u05d1\u05d3
-                  </Text>
+                  <Text className="text-xs font-bold text-[#1D4ED8]">עובד</Text>
                 </TouchableOpacity>
                 {isOwner ? (
                   <TouchableOpacity
@@ -278,7 +270,7 @@ export default function AddBusinessStaffScreen() {
                     }`}
                   >
                     <Text className="text-xs font-bold text-[#1D4ED8]">
-                      \u05de\u05e0\u05d4\u05dc
+                      מנהל
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -289,13 +281,10 @@ export default function AddBusinessStaffScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                2. \u05e1\u05e8\u05d9\u05e7\u05ea QR \u05e2\u05d5\u05d1\u05d3
+                2. סריקת QR עובד
               </Text>
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                \u05d4\u05de\u05e2\u05e8\u05db\u05ea \u05ea\u05d6\u05d4\u05d4
-                \u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9\u05ea \u05d0\u05ea
-                \u05e4\u05e8\u05d8\u05d9 \u05d4\u05e2\u05d5\u05d1\u05d3
-                \u05de\u05d4\u05e1\u05e8\u05d9\u05e7\u05d4.
+                המערכת תזהה אוטומטית את פרטי העובד מהסריקה.
               </Text>
               {isTeamSeatLimitReached ? (
                 <View className="mt-1 min-h-[180px] justify-center rounded-2xl border border-amber-200 bg-amber-50 p-5">
@@ -332,10 +321,10 @@ export default function AddBusinessStaffScreen() {
                     isBusy={isInvitingByScan}
                     caption={
                       isInvitingByScan
-                        ? '\u05de\u05e2\u05d1\u05d3 \u05d4\u05d6\u05de\u05e0\u05d4...'
+                        ? 'מעבד הזמנה...'
                         : scannedStaffDetails
-                          ? '\u05d4\u05e1\u05e8\u05d9\u05e7\u05d4 \u05e0\u05e7\u05dc\u05d8\u05d4. \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1.'
-                          : '\u05e1\u05e8\u05e7\u05d5 \u05e7\u05d5\u05d3 QR \u05e2\u05d5\u05d1\u05d3'
+                          ? 'הסריקה נקלטה. אפשר לסרוק שוב.'
+                          : 'סרקו קוד QR עובד'
                     }
                   />
                 </View>
@@ -363,35 +352,26 @@ export default function AddBusinessStaffScreen() {
                 <Text
                   className={`text-xs font-bold text-emerald-700 ${tw.textStart}`}
                 >
-                  \u05e4\u05e8\u05d8\u05d9 \u05e2\u05d5\u05d1\u05d3
-                  \u05e9\u05d6\u05d5\u05d4\u05d4
+                  פרטי עובד שזוהה
                 </Text>
                 <Text
                   className={`mt-2 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  \u05e9\u05dd: {scannedStaffDetails.name}
+                  שם: {scannedStaffDetails.name}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  \u05d8\u05dc\u05e4\u05d5\u05df:{' '}
-                  {scannedStaffDetails.phone ??
-                    '\u05dc\u05dc\u05d0 \u05d8\u05dc\u05e4\u05d5\u05df'}
+                  טלפון: {scannedStaffDetails.phone ?? 'ללא טלפון'}
                 </Text>
                 <Text
                   className={`mt-1 text-xs text-emerald-700 ${tw.textStart}`}
                 >
-                  \u05d0\u05d9\u05de\u05d9\u05d9\u05dc:{' '}
-                  {scannedStaffDetails.email ??
-                    '\u05dc\u05dc\u05d0 \u05d0\u05d9\u05de\u05d9\u05d9\u05dc'}
+                  אימייל: {scannedStaffDetails.email ?? 'ללא אימייל'}
                 </Text>
                 <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
                   <Text className="text-[11px] font-bold text-emerald-700">
-                    \u05ea\u05e4\u05e7\u05d9\u05d3
-                    \u05de\u05d5\u05d6\u05de\u05df:{' '}
-                    {inviteRole === 'manager'
-                      ? '\u05de\u05e0\u05d4\u05dc'
-                      : '\u05e2\u05d5\u05d1\u05d3'}
+                    תפקיד מוזמן: {inviteRole === 'manager' ? 'מנהל' : 'עובד'}
                   </Text>
                 </View>
               </View>
@@ -423,9 +403,7 @@ export default function AddBusinessStaffScreen() {
                 <ActivityIndicator color="#94A3B8" />
               ) : (
                 <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                  {isTeamSeatLimitReached
-                    ? 'שדרוג להוספת עובד'
-                    : '\u05e1\u05e8\u05d5\u05e7 \u05e9\u05d5\u05d1'}
+                  {isTeamSeatLimitReached ? 'שדרוג להוספת עובד' : 'סרוק שוב'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -435,8 +413,7 @@ export default function AddBusinessStaffScreen() {
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">
-                \u05d7\u05d6\u05e8\u05d4 \u05dc\u05e0\u05d9\u05d4\u05d5\u05dc
-                \u05e6\u05d5\u05d5\u05ea
+                חזרה לניהול צוות
               </Text>
             </TouchableOpacity>
           </View>

@@ -2,7 +2,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { ChartCardShell } from './ChartCardShell';
 
 export type DonutDatum = {
@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textPrimary,
   },
   legendWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 10,
   },
   legendItem: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,

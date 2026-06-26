@@ -9,6 +9,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+import { flexDirection } from '@/lib/rtl';
 
 type QrScannerProps = {
   onScan: (data: string) => Promise<void> | void;
@@ -82,12 +83,12 @@ export default function QrScanner({
       return caption;
     }
     if (isBusy || internalBusy) {
-      return '\u05de\u05e2\u05d3\u05db\u05df \u05e0\u05ea\u05d5\u05e0\u05d9\u05dd';
+      return 'מעדכן נתונים';
     }
     if (scanned) {
-      return '\u05d4\u05e7\u05d5\u05d3 \u05e0\u05e1\u05e8\u05e7';
+      return 'הקוד נסרק';
     }
-    return '\u05e1\u05de\u05df \u05d0\u05ea \u05d4-QR \u05d1\u05ea\u05d5\u05da \u05d4\u05de\u05e1\u05d2\u05e8\u05ea';
+    return 'סמן את ה-QR בתוך המסגרת';
   }, [caption, internalBusy, isBusy, scanned]);
 
   const renderPermissionFallback = () => {
@@ -95,10 +96,7 @@ export default function QrScanner({
       return (
         <View style={styles.permissionFallback}>
           <ActivityIndicator color="#2F6BFF" />
-          <Text style={styles.permissionTitle}>
-            \u05d8\u05d5\u05e2\u05df \u05d4\u05e8\u05e9\u05d0\u05d5\u05ea
-            \u05de\u05e6\u05dc\u05de\u05d4
-          </Text>
+          <Text style={styles.permissionTitle}>טוען הרשאות מצלמה</Text>
         </View>
       );
     }
@@ -106,21 +104,13 @@ export default function QrScanner({
     if (!permission.granted) {
       return (
         <View style={styles.permissionFallback}>
-          <Text style={styles.permissionTitle}>
-            \u05d0\u05d9\u05df \u05d4\u05e8\u05e9\u05d0\u05ea
-            \u05de\u05e6\u05dc\u05de\u05d4
-          </Text>
-          <Text style={styles.permissionText}>
-            \u05d1\u05e7\u05e9 \u05d4\u05e8\u05e9\u05d0\u05d4 \u05db\u05d3\u05d9
-            \u05dc\u05d4\u05ea\u05d7\u05d9\u05dc \u05dc\u05e1\u05e8\u05d5\u05e7
-          </Text>
+          <Text style={styles.permissionTitle}>אין הרשאת מצלמה</Text>
+          <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק</Text>
           <Pressable
             onPress={requestPermission}
             style={styles.permissionButton}
           >
-            <Text style={styles.permissionButtonText}>
-              \u05ea\u05df \u05d4\u05e8\u05e9\u05d0\u05d4
-            </Text>
+            <Text style={styles.permissionButtonText}>תן הרשאה</Text>
           </Pressable>
         </View>
       );
@@ -272,7 +262,7 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     marginTop: 12,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
   },

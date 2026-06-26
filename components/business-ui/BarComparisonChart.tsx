@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { ChartCardShell } from './ChartCardShell';
 
 export type BarDatum = {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   plotArea: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-end',
     gap: 10,
   },

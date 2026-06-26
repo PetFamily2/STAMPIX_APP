@@ -50,32 +50,32 @@ export function entitlementErrorToHebrewMessage(
 ) {
   switch (payload.code) {
     case 'FEATURE_NOT_AVAILABLE':
-      return '\u05d4\u05d9\u05db\u05d5\u05dc\u05ea \u05d4\u05d6\u05d0\u05ea \u05d6\u05de\u05d9\u05e0\u05d4 \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8.';
+      return 'היכולת הזאת זמינה במסלול מתקדם יותר.';
     case 'PLAN_LIMIT_REACHED': {
       if (
         (payload.limitKey === 'maxActiveRetentionActions' ||
           payload.limitType === 'active_retention_actions') &&
         typeof payload.limitValue === 'number'
       ) {
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת קמפיינים חוזרים פעילים במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         payload.limitKey === 'maxCards' &&
         typeof payload.limitValue === 'number'
       ) {
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9 \u05d4\u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת כרטיסי הנאמנות במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         payload.limitKey === 'maxCustomers' &&
         typeof payload.limitValue === 'number'
       ) {
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת הלקוחות במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         payload.limitKey === 'maxTeamSeats' &&
         typeof payload.limitValue === 'number'
       ) {
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05de\u05d5\u05e9\u05d1\u05d9 \u05d4\u05e6\u05d5\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת מושבי הצוות במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         payload.limitKey === 'maxCampaigns' &&
@@ -87,20 +87,20 @@ export function entitlementErrorToHebrewMessage(
         ) {
           return `יש חריגה ממכסת הקמפיינים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב קמפיינים או לשדרג כדי להפעיל שוב.`;
         }
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05de\u05e1\u05e4\u05e8 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc\u05d9\u05dd \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת מספר הקמפיינים הפעילים במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         (payload.limitKey === 'maxAiExecutionsPerMonth' ||
           payload.limitType === 'ai_executions_monthly') &&
         typeof payload.limitValue === 'number'
       ) {
-        return `\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05e9\u05d9\u05de\u05d5\u05e9\u05d9 AI \u05dc\u05d7\u05d5\u05d3\u05e9 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 (${payload.limitValue}).`;
+        return `הגעתם למכסת שימושי AI לחודש הנוכחי (${payload.limitValue}).`;
       }
-      return '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05d4\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9.';
+      return 'הגעתם למגבלת המסלול הנוכחי.';
     }
     case 'SUBSCRIPTION_INACTIVE':
-      return '\u05d4\u05de\u05e0\u05d5\u05d9 \u05dc\u05d0 \u05e4\u05e2\u05d9\u05dc \u05db\u05e8\u05d2\u05e2. \u05d9\u05e9 \u05dc\u05d4\u05e1\u05d3\u05d9\u05e8 \u05ea\u05e9\u05dc\u05d5\u05dd \u05d0\u05d5 \u05dc\u05e9\u05d3\u05e8\u05d2.';
+      return 'המנוי לא פעיל כרגע. יש להסדיר תשלום או לשדרג.';
     default:
-      return '\u05d0\u05d9\u05df \u05d4\u05e8\u05e9\u05d0\u05d4 \u05dc\u05e4\u05e2\u05d5\u05dc\u05d4 \u05d4\u05d6\u05d5.';
+      return 'אין הרשאה לפעולה הזו.';
   }
 }

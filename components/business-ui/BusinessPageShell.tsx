@@ -6,6 +6,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
+import { rtlBaseView } from '@/lib/rtl';
 
 export function BusinessPageShell({
   stickyHeader,
@@ -21,7 +22,10 @@ export function BusinessPageShell({
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={[]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor }, rtlBaseView]}
+      edges={[]}
+    >
       <ScrollView
         stickyHeaderIndices={[0]}
         style={styles.scroll}
@@ -43,5 +47,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+    ...rtlBaseView,
   },
 });

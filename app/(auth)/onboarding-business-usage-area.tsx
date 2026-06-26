@@ -17,13 +17,12 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 type UsageAreaId = 'nearby' | 'citywide' | 'online' | 'multiple';
 const TEXT = {
-  title:
-    '\u05d1\u05d0\u05d9\u05dc\u05d5 \u05d0\u05d6\u05d5\u05e8\u05d9\u05dd \u05d4\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc?',
-  subtitle:
-    '\u05d6\u05d4 \u05e2\u05d5\u05d6\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05d0\u05ea \u05d4\u05d7\u05d5\u05d5\u05d9\u05d4 \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da',
+  title: 'באילו אזורים העסק פעיל?',
+  subtitle: 'זה עוזר לנו להתאים את החוויה לעסק שלך',
 };
 
 const USAGE_AREAS: Array<{
@@ -33,23 +32,22 @@ const USAGE_AREAS: Array<{
 }> = [
   {
     id: 'nearby',
-    title:
-      '\u05d1\u05d0\u05d6\u05d5\u05e8 \u05d4\u05e2\u05e1\u05e7 \u05e9\u05dc\u05d9',
+    title: 'באזור העסק שלי',
     icon: 'location-outline',
   },
   {
     id: 'citywide',
-    title: '\u05d1\u05e8\u05d7\u05d1\u05d9 \u05d4\u05e2\u05d9\u05e8',
+    title: 'ברחבי העיר',
     icon: 'navigate-outline',
   },
   {
     id: 'online',
-    title: '\u05d1\u05d0\u05d5\u05e0\u05dc\u05d9\u05d9\u05df',
+    title: 'באונליין',
     icon: 'phone-portrait-outline',
   },
   {
     id: 'multiple',
-    title: '\u05d1\u05db\u05de\u05d4 \u05e1\u05e0\u05d9\u05e4\u05d9\u05dd',
+    title: 'בכמה סניפים',
     icon: 'business-outline',
   },
 ];
@@ -197,7 +195,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

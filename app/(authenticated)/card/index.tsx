@@ -9,6 +9,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { safeBack } from '@/lib/navigation';
+import { flexDirection } from '@/lib/rtl';
 
 function range(n: number) {
   return Array.from({ length: n }, (_, i) => i);
@@ -61,7 +62,7 @@ export default function CardDetailsScreen() {
         >
           <View
             style={{
-              flexDirection: 'row',
+              flexDirection: flexDirection.row,
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
@@ -97,7 +98,7 @@ export default function CardDetailsScreen() {
         >
           <View
             style={{
-              flexDirection: 'row',
+              flexDirection: flexDirection.row,
               alignItems: 'center',
               gap: 10,
             }}
@@ -179,7 +180,7 @@ export default function CardDetailsScreen() {
               borderWidth: 1,
               borderColor: '#E6EBF5',
               padding: 14,
-              flexDirection: 'row',
+              flexDirection: flexDirection.row,
               flexWrap: 'wrap',
               gap: 10,
               justifyContent: 'flex-start',
@@ -249,7 +250,7 @@ export default function CardDetailsScreen() {
           >
             <View
               style={{
-                flexDirection: 'row',
+                flexDirection: flexDirection.row,
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}

@@ -26,6 +26,7 @@ import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'גילוי עסקים',
@@ -726,7 +727,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   panelHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -760,7 +761,7 @@ const styles = StyleSheet.create({
     color: '#D94A33',
   },
   filterHeaderRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -780,7 +781,7 @@ const styles = StyleSheet.create({
   },
   filterChipsWrap: {
     marginTop: 12,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -817,7 +818,7 @@ const styles = StyleSheet.create({
   },
   sortButtonsRow: {
     alignSelf: 'stretch',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   sortButton: {
@@ -864,7 +865,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   businessHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -931,13 +932,13 @@ const styles = StyleSheet.create({
   },
   savedBusinessMetaRow: {
     marginTop: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
   metaChipsWrap: {
     marginTop: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 6,
   },

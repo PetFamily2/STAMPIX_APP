@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
-import { tw } from '@/lib/rtl';
+import { rtlBaseText, rtlBaseView, tw } from '@/lib/rtl';
 
 type SectionHeaderProps = {
   title: string;
@@ -17,13 +17,22 @@ export function SectionHeader({
   className = '',
 }: SectionHeaderProps) {
   return (
-    <View className={`${tw.flexRow} items-center justify-between ${className}`}>
-      <View>
-        <Text className={`text-lg font-black text-text-main ${tw.textStart}`}>
+    <View
+      className={`${tw.flexRow} items-center justify-between ${className}`}
+      style={rtlBaseView}
+    >
+      <View className="flex-1">
+        <Text
+          className={`text-lg font-black text-text-main ${tw.textStart}`}
+          style={rtlBaseText}
+        >
           {title}
         </Text>
         {description ? (
-          <Text className={`text-xs text-gray-400 ${tw.textStart}`}>
+          <Text
+            className={`text-xs text-gray-400 ${tw.textStart}`}
+            style={rtlBaseText}
+          >
             {description}
           </Text>
         ) : null}

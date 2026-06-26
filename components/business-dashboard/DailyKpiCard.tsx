@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
 
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   trendInline: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,

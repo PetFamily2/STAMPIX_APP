@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 
 const REFERRAL_ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
   generated: 'person-add-outline',
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
   },
   statItem: {

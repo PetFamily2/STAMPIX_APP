@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, rtlCenterText, tw } from '@/lib/rtl';
 
 type PrimaryButtonProps = {
   title: string;
@@ -16,16 +16,23 @@ export function PrimaryButton({
   loading = false,
   className = '',
   disabled,
+  style,
   ...props
 }: PrimaryButtonProps) {
   return (
     <TouchableOpacity
       className={`w-full rounded-[28px] py-5 bg-blue-600 shadow-lg shadow-blue-600/30 ${tw.flexRow} items-center justify-center gap-3 active:scale-[0.98] ${className}`}
       disabled={disabled || loading}
+      style={[rtlBaseView, style]}
       {...props}
     >
       {loading ? <ActivityIndicator color="#fff" /> : (icon ?? null)}
-      <Text className="text-white text-lg font-black text-center">{title}</Text>
+      <Text
+        className="text-white text-lg font-black text-center"
+        style={rtlCenterText}
+      >
+        {title}
+      </Text>
     </TouchableOpacity>
   );
 }

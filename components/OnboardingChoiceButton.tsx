@@ -9,6 +9,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { rtlBaseView, rtlCenterText } from '@/lib/rtl';
+
 type OnboardingChoiceButtonProps = {
   label: string;
   selected: boolean;
@@ -93,6 +95,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    ...rtlBaseView,
   },
   iconContainer: {
     position: 'absolute',
@@ -108,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     textAlign: 'center',
-    writingDirection: 'rtl',
+    ...rtlCenterText,
   },
   optionTextWithIcon: {
     paddingHorizontal: 28,

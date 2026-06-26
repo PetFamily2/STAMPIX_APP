@@ -5,7 +5,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-
+import { flexDirection } from '@/lib/rtl';
 import { DailyKpiCard } from './DailyKpiCard';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
   },
   cell: {

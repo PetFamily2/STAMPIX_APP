@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type ShortcutIcon = keyof typeof Ionicons.glyphMap;
 
@@ -89,7 +89,7 @@ export function QuickShortcutsGrid({
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingVertical: 3,

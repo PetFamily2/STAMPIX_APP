@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 
 export function InsightCard({
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
   },
   iconWrap: {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   tagsWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },

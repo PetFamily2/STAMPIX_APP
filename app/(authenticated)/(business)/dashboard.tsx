@@ -42,7 +42,7 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   sectionTitleRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     ...rtlBaseView,
@@ -876,14 +876,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   recommendationsTopRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     alignSelf: 'stretch',
     justifyContent: 'space-between',
     ...rtlBaseView,
   },
   recommendationsTitleRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 6,
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   activityHeadingRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,

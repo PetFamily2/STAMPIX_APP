@@ -1,4 +1,4 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { UserAvatar } from '@/components/UserAvatar';
@@ -7,7 +7,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseText, rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseText, rtlBaseView } from '@/lib/rtl';
 
 function getGreeting() {
   const hour = Number(
@@ -146,12 +146,12 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   topRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   leftCluster: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     ...rtlBaseView,
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   rightActions: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 4,
     ...rtlBaseView,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     ...rtlBaseText,
   },
   businessRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 2,
     ...rtlBaseView,
@@ -225,4 +225,3 @@ const styles = StyleSheet.create({
     ...rtlBaseText,
   },
 });
-

@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 import { TrendIndicator } from './TrendIndicator';
 
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     borderColor: '#D8E4F8',
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

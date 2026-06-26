@@ -12,6 +12,7 @@ import {
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { flexDirection } from '@/lib/rtl';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -486,7 +487,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   footerActionsRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,

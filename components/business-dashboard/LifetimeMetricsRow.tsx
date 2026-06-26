@@ -7,7 +7,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
 type LifetimeMetricIcon =
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
     ...rtlBaseView,
   },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   helperRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',

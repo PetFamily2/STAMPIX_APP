@@ -28,6 +28,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'תצוגה מקדימה לכרטיס',
@@ -823,7 +824,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -888,7 +889,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   previewHeaderRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
@@ -950,7 +951,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stampsRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'flex-start',
     gap: 8,
   },
@@ -968,7 +969,7 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     marginTop: 22,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 10,
   },
   metricCard: {
@@ -1022,7 +1023,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1.5,
     padding: 12,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
   },
@@ -1061,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   themeTitleRow: {
     width: '100%',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -1101,7 +1102,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -1120,7 +1121,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   submittingRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 8,

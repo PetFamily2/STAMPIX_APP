@@ -25,24 +25,19 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  title: '\u05de\u05d4 \u05e9\u05dd \u05d4\u05e2\u05e1\u05e7?',
-  subtitle:
-    '\u05db\u05da \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d9\u05d6\u05d4\u05d5 \u05d0\u05ea\u05db\u05dd \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-  label: '\u05e9\u05dd \u05d4\u05e2\u05e1\u05e7',
-  placeholder:
-    '\u05dc\u05de\u05e9\u05dc: \u05de\u05d5\u05e2\u05d3\u05d5\u05df \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd STAMPAIX',
-  exitTitle:
-    '\u05dc\u05e6\u05d0\u05ea \u05de\u05d4\u05e7\u05de\u05ea \u05d4\u05e2\u05e1\u05e7?',
-  exitMessage:
-    '\u05e0\u05e9\u05de\u05d5\u05e8 \u05dc\u05da \u05d0\u05ea \u05d4\u05d4\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05d5\u05ea\u05d5\u05db\u05dc/\u05d9 \u05dc\u05d7\u05d6\u05d5\u05e8 \u05dc\u05d6\u05d4 \u05db\u05dc \u05d6\u05de\u05df.',
-  exitConfirm: '\u05dc\u05e9\u05de\u05d5\u05e8 \u05d5\u05dc\u05e6\u05d0\u05ea',
-  exitCancel: '\u05d4\u05de\u05e9\u05da \u05e2\u05e8\u05d9\u05db\u05d4',
-  saveErrorTitle:
-    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e9\u05de\u05d9\u05e8\u05d4',
-  exitFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05d8\u05d9\u05d5\u05d8\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  title: 'מה שם העסק?',
+  subtitle: 'כך הלקוחות יזהו אתכם באפליקציה',
+  label: 'שם העסק',
+  placeholder: 'למשל: מועדון לקוחות חוזרים STAMPAIX',
+  exitTitle: 'לצאת מהקמת העסק?',
+  exitMessage: 'נשמור לך את ההתקדמות ותוכל/י לחזור לזה כל זמן.',
+  exitConfirm: 'לשמור ולצאת',
+  exitCancel: 'המשך עריכה',
+  saveErrorTitle: 'שגיאה בשמירה',
+  exitFailed: 'לא הצלחנו לשמור את הטיוטה. נסו שוב.',
 };
 
 export default function OnboardingBusinessNameScreen() {
@@ -209,7 +204,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

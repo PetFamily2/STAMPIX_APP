@@ -13,6 +13,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איך תרצו להתחבר?',
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   optionSelected: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   optionUnselected: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dividerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
     marginVertical: 8,

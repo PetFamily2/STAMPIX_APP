@@ -24,7 +24,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -579,7 +579,7 @@ export default function BusinessTeamManagementScreen() {
           </View>
         </View>
 
-        <View className="mt-3 flex-row flex-wrap gap-2">
+        <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
             <Text className="text-[11px] font-bold text-[#1D4ED8]">
               {ROLE_LABEL[member.staffRole]}
@@ -600,7 +600,7 @@ export default function BusinessTeamManagementScreen() {
         </View>
 
         {canShowActions ? (
-          <View className="mt-3 flex-row flex-wrap gap-2">
+          <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
             {isOwner && member.staffRole === 'staff'
               ? renderActionButton(
                   'קדם למנהל',
@@ -761,7 +761,7 @@ export default function BusinessTeamManagementScreen() {
           </View>
         </View>
 
-        <View className="mt-3 flex-row flex-wrap gap-2">
+        <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
             <Text className="text-[11px] font-bold text-[#1D4ED8]">
               {invite.targetRole === 'manager' ? 'מנהל' : 'עובד'}
@@ -834,7 +834,7 @@ export default function BusinessTeamManagementScreen() {
           <View
             style={{
               marginTop: 16,
-              flexDirection: 'row',
+              flexDirection: flexDirection.row,
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -1124,15 +1124,15 @@ export default function BusinessTeamManagementScreen() {
                             <Text
                               className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                             >
-                              {'\u05e0\u05d5\u05e6\u05e8\u05d4 \u05d1-'}
+                              {'נוצרה ב-'}
                               {formatDate(invite.createdAt)}
-                              {' \u2022 \u05e2\u05d3 '}
+                              {' \u2022 עד '}
                               {formatDate(invite.expiresAt)}
                             </Text>
                           </View>
                         </View>
 
-                        <View className="mt-3 flex-row flex-wrap gap-2">
+                        <View className={`${tw.flexRow} mt-3 flex-wrap gap-2`}>
                           <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                             <Text className="text-[11px] font-bold text-[#1D4ED8]">
                               {invite.targetRole === 'manager'
@@ -1262,8 +1262,7 @@ export default function BusinessTeamManagementScreen() {
                         <Text
                           className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                         >
-                          \u05e1\u05d8\u05d8\u05d5\u05e1:{' '}
-                          {STATUS_LABEL[row.fromStatus]}
+                          סטטוס: {STATUS_LABEL[row.fromStatus]}
                           {' \u2192 '}
                           {STATUS_LABEL[row.toStatus]}
                         </Text>
@@ -1273,8 +1272,7 @@ export default function BusinessTeamManagementScreen() {
                         <Text
                           className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
                         >
-                          \u05ea\u05e4\u05e7\u05d9\u05d3:{' '}
-                          {ROLE_LABEL[row.fromRole]}
+                          תפקיד: {ROLE_LABEL[row.fromRole]}
                           {' \u2192 '}
                           {ROLE_LABEL[row.toRole]}
                         </Text>

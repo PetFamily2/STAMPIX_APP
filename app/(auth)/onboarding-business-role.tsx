@@ -26,6 +26,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 type AgeRangeId =
   | '18-24'
@@ -36,27 +37,20 @@ type AgeRangeId =
   | 'not_specified';
 
 const TEXT = {
-  title:
-    '\u05e0\u05e2\u05d9\u05dd \u05dc\u05d4\u05db\u05d9\u05e8 - \u05db\u05de\u05d4 \u05e4\u05e8\u05d8\u05d9\u05dd \u05e7\u05e6\u05e8\u05d9\u05dd',
-  subtitle:
-    '\u05d6\u05d4 \u05e2\u05d5\u05d6\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05d0\u05ea \u05d4\u05d4\u05d3\u05e8\u05db\u05d4 \u05d5\u05d4\u05d4\u05e6\u05e2\u05d5\u05ea \u05d0\u05dc\u05d9\u05da',
-  firstNameLabel: '\u05e9\u05dd \u05e4\u05e8\u05d8\u05d9',
-  firstNamePlaceholder: '\u05e9\u05dd \u05e4\u05e8\u05d8\u05d9',
-  lastNameLabel: '\u05e9\u05dd \u05de\u05e9\u05e4\u05d7\u05d4',
-  lastNamePlaceholder: '\u05e9\u05dd \u05de\u05e9\u05e4\u05d7\u05d4',
-  ageLabel: '\u05d8\u05d5\u05d5\u05d7 \u05d2\u05d9\u05dc\u05d0\u05d9\u05dd',
-  saveErrorTitle:
-    '\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05e9\u05de\u05d9\u05e8\u05d4',
-  saveErrorMessage:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e9\u05dd \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  exitTitle:
-    '\u05dc\u05e6\u05d0\u05ea \u05de\u05d4\u05e7\u05de\u05ea \u05d4\u05e2\u05e1\u05e7?',
-  exitMessage:
-    '\u05e0\u05e9\u05de\u05d5\u05e8 \u05dc\u05da \u05d0\u05ea \u05d4\u05d4\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05d5\u05ea\u05d5\u05db\u05dc/\u05d9 \u05dc\u05d7\u05d6\u05d5\u05e8 \u05dc\u05d6\u05d4 \u05db\u05dc \u05d6\u05de\u05df.',
-  exitConfirm: '\u05dc\u05e9\u05de\u05d5\u05e8 \u05d5\u05dc\u05e6\u05d0\u05ea',
-  exitCancel: '\u05d4\u05de\u05e9\u05da \u05e2\u05e8\u05d9\u05db\u05d4',
-  exitFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05d8\u05d9\u05d5\u05d8\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
+  title: 'נעים להכיר - כמה פרטים קצרים',
+  subtitle: 'זה עוזר לנו להתאים את ההדרכה וההצעות אליך',
+  firstNameLabel: 'שם פרטי',
+  firstNamePlaceholder: 'שם פרטי',
+  lastNameLabel: 'שם משפחה',
+  lastNamePlaceholder: 'שם משפחה',
+  ageLabel: 'טווח גילאים',
+  saveErrorTitle: 'שגיאה בשמירה',
+  saveErrorMessage: 'לא הצלחנו לשמור את השם נסו שוב',
+  exitTitle: 'לצאת מהקמת העסק?',
+  exitMessage: 'נשמור לך את ההתקדמות ותוכל/י לחזור לזה כל זמן.',
+  exitConfirm: 'לשמור ולצאת',
+  exitCancel: 'המשך עריכה',
+  exitFailed: 'לא הצלחנו לשמור את הטיוטה. נסו שוב.',
 };
 
 const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
@@ -65,7 +59,7 @@ const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
   { id: '35-44', label: '35-44' },
   { id: '45-54', label: '45-54' },
   { id: '55+', label: '+55' },
-  { id: 'not_specified', label: '\u05dc\u05d0 \u05de\u05e6\u05d9\u05d9\u05df' },
+  { id: 'not_specified', label: 'לא מציין' },
 ];
 
 function splitFullName(fullName?: string | null) {
@@ -398,12 +392,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerActions: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
   },
@@ -474,7 +468,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   ageGrid: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     columnGap: 8,
     rowGap: 8,

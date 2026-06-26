@@ -24,26 +24,19 @@ import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingF
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
-  hostTitle:
-    '\u05e8\u05d5\u05e6\u05d9\u05dd \u05dc\u05e6\u05e8\u05e3 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7 \u05e9\u05dc\u05db\u05dd?',
-  hostSubtitle:
-    '\u05d4\u05e4\u05e2\u05d9\u05dc\u05d5 \u05db\u05e8\u05d8\u05d9\u05e1 \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9 \u05d5\u05d4\u05ea\u05d7\u05d9\u05dc\u05d5 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
-  hostButton:
-    '\u05e6\u05d5\u05e8 \u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05dc\u05e2\u05e1\u05e7 \u05e9\u05dc\u05da',
+  hostTitle: 'רוצים לצרף את העסק שלכם?',
+  hostSubtitle: 'הפעילו כרטיס נאמנות דיגיטלי והתחילו לצבור לקוחות חוזרים',
+  hostButton: 'צור פרופיל לעסק שלך',
   existingBusinessSubtitle:
-    '\u05d4\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05d4\u05e2\u05e1\u05e7\u05d9 \u05e9\u05dc\u05db\u05dd \u05db\u05d1\u05e8 \u05de\u05d5\u05db\u05df. \u05d1\u05dc\u05d7\u05d9\u05e6\u05d4 \u05ea\u05e2\u05d1\u05e8\u05d5 \u05d9\u05e9\u05d9\u05e8 \u05dc\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05e2\u05e1\u05e7',
+    'הפרופיל העסקי שלכם כבר מוכן. בלחיצה תעברו ישיר לניהול העסק',
   existingBusinessSetupSubtitle:
-    '\u05d4\u05e4\u05e8\u05d5\u05e4\u05d9\u05dc \u05e9\u05dc \u05d4\u05e2\u05e1\u05e7 \u05db\u05d1\u05e8 \u05e0\u05e4\u05ea\u05d7. \u05d1\u05dc\u05d7\u05d9\u05e6\u05d4 \u05ea\u05de\u05e9\u05d9\u05db\u05d5 \u05dc\u05d4\u05e9\u05dc\u05de\u05ea \u05d4\u05d4\u05d2\u05d3\u05e8\u05d4',
-  switchToBusinessButton: '\u05de\u05e2\u05d1\u05e8 \u05dc\u05e2\u05e1\u05e7',
-  switchToCustomerTitle:
-    '\u05d7\u05d6\u05e8\u05d4 \u05dc\u05de\u05e6\u05d1 \u05dc\u05e7\u05d5\u05d7',
-  switchToCustomerSubtitle:
-    '\u05de\u05e2\u05d1\u05e8 \u05de\u05d4\u05d9\u05e8 \u05dc\u05d0\u05e8\u05e0\u05e7 \u05d5\u05dc\u05d4\u05d8\u05d1\u05d5\u05ea \u05d4\u05d0\u05d9\u05e9\u05d9\u05d5\u05ea \u05e9\u05dc\u05db\u05dd',
-  switchToCustomerButton:
-    '\u05de\u05e2\u05d1\u05e8 \u05dc\u05dc\u05e7\u05d5\u05d7',
-  switchModeFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
+    'הפרופיל של העסק כבר נפתח. בלחיצה תמשיכו להשלמת ההגדרה',
+  switchToBusinessButton: 'מעבר לעסק',
+  switchToCustomerTitle: 'חזרה למצב לקוח',
+  switchToCustomerSubtitle: 'מעבר מהיר לארנק ולהטבות האישיות שלכם',
+  switchToCustomerButton: 'מעבר ללקוח',
+  switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
+  errorTitle: 'שגיאה',
 };
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -57,7 +50,7 @@ function toErrorMessage(error: unknown, fallback: string) {
 }
 
 function formatSwitchToBusinessTitle(businessName: string) {
-  return `\u05de\u05e2\u05d1\u05e8 \u05dc\u05e2\u05e1\u05e7 ${businessName}`;
+  return `מעבר לעסק ${businessName}`;
 }
 
 function canAccessBusinessMode(staffRole: 'owner' | 'manager' | 'staff') {

@@ -14,6 +14,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איזה קמפיינים רלוונטיים?',
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   toggleButtons: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   toggleButton: {

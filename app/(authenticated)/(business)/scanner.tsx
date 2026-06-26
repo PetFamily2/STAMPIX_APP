@@ -47,6 +47,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ScannerProgram = {
@@ -1538,11 +1539,7 @@ export default function ScannerScreen() {
                     isBusy ? styles.redeemSideButtonDisabled : null,
                   ]}
                 >
-                  <Ionicons
-                    name="gift-outline"
-                    size={24}
-                    color="#16A34A"
-                  />
+                  <Ionicons name="gift-outline" size={24} color="#16A34A" />
                   <Text style={styles.redeemSideButtonLabel}>
                     {isStamping ? 'מממשים...' : 'ממש הטבה'}
                   </Text>
@@ -1558,11 +1555,7 @@ export default function ScannerScreen() {
                     pressed ? styles.cancelSideButtonPressed : null,
                   ]}
                 >
-                  <Ionicons
-                    name="close-outline"
-                    size={24}
-                    color="#DC2626"
-                  />
+                  <Ionicons name="close-outline" size={24} color="#DC2626" />
                   <Text style={styles.cancelSideButtonLabel}>ביטול</Text>
                 </Pressable>
               </View>
@@ -1864,7 +1857,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
   },
   redeemRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
     gap: 12,
   },
@@ -2007,7 +2000,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   resultBannerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
     gap: 12,
   },
@@ -2073,7 +2066,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   resultRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -2149,7 +2142,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
     padding: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
@@ -2204,7 +2197,7 @@ const styles = StyleSheet.create({
     borderColor: '#2F6BFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
     shadowColor: '#2F6BFF',
@@ -2247,7 +2240,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   undoCardTopRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,

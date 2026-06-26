@@ -19,9 +19,7 @@ import {
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 function formatMonthsLabel(value: number) {
-  return value === 1
-    ? '\u05d7\u05d5\u05d3\u05e9 \u05d0\u05d7\u05d3'
-    : `${value} \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd`;
+  return value === 1 ? 'חודש אחד' : `${value} חודשים`;
 }
 
 function buildStatusLine(
@@ -33,16 +31,16 @@ function buildStatusLine(
   if (pendingInvitesCount > 0) {
     parts.push(
       pendingInvitesCount === 1
-        ? '\u05d4\u05d6\u05de\u05e0\u05d4 \u05d0\u05d7\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d4'
-        : `${pendingInvitesCount} \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea`
+        ? 'הזמנה אחת ממתינה'
+        : `${pendingInvitesCount} הזמנות ממתינות`
     );
   }
 
   if (activeReferralsCount > 0) {
     parts.push(
       activeReferralsCount === 1
-        ? '\u05e2\u05e1\u05e7 \u05e4\u05e2\u05d9\u05dc \u05d0\u05d7\u05d3'
-        : `${activeReferralsCount} \u05e2\u05e1\u05e7\u05d9\u05dd \u05e4\u05e2\u05d9\u05dc\u05d9\u05dd`
+        ? 'עסק פעיל אחד'
+        : `${activeReferralsCount} עסקים פעילים`
     );
   }
 
@@ -78,10 +76,10 @@ export function BusinessReferralCard({
   );
 
   const helperText = isMaxReached
-    ? '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05e7\u05e1\u05d9\u05de\u05d5\u05dd \u05d4\u05e6\u05d1\u05d9\u05e8\u05d4'
+    ? 'הגעתם למקסימום הצבירה'
     : statusLine ||
       (pendingInvitesCount === 0 && activeReferralsCount === 0
-        ? '\u05e9\u05dc\u05d7\u05d5 \u05d4\u05d6\u05de\u05e0\u05d4 \u05e8\u05d0\u05e9\u05d5\u05e0\u05d4 \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9 \u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d4\u05e2\u05e1\u05e7 \u05d9\u05e6\u05d8\u05e8\u05e3.'
+        ? 'שלחו הזמנה ראשונה וקבלו חודש מתנה אחרי שהעסק יצטרף.'
         : '');
 
   useEffect(() => {
@@ -124,13 +122,15 @@ export function BusinessReferralCard({
             <View style={styles.titleRow}>
               <Text style={styles.titleEmoji}>{'\u{1F4BC}'}</Text>
               <Text className={tw.textStart} style={styles.title}>
-                {'\u05de\u05db\u05d9\u05e8\u05d9\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7?'}
+                {'מכירים בעל עסק?'}
               </Text>
             </View>
           </View>
 
           <Text className={tw.textStart} style={styles.description}>
-            {'\u05d4\u05d6\u05de\u05d9\u05e0\u05d5 \u05d0\u05d5\u05ea\u05d5 \u05dc-\u200EStampAix\u200E \u05d5\u05e7\u05d1\u05dc\u05d5 \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05de\u05ea\u05e0\u05d4 \u05d0\u05d7\u05e8\u05d9 \u05e9\u05d9\u05e6\u05d8\u05e8\u05e3 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05d1\u05ea\u05e9\u05dc\u05d5\u05dd.'}
+            {
+              'הזמינו אותו ל-\u200EStampAix\u200E וקבלו חודשי שימוש במתנה אחרי שיצטרף למסלול בתשלום.'
+            }
           </Text>
           <View style={styles.ctaRow}>
             <Pressable
@@ -158,16 +158,14 @@ export function BusinessReferralCard({
                         color="#FFFFFF"
                       />
                     </View>
-                    <Text style={styles.primaryButtonText}>
-                      {'\u05e9\u05ea\u05e3 \u05d4\u05d6\u05de\u05e0\u05d4'}
-                    </Text>
+                    <Text style={styles.primaryButtonText}>{'שתף הזמנה'}</Text>
                   </View>
                 )}
               </Animated.View>
             </Pressable>
           </View>
           <Text className={tw.textStart} style={styles.progressText}>
-            {`\u05e2\u05d3 \u05db\u05d4 \u05d4\u05e8\u05d5\u05d5\u05d7\u05ea\u05dd: ${formatMonthsLabel(earnedMonths)}${
+            {`עד כה הרווחתם: ${formatMonthsLabel(earnedMonths)}${
               hasEarnedRewards ? ' \u{1F389}' : ''
             }`}
           </Text>
@@ -183,7 +181,7 @@ export function BusinessReferralCard({
           style={styles.secondaryLink}
         >
           <Text className={tw.textStart} style={styles.secondaryLinkText}>
-            {'\u05d0\u05d9\u05da \u05d6\u05d4 \u05e2\u05d5\u05d1\u05d3?'}
+            {'איך זה עובד?'}
           </Text>
         </Pressable>
       </View>
@@ -202,33 +200,33 @@ export function BusinessReferralCard({
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <Text className={tw.textStart} style={styles.sheetTitle}>
-              {'\u05d0\u05d9\u05da \u05d6\u05d4 \u05e2\u05d5\u05d1\u05d3?'}
+              {'איך זה עובד?'}
             </Text>
 
             <View style={styles.stepList}>
               <Text className={tw.textStart} style={styles.stepText}>
-                {'1. \u05e9\u05ea\u05e4\u05d5 \u05d0\u05ea \u05d4\u05e7\u05d9\u05e9\u05d5\u05e8 \u05e2\u05dd \u05d1\u05e2\u05dc \u05e2\u05e1\u05e7'}
+                {'1. שתפו את הקישור עם בעל עסק'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
-                {'2. \u05d4\u05e2\u05e1\u05e7 \u05e0\u05e8\u05e9\u05dd \u05dc-\u200EStampAix\u200E'}
+                {'2. העסק נרשם ל-\u200EStampAix\u200E'}
               </Text>
               <Text className={tw.textStart} style={styles.stepText}>
-                {'3. \u05d0\u05d7\u05e8\u05d9 30 \u05d9\u05d5\u05dd \u05de\u05e0\u05d5\u05d9 \u05e4\u05e2\u05d9\u05dc \u05ea\u05e7\u05d1\u05dc\u05d5 \u05ea\u05d2\u05de\u05d5\u05dc'}
+                {'3. אחרי 30 יום מנוי פעיל תקבלו תגמול'}
               </Text>
             </View>
 
             <View style={styles.rewardsBox}>
               <Text className={tw.textStart} style={styles.rewardsTitle}>
-                {'\u05ea\u05d2\u05de\u05d5\u05dc'}
+                {'תגמול'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                {'\u05de\u05e0\u05d5\u05d9 \u05d7\u05d5\u05d3\u05e9\u05d9 \u200E\u2192\u200E \u05d7\u05d5\u05d3\u05e9 \u05d7\u05d9\u05e0\u05dd'}
+                {'מנוי חודשי \u200E\u2192\u200E חודש חינם'}
               </Text>
               <Text className={tw.textStart} style={styles.rewardsText}>
-                {'\u05de\u05e0\u05d5\u05d9 \u05e9\u05e0\u05ea\u05d9 \u200E\u2192\u200E 2 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd \u05d7\u05d9\u05e0\u05dd'}
+                {'מנוי שנתי \u200E\u2192\u200E 2 חודשים חינם'}
               </Text>
               <Text className={tw.textStart} style={styles.limitText}>
-                {'\u05d0\u05e4\u05e9\u05e8 \u05dc\u05e6\u05d1\u05d5\u05e8 \u05e2\u05d3 24 \u05d7\u05d5\u05d3\u05e9\u05d9\u05dd.'}
+                {'אפשר לצבור עד 24 חודשים.'}
               </Text>
             </View>
 
@@ -236,9 +234,7 @@ export function BusinessReferralCard({
               onPress={() => setIsHowItWorksVisible(false)}
               style={styles.closeButton}
             >
-              <Text style={styles.closeButtonText}>
-                {'\u05e1\u05d2\u05d5\u05e8'}
-              </Text>
+              <Text style={styles.closeButtonText}>{'סגור'}</Text>
             </Pressable>
           </View>
         </View>

@@ -7,6 +7,7 @@ import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 type FitOptionId = 'self' | 'couple' | 'kids' | 'pet' | 'home' | 'work';
 
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

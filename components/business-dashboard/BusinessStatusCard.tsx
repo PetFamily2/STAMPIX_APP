@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type StatusTone = 'danger' | 'warning' | 'neutral' | 'success';
 
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     minHeight: 92,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
     ...rtlBaseView,

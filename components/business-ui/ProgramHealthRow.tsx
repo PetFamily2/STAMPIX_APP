@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { UsageProgressBar } from './UsageProgressBar';
 
 export function ProgramHealthRow({
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   head: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 10,
     alignItems: 'flex-start',
   },

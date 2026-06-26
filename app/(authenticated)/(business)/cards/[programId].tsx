@@ -441,7 +441,7 @@ export default function ProgramDetailsScreen() {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
         Alert.alert(
-          '\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05e1\u05dc\u05d5\u05dc',
+          'מגבלת מסלול',
           entitlementErrorToHebrewMessage(entitlementError)
         );
         openCardsUpgrade(

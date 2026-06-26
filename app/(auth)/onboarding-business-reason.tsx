@@ -15,6 +15,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 type ReasonId =
   | 'repeat'
@@ -25,39 +26,32 @@ type ReasonId =
   | 'other';
 
 const TEXT = {
-  title:
-    '\u05de\u05d4 \u05d4\u05de\u05d8\u05e8\u05d4 \u05d4\u05e2\u05d9\u05e7\u05e8\u05d9\u05ea \u05e9\u05dc\u05db\u05dd?',
-  subtitle:
-    '\u05d1\u05d7\u05d9\u05e8\u05d4 \u05d6\u05d5 \u05ea\u05e2\u05d6\u05d5\u05e8 \u05dc\u05e0\u05d5 \u05dc\u05d4\u05ea\u05d0\u05d9\u05dd \u05dc\u05db\u05dd \u05d4\u05de\u05dc\u05e6\u05d5\u05ea \u05d4\u05de\u05e9\u05da',
+  title: 'מה המטרה העיקרית שלכם?',
+  subtitle: 'בחירה זו תעזור לנו להתאים לכם המלצות המשך',
 };
 
 const REASONS: Array<{ id: ReasonId; title: string }> = [
   {
     id: 'repeat',
-    title:
-      '\u05dc\u05d4\u05d2\u05d3\u05d9\u05dc \u05d7\u05d6\u05e8\u05d4 \u05e9\u05dc \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+    title: 'להגדיל חזרה של לקוחות',
   },
   {
     id: 'replace_paper',
-    title:
-      '\u05dc\u05d4\u05d7\u05dc\u05d9\u05e3 \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e0\u05d9\u05d9\u05e8',
+    title: 'להחליף כרטיסיות נייר',
   },
   {
     id: 'insights',
-    title:
-      '\u05dc\u05d0\u05e1\u05d5\u05e3 \u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05e2\u05dc \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+    title: 'לאסוף תובנות על לקוחות',
   },
   {
     id: 'basket',
-    title:
-      '\u05dc\u05d4\u05d2\u05d3\u05d9\u05dc \u05e1\u05dc \u05e7\u05e0\u05d9\u05d4',
+    title: 'להגדיל סל קניה',
   },
   {
     id: 'offers',
-    title:
-      '\u05dc\u05d4\u05e4\u05e2\u05d9\u05dc \u05de\u05d1\u05e6\u05e2\u05d9\u05dd \u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e7\u05d9\u05d9\u05de\u05d9\u05dd',
+    title: 'להפעיל מבצעים ללקוחות קיימים',
   },
-  { id: 'other', title: '\u05d0\u05d7\u05e8' },
+  { id: 'other', title: 'אחר' },
 ];
 
 export default function OnboardingBusinessReasonScreen() {
@@ -157,7 +151,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

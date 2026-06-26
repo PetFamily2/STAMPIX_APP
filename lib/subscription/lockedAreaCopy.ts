@@ -50,206 +50,141 @@ const FEATURE_KEY_ALIAS_MAP: Record<string, LockedAreaKey> = {
 
 const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
   team: {
-    sectionTitle: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
-    lockedTitle:
-      '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea \u05e0\u05e2\u05d5\u05dc \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
+    sectionTitle: 'ניהול צוות',
+    lockedTitle: 'ניהול צוות נעול במסלול הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
-      `\u05d4\u05d6\u05de\u05e0\u05ea \u05e2\u05d5\u05d1\u05d3\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d4 \u05d1\u05de\u05e1\u05dc\u05d5\u05dc ${
-        requiredPlanLabel ??
-        '\u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8'
-      }.`,
-    benefits: [
-      '\u05d4\u05d6\u05de\u05e0\u05ea \u05e2\u05d5\u05d1\u05d3\u05d9\u05dd \u05d5\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05e8\u05e9\u05d0\u05d5\u05ea',
-      '\u05e2\u05d1\u05d5\u05d3\u05d4 \u05de\u05e1\u05d5\u05d3\u05e8\u05ea \u05e2\u05dd \u05e6\u05d5\u05d5\u05ea',
-    ],
-    upgradeAreaLabel: '\u05e0\u05d9\u05d4\u05d5\u05dc \u05e6\u05d5\u05d5\u05ea',
+      `הזמנת עובדים זמינה במסלול ${requiredPlanLabel ?? 'מתקדם יותר'}.`,
+    benefits: ['הזמנת עובדים וניהול הרשאות', 'עבודה מסודרת עם צוות'],
+    upgradeAreaLabel: 'ניהול צוות',
   },
   marketingHub: {
-    sectionTitle:
-      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
-    lockedTitle:
-      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05de\u05d5\u05d2\u05d1\u05dc \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
+    sectionTitle: 'מרכז הקמפיינים',
+    lockedTitle: 'מרכז הקמפיינים מוגבל במסלול הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d9\u05d3\u05e0\u05d9\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d9\u05dd \u05dc\u05e4\u05d9 \u05de\u05db\u05e1\u05ea \u05d4\u05de\u05e1\u05dc\u05d5\u05dc. \u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05de\u05d2\u05d3\u05d9\u05dc \u05de\u05db\u05e1\u05d5\u05ea \u05d5\u05d9\u05db\u05d5\u05dc\u05d5\u05ea AI.`
-        : '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d9\u05d3\u05e0\u05d9\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d9\u05dd \u05dc\u05e4\u05d9 \u05de\u05db\u05e1\u05ea \u05d4\u05de\u05e1\u05dc\u05d5\u05dc. AI \u05de\u05ea\u05e7\u05d3\u05dd \u05de\u05d7\u05d9\u05d9\u05d1 \u05de\u05e1\u05dc\u05d5\u05dc Pro.',
+        ? `קמפיינים ידניים זמינים לפי מכסת המסלול. שדרוג למסלול ${requiredPlanLabel} מגדיל מכסות ויכולות AI.`
+        : 'קמפיינים ידניים זמינים לפי מכסת המסלול. AI מתקדם מחייב מסלול Pro.',
     benefits: [
-      '\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d9\u05d3\u05e0\u05d9\u05d9\u05dd \u05dc\u05e4\u05d9 \u05de\u05db\u05e1\u05ea \u05d4\u05de\u05e1\u05dc\u05d5\u05dc (\u05de-Starter)',
-      '\u05d4\u05de\u05dc\u05e6\u05d5\u05ea AI \u05d5\u05e4\u05e2\u05d5\u05dc\u05d5\u05ea \u05d7\u05db\u05de\u05d5\u05ea \u05de-Pro: 100 \u05d1\u05d7\u05d5\u05d3\u05e9, 300 \u05d1-Premium',
+      'קמפיינים ידניים לפי מכסת המסלול (מ-Starter)',
+      'המלצות AI ופעולות חכמות מ-Pro: 100 בחודש, 300 ב-Premium',
     ],
-    upgradeAreaLabel:
-      '\u05de\u05e8\u05db\u05d6 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
+    upgradeAreaLabel: 'מרכז הקמפיינים',
   },
   smartAnalytics: {
-    sectionTitle:
-      '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-    lockedTitle:
-      '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e0\u05e2\u05d5\u05dc\u05d5\u05ea',
+    sectionTitle: 'תובנות לקוחות',
+    lockedTitle: 'תובנות לקוחות נעולות',
     lockedSubtitle: (requiredPlanLabel) =>
-      `\u05e8\u05e9\u05d9\u05de\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d5\u05e0\u05d9\u05d4\u05d5\u05dc \u05d1\u05e1\u05d9\u05e1\u05d9 \u05e0\u05e9\u05d0\u05e8\u05d9\u05dd \u05d6\u05de\u05d9\u05e0\u05d9\u05dd \u05d1\u05db\u05dc \u05d4\u05de\u05e1\u05dc\u05d5\u05dc\u05d9\u05dd. \u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05d6\u05de\u05d9\u05e0\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc ${
-        requiredPlanLabel ??
-        '\u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8'
+      `רשימת לקוחות וניהול בסיסי נשארים זמינים בכל המסלולים. תובנות מתקדמות זמינות במסלול ${
+        requiredPlanLabel ?? 'מתקדם יותר'
       }.`,
     benefits: [
-      '\u05e8\u05e9\u05d9\u05de\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d5\u05e0\u05d9\u05d4\u05d5\u05dc \u05d1\u05e1\u05d9\u05e1\u05d9 \u2014 \u05d1\u05db\u05dc \u05d4\u05de\u05e1\u05dc\u05d5\u05dc\u05d9\u05dd',
-      '\u05d6\u05d9\u05d4\u05d5\u05d9 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d1\u05e1\u05d9\u05db\u05d5\u05df \u05d5\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e6\u05de\u05d9\u05d7\u05d4',
+      'רשימת לקוחות וניהול בסיסי \u2014 בכל המסלולים',
+      'זיהוי לקוחות בסיכון ותובנות לצמיחה',
     ],
-    upgradeAreaLabel:
-      '\u05ea\u05d5\u05d1\u05e0\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+    upgradeAreaLabel: 'תובנות לקוחות',
   },
   advancedReports: {
-    sectionTitle:
-      '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
-    lockedTitle:
-      '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd \u2014 \u05d1\u05e7\u05e8\u05d5\u05d1',
+    sectionTitle: 'דוחות מתקדמים',
+    lockedTitle: 'דוחות מתקדמים \u2014 בקרוב',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05d4\u05e9\u05d5\u05d5\u05d0\u05ea \u05ea\u05e7\u05d5\u05e4\u05d5\u05ea \u05d5\u05de\u05d2\u05de\u05d5\u05ea \u05e2\u05d5\u05de\u05e7 \u05d9\u05d9\u05e4\u05ea\u05d7\u05d5 \u05d1\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel}. \u05db\u05e8\u05d2\u05e2 \u05d0\u05d9\u05df \u05de\u05e1\u05da \u05d3\u05d5\u05d7\u05d5\u05ea \u05e4\u05e2\u05d9\u05dc \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4.`
-        : '\u05d4\u05e9\u05d5\u05d5\u05d0\u05ea \u05ea\u05e7\u05d5\u05e4\u05d5\u05ea \u05d5\u05de\u05d2\u05de\u05d5\u05ea \u05e2\u05d5\u05de\u05e7 \u05d9\u05d2\u05d9\u05e2\u05d5 \u05d1\u05e7\u05e8\u05d5\u05d1 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc Pro. \u05db\u05e8\u05d2\u05e2 \u05d0\u05d9\u05df \u05de\u05e1\u05da \u05d3\u05d5\u05d7\u05d5\u05ea \u05e4\u05e2\u05d9\u05dc \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4.',
+        ? `השוואת תקופות ומגמות עומק ייפתחו במסלול ${requiredPlanLabel}. כרגע אין מסך דוחות פעיל באפליקציה.`
+        : 'השוואת תקופות ומגמות עומק יגיעו בקרוב למסלול Pro. כרגע אין מסך דוחות פעיל באפליקציה.',
     benefits: [
-      '\u05d4\u05e9\u05d5\u05d5\u05d0\u05ea \u05ea\u05e7\u05d5\u05e4\u05d5\u05ea \u05d5\u05de\u05d2\u05de\u05d5\u05ea \u05d1\u05d9\u05e6\u05d5\u05e2\u05d9\u05dd \u2014 \u05d1\u05e7\u05e8\u05d5\u05d1',
-      '\u05d6\u05de\u05d9\u05df \u05d1\u05de\u05e1\u05dc\u05d5\u05dc Pro \u05d5\u05de\u05e2\u05dc\u05d4; \u05d4\u05e9\u05e7 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4 \u05d1\u05d4\u05de\u05e9\u05da',
+      'השוואת תקופות ומגמות ביצועים \u2014 בקרוב',
+      'זמין במסלול Pro ומעלה; השק באפליקציה בהמשך',
     ],
-    upgradeAreaLabel:
-      '\u05d3\u05d5\u05d7\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d9\u05dd',
+    upgradeAreaLabel: 'דוחות מתקדמים',
   },
   maxCards: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9 \u05d4\u05e0\u05d0\u05de\u05e0\u05d5\u05ea',
+    sectionTitle: 'מגבלת כרטיסים',
+    lockedTitle: 'הגעתם למגבלת כרטיסי הנאמנות',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05e4\u05ea\u05d9\u05d7\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd.`
-        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8 \u05d9\u05d0\u05e4\u05e9\u05e8 \u05e4\u05ea\u05d9\u05d7\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd.',
-    benefits: [
-      '\u05db\u05de\u05d4 \u05ea\u05d5\u05db\u05e0\u05d9\u05d5\u05ea \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d1\u05de\u05e7\u05d1\u05d9\u05dc',
-      '\u05e6\u05de\u05d9\u05d7\u05d4 \u05d1\u05dc\u05d9 \u05dc\u05e2\u05e6\u05d5\u05e8',
-    ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05dd',
+        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר פתיחת כרטיסים נוספים.`
+        : 'שדרוג למסלול מתקדם יותר יאפשר פתיחת כרטיסים נוספים.',
+    benefits: ['כמה תוכניות נאמנות במקביל', 'צמיחה בלי לעצור'],
+    upgradeAreaLabel: 'מגבלת כרטיסים',
   },
   maxCustomers: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05e1\u05e4\u05e8 \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+    sectionTitle: 'מגבלת לקוחות',
+    lockedTitle: 'הגעתם למגבלת מספר הלקוחות',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05e6\u05d9\u05e8\u05d5\u05e3 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd.`
-        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8 \u05d9\u05d0\u05e4\u05e9\u05e8 \u05e6\u05d9\u05e8\u05d5\u05e3 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd.',
-    benefits: [
-      '\u05d4\u05e8\u05d7\u05d1\u05ea \u05d1\u05e1\u05d9\u05e1 \u05d4\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-      '\u05de\u05e0\u05d9\u05e2\u05ea \u05d7\u05e1\u05d9\u05de\u05d4 \u05d1\u05d2\u05d9\u05d5\u05e1 \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-    ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
+        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר צירוף לקוחות נוספים.`
+        : 'שדרוג למסלול מתקדם יותר יאפשר צירוף לקוחות נוספים.',
+    benefits: ['הרחבת בסיס הלקוחות', 'מניעת חסימה בגיוס לקוחות'],
+    upgradeAreaLabel: 'מגבלת לקוחות',
   },
   maxActiveRetentionActions: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d4\u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
+    sectionTitle: 'מגבלת קמפיינים חוזרים',
+    lockedTitle: 'הגעתם למגבלת הקמפיינים החוזרים',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05d4\u05e4\u05e2\u05dc\u05ea \u05d9\u05d5\u05ea\u05e8 \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd.`
-        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05e4\u05ea\u05d7 \u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d5\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05df \u05e0\u05d5\u05e1\u05e4\u05d5\u05ea.',
-    benefits: [
-      '\u05d1-Starter \u05d0\u05d9\u05df \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
-      '\u05e2\u05d3 5 \u05d1-Pro \u05d5-15 \u05d1-Premium',
-    ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d7\u05d5\u05d6\u05e8\u05d9\u05dd',
+        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר הפעלת יותר קמפיינים חוזרים.`
+        : 'שדרוג למסלול מתקדם יפתח אוטומציות קמפיין נוספות.',
+    benefits: ['ב-Starter אין קמפיינים חוזרים', 'עד 5 ב-Pro ו-15 ב-Premium'],
+    upgradeAreaLabel: 'מגבלת קמפיינים חוזרים',
   },
   maxCampaigns: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05e1\u05e4\u05e8 \u05d4\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc\u05d9\u05dd',
+    sectionTitle: 'מגבלת קמפיינים',
+    lockedTitle: 'הגעתם למגבלת מספר הקמפיינים הפעילים',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
         ? `שדרוג למסלול ${requiredPlanLabel} יוסיף מקומות לקמפיינים ידניים ולקמפיין הפניות פעיל.`
         : 'שדרוג למסלול מתקדם יותר יוסיף מקומות לקמפיינים ידניים ולקמפיין הפניות פעיל.',
     benefits: [
       'המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל',
-      '\u05d2\u05de\u05d9\u05e9\u05d5\u05ea \u05d1\u05d0\u05d5\u05d8\u05d5\u05de\u05e6\u05d9\u05d4 \u05d5\u05de\u05d1\u05e6\u05e2\u05d9\u05dd',
+      'גמישות באוטומציה ומבצעים',
     ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
+    upgradeAreaLabel: 'מגבלת קמפיינים',
   },
   maxAiExecutionsPerMonth: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea AI \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05e9\u05d9\u05de\u05d5\u05e9\u05d9 AI \u05dc\u05d7\u05d5\u05d3\u05e9 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
+    sectionTitle: 'מגבלת AI חודשית',
+    lockedTitle: 'הגעתם למכסת שימושי AI לחודש הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e4\u05e2\u05d5\u05dc\u05d5\u05ea AI \u05de\u05ea\u05d7\u05d9\u05dc\u05d5\u05ea \u05de\u05de\u05e1\u05dc\u05d5\u05dc Pro (0 \u05d1-Starter, 100 \u05d1-Pro, 300 \u05d1-Premium). \u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05de\u05d2\u05d3\u05d9\u05dc \u05de\u05db\u05e1\u05ea AI \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea.`
-        : '\u05e4\u05e2\u05d5\u05dc\u05d5\u05ea AI \u05de\u05ea\u05d7\u05d9\u05dc\u05d5\u05ea \u05de\u05de\u05e1\u05dc\u05d5\u05dc Pro (0 \u05d1-Starter, 100 \u05d1-Pro, 300 \u05d1-Premium). \u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05de\u05d2\u05d3\u05d9\u05dc \u05de\u05db\u05e1\u05ea AI \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea.',
+        ? `פעולות AI מתחילות ממסלול Pro (0 ב-Starter, 100 ב-Pro, 300 ב-Premium). שדרוג למסלול ${requiredPlanLabel} מגדיל מכסת AI חודשית.`
+        : 'פעולות AI מתחילות ממסלול Pro (0 ב-Starter, 100 ב-Pro, 300 ב-Premium). שדרוג למסלול מתקדם מגדיל מכסת AI חודשית.',
     benefits: [
-      'Starter: 0 \u00b7 Pro: 100 \u00b7 Premium: 300 \u05e4\u05e2\u05d5\u05dc\u05d5\u05ea AI \u05d1\u05d7\u05d5\u05d3\u05e9',
-      '\u05d4\u05de\u05dc\u05e6\u05d5\u05ea \u05d7\u05db\u05de\u05d5\u05ea \u05d5\u05e0\u05d9\u05e1\u05d5\u05d7 AI \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d5\u05e7\u05de\u05e4\u05d9\u05d9\u05e0\u05d9\u05dd',
+      'Starter: 0 \u00b7 Pro: 100 \u00b7 Premium: 300 פעולות AI בחודש',
+      'המלצות חכמות וניסוח AI לקוחות וקמפיינים',
     ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea AI \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea',
+    upgradeAreaLabel: 'מגבלת AI חודשית',
   },
   maxTeamSeats: {
-    sectionTitle:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05d5\u05e9\u05d1\u05d9 \u05e6\u05d5\u05d5\u05ea',
-    lockedTitle:
-      '\u05d4\u05d2\u05e2\u05ea\u05dd \u05dc\u05de\u05db\u05e1\u05ea \u05de\u05d5\u05e9\u05d1\u05d9 \u05d4\u05e6\u05d5\u05d5\u05ea',
+    sectionTitle: 'מגבלת מושבי צוות',
+    lockedTitle: 'הגעתם למכסת מושבי הצוות',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05d5\u05e1\u05d9\u05e3 \u05e2\u05d5\u05d1\u05d3\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd.`
-        : '\u05db\u05dc \u05de\u05d5\u05e9\u05d1\u05d9 \u05d4\u05e6\u05d5\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d4\u05e0\u05d5\u05db\u05d7\u05d9 \u05db\u05d1\u05e8 \u05d1\u05e9\u05d9\u05de\u05d5\u05e9.',
-    benefits: [
-      '\u05de\u05d5\u05e9\u05d1\u05d9 \u05e6\u05d5\u05d5\u05ea \u05e0\u05d5\u05e1\u05e4\u05d9\u05dd \u05dc\u05e6\u05de\u05d9\u05d7\u05d4',
-      '\u05e2\u05d3 5 \u05d1-Pro \u05d5-20 \u05d1-Premium',
-    ],
-    upgradeAreaLabel:
-      '\u05de\u05d2\u05d1\u05dc\u05ea \u05de\u05d5\u05e9\u05d1\u05d9 \u05e6\u05d5\u05d5\u05ea',
+        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר להוסיף עובדים נוספים.`
+        : 'כל מושבי הצוות במסלול הנוכחי כבר בשימוש.',
+    benefits: ['מושבי צוות נוספים לצמיחה', 'עד 5 ב-Pro ו-20 ב-Premium'],
+    upgradeAreaLabel: 'מגבלת מושבי צוות',
   },
   business_subscription: {
-    sectionTitle: '\u05de\u05e0\u05d5\u05d9 \u05d5\u05d7\u05d9\u05d5\u05d1',
-    lockedTitle:
-      '\u05d0\u05e4\u05e9\u05e8\u05d5\u05d9\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05d6\u05de\u05d9\u05e0\u05d5\u05ea \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05d2\u05d1\u05d5\u05d4 \u05d9\u05d5\u05ea\u05e8',
-    lockedSubtitle: () =>
-      '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05de\u05e1\u05dc\u05d5\u05dc \u05d9\u05e4\u05ea\u05d7 \u05de\u05d2\u05d1\u05dc\u05d5\u05ea \u05d5\u05d9\u05db\u05d5\u05dc\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d5\u05ea.',
-    benefits: [
-      '\u05d4\u05e8\u05d7\u05d1\u05ea \u05de\u05d2\u05d1\u05dc\u05d5\u05ea',
-      '\u05e2\u05d1\u05d5\u05e8 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05d0\u05d9\u05dd \u05dc\u05e6\u05de\u05d9\u05d7\u05d4',
-    ],
-    upgradeAreaLabel: '\u05de\u05e0\u05d5\u05d9 \u05d5\u05d7\u05d9\u05d5\u05d1',
+    sectionTitle: 'מנוי וחיוב',
+    lockedTitle: 'אפשרויות מתקדמות זמינות במסלול גבוה יותר',
+    lockedSubtitle: () => 'שדרוג מסלול יפתח מגבלות ויכולות מתקדמות.',
+    benefits: ['הרחבת מגבלות', 'עבור למסלול מתאים לצמיחה'],
+    upgradeAreaLabel: 'מנוי וחיוב',
   },
   onboarding_plan_selection: {
-    sectionTitle:
-      '\u05d1\u05d7\u05d9\u05e8\u05ea \u05de\u05e1\u05dc\u05d5\u05dc',
-    lockedTitle:
-      '\u05d1\u05d7\u05d9\u05e8\u05ea \u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05e9\u05e4\u05d9\u05e2\u05d4 \u05d9\u05e9\u05d9\u05e8\u05d5\u05ea \u05e2\u05dc \u05d4\u05d9\u05db\u05d5\u05dc\u05d5\u05ea',
-    lockedSubtitle: () =>
-      '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05ea\u05d7\u05d9\u05dc \u05d1-Starter \u05d5\u05dc\u05e9\u05d3\u05e8\u05d2 \u05d1\u05db\u05dc \u05e9\u05dc\u05d1.',
-    benefits: [
-      '\u05de\u05d2\u05d1\u05dc\u05d5\u05ea \u05d5\u05ea\u05db\u05d5\u05e0\u05d5\u05ea \u05d1\u05e8\u05d5\u05e8\u05d5\u05ea',
-      '\u05de\u05e2\u05d1\u05e8 \u05e4\u05e9\u05d5\u05d8 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd',
-    ],
-    upgradeAreaLabel:
-      '\u05d1\u05d7\u05d9\u05e8\u05ea \u05de\u05e1\u05dc\u05d5\u05dc',
+    sectionTitle: 'בחירת מסלול',
+    lockedTitle: 'בחירת מסלול משפיעה ישירות על היכולות',
+    lockedSubtitle: () => 'אפשר להתחיל ב-Starter ולשדרג בכל שלב.',
+    benefits: ['מגבלות ותכונות ברורות', 'מעבר פשוט למסלול מתקדם'],
+    upgradeAreaLabel: 'בחירת מסלול',
   },
   generic: {
-    sectionTitle:
-      '\u05d9\u05db\u05d5\u05dc\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d5\u05ea',
-    lockedTitle:
-      '\u05d4\u05d0\u05d6\u05d5\u05e8 \u05d4\u05d6\u05d4 \u05d6\u05de\u05d9\u05df \u05d1\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8',
+    sectionTitle: 'יכולות מתקדמות',
+    lockedTitle: 'האזור הזה זמין במסלול מתקדם יותר',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc ${requiredPlanLabel} \u05d9\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05d9\u05db\u05d5\u05dc\u05ea \u05d4\u05d6\u05d5.`
-        : '\u05e9\u05d3\u05e8\u05d5\u05d2 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05e7\u05d3\u05dd \u05d9\u05d5\u05ea\u05e8 \u05d9\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05d9\u05db\u05d5\u05dc\u05ea \u05d4\u05d6\u05d5.',
-    benefits: [
-      '\u05d4\u05e8\u05d7\u05d1\u05ea \u05d9\u05db\u05d5\u05dc\u05d5\u05ea \u05de\u05d5\u05e6\u05e8',
-      '\u05de\u05e2\u05d1\u05e8 \u05dc\u05de\u05e1\u05dc\u05d5\u05dc \u05de\u05ea\u05d0\u05d9\u05dd \u05dc\u05e6\u05de\u05d9\u05d7\u05d4',
-    ],
-    upgradeAreaLabel:
-      '\u05d9\u05db\u05d5\u05dc\u05d5\u05ea \u05de\u05ea\u05e7\u05d3\u05de\u05d5\u05ea',
+        ? `שדרוג למסלול ${requiredPlanLabel} יפתח את היכולת הזו.`
+        : 'שדרוג למסלול מתקדם יותר יפתח את היכולת הזו.',
+    benefits: ['הרחבת יכולות מוצר', 'מעבר למסלול מתאים לצמיחה'],
+    upgradeAreaLabel: 'יכולות מתקדמות',
   },
 };
 

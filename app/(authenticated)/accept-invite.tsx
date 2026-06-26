@@ -109,7 +109,7 @@ export default function AcceptInviteScreen() {
           backgroundColor="#E9F0FF"
         >
           <View className="px-6 pt-6 pb-8">
-            <View className="flex-row items-center justify-between">
+            <View className={`${tw.flexRow} items-center justify-between`}>
               <BackButton
                 onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
               />
@@ -191,7 +191,7 @@ export default function AcceptInviteScreen() {
                 autoCapitalize="characters"
                 autoCorrect={false}
                 editable={!busy}
-                className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-gray-900"
+                className={`mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-gray-900 ${tw.textStart}`}
               />
               {error && (
                 <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>

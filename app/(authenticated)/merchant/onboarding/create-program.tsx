@@ -35,6 +35,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'יוצרים כרטיסיה',
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -539,7 +540,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionsWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -577,7 +578,7 @@ const styles = StyleSheet.create({
   },
   submittingRow: {
     marginTop: 8,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },

@@ -29,6 +29,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   loading: 'טוען פרטי עסק',
@@ -50,15 +51,12 @@ const TEXT = {
   stamps: 'ניקובים',
   redeemReady: 'מוכנה למימוש',
   openCard: 'פתח כרטיסיה',
-  shareInviteTitle: '\u05d4\u05d6\u05de\u05df \u05d7\u05d1\u05e8\u05d9\u05dd',
-  shareInviteSubtitle:
-    '\u05e9\u05ea\u05e3 \u05d0\u05ea \u05d4\u05e7\u05e9\u05d5\u05e8 \u05d5\u05db\u05e9\u05d4\u05d7\u05d1\u05e8 \u05d9\u05d1\u05e6\u05e2 \u05e0\u05d9\u05e7\u05d5\u05d1 \u05e8\u05d0\u05e9\u05d5\u05df \u05ea\u05e7\u05d1\u05dc\u05d5 \u05de\u05ea\u05e0\u05d4',
-  shareViaWhatsApp: '\u05e9\u05d9\u05ea\u05d5\u05e3 \u05d1-WhatsApp',
-  copyInviteLink: '\u05d4\u05e2\u05ea\u05e7 \u05e7\u05d9\u05e9\u05d5\u05e8',
-  shareInviteError:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d9\u05e6\u05d5\u05e8 \u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d6\u05de\u05e0\u05d4',
-  inviteLinkCopied:
-    '\u05e7\u05d9\u05e9\u05d5\u05e8 \u05d4\u05d4\u05d6\u05de\u05e0\u05d4 \u05de\u05d5\u05db\u05df \u05dc\u05e9\u05d9\u05ea\u05d5\u05e3',
+  shareInviteTitle: 'הזמן חברים',
+  shareInviteSubtitle: 'שתף את הקשור וכשהחבר יבצע ניקוב ראשון תקבלו מתנה',
+  shareViaWhatsApp: 'שיתוף ב-WhatsApp',
+  copyInviteLink: 'העתק קישור',
+  shareInviteError: 'לא הצלחנו ליצור קישור הזמנה',
+  inviteLinkCopied: 'קישור ההזמנה מוכן לשיתוף',
 };
 
 const CUSTOMER_SCAN_BANNER_DURATION_MS = 5000;
@@ -615,7 +613,7 @@ const styles = StyleSheet.create({
   },
   shareActions: {
     marginTop: 2,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   sharePrimaryButton: {
@@ -689,7 +687,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   programFooterRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -723,7 +721,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   joinedDetails: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
     flexWrap: 'wrap',

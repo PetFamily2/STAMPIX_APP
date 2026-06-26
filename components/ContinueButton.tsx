@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { rtlBaseView, rtlCenterText } from '@/lib/rtl';
+
 type ContinueButtonProps = {
   onPress: () => void;
   disabled?: boolean;
@@ -37,6 +39,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingVertical: 16,
     alignItems: 'center',
+    ...rtlBaseView,
     shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
@@ -49,19 +52,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingVertical: 16,
     alignItems: 'center',
+    ...rtlBaseView,
   },
   textActive: {
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
-    writingDirection: 'rtl',
+    ...rtlCenterText,
   },
   textInactive: {
     fontSize: 18,
     fontWeight: '700',
     color: '#6b7280',
     textAlign: 'center',
-    writingDirection: 'rtl',
+    ...rtlCenterText,
   },
 });

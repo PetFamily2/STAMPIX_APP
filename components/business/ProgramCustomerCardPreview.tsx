@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
 import type { StampShape } from '@/constants/stampOptions';
+import { flexDirection } from '@/lib/rtl';
 
 type ProgramCardVariant = 'hero' | 'list' | 'compact' | 'wallet';
 type ProgramCardStatus = 'default' | 'redeemable' | 'archived';
@@ -24,9 +25,9 @@ type ProgramCustomerCardPreviewProps = {
 };
 
 const TEXT = {
-  rewardPrefix: '\u05D4\u05D8\u05D1\u05D4',
-  readyBadge: '\u05DE\u05D5\u05DB\u05DF \u05DC\u05DE\u05D9\u05DE\u05D5\u05E9',
-  archivedBadge: '\u05D1\u05D0\u05E8\u05DB\u05D9\u05D5\u05DF',
+  rewardPrefix: 'הטבה',
+  readyBadge: 'מוכן למימוש',
+  archivedBadge: 'בארכיון',
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
     left: -20,
   },
   headerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
   },
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-45deg' }],
   },
   footerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 8,
@@ -528,7 +529,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   walletTopRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
@@ -607,7 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   walletBottomRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,

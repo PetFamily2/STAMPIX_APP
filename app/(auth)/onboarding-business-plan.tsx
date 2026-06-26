@@ -20,6 +20,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { flexDirection } from '@/lib/rtl';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
   },
   loadingRow: {
     marginTop: 8,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },

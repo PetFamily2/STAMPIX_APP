@@ -23,29 +23,22 @@ import {
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
-  title: '\u05d4\u05d0\u05e8\u05e0\u05e7 \u05e9\u05dc\u05d9',
-  subtitle:
-    '\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d1\u05de\u05d1\u05e0\u05d4 \u05e0\u05d5\u05d7',
-  joinBusinessTitle: '\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05e2\u05e1\u05e7',
-  loading: '\u05d8\u05d5\u05e2\u05df \u05e2\u05e1\u05e7\u05d9\u05dd',
-  noCards:
-    '\u05e2\u05d3\u05d9\u05d9\u05df \u05d0\u05d9\u05df \u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05de\u05d5\u05e8\u05d9\u05dd',
-  noCardsHint:
-    '\u05d0\u05e4\u05e9\u05e8 \u05dc\u05d4\u05e6\u05d8\u05e8\u05e3 \u05dc\u05e2\u05e1\u05e7 \u05d3\u05e8\u05da QR \u05d0\u05d5 \u05dc\u05d4\u05e1\u05ea\u05db\u05dc \u05d1\u05d2\u05d9\u05dc\u05d5\u05d9',
-  businessFallback: '\u05e2\u05e1\u05e7',
-  joinedPrograms:
-    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05dc\u05d9',
-  redeemReady:
-    '\u05de\u05d5\u05db\u05e0\u05d5\u05ea \u05dc\u05de\u05d9\u05de\u05d5\u05e9',
-  openBusiness: '\u05e4\u05ea\u05d7 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7',
+  title: 'הארנק שלי',
+  subtitle: 'עסקים וכל הכרטיסיות במבנה נוח',
+  joinBusinessTitle: 'הצטרף לעסק',
+  loading: 'טוען עסקים',
+  noCards: 'עדיין אין עסקים שמורים',
+  noCardsHint: 'אפשר להצטרף לעסק דרך QR או להסתכל בגילוי',
+  businessFallback: 'עסק',
+  joinedPrograms: 'כרטיסיות שלי',
+  redeemReady: 'מוכנות למימוש',
+  openBusiness: 'פתח את העסק',
   pendingInviteTitle: 'יש לך הזמנה ממתינה לצוות',
   pendingInviteAction: 'לצפייה ואישור',
 };
 
-const REFERRALS_TITLE =
-  '\u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d7\u05d1\u05e8\u05d9\u05dd';
-const REFERRALS_OPEN =
-  '\u05dc\u05de\u05e1\u05da \u05d4\u05d4\u05d6\u05de\u05e0\u05d5\u05ea';
+const REFERRALS_TITLE = 'הזמנות חברים';
+const REFERRALS_OPEN = 'למסך ההזמנות';
 
 type WalletBusiness = {
   businessId: string;
@@ -181,16 +174,13 @@ export default function WalletScreen() {
           <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
           <View style={styles.referralCardStats}>
             <Text style={styles.referralCardStat}>
-              {'\u05de\u05de\u05ea\u05d9\u05e0\u05d5\u05ea'}:{' '}
-              {referralDashboard?.pending ?? 0}
+              {'ממתינות'}: {referralDashboard?.pending ?? 0}
             </Text>
             <Text style={styles.referralCardStat}>
-              {'\u05d4\u05d5\u05e9\u05dc\u05de\u05d5'}:{' '}
-              {referralDashboard?.completed ?? 0}
+              {'הושלמו'}: {referralDashboard?.completed ?? 0}
             </Text>
             <Text style={styles.referralCardStat}>
-              {'\u05ea\u05d2\u05de\u05d5\u05dc\u05d9\u05dd'}:{' '}
-              {referralDashboard?.earned ?? 0}
+              {'תגמולים'}: {referralDashboard?.earned ?? 0}
             </Text>
           </View>
           <View style={styles.referralOpenRow}>
@@ -341,7 +331,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   joinBusinessButtonContent: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
   },
@@ -390,7 +380,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   referralCardStats: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 10,
   },
@@ -486,7 +476,7 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     marginTop: 10,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 12,
   },

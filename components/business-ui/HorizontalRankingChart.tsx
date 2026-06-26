@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { ChartCardShell } from './ChartCardShell';
 
 export type RankingDatum = {
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowTextWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,

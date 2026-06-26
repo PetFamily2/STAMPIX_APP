@@ -30,6 +30,7 @@ import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   utilityLinksRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     gap: 8,
     marginTop: 10,
@@ -619,7 +620,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   footerLinkRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'center',
     gap: 22,
     paddingTop: 2,

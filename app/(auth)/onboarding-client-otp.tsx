@@ -19,6 +19,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 3 * 60;
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   headerRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },

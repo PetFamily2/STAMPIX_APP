@@ -16,6 +16,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { flexDirection } from '@/lib/rtl';
 
 type DiscoverySourceId =
   | 'referral'
@@ -27,8 +28,7 @@ type DiscoverySourceId =
   | 'other';
 
 const TEXT = {
-  title:
-    '\u05d0\u05d9\u05da \u05d4\u05d2\u05e2\u05ea\u05dd \u05d0\u05dc\u05d9\u05e0\u05d5?',
+  title: 'איך הגעתם אלינו?',
 };
 
 const DISCOVERY_SOURCES: Array<{
@@ -38,39 +38,35 @@ const DISCOVERY_SOURCES: Array<{
 }> = [
   {
     id: 'referral',
-    title:
-      '\u05d4\u05de\u05dc\u05e6\u05d4 \u05de\u05d7\u05d1\u05e8 \u05d0\u05d5 \u05de\u05d1\u05e2\u05dc \u05e2\u05e1\u05e7',
+    title: 'המלצה מחבר או מבעל עסק',
     icon: 'people-outline',
   },
   {
     id: 'search',
-    title: '\u05d7\u05d9\u05e4\u05d5\u05e9 \u05d1\u05d2\u05d5\u05d2\u05dc',
+    title: 'חיפוש בגוגל',
     icon: 'search-outline',
   },
   {
     id: 'social',
-    title:
-      '\u05e8\u05e9\u05ea\u05d5\u05ea \u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea',
+    title: 'רשתות חברתיות',
     icon: 'share-social-outline',
   },
   {
     id: 'tiktok',
-    title: '\u05d8\u05d9\u05e7\u05d8\u05d5\u05e7',
+    title: 'טיקטוק',
     icon: 'logo-tiktok',
   },
   {
     id: 'app_store',
-    title:
-      '\u05d7\u05e0\u05d5\u05ea \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d5\u05ea',
+    title: 'חנות האפליקציות',
     icon: 'apps-outline',
   },
   {
     id: 'in_app',
-    title:
-      '\u05d3\u05e8\u05da \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
+    title: 'דרך האפליקציה',
     icon: 'phone-portrait-outline',
   },
-  { id: 'other', title: '\u05d0\u05d7\u05e8', icon: 'ellipsis-horizontal' },
+  { id: 'other', title: 'אחר', icon: 'ellipsis-horizontal' },
 ];
 
 export default function OnboardingBusinessDiscoveryScreen() {
@@ -180,7 +176,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
