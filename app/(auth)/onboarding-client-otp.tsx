@@ -19,7 +19,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 3 * 60;
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 64,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   digitsContainer: {
     marginTop: 40,
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     direction: 'ltr',
     justifyContent: 'space-between',
   },
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
     paddingBottom: 24,
   },
   button: {

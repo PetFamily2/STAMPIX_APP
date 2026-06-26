@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
 import type { StampShape } from '@/constants/stampOptions';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 type ProgramCardVariant = 'hero' | 'list' | 'compact' | 'wallet';
 type ProgramCardStatus = 'default' | 'redeemable' | 'archived';
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   metaColumn: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   cardTitle: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   stampsLine: {
     width: '100%',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 8,
   },
   badge: {
@@ -530,13 +530,13 @@ const styles = StyleSheet.create({
   },
   walletTopRow: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     justifyContent: 'space-between',
     gap: 10,
   },
   walletBrandColumn: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   walletBrand: {
@@ -579,13 +579,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(140,100,0,0.48)',
   },
   walletStampGroups: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 14,
     flexWrap: 'nowrap',
   },
   walletStampGroup: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 5,
   },

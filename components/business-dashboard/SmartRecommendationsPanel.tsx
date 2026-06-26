@@ -6,8 +6,8 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { RtlActionLink } from '@/components/ui/RtlActionLink';
+import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 
 type RecommendationCard = {
   key: string;
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   rowHeader: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     alignSelf: 'stretch',
     gap: 8,
     ...rtlBaseView,

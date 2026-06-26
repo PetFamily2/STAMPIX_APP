@@ -11,7 +11,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הטבות והודעות',
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   referralTextWrap: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   referralTitle: {

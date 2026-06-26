@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import { IS_RTL } from '@/lib/rtl';
+import { flexDirection, textAlign } from '@/lib/rtl';
 import {
   buildComparisonRows,
   type ComparisonRow,
@@ -253,11 +253,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tableHeaderRow: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     backgroundColor: '#F8FAFF',
   },
   tableRow: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     borderTopWidth: 1,
     borderTopColor: '#EBF1FA',
   },
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '700',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   featureLabelNarrow: {
     fontSize: 10,
@@ -362,6 +362,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '600',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
 });

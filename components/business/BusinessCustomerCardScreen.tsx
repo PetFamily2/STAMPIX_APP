@@ -26,7 +26,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 type CustomerState =
   | 'NEW'
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   },
   heroTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   customerName: {
     fontSize: 22,
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: 8,
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
   },
   statusChip: {
     borderRadius: 999,
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
     borderColor: '#DCE6FB',
     backgroundColor: '#FFFFFF',
     padding: 12,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   statLabel: {
@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitItemTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   referralBenefitItemTitle: {
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFCFF',
     padding: 10,
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     gap: 10,
   },
   timelineIconWrap: {
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   timelineTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   timelineTitleRow: {
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
   },
   reasonOption: {
     borderRadius: 999,

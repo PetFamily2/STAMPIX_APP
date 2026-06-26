@@ -19,6 +19,7 @@ import {
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
+import { alignItems } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הצטרפות למועדון',
@@ -333,7 +334,7 @@ export default function JoinScreen() {
             paddingBottom: 8,
           }}
         >
-          <View style={{ alignItems: 'flex-end', marginBottom: 12 }}>
+          <View style={{ alignItems: alignItems.end, marginBottom: 12 }}>
             <BackButton
               onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
             />

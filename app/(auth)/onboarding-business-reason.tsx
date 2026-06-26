@@ -15,7 +15,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type ReasonId =
   | 'repeat'
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 12,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,

@@ -8,7 +8,7 @@ import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type BusinessTypeId =
   | 'coffee'
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 32,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,

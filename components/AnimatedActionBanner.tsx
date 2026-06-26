@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { flexDirection } from '@/lib/rtl';
 
 type BannerVariant = 'success' | 'info';
 type BannerPlacement = 'top' | 'center';
@@ -585,7 +586,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   largeBanner: {

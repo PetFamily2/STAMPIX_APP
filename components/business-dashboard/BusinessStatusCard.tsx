@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type StatusTone = 'danger' | 'warning' | 'neutral' | 'success';
 
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   textWrap: {
     flex: 1,
     gap: 3,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 18,

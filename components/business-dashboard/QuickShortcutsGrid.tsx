@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type ShortcutIcon = keyof typeof Ionicons.glyphMap;
 
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: flexDirection.row,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     paddingVertical: 3,
     ...rtlBaseView,
   },

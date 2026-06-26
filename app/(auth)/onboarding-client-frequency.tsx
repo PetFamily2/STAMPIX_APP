@@ -8,7 +8,7 @@ import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type FrequencyId = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'rare';
 
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 32,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,

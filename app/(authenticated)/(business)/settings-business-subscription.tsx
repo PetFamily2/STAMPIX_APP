@@ -27,7 +27,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { IS_RTL } from '@/lib/rtl';
+import { alignItems, flexDirection, textAlign } from '@/lib/rtl';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
@@ -39,9 +39,8 @@ type UpgradeReason =
   | 'limit_reached'
   | 'subscription_inactive';
 
-const TEXT_START = IS_RTL ? 'right' : 'left';
-const TEXT_END = IS_RTL ? 'left' : 'right';
-const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
+const TEXT_START = textAlign.start;
+const TEXT_END = textAlign.end;
 
 const PLAN_LABELS: Record<PlanId, string> = {
   starter: 'Starter',
@@ -696,7 +695,7 @@ const styles = StyleSheet.create({
   },
   usageStrip: {
     marginTop: 4,
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -709,7 +708,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 12,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    alignItems: alignItems.end,
     justifyContent: 'center',
     gap: 2,
   },
@@ -733,7 +732,7 @@ const styles = StyleSheet.create({
     textAlign: TEXT_END,
   },
   warningStrip: {
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
     borderRadius: 16,
@@ -779,7 +778,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   b2bReferralStatsRow: {
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     gap: 8,
   },
@@ -791,7 +790,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFF',
     paddingVertical: 8,
     paddingHorizontal: 8,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    alignItems: alignItems.end,
     gap: 2,
   },
   b2bReferralStatValue: {
@@ -807,7 +806,7 @@ const styles = StyleSheet.create({
     textAlign: TEXT_END,
   },
   b2bReferralActionsRow: {
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   b2bPrimaryButton: {

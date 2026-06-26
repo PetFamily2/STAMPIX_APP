@@ -25,7 +25,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   titleContainer: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 8,
   },
   title: {

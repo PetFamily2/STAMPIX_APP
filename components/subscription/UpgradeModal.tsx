@@ -12,7 +12,6 @@ import {
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { flexDirection } from '@/lib/rtl';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -28,6 +27,7 @@ import {
   type PlanCatalogItem,
 } from '@/lib/subscription/planComparison';
 import { SubscriptionSalesPanel } from './SubscriptionSalesPanel';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const PLAN_LABELS: Record<'pro' | 'premium', string> = {
   pro: 'Pro',
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
   },
   sheet: {
     borderTopLeftRadius: 28,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   periodSummary: {
     marginTop: 10,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   periodSummaryText: {
     color: '#64748B',

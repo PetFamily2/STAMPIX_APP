@@ -28,8 +28,8 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
-import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { tw } from '@/lib/rtl';
 
 type CampaignType =
   | 'welcome'
@@ -734,7 +734,7 @@ export default function CampaignDraftEditorScreen() {
                             color="#1A2B4A"
                           />
                         </View>
-                        <View className="flex-1 items-end">
+                        <View className={`flex-1 ${tw.itemsEnd}`}>
                           <Text
                             className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
                           >
@@ -1442,7 +1442,7 @@ export default function CampaignDraftEditorScreen() {
                 color="#1A2B4A"
               />
             </View>
-            <View className="flex-1 items-end">
+            <View className={`flex-1 ${tw.itemsEnd}`}>
               <Text
                 className={`mt-1 text-lg font-black ${campaignIdentity.accentClass} ${tw.textStart}`}
               >

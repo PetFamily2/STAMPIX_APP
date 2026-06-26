@@ -42,8 +42,8 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   recommendationsTitleRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 6,
     ...rtlBaseView,
   },

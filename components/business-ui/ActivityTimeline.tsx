@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 export type TimelineItem = {
   id: string;
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
     flexDirection: flexDirection.row,
     gap: 10,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     ...rtlBaseView,
   },
   markerWrap: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   rowTitle: {
     fontSize: 14,

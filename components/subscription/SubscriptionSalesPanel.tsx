@@ -14,7 +14,6 @@ import {
 
 import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
-import { IS_RTL } from '@/lib/rtl';
 import {
   buildComparisonRows,
   type ComparisonRow,
@@ -24,6 +23,7 @@ import {
   type PlanCatalogItem,
   type PlanId,
 } from '@/lib/subscription/planComparison';
+import { flexDirection, justifyContent, textAlign } from '@/lib/rtl';
 
 type SubscriptionSalesContext =
   | 'paywall'
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   rootInline: {
     flex: 0,
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
   },
   content: {
     flex: 1,
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   selectorRow: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   selectorButton: {
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   summaryHeader: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 11,
     fontWeight: '800',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   summaryPlanName: {
     flexShrink: 1,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 20,
     fontWeight: '900',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   summaryPlanNameCompact: {
     fontSize: 17,
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   billingOptionsRow: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   billingOptionCard: {
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   billingOptionHeader: {
-    flexDirection: IS_RTL ? 'row-reverse' : 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 6,
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   billingOptionLabelActive: {
     color: '#1D4ED8',
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '900',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   billingOptionPriceActive: {
     color: '#0B2A73',
@@ -674,14 +674,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '700',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   footerNote: {
     color: '#64748B',
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '700',
-    textAlign: IS_RTL ? 'right' : 'left',
+    textAlign: textAlign.start,
   },
   footerNoteError: {
     color: '#DC2626',

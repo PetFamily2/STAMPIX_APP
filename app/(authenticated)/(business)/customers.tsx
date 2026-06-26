@@ -39,9 +39,9 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { flexDirection, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { alignItems, flexDirection, tw } from '@/lib/rtl';
 
 type CustomerRouteFilter =
   | 'near_reward'
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   },
   customerUsageHeader: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     gap: 12,
   },
   customerUsageIconWrap: {
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
   },
   atRiskActionHeader: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     gap: 12,
   },
   atRiskIconWrap: {
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   customerRow: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     justifyContent: 'space-between',
     gap: 10,
   },
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
   },
   customerMain: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   customerName: {
     fontSize: 17,
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
   },
   customerMeta: {
     minWidth: 92,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   metaTitle: {
     fontSize: 11,

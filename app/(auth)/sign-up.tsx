@@ -13,7 +13,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איך תרצו להתחבר?',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   titleContainer: {
     marginTop: 40,

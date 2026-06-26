@@ -215,7 +215,7 @@ export default function StaffPromotionsScreen() {
                           color={typeMeta.iconColor}
                         />
                       </View>
-                      <View className="flex-1 items-end">
+                      <View className={`flex-1 ${tw.itemsEnd}`}>
                         <Text
                           className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
                         >

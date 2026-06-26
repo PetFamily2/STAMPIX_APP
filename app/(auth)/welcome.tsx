@@ -110,7 +110,7 @@ export default function WelcomeScreen() {
 
         <View className="mb-auto">
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className={`${tw.flexRow} items-start gap-4`}>
+            <View className={`${tw.flexRow} ${tw.itemsStart} gap-4`}>
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <Heart size={24} color="#2563eb" fill="#dbeafe" />
               </View>
@@ -126,7 +126,7 @@ export default function WelcomeScreen() {
           </View>
 
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className={`${tw.flexRow} items-start gap-4`}>
+            <View className={`${tw.flexRow} ${tw.itemsStart} gap-4`}>
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <TrendingUp size={24} color="#2563eb" />
               </View>

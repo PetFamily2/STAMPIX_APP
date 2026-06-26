@@ -26,7 +26,7 @@ import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'גילוי עסקים',
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
   },
   sortSection: {
     marginTop: 14,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 8,
   },
   sortTitle: {
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
   },
   businessTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   businessName: {
     fontSize: 15,
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D4EDFF',
   },
   badgesStack: {
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     gap: 6,
   },
   savedBadge: {
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     borderColor: '#D8E4FF',
     backgroundColor: '#FFFFFF',
     padding: 20,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 10,
   },
   loadingState: {
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#F8FAFF',
     padding: 16,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   cardTitle: {
     fontSize: 16,

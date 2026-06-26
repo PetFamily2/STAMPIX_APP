@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 function formatSecondaryTimeLabel(value: string) {
   return `\u200E${value}\u200E`;
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   customer: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   timeWrap: {
     minWidth: 46,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     flexShrink: 0,
     direction: 'ltr',
   },

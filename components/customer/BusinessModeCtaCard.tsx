@@ -21,7 +21,7 @@ import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   hostTitle: 'רוצים לצרף את העסק שלכם?',
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hostTextWrap: { flex: 1, alignItems: 'flex-end', gap: 7 },
+  hostTextWrap: { flex: 1, alignItems: alignItems.end, gap: 7 },
   hostTitle: {
     fontSize: 18,
     lineHeight: 22,

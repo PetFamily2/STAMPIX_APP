@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { RtlActionLink } from '@/components/ui/RtlActionLink';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 export function BusinessSectionHeader({
   title,
@@ -54,14 +54,14 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     justifyContent: 'space-between',
     gap: 12,
     ...rtlBaseView,
   },
   titleWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   title: {

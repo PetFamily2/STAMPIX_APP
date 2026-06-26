@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   wallet: 'ארנק',
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     width: 92,
     height: 98,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     alignSelf: 'center',
     shadowColor: '#163A87',
     shadowOffset: { width: 0, height: 18 },

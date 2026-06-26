@@ -6,7 +6,7 @@ import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { safeBack } from '@/lib/navigation';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   header: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   titleShell: {
     paddingBottom: 12,

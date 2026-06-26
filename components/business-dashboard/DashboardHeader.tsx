@@ -7,7 +7,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseText, rtlBaseView } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseText, rtlBaseView } from '@/lib/rtl';
 
 function getGreeting() {
   const hour = Number(
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     writingDirection: 'ltr',
   },
   greetingRow: {
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     gap: 1,
     ...rtlBaseView,
   },

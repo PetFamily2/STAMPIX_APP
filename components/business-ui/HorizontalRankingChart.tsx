@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection, tw } from '@/lib/rtl';
 import { ChartCardShell } from './ChartCardShell';
+import { alignItems, flexDirection, tw } from '@/lib/rtl';
 
 export type RankingDatum = {
   label: string;
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#E8EEF7',
     overflow: 'hidden',
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   fill: {
     height: '100%',

@@ -1,14 +1,7 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
-
-import {
-  flexDirection,
-  ltrBaseText,
-  rtlAutoText,
-  rtlBaseView,
-  spacing,
-} from '@/lib/rtl';
+import { flexDirection, justifyContent, ltrBaseText, rtlAutoText, rtlBaseView, spacing } from '@/lib/rtl';
 
 type CustomerBrandTitleRowProps = {
   title: string;
@@ -61,7 +54,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   brandWrap: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
     direction: 'ltr',
@@ -84,7 +77,7 @@ const styles = StyleSheet.create({
     ...spacing.marginEnd(12),
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 16,
     ...rtlBaseView,
   },

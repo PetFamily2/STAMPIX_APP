@@ -28,7 +28,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   title: 'תצוגה מקדימה לכרטיס',
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   titleContainer: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 8,
   },
   title: {
@@ -890,7 +890,7 @@ const styles = StyleSheet.create({
   },
   previewHeaderRow: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
   },
   previewHero: {
     marginTop: 18,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   previewThemeName: {
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
   },
   stampsRow: {
     flexDirection: flexDirection.row,
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 8,
   },
   stamp: {
@@ -1057,7 +1057,7 @@ const styles = StyleSheet.create({
   },
   themeTextBlock: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 4,
   },
   themeTitleRow: {
@@ -1123,7 +1123,7 @@ const styles = StyleSheet.create({
   submittingRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 8,
   },
   submittingText: {

@@ -3,6 +3,7 @@ import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { justifyContent } from '@/lib/rtl';
 
 const STANDARD_TAB_ICON_SIZE = 24;
 const STANDARD_TAB_BUBBLE_WIDTH = 46;
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
     width: 78,
     height: 84,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     alignSelf: 'center',
     shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 14 },

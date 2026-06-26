@@ -123,7 +123,7 @@ export default function BusinessSettingsAccountScreen() {
               fullName={userFullName}
               size={68}
             />
-            <View className="flex-1 items-end gap-1">
+            <View className={`flex-1 ${tw.itemsEnd} gap-1`}>
               <Text className="text-right text-[18px] font-black text-[#111827]">
                 {userFullName}
               </Text>
@@ -185,7 +185,7 @@ export default function BusinessSettingsAccountScreen() {
                   <Ionicons name={row.icon} size={18} color="#1D4ED8" />
                 </View>
 
-                <View className="flex-1 items-end">
+                <View className={`flex-1 ${tw.itemsEnd}`}>
                   <Text className="text-right text-[15px] font-extrabold text-[#111827]">
                     {row.title}
                   </Text>

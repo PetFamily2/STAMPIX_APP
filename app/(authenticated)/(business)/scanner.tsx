@@ -47,8 +47,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type ScannerProgram = {
   loyaltyProgramId: string;
@@ -1745,7 +1745,7 @@ const styles = StyleSheet.create({
   programSliderContent: {
     paddingVertical: 8,
     direction: 'ltr',
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
   },
   programSlide: {
     alignItems: 'center',
@@ -1772,7 +1772,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   programDotsTrack: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
   },
   programDotSlot: {
@@ -2106,7 +2106,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitsHeader: {
     gap: 2,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   referralBenefitsTitle: {
     fontSize: 16,
@@ -2149,7 +2149,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   referralBenefitName: {

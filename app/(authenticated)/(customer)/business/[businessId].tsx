@@ -29,7 +29,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   loading: 'טוען פרטי עסק',
@@ -722,8 +722,8 @@ const styles = StyleSheet.create({
   },
   joinedDetails: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    alignItems: alignItems.end,
+    justifyContent: justifyContent.end,
     flexWrap: 'wrap',
     gap: 4,
   },

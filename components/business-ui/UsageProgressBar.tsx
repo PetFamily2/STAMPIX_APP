@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, tw } from '@/lib/rtl';
 
 export function UsageProgressBar({
   label,
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#E2E8F0',
     overflow: 'hidden',
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   fill: {
     height: '100%',

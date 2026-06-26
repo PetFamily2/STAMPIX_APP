@@ -24,9 +24,9 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { flexDirection, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { flexDirection, tw } from '@/lib/rtl';
 
 type InviteTargetRole = 'manager' | 'staff';
 
@@ -548,12 +548,12 @@ export default function BusinessTeamManagementScreen() {
         key={member.staffId}
         className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
       >
-        <View className={`${tw.flexRow} items-start gap-3`}>
+        <View className={`${tw.flexRow} ${tw.itemsStart} gap-3`}>
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EAF1FF]">
             <Ionicons name="person-outline" size={18} color="#1D4ED8" />
           </View>
 
-          <View className="flex-1 items-end">
+          <View className={`flex-1 ${tw.itemsEnd}`}>
             <Text
               className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
             >
@@ -725,12 +725,12 @@ export default function BusinessTeamManagementScreen() {
         key={invite.inviteId}
         className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
       >
-        <View className={`${tw.flexRow} items-start gap-3`}>
+        <View className={`${tw.flexRow} ${tw.itemsStart} gap-3`}>
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EEF3FF]">
             <Ionicons name="person-add-outline" size={18} color="#1D4ED8" />
           </View>
 
-          <View className="flex-1 items-end">
+          <View className={`flex-1 ${tw.itemsEnd}`}>
             <Text
               className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
             >
@@ -1092,7 +1092,7 @@ export default function BusinessTeamManagementScreen() {
                         key={invite.inviteId}
                         className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
                       >
-                        <View className={`${tw.flexRow} items-start gap-3`}>
+                        <View className={`${tw.flexRow} ${tw.itemsStart} gap-3`}>
                           <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EEF3FF]">
                             <Ionicons
                               name="person-add-outline"
@@ -1101,7 +1101,7 @@ export default function BusinessTeamManagementScreen() {
                             />
                           </View>
 
-                          <View className="flex-1 items-end">
+                          <View className={`flex-1 ${tw.itemsEnd}`}>
                             <Text
                               className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
                             >
@@ -1227,7 +1227,7 @@ export default function BusinessTeamManagementScreen() {
                       className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
                     >
                       <View
-                        className={`${tw.flexRow} items-start justify-between gap-2`}
+                        className={`${tw.flexRow} ${tw.itemsStart} justify-between gap-2`}
                       >
                         <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                           <Text className="text-[11px] font-bold text-[#1D4ED8]">

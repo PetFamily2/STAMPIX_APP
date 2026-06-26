@@ -16,6 +16,7 @@ import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
+import { alignItems } from '@/lib/rtl';
 
 const TEXT = {
   title: 'התחברות עם אימייל',
@@ -192,11 +193,11 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   header: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   titleContainer: {
     marginTop: 48,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,

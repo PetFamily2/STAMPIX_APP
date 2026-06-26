@@ -35,9 +35,9 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { IS_RTL, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { alignItems, flexDirection, textAlign, tw } from '@/lib/rtl';
 
 type ManagementCampaignType =
   | 'welcome'
@@ -46,9 +46,8 @@ type ManagementCampaignType =
   | 'winback'
   | 'promo';
 type MarketingTopTab = 'campaigns' | 'loyalty';
-const TEXT_START = IS_RTL ? 'right' : 'left';
-const TEXT_END = IS_RTL ? 'left' : 'right';
-const ROW_DIRECTION = IS_RTL ? 'row-reverse' : 'row';
+const TEXT_START = textAlign.start;
+const TEXT_END = textAlign.end;
 const PLAN_LABELS = {
   starter: 'Starter',
   pro: 'Pro',
@@ -493,7 +492,7 @@ export function CampaignsHubContent() {
                 color={typeMeta.iconColor}
               />
             </View>
-            <View className="flex-1 items-end">
+            <View className={`flex-1 ${tw.itemsEnd}`}>
               <Text
                 className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
               >
@@ -776,7 +775,7 @@ export function CampaignsHubContent() {
               <View className="h-11 w-11 items-center justify-center rounded-xl bg-[#DCFCE7]">
                 <Ionicons name="people-outline" size={20} color="#15803D" />
               </View>
-              <View className="flex-1 items-end">
+              <View className={`flex-1 ${tw.itemsEnd}`}>
                 <Text
                   className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
                 >
@@ -1094,7 +1093,7 @@ export default function CampaignsHubRoute() {
 const styles = StyleSheet.create({
   kpiGrid: {
     marginTop: 16,
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 12,
   },
@@ -1114,12 +1113,12 @@ const styles = StyleSheet.create({
   },
   usageStrip: {
     marginTop: 12,
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   accessGrid: {
     marginTop: 12,
-    flexDirection: ROW_DIRECTION,
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 10,
   },
@@ -1130,7 +1129,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    alignItems: alignItems.end,
     gap: 6,
   },
   accessTileEyebrow: {
@@ -1161,7 +1160,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    alignItems: IS_RTL ? 'flex-end' : 'flex-start',
+    alignItems: alignItems.end,
     justifyContent: 'center',
     gap: 2,
   },

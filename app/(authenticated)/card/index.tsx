@@ -9,7 +9,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { safeBack } from '@/lib/navigation';
-import { flexDirection } from '@/lib/rtl';
+import { flexDirection, justifyContent } from '@/lib/rtl';
 
 function range(n: number) {
   return Array.from({ length: n }, (_, i) => i);
@@ -183,7 +183,7 @@ export default function CardDetailsScreen() {
               flexDirection: flexDirection.row,
               flexWrap: 'wrap',
               gap: 10,
-              justifyContent: 'flex-start',
+              justifyContent: justifyContent.start,
             }}
           >
             {stamps.map((stamp) => (

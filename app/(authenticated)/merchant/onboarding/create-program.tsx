@@ -35,7 +35,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'יוצרים כרטיסיה',
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 10,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 6,
   },
   title: {

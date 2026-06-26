@@ -20,7 +20,7 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הארנק שלי',
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   joinBusinessRow: {
     width: '100%',
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     marginTop: 0,
   },
   joinBusinessButton: {

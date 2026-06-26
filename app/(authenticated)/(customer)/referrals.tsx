@@ -12,7 +12,7 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 type ReferralTab = 'pending' | 'completed' | 'rewards';
 
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   summaryLabel: {
     fontSize: 12,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 4,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   itemTitle: {
     fontSize: 15,

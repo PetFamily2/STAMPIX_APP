@@ -16,7 +16,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 
 function formatMonthsLabel(value: number) {
   return value === 1 ? 'חודש אחד' : `${value} חודשים`;
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   topRow: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
     ...rtlBaseView,
   },
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   ctaRow: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     marginTop: 2,
   },
   primaryButtonTouchable: {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
   },
   sheet: {
     backgroundColor: '#FFFFFF',

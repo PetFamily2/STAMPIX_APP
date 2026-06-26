@@ -232,8 +232,8 @@ export default function StaffCustomersScreen() {
                   onPress={() => openCustomerCard(String(customer.customerId))}
                   className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
                 >
-                  <View className={`${tw.flexRow} items-start justify-between`}>
-                    <View className="items-end">
+                  <View className={`${tw.flexRow} ${tw.itemsStart} justify-between`}>
+                    <View className={`${tw.itemsEnd}`}>
                       <Text
                         className={`text-xs text-[#94A3B8] ${tw.textStart}`}
                       >
@@ -252,7 +252,7 @@ export default function StaffCustomersScreen() {
                       </Text>
                     </View>
 
-                    <View className="flex-1 items-end px-3">
+                    <View className={`flex-1 ${tw.itemsEnd} px-3`}>
                       <Text
                         className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
                       >

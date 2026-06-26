@@ -21,7 +21,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איזה סוג עסק זה?',
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 12,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,

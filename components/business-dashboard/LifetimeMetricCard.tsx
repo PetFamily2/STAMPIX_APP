@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SurfaceCard } from '@/components/business-ui';
-import { flexDirection, tw } from '@/lib/rtl';
+import { flexDirection, justifyContent, tw } from '@/lib/rtl';
 
 type Tone = 'teal' | 'violet' | 'blue' | 'amber';
 
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: justifyContent.end,
     borderTopWidth: 1,
     borderTopColor: '#EEF2F7',
     marginTop: 3,

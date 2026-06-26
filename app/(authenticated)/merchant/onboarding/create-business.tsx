@@ -38,7 +38,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const DEFAULT_MANUAL_REGION: Region = {
   latitude: 32.0853,
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   titleContainer: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 24,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   suggestionTextWrap: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   suggestionPrimary: {
     fontSize: 14,
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   previewHeader: {
     gap: 6,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   previewLabel: {
     fontSize: 12,

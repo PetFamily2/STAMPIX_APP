@@ -17,7 +17,7 @@ import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'ברוכים הבאים! איך לקרוא לך?',
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   titleContainer: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     marginTop: 24,
     width: '100%',
   },

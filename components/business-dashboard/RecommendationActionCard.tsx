@@ -12,8 +12,8 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { RtlActionLink } from '@/components/ui/RtlActionLink';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type Tone = 'critical' | 'warning' | 'neutral' | 'success';
 
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
     justifyContent: 'space-between',
     gap: 10,
     ...rtlBaseView,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   titleWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
   },
   title: {
     fontSize: 15,
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textMuted,
   },
   tagsWrap: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.end,
     gap: 2,
   },
   evidenceText: {
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   secondaryFooter: {
     marginTop: 4,
-    alignItems: 'flex-start',
+    alignItems: alignItems.start,
   },
   secondaryInlineAction: {
     alignSelf: 'flex-start',
