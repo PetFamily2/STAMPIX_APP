@@ -47,8 +47,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 import { alignItems, flexDirection } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ScannerProgram = {
   loyaltyProgramId: string;
@@ -1837,7 +1837,7 @@ const styles = StyleSheet.create({
   },
   emptyProgramsButton: {
     marginTop: 4,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -1953,7 +1953,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   retryButton: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 14,
@@ -2106,7 +2106,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitsHeader: {
     gap: 2,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   referralBenefitsTitle: {
     fontSize: 16,
@@ -2149,7 +2149,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitTextWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   referralBenefitName: {
@@ -2189,7 +2189,7 @@ const styles = StyleSheet.create({
   },
   undoCompactAction: {
     marginTop: 2,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     minWidth: 132,
     backgroundColor: '#EAF1FF',
     borderRadius: 999,

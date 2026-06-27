@@ -10,6 +10,11 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { resolveActiveBusinessShell } from '@/lib/activeBusinessShell';
+import {
+  rtlTabBarItemStyle,
+  rtlTabBarStyle,
+  rtlTabSceneStyle,
+} from '@/lib/rtl';
 
 const TEXT = {
   scanner: 'סורק',
@@ -70,7 +75,9 @@ export default function StaffTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
+        sceneStyle: rtlTabSceneStyle,
         tabBarStyle: {
+          ...rtlTabBarStyle,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
           overflow: 'visible',
@@ -85,6 +92,7 @@ export default function StaffTabsLayout() {
           paddingTop: 8,
         },
         tabBarItemStyle: {
+          ...rtlTabBarItemStyle,
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },

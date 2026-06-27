@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
   },
   heroTextWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   customerName: {
     fontSize: 22,
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: 8,
     flexWrap: 'wrap',
-    justifyContent: justifyContent.end,
+    justifyContent: justifyContent.start,
   },
   statusChip: {
     borderRadius: 999,
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
     borderColor: '#DCE6FB',
     backgroundColor: '#FFFFFF',
     padding: 12,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   statLabel: {
@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
   },
   referralBenefitItemTextWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   referralBenefitItemTitle: {
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   timelineTextWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   timelineTitleRow: {
@@ -1110,7 +1110,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C7DBFF',
     backgroundColor: '#EEF4FF',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
   },
   adjustmentButtonPressed: {
     opacity: 0.9,
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
-    justifyContent: justifyContent.end,
+    justifyContent: justifyContent.start,
   },
   reasonOption: {
     borderRadius: 999,

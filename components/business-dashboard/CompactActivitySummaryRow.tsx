@@ -70,7 +70,9 @@ export function CompactActivitySummaryRow({
             </View>
           </View>
           <View style={styles.timeWrap}>
-            <Text style={styles.time}>{formatSecondaryTimeLabel(item.time)}</Text>
+            <Text style={styles.time}>
+              {formatSecondaryTimeLabel(item.time)}
+            </Text>
           </View>
         </View>
       ))}
@@ -118,7 +120,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   customer: {

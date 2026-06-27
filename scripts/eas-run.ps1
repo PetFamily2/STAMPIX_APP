@@ -10,6 +10,48 @@ if (-not $EasArgs -or $EasArgs.Count -eq 0) {
   exit 1
 }
 
+function Get-ArgValue {
+  param(
+    [string[]]$ArgsList,
+    [string]$Name
+  )
+
+  for ($index = 0; $index -lt $ArgsList.Count; $index++) {
+    if ($ArgsList[$index] -eq $Name -and ($index + 1) -lt $ArgsList.Count) {
+      return $ArgsList[$index + 1]
+    }
+  }
+
+  return $null
+}
+
+function Should-VerifyRtlBuildSource {
+  param(
+    [string[]]$ArgsList
+  )
+
+  if ($ArgsList[0] -ne 'build') {
+    return $false
+  }
+
+  $platform = Get-ArgValue -ArgsList $ArgsList -Name '--platform'
+
+  if (-not $platform) {
+    $platform = Get-ArgValue -ArgsList $ArgsList -Name '-p'
+  }
+
+  return $platform -eq 'android' -or $platform -eq 'all'
+}
+
+if (Should-VerifyRtlBuildSource -ArgsList $EasArgs) {
+  $sourceVerifier = Join-Path $PSScriptRoot 'verify-rtl-build-source.mjs'
+  & node $sourceVerifier --require-clean-git
+
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
+}
+
 function Get-NodeMajor {
   $raw = (& node -v).Trim()
   if (-not $raw) {

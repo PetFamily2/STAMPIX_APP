@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { ChartCardShell } from './ChartCardShell';
 import { alignItems, flexDirection, justifyContent, tw } from '@/lib/rtl';
+import { ChartCardShell } from './ChartCardShell';
 
 export type BarDatum = {
   label: string;
@@ -131,6 +131,6 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     backgroundColor: '#93C5FD',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
   },
 });

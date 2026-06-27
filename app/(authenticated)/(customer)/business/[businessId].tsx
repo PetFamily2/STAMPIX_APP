@@ -722,8 +722,8 @@ const styles = StyleSheet.create({
   },
   joinedDetails: {
     flexDirection: flexDirection.row,
-    alignItems: alignItems.end,
-    justifyContent: justifyContent.end,
+    alignItems: alignItems.start,
+    justifyContent: justifyContent.start,
     flexWrap: 'wrap',
     gap: 4,
   },

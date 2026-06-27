@@ -39,9 +39,9 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { alignItems, flexDirection, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
-import { alignItems, flexDirection, tw } from '@/lib/rtl';
 
 type CustomerRouteFilter =
   | 'near_reward'
@@ -1143,7 +1143,7 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   filterBadge: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     marginTop: 8,
     borderRadius: 999,
     backgroundColor: '#E8F1FF',
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
   },
   customerMain: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   customerName: {
     fontSize: 17,
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
   },
   customerMeta: {
     minWidth: 92,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   metaTitle: {
     fontSize: 11,

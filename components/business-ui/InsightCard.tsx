@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     color: '#4338CA',
   },
   cta: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     marginTop: 2,
     borderRadius: 10,
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,

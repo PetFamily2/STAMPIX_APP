@@ -1,7 +1,14 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import { flexDirection, justifyContent, ltrBaseText, rtlAutoText, rtlBaseView, spacing } from '@/lib/rtl';
+import {
+  flexDirection,
+  justifyContent,
+  ltrBaseText,
+  rtlAutoText,
+  rtlBaseView,
+  spacing,
+} from '@/lib/rtl';
 
 type CustomerBrandTitleRowProps = {
   title: string;

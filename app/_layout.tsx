@@ -17,7 +17,11 @@ import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
-import { rtlBaseView } from '@/lib/rtl';
+import {
+  RTL_ARCHITECTURE_MARKER,
+  rtlBaseView,
+  rtlRouteContainerStyle,
+} from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 const RTL_RELOAD_ATTEMPT_KEY = 'stampaix:rtl-reload-attempted';
@@ -184,7 +188,10 @@ export default function RootLayout() {
                   <OnboardingProvider>
                     <RevenueCatProvider>
                       <RootErrorBoundary>
-                        <View style={styles.rtlRoot}>
+                        <View
+                          style={styles.rtlRoot}
+                          testID={RTL_ARCHITECTURE_MARKER}
+                        >
                           <Slot />
                         </View>
                       </RootErrorBoundary>
@@ -202,8 +209,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   rtlRoot: {
-    flex: 1,
-    ...rtlBaseView,
+    ...rtlRouteContainerStyle,
   },
   rtlBootScreen: {
     flex: 1,

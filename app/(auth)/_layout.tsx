@@ -7,8 +7,10 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
+import { rtlRouteContainerStyle } from '@/lib/rtl';
 
 let didRedirectToAuthenticated = false;
 
@@ -66,5 +68,15 @@ export default function AuthRoutesLayout() {
     }, 0);
   }, [isLoading, user, shouldRedirectToAuthenticated, alreadyInTarget, router]);
 
-  return <Slot />;
+  return (
+    <View style={styles.rtlRouteGroup}>
+      <Slot />
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  rtlRouteGroup: {
+    ...rtlRouteContainerStyle,
+  },
+});

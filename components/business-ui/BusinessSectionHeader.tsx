@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-
-import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { RtlActionLink } from '@/components/ui/RtlActionLink';
+import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 export function BusinessSectionHeader({
@@ -61,7 +60,7 @@ const styles = StyleSheet.create({
   },
   titleWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   title: {

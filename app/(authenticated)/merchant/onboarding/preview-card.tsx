@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   titleContainer: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 8,
   },
   title: {
@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
   },
   previewHero: {
     marginTop: 18,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   previewThemeName: {
@@ -1057,7 +1057,7 @@ const styles = StyleSheet.create({
   },
   themeTextBlock: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   themeTitleRow: {

@@ -1,4 +1,4 @@
-﻿import { useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { Redirect, Tabs, useLocalSearchParams, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +16,11 @@ import {
   resolveActiveBusinessShell,
 } from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import {
+  rtlTabBarItemStyle,
+  rtlTabBarStyle,
+  rtlTabSceneStyle,
+} from '@/lib/rtl';
 
 const TEXT = {
   dashboard: 'בית',
@@ -120,8 +125,9 @@ export default function BusinessTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
+        sceneStyle: rtlTabSceneStyle,
         tabBarStyle: {
-          direction: 'rtl',
+          ...rtlTabBarStyle,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E6EAF3',
@@ -139,7 +145,7 @@ export default function BusinessTabsLayout() {
           borderTopRightRadius: 26,
         },
         tabBarItemStyle: {
-          direction: 'rtl',
+          ...rtlTabBarItemStyle,
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },
@@ -306,4 +312,3 @@ export default function BusinessTabsLayout() {
     </Tabs>
   );
 }
-

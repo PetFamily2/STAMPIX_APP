@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   header: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   titleShell: {
     paddingBottom: 12,

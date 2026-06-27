@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   joinBusinessRow: {
     width: '100%',
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     marginTop: 0,
   },
   joinBusinessButton: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   pendingInviteButton: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     backgroundColor: '#DBEAFE',
     borderRadius: 999,
     minHeight: 38,

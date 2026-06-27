@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   titleContainer: {
     marginTop: 40,

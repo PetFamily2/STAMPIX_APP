@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     height: '100%',
     borderRadius: 999,
     backgroundColor: '#2563EB',

@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { SurfaceCard } from './SurfaceCard';
 import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { SurfaceCard } from './SurfaceCard';
 
 export type TimelineItem = {
   id: string;
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   rowTitle: {
     fontSize: 14,

@@ -6,13 +6,12 @@ import {
   Text,
   View,
 } from 'react-native';
-
+import { RtlActionLink } from '@/components/ui/RtlActionLink';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { RtlActionLink } from '@/components/ui/RtlActionLink';
 import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type Tone = 'critical' | 'warning' | 'neutral' | 'success';
@@ -258,7 +257,7 @@ const styles = StyleSheet.create({
   },
   titleWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 15,
@@ -277,7 +276,7 @@ const styles = StyleSheet.create({
     color: DASHBOARD_TOKENS.colors.textMuted,
   },
   tagsWrap: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   evidenceText: {

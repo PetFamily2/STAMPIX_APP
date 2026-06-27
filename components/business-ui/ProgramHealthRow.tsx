@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { UsageProgressBar } from './UsageProgressBar';
 import { alignItems, flexDirection, tw } from '@/lib/rtl';
+import { UsageProgressBar } from './UsageProgressBar';
 
 export function ProgramHealthRow({
   title,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 14,

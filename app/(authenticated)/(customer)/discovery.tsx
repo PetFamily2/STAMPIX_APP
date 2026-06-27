@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
   },
   sortSection: {
     marginTop: 14,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 8,
   },
   sortTitle: {
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
   },
   businessTextWrap: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   businessName: {
     fontSize: 15,
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     borderColor: '#D8E4FF',
     backgroundColor: '#FFFFFF',
     padding: 20,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 10,
   },
   loadingState: {
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#F8FAFF',
     padding: 16,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   cardTitle: {
     fontSize: 16,

@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   titleContainer: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     marginTop: 24,
     width: '100%',
   },

@@ -281,7 +281,7 @@ function ProfileRow({
             color={disabled ? '#94A3B8' : '#2563EB'}
           />
         </View>
-        <View className={`flex-1 ${tw.itemsEnd}`}>
+        <View className={`flex-1 ${tw.itemsStart}`}>
           <Text className="text-xs font-bold text-[#64748B]">{label}</Text>
           <Text className="mt-1 text-sm font-bold text-[#0F172A]">{value}</Text>
         </View>
@@ -890,7 +890,7 @@ export default function BusinessSettingsProfileScreen() {
                       color={canEditBusiness ? '#2563EB' : '#94A3B8'}
                     />
                   </View>
-                  <View className={`flex-1 ${tw.itemsEnd}`}>
+                  <View className={`flex-1 ${tw.itemsStart}`}>
                     <Text className="text-xs font-bold text-[#64748B]">
                       כתובת העסק
                     </Text>

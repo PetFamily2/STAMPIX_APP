@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
-  type StyleProp,
   type TextStyle,
   View,
   type ViewStyle,

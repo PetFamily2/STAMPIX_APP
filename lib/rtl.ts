@@ -9,6 +9,9 @@ import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 
 export const IS_RTL = true;
 
+export const RTL_ARCHITECTURE_MARKER =
+  'stampaix-rtl-native-v2-navigator-containers';
+
 export const flexDirection = {
   row: 'row' as FlexStyle['flexDirection'],
   rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
@@ -37,6 +40,11 @@ export const alignItems = {
   center: 'center' as FlexStyle['alignItems'],
   stretch: 'stretch' as FlexStyle['alignItems'],
 };
+
+export const contentStart = alignItems.start;
+export const contentEnd = alignItems.end;
+export const selfStart = 'flex-start' as ViewStyle['alignSelf'];
+export const selfEnd = 'flex-end' as ViewStyle['alignSelf'];
 
 export const spacing = {
   marginStart: (value: number): ViewStyle => ({ marginStart: value }),
@@ -89,6 +97,28 @@ export const rtlBaseView: ViewStyle = {
   direction: 'rtl',
 };
 
+export const rtlRouteContainerStyle: ViewStyle = {
+  flex: 1,
+  ...rtlBaseView,
+};
+
+export const rtlScreenContentStyle: ViewStyle = {
+  flex: 1,
+  ...rtlBaseView,
+};
+
+export const rtlTabSceneStyle: ViewStyle = {
+  ...rtlScreenContentStyle,
+};
+
+export const rtlTabBarStyle: ViewStyle = {
+  ...rtlBaseView,
+};
+
+export const rtlTabBarItemStyle: ViewStyle = {
+  ...rtlBaseView,
+};
+
 export const rtlBaseText: TextStyle = {
   writingDirection: 'rtl',
   textAlign: 'right',
@@ -107,4 +137,17 @@ export const rtlCenterText: TextStyle = {
 export const ltrBaseText: TextStyle = {
   writingDirection: 'ltr',
   textAlign: 'left',
+};
+
+export const rtlRow: ViewStyle = {
+  flexDirection: flexDirection.row,
+  direction: 'rtl',
+};
+
+export const ltrIslandText: TextStyle = {
+  ...ltrBaseText,
+};
+
+export const ltrIslandView: ViewStyle = {
+  direction: 'ltr',
 };

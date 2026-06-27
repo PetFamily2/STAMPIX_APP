@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 12,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     justifyContent: 'center',
     gap: 2,
   },
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFF',
     paddingVertical: 8,
     paddingHorizontal: 8,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   b2bReferralStatValue: {

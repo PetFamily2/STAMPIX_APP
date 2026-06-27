@@ -35,9 +35,9 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { alignItems, flexDirection, textAlign, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
-import { alignItems, flexDirection, textAlign, tw } from '@/lib/rtl';
 
 type ManagementCampaignType =
   | 'welcome'
@@ -492,7 +492,7 @@ export function CampaignsHubContent() {
                 color={typeMeta.iconColor}
               />
             </View>
-            <View className={`flex-1 ${tw.itemsEnd}`}>
+            <View className={`flex-1 ${tw.itemsStart}`}>
               <Text
                 className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
               >
@@ -775,7 +775,7 @@ export function CampaignsHubContent() {
               <View className="h-11 w-11 items-center justify-center rounded-xl bg-[#DCFCE7]">
                 <Ionicons name="people-outline" size={20} color="#15803D" />
               </View>
-              <View className={`flex-1 ${tw.itemsEnd}`}>
+              <View className={`flex-1 ${tw.itemsStart}`}>
                 <Text
                   className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
                 >
@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 6,
   },
   accessTileEyebrow: {
@@ -1160,7 +1160,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     justifyContent: 'center',
     gap: 2,
   },

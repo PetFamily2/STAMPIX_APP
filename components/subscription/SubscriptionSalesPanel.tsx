@@ -14,6 +14,7 @@ import {
 
 import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
+import { flexDirection, justifyContent, textAlign } from '@/lib/rtl';
 import {
   buildComparisonRows,
   type ComparisonRow,
@@ -23,7 +24,6 @@ import {
   type PlanCatalogItem,
   type PlanId,
 } from '@/lib/subscription/planComparison';
-import { flexDirection, justifyContent, textAlign } from '@/lib/rtl';
 
 type SubscriptionSalesContext =
   | 'paywall'

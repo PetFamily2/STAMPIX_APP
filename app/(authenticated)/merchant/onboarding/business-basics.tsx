@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   titleContainer: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 8,
   },
   title: {

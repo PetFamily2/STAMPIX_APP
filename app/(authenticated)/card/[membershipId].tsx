@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginTop: 10,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     borderRadius: 10,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 14,

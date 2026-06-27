@@ -177,11 +177,25 @@ Preview build checklist:
 - Android artifact: APK.
 - iOS artifact: physical-device internal build, not simulator.
 - Channel: `preview`.
+- Android RTL source guard, before starting a preview build:
+  ```bash
+  bun run verify:rtl-build-source
+  git status --short
+  ```
+  `bun run eas:build:android:preview` also runs the strict source guard and blocks
+  Android builds when the git working tree is dirty. Commit the intended RTL
+  source changes before building so the APK can be traced to the same code that
+  was reviewed.
 - Commands, after local checks pass:
   ```bash
   bun run eas:build:android:preview
   bun run eas:build:ios:preview
   bun run eas:build:all:preview
+  ```
+- Before installing an Android preview APK for RTL QA, verify that the artifact
+  contains the current RTL architecture marker:
+  ```bash
+  bun run verify:android:rtl-apk -- path-or-url/to/preview.apk
   ```
 - If iOS credentials need an interactive setup pass:
   ```bash

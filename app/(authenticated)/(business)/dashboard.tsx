@@ -42,8 +42,8 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';

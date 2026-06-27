@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: justifyContent.end,
+    justifyContent: justifyContent.start,
     borderTopWidth: 1,
     borderTopColor: '#EEF2F7',
     marginTop: 3,

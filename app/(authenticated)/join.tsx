@@ -334,7 +334,7 @@ export default function JoinScreen() {
             paddingBottom: 8,
           }}
         >
-          <View style={{ alignItems: alignItems.end, marginBottom: 12 }}>
+          <View style={{ alignItems: alignItems.start, marginBottom: 12 }}>
             <BackButton
               onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
             />

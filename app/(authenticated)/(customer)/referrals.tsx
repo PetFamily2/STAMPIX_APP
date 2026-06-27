@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   summaryLabel: {
     fontSize: 12,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 4,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   itemTitle: {
     fontSize: 15,

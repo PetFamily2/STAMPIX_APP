@@ -5,7 +5,12 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
-import { justifyContent } from '@/lib/rtl';
+import {
+  justifyContent,
+  rtlTabBarItemStyle,
+  rtlTabBarStyle,
+  rtlTabSceneStyle,
+} from '@/lib/rtl';
 
 const TEXT = {
   wallet: 'ארנק',
@@ -113,8 +118,9 @@ export default function CustomerTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
+        sceneStyle: rtlTabSceneStyle,
         tabBarStyle: {
-          direction: 'rtl',
+          ...rtlTabBarStyle,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
           overflow: 'visible',
@@ -129,7 +135,7 @@ export default function CustomerTabsLayout() {
           paddingTop: 8,
         },
         tabBarItemStyle: {
-          direction: 'rtl',
+          ...rtlTabBarItemStyle,
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },

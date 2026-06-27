@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   referralTextWrap: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 4,
   },
   referralTitle: {
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   referralButton: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',

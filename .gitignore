@@ -21,6 +21,7 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 .tools/
+.tmp/
 .tmp-node22*
 _tmp/log-*.txt
 _tmp/ios-build-*.txt

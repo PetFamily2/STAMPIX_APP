@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   titleContainer: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 24,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   suggestionTextWrap: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   suggestionPrimary: {
     fontSize: 14,
@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   manualResolveButton: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     borderRadius: 999,
     backgroundColor: '#E0E7FF',
     paddingHorizontal: 14,
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   previewHeader: {
     gap: 6,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   previewLabel: {
     fontSize: 12,

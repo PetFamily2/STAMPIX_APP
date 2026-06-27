@@ -20,12 +20,12 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
+import { alignItems, flexDirection } from '@/lib/rtl';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
   type PlanId,
 } from '@/lib/subscription/planComparison';
-import { alignItems, flexDirection } from '@/lib/rtl';
 
 export default function OnboardingBusinessPlanScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     marginTop: 10,
     gap: 8,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 25,

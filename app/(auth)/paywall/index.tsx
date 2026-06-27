@@ -30,6 +30,7 @@ import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { alignItems, flexDirection } from '@/lib/rtl';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -44,7 +45,6 @@ import {
   normalizePlanCatalog,
   type PlanId,
 } from '@/lib/subscription/planComparison';
-import { alignItems, flexDirection } from '@/lib/rtl';
 
 const SERVER_SYNC_TIMEOUT_MS = 30_000;
 const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   headerRow: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   closeButton: {
     width: 40,

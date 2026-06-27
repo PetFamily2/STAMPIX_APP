@@ -22,6 +22,7 @@ import {
 } from '@/lib/activeBusinessShell';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import { rtlBaseView, rtlScreenContentStyle } from '@/lib/rtl';
 
 const TEXT = {
   loadingTitle: 'בונה לך חוויה מותאמת',
@@ -357,7 +358,12 @@ export default function AuthenticatedLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: rtlScreenContentStyle,
+      }}
+    >
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(business)" />
       <Stack.Screen name="(staff)" />
@@ -377,6 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
+    ...rtlBaseView,
   },
   loadingHero: {
     width: 248,

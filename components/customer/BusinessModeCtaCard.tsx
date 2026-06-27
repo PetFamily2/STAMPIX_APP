@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hostTextWrap: { flex: 1, alignItems: alignItems.end, gap: 7 },
+  hostTextWrap: { flex: 1, alignItems: alignItems.start, gap: 7 },
   hostTitle: {
     fontSize: 18,
     lineHeight: 22,

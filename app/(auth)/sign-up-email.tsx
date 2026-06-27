@@ -193,11 +193,11 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   header: {
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   titleContainer: {
     marginTop: 48,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 24,

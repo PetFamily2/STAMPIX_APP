@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginTop: 12,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     width: '100%',
   },
   title: {

@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   metaColumn: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   cardTitle: {
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   },
   walletBrandColumn: {
     flex: 1,
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
     gap: 2,
   },
   walletBrand: {

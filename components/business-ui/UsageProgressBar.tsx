@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#E2E8F0',
     overflow: 'hidden',
-    alignItems: alignItems.end,
+    alignItems: alignItems.start,
   },
   fill: {
     height: '100%',

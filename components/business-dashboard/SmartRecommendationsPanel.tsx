@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-
+import { RtlActionLink } from '@/components/ui/RtlActionLink';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { RtlActionLink } from '@/components/ui/RtlActionLink';
 import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 
 type RecommendationCard = {
@@ -107,7 +106,6 @@ export function SmartRecommendationsPanel({
                     {card.title}
                   </Text>
                 </View>
-
               </View>
 
               <Text className={tw.textStart} style={styles.body}>
@@ -191,7 +189,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actionLink: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     paddingTop: 2,
   },
   actionLinkText: {
