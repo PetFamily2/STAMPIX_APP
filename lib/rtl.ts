@@ -10,11 +10,11 @@ import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 export const IS_RTL = true;
 
 export const RTL_ARCHITECTURE_MARKER =
-  'stampaix-rtl-physical-right-v3';
+  'stampaix-rtl-native-row-right-v4';
 
 export const flexDirection = {
-  row: 'row-reverse' as FlexStyle['flexDirection'],
-  rowReverse: 'row' as FlexStyle['flexDirection'],
+  row: 'row' as FlexStyle['flexDirection'],
+  rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
   col: 'column' as FlexStyle['flexDirection'],
   colReverse: 'column-reverse' as FlexStyle['flexDirection'],
 };
@@ -59,7 +59,7 @@ export const position = {
 };
 
 export const tw = {
-  flexRow: 'flex-row-reverse',
+  flexRow: 'flex-row',
 
   textStart: 'text-right',
   textEnd: 'text-left',
