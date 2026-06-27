@@ -21,6 +21,7 @@ import {
   flexDirection,
   justifyContent,
   rtlBaseView,
+  selfStart,
   tw,
 } from '@/lib/rtl';
 
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   primaryButtonTouchable: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     width: 'auto',
   },
   primaryButtonSurface: {

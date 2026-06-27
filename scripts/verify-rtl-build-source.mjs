@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const RTL_MARKER = 'stampaix-rtl-native-v2-navigator-containers';
+const RTL_MARKER = 'stampaix-rtl-physical-right-v3';
 
 function fail(message) {
   // biome-ignore lint/suspicious/noConsole: CLI verifier must print actionable failures.

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-native-v2-navigator-containers';
+const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-physical-right-v3';
 const EMBEDDED_BUNDLE_PATH = 'assets/index.android.bundle';
 const EMBEDDED_CONFIG_PATH = 'assets/app.config';
 

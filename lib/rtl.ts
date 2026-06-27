@@ -10,11 +10,11 @@ import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 export const IS_RTL = true;
 
 export const RTL_ARCHITECTURE_MARKER =
-  'stampaix-rtl-native-v2-navigator-containers';
+  'stampaix-rtl-physical-right-v3';
 
 export const flexDirection = {
-  row: 'row' as FlexStyle['flexDirection'],
-  rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
+  row: 'row-reverse' as FlexStyle['flexDirection'],
+  rowReverse: 'row' as FlexStyle['flexDirection'],
   col: 'column' as FlexStyle['flexDirection'],
   colReverse: 'column-reverse' as FlexStyle['flexDirection'],
 };
@@ -26,8 +26,8 @@ export const textAlign = {
 };
 
 export const justifyContent = {
-  start: 'flex-start' as FlexStyle['justifyContent'],
-  end: 'flex-end' as FlexStyle['justifyContent'],
+  start: 'flex-end' as FlexStyle['justifyContent'],
+  end: 'flex-start' as FlexStyle['justifyContent'],
   center: 'center' as FlexStyle['justifyContent'],
   between: 'space-between' as FlexStyle['justifyContent'],
   around: 'space-around' as FlexStyle['justifyContent'],
@@ -35,16 +35,16 @@ export const justifyContent = {
 };
 
 export const alignItems = {
-  start: 'flex-start' as FlexStyle['alignItems'],
-  end: 'flex-end' as FlexStyle['alignItems'],
+  start: 'flex-end' as FlexStyle['alignItems'],
+  end: 'flex-start' as FlexStyle['alignItems'],
   center: 'center' as FlexStyle['alignItems'],
   stretch: 'stretch' as FlexStyle['alignItems'],
 };
 
 export const contentStart = alignItems.start;
 export const contentEnd = alignItems.end;
-export const selfStart = 'flex-start' as ViewStyle['alignSelf'];
-export const selfEnd = 'flex-end' as ViewStyle['alignSelf'];
+export const selfStart = 'flex-end' as ViewStyle['alignSelf'];
+export const selfEnd = 'flex-start' as ViewStyle['alignSelf'];
 
 export const spacing = {
   marginStart: (value: number): ViewStyle => ({ marginStart: value }),
@@ -59,19 +59,19 @@ export const position = {
 };
 
 export const tw = {
-  flexRow: 'flex-row',
+  flexRow: 'flex-row-reverse',
 
   textStart: 'text-right',
   textEnd: 'text-left',
 
-  justifyStart: 'justify-start',
-  justifyEnd: 'justify-end',
+  justifyStart: 'justify-end',
+  justifyEnd: 'justify-start',
 
-  itemsStart: 'items-start',
-  itemsEnd: 'items-end',
+  itemsStart: 'items-end',
+  itemsEnd: 'items-start',
 
-  selfStart: 'self-start',
-  selfEnd: 'self-end',
+  selfStart: 'self-end',
+  selfEnd: 'self-start',
 
   ps: (size: number | string) => `ps-${size}`,
   pe: (size: number | string) => `pe-${size}`,
@@ -124,10 +124,14 @@ export const rtlBaseText: TextStyle = {
   textAlign: 'right',
 };
 
+export const hebrewText = rtlBaseText;
+
 export const rtlAutoText: TextStyle = {
   writingDirection: 'auto',
   textAlign: 'right',
 };
+
+export const hebrewAutoText = rtlAutoText;
 
 export const rtlCenterText: TextStyle = {
   writingDirection: 'rtl',
@@ -142,6 +146,18 @@ export const ltrBaseText: TextStyle = {
 export const rtlRow: ViewStyle = {
   flexDirection: flexDirection.row,
   direction: 'rtl',
+};
+
+export const hebrewContent: ViewStyle = {
+  alignItems: alignItems.start,
+};
+
+export const hebrewSelf: ViewStyle = {
+  alignSelf: selfStart,
+};
+
+export const hebrewRow: ViewStyle = {
+  ...rtlRow,
 };
 
 export const ltrIslandText: TextStyle = {
