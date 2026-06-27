@@ -6,6 +6,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+import { selfStart } from '@/lib/rtl';
 
 type OnboardingProgressProps = {
   total: number;
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     height: '100%',
     borderRadius: 999,
     backgroundColor: '#2563EB',

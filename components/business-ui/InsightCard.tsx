@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection, tw } from '@/lib/rtl';
+import { flexDirection, selfStart, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 
 export function InsightCard({
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     color: '#4338CA',
   },
   cta: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     marginTop: 2,
     borderRadius: 10,
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,

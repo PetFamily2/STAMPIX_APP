@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RtlActionLink } from '@/components/ui/RtlActionLink';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 
 export function BusinessSectionHeader({
   title,
@@ -77,7 +83,7 @@ const styles = StyleSheet.create({
   },
   actionWrap: {
     minHeight: 24,
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
   },
   action: {
     fontSize: 12,

@@ -9,8 +9,7 @@ import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 
 export const IS_RTL = true;
 
-export const RTL_ARCHITECTURE_MARKER =
-  'stampaix-rtl-native-row-right-v4';
+export const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-native-row-right-v4';
 
 export const flexDirection = {
   row: 'row' as FlexStyle['flexDirection'],

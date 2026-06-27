@@ -47,7 +47,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ScannerProgram = {
@@ -1837,7 +1837,7 @@ const styles = StyleSheet.create({
   },
   emptyProgramsButton: {
     marginTop: 4,
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -1953,7 +1953,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   retryButton: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 14,
@@ -2189,7 +2189,7 @@ const styles = StyleSheet.create({
   },
   undoCompactAction: {
     marginTop: 2,
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     minWidth: 132,
     backgroundColor: '#EAF1FF',
     borderRadius: 999,

@@ -19,7 +19,7 @@ import {
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
-import { alignItems } from '@/lib/rtl';
+import { alignItems, selfStart } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הצטרפות למועדון',
@@ -420,7 +420,7 @@ export default function JoinScreen() {
           <Pressable
             onPress={handleManual}
             style={({ pressed }) => ({
-              alignSelf: 'flex-start',
+              alignSelf: selfStart,
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 11,
@@ -444,7 +444,7 @@ export default function JoinScreen() {
           <Pressable
             onPress={handleRetryScan}
             style={({ pressed }) => ({
-              alignSelf: 'flex-start',
+              alignSelf: selfStart,
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 11,

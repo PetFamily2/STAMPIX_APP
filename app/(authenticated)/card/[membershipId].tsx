@@ -35,7 +35,7 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
-import { flexDirection } from '@/lib/rtl';
+import { flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
   qrCreateFailed: 'לא הצלחנו ליצור QR',
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginTop: 10,
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     borderRadius: 10,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 14,

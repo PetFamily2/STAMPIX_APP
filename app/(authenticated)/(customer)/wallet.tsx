@@ -20,7 +20,7 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView, selfStart } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הארנק שלי',
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   pendingInviteButton: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     backgroundColor: '#DBEAFE',
     borderRadius: 999,
     minHeight: 38,

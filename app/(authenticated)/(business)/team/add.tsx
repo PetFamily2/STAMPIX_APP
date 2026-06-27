@@ -369,7 +369,9 @@ export default function AddBusinessStaffScreen() {
                 >
                   אימייל: {scannedStaffDetails.email ?? 'ללא אימייל'}
                 </Text>
-                <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
+                <View
+                  className={`mt-2 ${tw.selfStart} rounded-full bg-emerald-100 px-3 py-1`}
+                >
                   <Text className="text-[11px] font-bold text-emerald-700">
                     תפקיד מוזמן: {inviteRole === 'manager' ? 'מנהל' : 'עובד'}
                   </Text>

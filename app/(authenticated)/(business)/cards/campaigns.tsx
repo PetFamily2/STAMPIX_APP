@@ -649,7 +649,7 @@ export function CampaignsHubContent() {
                   reason: 'feature_locked',
                 })
               }
-              className="mt-3 self-end rounded-full bg-[#1D4ED8] px-3 py-1.5"
+              className={`mt-3 ${tw.selfStart} rounded-full bg-[#1D4ED8] px-3 py-1.5`}
             >
               <Text className="text-xs font-black text-white">שדרוג</Text>
             </TouchableOpacity>
@@ -676,7 +676,7 @@ export function CampaignsHubContent() {
                   reason: 'limit_reached',
                 })
               }
-              className="mt-3 self-end rounded-full bg-[#B45309] px-3 py-1.5"
+              className={`mt-3 ${tw.selfStart} rounded-full bg-[#B45309] px-3 py-1.5`}
             >
               <Text className="text-xs font-black text-white">שדרוג</Text>
             </TouchableOpacity>

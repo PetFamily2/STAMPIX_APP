@@ -12,7 +12,13 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 
 type Tone = 'critical' | 'warning' | 'neutral' | 'success';
 
@@ -326,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: alignItems.start,
   },
   secondaryInlineAction: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
   },
   inlineActionText: {
     fontSize: 12,

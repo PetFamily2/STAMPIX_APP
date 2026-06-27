@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
-import { flexDirection } from '@/lib/rtl';
+import { flexDirection, selfStart } from '@/lib/rtl';
 
 type Trend = {
   direction: 'up' | 'down' | 'flat';
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     gap: 3,
     paddingHorizontal: 8,
     paddingVertical: 4,

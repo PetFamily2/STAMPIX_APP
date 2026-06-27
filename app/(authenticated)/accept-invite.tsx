@@ -155,7 +155,7 @@ export default function AcceptInviteScreen() {
                   }
                 }}
                 disabled={busy}
-                className="mt-3 self-start rounded-xl bg-blue-600 px-4 py-2"
+                className={`mt-3 ${tw.selfStart} rounded-xl bg-blue-600 px-4 py-2`}
               >
                 {busy ? (
                   <ActivityIndicator color="#fff" size="small" />

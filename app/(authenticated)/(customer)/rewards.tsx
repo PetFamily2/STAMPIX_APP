@@ -11,7 +11,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הטבות והודעות',
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   referralButton: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',

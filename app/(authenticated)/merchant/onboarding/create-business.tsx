@@ -38,7 +38,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 
 const DEFAULT_MANUAL_REGION: Region = {
   latitude: 32.0853,
@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   manualResolveButton: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     borderRadius: 999,
     backgroundColor: '#E0E7FF',
     paddingHorizontal: 14,

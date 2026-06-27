@@ -6,7 +6,13 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
+import {
+  flexDirection,
+  justifyContent,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 
 type RecommendationCard = {
   key: string;
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actionLink: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     paddingTop: 2,
   },
   actionLinkText: {

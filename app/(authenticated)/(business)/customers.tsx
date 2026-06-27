@@ -39,7 +39,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { alignItems, flexDirection, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, selfStart, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -1143,7 +1143,7 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   filterBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     marginTop: 8,
     borderRadius: 999,
     backgroundColor: '#E8F1FF',

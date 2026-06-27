@@ -653,7 +653,7 @@ export default function CampaignDraftEditorScreen() {
               ) : null}
               <TouchableOpacity
                 onPress={() => openCampaignsUpgrade()}
-                className="mt-3 self-end rounded-full bg-red-600 px-3 py-1.5"
+                className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
               >
                 <Text className="text-xs font-black text-white">
                   שדרוג מסלול
@@ -1424,7 +1424,7 @@ export default function CampaignDraftEditorScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => openCampaignsUpgrade()}
-              className="mt-3 self-end rounded-full bg-red-600 px-3 py-1.5"
+              className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
             >
               <Text className="text-xs font-black text-white">שדרוג מסלול</Text>
             </TouchableOpacity>
@@ -1784,7 +1784,7 @@ export default function CampaignDraftEditorScreen() {
                 onPress={() => {
                   applyCampaignSnapshot(campaignDraft);
                 }}
-                className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+                className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
               >
                 <Text className="text-xs font-bold text-white">
                   Reload latest

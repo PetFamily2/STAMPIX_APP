@@ -26,7 +26,12 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  justifyContent,
+  selfStart,
+} from '@/lib/rtl';
 
 type CustomerState =
   | 'NEW'
@@ -1110,7 +1115,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#C7DBFF',
     backgroundColor: '#EEF4FF',
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
   },
   adjustmentButtonPressed: {
     opacity: 0.9,

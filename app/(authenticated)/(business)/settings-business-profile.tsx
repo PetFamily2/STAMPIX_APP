@@ -1239,7 +1239,7 @@ export default function BusinessSettingsProfileScreen() {
                   onPress={() => {
                     applyBusinessSettingsSnapshot(businessSettings);
                   }}
-                  className="mt-2 self-end rounded-full bg-[#F59E0B] px-3 py-1.5"
+                  className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
                 >
                   <Text className="text-xs font-bold text-white">
                     Reload latest

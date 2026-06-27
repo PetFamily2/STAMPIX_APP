@@ -1,6 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
 
 const toneMap = {
@@ -123,7 +129,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   cta: {
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
