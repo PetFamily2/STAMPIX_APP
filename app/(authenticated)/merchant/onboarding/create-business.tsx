@@ -79,6 +79,16 @@ const TEXT = {
   streetFallback: 'ללא רחוב',
 };
 
+const CREATE_BUSINESS_COPY = {
+  title: 'יצירת העסק',
+  subtitle: 'שם העסק והכתובת שבה הלקוחות ימצאו אותך.',
+  businessNameLabel: 'שם העסק',
+  businessNamePlaceholder: 'לדוגמה: קפה השכונה',
+  searchLabel: 'כתובת העסק',
+  continue: 'שמירה והמשך לכרטיסייה',
+  businessNameRequired: 'יש להזין שם עסק לפני שממשיכים.',
+};
+
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
     switch (error.message) {
@@ -328,6 +338,18 @@ export default function CreateBusinessScreen() {
     [businessDraft.name]
   );
 
+  const handleBusinessNameChange = (value: string) => {
+    setError(null);
+    setBusinessDraft((prev) => ({
+      ...prev,
+      name: value,
+    }));
+    setBusinessOnboardingDraft((prev) => ({
+      ...prev,
+      businessName: value,
+    }));
+  };
+
   const generatedExternalId = useMemo(() => {
     if (!normalizedBusinessName) {
       return '';
@@ -555,7 +577,11 @@ export default function CreateBusinessScreen() {
       typeof latitude !== 'number' ||
       typeof longitude !== 'number'
     ) {
-      setError(TEXT.addressRequired);
+      setError(
+        normalizedBusinessName
+          ? TEXT.addressRequired
+          : CREATE_BUSINESS_COPY.businessNameRequired
+      );
       return;
     }
 
@@ -591,9 +617,10 @@ export default function CreateBusinessScreen() {
           // Keep onboarding moving even if draft persistence fails.
         }
         safePush(
-          isAdditionalFlow
-            ? withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.plan, flow)
-            : BUSINESS_ONBOARDING_ROUTES.usageArea
+          withBusinessOnboardingFlow(
+            BUSINESS_ONBOARDING_ROUTES.createProgram,
+            flow
+          )
         );
         return;
       }
@@ -618,9 +645,7 @@ export default function CreateBusinessScreen() {
         userId: user?._id,
       });
       safePush(
-        isAdditionalFlow
-          ? withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.plan, flow)
-          : BUSINESS_ONBOARDING_ROUTES.usageArea
+        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.createProgram, flow)
       );
     } catch (submitError) {
       setError(
@@ -648,7 +673,9 @@ export default function CreateBusinessScreen() {
             onPress={() =>
               safeDismissTo(
                 withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.name,
+                  isAdditionalFlow
+                    ? '/(authenticated)/(business)/settings'
+                    : BUSINESS_ONBOARDING_ROUTES.role,
                   flow
                 )
               )
@@ -671,11 +698,28 @@ export default function CreateBusinessScreen() {
             backgroundColor="#FBFAF7"
             style={styles.titleContainer}
           >
-            <Text style={styles.title}>{TEXT.title}</Text>
+            <Text style={styles.title}>{CREATE_BUSINESS_COPY.title}</Text>
+            <Text style={styles.subtitle}>{CREATE_BUSINESS_COPY.subtitle}</Text>
           </StickyScrollHeader>
 
           <View style={styles.searchSection}>
-            <Text style={styles.label}>{TEXT.searchLabel}</Text>
+            <Text style={styles.label}>
+              {CREATE_BUSINESS_COPY.businessNameLabel}
+            </Text>
+            <TextInput
+              value={businessDraft.name}
+              onChangeText={handleBusinessNameChange}
+              placeholder={CREATE_BUSINESS_COPY.businessNamePlaceholder}
+              placeholderTextColor="#9EA7B8"
+              style={styles.input}
+              autoCapitalize="words"
+              textAlign="right"
+              accessibilityLabel={CREATE_BUSINESS_COPY.businessNameLabel}
+            />
+          </View>
+
+          <View style={styles.searchSection}>
+            <Text style={styles.label}>{CREATE_BUSINESS_COPY.searchLabel}</Text>
             <TextInput
               value={addressQuery}
               onChangeText={handleAddressChange}
@@ -685,7 +729,7 @@ export default function CreateBusinessScreen() {
               autoCapitalize="words"
               autoCorrect={false}
               textAlign="right"
-              accessibilityLabel={TEXT.searchLabel}
+              accessibilityLabel={CREATE_BUSINESS_COPY.searchLabel}
             />
 
             {isSuggestionsLoading ||
@@ -851,7 +895,7 @@ export default function CreateBusinessScreen() {
                 ? businessId
                   ? TEXT.updateBusiness
                   : TEXT.createBusiness
-                : TEXT.continue
+                : CREATE_BUSINESS_COPY.continue
             }
           />
         </View>

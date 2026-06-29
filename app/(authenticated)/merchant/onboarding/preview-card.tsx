@@ -39,7 +39,7 @@ const TEXT = {
   feelLabel: 'אופי הכרטיס',
   themeSectionTitle: '5 עיצובים לבחירה',
   themeSectionSubtitle: 'לחצו על סגנון כדי לראות את הכרטיס מתחלף מיד.',
-  livePreview: 'LIVE PREVIEW',
+  livePreview: 'תצוגה חיה',
   continue: 'סיום ופתיחת סורק',
   submitting: 'משלימים הגדרות',
   fallbackBusinessName: 'עסק חדש',
@@ -87,12 +87,21 @@ type CardTheme = {
   shadowColor: string;
 };
 
+const PREVIEW_COPY = {
+  title: 'בדיקה אחרונה לפני פרסום',
+  subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה.',
+  publishNote:
+    'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
+  referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
+  continue: 'פרסום וכניסה לניהול',
+};
+
 const CARD_THEMES: CardTheme[] = [
   {
     id: 'midnight-luxe',
-    name: 'Midnight Luxe',
-    vibe: 'Premium, dramatic and rich',
-    selectorHint: 'For a refined premium feel',
+    name: 'יוקרתי כהה',
+    vibe: 'עמוק, אלגנטי ובולט',
+    selectorHint: 'לעסק שרוצה תחושה יוקרתית ומוקפדת',
     gradient: ['#0F172A', '#1D4ED8', '#312E81'],
     glow: 'rgba(255,255,255,0.12)',
     glowSoft: 'rgba(147,197,253,0.24)',
@@ -123,9 +132,9 @@ const CARD_THEMES: CardTheme[] = [
   },
   {
     id: 'sunset-pop',
-    name: 'Sunset Pop',
-    vibe: 'Warm, inviting and social',
-    selectorHint: 'Strong energy for busy places',
+    name: 'שקיעה חמימה',
+    vibe: 'חם, מזמין וחברתי',
+    selectorHint: 'לעסק פעיל עם הרבה תנועה ואנרגיה',
     gradient: ['#7C2D12', '#EA580C', '#FDBA74'],
     glow: 'rgba(255,255,255,0.16)',
     glowSoft: 'rgba(255,237,213,0.34)',
@@ -156,9 +165,9 @@ const CARD_THEMES: CardTheme[] = [
   },
   {
     id: 'forest-club',
-    name: 'Forest Club',
-    vibe: 'Fresh, calm and natural',
-    selectorHint: 'Ideal for wellness and food',
+    name: 'ירוק טבעי',
+    vibe: 'רענן, רגוע וטבעי',
+    selectorHint: 'מתאים לעסקי אוכל, בריאות וטיפוח',
     gradient: ['#052E16', '#15803D', '#86EFAC'],
     glow: 'rgba(255,255,255,0.12)',
     glowSoft: 'rgba(220,252,231,0.28)',
@@ -189,9 +198,9 @@ const CARD_THEMES: CardTheme[] = [
   },
   {
     id: 'champagne-blush',
-    name: 'Champagne Blush',
-    vibe: 'Elegant, soft and boutique',
-    selectorHint: 'Soft luxury without heaviness',
+    name: 'בוטיק עדין',
+    vibe: 'אלגנטי, רך ובוטיקי',
+    selectorHint: 'לעסק שרוצה מראה נקי ועדין',
     gradient: ['#FFF7ED', '#FCE7F3', '#FED7AA'],
     glow: 'rgba(255,255,255,0.58)',
     glowSoft: 'rgba(251,207,232,0.34)',
@@ -222,9 +231,9 @@ const CARD_THEMES: CardTheme[] = [
   },
   {
     id: 'electric-wave',
-    name: 'Electric Wave',
-    vibe: 'Bold, playful and modern',
-    selectorHint: 'For younger and fast brands',
+    name: 'גל מודרני',
+    vibe: 'נועז, צעיר ומודרני',
+    selectorHint: 'לעסק שרוצה להרגיש קליל ודינמי',
     gradient: ['#082F49', '#0891B2', '#67E8F9'],
     glow: 'rgba(255,255,255,0.12)',
     glowSoft: 'rgba(165,243,252,0.32)',
@@ -555,7 +564,8 @@ export default function PreviewCardScreen() {
             backgroundColor="#F4F0E8"
             style={styles.titleContainer}
           >
-            <Text style={styles.title}>{TEXT.title}</Text>
+            <Text style={styles.title}>{PREVIEW_COPY.title}</Text>
+            <Text style={styles.subtitle}>{PREVIEW_COPY.subtitle}</Text>
           </StickyScrollHeader>
 
           <View style={styles.previewShell}>
@@ -778,6 +788,7 @@ export default function PreviewCardScreen() {
           </View>
 
           <View style={styles.summaryCard}>
+            <Text style={styles.summaryNote}>{PREVIEW_COPY.publishNote}</Text>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryValue}>{selectedTheme.name}</Text>
               <Text style={styles.summaryLabel}>{TEXT.feelLabel}</Text>
@@ -788,6 +799,9 @@ export default function PreviewCardScreen() {
               </Text>
               <Text style={styles.summaryLabel}>{TEXT.progressLabel}</Text>
             </View>
+            <Text style={styles.summaryNoteMuted}>
+              {PREVIEW_COPY.referralNote}
+            </Text>
           </View>
 
           {isFinishing ? (
@@ -803,7 +817,7 @@ export default function PreviewCardScreen() {
                 void handleFinish();
               }}
               disabled={!businessId || !programId || isFinishing}
-              label={TEXT.continue}
+              label={PREVIEW_COPY.continue}
             />
           </View>
         </ScrollView>
@@ -1100,6 +1114,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
     gap: 12,
+  },
+  summaryNote: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  summaryNoteMuted: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#9FB0C9',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   summaryRow: {
     flexDirection: flexDirection.row,

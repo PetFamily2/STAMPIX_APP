@@ -17,18 +17,18 @@ export const BUSINESS_ONBOARDING_ROUTES = {
 
 export const BUSINESS_ONBOARDING_PROGRESS = {
   role: 1,
-  discovery: 2,
-  reason: 3,
-  name: 4,
-  createBusiness: 5,
-  usageArea: 6,
-  businessType: 7,
-  businessCadence: 8,
-  businessCampaignRelevance: 9,
-  plan: 10,
-  createProgram: 11,
-  businessBasics: 12,
-  previewCard: 13,
+  discovery: 4,
+  reason: 4,
+  name: 2,
+  createBusiness: 2,
+  usageArea: 4,
+  businessType: 4,
+  businessCadence: 4,
+  businessCampaignRelevance: 4,
+  plan: 3,
+  createProgram: 3,
+  businessBasics: 4,
+  previewCard: 5,
 } as const;
 
 export const BUSINESS_ONBOARDING_TOTAL_STEPS =
@@ -46,11 +46,11 @@ export type BusinessOnboardingFlow =
 
 const ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS = {
   name: 1,
-  createBusiness: 2,
-  plan: 3,
-  createProgram: 4,
-  businessBasics: 5,
-  previewCard: 6,
+  createBusiness: 1,
+  plan: 2,
+  createProgram: 2,
+  businessBasics: 3,
+  previewCard: 4,
 } as const;
 
 const ADDITIONAL_FLOW_ALLOWED_STEPS = new Set(
@@ -91,11 +91,15 @@ export function getBusinessOnboardingRouteForStep(
   step: BusinessOnboardingStep,
   flow?: string | string[] | null
 ) {
-  const baseRoute = BUSINESS_ONBOARDING_ROUTES[step];
   const resolvedFlow = resolveBusinessOnboardingFlow(flow);
+  const resolvedStep = getConsolidatedBusinessOnboardingStep(
+    step,
+    resolvedFlow
+  );
+  const baseRoute = BUSINESS_ONBOARDING_ROUTES[resolvedStep];
   const shouldAttachAdditionalFlow =
     resolvedFlow === BUSINESS_ONBOARDING_FLOW.additional &&
-    ADDITIONAL_FLOW_ALLOWED_STEPS.has(step);
+    ADDITIONAL_FLOW_ALLOWED_STEPS.has(resolvedStep);
 
   if (!shouldAttachAdditionalFlow) {
     return baseRoute;
@@ -121,34 +125,44 @@ export function getBusinessOnboardingProgressStep(
   step: keyof typeof BUSINESS_ONBOARDING_PROGRESS,
   flow?: string | string[] | null
 ): number {
+  const resolvedStep = getConsolidatedBusinessOnboardingStep(
+    step,
+    resolveBusinessOnboardingFlow(flow)
+  );
+
   if (isAdditionalBusinessFlow(flow)) {
     const additionalStep =
       ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS[
-        step as keyof typeof ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS
+        resolvedStep as keyof typeof ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS
       ];
     if (additionalStep != null) {
       return additionalStep;
     }
   }
 
-  return BUSINESS_ONBOARDING_PROGRESS[step];
+  return BUSINESS_ONBOARDING_PROGRESS[resolvedStep];
 }
 
 export function getBusinessOnboardingStepOrder(
   step: BusinessOnboardingStep,
   flow?: string | string[] | null
 ) {
+  const resolvedStep = getConsolidatedBusinessOnboardingStep(
+    step,
+    resolveBusinessOnboardingFlow(flow)
+  );
+
   if (isAdditionalBusinessFlow(flow)) {
     const additionalStep =
       ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS[
-        step as keyof typeof ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS
+        resolvedStep as keyof typeof ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS
       ];
     if (additionalStep != null) {
       return additionalStep;
     }
   }
 
-  return BUSINESS_ONBOARDING_PROGRESS[step];
+  return BUSINESS_ONBOARDING_PROGRESS[resolvedStep];
 }
 
 export function getBusinessOnboardingTotalSteps(
@@ -157,4 +171,34 @@ export function getBusinessOnboardingTotalSteps(
   return isAdditionalBusinessFlow(flow)
     ? ADDITIONAL_BUSINESS_ONBOARDING_TOTAL_STEPS
     : BUSINESS_ONBOARDING_TOTAL_STEPS;
+}
+
+export function getConsolidatedBusinessOnboardingStep(
+  step: BusinessOnboardingStep,
+  flow?: string | string[] | null
+): BusinessOnboardingStep {
+  const resolvedFlow = resolveBusinessOnboardingFlow(flow);
+
+  if (step === 'name') {
+    return 'createBusiness';
+  }
+
+  if (step === 'plan') {
+    return resolvedFlow === BUSINESS_ONBOARDING_FLOW.additional
+      ? 'createProgram'
+      : 'businessBasics';
+  }
+
+  if (
+    step === 'discovery' ||
+    step === 'reason' ||
+    step === 'usageArea' ||
+    step === 'businessType' ||
+    step === 'businessCadence' ||
+    step === 'businessCampaignRelevance'
+  ) {
+    return 'businessBasics';
+  }
+
+  return step;
 }

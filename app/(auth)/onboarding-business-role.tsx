@@ -62,6 +62,25 @@ const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
   { id: 'not_specified', label: 'לא מציין' },
 ];
 
+const SETUP_COPY = {
+  title: 'פרטים אחרונים לפני שמקימים עסק',
+  subtitle:
+    'נשתמש בפרטים האלה לניהול החשבון ולהתאמה ראשונית של ההמלצות.',
+  firstNameLabel: 'שם פרטי',
+  firstNamePlaceholder: 'שם פרטי',
+  lastNameLabel: 'שם משפחה',
+  lastNamePlaceholder: 'שם משפחה',
+  ageLabel: 'טווח גילאים',
+  continue: 'המשך להקמת העסק',
+  saveErrorTitle: 'שגיאה בשמירה',
+  saveErrorMessage: 'לא הצלחנו לשמור את השם. נסו שוב.',
+  exitTitle: 'לצאת מהקמת העסק?',
+  exitMessage: 'נשמור לך את ההתקדמות ואפשר לחזור לכאן בהמשך.',
+  exitConfirm: 'לשמור ולצאת',
+  exitCancel: 'המשך עריכה',
+  exitFailed: 'לא הצלחנו לשמור את הטיוטה. נסו שוב.',
+};
+
 function splitFullName(fullName?: string | null) {
   if (!fullName) {
     return { firstName: '', lastName: '' };
@@ -193,10 +212,10 @@ export default function OnboardingBusinessRoleScreen() {
       safeDismissTo('/(authenticated)/(customer)/settings');
       void setActiveMode({ mode: 'customer' }).catch(async () => {
         await setAppMode('business');
-        Alert.alert(TEXT.saveErrorTitle, TEXT.exitFailed);
+        Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.exitFailed);
       });
     } catch {
-      Alert.alert(TEXT.saveErrorTitle, TEXT.exitFailed);
+      Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.exitFailed);
     } finally {
       setIsLeaving(false);
     }
@@ -207,10 +226,10 @@ export default function OnboardingBusinessRoleScreen() {
       return;
     }
 
-    Alert.alert(TEXT.exitTitle, TEXT.exitMessage, [
-      { text: TEXT.exitCancel, style: 'cancel' },
+    Alert.alert(SETUP_COPY.exitTitle, SETUP_COPY.exitMessage, [
+      { text: SETUP_COPY.exitCancel, style: 'cancel' },
       {
-        text: TEXT.exitConfirm,
+        text: SETUP_COPY.exitConfirm,
         style: 'destructive',
         onPress: () => {
           void handleLeave();
@@ -251,10 +270,10 @@ export default function OnboardingBusinessRoleScreen() {
         first_name_length: normalizedFirstName.length,
         last_name_length: normalizedLastName.length,
       });
-      safePush(BUSINESS_ONBOARDING_ROUTES.discovery);
+      safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
     } catch {
       trackError('name', 'SAVE_FAILED', { age_range: selectedAgeRange });
-      Alert.alert(TEXT.saveErrorTitle, TEXT.saveErrorMessage);
+      Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.saveErrorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -272,7 +291,7 @@ export default function OnboardingBusinessRoleScreen() {
               onPress={handleExitIntent}
               disabled={isLeaving || isSubmitting}
               accessibilityRole="button"
-              accessibilityLabel={TEXT.exitConfirm}
+              accessibilityLabel={SETUP_COPY.exitConfirm}
               style={({ pressed }) => [
                 styles.closeButton,
                 pressed ? styles.closeButtonPressed : null,
@@ -290,16 +309,17 @@ export default function OnboardingBusinessRoleScreen() {
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.title}>{SETUP_COPY.title}</Text>
+          <Text style={styles.subtitle}>{SETUP_COPY.subtitle}</Text>
         </View>
 
         <View style={styles.form}>
           <View>
-            <Text style={styles.inputLabel}>{TEXT.firstNameLabel}</Text>
+            <Text style={styles.inputLabel}>{SETUP_COPY.firstNameLabel}</Text>
             <TextInput
               value={firstName}
               onChangeText={setFirstName}
-              placeholder={TEXT.firstNamePlaceholder}
+              placeholder={SETUP_COPY.firstNamePlaceholder}
               placeholderTextColor="#B4BBC8"
               autoCapitalize="words"
               returnKeyType="next"
@@ -307,29 +327,29 @@ export default function OnboardingBusinessRoleScreen() {
               onSubmitEditing={() => lastNameInputRef.current?.focus()}
               style={styles.input}
               textAlign="right"
-              accessibilityLabel={TEXT.firstNameLabel}
+              accessibilityLabel={SETUP_COPY.firstNameLabel}
             />
           </View>
 
           <View>
-            <Text style={styles.inputLabel}>{TEXT.lastNameLabel}</Text>
+            <Text style={styles.inputLabel}>{SETUP_COPY.lastNameLabel}</Text>
             <TextInput
               ref={lastNameInputRef}
               value={lastName}
               onChangeText={setLastName}
-              placeholder={TEXT.lastNamePlaceholder}
+              placeholder={SETUP_COPY.lastNamePlaceholder}
               placeholderTextColor="#B4BBC8"
               autoCapitalize="words"
               returnKeyType="done"
               style={styles.input}
               textAlign="right"
-              accessibilityLabel={TEXT.lastNameLabel}
+              accessibilityLabel={SETUP_COPY.lastNameLabel}
             />
           </View>
         </View>
 
         <View style={styles.ageSection}>
-          <Text style={styles.inputLabel}>{TEXT.ageLabel}</Text>
+          <Text style={styles.inputLabel}>{SETUP_COPY.ageLabel}</Text>
           <View style={styles.ageGrid}>
             {AGE_RANGES.map((range) => {
               const isSelected = selectedAgeRange === range.id;
@@ -373,6 +393,7 @@ export default function OnboardingBusinessRoleScreen() {
               void handleContinue();
             }}
             disabled={!canContinue || isSubmitting || isLeaving}
+            label={SETUP_COPY.continue}
           />
         </View>
       </KeyboardAvoidingView>

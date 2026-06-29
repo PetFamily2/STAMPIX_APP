@@ -59,6 +59,13 @@ function toErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+const CREATE_PROGRAM_COPY = {
+  title: 'הכרטיסייה הראשונה שלך',
+  subtitle:
+    'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך.',
+  continue: 'שמירה והמשך לפרסום',
+};
+
 export default function CreateProgramScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
   const { businessId, programDraft, setProgramDraft, setProgramId } =
@@ -228,7 +235,7 @@ export default function CreateProgramScreen() {
             onPress={() =>
               safeDismissTo(
                 withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.plan,
+                  BUSINESS_ONBOARDING_ROUTES.createBusiness,
                   flow
                 )
               )
@@ -241,7 +248,8 @@ export default function CreateProgramScreen() {
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.title}>{CREATE_PROGRAM_COPY.title}</Text>
+          <Text style={styles.subtitle}>{CREATE_PROGRAM_COPY.subtitle}</Text>
         </View>
 
         <ScrollView
@@ -439,7 +447,7 @@ export default function CreateProgramScreen() {
               void handleSubmit();
             }}
             disabled={!canSubmit}
-            label={TEXT.continue}
+            label={CREATE_PROGRAM_COPY.continue}
           />
         </View>
       </View>
