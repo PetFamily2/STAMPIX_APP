@@ -5,7 +5,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
-import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -13,41 +12,31 @@ import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { alignItems, flexDirection } from '@/lib/rtl';
 
-type ReturnMotivationId =
-  | 'freebie'
-  | 'percentage'
-  | 'upgrade'
-  | 'birthday'
-  | 'gift';
-
-const RETURN_MOTIVATIONS: Array<{ id: ReturnMotivationId; title: string }> = [
-  { id: 'freebie', title: 'מבצע חינם אחרי X ביקורים' },
-  { id: 'percentage', title: 'הנחה באחוזים' },
-  { id: 'upgrade', title: 'שדרוג' },
-  { id: 'birthday', title: 'הטבה ביום הולדת' },
-  { id: 'gift', title: 'הטבות מתנה' },
-];
+const TEXT = {
+  title: 'הארנק שלך מוכן',
+  description:
+    'אפשר להתחיל לצבור ניקובים, לשמור הטבות ולגלות עסקים בסביבה כשזה רלוונטי.',
+  note: 'מיקום והרשאות נבקש רק כשצריך.',
+  continue: 'כניסה לארנק',
+};
 
 export default function OnboardingReturnMotivationScreen() {
   const router = useRouter();
   const completeCustomerOnboarding = useMutation(
     api.users.completeCustomerOnboarding
   );
-  const [selected, setSelected] = useState<ReturnMotivationId | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const canContinue = Boolean(selected);
-  const { completeStep, trackChoice, trackContinue, trackEvent } =
-    useOnboardingTracking({
+  const { completeStep, trackContinue, trackEvent } = useOnboardingTracking({
       screen: 'onboarding_client_return_motivation',
       role: 'client',
-    });
+  });
 
   const handleContinue = async () => {
-    if (!canContinue || isSubmitting) {
+    if (isSubmitting) {
       return;
     }
     trackContinue();
-    completeStep({ return_motivation: selected });
+    completeStep();
     trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
     setIsSubmitting(true);
     try {
@@ -63,36 +52,22 @@ export default function OnboardingReturnMotivationScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-client-frequency')}
+            onPress={() => safeBack('/(auth)/onboarding-client-interests')}
           />
-          <OnboardingProgress total={7} current={5} />
+          <OnboardingProgress total={3} current={3} />
         </View>
 
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>איזה סוג הטבה הכי גורם לך לחזור?</Text>
-        </View>
-
-        <View style={styles.optionsContainer}>
-          {RETURN_MOTIVATIONS.map((item) => {
-            const isSelected = selected === item.id;
-            return (
-              <OnboardingChoiceButton
-                key={item.id}
-                selected={isSelected}
-                label={item.title}
-                onPress={() => {
-                  setSelected(item.id);
-                  trackChoice('return_motivation', item.id);
-                }}
-              />
-            );
-          })}
+          <Text style={styles.title}>{TEXT.title}</Text>
+          <Text style={styles.description}>{TEXT.description}</Text>
+          <Text style={styles.note}>{TEXT.note}</Text>
         </View>
 
         <View style={styles.footer}>
           <ContinueButton
             onPress={() => void handleContinue()}
-            disabled={!canContinue || isSubmitting}
+            disabled={isSubmitting}
+            label={TEXT.continue}
           />
         </View>
       </View>
@@ -128,15 +103,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 30,
   },
-  subtitle: {
+  description: {
     fontSize: 14,
     fontWeight: '600',
     color: '#6b7280',
     textAlign: 'right',
+    lineHeight: 21,
   },
-  optionsContainer: {
-    marginTop: 28,
-    gap: 12,
+  note: {
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E40AF',
+    textAlign: 'right',
+    lineHeight: 19,
   },
   footer: {
     marginTop: 'auto',

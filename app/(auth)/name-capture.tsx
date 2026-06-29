@@ -232,7 +232,7 @@ export default function NameCaptureScreen() {
       >
         <View style={styles.header}>
           <BackButton onPress={() => safeBack('/(auth)/sign-up')} />
-          <OnboardingProgress total={8} current={3} />
+          <OnboardingProgress total={3} current={1} />
         </View>
 
         <View style={styles.titleContainer}>
