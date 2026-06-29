@@ -275,14 +275,14 @@ export default function BusinessSettingsAddressScreen() {
           'נמצאה גרסה חדשה של כתובת העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyBusinessAddressSnapshot(businessSettings);
                 setError(null);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -432,7 +432,7 @@ export default function BusinessSettingsAddressScreen() {
                   className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
                 >
                   <Text className="text-xs font-bold text-white">
-                    Reload latest
+                    טען גרסה עדכנית
                   </Text>
                 </Pressable>
               </View>

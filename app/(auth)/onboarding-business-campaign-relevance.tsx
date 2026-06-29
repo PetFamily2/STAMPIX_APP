@@ -17,7 +17,7 @@ import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  title: 'איזה קמפיינים רלוונטיים?',
+  title: 'אילו מבצעים רלוונטיים?',
   yes: 'כן',
   no: 'לא',
 };

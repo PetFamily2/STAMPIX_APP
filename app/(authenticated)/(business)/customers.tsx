@@ -84,8 +84,8 @@ const STATE_LABELS: Record<CustomerState, string> = {
 };
 
 const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
-  REGULAR: 'Regular',
-  LOYAL: 'Loyal',
+  REGULAR: 'רגיל',
+  LOYAL: 'נאמן',
   VIP: 'VIP',
 };
 
@@ -315,7 +315,7 @@ export function CustomersHubContent() {
     if (!canCreateCampaigns) {
       Alert.alert(
         'אין הרשאה',
-        'רק בעלים או מנהלים יכולים ליצור קמפיין ללקוחות בסיכון.'
+        'רק בעלים או מנהלים יכולים ליצור מבצע ללקוחות בסיכון.'
       );
       return;
     }
@@ -339,7 +339,7 @@ export function CustomersHubContent() {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
         Alert.alert(
-          'לא ניתן ליצור קמפיין',
+          'לא ניתן ליצור מבצע',
           entitlementErrorToHebrewMessage(entitlementError),
           [
             {
@@ -365,7 +365,7 @@ export function CustomersHubContent() {
 
       Alert.alert(
         'שגיאה',
-        error instanceof Error ? error.message : 'יצירת קמפיין החזרה נכשלה.'
+        error instanceof Error ? error.message : 'יצירת מבצע החזרה נכשלה.'
       );
     } finally {
       setIsCreatingWinbackCampaign(false);
@@ -421,7 +421,7 @@ export function CustomersHubContent() {
         color: '#06B6D4',
       },
       {
-        label: 'VIP / Loyal',
+        label: 'VIP / נאמנים',
         value: smartGate.isLocked
           ? 0
           : (summary.vipCustomers ?? 0) + (summary.loyalCustomers ?? 0),
@@ -540,7 +540,7 @@ export function CustomersHubContent() {
                 </View>
                 <View style={styles.kpiCell}>
                   <KpiCard
-                    label="VIP / Loyal"
+                    label="VIP / נאמנים"
                     value={
                       smartGate.isLocked
                         ? '--'
@@ -634,7 +634,7 @@ export function CustomersHubContent() {
                             color="#FFFFFF"
                           />
                           <Text style={styles.primaryActionText}>
-                            צרו קמפיין החזרה
+                            צרו מבצע החזרה
                           </Text>
                         </>
                       )}
@@ -648,7 +648,7 @@ export function CustomersHubContent() {
                       ]}
                     >
                       <Text style={styles.secondaryActionText}>
-                        כל הקמפיינים
+                        כל המבצעים
                       </Text>
                     </Pressable>
                   </View>
@@ -658,7 +658,7 @@ export function CustomersHubContent() {
                       className={tw.textStart}
                       style={styles.permissionHint}
                     >
-                      למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
+                      למשתמש הנוכחי אין הרשאה ליצור מבצעים.
                     </Text>
                   ) : null}
                 </SurfaceCard>

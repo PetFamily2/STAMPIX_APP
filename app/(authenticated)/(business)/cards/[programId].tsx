@@ -356,17 +356,17 @@ export default function ProgramDetailsScreen() {
       const conflict = getEditConflictError(error);
       if (conflict) {
         Alert.alert(
-          'Data changed',
-          'A newer program version was found. You can reload it or keep your local draft.',
+          'הנתונים השתנו',
+          'נמצאה גרסה חדשה של הכרטיסיה. אפשר לטעון אותה או להשאיר את הטיוטה המקומית.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyProgramSnapshot(details);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -419,17 +419,17 @@ export default function ProgramDetailsScreen() {
       const conflict = getEditConflictError(error);
       if (conflict) {
         Alert.alert(
-          'Data changed',
-          'A newer program version was found. Reload the latest version before publishing.',
+          'הנתונים השתנו',
+          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני פרסום.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyProgramSnapshot(details);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -484,17 +484,17 @@ export default function ProgramDetailsScreen() {
       const conflict = getEditConflictError(error);
       if (conflict) {
         Alert.alert(
-          'Data changed',
-          'A newer program version was found. Reload the latest version before archiving.',
+          'הנתונים השתנו',
+          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני העברה לארכיון.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyProgramSnapshot(details);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -538,17 +538,17 @@ export default function ProgramDetailsScreen() {
       const conflict = getEditConflictError(error);
       if (conflict) {
         Alert.alert(
-          'Data changed',
-          'A newer program version was found. Reload the latest version before deleting.',
+          'הנתונים השתנו',
+          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני מחיקה.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyProgramSnapshot(details);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -863,7 +863,7 @@ export default function ProgramDetailsScreen() {
                     className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
                   >
                     <Text className="text-xs font-bold text-white">
-                      Reload latest
+                      טען גרסה עדכנית
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -165,7 +165,7 @@ export function UpgradeModal({
 
   const reasonCopy =
     PLAN_REASON_COPY[reason] ??
-    'שדרוג פותח יותר יכולות ניהול קמפיינים ופעילות לקוחות.';
+    'שדרוג פותח יותר יכולות ניהול מבצעים ופעילות לקוחות.';
   const featureAreaLabel = getUpgradeAreaLabel(featureKey);
   const rcPackageId =
     REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];

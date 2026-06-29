@@ -72,7 +72,7 @@ type ManagementCampaign = {
 };
 
 const _TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
-  { key: 'campaigns', label: 'קמפיינים' },
+  { key: 'campaigns', label: 'מבצעים' },
   { key: 'loyalty', label: 'כרטיסיות נאמנות' },
 ];
 
@@ -139,7 +139,7 @@ function campaignTypeMeta(type: ManagementCampaignType): {
       };
     default:
       return {
-        label: 'קמפיין',
+        label: 'מבצע',
         icon: 'megaphone-outline',
         iconColor: '#1D4ED8',
         iconBgClass: 'bg-[#DBEAFE]',
@@ -369,8 +369,8 @@ export function CampaignsHubContent() {
     campaignLimit.isAtLimit &&
     isReferralCampaignActive;
   const campaignLimitReachedCopy = isStarterCampaignLimitFilledByReferral
-    ? 'ב-Starter יש מקום אחד במכסת הקמפיינים. קמפיין ההפניות פעיל כברירת מחדל ומשתמש במקום הזה; אפשר לכבות אותו במסך ההפניות או לשדרג.'
-    : 'הגעתם למכסה הפעילה. המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל; אפשר לארכב קמפיין קיים או לשדרג כדי לפתוח מקום נוסף.';
+    ? 'ב-Starter יש מקום אחד במכסת המבצעים. פעילות הזמנת החברים פעילה כברירת מחדל ומשתמשת במקום הזה; אפשר לכבות אותה במסך ההזמנות או לשדרג מסלול.'
+    : 'הגעתם למכסה הפעילה. המכסה כוללת מבצעים ידניים ופעילות הזמנת חברים פעילה; אפשר לארכב מבצע קיים או לשדרג מסלול כדי לפתוח מקום נוסף.';
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
     canViewCampaigns &&
@@ -444,7 +444,7 @@ export function CampaignsHubContent() {
       }
       Alert.alert(
         'שגיאה',
-        error instanceof Error ? error.message : 'שחזור קמפיין נכשל.'
+        error instanceof Error ? error.message : 'שחזור מבצע נכשל.'
       );
     } finally {
       setBusyCampaignId(null);
@@ -567,8 +567,8 @@ export function CampaignsHubContent() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="קמפיינים"
-            subtitle="קמפיינים לפי מכסת המסלול, עם AI מ-Pro"
+            title="מבצעים"
+            subtitle="מבצעים לפי מכסת המסלול, עם AI מ-Pro"
           />
         </StickyScrollHeader>
 
@@ -581,7 +581,7 @@ export function CampaignsHubContent() {
         >
           <View className={`${tw.flexRow} items-center justify-center gap-2`}>
             <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text className="text-sm font-black text-white">צור קמפיין</Text>
+            <Text className="text-sm font-black text-white">צור מבצע</Text>
           </View>
         </TouchableOpacity>
 
@@ -593,17 +593,17 @@ export function CampaignsHubContent() {
               איך השיווק זמין במסלול שלכם
             </Text>
             <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-              מכסת הקמפיינים כוללת קמפיינים ידניים וגם קמפיין הפניות פעיל.
+              מכסת המבצעים כוללת מבצעים ידניים וגם פעילות הזמנת חברים פעילה.
               המלצות ופעולות AI מתחילות מ-Pro, וב-Starter יש 0 פעולות AI.
             </Text>
             <View style={styles.accessGrid}>
               <MarketingAccessTile
-                eyebrow="מכסת קמפיינים"
+                eyebrow="מכסת מבצעים"
                 title={`${campaignLimit.currentValue}/${campaignLimit.limitValue} פעילים במסלול ${currentPlanLabel ?? ''}`.trim()}
                 body={
                   campaignLimit.isAtLimit
                     ? campaignLimitReachedCopy
-                    : `אפשר ליצור ולנהל קמפיינים ידניים כל עוד נשאר מקום במכסה אחרי קמפיין הפניות פעיל, אם הוא מופעל. נותרו ${formatNumber(campaignLimit.remaining)} מקומות פעילים.`
+                    : `אפשר ליצור ולנהל מבצעים ידניים כל עוד נשאר מקום במכסה אחרי פעילות הזמנת חברים פעילה, אם היא מופעלת. נותרו ${formatNumber(campaignLimit.remaining)} מקומות פעילים.`
                 }
                 accentColor="#1D4ED8"
                 accentBg="#DBEAFE"
@@ -617,10 +617,10 @@ export function CampaignsHubContent() {
                 }
                 body={
                   isAiUnavailableOnCurrentPlan
-                    ? 'AI לקמפיינים מתחיל מ-Pro. במסלול הנוכחי אין פעולות AI, אבל קמפיינים נשארים זמינים לפי המכסה.'
+                    ? 'AI לקמפיינים מתחיל מ-Pro. במסלול הנוכחי אין פעולות AI, אבל מבצעים נשארים זמינים לפי המכסה.'
                     : isAiQuotaReached
-                      ? 'נוצלה כל מכסת ה-AI החודשית. קמפיינים עדיין זמינים לפי מכסת המסלול.'
-                      : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות הקמפיינים.'
+                      ? 'נוצלה כל מכסת ה-AI החודשית. מבצעים עדיין זמינים לפי מכסת המסלול.'
+                      : 'המלצות, ניסוחים ופעולות AI משתמשים במכסה החודשית של המסלול, בלי להשפיע על זמינות המבצעים.'
                 }
                 accentColor="#7C3AED"
                 accentBg="#EDE9FE"
@@ -691,7 +691,7 @@ export function CampaignsHubContent() {
               <Text
                 className={`flex-1 text-xs font-bold text-[#1A2B4A] ${tw.textStart}`}
               >
-                קמפיינים אוטומטיים / חוזרים
+                פעולות שימור אוטומטיות / חוזרות
               </Text>
               {hasReliableRecurringEntitlementData ? (
                 <Text className="text-xs font-black text-[#0F766E]">
@@ -701,16 +701,16 @@ export function CampaignsHubContent() {
             </View>
             <Text className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}>
               {isRecurringUnavailableOnCurrentPlan
-                ? 'המסלול הנוכחי לא כולל קמפיינים אוטומטיים. קמפיינים חוזרים זמינים החל ממסלול Pro.'
+                ? 'המסלול הנוכחי לא כולל פעולות שימור אוטומטיות. פעולות חוזרות ללקוחות זמינות החל ממסלול Pro.'
                 : hasReliableRecurringEntitlementData
-                  ? `כרגע פעילים ${formatNumber(recurringLimit.currentValue)} מתוך ${formatNumber(recurringLimit.limitValue)} קמפיינים אוטומטיים במסלול ${currentPlanLabel ?? ''}.`.trim()
-                  : 'השימוש בקמפיינים אוטומטיים יוצג כאן ברגע שנתוני המסלול יהיו זמינים.'}
+                  ? `כרגע פעילות ${formatNumber(recurringLimit.currentValue)} מתוך ${formatNumber(recurringLimit.limitValue)} פעולות שימור אוטומטיות במסלול ${currentPlanLabel ?? ''}.`.trim()
+                  : 'השימוש בפעולות שימור אוטומטיות יוצג כאן ברגע שנתוני המסלול יהיו זמינים.'}
             </Text>
             {hasReliableRecurringEntitlementData &&
             recurringLimit.limitValue > 0 ? (
               <View className="mt-3">
                 <UsageProgressBar
-                  label="שימוש במכסת קמפיינים אוטומטיים"
+                  label="שימוש במכסת פעולות שימור אוטומטיות"
                   used={recurringLimit.currentValue}
                   limit={recurringLimit.limitValue}
                   accent={DASHBOARD_TOKENS.colors.teal}
@@ -756,7 +756,7 @@ export function CampaignsHubContent() {
               </View>
             ) : isRecurringNearLimit ? (
               <Text className={`mt-3 text-xs text-[#B45309] ${tw.textStart}`}>
-                {`נשארו עוד ${formatNumber(recurringLimit.remaining)} מקומות לקמפיינים אוטומטיים במסלול הנוכחי.`}
+                {`נשארו עוד ${formatNumber(recurringLimit.remaining)} מקומות לפעולות שימור אוטומטיות במסלול הנוכחי.`}
               </Text>
             ) : null}
           </View>
@@ -785,7 +785,7 @@ export function CampaignsHubContent() {
                   className={`mt-0.5 text-xs font-semibold ${tw.textStart}`}
                   style={{ color: '#15803D' }}
                 >
-                  תבנית קמפיין מוכנה
+                  תבנית הזמנה מוכנה
                 </Text>
               </View>
             </View>
@@ -800,15 +800,15 @@ export function CampaignsHubContent() {
             </View>
           </View>
           <Text className={`mt-3 text-xs text-[#64748B] ${tw.textStart}`}>
-            קמפיין ההפניות פעיל כברירת מחדל כשאין הגדרה שמורה. כשהוא פעיל הוא
-            נספר כמקום אחד במכסת הקמפיינים.
+            פעילות הזמנת החברים פעילה כברירת מחדל כשאין הגדרה שמורה. כשהיא
+            פעילה היא נספרת כמקום אחד במכסת המבצעים.
           </Text>
         </TouchableOpacity>
 
         <View style={styles.kpiGrid}>
           <View style={styles.kpiCell}>
             <KpiCard
-              label="קמפיינים פעילים"
+              label="מבצעים פעילים"
               value={formatNumber(liveCampaigns.length)}
               icon="megaphone-outline"
               tone="blue"
@@ -848,7 +848,7 @@ export function CampaignsHubContent() {
               <Text
                 className={`text-xs font-bold text-[#1A2B4A] ${tw.textStart}`}
               >
-                {'מכסת קמפיינים פעילים'}
+                {'מכסת מבצעים פעילים'}
               </Text>
               <Text className="text-xs font-black text-[#1D4ED8]">
                 {`${campaignLimit.currentValue}/${campaignLimit.limitValue}`}
@@ -874,7 +874,7 @@ export function CampaignsHubContent() {
               </View>
             ) : campaignLimit.isNearLimit ? (
               <Text className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}>
-                {'מתקרבים למכסה הפעילה של הקמפיינים במסלול הנוכחי.'}
+                {'מתקרבים למכסה הפעילה של המבצעים במסלול הנוכחי.'}
               </Text>
             ) : null}
           </View>
@@ -884,11 +884,11 @@ export function CampaignsHubContent() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            סטטיסטיקת קמפיינים
+            סטטיסטיקת מבצעים
           </Text>
           <View style={styles.usageStrip}>
             <PlanUsageTile
-              label="קמפיינים"
+              label="מבצעים"
               value={formatNumber(liveCampaigns.length)}
               hint="פעילים"
             />
@@ -907,19 +907,19 @@ export function CampaignsHubContent() {
 
         <View style={styles.analyticsStack}>
           <HorizontalRankingChart
-            title="דירוג קמפיינים לפי Reach"
+            title="דירוג מבצעים לפי תפוצה"
             subtitle="מבוסס על הודעות שנשלחו בפועל"
             data={topReachCampaigns}
             color={DASHBOARD_TOKENS.colors.teal}
           />
           <InsightCard
-            title="תובנת קמפיינים"
+            title="תובנת מבצעים"
             body={
               bestReachCampaign
-                ? `הקמפיין המוביל כרגע הוא "${bestReachCampaign.label}" עם ${formatNumber(
+                ? `המבצע המוביל כרגע הוא "${bestReachCampaign.label}" עם ${formatNumber(
                     bestReachCampaign.value
                   )} הודעות שנשלחו.`
-                : 'עדיין אין נתוני Reach מספיקים לקמפיינים פעילים.'
+                : 'עדיין אין נתוני תפוצה מספיקים למבצעים פעילים.'
             }
             tags={[
               `פעילים: ${formatNumber(liveCampaigns.length)}`,
@@ -929,7 +929,7 @@ export function CampaignsHubContent() {
           />
           <View style={styles.limitWrap}>
             <UsageProgressBar
-              label="שימוש במכסת קמפיינים"
+              label="שימוש במכסת מבצעים"
               used={campaignLimit.currentValue}
               limit={campaignLimit.limitValue}
               accent={DASHBOARD_TOKENS.colors.brandBlue}
@@ -941,10 +941,10 @@ export function CampaignsHubContent() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            קמפיינים פעילים ({liveCampaigns.length})
+            מבצעים פעילים ({liveCampaigns.length})
           </Text>
           <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-            העברה לארכיון זמינה רק מתוך דף עריכת הקמפיין.
+            העברה לארכיון זמינה רק מתוך דף עריכת המבצע.
           </Text>
           {campaignsQuery === undefined ? (
             <View className="py-4">
@@ -952,7 +952,7 @@ export function CampaignsHubContent() {
             </View>
           ) : liveCampaigns.length === 0 ? (
             <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין קמפיינים פעילים. לחצו על "צור קמפיין" כדי להתחיל.
+              אין מבצעים פעילים. לחצו על "צור מבצע" כדי להתחיל.
             </Text>
           ) : (
             liveCampaigns.map((campaign) => renderCampaignCard(campaign))
@@ -967,7 +967,7 @@ export function CampaignsHubContent() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              קמפיינים לא פעילים ({inactiveCampaigns.length})
+              מבצעים לא פעילים ({inactiveCampaigns.length})
             </Text>
             <Ionicons
               name={isInactiveExpanded ? 'chevron-up' : 'chevron-down'}
@@ -984,7 +984,7 @@ export function CampaignsHubContent() {
                 </View>
               ) : inactiveCampaigns.length === 0 ? (
                 <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                  אין כרגע קמפיינים לא פעילים.
+                  אין כרגע מבצעים לא פעילים.
                 </Text>
               ) : (
                 inactiveCampaigns.map((campaign) =>
@@ -1003,7 +1003,7 @@ export function CampaignsHubContent() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              קמפיינים בארכיון ({archivedCampaigns.length})
+              מבצעים בארכיון ({archivedCampaigns.length})
             </Text>
             <Ionicons
               name={isArchivedExpanded ? 'chevron-up' : 'chevron-down'}
@@ -1016,7 +1016,7 @@ export function CampaignsHubContent() {
             <View className="mt-3 gap-3">
               {archivedCampaigns.length === 0 ? (
                 <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                  אין קמפיינים בארכיון.
+                  אין מבצעים בארכיון.
                 </Text>
               ) : (
                 archivedCampaigns.map((campaign) => {

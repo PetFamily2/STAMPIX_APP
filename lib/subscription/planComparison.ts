@@ -52,8 +52,8 @@ const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסי ניקוב',
   maxCustomers: 'לקוחות (רשימה בכל המסלולים)',
-  maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים פעילים (ידניים + הפניות)',
+  maxActiveRetentionActions: 'פעולות שימור אוטומטיות',
+  maxCampaigns: 'מבצעים פעילים (ידניים + הזמנות)',
   maxAiExecutionsPerMonth: 'פעולות AI חודשיות (מ-Pro)',
   maxTeamSeats: 'ניהול צוות',
 };
@@ -61,8 +61,8 @@ const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
 const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסים',
   maxCustomers: 'לקוחות',
-  maxActiveRetentionActions: 'קמפיינים אוטומטיים',
-  maxCampaigns: 'קמפיינים פעילים',
+  maxActiveRetentionActions: 'שימור אוטומטי',
+  maxCampaigns: 'מבצעים פעילים',
   maxAiExecutionsPerMonth: 'AI מ-Pro',
   maxTeamSeats: 'ניהול צוות',
 };
@@ -70,20 +70,20 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   team: 'ניהול צוות',
   advancedReports: 'דוחות מתקדמים (בקרוב)',
-  marketingHub: 'מרכז קמפיינים (ידני)',
+  marketingHub: 'מרכז מבצעים (ידני)',
   smartAnalytics: 'תובנות לקוחות',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
   team: 'צוות',
   advancedReports: 'דוחות (בקרוב)',
-  marketingHub: 'קמפיינים ידניים',
+  marketingHub: 'מבצעים ידניים',
   smartAnalytics: 'תובנות',
 };
 
 export const PLAN_COMPARISON_CLARITY_NOTES = [
   'רשימת לקוחות וניהול בסיסי — בכל המסלולים.',
-  'מרכז הקמפיינים: המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
+  'מרכז המבצעים: המכסה כוללת מבצעים ידניים ופעילות הזמנת חברים פעילה; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
   'דוחות מתקדמים — ייפתחו בקרוב במסלול Pro; אין מסך דוחות פעיל כרגע.',
 ] as const;
 

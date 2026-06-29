@@ -249,7 +249,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     }
     if (campaignsStatus.isNearLimit || campaignsStatus.isAtLimit) {
       warnings.push(
-        `קמפיינים ${formatLimit(
+        `מבצעים ${formatLimit(
           campaignsStatus.currentValue,
           campaignsStatus.limitValue
         )}`
@@ -257,7 +257,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     }
     if (retentionStatus.isNearLimit || retentionStatus.isAtLimit) {
       warnings.push(
-        `קמפיינים חוזרים ${formatLimit(
+        `פעולות שימור ${formatLimit(
           retentionStatus.currentValue,
           retentionStatus.limitValue
         )}`
@@ -343,7 +343,7 @@ export default function BusinessSettingsSubscriptionScreen() {
         const link = await createBusinessReferralLink({
           businessId: activeBusinessId,
         });
-        const message = `Invite your business network to StampAix and earn free subscription months.\n${link.url}`;
+        const message = `הזמינו בעלי עסקים ל-StampAix וקבלו חודשי מנוי מתנה.\n${link.url}`;
 
         if (mode === 'whatsapp') {
           const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -466,16 +466,16 @@ export default function BusinessSettingsSubscriptionScreen() {
     },
     {
       key: 'retention_usage',
-      label: 'קמפיינים חוזרים',
+      label: 'פעולות שימור',
       value: formatLimit(
         usageSummary?.activeRetentionActionsUsed ?? 0,
         retentionStatus.limitValue
       ),
-      hint: 'קמפיינים',
+      hint: 'מבצעים',
     },
     {
       key: 'campaigns_usage',
-      label: 'קמפיינים',
+      label: 'מבצעים',
       value: formatLimit(
         usageSummary?.activeManagementCampaignsUsed ?? 0,
         campaignsStatus.limitValue

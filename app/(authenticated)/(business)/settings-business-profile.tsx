@@ -488,7 +488,7 @@ export default function BusinessSettingsProfileScreen() {
       ] as const,
       [
         'birthdayCampaignRelevant',
-        'רלוונטיות קמפיין יום הולדת',
+        'רלוונטיות מבצע יום הולדת',
         birthdayCampaignRelevant === null
           ? MISSING_VALUE
           : birthdayCampaignRelevant
@@ -497,7 +497,7 @@ export default function BusinessSettingsProfileScreen() {
       ] as const,
       [
         'joinAnniversaryCampaignRelevant',
-        'רלוונטיות קמפיין יום הצטרפות',
+        'רלוונטיות מבצע יום הצטרפות',
         joinAnniversaryCampaignRelevant === null
           ? MISSING_VALUE
           : joinAnniversaryCampaignRelevant
@@ -506,7 +506,7 @@ export default function BusinessSettingsProfileScreen() {
       ] as const,
       [
         'weakTimePromosRelevant',
-        'רלוונטיות קמפייני שעות/ימים חלשים',
+        'רלוונטיות מבצעי שעות/ימים חלשים',
         weakTimePromosRelevant === null
           ? MISSING_VALUE
           : weakTimePromosRelevant
@@ -704,7 +704,7 @@ export default function BusinessSettingsProfileScreen() {
         setBusinessExample(draftBusinessExample);
       } else if (editingField === 'birthdayCampaignRelevant') {
         if (draftBirthdayCampaignRelevant === null) {
-          Alert.alert('שגיאה', 'יש לבחור האם קמפיין יום הולדת רלוונטי.');
+          Alert.alert('שגיאה', 'יש לבחור האם מבצע יום הולדת רלוונטי.');
           return;
         }
         await saveBusinessOnboardingSnapshot({
@@ -714,7 +714,7 @@ export default function BusinessSettingsProfileScreen() {
         setBirthdayCampaignRelevant(draftBirthdayCampaignRelevant);
       } else if (editingField === 'joinAnniversaryCampaignRelevant') {
         if (draftJoinAnniversaryCampaignRelevant === null) {
-          Alert.alert('שגיאה', 'יש לבחור האם קמפיין יום הצטרפות רלוונטי.');
+          Alert.alert('שגיאה', 'יש לבחור האם מבצע יום הצטרפות רלוונטי.');
           return;
         }
         await saveBusinessOnboardingSnapshot({
@@ -728,7 +728,7 @@ export default function BusinessSettingsProfileScreen() {
         if (draftWeakTimePromosRelevant === null) {
           Alert.alert(
             'שגיאה',
-            'יש לבחור האם קמפייני שעות/ימים חלשים רלוונטיים.'
+            'יש לבחור האם מבצעי שעות/ימים חלשים רלוונטיים.'
           );
           return;
         }
@@ -748,14 +748,14 @@ export default function BusinessSettingsProfileScreen() {
           'נמצאה גרסה חדשה של פרטי העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
           [
             {
-              text: 'Reload latest',
+              text: 'טען גרסה עדכנית',
               onPress: () => {
                 applyBusinessSettingsSnapshot(businessSettings);
                 setEditingField(null);
               },
             },
             {
-              text: 'Keep my draft',
+              text: 'השאר טיוטה מקומית',
               onPress: () => {
                 setConflictLocked(true);
               },
@@ -1178,7 +1178,7 @@ export default function BusinessSettingsProfileScreen() {
             {editingField === 'birthdayCampaignRelevant' && (
               <View className="gap-2">
                 <Text className="text-right text-base font-extrabold text-[#111827]">
-                  האם קמפיין יום הולדת רלוונטי לעסק?
+                  האם מבצע יום הולדת רלוונטי לעסק?
                 </Text>
                 {renderChoiceRow(
                   draftBirthdayCampaignRelevant === true,
@@ -1196,7 +1196,7 @@ export default function BusinessSettingsProfileScreen() {
             {editingField === 'joinAnniversaryCampaignRelevant' && (
               <View className="gap-2">
                 <Text className="text-right text-base font-extrabold text-[#111827]">
-                  האם קמפיין יום הצטרפות רלוונטי לעסק?
+                  האם מבצע יום הצטרפות רלוונטי לעסק?
                 </Text>
                 {renderChoiceRow(
                   draftJoinAnniversaryCampaignRelevant === true,
@@ -1214,7 +1214,7 @@ export default function BusinessSettingsProfileScreen() {
             {editingField === 'weakTimePromosRelevant' && (
               <View className="gap-2">
                 <Text className="text-right text-base font-extrabold text-[#111827]">
-                  האם קמפייני שעות/ימים חלשים רלוונטיים לעסק?
+                  האם מבצעי שעות/ימים חלשים רלוונטיים לעסק?
                 </Text>
                 {renderChoiceRow(
                   draftWeakTimePromosRelevant === true,
@@ -1242,7 +1242,7 @@ export default function BusinessSettingsProfileScreen() {
                   className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
                 >
                   <Text className="text-xs font-bold text-white">
-                    Reload latest
+                    טען גרסה עדכנית
                   </Text>
                 </Pressable>
               </View>

@@ -29,7 +29,7 @@ import { formatDistance } from '@/lib/location';
 import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  title: 'גילוי עסקים',
+  title: 'עסקים בסביבה',
   subtitle: 'מצאו עסקים קרובים לפי המפה והמרחק מכם',
   mapTitle: 'מפת עסקים',
   radiusTitle: 'רדיוס חיפוש',

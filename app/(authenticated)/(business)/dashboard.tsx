@@ -155,13 +155,13 @@ function buildEmptyRecommendationCards(): DashboardRecommendationCard[] {
     },
     {
       key: 'return_campaign',
-      title: 'הפעל קמפיין החזרה',
+      title: 'הפעל מבצע החזרת לקוחות',
       body: 'יש לקוחות שלא ביקרו ב-30 הימים האחרונים.',
       evidenceTags: [],
       tone: 'warning',
       primaryCta: {
         kind: 'open_campaign_draft',
-        label: 'צור קמפיין',
+        label: 'צור מבצע',
         draftType: 'winback',
       },
     },
@@ -663,7 +663,7 @@ ${joinUrl}`;
               },
               {
                 key: 'campaigns',
-                label: 'קמפיינים',
+                label: 'מבצעים',
                 icon: 'megaphone-outline',
                 onPress: () =>
                   openRoute('/(authenticated)/(business)/campaigns'),

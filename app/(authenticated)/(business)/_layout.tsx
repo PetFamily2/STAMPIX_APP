@@ -26,7 +26,7 @@ const TEXT = {
   dashboard: 'בית',
   customers: 'לקוחות',
   programs: 'כרטיסיות',
-  campaigns: 'קמפיינים',
+  campaigns: 'מבצעים',
   scanCustomer: 'סריקה',
   settings: 'הגדרות',
 };

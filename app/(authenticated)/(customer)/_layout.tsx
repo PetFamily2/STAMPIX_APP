@@ -16,7 +16,7 @@ const TEXT = {
   wallet: 'ארנק',
   rewards: 'הטבות',
   showQr: 'הצג QR',
-  discovery: 'גילוי',
+  discovery: 'עסקים בסביבה',
   settings: 'הגדרות',
 };
 

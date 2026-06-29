@@ -23,23 +23,23 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 
 const TEXT = {
-  title: 'Referral Admin',
-  searchSection: 'Search / Filters',
-  linksSection: 'Customer Referral Links',
-  referralsSection: 'Referral Records',
-  rewardsSection: 'Referral Rewards',
-  auditSection: 'Audit Log',
-  loading: 'Loading...',
-  empty: 'No records found.',
-  disableLink: 'Disable Link',
-  revokeReward: 'Revoke Reward',
-  markInvalid: 'Mark Invalid',
-  reasonCode: 'Reason code',
-  reasonNote: 'Reason note',
-  referralCode: 'Referral code',
-  businessId: 'Business ID',
-  customerReferralId: 'Customer referral ID',
-  rewardId: 'Reward ID',
+  title: 'ניהול הזמנות חברים',
+  searchSection: 'חיפוש וסינון',
+  linksSection: 'קישורי הזמנת חברים',
+  referralsSection: 'רשומות הזמנה',
+  rewardsSection: 'הטבות מהזמנות',
+  auditSection: 'יומן פעולות',
+  loading: 'טוען...',
+  empty: 'לא נמצאו רשומות.',
+  disableLink: 'השבת קישור',
+  revokeReward: 'בטל הטבה',
+  markInvalid: 'סמן כלא תקין',
+  reasonCode: 'קוד סיבה',
+  reasonNote: 'הערת סיבה',
+  referralCode: 'קוד הזמנה',
+  businessId: 'מזהה עסק',
+  customerReferralId: 'מזהה הזמנת לקוח',
+  rewardId: 'מזהה הטבה',
 };
 
 function formatTimestamp(value?: number) {
@@ -166,8 +166,8 @@ export default function AdminReferralsScreen() {
       Alert.alert('', successMessage);
     } catch (error) {
       Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Action failed'
+        'שגיאה',
+        error instanceof Error ? error.message : 'הפעולה נכשלה'
       );
     } finally {
       setPendingActionKey(null);
@@ -272,16 +272,16 @@ export default function AdminReferralsScreen() {
               return (
                 <View key={row.targetId} style={styles.itemCard}>
                   <Text style={styles.itemLine}>
-                    code: {asString(payload.code)}
+                    קוד: {asString(payload.code)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    business: {asString(payload.businessId)}
+                    עסק: {asString(payload.businessId)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    referrer: {asString(payload.referrerUserId)}
+                    המזמין: {asString(payload.referrerUserId)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    status: {asString(payload.status)}
+                    סטטוס: {asString(payload.status)}
                   </Text>
                   <Pressable
                     disabled={disabled}
@@ -294,7 +294,7 @@ export default function AdminReferralsScreen() {
                             reasonCode: safeReasonCode,
                             reasonNote: safeReasonNote,
                           }),
-                        'Link disabled'
+                        'הקישור הושבת'
                       )
                     }
                     style={({ pressed }) => [
@@ -334,13 +334,13 @@ export default function AdminReferralsScreen() {
               return (
                 <View key={row.targetId} style={styles.itemCard}>
                   <Text style={styles.itemLine}>
-                    referred: {asString(payload.referredUserId)}
+                    המוזמן: {asString(payload.referredUserId)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    referrer: {asString(payload.referrerUserId)}
+                    המזמין: {asString(payload.referrerUserId)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    status: {asString(payload.status)}
+                    סטטוס: {asString(payload.status)}
                   </Text>
                   <Pressable
                     disabled={disabled}
@@ -353,7 +353,7 @@ export default function AdminReferralsScreen() {
                             reasonCode: safeReasonCode,
                             reasonNote: safeReasonNote,
                           }),
-                        'Referral marked invalid'
+                        'ההזמנה סומנה כלא תקינה'
                       )
                     }
                     style={({ pressed }) => [
@@ -393,13 +393,13 @@ export default function AdminReferralsScreen() {
               return (
                 <View key={row.targetId} style={styles.itemCard}>
                   <Text style={styles.itemLine}>
-                    recipient: {asString(payload.recipientUserId)}
+                    מקבל ההטבה: {asString(payload.recipientUserId)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    reward type: {asString(payload.actualRewardType)}
+                    סוג הטבה: {asString(payload.actualRewardType)}
                   </Text>
                   <Text style={styles.itemLine}>
-                    status: {asString(payload.status)}
+                    סטטוס: {asString(payload.status)}
                   </Text>
                   <Pressable
                     disabled={disabled}
@@ -412,7 +412,7 @@ export default function AdminReferralsScreen() {
                             reasonCode: safeReasonCode,
                             reasonNote: safeReasonNote,
                           }),
-                        'Reward revoked'
+                        'ההטבה בוטלה'
                       )
                     }
                     style={({ pressed }) => [
@@ -441,17 +441,17 @@ export default function AdminReferralsScreen() {
             auditRows.map((row: any) => (
               <View key={String(row._id)} style={styles.itemCard}>
                 <Text style={styles.itemLine}>
-                  actor: {asString(row.actorAdminUserId)}
+                  מבצע הפעולה: {asString(row.actorAdminUserId)}
                 </Text>
                 <Text style={styles.itemLine}>
-                  action: {asString(row.action)}
+                  פעולה: {asString(row.action)}
                 </Text>
                 <Text style={styles.itemLine}>
-                  reason: {asString(row.reasonCode)} /{' '}
+                  סיבה: {asString(row.reasonCode)} /{' '}
                   {asString(row.reasonNote)}
                 </Text>
                 <Text style={styles.itemLine}>
-                  timestamp: {formatTimestamp(row.createdAt)}
+                  זמן: {formatTimestamp(row.createdAt)}
                 </Text>
               </View>
             ))

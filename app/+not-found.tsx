@@ -15,7 +15,7 @@ export default function NotFoundScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: 'Not Found' }} />
+      <Stack.Screen options={{ title: 'לא נמצא' }} />
 
       <View style={styles.content}>
         <Text style={styles.title}>{TEXT.title}</Text>

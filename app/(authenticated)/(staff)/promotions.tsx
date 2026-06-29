@@ -104,7 +104,7 @@ function campaignTypeMeta(type: ManagementCampaignType): {
       };
     default:
       return {
-        label: 'קמפיין',
+        label: 'מבצע',
         icon: 'megaphone-outline',
         iconColor: '#1D4ED8',
         iconBgClass: 'bg-[#DBEAFE]',

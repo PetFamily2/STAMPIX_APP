@@ -58,17 +58,17 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: 'ניהול צוות',
   },
   marketingHub: {
-    sectionTitle: 'מרכז הקמפיינים',
-    lockedTitle: 'מרכז הקמפיינים מוגבל במסלול הנוכחי',
+    sectionTitle: 'מרכז המבצעים',
+    lockedTitle: 'מרכז המבצעים מוגבל במסלול הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `קמפיינים ידניים זמינים לפי מכסת המסלול. שדרוג למסלול ${requiredPlanLabel} מגדיל מכסות ויכולות AI.`
-        : 'קמפיינים ידניים זמינים לפי מכסת המסלול. AI מתקדם מחייב מסלול Pro.',
+        ? `מבצעים ידניים זמינים לפי מכסת המסלול. שדרוג למסלול ${requiredPlanLabel} מגדיל מכסות ויכולות AI.`
+        : 'מבצעים ידניים זמינים לפי מכסת המסלול. AI מתקדם מחייב מסלול Pro.',
     benefits: [
-      'קמפיינים ידניים לפי מכסת המסלול (מ-Starter)',
+      'מבצעים ידניים לפי מכסת המסלול (מ-Starter)',
       'המלצות AI ופעולות חכמות מ-Pro: 100 בחודש, 300 ב-Premium',
     ],
-    upgradeAreaLabel: 'מרכז הקמפיינים',
+    upgradeAreaLabel: 'מרכז המבצעים',
   },
   smartAnalytics: {
     sectionTitle: 'תובנות לקוחות',
@@ -117,27 +117,27 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: 'מגבלת לקוחות',
   },
   maxActiveRetentionActions: {
-    sectionTitle: 'מגבלת קמפיינים חוזרים',
-    lockedTitle: 'הגעתם למגבלת הקמפיינים החוזרים',
+    sectionTitle: 'מגבלת פעולות שימור',
+    lockedTitle: 'הגעתם למגבלת פעולות שימור הלקוחות',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר הפעלת יותר קמפיינים חוזרים.`
-        : 'שדרוג למסלול מתקדם יפתח אוטומציות קמפיין נוספות.',
-    benefits: ['ב-Starter אין קמפיינים חוזרים', 'עד 5 ב-Pro ו-15 ב-Premium'],
-    upgradeAreaLabel: 'מגבלת קמפיינים חוזרים',
+        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר הפעלת יותר פעולות שימור אוטומטיות.`
+        : 'שדרוג למסלול מתקדם יפתח אוטומציות שימור נוספות.',
+    benefits: ['ב-Starter אין פעולות שימור אוטומטיות', 'עד 5 ב-Pro ו-15 ב-Premium'],
+    upgradeAreaLabel: 'מגבלת פעולות שימור',
   },
   maxCampaigns: {
-    sectionTitle: 'מגבלת קמפיינים',
-    lockedTitle: 'הגעתם למגבלת מספר הקמפיינים הפעילים',
+    sectionTitle: 'מגבלת מבצעים',
+    lockedTitle: 'הגעתם למגבלת מספר המבצעים הפעילים',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יוסיף מקומות לקמפיינים ידניים ולקמפיין הפניות פעיל.`
-        : 'שדרוג למסלול מתקדם יותר יוסיף מקומות לקמפיינים ידניים ולקמפיין הפניות פעיל.',
+        ? `שדרוג למסלול ${requiredPlanLabel} יוסיף מקומות למבצעים ידניים ולפעילות הזמנת חברים פעילה.`
+        : 'שדרוג למסלול מתקדם יותר יוסיף מקומות למבצעים ידניים ולפעילות הזמנת חברים פעילה.',
     benefits: [
-      'המכסה כוללת קמפיינים ידניים וקמפיין הפניות פעיל',
+      'המכסה כוללת מבצעים ידניים ופעילות הזמנת חברים פעילה',
       'גמישות באוטומציה ומבצעים',
     ],
-    upgradeAreaLabel: 'מגבלת קמפיינים',
+    upgradeAreaLabel: 'מגבלת מבצעים',
   },
   maxAiExecutionsPerMonth: {
     sectionTitle: 'מגבלת AI חודשית',
@@ -148,7 +148,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
         : 'פעולות AI מתחילות ממסלול Pro (0 ב-Starter, 100 ב-Pro, 300 ב-Premium). שדרוג למסלול מתקדם מגדיל מכסת AI חודשית.',
     benefits: [
       'Starter: 0 \u00b7 Pro: 100 \u00b7 Premium: 300 פעולות AI בחודש',
-      'המלצות חכמות וניסוח AI לקוחות וקמפיינים',
+      'המלצות חכמות וניסוח AI ללקוחות ולמבצעים',
     ],
     upgradeAreaLabel: 'מגבלת AI חודשית',
   },

@@ -235,10 +235,10 @@ export default function BusinessReferralSettingsScreen() {
         entitlementError.limitKey === 'maxCampaigns'
       ) {
         Alert.alert(
-          'מכסת קמפיינים מלאה',
+          'מכסת מבצעים מלאה',
           `${entitlementErrorToHebrewMessage(
             entitlementError
-          )}\n\nקמפיין הפניות פעיל נספר כמקום אחד במכסת הקמפיינים. אפשר לכבות או לארכב קמפיין קיים, או לשדרג מסלול כדי להפעיל הפניות.`,
+          )}\n\nפעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת המבצעים. אפשר לכבות אותה, לארכב מבצע קיים, או לשדרג מסלול כדי להפעיל הזמנות.`,
           [
             { text: 'סגור', style: 'cancel' },
             {
@@ -383,7 +383,7 @@ export default function BusinessReferralSettingsScreen() {
                 </Pressable>
               </View>
               <Text style={styles.quotaNote}>
-                קמפיין הפניות פעיל נספר כמקום אחד במכסת הקמפיינים של המסלול.
+                פעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת המבצעים של המסלול.
                 כשההפניות כבויות, הן לא נספרות במכסה.
               </Text>
 

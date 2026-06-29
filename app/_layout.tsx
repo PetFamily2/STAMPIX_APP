@@ -154,7 +154,7 @@ class RootErrorBoundary extends React.Component<
           }}
         >
           <Text style={{ color: 'red', fontSize: 16 }}>
-            {this.state.error?.message ?? 'Unknown error'}
+            {this.state.error?.message ?? 'שגיאה לא ידועה'}
           </Text>
         </View>
       );

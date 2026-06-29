@@ -123,7 +123,7 @@ function BillingDiscountBadge({ percent, animate }: BillingDiscountBadgeProps) {
         },
       ]}
     >
-      <Text style={styles.billingOptionDiscountBadgeText}>{percent}% OFF</Text>
+      <Text style={styles.billingOptionDiscountBadgeText}>{percent}% הנחה</Text>
     </Animated.View>
   );
 }
