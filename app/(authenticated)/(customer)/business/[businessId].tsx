@@ -208,10 +208,7 @@ export default function CustomerBusinessDetailsScreen() {
     } catch (error) {
       setFeedback({
         type: 'error',
-        message:
-          error instanceof Error && error.message
-            ? error.message
-            : TEXT.joinFailed,
+        message: TEXT.joinFailed,
       });
     } finally {
       setIsJoining(false);

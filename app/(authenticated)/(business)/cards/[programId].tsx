@@ -375,10 +375,7 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(
-        TEXT.errorTitle,
-        error instanceof Error ? error.message : TEXT.saveFailed
-      );
+      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -454,10 +451,7 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(
-        TEXT.errorTitle,
-        error instanceof Error ? error.message : TEXT.saveFailed
-      );
+      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -503,10 +497,7 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(
-        TEXT.errorTitle,
-        error instanceof Error ? error.message : TEXT.saveFailed
-      );
+      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -557,10 +548,7 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(
-        TEXT.errorTitle,
-        error instanceof Error ? error.message : TEXT.saveFailed
-      );
+      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
     } finally {
       setIsSubmitting(false);
     }

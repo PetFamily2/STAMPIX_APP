@@ -306,11 +306,8 @@ export function LoyaltyCardsHubContent() {
           businessId: String(activeBusinessId),
         },
       });
-    } catch (error) {
-      Alert.alert(
-        TEXT.errorTitle,
-        error instanceof Error ? error.message : TEXT.createFailed
-      );
+    } catch {
+      Alert.alert(TEXT.errorTitle, TEXT.createFailed);
     } finally {
       setIsCreating(false);
     }

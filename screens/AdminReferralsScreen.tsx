@@ -164,11 +164,8 @@ export default function AdminReferralsScreen() {
       setPendingActionKey(key);
       await action();
       Alert.alert('', successMessage);
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'הפעולה נכשלה'
-      );
+    } catch {
+      Alert.alert('שגיאה', 'הפעולה נכשלה');
     } finally {
       setPendingActionKey(null);
     }

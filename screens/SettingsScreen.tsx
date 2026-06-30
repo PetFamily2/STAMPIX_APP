@@ -152,10 +152,10 @@ const TEXT = {
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
+    return fallback;
   }
   if (typeof error === 'string' && error.trim().length > 0) {
-    return error;
+    return fallback;
   }
   return fallback;
 }

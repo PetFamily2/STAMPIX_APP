@@ -87,7 +87,7 @@ function toErrorMessage(error: unknown) {
     case 'MESSAGE_TOO_LONG':
       return TEXT.messageTooLong;
     default:
-      return error.message.trim().length > 0 ? error.message : TEXT.sendFailed;
+      return TEXT.sendFailed;
   }
 }
 

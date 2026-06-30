@@ -221,13 +221,8 @@ export default function BusinessSettingsScreen() {
             try {
               await selfRemoveFromBusiness({ businessId: activeBusinessId });
               await goToPrivateArea();
-            } catch (error) {
-              Alert.alert(
-                'שגיאה',
-                error instanceof Error && error.message
-                  ? error.message
-                  : 'לא הצלחנו לעזוב את העסק. נסו שוב.'
-              );
+            } catch {
+              Alert.alert('שגיאה', 'לא הצלחנו לעזוב את העסק. נסו שוב.');
             } finally {
               setIsLeavingBusiness(false);
             }

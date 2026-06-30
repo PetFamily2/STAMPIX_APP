@@ -112,7 +112,7 @@ function toErrorMessage(error: unknown, fallback: string) {
       case 'PLACE_ID_REQUIRED':
         return TEXT.placeDetailsError;
       default:
-        return error.message;
+        return fallback;
     }
   }
 

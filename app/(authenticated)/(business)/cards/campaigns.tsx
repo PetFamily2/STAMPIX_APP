@@ -442,10 +442,7 @@ export function CampaignsHubContent() {
         );
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'שחזור מבצע נכשל.'
-      );
+      Alert.alert('שגיאה', 'שחזור מבצע נכשל.');
     } finally {
       setBusyCampaignId(null);
     }

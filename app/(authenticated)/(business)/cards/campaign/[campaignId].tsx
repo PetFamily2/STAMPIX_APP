@@ -534,10 +534,7 @@ export default function CampaignDraftEditorScreen() {
       if (handleEntitlementError(error)) {
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'יצירת מבצע נכשלה.'
-      );
+      Alert.alert('שגיאה', 'יצירת מבצע נכשלה.');
     } finally {
       setIsCreatingDraft(null);
     }
@@ -565,10 +562,7 @@ export default function CampaignDraftEditorScreen() {
       if (handleEntitlementError(error)) {
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'יצירת מבצע נכשלה.'
-      );
+      Alert.alert('שגיאה', 'יצירת מבצע נכשלה.');
     } finally {
       setIsCreatingDraft(null);
     }
@@ -1022,10 +1016,7 @@ export default function CampaignDraftEditorScreen() {
         );
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'לא הצלחנו לעדכן מצב אוטומציה.'
-      );
+      Alert.alert('שגיאה', 'לא הצלחנו לעדכן מצב אוטומציה.');
     } finally {
       setIsTogglingAutomation(false);
     }
@@ -1080,10 +1071,7 @@ export default function CampaignDraftEditorScreen() {
         );
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'שמירת טיוטה נכשלה.'
-      );
+      Alert.alert('שגיאה', 'שמירת טיוטה נכשלה.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1193,10 +1181,7 @@ export default function CampaignDraftEditorScreen() {
         );
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'שמירה או שליחה נכשלו.'
-      );
+      Alert.alert('שגיאה', 'שמירה או שליחה נכשלו.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1290,10 +1275,7 @@ export default function CampaignDraftEditorScreen() {
         );
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'שמירה או תזמון נכשלו.'
-      );
+      Alert.alert('שגיאה', 'שמירה או תזמון נכשלו.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1368,10 +1350,7 @@ export default function CampaignDraftEditorScreen() {
                 );
                 return;
               }
-              Alert.alert(
-                'שגיאה',
-                error instanceof Error ? error.message : 'העברה לארכיון נכשלה.'
-              );
+              Alert.alert('שגיאה', 'העברה לארכיון נכשלה.');
             } finally {
               setIsArchiving(false);
             }

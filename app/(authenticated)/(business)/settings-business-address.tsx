@@ -39,7 +39,7 @@ function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
     switch (error.message) {
       case 'GOOGLE_MAPS_API_KEY_MISSING':
-        return 'חסר EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ולכן לא ניתן לטעון כתובות.';
+        return 'חיפוש הכתובת לא זמין כרגע. אפשר להזין את הכתובת ידנית ולהמשיך.';
       case 'PLACES_AUTOCOMPLETE_REQUEST_FAILED':
       case 'PLACES_AUTOCOMPLETE_FAILED':
         return 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.';
@@ -48,7 +48,7 @@ function toErrorMessage(error: unknown, fallback: string) {
       case 'PLACE_ID_REQUIRED':
         return 'לא הצלחנו לטעון את פרטי הכתובת. נסו לבחור שוב.';
       default:
-        return error.message;
+        return fallback;
     }
   }
   return fallback;

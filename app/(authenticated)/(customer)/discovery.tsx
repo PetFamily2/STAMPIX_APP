@@ -183,7 +183,7 @@ function toLocationErrorMessage(error: string | null) {
     case 'LOCATION_PERMISSION_CHECK_FAILED':
       return 'לא הצלחנו לקבל את הרשאת המיקום.';
     default:
-      return error;
+      return 'לא הצלחנו לטעון את המיקום שלך.';
   }
 }
 

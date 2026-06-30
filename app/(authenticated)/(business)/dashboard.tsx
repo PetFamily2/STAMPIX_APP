@@ -575,11 +575,8 @@ ${joinUrl}`;
         return openRoute('/(authenticated)/(business)/customers');
       }
       return await openRecommendationTarget(card.primaryCta);
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'לא הצלחנו לפתוח את ההמלצה.'
-      );
+    } catch {
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ההמלצה.');
     } finally {
       setApplyingRecommendationKey(null);
     }

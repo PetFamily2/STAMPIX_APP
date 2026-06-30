@@ -369,10 +369,7 @@ export function CustomersHubContent() {
         return;
       }
 
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error ? error.message : 'יצירת מבצע החזרה נכשלה.'
-      );
+      Alert.alert('שגיאה', 'יצירת מבצע החזרה נכשלה.');
     } finally {
       setIsCreatingWinbackCampaign(false);
     }

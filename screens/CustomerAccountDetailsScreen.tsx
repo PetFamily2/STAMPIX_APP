@@ -182,13 +182,8 @@ export default function CustomerAccountDetailsScreen() {
       await setMyPhone({ phone: phoneInput.trim() });
       setIsEditingPhone(false);
       Alert.alert('נשמר', TEXT.phoneSaved);
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error && error.message
-          ? error.message
-          : TEXT.phoneError
-      );
+    } catch {
+      Alert.alert('שגיאה', TEXT.phoneError);
     } finally {
       setIsSavingPhone(false);
     }
@@ -220,13 +215,8 @@ export default function CustomerAccountDetailsScreen() {
         anniversaryMonth: anniversaryMonthValue,
       });
       Alert.alert('נשמר', TEXT.marketingSaved);
-    } catch (error) {
-      Alert.alert(
-        'שגיאה',
-        error instanceof Error && error.message
-          ? error.message
-          : TEXT.marketingError
-      );
+    } catch {
+      Alert.alert('שגיאה', TEXT.marketingError);
     } finally {
       setIsSavingMarketing(false);
     }

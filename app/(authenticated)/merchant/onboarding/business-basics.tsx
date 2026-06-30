@@ -235,7 +235,7 @@ function sanitizeServiceTags(value: string[] | undefined) {
 
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
+    return fallback;
   }
   return fallback;
 }
