@@ -6,6 +6,7 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -54,7 +55,16 @@ const TEXT = {
   sortDistance: 'מרחק',
   sortServiceType: 'סוג עסק',
   unclassified: 'לא סווג',
+  mapUnavailableTitle: 'המפה לא זמינה בתצוגה הזו',
+  mapUnavailableSubtitle:
+    'אפשר עדיין לראות עסקים קרובים ברשימה ולהצטרף דרך QR בבית העסק.',
 };
+
+const HAS_GOOGLE_MAPS_API_KEY = Boolean(
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()
+);
+const CAN_RENDER_NATIVE_MAP =
+  Platform.OS !== 'android' || HAS_GOOGLE_MAPS_API_KEY;
 
 type BusinessServiceType =
   | 'food_drink'
@@ -549,39 +559,50 @@ export default function DiscoveryScreen() {
               </View>
 
               <View style={styles.mapShell}>
-                <MapView
-                  style={styles.map}
-                  region={{
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    latitudeDelta: mapDelta,
-                    longitudeDelta: mapDelta,
-                  }}
-                >
-                  <Marker
-                    coordinate={{
+                {CAN_RENDER_NATIVE_MAP ? (
+                  <MapView
+                    style={styles.map}
+                    region={{
                       latitude: coords.latitude,
                       longitude: coords.longitude,
+                      latitudeDelta: mapDelta,
+                      longitudeDelta: mapDelta,
                     }}
-                    pinColor="#FF6B57"
-                    title={TEXT.myLocation}
-                  />
-
-                  {nearbyBusinesses.map((business) => (
+                  >
                     <Marker
-                      key={business.businessId}
                       coordinate={{
-                        latitude: business.lat,
-                        longitude: business.lng,
+                        latitude: coords.latitude,
+                        longitude: coords.longitude,
                       }}
-                      pinColor="#2F6BFF"
-                      title={business.name}
-                      description={
-                        business.formattedAddress || TEXT.addressFallback
-                      }
+                      pinColor="#FF6B57"
+                      title={TEXT.myLocation}
                     />
-                  ))}
-                </MapView>
+
+                    {nearbyBusinesses.map((business) => (
+                      <Marker
+                        key={business.businessId}
+                        coordinate={{
+                          latitude: business.lat,
+                          longitude: business.lng,
+                        }}
+                        pinColor="#2F6BFF"
+                        title={business.name}
+                        description={
+                          business.formattedAddress || TEXT.addressFallback
+                        }
+                      />
+                    ))}
+                  </MapView>
+                ) : (
+                  <View style={styles.mapFallback}>
+                    <Text style={styles.mapFallbackTitle}>
+                      {TEXT.mapUnavailableTitle}
+                    </Text>
+                    <Text style={styles.mapFallbackSubtitle}>
+                      {TEXT.mapUnavailableSubtitle}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -868,6 +889,29 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 18,
+    gap: 8,
+  },
+  mapFallbackTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  mapFallbackSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 18,
   },
   resultsList: {
     marginTop: 14,

@@ -19,6 +19,7 @@ type ReferralTab = 'pending' | 'completed' | 'rewards';
 const EMPTY_TITLE = 'עדיין אין הזמנות';
 const EMPTY_BODY =
   'אחרי שתצטרפו לעסק עם כרטיסייה פעילה, תוכלו להזמין חברים ולעקוב כאן אחרי ההטבות.';
+const EMPTY_ACTION = 'לגלות עסקים';
 
 function formatDateTime(value: number | null) {
   if (!value) {
@@ -106,11 +107,22 @@ function mapRewardHint(reward: any): string {
   return 'לא הצלחנו לזהות את מצב ההטבה';
 }
 
-function EmptyReferralState() {
+function EmptyReferralState({ onPress }: { onPress: () => void }) {
   return (
     <View style={styles.emptyCard}>
       <Text style={styles.emptyTitle}>{EMPTY_TITLE}</Text>
       <Text style={styles.emptyBody}>{EMPTY_BODY}</Text>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.emptyActionButton,
+          pressed ? styles.emptyActionButtonPressed : null,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={EMPTY_ACTION}
+      >
+        <Text style={styles.emptyActionButtonText}>{EMPTY_ACTION}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -235,7 +247,11 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'pending' ? (
           <View style={styles.section}>
             {pendingReferrals.length === 0 ? (
-              <EmptyReferralState />
+              <EmptyReferralState
+                onPress={() =>
+                  router.push('/(authenticated)/(customer)/discovery')
+                }
+              />
             ) : (
               pendingReferrals.map((item) => (
                 <View key={String(item.referralId)} style={styles.itemCard}>
@@ -254,7 +270,11 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'completed' ? (
           <View style={styles.section}>
             {completedReferrals.length === 0 ? (
-              <EmptyReferralState />
+              <EmptyReferralState
+                onPress={() =>
+                  router.push('/(authenticated)/(customer)/discovery')
+                }
+              />
             ) : (
               completedReferrals.map((item) => (
                 <View key={String(item.referralId)} style={styles.itemCard}>
@@ -276,7 +296,11 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'rewards' ? (
           <View style={styles.section}>
             {(rewards ?? []).length === 0 ? (
-              <EmptyReferralState />
+              <EmptyReferralState
+                onPress={() =>
+                  router.push('/(authenticated)/(customer)/discovery')
+                }
+              />
             ) : (
               (rewards ?? []).map((item) => (
                 <View key={String(item.rewardId)} style={styles.itemCard}>
@@ -423,5 +447,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
     lineHeight: 19,
+  },
+  emptyActionButton: {
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  emptyActionButtonPressed: {
+    opacity: 0.86,
+  },
+  emptyActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

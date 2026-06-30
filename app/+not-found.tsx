@@ -1,32 +1,26 @@
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { safeBack } from '@/lib/navigation';
+
 const TEXT = {
-  title: 'לא נמצא מסלול תואם',
-  subtitle: 'הקישור שפתח את האפליקציה לא תואם למסך קיים חוזרים להתחברות רגילה',
-  action: 'חזרה להתחברות',
-  debugPrefix: 'מסלול שהתקבל:',
+  title: 'העמוד לא נמצא',
+  subtitle: 'הקישור שנפתח לא זמין או שהועבר למקום אחר.',
+  action: 'חזרה',
 };
 
 export default function NotFoundScreen() {
-  const router = useRouter();
-  const pathname = usePathname();
-
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: 'לא נמצא' }} />
 
       <View style={styles.content}>
         <Text style={styles.title}>{TEXT.title}</Text>
-
-        <View style={styles.debugBox}>
-          <Text style={styles.debugLabel}>{TEXT.debugPrefix}</Text>
-          <Text style={styles.debugValue}>{pathname || '/'}</Text>
-        </View>
+        <Text style={styles.subtitle}>{TEXT.subtitle}</Text>
 
         <Pressable
-          onPress={() => router.replace('/(auth)/sign-up')}
+          onPress={() => safeBack('/(auth)/sign-up')}
           accessibilityRole="button"
           accessibilityLabel={TEXT.action}
         >
@@ -64,30 +58,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 20,
-  },
-  debugBox: {
-    marginTop: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#dbe3f4',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  debugLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    fontWeight: '700',
-  },
-  debugValue: {
-    fontSize: 12,
-    color: '#0f172a',
-    textAlign: 'left',
-    writingDirection: 'ltr',
-    fontWeight: '600',
   },
   button: {
     marginTop: 8,

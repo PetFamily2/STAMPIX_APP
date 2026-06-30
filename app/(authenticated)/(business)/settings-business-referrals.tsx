@@ -102,6 +102,36 @@ function getRewardStatusLabel(value: string | null | undefined) {
   return 'סטטוס לא ידוע';
 }
 
+function EmptyReferralActionState({
+  title,
+  body,
+  action,
+  onPress,
+}: {
+  title: string;
+  body: string;
+  action: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.emptyActionCard}>
+      <Text style={styles.emptyActionTitle}>{title}</Text>
+      <Text style={styles.emptyText}>{body}</Text>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.emptyActionButton,
+          pressed ? styles.pressed : null,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={action}
+      >
+        <Text style={styles.emptyActionButtonText}>{action}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function BusinessReferralSettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -637,7 +667,12 @@ export default function BusinessReferralSettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>לקוחות שהופנו</Text>
               {customersQuery.length === 0 ? (
-                <Text style={styles.emptyText}>עדיין אין לקוחות שהופנו.</Text>
+                <EmptyReferralActionState
+                  title="עדיין אין לקוחות שהופנו"
+                  body="אחרי שתשתפו הזמנה ולקוחות יצטרפו דרכה, הם יופיעו כאן."
+                  action="להגדרות ושיתוף"
+                  onPress={() => setActiveTab('settings')}
+                />
               ) : (
                 customersQuery.map((row) => (
                   <View key={String(row.referralId)} style={styles.listRow}>
@@ -668,7 +703,12 @@ export default function BusinessReferralSettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>תגמולי הפניה שהונפקו</Text>
               {rewardsQuery.length === 0 ? (
-                <Text style={styles.emptyText}>אין תגמולים להצגה.</Text>
+                <EmptyReferralActionState
+                  title="אין תגמולים להצגה"
+                  body="תגמולים שיונפקו בעקבות הזמנות חברים יוצגו כאן."
+                  action="להגדרות ושיתוף"
+                  onPress={() => setActiveTab('settings')}
+                />
               ) : (
                 rewardsQuery.map((row) => (
                   <View key={String(row.rewardId)} style={styles.listRow}>
@@ -699,9 +739,12 @@ export default function BusinessReferralSettingsScreen() {
           ) : isPerformanceEmpty ? (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>ביצועים</Text>
-              <Text style={styles.emptyText}>
-                עדיין אין נתוני ביצועים להפניות.
-              </Text>
+              <EmptyReferralActionState
+                title="עדיין אין נתוני ביצועים להפניות"
+                body="אחרי שתשתפו הזמנה ותתחיל פעילות, נתוני הביצועים יתעדכנו כאן."
+                action="להגדרות ושיתוף"
+                onPress={() => setActiveTab('settings')}
+              />
             </View>
           ) : (
             <View style={styles.card}>
@@ -974,6 +1017,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     textAlign: 'right',
+  },
+  emptyActionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    gap: 8,
+  },
+  emptyActionTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'right',
+  },
+  emptyActionButton: {
+    alignSelf: 'flex-end',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  emptyActionButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   listRow: {
     borderRadius: 12,

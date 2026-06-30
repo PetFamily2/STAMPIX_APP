@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -70,14 +71,23 @@ const TEXT = {
   manualPinCta: 'אשור כתובת ידנית על המפה',
   manualPinRequired: 'כדי להמשיך, הקלידו כתובת ובחרו מיקום על המפה.',
   googleKeyMissing:
-    'חסר EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ולכן לא ניתן לטעון השלמת כתובת.',
+    'חיפוש הכתובת לא זמין כרגע. אפשר להזין את הכתובת ידנית ולהמשיך.',
   autocompleteError: 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.',
   placeDetailsError: 'לא הצלחנו לטעון את פרטי הכתובת. נסו לבחור שוב.',
   createError: 'שגיאה ביצירת העסק',
   updateError: 'שגיאה בעדכון כתובת העסק',
   cityFallback: 'ללא עיר',
   streetFallback: 'ללא רחוב',
+  mapUnavailableTitle: 'המפה לא זמינה בתצוגה הזו',
+  mapUnavailableSubtitle:
+    'בתצוגה המקדימה הזו אפשר להמשיך עם כתובת שנבחרה או לאתר כתובת לפי הטקסט שהוזן.',
 };
+
+const HAS_GOOGLE_MAPS_API_KEY = Boolean(
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()
+);
+const CAN_RENDER_NATIVE_MAP =
+  Platform.OS !== 'android' || HAS_GOOGLE_MAPS_API_KEY;
 
 const CREATE_BUSINESS_COPY = {
   title: 'יצירת העסק',
@@ -820,64 +830,96 @@ export default function CreateBusinessScreen() {
               <View style={styles.mapBlock}>
                 <Text style={styles.label}>{TEXT.mapLabel}</Text>
                 <View style={styles.mapShell}>
-                  <MapView
-                    style={styles.map}
-                    pointerEvents="none"
-                    region={{
-                      latitude,
-                      longitude,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
-                  >
-                    <Marker coordinate={{ latitude, longitude }} />
-                  </MapView>
+                  {CAN_RENDER_NATIVE_MAP ? (
+                    <MapView
+                      style={styles.map}
+                      pointerEvents="none"
+                      region={{
+                        latitude,
+                        longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                    >
+                      <Marker coordinate={{ latitude, longitude }} />
+                    </MapView>
+                  ) : (
+                    <View style={styles.mapFallback}>
+                      <Text style={styles.mapFallbackTitle}>
+                        {TEXT.mapUnavailableTitle}
+                      </Text>
+                      <Text style={styles.mapFallbackSubtitle}>
+                        {TEXT.mapUnavailableSubtitle}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
           ) : (
             <View style={styles.emptyPreviewCard}>
-              <Text style={styles.emptyPreviewTitle}>
-                {TEXT.manualPinTitle}
-              </Text>
-              <Text style={styles.emptyPreviewText}>
-                {TEXT.manualPinSubtitle}
-              </Text>
+              {CAN_RENDER_NATIVE_MAP ? (
+                <>
+                  <Text style={styles.emptyPreviewTitle}>
+                    {TEXT.manualPinTitle}
+                  </Text>
+                  <Text style={styles.emptyPreviewText}>
+                    {TEXT.manualPinSubtitle}
+                  </Text>
+                </>
+              ) : null}
               <View style={styles.mapBlock}>
                 <Text style={styles.label}>{TEXT.mapLabel}</Text>
                 <View style={styles.mapShell}>
-                  <MapView
-                    style={styles.map}
-                    region={manualMapRegion}
-                    onRegionChangeComplete={(region) => {
-                      setManualMapRegion(region);
-                    }}
-                    onPress={(event) => {
-                      const { latitude, longitude } =
-                        event.nativeEvent.coordinate;
-                      handleManualMapPress(latitude, longitude);
-                    }}
-                  >
-                    {manualMarker ? <Marker coordinate={manualMarker} /> : null}
-                  </MapView>
+                  {CAN_RENDER_NATIVE_MAP ? (
+                    <MapView
+                      style={styles.map}
+                      region={manualMapRegion}
+                      onRegionChangeComplete={(region) => {
+                        setManualMapRegion(region);
+                      }}
+                      onPress={(event) => {
+                        const { latitude, longitude } =
+                          event.nativeEvent.coordinate;
+                        handleManualMapPress(latitude, longitude);
+                      }}
+                    >
+                      {manualMarker ? (
+                        <Marker coordinate={manualMarker} />
+                      ) : null}
+                    </MapView>
+                  ) : (
+                    <View style={styles.mapFallback}>
+                      <Text style={styles.mapFallbackTitle}>
+                        {TEXT.mapUnavailableTitle}
+                      </Text>
+                      <Text style={styles.mapFallbackSubtitle}>
+                        {TEXT.mapUnavailableSubtitle}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
-              <Pressable
-                onPress={() => {
-                  void handleConfirmManualPin();
-                }}
-                style={({ pressed }) => [
-                  styles.manualResolveButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Text style={styles.manualResolveButtonText}>
-                  {TEXT.manualPinCta}
-                </Text>
-              </Pressable>
-              <Text style={styles.emptyPreviewText}>
-                {TEXT.manualPinRequired}
-              </Text>
+              {CAN_RENDER_NATIVE_MAP ? (
+                <>
+                  <Pressable
+                    onPress={() => {
+                      void handleConfirmManualPin();
+                    }}
+                    style={({ pressed }) => [
+                      styles.manualResolveButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.manualResolveButtonText}>
+                      {TEXT.manualPinCta}
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.emptyPreviewText}>
+                    {TEXT.manualPinRequired}
+                  </Text>
+                </>
+              ) : null}
             </View>
           )}
 
@@ -1087,6 +1129,29 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 18,
+    gap: 8,
+  },
+  mapFallbackTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111827',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  mapFallbackSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 18,
   },
   emptyPreviewCard: {
     borderRadius: 20,

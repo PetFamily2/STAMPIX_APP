@@ -327,7 +327,7 @@ export default function CardDetailsScreen() {
   };
 
   const buildInviteMessage = (url: string) =>
-    `Join me at ${membership.businessName} on StampAix and get a welcome reward after the first stamp.\n${url}`;
+    `הצטרפו אליי ל-${membership.businessName} ב-StampAix וקבלו הטבת היכרות אחרי הניקוב הראשון.\n${url}`;
 
   const handleShareInviteViaWhatsApp = async () => {
     if (isShareInviteLoading) {
@@ -350,7 +350,7 @@ export default function CardDetailsScreen() {
         await Share.share({ message });
       }
     } catch {
-      Alert.alert('Error', TEXT.shareInviteError);
+      Alert.alert('שגיאה', TEXT.shareInviteError);
     } finally {
       setIsShareInviteLoading(false);
     }
@@ -381,7 +381,7 @@ export default function CardDetailsScreen() {
       }
       Alert.alert('', TEXT.inviteLinkCopied);
     } catch {
-      Alert.alert('Error', TEXT.shareInviteError);
+      Alert.alert('שגיאה', TEXT.shareInviteError);
     } finally {
       setIsShareInviteLoading(false);
     }
