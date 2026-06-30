@@ -62,6 +62,7 @@ type BusinessRoute =
   | '/(authenticated)/(business)/campaigns'
   | '/(authenticated)/(business)/customers'
   | '/(authenticated)/(business)/programs'
+  | '/(authenticated)/(business)/qr'
   | '/(authenticated)/(business)/settings'
   | '/(authenticated)/(business)/analytics'
   | '/(authenticated)/(business)/settings-business-profile'
@@ -74,6 +75,8 @@ type RecommendationActionKind =
   | 'open_campaign_draft'
   | 'open_cards'
   | 'open_campaigns'
+  | 'open_qr'
+  | 'open_scanner'
   | 'open_profile'
   | 'view_analytics'
   | 'view_customers'
@@ -139,30 +142,39 @@ function _buildKpiTrend(value: number, previousValue: number) {
   };
 }
 
-function buildEmptyRecommendationCards(): DashboardRecommendationCard[] {
+function buildFirstActionRecommendationCards(): DashboardRecommendationCard[] {
   return [
     {
-      key: 'at_risk_customers',
-      title: 'לקוחות בסיכון',
-      body: '2 לקוחות בדרך לאיבוד. כדאי לפעול עכשיו.',
+      key: 'share_join_qr',
+      title: 'שתפו QR להצטרפות',
+      body: 'הדרך הכי מהירה להתחיל היא להציג את קוד ההצטרפות בקופה או לשלוח אותו ללקוחות.',
       evidenceTags: [],
-      tone: 'critical',
+      tone: 'neutral',
       primaryCta: {
-        kind: 'view_customers',
-        label: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
-        customerFilter: 'at_risk',
+        kind: 'open_qr',
+        label: 'הצגת QR',
       },
     },
     {
-      key: 'return_campaign',
-      title: 'הפעל מבצע החזרת לקוחות',
-      body: 'יש לקוחות שלא ביקרו ב-30 הימים האחרונים.',
+      key: 'scan_first_customer',
+      title: 'סרקו לקוח ראשון',
+      body: 'כשלקוח מצטרף, אפשר לתת ניקוב ראשון מהסורק.',
       evidenceTags: [],
-      tone: 'warning',
+      tone: 'success',
       primaryCta: {
-        kind: 'open_campaign_draft',
-        label: 'צור מבצע',
-        draftType: 'winback',
+        kind: 'open_scanner',
+        label: 'פתיחת סורק',
+      },
+    },
+    {
+      key: 'review_card',
+      title: 'בדקו את הכרטיסייה',
+      body: 'ודאו שהתגמול, מספר החותמות והתנאים ברורים ללקוחות.',
+      evidenceTags: [],
+      tone: 'neutral',
+      primaryCta: {
+        kind: 'open_cards',
+        label: 'ניהול כרטיסיות',
       },
     },
   ];
@@ -332,10 +344,32 @@ export default function BusinessDashboardScreen() {
     },
   ];
 
+  const lifetimeCustomers = Number(
+    lifetimeMetrics?.totalCustomersJoinedAllTime
+  );
+  const lifetimeStamps = Number(lifetimeMetrics?.totalStampsAllTime);
+  const lifetimeRedemptions = Number(
+    lifetimeMetrics?.totalRedemptionsAllTime
+  );
+  const isFirstBusinessExperience =
+    dashboardSummary !== undefined &&
+    lifetimeMetrics != null &&
+    Number.isFinite(lifetimeCustomers) &&
+    Number.isFinite(lifetimeStamps) &&
+    Number.isFinite(lifetimeRedemptions) &&
+    lifetimeCustomers <= 0 &&
+    lifetimeStamps <= 0 &&
+    lifetimeRedemptions <= 0;
+
   const recommendationCards = useMemo(() => {
     const cards = (dashboardSummary?.recommendations?.cards ??
       []) as DashboardRecommendationCard[];
-    const source = cards.length > 0 ? cards : buildEmptyRecommendationCards();
+    const source =
+      cards.length > 0
+        ? cards
+        : isFirstBusinessExperience
+          ? buildFirstActionRecommendationCards()
+          : [];
     const normalized = source.map((card) => ({
       ...card,
       primaryCtaLabel: resolveDashboardCustomerInsightsNavLabel(
@@ -346,7 +380,11 @@ export default function BusinessDashboardScreen() {
     const hasAtRiskTask = normalized.some(
       (card) => card.key === 'at_risk_task'
     );
-    if (!hasAtRiskTask) {
+    if (
+      !isFirstBusinessExperience &&
+      !hasAtRiskTask &&
+      (kpis?.atRiskCustomers ?? 0) > 0
+    ) {
       normalized.unshift({
         key: 'at_risk_task',
         title: 'לקוחות בסיכון',
@@ -362,7 +400,7 @@ export default function BusinessDashboardScreen() {
       });
     }
     return normalized;
-  }, [dashboardSummary, kpis?.atRiskCustomers]);
+  }, [dashboardSummary, isFirstBusinessExperience, kpis?.atRiskCustomers]);
 
   const openRoute = (route: BusinessRoute) => router.push(route as never);
   const teamSeatStatus = teamSummary
@@ -444,6 +482,12 @@ export default function BusinessDashboardScreen() {
     }
     if (primaryCta.kind === 'open_campaigns') {
       return openRoute('/(authenticated)/(business)/campaigns');
+    }
+    if (primaryCta.kind === 'open_qr') {
+      return openRoute('/(authenticated)/(business)/qr');
+    }
+    if (primaryCta.kind === 'open_scanner') {
+      return openRoute('/(authenticated)/(business)/scanner');
     }
     if (primaryCta.kind === 'open_profile') {
       return openRoute('/(authenticated)/(business)/settings-business-profile');
@@ -591,7 +635,62 @@ ${joinUrl}`;
                   .usageWarnings ?? []) as string[])
               : []
           }
+          isFirstBusinessExperience={isFirstBusinessExperience}
         />
+
+        {isFirstBusinessExperience ? (
+          <View style={styles.firstActionCard}>
+            <View style={styles.firstActionIconWrap}>
+              <Ionicons name="checkmark-circle" size={24} color="#16A34A" />
+            </View>
+            <View style={styles.firstActionCopy}>
+              <Text className={tw.textStart} style={styles.firstActionTitle}>
+                הכרטיסייה פורסמה
+              </Text>
+              <Text className={tw.textStart} style={styles.firstActionBody}>
+                עכשיו כדאי לשתף את קוד ההצטרפות או לסרוק לקוח ראשון בקופה.
+                אחרי שלקוחות יצטרפו, המדדים וההמלצות יתעדכנו כאן.
+              </Text>
+            </View>
+            <View style={styles.firstActionButtons}>
+              <Pressable
+                onPress={() => openRoute('/(authenticated)/(business)/qr')}
+                style={({ pressed }) => [
+                  styles.firstActionPrimaryButton,
+                  pressed ? styles.firstActionButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.firstActionPrimaryText}>הצגת QR</Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  openRoute('/(authenticated)/(business)/scanner')
+                }
+                style={({ pressed }) => [
+                  styles.firstActionSecondaryButton,
+                  pressed ? styles.firstActionButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.firstActionSecondaryText}>
+                  סריקת לקוח
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  openRoute('/(authenticated)/(business)/programs')
+                }
+                style={({ pressed }) => [
+                  styles.firstActionSecondaryButton,
+                  pressed ? styles.firstActionButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.firstActionSecondaryText}>
+                  עריכת כרטיסייה
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
@@ -844,6 +943,87 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
     ...rtlBaseView,
+  },
+  firstActionCard: {
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 20,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+    ...rtlBaseView,
+  },
+  firstActionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  firstActionCopy: {
+    gap: 5,
+  },
+  firstActionTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '900',
+    color: '#14532D',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  firstActionBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#166534',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  firstActionButtons: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 10,
+    ...rtlBaseView,
+  },
+  firstActionPrimaryButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  firstActionSecondaryButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  firstActionButtonPressed: {
+    opacity: 0.86,
+  },
+  firstActionPrimaryText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  firstActionSecondaryText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#166534',
+    textAlign: 'center',
   },
   sectionTitleRow: {
     flexDirection: flexDirection.row,

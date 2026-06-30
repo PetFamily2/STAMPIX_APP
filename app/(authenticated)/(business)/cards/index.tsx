@@ -110,6 +110,7 @@ const toStampShape = (value: string): StampShape => {
 
 function ProgramListSection({
   title,
+  emptyTitle,
   emptyText,
   programs,
   businessName,
@@ -120,6 +121,7 @@ function ProgramListSection({
   onToggleExpand,
 }: {
   title: string;
+  emptyTitle?: string;
   emptyText: string;
   programs: ManagementProgram[];
   businessName: string;
@@ -159,9 +161,16 @@ function ProgramListSection({
 
       {shouldRenderContent ? (
         programs.length === 0 ? (
-          <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-            {emptyText}
-          </Text>
+          <View className="gap-1">
+            {emptyTitle ? (
+              <Text className={`text-sm font-black text-[#0F172A] ${tw.textStart}`}>
+                {emptyTitle}
+              </Text>
+            ) : null}
+            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+              {emptyText}
+            </Text>
+          </View>
         ) : (
           programs.map((program) => (
             <TouchableOpacity
@@ -575,7 +584,8 @@ export function LoyaltyCardsHubContent() {
 
         <ProgramListSection
           title={TEXT.activeCardsTitle}
-          emptyText={TEXT.noActiveCards}
+          emptyTitle="אין כרטיסיות פעילות"
+          emptyText="פרסמו כרטיסייה כדי שלקוחות יוכלו להצטרף ולצבור ניקובים."
           programs={activePrograms}
           businessName={businessDisplayName}
           businessLogoUrl={activeBusiness?.logoUrl ?? null}

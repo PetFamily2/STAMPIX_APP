@@ -469,6 +469,9 @@ export default function BusinessTeamManagementScreen() {
     () => activeRows.filter((row) => row.staffRole === 'manager').length,
     [activeRows]
   );
+  const hasOnlyOwnerTeam =
+    activeRows.filter((row) => row.staffRole !== 'owner').length === 0 &&
+    pendingInvites.length === 0;
   const seatUsageLabel = summary
     ? `${summary.usedSeats}/${summary.maxSeats}`
     : '--';
@@ -947,6 +950,14 @@ export default function BusinessTeamManagementScreen() {
                 className={`mt-1 text-xs font-semibold text-amber-700 ${tw.textStart}`}
               >
                 {teamSeatCopy.lockedSubtitle}
+              </Text>
+            </View>
+          ) : null}
+
+          {hasOnlyOwnerTeam ? (
+            <View className="mt-3 rounded-2xl border border-[#DCE7F8] bg-white px-4 py-3">
+              <Text className={`text-sm font-semibold text-[#64748B] ${tw.textStart}`}>
+                רק בעלי העסק נמצאים כרגע בצוות. אפשר להוסיף עובד כשמוכנים לתת גישה לסריקה.
               </Text>
             </View>
           ) : null}

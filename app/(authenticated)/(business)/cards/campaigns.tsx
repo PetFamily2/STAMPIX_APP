@@ -951,9 +951,14 @@ export function CampaignsHubContent() {
               <ActivityIndicator color="#2F6BFF" />
             </View>
           ) : liveCampaigns.length === 0 ? (
-            <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין מבצעים פעילים. לחצו על "צור מבצע" כדי להתחיל.
-            </Text>
+            <View className="gap-1">
+              <Text className={`text-sm font-black text-[#0F172A] ${tw.textStart}`}>
+                עדיין אין מבצעים פעילים
+              </Text>
+              <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
+                מומלץ להתחיל ממבצעים אחרי שיש לקוחות ראשונים בכרטיסייה.
+              </Text>
+            </View>
           ) : (
             liveCampaigns.map((campaign) => renderCampaignCard(campaign))
           )}

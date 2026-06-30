@@ -60,6 +60,48 @@ function normalizeTab(value: string | undefined): ReferralTab {
   return 'settings';
 }
 
+function getRewardTypeLabel(value: RewardType | string | null | undefined) {
+  if (value === 'STAMP') {
+    return 'ניקוב';
+  }
+  if (value === 'BENEFIT') {
+    return 'הטבה';
+  }
+  return 'תגמול';
+}
+
+function getReferralStatusLabel(value: string | null | undefined) {
+  if (value === 'pending') {
+    return 'ממתין';
+  }
+  if (value === 'qualified' || value === 'completed') {
+    return 'הושלם';
+  }
+  if (value === 'skipped') {
+    return 'לא הושלם';
+  }
+  if (value === 'invalid') {
+    return 'לא תקף';
+  }
+  return 'סטטוס לא ידוע';
+}
+
+function getRewardStatusLabel(value: string | null | undefined) {
+  if (value === 'granted') {
+    return 'הונפק';
+  }
+  if (value === 'redeemed') {
+    return 'מומש';
+  }
+  if (value === 'expired') {
+    return 'פג תוקף';
+  }
+  if (value === 'revoked') {
+    return 'בוטל';
+  }
+  return 'סטטוס לא ידוע';
+}
+
 export default function BusinessReferralSettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -541,7 +583,7 @@ export default function BusinessReferralSettingsScreen() {
 
         {activeTab === 'settings' && canViewBilling ? (
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>הפניית עסקים (B2B)</Text>
+            <Text style={styles.sectionTitle}>הזמנת בעלי עסקים</Text>
             <Text style={styles.metricLine}>
               חודשים שזוכו: {b2bSummary?.creditedMonths ?? 0}
             </Text>
@@ -604,7 +646,7 @@ export default function BusinessReferralSettingsScreen() {
                     </Text>
                     <Text style={styles.listSecondary}>
                       מפנה: {row.referrerName ?? row.referrerUserId} ·{' '}
-                      {row.status}
+                      {getReferralStatusLabel(row.status)}
                     </Text>
                   </View>
                 ))
@@ -634,7 +676,8 @@ export default function BusinessReferralSettingsScreen() {
                       {row.recipientName ?? row.recipientUserId}
                     </Text>
                     <Text style={styles.listSecondary}>
-                      {row.actualRewardType} · {row.status}
+                      {getRewardTypeLabel(row.actualRewardType)} ·{' '}
+                      {getRewardStatusLabel(row.status)}
                     </Text>
                   </View>
                 ))

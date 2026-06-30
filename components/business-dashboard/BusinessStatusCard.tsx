@@ -57,6 +57,7 @@ function buildStatus(args: {
   plan: string;
   profileIncomplete: boolean;
   usageWarnings: string[];
+  isFirstBusinessExperience?: boolean;
 }) {
   const normalizedPlan = args.plan.trim().toLowerCase();
   const hasReachedLimit = args.usageWarnings.some((warning) =>
@@ -93,6 +94,14 @@ function buildStatus(args: {
       subtitle: 'מומלץ לעקוב אחרי השימוש כדי להימנע מחסימת פעולות.',
       tone: 'neutral' as StatusTone,
       icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap,
+    };
+  }
+  if (args.isFirstBusinessExperience) {
+    return {
+      title: 'העסק פעיל',
+      subtitle: 'אחרי שלקוחות יצטרפו, המדדים וההמלצות יתעדכנו כאן.',
+      tone: 'success' as StatusTone,
+      icon: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
     };
   }
   return {
@@ -158,14 +167,21 @@ export function BusinessStatusCard({
   plan,
   profileIncomplete,
   usageWarnings,
+  isFirstBusinessExperience = false,
 }: {
   layoutMode: DashboardLayoutMode;
   plan: string;
   profileIncomplete: boolean;
   usageWarnings: string[];
+  isFirstBusinessExperience?: boolean;
 }) {
   const layout = getDashboardLayout(layoutMode);
-  const status = buildStatus({ plan, profileIncomplete, usageWarnings });
+  const status = buildStatus({
+    plan,
+    profileIncomplete,
+    usageWarnings,
+    isFirstBusinessExperience,
+  });
   const palette = TONE_STYLES[status.tone];
 
   return (

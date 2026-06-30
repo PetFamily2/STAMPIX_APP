@@ -276,6 +276,12 @@ export function CustomersHubContent() {
   const openCampaigns = () => {
     router.push('/(authenticated)/(business)/campaigns');
   };
+  const openBusinessQr = () => {
+    router.push('/(authenticated)/(business)/qr');
+  };
+  const openScanner = () => {
+    router.push('/(authenticated)/(business)/scanner');
+  };
 
   const summary = snapshot?.summary ?? {
     totalCustomers: 0,
@@ -786,10 +792,37 @@ export function CustomersHubContent() {
 
         <View style={styles.listWrap}>
           {customerList.length === 0 ? (
-            <SurfaceCard>
-              <Text className={tw.textStart} style={styles.emptyText}>
-                אין עדיין לקוחות להצגה.
+            <SurfaceCard style={styles.emptyCustomersCard}>
+              <Text className={tw.textStart} style={styles.emptyTitle}>
+                עדיין אין לקוחות
               </Text>
+              <Text className={tw.textStart} style={styles.emptyBody}>
+                לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו ניקוב ראשון.
+              </Text>
+              <View style={styles.emptyActionsRow}>
+                <Pressable
+                  onPress={openBusinessQr}
+                  style={({ pressed }) => [
+                    styles.emptyPrimaryButton,
+                    pressed ? styles.emptyButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.emptyPrimaryButtonText}>
+                    הצגת QR להצטרפות
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={openScanner}
+                  style={({ pressed }) => [
+                    styles.emptySecondaryButton,
+                    pressed ? styles.emptyButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.emptySecondaryButtonText}>
+                    פתיחת סורק
+                  </Text>
+                </Pressable>
+              </View>
             </SurfaceCard>
           ) : filteredCustomers.length === 0 ? (
             <SurfaceCard>
@@ -1054,6 +1087,67 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+  },
+  emptyCustomersCard: {
+    gap: 10,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  emptyBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  emptyActionsRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  emptyPrimaryButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    backgroundColor: '#2F6BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  emptySecondaryButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#EEF4FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  emptyButtonPressed: {
+    opacity: 0.86,
+  },
+  emptyPrimaryButtonText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  emptySecondaryButtonText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textAlign: 'center',
   },
   atRiskActionCard: {
     marginTop: 16,
