@@ -324,7 +324,7 @@ export function UpgradeModal({
         ? 'מאמתים...'
         : isBillingLive
           ? 'המשך לרכישה'
-          : 'רכישה לא זמינה';
+          : 'שדרוג לא זמין';
 
   return (
     <Modal
@@ -345,7 +345,7 @@ export function UpgradeModal({
 
           {!isBillingLive ? (
             <View style={styles.devBanner}>
-              <Text style={styles.devBannerTitle}>חיוב לא זמין</Text>
+              <Text style={styles.devBannerTitle}>שדרוג לא זמין</Text>
               <Text style={styles.devBannerText}>{billingGuard.message}</Text>
             </View>
           ) : null}

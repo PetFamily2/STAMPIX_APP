@@ -558,7 +558,7 @@ export default function BusinessSettingsSubscriptionScreen() {
         <View style={styles.b2bReferralCard}>
           <Text style={styles.b2bReferralTitle}>הפניית עסקים (B2B)</Text>
           <Text style={styles.b2bReferralSubtitle}>
-            זיכויי חודשים מחושבים בנפרד מ-RevenueCat ומנוהלים דרך Entitlements.
+            זיכויי חודשים מנוהלים בנפרד ממסלול המנוי ומופיעים כאן לצורך מעקב.
           </Text>
           <View style={styles.b2bReferralStatsRow}>
             <View style={styles.b2bReferralStat}>

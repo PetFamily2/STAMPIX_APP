@@ -4,27 +4,27 @@ export const SERVER_AUTHORITATIVE_BILLING_ENABLED =
 export const BILLING_UNAVAILABLE_TITLE_HE = 'הרכישה אינה זמינה';
 
 export const BILLING_UNAVAILABLE_MESSAGE_HE =
-  'רכישות ומנויים בתשלום אינם זמינים כרגע. לא תחויבו.';
+  'השדרוג לא זמין כרגע באפליקציה הזו. אפשר להמשיך להשתמש במסלול הנוכחי.';
 
 export const SERVER_BILLING_UNAVAILABLE_MESSAGE_HE =
-  'חיוב מאומת מהשרת עדיין לא הופעל. לא ניתן להשלים רכישה כרגע.';
+  'השדרוג לא זמין כרגע. אפשר להמשיך להשתמש במסלול הנוכחי ולנסות שוב מאוחר יותר.';
 
 export const BILLING_EXPO_GO_MESSAGE_HE =
-  'רכישות לא זמינות ב-Expo Go. השתמשו ב-Dev Build.';
+  'השדרוג לא זמין כרגע באפליקציה הזו. אפשר להמשיך להשתמש במסלול הנוכחי.';
 
 export const BILLING_NOT_CONFIGURED_MESSAGE_HE =
-  'מפתחות RevenueCat לא מוגדרים בסביבה.';
+  'השדרוג לא זמין כרגע. נסו שוב מאוחר יותר או פנו לתמיכה.';
 
 export const BILLING_MISSING_PACKAGE_MESSAGE_HE =
-  'לא הוגדר מזהה חבילת RevenueCat למסלול שנבחר.';
+  'השדרוג למסלול שנבחר לא זמין כרגע. נסו שוב מאוחר יותר או פנו לתמיכה.';
 
 export const BILLING_INVALID_BUSINESS_IDENTITY_MESSAGE_HE =
-  'לא נמצא מזהה עסק תקין לחיוב. נסו שוב אחרי יצירת העסק.';
+  'לא הצלחנו לזהות את העסק לשדרוג. נסו שוב אחרי יצירת העסק.';
 
-export const SERVER_SYNC_PENDING_MESSAGE_HE = 'מאמתים את המנוי מול השרת...';
+export const SERVER_SYNC_PENDING_MESSAGE_HE = 'מאמתים את השדרוג...';
 
 export const SERVER_SYNC_TIMEOUT_MESSAGE_HE =
-  'סנכרון החיוב עדיין ממתין לאימות בשרת. נסו בדיקה חוזרת או שחזור רכישות.';
+  'השדרוג עדיין בתהליך אימות. נסו בדיקה חוזרת או שחזור רכישות.';
 
 type BillingPeriod = 'monthly' | 'yearly';
 type PaidBusinessPlan = 'pro' | 'premium';

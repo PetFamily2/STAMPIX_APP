@@ -50,7 +50,7 @@ const SERVER_SYNC_TIMEOUT_MS = 30_000;
 const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
 const NATIVE_REVENUECAT_UI_ENABLED = false;
 const NATIVE_REVENUECAT_UI_UNAVAILABLE_HE =
-  'מסך RevenueCat המובנה לא זמין כרגע. השתמשו במסלול הרכישה המאומת באפליקציה.';
+  'אפשרות זו לא זמינה כרגע באפליקציה. אפשר להמשיך דרך בחירת מסלול או לנסות שוב מאוחר יותר.';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -248,8 +248,8 @@ export default function PaywallScreen() {
     const packageId = resolvePackageId(selectedPlan, billingPeriod);
     if (!packageId) {
       Alert.alert(
-        'תצורה חסרה',
-        'לא הוגדר מזהה חבילה למסלול שנבחר. בדקו EXPO_PUBLIC_RC_PACKAGE_*'
+        'השדרוג לא זמין',
+        'השדרוג למסלול שנבחר לא זמין כרגע. נסו שוב מאוחר יותר או פנו לתמיכה.'
       );
       trackEvent(ANALYTICS_EVENTS.purchaseFailed, {
         plan: selectedPlan,
@@ -432,7 +432,7 @@ export default function PaywallScreen() {
         {isExpoGo && !isPreviewMode ? (
           <View style={[styles.banner, styles.infoBanner]}>
             <Text style={[styles.bannerText, styles.infoBannerText]}>
-              Expo Go לא תומך ברכישות. השתמשו ב-Dev Build.
+              רכישות לא זמינות בתצוגה הזו. אפשר להמשיך עם Starter.
             </Text>
           </View>
         ) : null}
@@ -457,7 +457,7 @@ export default function PaywallScreen() {
                   : null,
               ]}
             >
-              הצגת Paywall של RevenueCat
+              הצגת אפשרויות רכישה
             </Text>
           </TouchableOpacity>
           <TouchableOpacity

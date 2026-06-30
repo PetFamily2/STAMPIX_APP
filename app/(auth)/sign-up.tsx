@@ -29,9 +29,9 @@ const TEXT = {
   connectingToApple: 'מתחברים ל-Apple',
   authErrorTitle: 'שגיאה',
   googleNotConfigured:
-    'התחברות עם Google לא מוגדרת עדיין הגדירו AUTH_GOOGLE_ID ו-AUTH_GOOGLE_SECRET ב-Convex',
+    'ההתחברות דרך Google לא זמינה כרגע. אפשר להמשיך עם אימייל.',
   appleNotConfigured:
-    'התחברות עם Apple לא מוגדרת עדיין הגדירו AUTH_APPLE_ID ו-AUTH_APPLE_SECRET ב-Convex',
+    'ההתחברות דרך Apple לא זמינה כרגע. אפשר להמשיך עם אימייל.',
   googleFailed: 'ההתחברות עם Google נכשלה נסו שוב',
   appleFailed: 'ההתחברות עם Apple נכשלה נסו שוב',
 };

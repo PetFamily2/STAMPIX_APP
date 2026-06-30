@@ -289,7 +289,7 @@ export function RevenueCatProvider({
         await new Promise((resolve) => setTimeout(resolve, 1500));
         Alert.alert(
           BILLING_UNAVAILABLE_TITLE_HE,
-          'רכישות מדומות לא מעניקות הרשאות. המנוי יאושר רק אחרי סנכרון שרת.'
+          'השדרוג לא זמין כרגע באפליקציה הזו. אפשר להמשיך להשתמש במסלול הנוכחי.'
         );
         return false;
       }
@@ -297,8 +297,8 @@ export function RevenueCatProvider({
       // Expo Go - לא ניתן לבצע רכישות
       if (isExpoGo) {
         Alert.alert(
-          'מצב פיתוח',
-          'רכישות לא זמינות ב-Expo Go\n\nכדי לבדוק רכישות אמיתיות, בנה גרסת פיתוח (development build)'
+          BILLING_UNAVAILABLE_TITLE_HE,
+          'השדרוג לא זמין כרגע באפליקציה הזו. אפשר להמשיך להשתמש במסלול הנוכחי.'
         );
         return false;
       }
@@ -306,8 +306,8 @@ export function RevenueCatProvider({
       // אין מפתחות מוגדרים
       if (!isConfigured) {
         Alert.alert(
-          'לא מוגדר',
-          'מפתחות RevenueCat לא מוגדרים\n\nהגדר את המפתחות ב-env כדי לאפשר רכישות'
+          BILLING_UNAVAILABLE_TITLE_HE,
+          'השדרוג לא זמין כרגע. נסו שוב מאוחר יותר או פנו לתמיכה.'
         );
         return false;
       }
@@ -372,19 +372,19 @@ export function RevenueCatProvider({
       // מצב רכישות מדומות
       if (MOCK_PAYMENTS) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות (מצב בדיקה)');
+        Alert.alert('שחזור', 'לא נמצאו רכישות קודמות לשחזור כרגע.');
         return false;
       }
 
       // Expo Go
       if (isExpoGo) {
-        Alert.alert('מצב פיתוח', 'שחזור רכישות לא זמין ב-Expo Go');
+        Alert.alert('שחזור', 'שחזור רכישות לא זמין כרגע באפליקציה הזו.');
         return false;
       }
 
       // אין מפתחות
       if (!isConfigured) {
-        Alert.alert('לא מוגדר', 'מפתחות RevenueCat לא מוגדרים');
+        Alert.alert('שחזור', 'שחזור רכישות לא זמין כרגע. נסו שוב מאוחר יותר.');
         return false;
       }
 
