@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
-import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -387,7 +386,6 @@ export default function OnboardingOtpScreen() {
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <BackButton onPress={() => safeBack(backRoute)} />
-          <OnboardingProgress total={7} current={2} />
         </View>
 
         <View style={styles.titleContainer}>
@@ -468,9 +466,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   headerRow: {
-    flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   titleContainer: {
     marginTop: 64,
