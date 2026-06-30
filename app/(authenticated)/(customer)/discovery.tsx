@@ -41,8 +41,11 @@ const TEXT = {
   loadingLocation: 'טוענים את המיקום שלך',
   loadingNearby: 'מחפשים עסקים קרובים',
   retry: 'נסו שוב',
-  emptyTitle: 'אין עסקים בטווח שבחרת',
-  emptySubtitle: 'נסו להגדיל את הרדיוס כדי לראות עסקים נוספים',
+  savedEmpty: 'עסקים שתצטרפו אליהם יופיעו כאן.',
+  emptyTitle: 'לא מצאנו עסקים בטווח הזה',
+  emptySubtitle:
+    'אפשר להגדיל רדיוס או להצטרף דרך QR בבית העסק.',
+  joinWithQrCta: 'הצטרפות עם QR',
   myLocation: 'המיקום שלי',
   addressFallback: 'כתובת לא זמינה',
   filtersTitle: 'סוגי שירותים',
@@ -298,7 +301,7 @@ export default function DiscoveryScreen() {
 
           {!isSavedBusinessesLoading && savedBusinesses.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.cardSubtitle}>עדיין לא שמרת עסקים</Text>
+              <Text style={styles.cardSubtitle}>{TEXT.savedEmpty}</Text>
             </View>
           ) : null}
 
@@ -601,6 +604,19 @@ export default function DiscoveryScreen() {
                 <View style={styles.emptyState}>
                   <Text style={styles.cardTitle}>{TEXT.emptyTitle}</Text>
                   <Text style={styles.cardSubtitle}>{TEXT.emptySubtitle}</Text>
+                  <Pressable
+                    onPress={() => router.push('/(authenticated)/join')}
+                    style={({ pressed }) => [
+                      styles.emptyActionButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={TEXT.joinWithQrCta}
+                  >
+                    <Text style={styles.emptyActionButtonText}>
+                      {TEXT.joinWithQrCta}
+                    </Text>
+                  </Pressable>
                 </View>
               ) : null}
 
@@ -990,6 +1006,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFF',
     padding: 16,
     alignItems: alignItems.start,
+  },
+  emptyActionButton: {
+    marginTop: 12,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyActionButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   cardTitle: {
     fontSize: 16,

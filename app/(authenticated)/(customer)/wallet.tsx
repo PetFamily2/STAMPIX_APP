@@ -24,11 +24,14 @@ import { alignItems, flexDirection, rtlBaseView, selfStart } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הארנק שלי',
-  subtitle: 'עסקים וכל הכרטיסיות במבנה נוח',
+  subtitle: 'כאן יופיעו הכרטיסיות וההטבות שלך',
   joinBusinessTitle: 'הצטרף לעסק',
   loading: 'טוען עסקים',
-  noCards: 'עדיין אין עסקים שמורים',
-  noCardsHint: 'אפשר להצטרף לעסק דרך QR או להסתכל בגילוי',
+  noCards: 'הארנק שלך עדיין ריק',
+  noCardsHint:
+    'כאן יופיעו הכרטיסיות אחרי שתצטרפו לעסק. אפשר לסרוק QR בבית העסק או למצוא עסק בסביבה.',
+  joinWithQrCta: 'הצטרפות עם QR',
+  findNearbyCta: 'מציאת עסקים בסביבה',
   businessFallback: 'עסק',
   joinedPrograms: 'כרטיסיות שלי',
   redeemReady: 'מוכנות למימוש',
@@ -38,6 +41,8 @@ const TEXT = {
 };
 
 const REFERRALS_TITLE = 'הזמנות חברים';
+const REFERRALS_SUBTITLE =
+  'אחרי שתצטרפו לכרטיסיות תוכלו להזמין חברים ולעקוב כאן אחרי מתנות.';
 const REFERRALS_OPEN = 'למסך ההזמנות';
 
 type WalletBusiness = {
@@ -164,31 +169,6 @@ export default function WalletScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          onPress={() => router.push('/(authenticated)/(customer)/referrals')}
-          style={({ pressed }) => [
-            styles.referralCard,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
-          <View style={styles.referralCardStats}>
-            <Text style={styles.referralCardStat}>
-              {'ממתינות'}: {referralDashboard?.pending ?? 0}
-            </Text>
-            <Text style={styles.referralCardStat}>
-              {'הושלמו'}: {referralDashboard?.completed ?? 0}
-            </Text>
-            <Text style={styles.referralCardStat}>
-              {'תגמולים'}: {referralDashboard?.earned ?? 0}
-            </Text>
-          </View>
-          <View style={styles.referralOpenRow}>
-            <Text style={styles.referralOpenText}>{REFERRALS_OPEN}</Text>
-            <Ionicons name="chevron-back" size={14} color="#5B6475" />
-          </View>
-        </Pressable>
-
         {pendingStaffInvites.length > 0 ? (
           <View style={styles.pendingInviteCard}>
             <Text style={styles.pendingInviteTitle}>
@@ -229,6 +209,36 @@ export default function WalletScreen() {
           <View style={styles.cardContainer}>
             <Text style={styles.emptyTitle}>{TEXT.noCards}</Text>
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
+            <View style={styles.emptyActionsRow}>
+              <Pressable
+                onPress={() => router.push('/(authenticated)/join')}
+                style={({ pressed }) => [
+                  styles.emptyPrimaryButton,
+                  pressed ? styles.pressed : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.joinWithQrCta}
+              >
+                <Text style={styles.emptyPrimaryButtonText}>
+                  {TEXT.joinWithQrCta}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  router.push('/(authenticated)/(customer)/discovery')
+                }
+                style={({ pressed }) => [
+                  styles.emptySecondaryButton,
+                  pressed ? styles.pressed : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.findNearbyCta}
+              >
+                <Text style={styles.emptySecondaryButtonText}>
+                  {TEXT.findNearbyCta}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -297,6 +307,32 @@ export default function WalletScreen() {
               })
             : null}
         </View>
+
+        <Pressable
+          onPress={() => router.push('/(authenticated)/(customer)/referrals')}
+          style={({ pressed }) => [
+            styles.referralCard,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
+          <Text style={styles.referralCardSubtitle}>{REFERRALS_SUBTITLE}</Text>
+          <View style={styles.referralCardStats}>
+            <Text style={styles.referralCardStat}>
+              {'ממתינות'}: {referralDashboard?.pending ?? 0}
+            </Text>
+            <Text style={styles.referralCardStat}>
+              {'הושלמו'}: {referralDashboard?.completed ?? 0}
+            </Text>
+            <Text style={styles.referralCardStat}>
+              {'תגמולים'}: {referralDashboard?.earned ?? 0}
+            </Text>
+          </View>
+          <View style={styles.referralOpenRow}>
+            <Text style={styles.referralOpenText}>{REFERRALS_OPEN}</Text>
+            <Ionicons name="chevron-back" size={14} color="#5B6475" />
+          </View>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -378,6 +414,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1E3A8A',
     textAlign: 'right',
+  },
+  referralCardSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'right',
+    lineHeight: 18,
   },
   referralCardStats: {
     flexDirection: flexDirection.row,
@@ -470,6 +513,43 @@ const styles = StyleSheet.create({
     color: '#5B6475',
     textAlign: 'right',
     fontWeight: '600',
+    lineHeight: 20,
+  },
+  emptyActionsRow: {
+    marginTop: 14,
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  emptyPrimaryButton: {
+    borderRadius: 14,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  emptySecondaryButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySecondaryButtonText: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.85,

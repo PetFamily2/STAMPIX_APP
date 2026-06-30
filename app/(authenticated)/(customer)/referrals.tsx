@@ -16,6 +16,10 @@ import { alignItems, flexDirection } from '@/lib/rtl';
 
 type ReferralTab = 'pending' | 'completed' | 'rewards';
 
+const EMPTY_TITLE = 'עדיין אין הזמנות';
+const EMPTY_BODY =
+  'אחרי שתצטרפו לעסק עם כרטיסייה פעילה, תוכלו להזמין חברים ולעקוב כאן אחרי ההטבות.';
+
 function formatDateTime(value: number | null) {
   if (!value) {
     return '—';
@@ -31,33 +35,84 @@ function formatDateTime(value: number | null) {
 
 function mapReferralState(referral: any): string {
   if (referral.status === 'pending') {
-    return 'REFERRAL_PENDING';
-  }
-  if (referral.status === 'qualified') {
-    return 'REFERRAL_COMPLETED';
+    return 'ממתין לניקוב ראשון';
   }
   if (referral.status === 'completed') {
-    return referral.rewardGrantStatus === 'granted'
-      ? 'REFERRAL_REWARD_GRANTED'
-      : 'REFERRAL_COMPLETED';
+    return 'הושלם';
+  }
+  if (referral.status === 'qualified') {
+    return 'הושלם';
+  }
+  if (referral.status === 'skipped') {
+    return 'לא הושלם';
   }
   if (referral.status === 'invalid') {
-    return 'REFERRAL_EXPIRED';
+    return 'לא תקף';
   }
-  return 'REFERRAL_COMPLETED';
+  if (referral.status === 'expired') {
+    return 'פג תוקף';
+  }
+  return 'סטטוס לא ידוע';
+}
+
+function mapReferralHint(referral: any): string {
+  if (referral.status === 'pending') {
+    return 'מחכים לניקוב הראשון של החבר';
+  }
+  if (referral.status === 'completed' || referral.status === 'qualified') {
+    return 'ההזמנה הושלמה';
+  }
+  if (referral.status === 'skipped') {
+    return 'ההזמנה לא הושלמה';
+  }
+  if (referral.status === 'invalid') {
+    return 'ההזמנה אינה תקפה';
+  }
+  if (referral.status === 'expired') {
+    return 'ההזמנה פגה';
+  }
+  return 'לא הצלחנו לזהות את מצב ההזמנה';
 }
 
 function mapRewardState(reward: any): string {
   if (reward.status === 'granted') {
-    return 'REFERRAL_REWARD_GRANTED';
+    return 'התגמול התקבל';
   }
   if (reward.status === 'redeemed') {
-    return 'REFERRAL_REWARD_REDEEMED';
+    return 'מומש';
   }
   if (reward.status === 'expired') {
-    return 'REFERRAL_EXPIRED';
+    return 'פג תוקף';
   }
-  return 'REFERRAL_REWARD_GRANTED';
+  if (reward.status === 'revoked') {
+    return 'בוטל';
+  }
+  return 'סטטוס לא ידוע';
+}
+
+function mapRewardHint(reward: any): string {
+  if (reward.status === 'granted') {
+    return 'ההטבה נוספה לחשבון';
+  }
+  if (reward.status === 'redeemed') {
+    return 'ההטבה מומשה';
+  }
+  if (reward.status === 'expired') {
+    return 'תוקף ההטבה פג';
+  }
+  if (reward.status === 'revoked') {
+    return 'ההטבה בוטלה';
+  }
+  return 'לא הצלחנו לזהות את מצב ההטבה';
+}
+
+function EmptyReferralState() {
+  return (
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyTitle}>{EMPTY_TITLE}</Text>
+      <Text style={styles.emptyBody}>{EMPTY_BODY}</Text>
+    </View>
+  );
 }
 
 export default function CustomerReferralsScreen() {
@@ -180,16 +235,13 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'pending' ? (
           <View style={styles.section}>
             {pendingReferrals.length === 0 ? (
-              <Text style={styles.emptyText}>אין הזמנות ממתינות כרגע.</Text>
+              <EmptyReferralState />
             ) : (
               pendingReferrals.map((item) => (
                 <View key={String(item.referralId)} style={styles.itemCard}>
                   <Text style={styles.itemTitle}>{item.businessName}</Text>
                   <Text style={styles.itemState}>{mapReferralState(item)}</Text>
-                  <Text style={styles.itemHint}>
-                    חבר שהזמנת עדיין לא ביצע ניקוב ראשון. ברגע שזה יקרה תקבלו
-                    מתנה.
-                  </Text>
+                  <Text style={styles.itemHint}>{mapReferralHint(item)}</Text>
                   <Text style={styles.itemMeta}>
                     נוצר: {formatDateTime(item.createdAt)}
                   </Text>
@@ -202,14 +254,18 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'completed' ? (
           <View style={styles.section}>
             {completedReferrals.length === 0 ? (
-              <Text style={styles.emptyText}>עדיין אין היסטוריית הזמנות.</Text>
+              <EmptyReferralState />
             ) : (
               completedReferrals.map((item) => (
                 <View key={String(item.referralId)} style={styles.itemCard}>
                   <Text style={styles.itemTitle}>{item.businessName}</Text>
                   <Text style={styles.itemState}>{mapReferralState(item)}</Text>
+                  <Text style={styles.itemHint}>{mapReferralHint(item)}</Text>
                   <Text style={styles.itemMeta}>
-                    הושלם: {formatDateTime(item.completedAt)}
+                    עודכן:{' '}
+                    {formatDateTime(
+                      item.completedAt ?? item.qualifiedAt ?? item.createdAt
+                    )}
                   </Text>
                 </View>
               ))
@@ -220,17 +276,13 @@ export default function CustomerReferralsScreen() {
         {activeTab === 'rewards' ? (
           <View style={styles.section}>
             {(rewards ?? []).length === 0 ? (
-              <Text style={styles.emptyText}>אין תגמולי הזמנה כרגע.</Text>
+              <EmptyReferralState />
             ) : (
               (rewards ?? []).map((item) => (
                 <View key={String(item.rewardId)} style={styles.itemCard}>
                   <Text style={styles.itemTitle}>{item.businessName}</Text>
                   <Text style={styles.itemState}>{mapRewardState(item)}</Text>
-                  <Text style={styles.itemHint}>
-                    {item.actualRewardType === 'STAMP'
-                      ? 'התקבל ניקוב מהזמנת חבר'
-                      : (item.benefitTitle ?? 'הטבת הזמנה')}
-                  </Text>
+                  <Text style={styles.itemHint}>{mapRewardHint(item)}</Text>
                   <Text style={styles.itemMeta}>
                     עודכן: {formatDateTime(item.redeemedAt ?? item.createdAt)}
                   </Text>
@@ -350,16 +402,26 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
   },
-  emptyText: {
+  emptyCard: {
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#D9E6FF',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 14,
+    gap: 6,
+  },
+  emptyTitle: {
+    textAlign: 'right',
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  emptyBody: {
     textAlign: 'right',
     color: '#64748B',
     fontWeight: '700',
     fontSize: 13,
+    lineHeight: 19,
   },
 });

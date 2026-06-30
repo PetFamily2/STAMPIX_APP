@@ -18,8 +18,10 @@ const TEXT = {
   subtitle: 'כאן תראו מבצעים ועדכונים שנשלחו אליכם מהעסקים',
   readyRewardsTitle: 'זכאים עכשיו למימוש',
   readyRewardsSubtitle: 'כרטיסיות שהושלמו ומחכות למימוש בבית העסק',
-  emptyTitle: 'עדיין אין הודעות פעילות',
-  emptySubtitle: 'כשתישלח אליכם הודעה עסקית או מבצע, היא תופיע כאן אוטומטית.',
+  emptyTitle: 'עדיין אין הטבות פעילות',
+  emptySubtitle:
+    'הטבות ומבצעים יופיעו כאן אחרי שתצטרפו לכרטיסיות ותתקדמו בניקובים.',
+  emptyCta: 'מציאת עסק להצטרפות',
   noMessages: 'אין הודעות חדשות כרגע.',
 };
 
@@ -111,6 +113,19 @@ export default function RewardsScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
             <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
+            <Pressable
+              onPress={() =>
+                router.push('/(authenticated)/(customer)/discovery')
+              }
+              style={({ pressed }) => [
+                styles.emptyButton,
+                pressed ? styles.emptyButtonPressed : null,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.emptyCta}
+            >
+              <Text style={styles.emptyButtonText}>{TEXT.emptyCta}</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.feedWrap}>
@@ -216,6 +231,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#5B6475',
     textAlign: 'right',
+    lineHeight: 20,
+  },
+  emptyButton: {
+    marginTop: 14,
+    alignSelf: selfStart,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  emptyButtonPressed: {
+    opacity: 0.86,
+  },
+  emptyButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   feedWrap: {
     marginTop: 18,
