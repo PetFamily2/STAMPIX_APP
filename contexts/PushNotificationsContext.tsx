@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation } from 'convex/react';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import {
   createContext,
   useCallback,
@@ -22,14 +21,10 @@ export const LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY =
 const ANDROID_NOTIFICATION_CHANNEL_ID = 'default';
 const ANDROID_NOTIFICATION_CHANNEL_NAME = 'STAMPAIX';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+type NotificationsApi = typeof import('expo-notifications');
+
+let notificationsModulePromise: Promise<NotificationsApi | null> | null = null;
+let notificationHandlerConfigured = false;
 
 type NotificationPermissionStatus =
   | 'granted'
@@ -72,7 +67,33 @@ function isUnsupportedPushRuntime() {
   return Constants.appOwnership === 'expo';
 }
 
-async function ensureAndroidNotificationChannel() {
+async function loadNotificationsModule() {
+  if (isUnsupportedPushRuntime()) {
+    return null;
+  }
+
+  notificationsModulePromise ??= import('expo-notifications')
+    .then((notificationsModule) => {
+      if (!notificationHandlerConfigured) {
+        notificationsModule.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          }),
+        });
+        notificationHandlerConfigured = true;
+      }
+
+      return notificationsModule;
+    })
+    .catch(() => null);
+
+  return notificationsModulePromise;
+}
+
+async function ensureAndroidNotificationChannel(Notifications: NotificationsApi) {
   if (Platform.OS !== 'android') {
     return;
   }
@@ -87,15 +108,15 @@ async function ensureAndroidNotificationChannel() {
 }
 
 function normalizePermissionStatus(
-  status: Notifications.PermissionStatus
+  status: string
 ): NotificationPermissionStatus {
-  if (status === Notifications.PermissionStatus.GRANTED) {
+  if (status === 'granted') {
     return 'granted';
   }
-  if (status === Notifications.PermissionStatus.DENIED) {
+  if (status === 'denied') {
     return 'denied';
   }
-  if (status === Notifications.PermissionStatus.UNDETERMINED) {
+  if (status === 'undetermined') {
     return 'undetermined';
   }
   return 'unavailable';
@@ -142,6 +163,10 @@ export function PushNotificationsProvider({
 
   const registeredTokenRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    void loadNotificationsModule();
+  }, []);
+
   const persistEnabledFlag = useCallback(async (enabled: boolean) => {
     await AsyncStorage.setItem(
       NOTIFICATIONS_ENABLED_STORAGE_KEY,
@@ -173,7 +198,8 @@ export function PushNotificationsProvider({
       token: string | null;
     }> => {
       const pushPlatform = resolvePushPlatform();
-      if (!pushPlatform || isUnsupportedPushRuntime()) {
+      const Notifications = await loadNotificationsModule();
+      if (!pushPlatform || !Notifications) {
         return {
           permissionStatus: 'unavailable',
           registered: false,
@@ -217,7 +243,7 @@ export function PushNotificationsProvider({
           };
         }
 
-        await ensureAndroidNotificationChannel();
+        await ensureAndroidNotificationChannel(Notifications);
 
         const tokenResponse = await Notifications.getExpoPushTokenAsync({
           projectId,
