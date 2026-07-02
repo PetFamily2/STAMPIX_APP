@@ -56,6 +56,7 @@ export function BusinessSectionHeader({
 const styles = StyleSheet.create({
   wrap: {
     gap: 10,
+    ...rtlBaseView,
   },
   row: {
     flexDirection: flexDirection.row,

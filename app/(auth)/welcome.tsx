@@ -10,7 +10,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { rtlCenterText, tw } from '@/lib/rtl';
+import { rtlBaseView, rtlCenterText, tw } from '@/lib/rtl';
 
 const TEXT = {
   titleLine1: 'העסק והלקוחות',
@@ -110,7 +110,10 @@ export default function WelcomeScreen() {
 
         <View className="mb-auto">
           <View className="bg-white rounded-2xl p-4 mb-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className={`${tw.flexRow} ${tw.itemsStart} gap-4`}>
+            <View
+              className={`${tw.flexRow} ${tw.itemsStart} gap-4`}
+              style={rtlBaseView}
+            >
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <Heart size={24} color="#2563eb" fill="#dbeafe" />
               </View>
@@ -126,7 +129,10 @@ export default function WelcomeScreen() {
           </View>
 
           <View className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm shadow-gray-200">
-            <View className={`${tw.flexRow} ${tw.itemsStart} gap-4`}>
+            <View
+              className={`${tw.flexRow} ${tw.itemsStart} gap-4`}
+              style={rtlBaseView}
+            >
               <View className="w-11 h-11 bg-blue-50 rounded-xl items-center justify-center border border-blue-100">
                 <TrendingUp size={24} color="#2563eb" />
               </View>
@@ -156,17 +162,15 @@ export default function WelcomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View className={`${tw.flexRow} justify-center items-center gap-2`}>
-            <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
+          <View className="items-center">
+            <Text className="text-gray-500 text-base" style={rtlCenterText}>
+              {TEXT.emailEntryHint}{' '}
               <Text
-                className="text-blue-600 font-semibold text-base"
-                style={rtlCenterText}
+                className="text-blue-600 font-semibold"
+                onPress={() => router.push('/(auth)/sign-in')}
               >
                 {TEXT.emailEntry}
               </Text>
-            </TouchableOpacity>
-            <Text className="text-gray-500 text-base" style={rtlCenterText}>
-              {TEXT.emailEntryHint}
             </Text>
           </View>
         </View>

@@ -51,7 +51,37 @@ export function DashboardHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.rightActions}>
+        <View style={styles.brandCluster}>
+          <Text
+            style={[
+              styles.brandLine,
+              {
+                fontSize: layout.headerBrandSize,
+                lineHeight: layout.headerBrandSize + 6,
+              },
+            ]}
+          >
+            StampAix
+          </Text>
+        </View>
+
+        <View style={styles.actionCluster}>
+          <Pressable
+            onPress={onPressNotifications}
+            style={styles.notificationButton}
+            accessibilityRole="button"
+            accessibilityLabel="התראות עסק"
+          >
+            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+            {notificationCount > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+
           <Pressable
             onPress={onPressMenu}
             accessibilityRole="button"
@@ -71,36 +101,6 @@ export function DashboardHeader({
           >
             <Ionicons name="menu-outline" size={30} color="#1E3A8A" />
           </Pressable>
-        </View>
-
-        <View style={styles.leftCluster}>
-          <Pressable
-            onPress={onPressNotifications}
-            style={styles.notificationButton}
-            accessibilityRole="button"
-            accessibilityLabel="התראות עסק"
-          >
-            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-            {notificationCount > 0 ? (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {notificationCount > 9 ? '9+' : notificationCount}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <Text
-            style={[
-              styles.brandLine,
-              {
-                fontSize: layout.headerBrandSize,
-                lineHeight: layout.headerBrandSize + 6,
-              },
-            ]}
-          >
-            StampAix
-          </Text>
         </View>
       </View>
 
@@ -149,11 +149,18 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...rtlBaseView,
   },
-  leftCluster: {
+  brandCluster: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
+    ...rtlBaseView,
+  },
+  actionCluster: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 4,
     ...rtlBaseView,
   },
   notificationButton: {
@@ -162,12 +169,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  rightActions: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 4,
-    ...rtlBaseView,
   },
   menuButton: {
     width: 32,

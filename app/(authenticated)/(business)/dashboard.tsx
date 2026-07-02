@@ -42,7 +42,13 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
+import {
+  flexDirection,
+  justifyContent,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -958,7 +964,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
   },
   firstActionCopy: {
     gap: 5,
@@ -1033,10 +1039,12 @@ const styles = StyleSheet.create({
     lineHeight: DASHBOARD_TOKENS.typography.sectionTitle.lineHeight,
     fontWeight: DASHBOARD_TOKENS.typography.sectionTitle.fontWeight,
     color: DASHBOARD_TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   recommendationsSectionTitle: {
     textAlign: 'right',
-    alignSelf: 'auto',
+    alignSelf: 'stretch',
     writingDirection: 'rtl',
   },
   recommendationsCard: {

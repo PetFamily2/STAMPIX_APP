@@ -13,7 +13,7 @@ import { IS_DEV_MODE } from '@/config/appConfig';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איך תרצו להתחבר?',
@@ -37,6 +37,8 @@ const TEXT = {
 };
 
 type AuthMethod = 'apple' | 'google' | 'email';
+
+const TERMS_PREFIX = 'בלחיצה על המשך, אתם מסכימים ל';
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
   return (
@@ -287,7 +289,7 @@ export default function SignUpScreen() {
           />
 
           <Text style={styles.terms}>
-            {TEXT.termsIntro}{' '}
+            {TERMS_PREFIX}{' '}
             <Text
               style={styles.termsLink}
               accessibilityRole="link"
@@ -347,6 +349,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+    ...rtlBaseView,
     backgroundColor: '#eff6ff',
     borderRadius: 16,
     paddingHorizontal: 20,
@@ -364,6 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+    ...rtlBaseView,
     backgroundColor: '#ffffff',
     borderRadius: 16,
     paddingHorizontal: 20,
@@ -413,6 +417,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#cbd5f2',
     textAlign: 'center',
+    writingDirection: 'rtl',
   },
   termsLink: {
     color: '#2563eb',

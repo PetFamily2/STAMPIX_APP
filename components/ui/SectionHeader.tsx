@@ -21,7 +21,7 @@ export function SectionHeader({
       className={`${tw.flexRow} items-center justify-between ${className}`}
       style={rtlBaseView}
     >
-      <View className="flex-1">
+      <View className="flex-1" style={rtlBaseView}>
         <Text
           className={`text-lg font-black text-text-main ${tw.textStart}`}
           style={rtlBaseText}

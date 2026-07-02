@@ -25,7 +25,10 @@ export function ListRow({
       className={`bg-white rounded-[30px] border border-gray-100 p-4 ${tw.flexRow} items-center justify-between shadow-sm ${className}`}
       style={rtlBaseView}
     >
-      <View className={`${tw.flexRow} items-center gap-3 flex-1`}>
+      <View
+        className={`${tw.flexRow} items-center gap-3 flex-1`}
+        style={rtlBaseView}
+      >
         {leading}
         <View className="flex-1">
           <Text
