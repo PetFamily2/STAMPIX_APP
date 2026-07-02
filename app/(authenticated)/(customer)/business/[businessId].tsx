@@ -29,7 +29,12 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
-import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  justifyContent,
+  rtlBaseView,
+} from '@/lib/rtl';
 
 const TEXT = {
   loading: 'טוען פרטי עסק',
@@ -609,6 +614,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   shareActions: {
+    ...rtlBaseView,
     marginTop: 2,
     flexDirection: flexDirection.row,
     gap: 8,
@@ -684,6 +690,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   programFooterRow: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -718,6 +725,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   joinedDetails: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: alignItems.start,
     justifyContent: justifyContent.start,

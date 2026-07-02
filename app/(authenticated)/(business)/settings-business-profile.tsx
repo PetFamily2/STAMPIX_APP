@@ -23,7 +23,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -273,7 +273,10 @@ function ProfileRow({
       })}
       className="min-h-[64px] border-b border-[#EDF2FF] py-2"
     >
-      <View className={`${tw.flexRow} items-center justify-between gap-3`}>
+      <View
+        className={`${tw.flexRow} items-center justify-between gap-3`}
+        style={rtlBaseView}
+      >
         <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
           <Ionicons
             name="create-outline"
@@ -783,7 +786,10 @@ export default function BusinessSettingsProfileScreen() {
           : 'border-[#E2E8F0] bg-[#F8FAFF]'
       }`}
     >
-      <View className={`${tw.flexRow} items-center justify-between gap-2`}>
+      <View
+        className={`${tw.flexRow} items-center justify-between gap-2`}
+        style={rtlBaseView}
+      >
         <Ionicons
           name={selected ? 'checkmark-circle' : 'ellipse-outline'}
           size={18}
@@ -841,7 +847,10 @@ export default function BusinessSettingsProfileScreen() {
           <>
             {!businessSettings.profileCompletion?.isComplete ? (
               <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-4">
-                <View className={`${tw.flexRow} items-center gap-2`}>
+                <View
+                  className={`${tw.flexRow} items-center gap-2`}
+                  style={rtlBaseView}
+                >
                   <Ionicons
                     name="alert-circle-outline"
                     size={18}
@@ -858,7 +867,10 @@ export default function BusinessSettingsProfileScreen() {
               </View>
             ) : (
               <View className="rounded-2xl border border-[#A7F3D0] bg-[#ECFDF5] p-3">
-                <View className={`${tw.flexRow} items-center gap-2`}>
+                <View
+                  className={`${tw.flexRow} items-center gap-2`}
+                  style={rtlBaseView}
+                >
                   <Ionicons name="checkmark-circle" size={18} color="#047857" />
                   <Text className="text-sm font-bold text-[#065F46]">
                     פרופיל העסק מלא ומעודכן.
@@ -882,6 +894,7 @@ export default function BusinessSettingsProfileScreen() {
               >
                 <View
                   className={`${tw.flexRow} items-center justify-between gap-3`}
+                  style={rtlBaseView}
                 >
                   <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
                     <Ionicons

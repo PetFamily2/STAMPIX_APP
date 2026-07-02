@@ -39,7 +39,13 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { alignItems, flexDirection, selfStart, tw } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  rtlBaseView,
+  selfStart,
+  tw,
+} from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -996,6 +1002,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
   },
   customerUsageHeader: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: alignItems.start,
     gap: 12,
@@ -1029,6 +1036,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   customerUsageUpgradeRow: {
+    ...rtlBaseView,
     marginTop: 14,
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -1062,6 +1070,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   searchRow: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
@@ -1105,6 +1114,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   emptyActionsRow: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 10,
@@ -1150,6 +1160,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   atRiskActionHeader: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: alignItems.start,
     gap: 12,
@@ -1180,11 +1191,13 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   atRiskActions: {
+    ...rtlBaseView,
     marginTop: 14,
     flexDirection: flexDirection.row,
     gap: 10,
   },
   primaryAction: {
+    ...rtlBaseView,
     minHeight: 44,
     flex: 1,
     borderRadius: 16,
@@ -1261,6 +1274,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   customerRow: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: alignItems.start,
     justifyContent: 'space-between',
@@ -1290,6 +1304,7 @@ const styles = StyleSheet.create({
     color: '#8A97AC',
   },
   badges: {
+    ...rtlBaseView,
     marginTop: 8,
     flexDirection: flexDirection.row,
     gap: 6,

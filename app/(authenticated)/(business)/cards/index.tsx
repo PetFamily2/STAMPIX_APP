@@ -34,7 +34,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { flexDirection, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type MarketingTopTab = 'campaigns' | 'loyalty';
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -139,6 +139,7 @@ function ProgramListSection({
         <TouchableOpacity
           onPress={onToggleExpand}
           className={`${tw.flexRow} items-center justify-between`}
+          style={rtlBaseView}
         >
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
@@ -194,7 +195,10 @@ function ProgramListSection({
                 variant="list"
               />
 
-              <View className={`${tw.flexRow} items-center justify-between`}>
+              <View
+                className={`${tw.flexRow} items-center justify-between`}
+                style={rtlBaseView}
+              >
                 <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                   <Text className="text-[11px] font-bold text-[#1D4ED8]">
                     {program.lifecycle === 'draft'
@@ -414,7 +418,10 @@ export function LoyaltyCardsHubContent() {
           {isCreating ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <View className={`${tw.flexRow} items-center justify-center gap-2`}>
+            <View
+              className={`${tw.flexRow} items-center justify-center gap-2`}
+              style={rtlBaseView}
+            >
               <Ionicons name="add" size={20} color="#FFFFFF" />
               <Text className="text-sm font-black text-white">
                 {TEXT.createNewCard}

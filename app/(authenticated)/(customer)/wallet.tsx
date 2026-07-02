@@ -367,6 +367,7 @@ const styles = StyleSheet.create({
     borderColor: '#9CC0FF',
   },
   joinBusinessButtonContent: {
+    ...rtlBaseView,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,

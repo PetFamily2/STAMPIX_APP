@@ -21,7 +21,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { safePush } from '@/lib/navigation';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -117,6 +117,7 @@ export default function BusinessSettingsAccountScreen() {
 
           <View
             className={`${tw.flexRow} mt-4 items-center gap-3 border-b border-[#F1F5F9] pb-4`}
+            style={rtlBaseView}
           >
             <UserAvatar
               avatarUrl={user?.avatarUrl}
@@ -180,6 +181,7 @@ export default function BusinessSettingsAccountScreen() {
             >
               <View
                 className={`${tw.flexRow} items-center justify-between gap-3`}
+                style={rtlBaseView}
               >
                 <View className="h-[38px] w-[38px] items-center justify-center rounded-full border border-[#DCE6FF] bg-[#EEF3FF]">
                   <Ionicons name={row.icon} size={18} color="#1D4ED8" />
