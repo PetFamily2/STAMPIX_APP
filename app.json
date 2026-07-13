@@ -102,8 +102,8 @@
       [
         "expo-localization",
         {
-          "supportsRTL": true,
-          "forcesRTL": true
+          "supportsRTL": false,
+          "forcesRTL": false
         }
       ]
     ],
