@@ -16,11 +16,6 @@ import {
   resolveActiveBusinessShell,
 } from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
-import {
-  rtlTabBarItemStyle,
-  rtlTabBarStyle,
-  rtlTabSceneStyle,
-} from '@/lib/rtl';
 
 const TEXT = {
   dashboard: 'בית',
@@ -125,9 +120,7 @@ export default function BusinessTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
-        sceneStyle: rtlTabSceneStyle,
         tabBarStyle: {
-          ...rtlTabBarStyle,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E6EAF3',
@@ -145,7 +138,6 @@ export default function BusinessTabsLayout() {
           borderTopRightRadius: 26,
         },
         tabBarItemStyle: {
-          ...rtlTabBarItemStyle,
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },
@@ -162,47 +154,6 @@ export default function BusinessTabsLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: TEXT.dashboard,
-          tabBarButton: (props) => (
-            <StandardTabButton
-              props={props}
-              title={TEXT.dashboard}
-              icon="grid-outline"
-              isActive={activeTabName === 'dashboard'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="customers"
-        options={{
-          title: TEXT.customers,
-          tabBarButton: (props) => (
-            <StandardTabButton
-              props={props}
-              title={TEXT.customers}
-              icon="people-outline"
-              isActive={activeTabName === 'customers'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scanner"
-        options={{
-          title: TEXT.scanCustomer,
-          tabBarButton: (props) => (
-            <ScannerTabButton
-              props={props}
-              title={TEXT.scanCustomer}
-              isActive={activeTabName === 'scanner'}
-            />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="programs"
         options={{
@@ -227,6 +178,47 @@ export default function BusinessTabsLayout() {
               title={TEXT.campaigns}
               icon="megaphone-outline"
               isActive={activeTabName === 'campaigns'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scanner"
+        options={{
+          title: TEXT.scanCustomer,
+          tabBarButton: (props) => (
+            <ScannerTabButton
+              props={props}
+              title={TEXT.scanCustomer}
+              isActive={activeTabName === 'scanner'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="customers"
+        options={{
+          title: TEXT.customers,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.customers}
+              icon="people-outline"
+              isActive={activeTabName === 'customers'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: TEXT.dashboard,
+          tabBarButton: (props) => (
+            <StandardTabButton
+              props={props}
+              title={TEXT.dashboard}
+              icon="grid-outline"
+              isActive={activeTabName === 'dashboard'}
             />
           ),
         }}

@@ -5,12 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
-import {
-  justifyContent,
-  rtlTabBarItemStyle,
-  rtlTabBarStyle,
-  rtlTabSceneStyle,
-} from '@/lib/rtl';
+import { justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   wallet: 'ארנק',
@@ -118,9 +113,7 @@ export default function CustomerTabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
-        sceneStyle: rtlTabSceneStyle,
         tabBarStyle: {
-          ...rtlTabBarStyle,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0,
           overflow: 'visible',
@@ -135,7 +128,6 @@ export default function CustomerTabsLayout() {
           paddingTop: 8,
         },
         tabBarItemStyle: {
-          ...rtlTabBarItemStyle,
           height: TAB_BAR_CONTENT_HEIGHT,
           overflow: 'visible',
         },
@@ -153,30 +145,29 @@ export default function CustomerTabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="wallet"
+        name="settings"
         options={{
-          title: TEXT.wallet,
+          title: TEXT.settings,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.wallet}
-              icon="wallet-outline"
-              isActive={activeTabName === 'wallet'}
+              title={TEXT.settings}
+              icon="settings-outline"
+              isActive={activeTabName === 'settings'}
             />
           ),
         }}
       />
       <Tabs.Screen
-        name="discovery"
+        name="rewards"
         options={{
-          title: TEXT.discovery,
+          title: TEXT.rewards,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.discovery}
-              icon="compass-outline"
-              iconSize={DISCOVERY_TAB_ICON_SIZE}
-              isActive={activeTabName === 'discovery'}
+              title={TEXT.rewards}
+              icon="gift-outline"
+              isActive={activeTabName === 'rewards'}
             />
           ),
         }}
@@ -252,29 +243,30 @@ export default function CustomerTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="rewards"
+        name="discovery"
         options={{
-          title: TEXT.rewards,
+          title: TEXT.discovery,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.rewards}
-              icon="gift-outline"
-              isActive={activeTabName === 'rewards'}
+              title={TEXT.discovery}
+              icon="compass-outline"
+              iconSize={DISCOVERY_TAB_ICON_SIZE}
+              isActive={activeTabName === 'discovery'}
             />
           ),
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="wallet"
         options={{
-          title: TEXT.settings,
+          title: TEXT.wallet,
           tabBarButton: (props) => (
             <StandardTabButton
               props={props}
-              title={TEXT.settings}
-              icon="settings-outline"
-              isActive={activeTabName === 'settings'}
+              title={TEXT.wallet}
+              icon="wallet-outline"
+              isActive={activeTabName === 'wallet'}
             />
           ),
         }}

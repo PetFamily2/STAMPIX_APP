@@ -4,9 +4,8 @@ import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
-import * as Updates from 'expo-updates';
 import React from 'react';
-import { I18nManager, StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
@@ -17,16 +16,11 @@ import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
-import {
-  RTL_ARCHITECTURE_MARKER,
-  rtlBaseView,
-  rtlRouteContainerStyle,
-} from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
-const RTL_RELOAD_ATTEMPT_KEY = 'stampaix:rtl-reload-attempted';
+// StampAix uses manual RTL helpers from lib/rtl.ts to avoid double inversion
+// between native RTL and explicit row-reverse layout.
 
-// Resolve the Convex URL from environment-aware configuration.
 const convexUrl = getConvexUrl();
 const convex = new ConvexReactClient(convexUrl);
 
@@ -55,75 +49,6 @@ const secureStorage = {
     }
   },
 };
-
-function RtlBootGuard({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<'ready' | 'checking' | 'blocked'>(
-    I18nManager.isRTL ? 'ready' : 'checking'
-  );
-
-  React.useEffect(() => {
-    let isMounted = true;
-
-    async function ensureNativeRtl() {
-      if (I18nManager.isRTL) {
-        try {
-          await SecureStore.deleteItemAsync(RTL_RELOAD_ATTEMPT_KEY);
-        } catch {
-          // Missing storage should not block a correctly booted RTL app.
-        }
-        if (isMounted) {
-          setState('ready');
-        }
-        return;
-      }
-
-      I18nManager.allowRTL(true);
-      I18nManager.forceRTL(true);
-      I18nManager.swapLeftAndRightInRTL(true);
-
-      let alreadyAttemptedReload = false;
-      try {
-        alreadyAttemptedReload =
-          (await SecureStore.getItemAsync(RTL_RELOAD_ATTEMPT_KEY)) === '1';
-      } catch {
-        alreadyAttemptedReload = true;
-      }
-
-      if (!alreadyAttemptedReload) {
-        try {
-          await SecureStore.setItemAsync(RTL_RELOAD_ATTEMPT_KEY, '1');
-          await Updates.reloadAsync();
-          return;
-        } catch {
-          // Fall through to the blocking screen; never show a partial LTR app.
-        }
-      }
-
-      if (isMounted) {
-        setState('blocked');
-      }
-    }
-
-    ensureNativeRtl();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (state === 'ready') {
-    return <>{children}</>;
-  }
-
-  return (
-    <View style={styles.rtlBootScreen}>
-      <Text style={styles.rtlBootTitle}>מפעילים תצוגה עברית</Text>
-      <Text style={styles.rtlBootText}>
-        סגור ופתח את האפליקציה כדי להשלים את מעבר הממשק לימין.
-      </Text>
-    </View>
-  );
-}
 
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -175,64 +100,27 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />
-      <RtlBootGuard>
-        <ConvexAuthProvider
-          client={convex}
-          storage={secureStorage}
-          storageNamespace={CONVEX_AUTH_STORAGE_NAMESPACE}
-        >
-          <UserCtx.UserProvider>
-            <PushNotificationsProvider>
-              <ActiveBusinessProvider>
-                <AppModeProvider>
-                  <OnboardingProvider>
-                    <RevenueCatProvider>
-                      <RootErrorBoundary>
-                        <View
-                          style={styles.rtlRoot}
-                          testID={RTL_ARCHITECTURE_MARKER}
-                        >
-                          <Slot />
-                        </View>
-                      </RootErrorBoundary>
-                    </RevenueCatProvider>
-                  </OnboardingProvider>
-                </AppModeProvider>
-              </ActiveBusinessProvider>
-            </PushNotificationsProvider>
-          </UserCtx.UserProvider>
-        </ConvexAuthProvider>
-      </RtlBootGuard>
+      <ConvexAuthProvider
+        client={convex}
+        storage={secureStorage}
+        storageNamespace={CONVEX_AUTH_STORAGE_NAMESPACE}
+      >
+        <UserCtx.UserProvider>
+          <PushNotificationsProvider>
+            <ActiveBusinessProvider>
+              <AppModeProvider>
+                <OnboardingProvider>
+                  <RevenueCatProvider>
+                    <RootErrorBoundary>
+                      <Slot />
+                    </RootErrorBoundary>
+                  </RevenueCatProvider>
+                </OnboardingProvider>
+              </AppModeProvider>
+            </ActiveBusinessProvider>
+          </PushNotificationsProvider>
+        </UserCtx.UserProvider>
+      </ConvexAuthProvider>
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  rtlRoot: {
-    ...rtlRouteContainerStyle,
-  },
-  rtlBootScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 24,
-    backgroundColor: '#F6F8FC',
-    ...rtlBaseView,
-  },
-  rtlBootTitle: {
-    color: '#0F172A',
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  rtlBootText: {
-    color: '#475569',
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 23,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-});

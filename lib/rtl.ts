@@ -1,19 +1,20 @@
 /**
  * RTL helpers for a Hebrew-first app.
  *
- * React Native native RTL is the single source of truth. These helpers expose
- * logical start/end names so UI code does not hard-code physical sides.
+ * StampAix uses explicit manual RTL layout instead of native/runtime RTL
+ * forcing. This keeps row order, text alignment, and tab order predictable
+ * and avoids double inversion.
  */
 
 import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 
 export const IS_RTL = true;
 
-export const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-native-row-right-v4';
+export const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-manual-row-right-v1';
 
 export const flexDirection = {
-  row: 'row' as FlexStyle['flexDirection'],
-  rowReverse: 'row-reverse' as FlexStyle['flexDirection'],
+  row: 'row-reverse' as FlexStyle['flexDirection'],
+  rowReverse: 'row' as FlexStyle['flexDirection'],
   col: 'column' as FlexStyle['flexDirection'],
   colReverse: 'column-reverse' as FlexStyle['flexDirection'],
 };
@@ -46,19 +47,19 @@ export const selfStart = 'flex-end' as ViewStyle['alignSelf'];
 export const selfEnd = 'flex-start' as ViewStyle['alignSelf'];
 
 export const spacing = {
-  marginStart: (value: number): ViewStyle => ({ marginStart: value }),
-  marginEnd: (value: number): ViewStyle => ({ marginEnd: value }),
-  paddingStart: (value: number): ViewStyle => ({ paddingStart: value }),
-  paddingEnd: (value: number): ViewStyle => ({ paddingEnd: value }),
+  marginStart: (value: number): ViewStyle => ({ marginRight: value }),
+  marginEnd: (value: number): ViewStyle => ({ marginLeft: value }),
+  paddingStart: (value: number): ViewStyle => ({ paddingRight: value }),
+  paddingEnd: (value: number): ViewStyle => ({ paddingLeft: value }),
 };
 
 export const position = {
-  start: (value: number): ViewStyle => ({ start: value }),
-  end: (value: number): ViewStyle => ({ end: value }),
+  start: (value: number): ViewStyle => ({ right: value }),
+  end: (value: number): ViewStyle => ({ left: value }),
 };
 
 export const tw = {
-  flexRow: 'flex-row',
+  flexRow: 'flex-row-reverse',
 
   textStart: 'text-right',
   textEnd: 'text-left',
@@ -72,11 +73,11 @@ export const tw = {
   selfStart: 'self-end',
   selfEnd: 'self-start',
 
-  ps: (size: number | string) => `ps-${size}`,
-  pe: (size: number | string) => `pe-${size}`,
+  ps: (size: number | string) => `pr-${size}`,
+  pe: (size: number | string) => `pl-${size}`,
 
-  ms: (size: number | string) => `ms-${size}`,
-  me: (size: number | string) => `me-${size}`,
+  ms: (size: number | string) => `mr-${size}`,
+  me: (size: number | string) => `ml-${size}`,
 };
 
 export function rtlStyle<T extends ViewStyle | TextStyle>(
@@ -92,31 +93,23 @@ export const iconTransform = {
   rotate180: [{ rotate: '180deg' }],
 };
 
-export const rtlBaseView: ViewStyle = {
-  direction: 'rtl',
-};
+export const rtlBaseView: ViewStyle = {};
 
 export const rtlRouteContainerStyle: ViewStyle = {
   flex: 1,
-  ...rtlBaseView,
 };
 
 export const rtlScreenContentStyle: ViewStyle = {
   flex: 1,
-  ...rtlBaseView,
 };
 
 export const rtlTabSceneStyle: ViewStyle = {
-  ...rtlScreenContentStyle,
+  flex: 1,
 };
 
-export const rtlTabBarStyle: ViewStyle = {
-  ...rtlBaseView,
-};
+export const rtlTabBarStyle: ViewStyle = {};
 
-export const rtlTabBarItemStyle: ViewStyle = {
-  ...rtlBaseView,
-};
+export const rtlTabBarItemStyle: ViewStyle = {};
 
 export const rtlBaseText: TextStyle = {
   writingDirection: 'rtl',
@@ -144,7 +137,6 @@ export const ltrBaseText: TextStyle = {
 
 export const rtlRow: ViewStyle = {
   flexDirection: flexDirection.row,
-  direction: 'rtl',
 };
 
 export const hebrewContent: ViewStyle = {
