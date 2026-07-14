@@ -12,11 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { safeBack } from '@/lib/navigation';
-import { alignItems } from '@/lib/rtl';
 
 const TEXT = {
   title: 'התחברות עם אימייל',
@@ -118,13 +117,12 @@ export default function SignUpEmailScreen() {
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <BackButton onPress={handleBack} />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          onBackPress={handleBack}
+          style={styles.header}
+          titleStyle={styles.title}
+        />
 
         <View style={styles.form}>
           <Text style={styles.label}>{TEXT.label}</Text>
@@ -193,11 +191,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   header: {
-    alignItems: alignItems.start,
-  },
-  titleContainer: {
-    marginTop: 48,
-    alignItems: alignItems.start,
+    marginBottom: 48,
   },
   title: {
     fontSize: 24,

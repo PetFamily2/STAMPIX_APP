@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import {
   MAX_STAMP_OPTIONS,
@@ -35,7 +35,7 @@ import {
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'יוצרים כרטיסיה',
@@ -230,27 +230,30 @@ export default function CreateProgramScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton
-            onPress={() =>
-              safeDismissTo(
-                withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.createBusiness,
-                  flow
-                )
+        <StandaloneBackTitleHeader
+          title={CREATE_PROGRAM_COPY.title}
+          subtitle={CREATE_PROGRAM_COPY.subtitle}
+          onBackPress={() =>
+            safeDismissTo(
+              withBusinessOnboardingFlow(
+                BUSINESS_ONBOARDING_ROUTES.createBusiness,
+                flow
               )
-            }
-          />
-          <OnboardingProgress
-            total={getBusinessOnboardingTotalSteps(flow)}
-            current={getBusinessOnboardingProgressStep('createProgram', flow)}
-          />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{CREATE_PROGRAM_COPY.title}</Text>
-          <Text style={styles.subtitle}>{CREATE_PROGRAM_COPY.subtitle}</Text>
-        </View>
+            )
+          }
+          leftAccessory={
+            <OnboardingProgress
+              total={getBusinessOnboardingTotalSteps(flow)}
+              current={getBusinessOnboardingProgressStep(
+                'createProgram',
+                flow
+              )}
+            />
+          }
+          style={styles.header}
+          titleStyle={styles.title}
+          subtitleStyle={styles.subtitle}
+        />
 
         <ScrollView
           style={styles.formScroll}
@@ -467,14 +470,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  titleContainer: {
-    marginTop: 10,
-    alignItems: alignItems.start,
-    gap: 6,
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,

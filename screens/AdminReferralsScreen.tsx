@@ -16,7 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -197,8 +197,11 @@ export default function AdminReferralsScreen() {
           backgroundColor="#F2F4F8"
           style={styles.header}
         >
-          <BackButton onPress={() => router.back()} />
-          <Text style={styles.title}>{TEXT.title}</Text>
+          <StandaloneBackTitleHeader
+            title={TEXT.title}
+            onBackPress={() => router.back()}
+            titleStyle={styles.title}
+          />
         </StickyScrollHeader>
 
         <View style={styles.card}>
@@ -480,9 +483,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    width: '100%',
   },
   title: {
     flex: 1,

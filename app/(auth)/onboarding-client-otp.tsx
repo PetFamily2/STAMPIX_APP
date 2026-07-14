@@ -13,12 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
+import { flexDirection, justifyContent } from '@/lib/rtl';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 3 * 60;
@@ -384,13 +384,12 @@ export default function OnboardingOtpScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.headerRow}>
-          <BackButton onPress={() => safeBack(backRoute)} />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          onBackPress={() => safeBack(backRoute)}
+          style={styles.headerRow}
+          titleStyle={styles.title}
+        />
 
         <View style={styles.digitsContainer}>
           {digitIndexes.map((digitIndex) => (
@@ -466,11 +465,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   headerRow: {
-    alignItems: 'center',
-  },
-  titleContainer: {
-    marginTop: 64,
-    alignItems: alignItems.start,
+    marginBottom: 64,
   },
   title: {
     fontSize: 24,

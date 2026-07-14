@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import { safeDismissTo, safePush } from '@/lib/navigation';
@@ -33,7 +33,7 @@ import {
   type BusinessExampleId,
 } from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { flexDirection } from '@/lib/rtl';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -618,22 +618,30 @@ export default function BusinessBasicsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton
-            onPress={() =>
-              safeDismissTo(
-                withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.createProgram,
-                  flow
-                )
+        <StandaloneBackTitleHeader
+          title={PUBLISH_COPY.title}
+          subtitle={PUBLISH_COPY.subtitle}
+          onBackPress={() =>
+            safeDismissTo(
+              withBusinessOnboardingFlow(
+                BUSINESS_ONBOARDING_ROUTES.createProgram,
+                flow
               )
-            }
-          />
-          <OnboardingProgress
-            total={getBusinessOnboardingTotalSteps(flow)}
-            current={getBusinessOnboardingProgressStep('businessBasics', flow)}
-          />
-        </View>
+            )
+          }
+          leftAccessory={
+            <OnboardingProgress
+              total={getBusinessOnboardingTotalSteps(flow)}
+              current={getBusinessOnboardingProgressStep(
+                'businessBasics',
+                flow
+              )}
+            />
+          }
+          style={styles.header}
+          titleStyle={styles.title}
+          subtitleStyle={styles.subtitle}
+        />
 
         <ScrollView
           style={styles.formScroll}
@@ -641,11 +649,6 @@ export default function BusinessBasicsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>{PUBLISH_COPY.title}</Text>
-            <Text style={styles.subtitle}>{PUBLISH_COPY.subtitle}</Text>
-          </View>
-
           {businessSettings === undefined ? (
             <View style={styles.loadingCard}>
               <ActivityIndicator color="#2563EB" />
@@ -1046,9 +1049,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   formScroll: {
     marginTop: 12,
@@ -1057,10 +1058,6 @@ const styles = StyleSheet.create({
   formContent: {
     gap: 14,
     paddingBottom: 18,
-  },
-  titleContainer: {
-    alignItems: alignItems.start,
-    gap: 8,
   },
   title: {
     fontSize: 25,

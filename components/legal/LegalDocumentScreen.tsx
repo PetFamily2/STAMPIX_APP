@@ -2,11 +2,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { safeBack } from '@/lib/navigation';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { flexDirection } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -181,12 +181,6 @@ export function LegalDocumentScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerShell}>
-        <View style={styles.header}>
-          <BackButton onPress={() => safeBack(fallbackHref)} />
-        </View>
-      </View>
-
       <ScrollView
         stickyHeaderIndices={[0]}
         contentContainerStyle={styles.content}
@@ -198,8 +192,13 @@ export function LegalDocumentScreen({
           style={styles.titleShell}
         >
           <Text style={styles.eyebrow}>מסמכים משפטיים</Text>
-          <Text style={styles.title}>{activeDocument.title}</Text>
-          <Text style={styles.subtitle}>{activeDocument.subtitle}</Text>
+          <StandaloneBackTitleHeader
+            title={activeDocument.title}
+            subtitle={activeDocument.subtitle}
+            onBackPress={() => safeBack(fallbackHref)}
+            titleStyle={styles.title}
+            subtitleStyle={styles.subtitle}
+          />
 
           <View style={styles.tabs}>
             {DOCUMENT_ORDER.map((key) => {
@@ -281,13 +280,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
-  },
-  headerShell: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  header: {
-    alignItems: alignItems.start,
   },
   titleShell: {
     paddingBottom: 12,

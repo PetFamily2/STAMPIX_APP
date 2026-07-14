@@ -7,8 +7,8 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import QrScanner from '@/components/QrScanner';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
@@ -19,7 +19,7 @@ import {
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
-import { alignItems, selfStart } from '@/lib/rtl';
+import { selfStart } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הצטרפות למועדון',
@@ -334,33 +334,30 @@ export default function JoinScreen() {
             paddingBottom: 8,
           }}
         >
-          <View style={{ alignItems: alignItems.start, marginBottom: 12 }}>
-            <BackButton
-              onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-            />
-          </View>
-          <Text
-            style={{
+          <StandaloneBackTitleHeader
+            title={TEXT.title}
+            onBackPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            titleStyle={{
               fontSize: 22,
               fontWeight: '900',
               color: '#1A2B4A',
               textAlign: 'right',
             }}
           >
-            {TEXT.title}
-          </Text>
-          {feedback ? (
-            <Text
-              style={{
-                marginTop: 10,
-                fontSize: 13,
-                color: feedback.type === 'error' ? '#D92D20' : '#0B922A',
-                textAlign: 'right',
-              }}
-            >
-              {feedback.message}
-            </Text>
-          ) : null}
+            {feedback ? (
+              <Text
+                style={{
+                  width: '100%',
+                  marginTop: 10,
+                  fontSize: 13,
+                  color: feedback.type === 'error' ? '#D92D20' : '#0B922A',
+                  textAlign: 'right',
+                }}
+              >
+                {feedback.message}
+              </Text>
+            ) : null}
+          </StandaloneBackTitleHeader>
         </View>
 
         <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 12 }}>

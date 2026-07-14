@@ -6,14 +6,14 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: 'איך תרצו להתחבר?',
@@ -170,15 +170,13 @@ export default function SignUpScreen() {
       {isPreviewMode && <PreviewModeBanner onClose={() => safeBack()} />}
 
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton onPress={handleBack} />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={2}>
-            {TEXT.title}
-          </Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          onBackPress={handleBack}
+          style={styles.header}
+          titleStyle={styles.title}
+          titleNumberOfLines={2}
+        />
 
         <View style={styles.optionsContainer}>
           <Pressable
@@ -316,12 +314,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    alignItems: alignItems.start,
-  },
-  titleContainer: {
-    marginTop: 40,
-    width: '100%',
-    alignItems: 'stretch',
+    marginBottom: 40,
   },
   title: {
     fontSize: 22,

@@ -12,12 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
-import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'ברוכים הבאים! איך לקרוא לך?',
@@ -230,14 +229,13 @@ export default function NameCaptureScreen() {
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/sign-up')} />
-          <OnboardingProgress total={3} current={1} />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          onBackPress={() => safeBack('/(auth)/sign-up')}
+          leftAccessory={<OnboardingProgress total={3} current={1} />}
+          style={styles.header}
+          titleStyle={styles.title}
+        />
 
         <View style={styles.form}>
           <View style={styles.inputBlock}>
@@ -297,9 +295,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -314,11 +310,6 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     writingDirection: 'rtl',
-  },
-  titleContainer: {
-    alignItems: alignItems.start,
-    marginTop: 24,
-    width: '100%',
   },
   title: {
     fontSize: 24,

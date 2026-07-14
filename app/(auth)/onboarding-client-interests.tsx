@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { alignItems } from '@/lib/rtl';
 
 type BusinessTypeId =
   | 'coffee'
@@ -122,21 +122,21 @@ export default function OnboardingInterestsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton onPress={() => safeBack('/(auth)/name-capture')} />
-          <OnboardingProgress total={3} current={2} />
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          subtitle={TEXT.description}
+          onBackPress={() => safeBack('/(auth)/name-capture')}
+          leftAccessory={<OnboardingProgress total={3} current={2} />}
+          style={styles.header}
+          titleStyle={styles.title}
+          subtitleStyle={styles.description}
+        />
 
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>{TEXT.title}</Text>
-            <Text style={styles.description}>{TEXT.description}</Text>
-          </View>
-
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{TEXT.interestSectionTitle}</Text>
@@ -224,13 +224,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  titleContainer: {
-    marginTop: 32,
-    alignItems: alignItems.start,
+    marginBottom: 4,
   },
   title: {
     fontSize: 24,

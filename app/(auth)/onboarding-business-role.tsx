@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
@@ -26,7 +26,7 @@ import {
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { flexDirection } from '@/lib/rtl';
 
 type AgeRangeId =
   | '18-24'
@@ -285,33 +285,35 @@ export default function OnboardingBusinessRoleScreen() {
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <View style={styles.headerActions}>
-            <Pressable
-              onPress={handleExitIntent}
-              disabled={isLeaving || isSubmitting}
-              accessibilityRole="button"
-              accessibilityLabel={SETUP_COPY.exitConfirm}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed ? styles.closeButtonPressed : null,
-                isLeaving || isSubmitting ? styles.closeButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.closeButtonText}>X</Text>
-            </Pressable>
-            <BackButton onPress={handleExitIntent} />
-          </View>
-          <OnboardingProgress
-            total={BUSINESS_ONBOARDING_TOTAL_STEPS}
-            current={BUSINESS_ONBOARDING_PROGRESS.role}
-          />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{SETUP_COPY.title}</Text>
-          <Text style={styles.subtitle}>{SETUP_COPY.subtitle}</Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={SETUP_COPY.title}
+          subtitle={SETUP_COPY.subtitle}
+          onBackPress={handleExitIntent}
+          leftAccessory={
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={handleExitIntent}
+                disabled={isLeaving || isSubmitting}
+                accessibilityRole="button"
+                accessibilityLabel={SETUP_COPY.exitConfirm}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed ? styles.closeButtonPressed : null,
+                  isLeaving || isSubmitting ? styles.closeButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.closeButtonText}>X</Text>
+              </Pressable>
+              <OnboardingProgress
+                total={BUSINESS_ONBOARDING_TOTAL_STEPS}
+                current={BUSINESS_ONBOARDING_PROGRESS.role}
+              />
+            </View>
+          }
+          style={styles.header}
+          titleStyle={styles.title}
+          subtitleStyle={styles.subtitle}
+        />
 
         <View style={styles.form}>
           <View>
@@ -413,9 +415,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   headerActions: {
     flexDirection: flexDirection.row,
@@ -442,10 +442,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: '#334155',
-  },
-  titleContainer: {
-    marginTop: 12,
-    alignItems: alignItems.start,
   },
   title: {
     fontSize: 24,

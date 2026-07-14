@@ -16,7 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -95,11 +95,11 @@ export default function AdminSupportInboxScreen() {
           backgroundColor="#F3F3F1"
           style={styles.headerRow}
         >
-          <BackButton onPress={() => router.back()} />
-
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.pageTitle}>{TEXT.title}</Text>
-          </View>
+          <StandaloneBackTitleHeader
+            title={TEXT.title}
+            onBackPress={() => router.back()}
+            titleStyle={styles.pageTitle}
+          />
         </StickyScrollHeader>
 
         {!isAdmin ? (
@@ -199,14 +199,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.88 },
 
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 14,
-  },
-  headerTextWrap: {
-    flex: 1,
-    alignItems: 'flex-end',
+    width: '100%',
   },
   backButton: {
     width: 42,

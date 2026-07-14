@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -537,23 +537,6 @@ export default function PreviewCardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton
-            onPress={() =>
-              safeDismissTo(
-                withBusinessOnboardingFlow(
-                  BUSINESS_ONBOARDING_ROUTES.businessBasics,
-                  flow
-                )
-              )
-            }
-          />
-          <OnboardingProgress
-            total={getBusinessOnboardingTotalSteps(flow)}
-            current={getBusinessOnboardingProgressStep('previewCard', flow)}
-          />
-        </View>
-
         <ScrollView
           stickyHeaderIndices={[0]}
           showsVerticalScrollIndicator={false}
@@ -564,8 +547,30 @@ export default function PreviewCardScreen() {
             backgroundColor="#F4F0E8"
             style={styles.titleContainer}
           >
-            <Text style={styles.title}>{PREVIEW_COPY.title}</Text>
-            <Text style={styles.subtitle}>{PREVIEW_COPY.subtitle}</Text>
+            <StandaloneBackTitleHeader
+              title={PREVIEW_COPY.title}
+              subtitle={PREVIEW_COPY.subtitle}
+              onBackPress={() =>
+                safeDismissTo(
+                  withBusinessOnboardingFlow(
+                    BUSINESS_ONBOARDING_ROUTES.businessBasics,
+                    flow
+                  )
+                )
+              }
+              leftAccessory={
+                <OnboardingProgress
+                  total={getBusinessOnboardingTotalSteps(flow)}
+                  current={getBusinessOnboardingProgressStep(
+                    'previewCard',
+                    flow
+                  )}
+                />
+              }
+              style={styles.header}
+              titleStyle={styles.title}
+              subtitleStyle={styles.subtitle}
+            />
           </StickyScrollHeader>
 
           <View style={styles.previewShell}>

@@ -3,14 +3,13 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'הארנק שלך מוכן',
@@ -50,18 +49,16 @@ export default function OnboardingReturnMotivationScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton
-            onPress={() => safeBack('/(auth)/onboarding-client-interests')}
-          />
-          <OnboardingProgress total={3} current={3} />
-        </View>
-
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{TEXT.title}</Text>
-          <Text style={styles.description}>{TEXT.description}</Text>
-          <Text style={styles.note}>{TEXT.note}</Text>
-        </View>
+        <StandaloneBackTitleHeader
+          title={TEXT.title}
+          subtitle={TEXT.description}
+          onBackPress={() => safeBack('/(auth)/onboarding-client-interests')}
+          leftAccessory={<OnboardingProgress total={3} current={3} />}
+          style={styles.header}
+          titleStyle={styles.title}
+          subtitleStyle={styles.description}
+        />
+        <Text style={styles.note}>{TEXT.note}</Text>
 
         <View style={styles.footer}>
           <ContinueButton
@@ -87,13 +84,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  titleContainer: {
-    marginTop: 32,
-    alignItems: alignItems.start,
+    marginBottom: 0,
   },
   title: {
     fontSize: 24,

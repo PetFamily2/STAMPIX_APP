@@ -14,7 +14,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -109,17 +109,16 @@ export default function AcceptInviteScreen() {
           backgroundColor="#E9F0FF"
         >
           <View className="px-6 pt-6 pb-8">
-            <View className={`${tw.flexRow} items-center justify-between`}>
-              <BackButton
-                onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
-              />
-              <Text
-                className={`text-2xl font-bold text-gray-900 ${tw.textStart}`}
-              >
-                {TEXT.title}
-              </Text>
-              <View className="w-11 h-11" />
-            </View>
+            <StandaloneBackTitleHeader
+              title={TEXT.title}
+              onBackPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+              titleStyle={{
+                fontSize: 24,
+                fontWeight: '700',
+                color: '#111827',
+                textAlign: 'right',
+              }}
+            />
           </View>
         </StickyScrollHeader>
 

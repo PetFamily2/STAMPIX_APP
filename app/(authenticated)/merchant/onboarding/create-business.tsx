@@ -15,9 +15,9 @@ import {
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
@@ -678,25 +678,6 @@ export default function CreateBusinessScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <BackButton
-            onPress={() =>
-              safeDismissTo(
-                withBusinessOnboardingFlow(
-                  isAdditionalFlow
-                    ? '/(authenticated)/(business)/settings'
-                    : BUSINESS_ONBOARDING_ROUTES.role,
-                  flow
-                )
-              )
-            }
-          />
-          <OnboardingProgress
-            total={getBusinessOnboardingTotalSteps(flow)}
-            current={getBusinessOnboardingProgressStep('createBusiness', flow)}
-          />
-        </View>
-
         <ScrollView
           stickyHeaderIndices={[0]}
           style={styles.body}
@@ -708,8 +689,32 @@ export default function CreateBusinessScreen() {
             backgroundColor="#FBFAF7"
             style={styles.titleContainer}
           >
-            <Text style={styles.title}>{CREATE_BUSINESS_COPY.title}</Text>
-            <Text style={styles.subtitle}>{CREATE_BUSINESS_COPY.subtitle}</Text>
+            <StandaloneBackTitleHeader
+              title={CREATE_BUSINESS_COPY.title}
+              subtitle={CREATE_BUSINESS_COPY.subtitle}
+              onBackPress={() =>
+                safeDismissTo(
+                  withBusinessOnboardingFlow(
+                    isAdditionalFlow
+                      ? '/(authenticated)/(business)/settings'
+                      : BUSINESS_ONBOARDING_ROUTES.role,
+                    flow
+                  )
+                )
+              }
+              leftAccessory={
+                <OnboardingProgress
+                  total={getBusinessOnboardingTotalSteps(flow)}
+                  current={getBusinessOnboardingProgressStep(
+                    'createBusiness',
+                    flow
+                  )}
+                />
+              }
+              style={styles.header}
+              titleStyle={styles.title}
+              subtitleStyle={styles.subtitle}
+            />
           </StickyScrollHeader>
 
           <View style={styles.searchSection}>
