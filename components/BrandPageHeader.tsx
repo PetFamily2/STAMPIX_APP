@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import CustomerBrandTitleRow from '@/components/customer/CustomerBrandTitleRow';
-import { rtlBaseText, rtlBaseView } from '@/lib/rtl';
+import { rtlBaseView } from '@/lib/rtl';
 
 type BrandPageHeaderProps = {
   title: string;
@@ -32,20 +32,15 @@ export default function BrandPageHeader({
     <View style={[styles.container, style]}>
       <CustomerBrandTitleRow
         title={title}
+        subtitle={subtitle}
         style={styles.titleRow}
         titleStyle={titleStyle}
+        subtitleStyle={subtitleStyle}
         titleAccessory={titleAccessory}
         brandAccessory={brandAccessory}
         titleNumberOfLines={titleNumberOfLines}
+        subtitleNumberOfLines={subtitleNumberOfLines}
       />
-      {subtitle ? (
-        <Text
-          numberOfLines={subtitleNumberOfLines}
-          style={[styles.subtitle, subtitleStyle]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -60,12 +55,5 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     minHeight: 30,
-  },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: '#64748B',
-    ...rtlBaseText,
   },
 });

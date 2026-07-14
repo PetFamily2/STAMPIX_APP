@@ -2,41 +2,57 @@ import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import {
+  alignItems,
   flexDirection,
-  justifyContent,
   ltrBaseText,
   rtlAutoText,
+  rtlBaseText,
   rtlBaseView,
-  spacing,
 } from '@/lib/rtl';
 
 type CustomerBrandTitleRowProps = {
   title: string;
+  subtitle?: string;
   style?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
+  subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
   brandAccessory?: ReactNode;
   titleNumberOfLines?: number;
+  subtitleNumberOfLines?: number;
 };
 
 export default function CustomerBrandTitleRow({
   title,
+  subtitle,
   style,
   titleStyle,
+  subtitleStyle,
   titleAccessory,
   brandAccessory,
   titleNumberOfLines = 1,
+  subtitleNumberOfLines = 2,
 }: CustomerBrandTitleRowProps) {
   return (
     <View style={[styles.row, style]}>
-      <View style={styles.titleWrap}>
+      <View style={styles.titleZone}>
         {titleAccessory}
-        <Text
-          style={[styles.title, titleStyle]}
-          numberOfLines={titleNumberOfLines}
-        >
-          {title}
-        </Text>
+        <View style={styles.titleTextBlock}>
+          <Text
+            style={[styles.title, titleStyle]}
+            numberOfLines={titleNumberOfLines}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text
+              numberOfLines={subtitleNumberOfLines}
+              style={[styles.subtitle, subtitleStyle]}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
       </View>
       <View style={styles.brandWrap}>
         {brandAccessory}
@@ -58,13 +74,15 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     ...rtlBaseView,
   },
   brandWrap: {
-    flexDirection: flexDirection.row,
+    flexDirection: flexDirection.rowReverse,
     alignItems: 'center',
     gap: 8,
     direction: 'ltr',
+    flexShrink: 0,
   },
   brand: {
     fontSize: 22,
@@ -79,21 +97,34 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#2F6BFF',
   },
-  titleWrap: {
+  titleZone: {
     flex: 1,
-    ...spacing.marginEnd(12),
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: justifyContent.start,
-    gap: 16,
+    gap: 8,
+    minWidth: 0,
     ...rtlBaseView,
+  },
+  titleTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: alignItems.start,
   },
   title: {
     fontSize: 24,
     lineHeight: 30,
     fontWeight: '900',
     color: '#1A2B4A',
-    flexShrink: 1,
+    width: '100%',
     ...rtlAutoText,
+  },
+  subtitle: {
+    width: '100%',
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#64748B',
+    ...rtlBaseText,
   },
 });

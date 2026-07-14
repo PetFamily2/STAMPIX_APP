@@ -51,37 +51,39 @@ export function DashboardHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.brandCluster}>
+        <View style={styles.greetingBlock}>
           <Text
+            numberOfLines={1}
             style={[
-              styles.brandLine,
+              styles.greetingLine,
               {
-                fontSize: layout.headerBrandSize,
-                lineHeight: layout.headerBrandSize + 6,
+                fontSize: layout.headerGreetingSize,
+                lineHeight: layout.headerGreetingSize + 5,
               },
             ]}
           >
-            StampAix
+            {greetingWithName}
           </Text>
+          <View style={styles.businessRow}>
+            {businessName ? (
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.businessName,
+                  {
+                    fontSize: layout.headerBusinessSize,
+                    lineHeight: layout.headerBusinessSize + 4,
+                  },
+                ]}
+              >
+                {businessName}
+              </Text>
+            ) : null}
+            <Ionicons name="chevron-down" size={16} color="#334155" />
+          </View>
         </View>
 
-        <View style={styles.actionCluster}>
-          <Pressable
-            onPress={onPressNotifications}
-            style={styles.notificationButton}
-            accessibilityRole="button"
-            accessibilityLabel="התראות עסק"
-          >
-            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-            {notificationCount > 0 ? (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {notificationCount > 9 ? '9+' : notificationCount}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-
+        <View style={styles.identityCluster}>
           <Pressable
             onPress={onPressMenu}
             accessibilityRole="button"
@@ -93,46 +95,48 @@ export function DashboardHeader({
               size={40}
             />
           </Pressable>
-          <Pressable
-            onPress={onPressMenu}
-            style={styles.menuButton}
-            accessibilityRole="button"
-            accessibilityLabel="פתיחת תפריט"
-          >
-            <Ionicons name="menu-outline" size={30} color="#1E3A8A" />
-          </Pressable>
-        </View>
-      </View>
 
-      <View style={styles.greetingRow}>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.greetingLine,
-            {
-              fontSize: layout.headerGreetingSize,
-              lineHeight: layout.headerGreetingSize + 5,
-            },
-          ]}
-        >
-          {greetingWithName}
-        </Text>
-        <View style={styles.businessRow}>
-          {businessName ? (
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.businessName,
-                {
-                  fontSize: layout.headerBusinessSize,
-                  lineHeight: layout.headerBusinessSize + 4,
-                },
-              ]}
+          <Text
+            style={[
+              styles.brandLine,
+              {
+                fontSize: layout.headerBrandSize,
+                lineHeight: layout.headerBrandSize + 6,
+              },
+            ]}
+          >
+            StampAix
+          </Text>
+
+          <View style={styles.actionCluster}>
+            <Pressable
+              onPress={onPressMenu}
+              style={styles.menuButton}
+              accessibilityRole="button"
+              accessibilityLabel="פתיחת תפריט"
             >
-              {businessName}
-            </Text>
-          ) : null}
-          <Ionicons name="chevron-down" size={16} color="#334155" />
+              <Ionicons name="menu-outline" size={30} color="#1E3A8A" />
+            </Pressable>
+            <Pressable
+              onPress={onPressNotifications}
+              style={styles.notificationButton}
+              accessibilityRole="button"
+              accessibilityLabel="התראות עסק"
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#0F172A"
+              />
+              {notificationCount > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -141,24 +145,24 @@ export function DashboardHeader({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 8,
     paddingTop: 0,
     ...rtlBaseView,
   },
   topRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     ...rtlBaseView,
   },
-  brandCluster: {
-    flexDirection: flexDirection.row,
+  identityCluster: {
+    flexDirection: flexDirection.rowReverse,
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    flexShrink: 0,
     ...rtlBaseView,
   },
   actionCluster: {
-    flexDirection: flexDirection.row,
+    flexDirection: flexDirection.rowReverse,
     alignItems: 'center',
     gap: 4,
     ...rtlBaseView,
@@ -202,7 +206,9 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     writingDirection: 'ltr',
   },
-  greetingRow: {
+  greetingBlock: {
+    flex: 1,
+    minWidth: 0,
     alignItems: alignItems.start,
     gap: 1,
     ...rtlBaseView,
@@ -217,6 +223,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 2,
+    maxWidth: '100%',
     ...rtlBaseView,
   },
   businessName: {
