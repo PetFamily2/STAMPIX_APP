@@ -19,8 +19,6 @@
       "associatedDomains": ["applinks:stampix.app"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "ExpoLocalization_supportsRTL": true,
-        "ExpoLocalization_forcesRTL": true,
         "NSCameraUsageDescription": "STAMPAIX uses the camera to scan customer and business QR codes.",
         "NSLocationWhenInUseUsageDescription": "STAMPAIX uses your location to show nearby participating businesses.",
         "NSPhotoLibraryUsageDescription": "STAMPAIX lets businesses choose images for loyalty cards and programs."
@@ -112,8 +110,6 @@
     },
     "extra": {
       "router": {},
-      "supportsRTL": true,
-      "forcesRTL": true,
       "eas": {
         "projectId": "74e10cc1-aece-4da6-8049-e62cc8adf17d"
       }
