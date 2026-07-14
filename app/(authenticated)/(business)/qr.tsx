@@ -157,11 +157,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   qrPlaceholderText: {
+    width: '100%',
     fontSize: 12,
     fontWeight: '700',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
     paddingHorizontal: 12,
+    writingDirection: 'rtl',
   },
   qrText: {
     marginTop: 10,
@@ -181,7 +183,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   sourceInput: {
     height: 44,

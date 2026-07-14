@@ -592,7 +592,7 @@ export default function CampaignDraftEditorScreen() {
   if (!selectedBusinessId) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
-        <Text className="text-center text-sm text-[#64748B]">
+        <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי עסק.
         </Text>
         <TouchableOpacity
@@ -800,7 +800,7 @@ export default function CampaignDraftEditorScreen() {
   if (!campaignId) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
-        <Text className="text-center text-sm text-[#64748B]">
+        <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי מבצע לעריכה.
         </Text>
         <TouchableOpacity
@@ -824,7 +824,7 @@ export default function CampaignDraftEditorScreen() {
   if (!campaignDraft) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
-        <Text className="text-center text-sm text-[#64748B]">
+        <Text className="w-full text-right text-sm text-[#64748B]">
           לא נמצאה טיוטת מבצע.
         </Text>
         <TouchableOpacity

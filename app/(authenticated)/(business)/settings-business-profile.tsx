@@ -805,7 +805,7 @@ export default function BusinessSettingsProfileScreen() {
   if (!activeBusinessId) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
-        <Text className="text-center text-sm text-[#64748B]">
+        <Text className="w-full text-right text-sm text-[#64748B]">
           לא נמצא עסק פעיל.
         </Text>
       </SafeAreaView>

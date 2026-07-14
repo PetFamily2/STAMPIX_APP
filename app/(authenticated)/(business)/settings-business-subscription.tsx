@@ -675,7 +675,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   emptyStateText: {
-    textAlign: 'center',
+    width: '100%',
+    textAlign: 'right',
+    writingDirection: 'rtl',
     color: '#64748B',
     fontSize: 14,
     fontWeight: '600',

@@ -233,7 +233,9 @@ export default function ProgramDetailsScreen() {
   if (!programId || !selectedBusinessId) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
-        <Text className="text-sm text-[#64748B]">{TEXT.missingData}</Text>
+        <Text className="w-full px-6 text-right text-sm text-[#64748B]">
+          {TEXT.missingData}
+        </Text>
       </SafeAreaView>
     );
   }
