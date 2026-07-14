@@ -190,7 +190,8 @@ export default function AcceptInviteScreen() {
                 autoCapitalize="characters"
                 autoCorrect={false}
                 editable={!busy}
-                className={`mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-gray-900 ${tw.textStart}`}
+                className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-center text-base text-gray-900"
+                style={{ writingDirection: 'auto' }}
               />
               {error && (
                 <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>

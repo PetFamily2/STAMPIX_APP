@@ -209,35 +209,35 @@ export default function AdminReferralsScreen() {
           <TextInput
             value={referralCode}
             onChangeText={setReferralCode}
-            style={styles.input}
+            style={[styles.input, styles.codeInput]}
             placeholder={TEXT.referralCode}
             autoCapitalize="characters"
           />
           <TextInput
             value={businessId}
             onChangeText={setBusinessId}
-            style={styles.input}
+            style={[styles.input, styles.codeInput]}
             placeholder={TEXT.businessId}
             autoCapitalize="none"
           />
           <TextInput
             value={customerReferralId}
             onChangeText={setCustomerReferralId}
-            style={styles.input}
+            style={[styles.input, styles.codeInput]}
             placeholder={TEXT.customerReferralId}
             autoCapitalize="none"
           />
           <TextInput
             value={rewardId}
             onChangeText={setRewardId}
-            style={styles.input}
+            style={[styles.input, styles.codeInput]}
             placeholder={TEXT.rewardId}
             autoCapitalize="none"
           />
           <TextInput
             value={reasonCode}
             onChangeText={setReasonCode}
-            style={styles.input}
+            style={[styles.input, styles.codeInput]}
             placeholder={TEXT.reasonCode}
             autoCapitalize="none"
           />
@@ -478,9 +478,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
+    width: '100%',
     fontSize: 12,
     color: '#475569',
     fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   header: {
     width: '100%',
@@ -519,6 +522,10 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     color: '#111827',
     fontWeight: '600',
+  },
+  codeInput: {
+    textAlign: 'center',
+    writingDirection: 'auto',
   },
   multilineInput: {
     minHeight: 72,
