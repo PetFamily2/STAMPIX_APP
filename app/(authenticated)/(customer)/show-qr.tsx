@@ -376,19 +376,21 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   statusText: {
+    width: '100%',
     marginTop: 12,
     fontSize: 14,
     fontWeight: '700',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   helperText: {
+    width: '100%',
     marginBottom: 10,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 22,
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   qrWindow: {
     width: '100%',
@@ -410,11 +412,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   qrPlaceholderText: {
+    width: '100%',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 20,
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   refreshButton: {
     marginTop: 12,

@@ -785,10 +785,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   centerMessageText: {
+    width: '100%',
     fontSize: 14,
     fontWeight: '700',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   pressed: {
     opacity: 0.88,

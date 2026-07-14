@@ -820,10 +820,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   qrPlaceholderText: {
+    width: '100%',
     fontSize: 11,
     fontWeight: '700',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   refreshButton: {
     marginTop: 10,
@@ -918,15 +919,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   centerMessageTitle: {
+    width: '100%',
     fontSize: 18,
     fontWeight: '800',
     color: '#1A2B4A',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   centerMessageText: {
+    width: '100%',
     fontSize: 13,
     fontWeight: '600',
     color: '#5B6475',
-    textAlign: 'center',
+    textAlign: 'right',
   },
 });
