@@ -260,10 +260,11 @@ const styles = StyleSheet.create({
     color: '#96a0ae',
   },
   errorText: {
+    width: '100%',
     fontSize: 13,
     fontWeight: '600',
     color: '#dc2626',
-    textAlign: 'center',
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   backText: {
