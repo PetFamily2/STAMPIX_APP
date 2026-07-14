@@ -6,13 +6,11 @@ import {
   useRouter,
   useSegments,
 } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { IS_DEV_MODE } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
-
-let didRedirectToAuthenticated = false;
 
 export default function AuthRoutesLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -27,6 +25,8 @@ export default function AuthRoutesLayout() {
   }>();
   const pathname = usePathname();
   const router = useRouter();
+  const didRedirectToAuthenticatedRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
@@ -36,12 +36,14 @@ export default function AuthRoutesLayout() {
     segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
     segmentStrings.includes('name-capture');
   const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
+  const isOtpTransitionRoute = segmentStrings.includes('onboarding-client-otp');
+  const isAuthTransitionRoute = isOAuthCallbackRoute || isOtpTransitionRoute;
   const customerOnboarded = user?.customerOnboardedAt != null;
   const isAllowedForAuthenticated =
     isPaywallRoute ||
     isPreviewMode ||
     isOnboardingRoute ||
-    isOAuthCallbackRoute ||
+    isAuthTransitionRoute ||
     !customerOnboarded;
   const alreadyInTarget =
     pathname === AUTH_REDIRECT_TARGET ||
@@ -57,16 +59,33 @@ export default function AuthRoutesLayout() {
       isLoading ||
       user === undefined ||
       !shouldRedirectToAuthenticated ||
+      isAuthTransitionRoute ||
       alreadyInTarget ||
-      didRedirectToAuthenticated
+      didRedirectToAuthenticatedRef.current
     ) {
       return;
     }
-    didRedirectToAuthenticated = true;
-    setTimeout(() => {
+    didRedirectToAuthenticatedRef.current = true;
+    redirectTimerRef.current = setTimeout(() => {
+      redirectTimerRef.current = null;
       router.replace(AUTH_REDIRECT_TARGET);
     }, 0);
-  }, [isLoading, user, shouldRedirectToAuthenticated, alreadyInTarget, router]);
+
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+        didRedirectToAuthenticatedRef.current = false;
+      }
+    };
+  }, [
+    isAuthTransitionRoute,
+    isLoading,
+    user,
+    shouldRedirectToAuthenticated,
+    alreadyInTarget,
+    router,
+  ]);
 
   return (
     <View style={styles.rtlRouteGroup}>

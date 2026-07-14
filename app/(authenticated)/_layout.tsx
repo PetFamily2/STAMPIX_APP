@@ -18,10 +18,12 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   getActiveMembershipByBusinessId,
   requiresBusinessOnboardingForRole,
-  resolveActiveBusinessShell,
 } from '@/lib/activeBusinessShell';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
-import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import {
+  POST_AUTH_ROUTES,
+  resolvePostAuthRoute,
+} from '@/lib/auth/postAuthRouting';
 import { rtlBaseView, rtlScreenContentStyle } from '@/lib/rtl';
 
 const TEXT = {
@@ -171,86 +173,56 @@ export default function AuthenticatedLayout() {
       router.replace(href as Href);
     };
 
-    const customerTarget = '/(authenticated)/(customer)/wallet';
-    const businessTarget = '/(authenticated)/(business)/dashboard';
-    const staffTarget = '/(authenticated)/(staff)/scanner';
-    const merchantOnboardingTarget = BUSINESS_ONBOARDING_ROUTES.entry;
-    const nameCaptureTarget = '/(auth)/name-capture';
-
-    const customerOnboarded = user?.customerOnboardedAt != null;
-    const businessOnboarded = user?.businessOnboardedAt != null;
     const activeMode = sessionContext?.activeMode ?? 'customer';
-    const bizList = sessionContext?.businesses ?? [];
-    const activeBusinessId =
-      resolvedActiveBusinessId ?? sessionContext?.activeBusinessId ?? null;
-    const activeMembership = getActiveMembershipByBusinessId(
-      bizList,
-      activeBusinessId
-    );
-    const activeMembershipRole = activeMembership?.staffRole ?? null;
-    const activeShell = resolveActiveBusinessShell(bizList, activeBusinessId);
-    const shouldForceBusinessOnboarding =
-      activeMode === 'business' &&
-      requiresBusinessOnboardingForRole(
-        activeMembershipRole,
-        businessOnboarded
-      );
-
     void syncAppMode(activeMode);
 
-    if (!customerOnboarded) {
-      safeReplace(nameCaptureTarget);
+    const resolution = resolvePostAuthRoute({
+      isAuthLoading: isLoading,
+      isAuthenticated,
+      user,
+      sessionContext,
+      activeBusinessId: resolvedActiveBusinessId,
+    });
+
+    if (resolution.status !== 'route') {
       return;
     }
 
-    if (shouldForceBusinessOnboarding && !inMerchant) {
-      safeReplace(merchantOnboardingTarget);
+    if (resolution.href === POST_AUTH_ROUTES.nameCapture) {
+      safeReplace(POST_AUTH_ROUTES.nameCapture);
       return;
     }
 
-    if (activeMode === 'business') {
-      if (activeShell === 'none') {
-        safeReplace(customerTarget);
-        return;
+    if (
+      resolution.href === POST_AUTH_ROUTES.merchantOnboarding &&
+      !inMerchant
+    ) {
+      safeReplace(POST_AUTH_ROUTES.merchantOnboarding);
+      return;
+    }
+
+    if (resolution.href === POST_AUTH_ROUTES.businessDashboard) {
+      if (inCustomerGroup || inStaffGroup) {
+        safeReplace(POST_AUTH_ROUTES.businessDashboard);
       }
-      if (
-        activeShell === 'business' &&
-        requiresBusinessOnboardingForRole(
-          activeMembershipRole,
-          businessOnboarded
-        ) &&
-        !inMerchant
-      ) {
-        safeReplace(merchantOnboardingTarget);
-        return;
-      }
-      if (activeShell === 'business') {
-        if (inCustomerGroup || inStaffGroup) {
-          safeReplace(businessTarget);
-          return;
-        }
-        return;
-      }
-      if (inCustomerGroup || inBusinessGroup) {
-        safeReplace(staffTarget);
-        return;
-      }
+      return;
+    }
+
+    if (resolution.href === POST_AUTH_ROUTES.staffScanner) {
       if (!inStaffGroup) {
-        safeReplace(staffTarget);
-        return;
+        safeReplace(POST_AUTH_ROUTES.staffScanner);
       }
       return;
     }
 
-    if (activeMode === 'customer') {
-      if (inBusinessGroup || inStaffGroup) {
-        safeReplace(customerTarget);
-        return;
-      }
-    }
-
-    if (!inCustomerGroup && !inBusinessGroup && !inStaffGroup && !isFreeRoute) {
-      safeReplace(customerTarget);
+    if (
+      resolution.href === POST_AUTH_ROUTES.customerWallet &&
+      (activeMode === 'business' ||
+        inBusinessGroup ||
+        inStaffGroup ||
+        (!inCustomerGroup && !inBusinessGroup && !inStaffGroup && !isFreeRoute))
+    ) {
+      safeReplace(POST_AUTH_ROUTES.customerWallet);
     }
   }, [
     isAuthenticated,

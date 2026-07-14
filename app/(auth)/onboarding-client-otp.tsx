@@ -1,8 +1,9 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useConvexAuth } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
@@ -15,13 +16,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContinueButton } from '@/components/ContinueButton';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  isPostAuthTransitionPending,
+  resolvePostAuthRoute,
+} from '@/lib/auth/postAuthRouting';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { flexDirection, justifyContent } from '@/lib/rtl';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 3 * 60;
+const POST_AUTH_TIMEOUT_MS = 8000;
 
 const TEXT = {
   title: 'מה הקוד שקיבלת?',
@@ -47,7 +55,10 @@ export default function OnboardingOtpScreen() {
     sent?: string | string[];
   }>();
   const { signIn } = useAuthActions();
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const { user: currentUser, isLoading: isUserLoading } = useUser();
+  const sessionContext = useSessionContext();
+  const { activeBusinessId } = useActiveBusiness();
 
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => '')
@@ -61,6 +72,8 @@ export default function OnboardingOtpScreen() {
   const isSendingRef = useRef(false);
   const otpSentRef = useRef(false);
   const lastAutoSubmittedCodeRef = useRef<string | null>(null);
+  const postAuthTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasNavigatedRef = useRef(false);
   const digitIndexes = useMemo(
     () => Array.from({ length: CODE_LENGTH }, (_, index) => index),
     []
@@ -70,6 +83,26 @@ export default function OnboardingOtpScreen() {
       screen: 'onboarding_client_otp',
       role: 'client',
     });
+
+  const clearPostAuthTimeout = useCallback(() => {
+    if (postAuthTimeoutRef.current) {
+      clearTimeout(postAuthTimeoutRef.current);
+      postAuthTimeoutRef.current = null;
+    }
+  }, []);
+
+  const resolverUser = isUserLoading ? undefined : currentUser;
+  const isTransitionPending = isPostAuthTransitionPending({
+    user: resolverUser,
+    sessionContext,
+  });
+  const postAuthResolution = resolvePostAuthRoute({
+    isAuthLoading,
+    isAuthenticated,
+    user: resolverUser,
+    sessionContext,
+    activeBusinessId,
+  });
 
   const contactValue = useMemo(() => {
     if (Array.isArray(contact)) {
@@ -291,22 +324,50 @@ export default function OnboardingOtpScreen() {
   const backRoute = '/(auth)/sign-up-email';
 
   useEffect(() => {
-    if (!isAwaitingSession) {
+    if (
+      !isAwaitingSession ||
+      hasNavigatedRef.current ||
+      (!isTransitionPending && postAuthResolution.status === 'route')
+    ) {
       return;
     }
 
-    if (isAuthenticated) {
-      router.replace('/(authenticated)/(customer)/wallet');
+    if (!postAuthTimeoutRef.current) {
+      postAuthTimeoutRef.current = setTimeout(() => {
+        postAuthTimeoutRef.current = null;
+        setIsAwaitingSession(false);
+        setError(TEXT.missingSession);
+      }, POST_AUTH_TIMEOUT_MS);
+    }
+
+    return clearPostAuthTimeout;
+  }, [
+    clearPostAuthTimeout,
+    isAwaitingSession,
+    isTransitionPending,
+    postAuthResolution.status,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isAwaitingSession ||
+      hasNavigatedRef.current ||
+      isTransitionPending ||
+      postAuthResolution.status !== 'route'
+    ) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setIsAwaitingSession(false);
-      setError(TEXT.missingSession);
-    }, 8000);
-
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, isAwaitingSession, router]);
+    hasNavigatedRef.current = true;
+    clearPostAuthTimeout();
+    router.replace(postAuthResolution.href as Href);
+  }, [
+    clearPostAuthTimeout,
+    isAwaitingSession,
+    isTransitionPending,
+    postAuthResolution,
+    router,
+  ]);
 
   const handleContinue = useCallback(async () => {
     if (!isComplete || isVerifying || isAwaitingSession) {
@@ -380,6 +441,17 @@ export default function OnboardingOtpScreen() {
     isVerifying,
     otpCode,
   ]);
+
+  if (isAwaitingSession) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.postAuthContent}>
+          <ActivityIndicator size="small" color="#2563eb" />
+          <Text style={styles.postAuthText}>משלימים התחברות</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -533,6 +605,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: justifyContent.end,
     paddingBottom: 24,
+  },
+  postAuthContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  postAuthText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1f2937',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   button: {
     borderRadius: 999,

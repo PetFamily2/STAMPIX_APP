@@ -1,85 +1,121 @@
-import { useConvexAuth, useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useConvexAuth } from 'convex/react';
+import { type Href, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { api } from '@/convex/_generated/api';
+import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import {
+  isPostAuthTransitionPending,
+  resolvePostAuthRoute,
+} from '@/lib/auth/postAuthRouting';
 
-const AUTH_FALLBACK_DELAY_MS = 2200;
-const CONTINUE_DELAY_MS = 1200;
+const POST_AUTH_TIMEOUT_MS = 8000;
 
 const TEXT = {
   loading: 'משלימים התחברות',
-  linked: 'מצאנו חשבון קיים, ממשיכים להתחברות',
-  newAccount: 'מכינים חשבון חדש, ממשיכים להתחברות',
-  missingAuth: 'לא זוהתה התחברות פעילה מחזירים למסך הרשמה',
-  waitingUser: 'מקבלים נתוני משתמש',
+  failure: 'לא הצלחנו להשלים את ההתחברות. נסו שוב.',
+  returnToSignUp: 'חזרה להרשמה',
 };
-
-function needsCustomerOnboarding(user: {
-  customerOnboardedAt?: number | null;
-}) {
-  return user.customerOnboardedAt == null;
-}
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const user = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip'
-  );
+  const { user: currentUser, isLoading: isUserLoading } = useUser();
+  const sessionContext = useSessionContext();
+  const { activeBusinessId } = useActiveBusiness();
+  const [didTimeout, setDidTimeout] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasNavigatedRef = useRef(false);
 
-  const statusText = useMemo(() => {
-    if (isLoading) {
-      return TEXT.loading;
+  const clearPostAuthTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
+  }, []);
 
-    if (!isAuthenticated) {
-      return TEXT.missingAuth;
-    }
-
-    if (user === undefined || user === null) {
-      return TEXT.waitingUser;
-    }
-
-    return needsCustomerOnboarding(user) ? TEXT.newAccount : TEXT.linked;
-  }, [isAuthenticated, isLoading, user]);
+  const resolverUser = isUserLoading ? undefined : currentUser;
+  const isTransitionPending = isPostAuthTransitionPending({
+    user: resolverUser,
+    sessionContext,
+  });
+  const resolution = resolvePostAuthRoute({
+    isAuthLoading: isLoading,
+    isAuthenticated,
+    user: resolverUser,
+    sessionContext,
+    activeBusinessId,
+  });
 
   useEffect(() => {
-    if (isLoading) {
+    if (
+      hasNavigatedRef.current ||
+      (!isTransitionPending && resolution.status === 'route')
+    ) {
       return;
     }
 
-    if (!isAuthenticated) {
-      const unauthTimer = setTimeout(() => {
-        router.replace('/(auth)/sign-up');
-      }, AUTH_FALLBACK_DELAY_MS);
-      return () => clearTimeout(unauthTimer);
+    if (!timeoutRef.current) {
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = null;
+        setDidTimeout(true);
+      }, POST_AUTH_TIMEOUT_MS);
     }
 
-    if (user === undefined || user === null) {
+    return clearPostAuthTimeout;
+  }, [clearPostAuthTimeout, isTransitionPending, resolution.status]);
+
+  useEffect(() => {
+    if (
+      hasNavigatedRef.current ||
+      isTransitionPending ||
+      resolution.status !== 'route'
+    ) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      if (needsCustomerOnboarding(user)) {
-        router.replace('/(auth)/name-capture');
-        return;
-      }
+    hasNavigatedRef.current = true;
+    clearPostAuthTimeout();
+    router.replace(resolution.href as Href);
+  }, [clearPostAuthTimeout, isTransitionPending, resolution, router]);
 
-      router.replace('/(authenticated)/(customer)/wallet');
-    }, CONTINUE_DELAY_MS);
+  const handleReturnToSignUp = () => {
+    if (hasNavigatedRef.current) {
+      return;
+    }
+    hasNavigatedRef.current = true;
+    clearPostAuthTimeout();
+    router.replace('/(auth)/sign-up');
+  };
 
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, isLoading, router, user]);
+  const showFailure = didTimeout && resolution.status !== 'route';
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <ActivityIndicator size="small" color="#2563eb" />
-        <Text style={styles.title}>{statusText}</Text>
+        {showFailure ? null : (
+          <ActivityIndicator size="small" color="#2563eb" />
+        )}
+        <Text style={styles.title}>
+          {showFailure ? TEXT.failure : TEXT.loading}
+        </Text>
+        {showFailure ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleReturnToSignUp}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryText}>{TEXT.returnToSignUp}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -101,6 +137,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#1f2937',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  retryButton: {
+    marginTop: 8,
+    borderRadius: 999,
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
     textAlign: 'center',
     writingDirection: 'rtl',
   },
