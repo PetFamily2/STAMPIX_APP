@@ -254,8 +254,9 @@ async function fetchGooglePlaceSuggestions(
       input,
       key: getApiKey(),
       language: 'he',
+      region: 'il',
       sessiontoken: sessionToken,
-      types: 'address',
+      components: 'country:il',
     })
   );
 
@@ -291,6 +292,7 @@ async function fetchNominatimSuggestions(input: string) {
       addressdetails: '1',
       limit: '5',
       'accept-language': 'he',
+      countrycodes: 'il',
     }),
     {
       headers: {

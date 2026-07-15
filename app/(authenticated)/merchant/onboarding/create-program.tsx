@@ -205,7 +205,11 @@ export default function CreateProgramScreen() {
 
       setProgramId(loyaltyProgramId);
       try {
-        await saveStep({ step: 'createProgram', flow });
+        await saveStep({
+          step: 'createProgram',
+          flow,
+          programId: loyaltyProgramId,
+        });
       } catch {
         // Keep onboarding moving even if draft persistence fails.
       }
@@ -216,7 +220,7 @@ export default function CreateProgramScreen() {
 
       safePush(
         withBusinessOnboardingFlow(
-          BUSINESS_ONBOARDING_ROUTES.businessBasics,
+          BUSINESS_ONBOARDING_ROUTES.previewCard,
           flow
         )
       );

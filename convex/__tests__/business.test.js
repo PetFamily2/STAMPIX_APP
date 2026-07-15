@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   assertBusinessOnboardingReady,
+  createOrResumeBusinessOnboarding,
   getBusinessesNearby,
   getBusinessSettings,
   saveBusinessOnboardingSnapshot,
@@ -64,6 +65,8 @@ function createMockCtx({
       businessStaff.map((entry) => [entry._id, { ...entry }])
     ),
   };
+  let businessInsertCount = 0;
+  let staffInsertCount = 0;
 
   const ctx = {
     auth: {
@@ -106,6 +109,23 @@ function createMockCtx({
 
         throw new Error(`UNKNOWN_PATCH_TARGET:${id}`);
       },
+      insert: async (tableName, value) => {
+        if (tableName === 'businesses') {
+          businessInsertCount += 1;
+          const id = `business_inserted_${businessInsertCount}`;
+          state.businesses.set(id, { _id: id, ...value });
+          return id;
+        }
+
+        if (tableName === 'businessStaff') {
+          staffInsertCount += 1;
+          const id = `staff_inserted_${staffInsertCount}`;
+          state.businessStaff.set(id, { _id: id, ...value });
+          return id;
+        }
+
+        throw new Error(`UNKNOWN_INSERT_TABLE:${tableName}`);
+      },
       query: (tableName) => ({
         withIndex: (_indexName, buildIndex) => {
           const filters = [];
@@ -136,9 +156,38 @@ function createMockCtx({
         },
       }),
     },
+    runMutation: async () => null,
   };
 
   return { ctx, state };
+}
+
+function onboardingCreateArgs(overrides = {}) {
+  return {
+    name: 'Cafe Test',
+    externalId: 'onboarding-cafe-user-owner',
+    shortDescription: 'Neighborhood cafe',
+    businessPhone: '+972 50-123-4567',
+    serviceTypes: ['food_drink'],
+    serviceTags: ['coffee'],
+    discoverySource: 'search',
+    reason: 'repeat',
+    usageAreas: ['nearby'],
+    ownerAgeRange: '25-34',
+    businessExample: 'cafe_restaurant',
+    cadenceBand: 'weekly',
+    birthdayCampaignRelevant: true,
+    joinAnniversaryCampaignRelevant: true,
+    weakTimePromosRelevant: false,
+    formattedAddress: 'Dizengoff 100, Tel Aviv',
+    placeId: 'place_1',
+    lat: 32.0801,
+    lng: 34.7742,
+    city: 'Tel Aviv',
+    street: 'Dizengoff',
+    streetNumber: '100',
+    ...overrides,
+  };
 }
 
 describe('business profile settings and discovery filters', () => {
@@ -531,6 +580,79 @@ describe('business profile settings and discovery filters', () => {
         streetNumber: '1',
       })
     ).rejects.toThrow('NOT_AUTHORIZED');
+  });
+
+  test('createOrResumeBusinessOnboarding creates a complete draft business', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [],
+      businessStaff: [],
+    });
+
+    const result = await createOrResumeBusinessOnboarding._handler(
+      ctx,
+      onboardingCreateArgs()
+    );
+
+    const created = state.businesses.get(result.businessId);
+    expect(created.name).toBe('Cafe Test');
+    expect(created.externalId).toBe('onboarding-cafe-user-owner');
+    expect(created.shortDescription).toBe('Neighborhood cafe');
+    expect(created.businessPhone).toBe('+972 50-123-4567');
+    expect(created.serviceTypes).toEqual(['food_drink']);
+    expect(created.serviceTags).toEqual(['coffee']);
+    expect(created.formattedAddress).toBe('Dizengoff 100, Tel Aviv');
+    expect(created.placeId).toBe('place_1');
+    expect(created.location).toEqual({ lat: 32.0801, lng: 34.7742 });
+    expect(created.onboardingSnapshot.discoverySource).toBe('search');
+    expect(created.onboardingSnapshot.reason).toBe('repeat');
+    expect(created.onboardingSnapshot.usageAreas).toEqual(['nearby']);
+    expect(result.reused).toBe(false);
+    expect(Array.from(state.businessStaff.values())).toHaveLength(1);
+  });
+
+  test('createOrResumeBusinessOnboarding reuses same owner externalId on retry', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [],
+      businessStaff: [],
+    });
+
+    const first = await createOrResumeBusinessOnboarding._handler(
+      ctx,
+      onboardingCreateArgs()
+    );
+    const second = await createOrResumeBusinessOnboarding._handler(
+      ctx,
+      onboardingCreateArgs({
+        name: 'Cafe Test Updated',
+        streetNumber: '',
+      })
+    );
+
+    expect(second.businessId).toBe(first.businessId);
+    expect(second.reused).toBe(true);
+    expect(state.businesses.size).toBe(1);
+    const updated = state.businesses.get(first.businessId);
+    expect(updated.name).toBe('Cafe Test Updated');
+    expect(updated.streetNumber).toBe('');
+  });
+
+  test('createOrResumeBusinessOnboarding blocks another owner externalId reuse', async () => {
+    const { ctx } = createMockCtx({
+      currentUserId: 'user_other',
+      users: [buildUser({ _id: 'user_other' })],
+      businesses: [
+        buildBusiness({
+          _id: 'business_existing',
+          ownerUserId: 'user_owner',
+          externalId: 'onboarding-cafe-user-owner',
+        }),
+      ],
+      businessStaff: [],
+    });
+
+    await expect(
+      createOrResumeBusinessOnboarding._handler(ctx, onboardingCreateArgs())
+    ).rejects.toThrow('EXTERNAL_ID_TAKEN');
   });
 
   test('getBusinessesNearby filters by serviceTypeFilters', async () => {

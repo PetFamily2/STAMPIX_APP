@@ -553,7 +553,7 @@ export default function PreviewCardScreen() {
               onBackPress={() =>
                 safeDismissTo(
                   withBusinessOnboardingFlow(
-                    BUSINESS_ONBOARDING_ROUTES.businessBasics,
+                    BUSINESS_ONBOARDING_ROUTES.createProgram,
                     flow
                   )
                 )

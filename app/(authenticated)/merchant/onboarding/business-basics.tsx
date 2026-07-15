@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +16,6 @@ import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { api } from '@/convex/_generated/api';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -46,13 +45,6 @@ type BusinessServiceType =
   | 'hospitality'
   | 'other';
 
-const SERVICE_TYPE_LIMIT = 6;
-const SERVICE_TAG_LIMIT = 8;
-const SERVICE_TAG_MIN_LENGTH = 2;
-const SERVICE_TAG_MAX_LENGTH = 24;
-const SHORT_DESCRIPTION_MAX_LENGTH = 220;
-const BUSINESS_PHONE_MAX_LENGTH = 24;
-
 type DiscoverySourceId =
   | 'referral'
   | 'search'
@@ -77,9 +69,21 @@ type AgeRangeId =
   | '55+'
   | 'not_specified';
 
+const SERVICE_TYPE_LIMIT = 6;
+const SERVICE_TAG_LIMIT = 8;
+const SERVICE_TAG_MIN_LENGTH = 2;
+const SERVICE_TAG_MAX_LENGTH = 24;
+const SHORT_DESCRIPTION_MAX_LENGTH = 220;
+const BUSINESS_PHONE_MAX_LENGTH = 24;
+
 const TEXT = {
-  title: 'פרטי העסק לפני פרסום',
-  subtitle: 'הפרטים האלה יוצגו ללקוחות ודרושים כדי לפרסם את הכרטיסיה הראשונה.',
+  title: 'פרטי העסק',
+  subtitle: 'הפרטים האלה יישמרו לטיוטה ויצורפו לעסק אחרי בחירת הכתובת.',
+  requiredSection: 'נדרש להקמת העסק',
+  recommendationsSection: 'עוזר לנו להמליץ',
+  laterSection: 'אפשר לשנות אחר כך',
+  businessNameLabel: 'שם העסק',
+  businessNamePlaceholder: 'לדוגמה: קפה השכונה',
   shortDescriptionLabel: 'תיאור קצר של העסק',
   shortDescriptionPlaceholder: 'לדוגמה: סטודיו בוטיק לטיפולי פנים בתל אביב',
   phoneLabel: 'טלפון עסקי',
@@ -90,29 +94,6 @@ const TEXT = {
   serviceTagsHelper: 'הוסיפו לפחות תגית אחת, למשל מניקור, קפה, אימון אישי.',
   tagPlaceholder: 'תגית חדשה',
   addTag: 'הוסף',
-  continue: 'שמירה והמשך לתצוגה מקדימה',
-  submitting: 'שומרים פרטי עסק',
-  missingBusiness: 'נדרש עסק פעיל לפני המשך.',
-  missingName: 'שם העסק חסר. חזרו לשלב שם העסק ונסו שוב.',
-  shortDescriptionRequired: 'יש להזין תיאור קצר לעסק.',
-  phoneRequired: 'יש להזין טלפון עסקי.',
-  phoneInvalid: 'מספר הטלפון יכול לכלול ספרות, רווחים, +, מקפים וסוגריים.',
-  serviceTypesRequired: 'יש לבחור לפחות סוג שירות אחד.',
-  serviceTagsRequired: 'יש להוסיף לפחות תגית שירות אחת.',
-  tagTooShort: 'תגית חייבת להכיל לפחות 2 תווים.',
-  tagTooLong: 'תגית יכולה להכיל עד 24 תווים.',
-  tooManyTags: 'ניתן להוסיף עד 8 תגיות.',
-  loadError: 'לא הצלחנו לטעון את פרטי העסק.',
-  saveError: 'שמירת פרטי העסק נכשלה. נסו שוב.',
-};
-
-const PUBLISH_COPY = {
-  title: 'מה צריך כדי לפרסם',
-  subtitle:
-    'כמה פרטים קצרים כדי שהכרטיסייה תהיה מוכנה ללקוחות.',
-  requiredSection: 'נדרש לפרסום',
-  recommendationsSection: 'עוזר לנו להמליץ',
-  laterSection: 'אפשר לשנות אחר כך',
   discoveryLabel: 'איך שמעת עלינו?',
   reasonLabel: 'מה המטרה העיקרית?',
   usageAreasLabel: 'איפה העסק פעיל?',
@@ -125,7 +106,16 @@ const PUBLISH_COPY = {
   weakTimeCampaign: 'שעות או ימים חלשים',
   yes: 'כן',
   no: 'לא',
-  continue: 'שמירה והמשך לתצוגה מקדימה',
+  continue: 'שמירה והמשך לכתובת',
+  missingName: 'יש להזין שם עסק.',
+  shortDescriptionRequired: 'יש להזין תיאור קצר לעסק.',
+  phoneRequired: 'יש להזין טלפון עסקי.',
+  phoneInvalid: 'מספר הטלפון יכול לכלול ספרות, רווחים, +, מקפים וסוגריים.',
+  serviceTypesRequired: 'יש לבחור לפחות סוג שירות אחד.',
+  serviceTagsRequired: 'יש להוסיף לפחות תגית שירות אחת.',
+  tagTooShort: 'תגית חייבת להכיל לפחות 2 תווים.',
+  tagTooLong: 'תגית יכולה להכיל עד 24 תווים.',
+  tooManyTags: 'ניתן להוסיף עד 8 תגיות.',
   discoveryRequired: 'יש לבחור איך שמעת עלינו.',
   reasonRequired: 'יש לבחור את המטרה העיקרית.',
   usageAreasRequired: 'יש לבחור לפחות אזור פעילות אחד.',
@@ -133,6 +123,7 @@ const PUBLISH_COPY = {
   businessExampleRequired: 'יש לבחור סוג עסק.',
   cadenceRequired: 'יש לבחור תדירות חזרה משוערת.',
   campaignRequired: 'יש לענות על שלושת סוגי המבצעים.',
+  saveError: 'שמירת הטיוטה נכשלה. נסו שוב.',
 };
 
 const DISCOVERY_SOURCES: Array<{ id: DiscoverySourceId; label: string }> = [
@@ -233,32 +224,20 @@ function sanitizeServiceTags(value: string[] | undefined) {
   return unique;
 }
 
-function toErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return fallback;
-  }
-  return fallback;
-}
-
 export default function BusinessBasicsScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
   const {
     businessDraft,
+    setBusinessDraft,
     businessOnboardingDraft,
     setBusinessOnboardingDraft,
-    businessId,
-    programId,
   } = useOnboarding();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
-  const didHydrateRef = useRef(false);
 
-  const businessSettings = useQuery(
-    api.business.getBusinessSettings,
-    businessId ? { businessId } : 'skip'
+  const [businessName, setBusinessName] = useState(
+    businessDraft.name || businessOnboardingDraft.businessName
   );
-  const updateBusinessProfile = useMutation(api.business.updateBusinessProfile);
-
   const [shortDescription, setShortDescription] = useState(
     businessOnboardingDraft.shortDescription
   );
@@ -283,70 +262,6 @@ export default function BusinessBasicsScreen() {
     void saveStep({ step: 'businessBasics', flow }).catch(() => {});
   }, [flow, saveStep]);
 
-  useEffect(() => {
-    if (!businessId) {
-      safePush(
-        withBusinessOnboardingFlow(
-          BUSINESS_ONBOARDING_ROUTES.createBusiness,
-          flow
-        )
-      );
-      return;
-    }
-
-    if (!programId) {
-      safePush(
-        withBusinessOnboardingFlow(
-          BUSINESS_ONBOARDING_ROUTES.createProgram,
-          flow
-        )
-      );
-    }
-  }, [businessId, flow, programId]);
-
-  useEffect(() => {
-    if (!businessSettings || didHydrateRef.current) {
-      return;
-    }
-    didHydrateRef.current = true;
-
-    const nextShortDescription =
-      businessOnboardingDraft.shortDescription.trim() ||
-      businessSettings.shortDescription ||
-      '';
-    const nextBusinessPhone =
-      businessOnboardingDraft.businessPhone.trim() ||
-      businessSettings.businessPhone ||
-      '';
-    const nextServiceTypes =
-      sanitizeServiceTypes(businessOnboardingDraft.serviceTypes).length > 0
-        ? sanitizeServiceTypes(businessOnboardingDraft.serviceTypes)
-        : sanitizeServiceTypes(businessSettings.serviceTypes);
-    const nextServiceTags =
-      sanitizeServiceTags(businessOnboardingDraft.serviceTags).length > 0
-        ? sanitizeServiceTags(businessOnboardingDraft.serviceTags)
-        : sanitizeServiceTags(businessSettings.serviceTags);
-
-    setShortDescription(nextShortDescription);
-    setBusinessPhone(nextBusinessPhone);
-    setServiceTypes(nextServiceTypes);
-    setServiceTags(nextServiceTags);
-    setBusinessOnboardingDraft((prev) => ({
-      ...prev,
-      shortDescription: nextShortDescription,
-      businessPhone: nextBusinessPhone,
-      serviceTypes: nextServiceTypes,
-      serviceTags: nextServiceTags,
-    }));
-  }, [businessOnboardingDraft, businessSettings, setBusinessOnboardingDraft]);
-
-  const businessName = useMemo(() => {
-    const draftName = normalizeText(businessDraft.name);
-    if (draftName) {
-      return draftName;
-    }
-    return normalizeText(businessSettings?.name ?? '');
-  }, [businessDraft.name, businessSettings?.name]);
   const selectedBusinessExample =
     (businessOnboardingDraft.businessExample as BusinessExampleId | null) ??
     null;
@@ -363,25 +278,8 @@ export default function BusinessBasicsScreen() {
     businessOnboardingDraft.joinAnniversaryCampaignRelevant !== null &&
     businessOnboardingDraft.weakTimePromosRelevant !== null;
 
-  const canSubmit =
-    Boolean(businessId) &&
-    Boolean(programId) &&
-    Boolean(businessName) &&
-    Boolean(normalizeText(shortDescription)) &&
-    Boolean(normalizeText(businessPhone)) &&
-    serviceTypes.length > 0 &&
-    serviceTags.length > 0 &&
-    Boolean(businessOnboardingDraft.discoverySource) &&
-    Boolean(businessOnboardingDraft.reason) &&
-    businessOnboardingDraft.usageAreas.length > 0 &&
-    Boolean(businessOnboardingDraft.ageRange) &&
-    Boolean(selectedBusinessExample) &&
-    Boolean(selectedCadence) &&
-    hasCampaignAnswers &&
-    businessSettings !== undefined &&
-    !isSubmitting;
-
   const updateDraft = (patch: {
+    businessName?: string;
     shortDescription?: string;
     businessPhone?: string;
     serviceTypes?: BusinessServiceType[];
@@ -391,6 +289,13 @@ export default function BusinessBasicsScreen() {
       ...prev,
       ...patch,
     }));
+  };
+
+  const handleBusinessNameChange = (value: string) => {
+    setBusinessName(value);
+    setBusinessDraft((prev) => ({ ...prev, name: value }));
+    updateDraft({ businessName: value });
+    setError(null);
   };
 
   const handleShortDescriptionChange = (value: string) => {
@@ -479,15 +384,12 @@ export default function BusinessBasicsScreen() {
   };
 
   const toggleUsageArea = (id: UsageAreaId) => {
-    setBusinessOnboardingDraft((prev) => {
-      const nextUsageAreas = prev.usageAreas.includes(id)
+    setBusinessOnboardingDraft((prev) => ({
+      ...prev,
+      usageAreas: prev.usageAreas.includes(id)
         ? prev.usageAreas.filter((item) => item !== id)
-        : [...prev.usageAreas, id];
-      return {
-        ...prev,
-        usageAreas: nextUsageAreas,
-      };
-    });
+        : [...prev.usageAreas, id],
+    }));
     setError(null);
   };
 
@@ -506,14 +408,12 @@ export default function BusinessBasicsScreen() {
   };
 
   const validate = () => {
+    const normalizedBusinessName = normalizeText(businessName);
     const normalizedShortDescription = normalizeText(shortDescription);
     const normalizedPhone = normalizeText(businessPhone);
     const normalizedServiceTags = sanitizeServiceTags(serviceTags);
 
-    if (!businessId) {
-      return TEXT.missingBusiness;
-    }
-    if (!businessName) {
+    if (!normalizedBusinessName) {
       return TEXT.missingName;
     }
     if (!normalizedShortDescription) {
@@ -532,28 +432,30 @@ export default function BusinessBasicsScreen() {
       return TEXT.serviceTagsRequired;
     }
     if (!businessOnboardingDraft.discoverySource) {
-      return PUBLISH_COPY.discoveryRequired;
+      return TEXT.discoveryRequired;
     }
     if (!businessOnboardingDraft.reason) {
-      return PUBLISH_COPY.reasonRequired;
+      return TEXT.reasonRequired;
     }
     if (businessOnboardingDraft.usageAreas.length === 0) {
-      return PUBLISH_COPY.usageAreasRequired;
+      return TEXT.usageAreasRequired;
     }
     if (!businessOnboardingDraft.ageRange) {
-      return PUBLISH_COPY.ageRequired;
+      return TEXT.ageRequired;
     }
     if (!selectedBusinessExample) {
-      return PUBLISH_COPY.businessExampleRequired;
+      return TEXT.businessExampleRequired;
     }
     if (!selectedCadence) {
-      return PUBLISH_COPY.cadenceRequired;
+      return TEXT.cadenceRequired;
     }
     if (!hasCampaignAnswers) {
-      return PUBLISH_COPY.campaignRequired;
+      return TEXT.campaignRequired;
     }
     return null;
   };
+
+  const canSubmit = validate() === null && !isSubmitting;
 
   const handleSubmit = async () => {
     if (isSubmitting) {
@@ -566,11 +468,7 @@ export default function BusinessBasicsScreen() {
       return;
     }
 
-    if (!businessId) {
-      setError(TEXT.missingBusiness);
-      return;
-    }
-
+    const normalizedBusinessName = normalizeText(businessName);
     const normalizedShortDescription = normalizeText(shortDescription);
     const normalizedPhone = normalizeText(businessPhone);
     const normalizedServiceTypes = sanitizeServiceTypes(serviceTypes);
@@ -579,37 +477,23 @@ export default function BusinessBasicsScreen() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await updateBusinessProfile({
-        businessId,
-        expectedUpdatedAt:
-          typeof businessSettings?.updatedAt === 'number'
-            ? businessSettings.updatedAt
-            : undefined,
-        name: businessName,
-        shortDescription: normalizedShortDescription,
-        businessPhone: normalizedPhone,
-        serviceTypes: normalizedServiceTypes,
-        serviceTags: normalizedServiceTags,
-      });
-
+      setBusinessDraft((prev) => ({ ...prev, name: normalizedBusinessName }));
       updateDraft({
+        businessName: normalizedBusinessName,
         shortDescription: normalizedShortDescription,
         businessPhone: normalizedPhone,
         serviceTypes: normalizedServiceTypes,
         serviceTags: normalizedServiceTags,
       });
-
-      try {
-        await saveStep({ step: 'businessBasics', flow });
-      } catch {
-        // Keep onboarding moving even if draft persistence fails.
-      }
-
+      await saveStep({ step: 'businessBasics', flow });
       safePush(
-        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createBusiness,
+          flow
+        )
       );
-    } catch (submitError) {
-      setError(toErrorMessage(submitError, TEXT.saveError));
+    } catch {
+      setError(TEXT.saveError);
     } finally {
       setIsSubmitting(false);
     }
@@ -617,16 +501,16 @@ export default function BusinessBasicsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <StandaloneBackTitleHeader
-          title={PUBLISH_COPY.title}
-          subtitle={PUBLISH_COPY.subtitle}
+          title={TEXT.title}
+          subtitle={TEXT.subtitle}
           onBackPress={() =>
             safeDismissTo(
-              withBusinessOnboardingFlow(
-                BUSINESS_ONBOARDING_ROUTES.createProgram,
-                flow
-              )
+              withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.role, flow)
             )
           }
           leftAccessory={
@@ -649,378 +533,368 @@ export default function BusinessBasicsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {businessSettings === undefined ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator color="#2563EB" />
-            </View>
-          ) : businessSettings === null ? (
-            <Text style={styles.errorText}>{TEXT.loadError}</Text>
-          ) : (
-            <>
-              <Text style={styles.sectionTitle}>
-                {PUBLISH_COPY.requiredSection}
-              </Text>
+          <Text style={styles.sectionTitle}>{TEXT.requiredSection}</Text>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>{TEXT.shortDescriptionLabel}</Text>
-                <TextInput
-                  value={shortDescription}
-                  onChangeText={handleShortDescriptionChange}
-                  placeholder={TEXT.shortDescriptionPlaceholder}
-                  placeholderTextColor="#9CA3AF"
-                  maxLength={SHORT_DESCRIPTION_MAX_LENGTH}
-                  multiline={true}
-                  textAlignVertical="top"
-                  style={[styles.input, styles.multilineInput]}
-                  accessibilityLabel={TEXT.shortDescriptionLabel}
-                />
-              </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.businessNameLabel}</Text>
+            <TextInput
+              value={businessName}
+              onChangeText={handleBusinessNameChange}
+              placeholder={TEXT.businessNamePlaceholder}
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              textAlign="right"
+              accessibilityLabel={TEXT.businessNameLabel}
+            />
+          </View>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>{TEXT.phoneLabel}</Text>
-                <TextInput
-                  value={businessPhone}
-                  onChangeText={handlePhoneChange}
-                  placeholder={TEXT.phonePlaceholder}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="phone-pad"
-                  maxLength={BUSINESS_PHONE_MAX_LENGTH}
-                  style={styles.input}
-                  accessibilityLabel={TEXT.phoneLabel}
-                />
-              </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.shortDescriptionLabel}</Text>
+            <TextInput
+              value={shortDescription}
+              onChangeText={handleShortDescriptionChange}
+              placeholder={TEXT.shortDescriptionPlaceholder}
+              placeholderTextColor="#9CA3AF"
+              maxLength={SHORT_DESCRIPTION_MAX_LENGTH}
+              multiline={true}
+              textAlignVertical="top"
+              style={[styles.input, styles.multilineInput]}
+              accessibilityLabel={TEXT.shortDescriptionLabel}
+            />
+          </View>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>{TEXT.serviceTypesLabel}</Text>
-                <Text style={styles.helper}>{TEXT.serviceTypesHelper}</Text>
-                <View style={styles.optionsWrap}>
-                  {SERVICE_TYPES.map((option) => {
-                    const selected = serviceTypes.includes(option.id);
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => toggleServiceType(option.id)}
-                        style={[
-                          styles.optionChip,
-                          selected ? styles.optionChipOn : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            selected ? styles.optionChipTextOn : null,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.phoneLabel}</Text>
+            <TextInput
+              value={businessPhone}
+              onChangeText={handlePhoneChange}
+              placeholder={TEXT.phonePlaceholder}
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+              maxLength={BUSINESS_PHONE_MAX_LENGTH}
+              style={styles.input}
+              accessibilityLabel={TEXT.phoneLabel}
+            />
+          </View>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>{TEXT.serviceTagsLabel}</Text>
-                <Text style={styles.helper}>{TEXT.serviceTagsHelper}</Text>
-                <View style={styles.tagInputRow}>
-                  <Pressable onPress={addTag} style={styles.addTagButton}>
-                    <Text style={styles.addTagText}>{TEXT.addTag}</Text>
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.serviceTypesLabel}</Text>
+            <Text style={styles.helper}>{TEXT.serviceTypesHelper}</Text>
+            <View style={styles.optionsWrap}>
+              {SERVICE_TYPES.map((option) => {
+                const selected = serviceTypes.includes(option.id);
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => toggleServiceType(option.id)}
+                    style={[
+                      styles.optionChip,
+                      selected ? styles.optionChipOn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected ? styles.optionChipTextOn : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
                   </Pressable>
-                  <TextInput
-                    value={tagInput}
-                    onChangeText={(value) => {
-                      setTagInput(value);
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.serviceTagsLabel}</Text>
+            <Text style={styles.helper}>{TEXT.serviceTagsHelper}</Text>
+            <View style={styles.tagInputRow}>
+              <Pressable onPress={addTag} style={styles.addTagButton}>
+                <Text style={styles.addTagText}>{TEXT.addTag}</Text>
+              </Pressable>
+              <TextInput
+                value={tagInput}
+                onChangeText={(value) => {
+                  setTagInput(value);
+                  setError(null);
+                }}
+                placeholder={TEXT.tagPlaceholder}
+                placeholderTextColor="#9CA3AF"
+                maxLength={SERVICE_TAG_MAX_LENGTH}
+                style={[styles.input, styles.tagInput]}
+                onSubmitEditing={addTag}
+                accessibilityLabel={TEXT.tagPlaceholder}
+              />
+            </View>
+            <View style={styles.optionsWrap}>
+              {serviceTags.map((tag) => (
+                <Pressable
+                  key={tag}
+                  onPress={() => removeTag(tag)}
+                  style={styles.tagChip}
+                >
+                  <Text style={styles.tagRemoveText}>x</Text>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>{TEXT.recommendationsSection}</Text>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.discoveryLabel}</Text>
+            <View style={styles.optionsWrap}>
+              {DISCOVERY_SOURCES.map((option) => {
+                const selected =
+                  businessOnboardingDraft.discoverySource === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => {
+                      setBusinessOnboardingDraft((prev) => ({
+                        ...prev,
+                        discoverySource: option.id,
+                      }));
                       setError(null);
                     }}
-                    placeholder={TEXT.tagPlaceholder}
-                    placeholderTextColor="#9CA3AF"
-                    maxLength={SERVICE_TAG_MAX_LENGTH}
-                    style={[styles.input, styles.tagInput]}
-                    onSubmitEditing={addTag}
-                    accessibilityLabel={TEXT.tagPlaceholder}
-                  />
-                </View>
-                <View style={styles.optionsWrap}>
-                  {serviceTags.map((tag) => (
-                    <Pressable
-                      key={tag}
-                      onPress={() => removeTag(tag)}
-                      style={styles.tagChip}
+                    style={[
+                      styles.optionChip,
+                      selected ? styles.optionChipOn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected ? styles.optionChipTextOn : null,
+                      ]}
                     >
-                      <Text style={styles.tagRemoveText}>×</Text>
-                      <Text style={styles.tagText}>{tag}</Text>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.reasonLabel}</Text>
+            <View style={styles.optionsWrap}>
+              {REASONS.map((option) => {
+                const selected = businessOnboardingDraft.reason === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => {
+                      setBusinessOnboardingDraft((prev) => ({
+                        ...prev,
+                        reason: option.id,
+                      }));
+                      setError(null);
+                    }}
+                    style={[
+                      styles.optionChip,
+                      selected ? styles.optionChipOn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected ? styles.optionChipTextOn : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.usageAreasLabel}</Text>
+            <View style={styles.optionsWrap}>
+              {USAGE_AREAS.map((option) => {
+                const selected = businessOnboardingDraft.usageAreas.includes(
+                  option.id
+                );
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => toggleUsageArea(option.id)}
+                    style={[
+                      styles.optionChip,
+                      selected ? styles.optionChipOn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected ? styles.optionChipTextOn : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {!businessOnboardingDraft.ageRange ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>{TEXT.ageLabel}</Text>
+              <View style={styles.optionsWrap}>
+                {AGE_RANGES.map((option) => {
+                  const selected =
+                    businessOnboardingDraft.ageRange === option.id;
+                  return (
+                    <Pressable
+                      key={option.id}
+                      onPress={() => {
+                        setBusinessOnboardingDraft((prev) => ({
+                          ...prev,
+                          ageRange: option.id,
+                        }));
+                        setError(null);
+                      }}
+                      style={[
+                        styles.optionChip,
+                        selected ? styles.optionChipOn : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          selected ? styles.optionChipTextOn : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
                     </Pressable>
-                  ))}
-                </View>
+                  );
+                })}
               </View>
-
-              <Text style={styles.sectionTitle}>
-                {PUBLISH_COPY.recommendationsSection}
-              </Text>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>{PUBLISH_COPY.discoveryLabel}</Text>
-                <View style={styles.optionsWrap}>
-                  {DISCOVERY_SOURCES.map((option) => {
-                    const selected =
-                      businessOnboardingDraft.discoverySource === option.id;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => {
-                          setBusinessOnboardingDraft((prev) => ({
-                            ...prev,
-                            discoverySource: option.id,
-                          }));
-                          setError(null);
-                        }}
-                        style={[
-                          styles.optionChip,
-                          selected ? styles.optionChipOn : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            selected ? styles.optionChipTextOn : null,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>{PUBLISH_COPY.reasonLabel}</Text>
-                <View style={styles.optionsWrap}>
-                  {REASONS.map((option) => {
-                    const selected = businessOnboardingDraft.reason === option.id;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => {
-                          setBusinessOnboardingDraft((prev) => ({
-                            ...prev,
-                            reason: option.id,
-                          }));
-                          setError(null);
-                        }}
-                        style={[
-                          styles.optionChip,
-                          selected ? styles.optionChipOn : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            selected ? styles.optionChipTextOn : null,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>{PUBLISH_COPY.usageAreasLabel}</Text>
-                <View style={styles.optionsWrap}>
-                  {USAGE_AREAS.map((option) => {
-                    const selected = businessOnboardingDraft.usageAreas.includes(
-                      option.id
-                    );
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => toggleUsageArea(option.id)}
-                        style={[
-                          styles.optionChip,
-                          selected ? styles.optionChipOn : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            selected ? styles.optionChipTextOn : null,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {!businessOnboardingDraft.ageRange ? (
-                <View style={styles.field}>
-                  <Text style={styles.label}>{PUBLISH_COPY.ageLabel}</Text>
-                  <View style={styles.optionsWrap}>
-                    {AGE_RANGES.map((option) => {
-                      const selected =
-                        businessOnboardingDraft.ageRange === option.id;
-                      return (
-                        <Pressable
-                          key={option.id}
-                          onPress={() => {
-                            setBusinessOnboardingDraft((prev) => ({
-                              ...prev,
-                              ageRange: option.id,
-                            }));
-                            setError(null);
-                          }}
-                          style={[
-                            styles.optionChip,
-                            selected ? styles.optionChipOn : null,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              selected ? styles.optionChipTextOn : null,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={styles.field}>
-                <Text style={styles.label}>
-                  {PUBLISH_COPY.businessExampleLabel}
-                </Text>
-                <View style={styles.optionsWrap}>
-                  {BUSINESS_EXAMPLES.map((option) => {
-                    const selected = selectedBusinessExample === option.id;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => selectBusinessExample(option.id)}
-                        style={[
-                          styles.optionChip,
-                          selected ? styles.optionChipOn : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.optionChipText,
-                            selected ? styles.optionChipTextOn : null,
-                          ]}
-                        >
-                          {option.title}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {selectedBusinessExample ? (
-                <View style={styles.field}>
-                  <Text style={styles.label}>{PUBLISH_COPY.cadenceLabel}</Text>
-                  <View style={styles.optionsWrap}>
-                    {cadenceOptions.map((option) => {
-                      const selected = selectedCadence === option;
-                      return (
-                        <Pressable
-                          key={option}
-                          onPress={() => {
-                            setBusinessOnboardingDraft((prev) => ({
-                              ...prev,
-                              cadenceBand: option,
-                            }));
-                            setError(null);
-                          }}
-                          style={[
-                            styles.optionChip,
-                            selected ? styles.optionChipOn : null,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              selected ? styles.optionChipTextOn : null,
-                            ]}
-                          >
-                            {CADENCE_LABELS[option]}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-
-              <Text style={styles.sectionTitle}>{PUBLISH_COPY.laterSection}</Text>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>{PUBLISH_COPY.campaignLabel}</Text>
-                {[
-                  {
-                    field: 'birthdayCampaignRelevant' as const,
-                    title: PUBLISH_COPY.birthdayCampaign,
-                    value: businessOnboardingDraft.birthdayCampaignRelevant,
-                  },
-                  {
-                    field: 'joinAnniversaryCampaignRelevant' as const,
-                    title: PUBLISH_COPY.joinCampaign,
-                    value:
-                      businessOnboardingDraft.joinAnniversaryCampaignRelevant,
-                  },
-                  {
-                    field: 'weakTimePromosRelevant' as const,
-                    title: PUBLISH_COPY.weakTimeCampaign,
-                    value: businessOnboardingDraft.weakTimePromosRelevant,
-                  },
-                ].map((row) => (
-                  <View key={row.field} style={styles.toggleRow}>
-                    <Text style={styles.toggleLabel}>{row.title}</Text>
-                    <View style={styles.toggleOptions}>
-                      {[false, true].map((value) => {
-                        const selected = row.value === value;
-                        return (
-                          <Pressable
-                            key={String(value)}
-                            onPress={() => updateCampaignField(row.field, value)}
-                            style={[
-                              styles.toggleChip,
-                              selected ? styles.optionChipOn : null,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.optionChipText,
-                                selected ? styles.optionChipTextOn : null,
-                              ]}
-                            >
-                              {value ? PUBLISH_COPY.yes : PUBLISH_COPY.no}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {isSubmitting ? (
-            <View style={styles.submittingRow}>
-              <ActivityIndicator color="#2563EB" />
-              <Text style={styles.submittingText}>{TEXT.submitting}</Text>
             </View>
           ) : null}
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.businessExampleLabel}</Text>
+            <View style={styles.optionsWrap}>
+              {BUSINESS_EXAMPLES.map((option) => {
+                const selected = selectedBusinessExample === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => selectBusinessExample(option.id)}
+                    style={[
+                      styles.optionChip,
+                      selected ? styles.optionChipOn : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        selected ? styles.optionChipTextOn : null,
+                      ]}
+                    >
+                      {option.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {selectedBusinessExample ? (
+            <View style={styles.field}>
+              <Text style={styles.label}>{TEXT.cadenceLabel}</Text>
+              <View style={styles.optionsWrap}>
+                {cadenceOptions.map((option) => {
+                  const selected = selectedCadence === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => {
+                        setBusinessOnboardingDraft((prev) => ({
+                          ...prev,
+                          cadenceBand: option,
+                        }));
+                        setError(null);
+                      }}
+                      style={[
+                        styles.optionChip,
+                        selected ? styles.optionChipOn : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionChipText,
+                          selected ? styles.optionChipTextOn : null,
+                        ]}
+                      >
+                        {CADENCE_LABELS[option]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          <Text style={styles.sectionTitle}>{TEXT.laterSection}</Text>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>{TEXT.campaignLabel}</Text>
+            {[
+              {
+                field: 'birthdayCampaignRelevant' as const,
+                title: TEXT.birthdayCampaign,
+                value: businessOnboardingDraft.birthdayCampaignRelevant,
+              },
+              {
+                field: 'joinAnniversaryCampaignRelevant' as const,
+                title: TEXT.joinCampaign,
+                value: businessOnboardingDraft.joinAnniversaryCampaignRelevant,
+              },
+              {
+                field: 'weakTimePromosRelevant' as const,
+                title: TEXT.weakTimeCampaign,
+                value: businessOnboardingDraft.weakTimePromosRelevant,
+              },
+            ].map((row) => (
+              <View key={row.field} style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{row.title}</Text>
+                <View style={styles.toggleOptions}>
+                  {[false, true].map((value) => {
+                    const selected = row.value === value;
+                    return (
+                      <Pressable
+                        key={String(value)}
+                        onPress={() => updateCampaignField(row.field, value)}
+                        style={[
+                          styles.toggleChip,
+                          selected ? styles.optionChipOn : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            selected ? styles.optionChipTextOn : null,
+                          ]}
+                        >
+                          {value ? TEXT.yes : TEXT.no}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -1029,10 +903,10 @@ export default function BusinessBasicsScreen() {
               void handleSubmit();
             }}
             disabled={!canSubmit}
-            label={PUBLISH_COPY.continue}
+            label={TEXT.continue}
           />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1073,15 +947,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
-  },
-  loadingCard: {
-    minHeight: 90,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   sectionTitle: {
     marginTop: 4,
@@ -1150,37 +1015,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#1A2B4A',
-  },
-  optionChipTextOn: {
-    color: '#1D4ED8',
-  },
-  toggleRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  toggleLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#334155',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  toggleOptions: {
-    flexDirection: flexDirection.row,
-    gap: 8,
-  },
-  toggleChip: {
-    minWidth: 54,
-    borderWidth: 1,
-    borderColor: '#D6E2F8',
-    borderRadius: 999,
-    backgroundColor: '#F8FAFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
+  optionChipTextOn: {
+    color: '#1D4ED8',
   },
   tagInputRow: {
     flexDirection: flexDirection.row,
@@ -1222,23 +1061,39 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#DC2626',
   },
+  toggleRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  toggleLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  toggleOptions: {
+    flexDirection: flexDirection.row,
+    gap: 8,
+  },
+  toggleChip: {
+    minWidth: 54,
+    borderWidth: 1,
+    borderColor: '#D6E2F8',
+    borderRadius: 999,
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
   errorText: {
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '700',
     color: '#DC2626',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  submittingRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 8,
-  },
-  submittingText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
     textAlign: 'right',
     writingDirection: 'rtl',
   },

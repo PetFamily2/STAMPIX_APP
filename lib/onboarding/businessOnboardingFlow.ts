@@ -17,17 +17,17 @@ export const BUSINESS_ONBOARDING_ROUTES = {
 
 export const BUSINESS_ONBOARDING_PROGRESS = {
   role: 1,
-  discovery: 4,
-  reason: 4,
+  discovery: 2,
+  reason: 2,
   name: 2,
-  createBusiness: 2,
-  usageArea: 4,
-  businessType: 4,
-  businessCadence: 4,
-  businessCampaignRelevance: 4,
-  plan: 3,
-  createProgram: 3,
-  businessBasics: 4,
+  businessBasics: 2,
+  createBusiness: 3,
+  usageArea: 2,
+  businessType: 2,
+  businessCadence: 2,
+  businessCampaignRelevance: 2,
+  plan: 4,
+  createProgram: 4,
   previewCard: 5,
 } as const;
 
@@ -46,10 +46,10 @@ export type BusinessOnboardingFlow =
 
 const ADDITIONAL_BUSINESS_ONBOARDING_PROGRESS = {
   name: 1,
-  createBusiness: 1,
-  plan: 2,
-  createProgram: 2,
-  businessBasics: 3,
+  businessBasics: 1,
+  createBusiness: 2,
+  plan: 3,
+  createProgram: 3,
   previewCard: 4,
 } as const;
 
@@ -173,6 +173,26 @@ export function getBusinessOnboardingTotalSteps(
     : BUSINESS_ONBOARDING_TOTAL_STEPS;
 }
 
+export function resolveBusinessOnboardingDraftIdentifiers<
+  TBusinessId,
+  TProgramId,
+>({
+  contextBusinessId,
+  contextProgramId,
+  businessId,
+  programId,
+}: {
+  contextBusinessId?: TBusinessId | null;
+  contextProgramId?: TProgramId | null;
+  businessId?: TBusinessId;
+  programId?: TProgramId;
+}) {
+  return {
+    businessId: businessId ?? contextBusinessId ?? undefined,
+    programId: programId ?? contextProgramId ?? undefined,
+  };
+}
+
 export function getConsolidatedBusinessOnboardingStep(
   step: BusinessOnboardingStep,
   flow?: string | string[] | null
@@ -180,13 +200,11 @@ export function getConsolidatedBusinessOnboardingStep(
   const resolvedFlow = resolveBusinessOnboardingFlow(flow);
 
   if (step === 'name') {
-    return 'createBusiness';
+    return 'businessBasics';
   }
 
   if (step === 'plan') {
-    return resolvedFlow === BUSINESS_ONBOARDING_FLOW.additional
-      ? 'createProgram'
-      : 'businessBasics';
+    return 'createProgram';
   }
 
   if (

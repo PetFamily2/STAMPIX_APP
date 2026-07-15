@@ -48,39 +48,67 @@ type BusinessOnboardingStep =
 const DEFAULT_STEP_ORDER: Record<BusinessOnboardingStep, number> = {
   role: 1,
   discovery: 2,
-  reason: 3,
-  name: 4,
-  createBusiness: 5,
-  usageArea: 6,
-  businessType: 7,
-  businessCadence: 8,
-  businessCampaignRelevance: 9,
-  plan: 10,
-  createProgram: 11,
-  businessBasics: 12,
-  previewCard: 13,
+  reason: 2,
+  name: 2,
+  businessBasics: 2,
+  usageArea: 2,
+  businessType: 2,
+  businessCadence: 2,
+  businessCampaignRelevance: 2,
+  createBusiness: 3,
+  plan: 4,
+  createProgram: 4,
+  previewCard: 5,
 };
 
 const ADDITIONAL_STEP_ORDER: Partial<Record<BusinessOnboardingStep, number>> = {
   name: 1,
+  businessBasics: 1,
   createBusiness: 2,
   plan: 3,
-  createProgram: 4,
-  businessBasics: 5,
-  previewCard: 6,
+  createProgram: 3,
+  previewCard: 4,
 };
+
+function normalizeStep(
+  flow: BusinessOnboardingFlow,
+  step: BusinessOnboardingStep
+): BusinessOnboardingStep {
+  if (
+    step === 'name' ||
+    step === 'discovery' ||
+    step === 'reason' ||
+    step === 'usageArea' ||
+    step === 'businessType' ||
+    step === 'businessCadence' ||
+    step === 'businessCampaignRelevance'
+  ) {
+    return 'businessBasics';
+  }
+
+  if (step === 'plan') {
+    return 'createProgram';
+  }
+
+  if (flow === 'additional' && step === 'role') {
+    return 'businessBasics';
+  }
+
+  return step;
+}
 
 function resolveStepOrder(
   flow: BusinessOnboardingFlow,
   step: BusinessOnboardingStep
 ) {
+  const normalizedStep = normalizeStep(flow, step);
   if (flow === 'additional') {
-    const additionalOrder = ADDITIONAL_STEP_ORDER[step];
+    const additionalOrder = ADDITIONAL_STEP_ORDER[normalizedStep];
     if (additionalOrder != null) {
       return additionalOrder;
     }
   }
-  return DEFAULT_STEP_ORDER[step];
+  return DEFAULT_STEP_ORDER[normalizedStep];
 }
 
 function asRecord(value: unknown) {
@@ -116,8 +144,14 @@ export const getMyBusinessOnboardingDraft = query({
       draftId: draft._id,
       flow: draft.flow as BusinessOnboardingFlow,
       status: draft.status as BusinessOnboardingStatus,
-      currentStep: draft.currentStep as BusinessOnboardingStep,
-      farthestStep: draft.farthestStep as BusinessOnboardingStep,
+      currentStep: normalizeStep(
+        draft.flow as BusinessOnboardingFlow,
+        draft.currentStep as BusinessOnboardingStep
+      ),
+      farthestStep: normalizeStep(
+        draft.flow as BusinessOnboardingFlow,
+        draft.farthestStep as BusinessOnboardingStep
+      ),
       farthestStepOrder: draft.farthestStepOrder,
       businessId: draft.businessId ?? null,
       programId: draft.programId ?? null,
@@ -157,7 +191,8 @@ export const saveMyBusinessOnboardingDraft = mutation({
     const user = await requireCurrentUser(ctx);
     const now = Date.now();
     const nextStatus: BusinessOnboardingStatus = status ?? 'in_progress';
-    const currentStepOrder = resolveStepOrder(flow, currentStep);
+    const normalizedCurrentStep = normalizeStep(flow, currentStep);
+    const currentStepOrder = resolveStepOrder(flow, normalizedCurrentStep);
 
     const existing = await ctx.db
       .query('businessOnboardingDrafts')
@@ -167,19 +202,22 @@ export const saveMyBusinessOnboardingDraft = mutation({
       .unique();
 
     const hasReusableProgress = existing && existing.status !== 'completed';
+    const previousFarthestStep = hasReusableProgress
+      ? normalizeStep(flow, existing.farthestStep as BusinessOnboardingStep)
+      : normalizedCurrentStep;
     const previousFarthestOrder = hasReusableProgress
-      ? existing.farthestStepOrder
+      ? resolveStepOrder(flow, previousFarthestStep)
       : 0;
     const nextFarthestOrder = Math.max(previousFarthestOrder, currentStepOrder);
     const nextFarthestStep =
       currentStepOrder >= previousFarthestOrder
-        ? currentStep
-        : ((existing?.farthestStep as BusinessOnboardingStep) ?? currentStep);
+        ? normalizedCurrentStep
+        : previousFarthestStep;
 
     const payload = {
       flow,
       status: nextStatus,
-      currentStep,
+      currentStep: normalizedCurrentStep,
       farthestStep: nextFarthestStep,
       farthestStepOrder: nextFarthestOrder,
       businessId: businessId ?? existing?.businessId,
@@ -198,7 +236,7 @@ export const saveMyBusinessOnboardingDraft = mutation({
       return {
         draftId: existing._id,
         status: nextStatus,
-        currentStep,
+        currentStep: normalizedCurrentStep,
         farthestStep: nextFarthestStep,
       };
     }
@@ -212,7 +250,7 @@ export const saveMyBusinessOnboardingDraft = mutation({
     return {
       draftId,
       status: nextStatus,
-      currentStep,
+      currentStep: normalizedCurrentStep,
       farthestStep: nextFarthestStep,
     };
   },

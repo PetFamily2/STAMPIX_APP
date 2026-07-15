@@ -768,6 +768,224 @@ export const createBusiness = mutation({
   },
 });
 
+export const createOrResumeBusinessOnboarding = mutation({
+  args: {
+    existingBusinessId: v.optional(v.id('businesses')),
+    name: v.string(),
+    externalId: v.string(),
+    logoUrl: v.optional(v.string()),
+    colors: v.optional(v.any()),
+    shortDescription: v.string(),
+    businessPhone: v.string(),
+    serviceTypes: v.array(BUSINESS_SERVICE_TYPE_UNION),
+    serviceTags: v.array(v.string()),
+    discoverySource: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    usageAreas: v.optional(v.array(v.string())),
+    ownerAgeRange: v.optional(v.string()),
+    businessExample: v.optional(v.string()),
+    cadenceBand: v.optional(v.string()),
+    birthdayCampaignRelevant: v.optional(v.boolean()),
+    joinAnniversaryCampaignRelevant: v.optional(v.boolean()),
+    weakTimePromosRelevant: v.optional(v.boolean()),
+    formattedAddress: v.string(),
+    placeId: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    city: v.string(),
+    street: v.string(),
+    streetNumber: v.string(),
+    businessReferralCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx);
+    const now = Date.now();
+    const normalizedName = normalizeBusinessName(args.name);
+    const normalizedExternalId = args.externalId.trim();
+    if (!normalizedExternalId) {
+      throw new Error('EXTERNAL_ID_REQUIRED');
+    }
+    const normalizedShortDescription = normalizeBusinessShortDescription(
+      args.shortDescription
+    );
+    const normalizedBusinessPhone = normalizeBusinessPhone(args.businessPhone);
+    const normalizedServiceTypes = normalizeServiceTypes(args.serviceTypes);
+    const normalizedServiceTags = normalizeServiceTags(args.serviceTags);
+    const normalizedAddress = normalizeBusinessAddressInput({
+      formattedAddress: args.formattedAddress,
+      placeId: args.placeId,
+      lat: args.lat,
+      lng: args.lng,
+      city: args.city,
+      street: args.street,
+      streetNumber: args.streetNumber,
+    });
+
+    const normalizedDiscoverySource =
+      normalizeOnboardingChoiceInput<BusinessDiscoverySource>(
+        args.discoverySource,
+        BUSINESS_DISCOVERY_SOURCE_SET,
+        'BUSINESS_DISCOVERY_SOURCE_INVALID'
+      );
+    const normalizedReason = normalizeOnboardingChoiceInput<BusinessReason>(
+      args.reason,
+      BUSINESS_REASON_SET,
+      'BUSINESS_REASON_INVALID'
+    );
+    const normalizedUsageAreas = normalizeOnboardingUsageAreasInput(
+      args.usageAreas
+    );
+    const normalizedOwnerAgeRange =
+      normalizeOnboardingChoiceInput<BusinessOwnerAgeRange>(
+        args.ownerAgeRange,
+        BUSINESS_OWNER_AGE_RANGE_SET,
+        'BUSINESS_OWNER_AGE_RANGE_INVALID'
+      );
+    const normalizedBusinessExample =
+      normalizeOnboardingChoiceInput<BusinessExample>(
+        args.businessExample,
+        BUSINESS_EXAMPLE_SET,
+        'BUSINESS_EXAMPLE_INVALID'
+      );
+    const normalizedCadenceBand = normalizeOnboardingChoiceInput<CadenceBand>(
+      args.cadenceBand,
+      CADENCE_BAND_SET,
+      'BUSINESS_CADENCE_INVALID'
+    );
+    const normalizedBirthdayCampaignRelevant = normalizeOnboardingBooleanInput(
+      args.birthdayCampaignRelevant
+    );
+    const normalizedJoinAnniversaryCampaignRelevant =
+      normalizeOnboardingBooleanInput(args.joinAnniversaryCampaignRelevant);
+    const normalizedWeakTimePromosRelevant = normalizeOnboardingBooleanInput(
+      args.weakTimePromosRelevant
+    );
+
+    const onboardingSnapshot = {
+      ...(normalizedDiscoverySource
+        ? { discoverySource: normalizedDiscoverySource }
+        : {}),
+      ...(normalizedReason ? { reason: normalizedReason } : {}),
+      ...(normalizedUsageAreas ? { usageAreas: normalizedUsageAreas } : {}),
+      ...(normalizedOwnerAgeRange
+        ? { ownerAgeRange: normalizedOwnerAgeRange }
+        : {}),
+      ...(normalizedBusinessExample
+        ? { businessExample: normalizedBusinessExample }
+        : {}),
+      ...(normalizedCadenceBand ? { cadenceBand: normalizedCadenceBand } : {}),
+      ...(typeof normalizedBirthdayCampaignRelevant === 'boolean'
+        ? { birthdayCampaignRelevant: normalizedBirthdayCampaignRelevant }
+        : {}),
+      ...(typeof normalizedJoinAnniversaryCampaignRelevant === 'boolean'
+        ? {
+            joinAnniversaryCampaignRelevant:
+              normalizedJoinAnniversaryCampaignRelevant,
+          }
+        : {}),
+      ...(typeof normalizedWeakTimePromosRelevant === 'boolean'
+        ? { weakTimePromosRelevant: normalizedWeakTimePromosRelevant }
+        : {}),
+      collectedAt: now,
+    };
+
+    const existingByExternalId = await ctx.db
+      .query('businesses')
+      .withIndex('by_externalId', (q: any) =>
+        q.eq('externalId', normalizedExternalId)
+      )
+      .first();
+    const existingById = args.existingBusinessId
+      ? await ctx.db.get(args.existingBusinessId)
+      : null;
+    const existing = existingByExternalId ?? existingById;
+
+    if (existing) {
+      if (String(existing.ownerUserId) !== String(user._id)) {
+        throw new Error('EXTERNAL_ID_TAKEN');
+      }
+      if (
+        existingByExternalId &&
+        existingById &&
+        String(existingByExternalId._id) !== String(existingById._id)
+      ) {
+        throw new Error('EXTERNAL_ID_TAKEN');
+      }
+
+      await ensureBusinessOwnerStaff(ctx, existing._id, user._id, now);
+      await ctx.db.patch(existing._id, {
+        externalId: normalizedExternalId,
+        name: normalizedName,
+        logoUrl: args.logoUrl,
+        colors: args.colors,
+        shortDescription: normalizedShortDescription || undefined,
+        businessPhone: normalizedBusinessPhone || undefined,
+        serviceTypes:
+          normalizedServiceTypes.length > 0 ? normalizedServiceTypes : undefined,
+        serviceTags:
+          normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
+        onboardingSnapshot,
+        location: normalizedAddress.location,
+        placeId: normalizedAddress.placeId,
+        formattedAddress: normalizedAddress.formattedAddress,
+        city: normalizedAddress.city,
+        street: normalizedAddress.street,
+        streetNumber: normalizedAddress.streetNumber,
+        updatedAt: now,
+      });
+
+      return { businessId: existing._id, reused: true };
+    }
+
+    const { businessId } = await createBusinessForOwner(ctx, {
+      ownerUserId: user._id,
+      externalId: normalizedExternalId,
+      name: normalizedName,
+      logoUrl: args.logoUrl,
+      colors: args.colors,
+      address: {
+        formattedAddress: normalizedAddress.formattedAddress,
+        placeId: normalizedAddress.placeId,
+        lat: normalizedAddress.location.lat,
+        lng: normalizedAddress.location.lng,
+        city: normalizedAddress.city,
+        street: normalizedAddress.street,
+        streetNumber: normalizedAddress.streetNumber,
+      },
+      now,
+    });
+
+    await ctx.db.patch(businessId, {
+      shortDescription: normalizedShortDescription || undefined,
+      businessPhone: normalizedBusinessPhone || undefined,
+      serviceTypes:
+        normalizedServiceTypes.length > 0 ? normalizedServiceTypes : undefined,
+      serviceTags:
+        normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
+      onboardingSnapshot,
+      updatedAt: now,
+    });
+
+    const normalizedReferralCode = args.businessReferralCode?.trim();
+    if (normalizedReferralCode) {
+      try {
+        await ctx.runMutation(
+          internal.referrals.linkBusinessReferralToNewBusiness,
+          {
+            newBusinessId: businessId,
+            createdByUserId: user._id,
+            referralCode: normalizedReferralCode,
+          }
+        );
+      } catch {
+        // Invalid B2B referral code must not block business creation flow.
+      }
+    }
+
+    return { businessId, reused: false };
+  },
+});
+
 export const updateBusinessAddress = mutation({
   args: {
     businessId: v.id('businesses'),

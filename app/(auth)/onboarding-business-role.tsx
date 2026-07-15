@@ -270,7 +270,7 @@ export default function OnboardingBusinessRoleScreen() {
         first_name_length: normalizedFirstName.length,
         last_name_length: normalizedLastName.length,
       });
-      safePush(BUSINESS_ONBOARDING_ROUTES.createBusiness);
+      safePush(BUSINESS_ONBOARDING_ROUTES.businessBasics);
     } catch {
       trackError('name', 'SAVE_FAILED', { age_range: selectedAgeRange });
       Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.saveErrorMessage);
