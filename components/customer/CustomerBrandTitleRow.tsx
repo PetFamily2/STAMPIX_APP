@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,
   flexDirection,
@@ -18,6 +19,10 @@ type CustomerBrandTitleRowProps = {
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
   brandAccessory?: ReactNode;
+  showAvatar?: boolean;
+  avatarUrl?: string | null;
+  avatarFullName?: string | null;
+  avatarSize?: number;
   titleNumberOfLines?: number;
   subtitleNumberOfLines?: number;
 };
@@ -30,6 +35,10 @@ export default function CustomerBrandTitleRow({
   subtitleStyle,
   titleAccessory,
   brandAccessory,
+  showAvatar = false,
+  avatarUrl,
+  avatarFullName,
+  avatarSize = 36,
   titleNumberOfLines = 1,
   subtitleNumberOfLines = 2,
 }: CustomerBrandTitleRowProps) {
@@ -55,6 +64,13 @@ export default function CustomerBrandTitleRow({
         </View>
       </View>
       <View style={styles.brandWrap}>
+        {showAvatar ? (
+          <UserAvatar
+            avatarUrl={avatarUrl}
+            fullName={avatarFullName}
+            size={avatarSize}
+          />
+        ) : null}
         {brandAccessory}
         <Text style={styles.brand}>
           <Text style={styles.brandAccent}>S</Text>

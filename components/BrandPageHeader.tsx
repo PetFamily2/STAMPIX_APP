@@ -13,6 +13,10 @@ type BrandPageHeaderProps = {
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
   brandAccessory?: ReactNode;
+  showAvatar?: boolean;
+  avatarUrl?: string | null;
+  avatarFullName?: string | null;
+  avatarSize?: number;
   titleNumberOfLines?: number;
   subtitleNumberOfLines?: number;
 };
@@ -25,6 +29,10 @@ export default function BrandPageHeader({
   subtitleStyle,
   titleAccessory,
   brandAccessory,
+  showAvatar = false,
+  avatarUrl,
+  avatarFullName,
+  avatarSize,
   titleNumberOfLines = 1,
   subtitleNumberOfLines = 2,
 }: BrandPageHeaderProps) {
@@ -38,6 +46,10 @@ export default function BrandPageHeader({
         subtitleStyle={subtitleStyle}
         titleAccessory={titleAccessory}
         brandAccessory={brandAccessory}
+        showAvatar={showAvatar}
+        avatarUrl={avatarUrl}
+        avatarFullName={avatarFullName}
+        avatarSize={avatarSize}
         titleNumberOfLines={titleNumberOfLines}
         subtitleNumberOfLines={subtitleNumberOfLines}
       />

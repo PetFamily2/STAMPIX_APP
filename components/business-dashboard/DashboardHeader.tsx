@@ -67,7 +67,8 @@ export function DashboardHeader({
           <View style={styles.businessRow}>
             {businessName ? (
               <Text
-                numberOfLines={1}
+                numberOfLines={2}
+                ellipsizeMode="tail"
                 style={[
                   styles.businessName,
                   {
@@ -79,7 +80,12 @@ export function DashboardHeader({
                 {businessName}
               </Text>
             ) : null}
-            <Ionicons name="chevron-down" size={16} color="#334155" />
+            <Ionicons
+              name="chevron-down"
+              size={16}
+              color="#334155"
+              style={styles.businessChevron}
+            />
           </View>
         </View>
 
@@ -96,6 +102,15 @@ export function DashboardHeader({
             />
           </Pressable>
 
+          <Pressable
+            onPress={onPressMenu}
+            style={styles.menuButton}
+            accessibilityRole="button"
+            accessibilityLabel="פתיחת תפריט"
+          >
+            <Ionicons name="ellipsis-horizontal" size={30} color="#1E3A8A" />
+          </Pressable>
+
           <Text
             style={[
               styles.brandLine,
@@ -109,14 +124,6 @@ export function DashboardHeader({
           </Text>
 
           <View style={styles.actionCluster}>
-            <Pressable
-              onPress={onPressMenu}
-              style={styles.menuButton}
-              accessibilityRole="button"
-              accessibilityLabel="פתיחת תפריט"
-            >
-              <Ionicons name="menu-outline" size={30} color="#1E3A8A" />
-            </Pressable>
             <Pressable
               onPress={onPressNotifications}
               style={styles.notificationButton}
@@ -223,13 +230,20 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 2,
+    alignSelf: 'stretch',
     maxWidth: '100%',
+    minWidth: 0,
     ...rtlBaseView,
   },
   businessName: {
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
     ...rtlBaseText,
+  },
+  businessChevron: {
+    flexShrink: 0,
+    marginTop: 2,
   },
 });

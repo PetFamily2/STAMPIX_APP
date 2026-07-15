@@ -13,6 +13,10 @@ type BusinessScreenHeaderProps = {
   subtitleStyle?: StyleProp<TextStyle>;
   titleAccessory?: ReactNode;
   brandAccessory?: ReactNode;
+  showAvatar?: boolean;
+  avatarUrl?: string | null;
+  avatarFullName?: string | null;
+  avatarSize?: number;
   titleNumberOfLines?: number;
   subtitleNumberOfLines?: number;
 };
@@ -26,6 +30,10 @@ export default function BusinessScreenHeader({
   subtitleStyle,
   titleAccessory,
   brandAccessory,
+  showAvatar,
+  avatarUrl,
+  avatarFullName,
+  avatarSize,
   titleNumberOfLines,
   subtitleNumberOfLines,
 }: BusinessScreenHeaderProps) {
@@ -39,6 +47,10 @@ export default function BusinessScreenHeader({
         subtitleStyle={subtitleStyle}
         titleAccessory={titleAccessory}
         brandAccessory={brandAccessory}
+        showAvatar={showAvatar}
+        avatarUrl={avatarUrl}
+        avatarFullName={avatarFullName}
+        avatarSize={avatarSize}
         titleNumberOfLines={titleNumberOfLines}
         subtitleNumberOfLines={subtitleNumberOfLines}
       />
