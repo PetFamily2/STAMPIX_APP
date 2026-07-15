@@ -20,6 +20,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as debug from "../debug.js";
 import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
+import type * as googlePlaces from "../googlePlaces.js";
 import type * as guards from "../guards.js";
 import type * as http from "../http.js";
 import type * as lib_campaignRuns from "../lib/campaignRuns.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   debug: typeof debug;
   entitlements: typeof entitlements;
   events: typeof events;
+  googlePlaces: typeof googlePlaces;
   guards: typeof guards;
   http: typeof http;
   "lib/campaignRuns": typeof lib_campaignRuns;

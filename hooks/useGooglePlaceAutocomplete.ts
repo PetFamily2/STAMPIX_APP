@@ -1,8 +1,10 @@
+import { useAction } from 'convex/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { api } from '@/convex/_generated/api';
 import {
   createPlacesSessionToken,
-  fetchPlaceSuggestions,
+  normalizePlacesActionError,
   type PlaceSuggestion,
 } from '@/lib/googlePlaces';
 
@@ -18,6 +20,7 @@ type UseGooglePlaceAutocompleteResult = {
 export function useGooglePlaceAutocomplete(
   query: string
 ): UseGooglePlaceAutocompleteResult {
+  const autocompletePlaces = useAction(api.googlePlaces.autocomplete);
   const sessionTokenRef = useRef(createPlacesSessionToken());
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,10 +42,10 @@ export function useGooglePlaceAutocomplete(
         setError(null);
 
         try {
-          const nextSuggestions = await fetchPlaceSuggestions(
-            trimmedQuery,
-            sessionTokenRef.current
-          );
+          const nextSuggestions = await autocompletePlaces({
+            query: trimmedQuery,
+            sessionToken: sessionTokenRef.current,
+          });
 
           if (!isActive) {
             return;
@@ -55,11 +58,7 @@ export function useGooglePlaceAutocomplete(
           }
 
           setSuggestions([]);
-          setError(
-            fetchError instanceof Error && fetchError.message.trim().length > 0
-              ? fetchError.message
-              : 'PLACES_AUTOCOMPLETE_FAILED'
-          );
+          setError(normalizePlacesActionError(fetchError));
         } finally {
           if (isActive) {
             setIsLoading(false);
@@ -72,7 +71,7 @@ export function useGooglePlaceAutocomplete(
       isActive = false;
       clearTimeout(timeoutId);
     };
-  }, [trimmedQuery]);
+  }, [autocompletePlaces, trimmedQuery]);
 
   return {
     suggestions,

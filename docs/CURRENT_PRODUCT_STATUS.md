@@ -248,10 +248,10 @@ Convex Auth tables.
   Firebase providers are placeholders.
 - AI recommendations: Convex module is substantial, but it depends on
   `OPENROUTER_API_KEY` and should degrade cleanly when disabled or exhausted.
-- Discovery/address search: Google Maps/Places code exists. Native Google Maps
-  keys are injected by dynamic Expo config from
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` when set, and `app.json` declares the
-  permission copy. The app still needs a configured and restricted key plus
+- Discovery/address search: Google Maps/Places code exists. Android native
+  Maps keys are injected by dynamic Expo config from
+  `GOOGLE_MAPS_ANDROID_API_KEY`, while Places web-service requests run through
+  Convex with `GOOGLE_PLACES_API_KEY`. The app still needs restricted keys plus
   real-device build verification.
 - Push notifications: app and backend code now include foreground presentation,
   Expo Go/runtime fail-closed registration, EAS project-id-required token

@@ -57,9 +57,14 @@ Other public integration values:
 - `EXPO_PUBLIC_MOCK_PAYMENTS`
 - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
 - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
-- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
 - `EXPO_PUBLIC_APP_STORE_URL` and `EXPO_PUBLIC_PLAY_STORE_URL` only as optional join-page fallbacks.
 - `EXPO_PUBLIC_ANALYTICS_PROVIDER` if a non-console analytics provider is enabled.
+
+EAS native build values:
+- `GOOGLE_MAPS_ANDROID_API_KEY`
+- `GOOGLE_MAPS_IOS_API_KEY` only if the app is changed to use Google Maps as
+  the iOS map provider. The current iOS map usage does not set a Google
+  provider.
 
 Convex server values:
 - `CONVEX_SITE_URL`
@@ -78,6 +83,7 @@ Convex server values:
 - `REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY`
 - `REVENUECAT_ENTITLEMENT_IDS_PRO`
 - `REVENUECAT_ENTITLEMENT_IDS_PREMIUM`
+- `GOOGLE_PLACES_API_KEY`
 - `OPENROUTER_API_KEY` and `OPENROUTER_SITE_URL` if AI recommendations are enabled.
 
 RevenueCat remains documented in detail in `docs/REVENUECAT_SETUP.md`.
@@ -159,9 +165,15 @@ Also verify:
   `74e10cc1-aece-4da6-8049-e62cc8adf17d`.
 - `bun run eas:secrets:list` shows the required variables for the selected EAS
   environment.
-- `app.config.ts` injects native Google Maps keys from
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; the native config must not contain the
+- `app.config.ts` injects the Android native Google Maps key from
+  `GOOGLE_MAPS_ANDROID_API_KEY`; generated native config must not contain the
   literal env var name.
+- Google Places web-service requests run through Convex Actions and require
+  `GOOGLE_PLACES_API_KEY` in each Convex deployment environment.
+- The native Maps key should be restricted to the Android package and signing
+  identity. The Places key is server-side and belongs only in Convex env.
+- The ignored local `android/` folder must be regenerated before trusted local
+  native testing.
 - Generated prebuild config still blocks `RECORD_AUDIO` and
   `WRITE_EXTERNAL_STORAGE`.
 - Android notification config uses channel `default` and color `#2F6BFF`; a

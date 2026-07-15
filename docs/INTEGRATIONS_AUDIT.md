@@ -69,11 +69,13 @@ This is a snapshot and execution log. For current setup, deployment, and billing
   - Production testing on physical devices + APNs/FCM credentials in EAS.
 
 ### Google Places API
-- Status: `partial`.
+- Status: `implemented in code, pending env and device QA`.
 - Implemented:
-  - code paths and UI handling exist.
+  - Places HTTP requests run through authenticated Convex Actions.
+  - Native Android Maps uses a separate EAS build-time key.
 - Gap:
-  - production `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` still needed.
+  - configure `GOOGLE_PLACES_API_KEY` in Convex.
+  - configure and restrict `GOOGLE_MAPS_ANDROID_API_KEY` in EAS.
 
 ### Deep Links / Universal Links / App Links
 - Status: `partial`.
@@ -183,7 +185,10 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - `EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY`
 - `EXPO_PUBLIC_PRIVACY_POLICY_URL`
 - `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`
-- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
+
+### EAS native build
+- `GOOGLE_MAPS_ANDROID_API_KEY`
+- `GOOGLE_MAPS_IOS_API_KEY` only if iOS is changed to use Google Maps as the map provider.
 
 ### Convex server
 - `CONVEX_SITE_URL`
@@ -194,6 +199,7 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
 - `SCAN_TOKEN_SECRET`
+- `GOOGLE_PLACES_API_KEY`
 - `APP_STORE_URL` (optional override for `/join`)
 - `PLAY_STORE_URL` (optional override for `/join`)
 - `REVENUECAT_WEBHOOK_SECRET`

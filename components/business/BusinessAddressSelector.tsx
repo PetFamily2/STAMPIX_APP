@@ -11,6 +11,7 @@ import {
 import MapView, { Marker, type Region } from 'react-native-maps';
 
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
+import { useGooglePlaceDetails } from '@/hooks/useGooglePlaceDetails';
 import {
   applyManualCoordinateCorrection,
   invalidateSelectionAfterQueryEdit,
@@ -18,14 +19,10 @@ import {
   shouldAcceptAddressDetailsResponse,
   type SelectedBusinessAddress,
 } from '@/lib/businessAddressSelection';
-import { fetchPlaceDetails, type PlaceSuggestion } from '@/lib/googlePlaces';
+import type { PlaceDetails, PlaceSuggestion } from '@/lib/googlePlaces';
 import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 
-const HAS_GOOGLE_MAPS_API_KEY = Boolean(
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()
-);
-const CAN_RENDER_NATIVE_MAP =
-  Platform.OS !== 'android' || HAS_GOOGLE_MAPS_API_KEY;
+const CAN_RENDER_NATIVE_MAP = Platform.OS !== 'web';
 
 const TEXT = {
   label: 'כתובת העסק',
@@ -65,10 +62,20 @@ function toErrorMessage(error: unknown) {
     switch (error.message) {
       case 'PLACES_AUTOCOMPLETE_REQUEST_FAILED':
       case 'PLACES_AUTOCOMPLETE_FAILED':
+      case 'PLACES_CONFIGURATION_MISSING':
+      case 'PLACES_RATE_LIMITED':
+      case 'PLACES_TIMEOUT':
+      case 'PLACES_SERVICE_UNAVAILABLE':
+      case 'PLACES_UNKNOWN_SERVICE_ERROR':
         return 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.';
       case 'PLACE_DETAILS_REQUEST_FAILED':
       case 'PLACE_DETAILS_INCOMPLETE':
       case 'PLACE_ID_REQUIRED':
+      case 'PLACES_PLACE_ID_REQUIRED':
+      case 'PLACES_PLACE_ID_TOO_LONG':
+      case 'PLACES_SESSION_TOKEN_INVALID':
+      case 'PLACES_NO_RESULTS':
+      case 'PLACES_INVALID_DETAILS':
         return 'לא הצלחנו לטעון את פרטי המקום. בחרו שוב מהרשימה.';
       default:
         return 'בחירת הכתובת נכשלה. נסו שוב.';
@@ -77,7 +84,7 @@ function toErrorMessage(error: unknown) {
   return 'בחירת הכתובת נכשלה. נסו שוב.';
 }
 
-function toSelectedAddress(details: Awaited<ReturnType<typeof fetchPlaceDetails>>) {
+function toSelectedAddress(details: PlaceDetails) {
   return {
     placeId: details.placeId,
     formattedAddress: details.formattedAddress,
@@ -169,6 +176,7 @@ export default function BusinessAddressSelector({
     clearSuggestions,
     resetSessionToken,
   } = useGooglePlaceAutocomplete(searchQuery);
+  const loadPlaceDetails = useGooglePlaceDetails();
 
   const invalidatePendingDetailsRequest = () => {
     if (activeDetailsRequestRef.current !== null) {
@@ -234,7 +242,7 @@ export default function BusinessAddressSelector({
     setIsSelectingPlace(true);
     onError?.(null);
     try {
-      const details = await fetchPlaceDetails(suggestion.placeId, sessionToken);
+      const details = await loadPlaceDetails(suggestion.placeId, sessionToken);
       const shouldAccept = shouldAcceptAddressDetailsResponse({
         requestSequence,
         currentSequence: requestSequenceRef.current,

@@ -60,11 +60,7 @@ const TEXT = {
     'אפשר עדיין לראות עסקים קרובים ברשימה ולהצטרף דרך QR בבית העסק.',
 };
 
-const HAS_GOOGLE_MAPS_API_KEY = Boolean(
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()
-);
-const CAN_RENDER_NATIVE_MAP =
-  Platform.OS !== 'android' || HAS_GOOGLE_MAPS_API_KEY;
+const CAN_RENDER_NATIVE_MAP = Platform.OS !== 'web';
 
 type BusinessServiceType =
   | 'food_drink'

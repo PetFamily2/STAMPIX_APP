@@ -57,8 +57,15 @@ Optional legal and public integration variables:
 ```env
 EXPO_PUBLIC_PRIVACY_POLICY_URL="https://stampix.app/legal/privacy"
 EXPO_PUBLIC_TERMS_OF_SERVICE_URL="https://stampix.app/legal/terms"
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY="..."
 ```
+
+Native Google Maps keys are build-time EAS values, not runtime client values:
+- `GOOGLE_MAPS_ANDROID_API_KEY`
+- `GOOGLE_MAPS_IOS_API_KEY` only if iOS is changed to use Google Maps as the
+  map provider.
+
+Google Places search runs through Convex Actions. Configure
+`GOOGLE_PLACES_API_KEY` separately in each Convex deployment environment.
 
 Convex server variables:
 - `RESEND_API_KEY`
@@ -67,6 +74,7 @@ Convex server variables:
 - `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET`
 - `CONVEX_SITE_URL`
 - `SCAN_TOKEN_SECRET`
+- `GOOGLE_PLACES_API_KEY`
 - `APP_STORE_URL`
 - `PLAY_STORE_URL`
 - `REVENUECAT_WEBHOOK_SECRET` when the webhook is enabled
