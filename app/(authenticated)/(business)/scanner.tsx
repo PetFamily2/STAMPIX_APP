@@ -31,7 +31,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -361,7 +361,7 @@ export default function ScannerScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
   const { activeBusinessId, activeBusiness: selectedBusiness } =

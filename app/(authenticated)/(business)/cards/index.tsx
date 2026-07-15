@@ -25,7 +25,7 @@ import {
   ProgramHealthRow,
 } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import type { StampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -231,7 +231,7 @@ export function LoyaltyCardsHubContent() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();

@@ -9,7 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
@@ -75,7 +75,7 @@ export default function SignUpScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'sign_up',
   });

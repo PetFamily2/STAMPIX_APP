@@ -23,7 +23,7 @@ import {
   UsageProgressBar,
 } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -208,7 +208,7 @@ export function CampaignsHubContent() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();

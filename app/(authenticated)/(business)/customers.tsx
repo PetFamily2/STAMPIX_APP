@@ -28,7 +28,7 @@ import {
 import { UsageProgressBar } from '@/components/business-ui/UsageProgressBar';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -183,7 +183,7 @@ export function CustomersHubContent() {
     map?: string;
     filter?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const activeFilter: CustomerRouteFilter | null =
     filter === 'near_reward' ||

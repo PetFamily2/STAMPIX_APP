@@ -20,7 +20,6 @@ import {
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import {
   type BillingPeriod,
-  IS_DEV_MODE,
   PAYMENT_SYSTEM_ENABLED,
   REVENUECAT_PACKAGE_BY_PLAN_PERIOD,
 } from '@/config/appConfig';
@@ -30,6 +29,7 @@ import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { alignItems, flexDirection } from '@/lib/rtl';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
@@ -64,7 +64,7 @@ export default function PaywallScreen() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
 
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
   const planCatalog = useMemo(

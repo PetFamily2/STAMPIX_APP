@@ -1,6 +1,6 @@
 import { Redirect, Slot, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useUser } from '@/contexts/UserContext';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
@@ -10,7 +10,7 @@ export default function MerchantOnboardingLayout() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
 
   if (!isLoading && !user && !isPreviewMode) {
     return <Redirect href="/(auth)/sign-up" />;

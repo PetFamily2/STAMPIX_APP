@@ -8,7 +8,7 @@ import {
   TAB_BAR_CONTENT_HEIGHT,
 } from '@/components/BusinessTabBar';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { api } from '@/convex/_generated/api';
 import {
   getActiveMembershipByBusinessId,
@@ -34,7 +34,7 @@ export default function BusinessTabsLayout() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
 
   if (sessionContext === undefined) {
     return <FullScreenLoading />;

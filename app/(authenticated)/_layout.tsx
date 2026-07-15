@@ -10,7 +10,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -46,7 +46,7 @@ export default function AuthenticatedLayout() {
     src?: string;
     camp?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, syncAppMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId: resolvedActiveBusinessId } = useActiveBusiness();
 

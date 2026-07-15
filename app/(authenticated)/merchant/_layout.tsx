@@ -1,7 +1,7 @@
 import { Redirect, Slot, useLocalSearchParams, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { IS_DEV_MODE } from '@/config/appConfig';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { BUSINESS_ROLES, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
@@ -12,7 +12,7 @@ export default function MerchantLayout() {
     preview?: string;
     map?: string;
   }>();
-  const isPreviewMode = (IS_DEV_MODE && preview === 'true') || map === 'true';
+  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const segmentStrings = segments as string[];
   const isOnboardingRoute = segmentStrings.includes('onboarding');
 
