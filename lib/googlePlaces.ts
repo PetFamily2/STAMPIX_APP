@@ -51,6 +51,22 @@ export function createPlacesSessionToken() {
 }
 
 export function normalizePlacesActionError(error: unknown): PlacesErrorCode {
+  const structuredData =
+    error && typeof error === 'object'
+      ? ((error as { data?: unknown; cause?: { data?: unknown } }).data ??
+        (error as { cause?: { data?: unknown } }).cause?.data)
+      : null;
+  const structuredCode =
+    structuredData && typeof structuredData === 'object'
+      ? (structuredData as { code?: unknown }).code
+      : null;
+  if (
+    typeof structuredCode === 'string' &&
+    PLACES_ERROR_CODES.has(structuredCode)
+  ) {
+    return structuredCode as PlacesErrorCode;
+  }
+
   const message =
     error instanceof Error ? error.message.trim() : String(error ?? '').trim();
   const maybeCode = message.includes('Uncaught Error: ')

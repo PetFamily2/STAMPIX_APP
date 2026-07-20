@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { ConvexError } from 'convex/values';
 
 import {
   autocomplete,
@@ -15,13 +16,33 @@ const originalFetch = globalThis.fetch;
 const originalSetTimeout = globalThis.setTimeout;
 const originalKey = process.env.GOOGLE_PLACES_API_KEY;
 
-function buildCtx({ authenticated = true } = {}) {
+function buildCtx({
+  authenticated = true,
+  tokenIdentifier = 'https://stampix.test|user_1',
+  runMutation = async () => null,
+} = {}) {
   return {
     auth: {
       getUserIdentity: async () =>
-        authenticated ? { subject: 'user_1', email: 'user@example.com' } : null,
+        authenticated
+          ? {
+              subject: 'user_1',
+              tokenIdentifier,
+              email: 'user@example.com',
+            }
+          : null,
     },
+    runMutation,
   };
+}
+
+async function getThrownError(work) {
+  try {
+    await work();
+  } catch (error) {
+    return error;
+  }
+  return null;
 }
 
 async function getErrorMessage(work) {
@@ -50,37 +71,59 @@ afterEach(() => {
 describe('Convex Google Places actions', () => {
   test('autocomplete rejects unauthenticated callers before key usage', async () => {
     delete process.env.GOOGLE_PLACES_API_KEY;
+    let limiterCalls = 0;
 
     const message = await getErrorMessage(() =>
-      autocomplete._handler(buildCtx({ authenticated: false }), {
-        query: 'coffee',
-        sessionToken: 'session_1',
-      })
+      autocomplete._handler(
+        buildCtx({
+          authenticated: false,
+          runMutation: async () => {
+            limiterCalls += 1;
+          },
+        }),
+        {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        }
+      )
     );
 
     expect(message).toBe('PLACES_UNAUTHENTICATED');
+    expect(limiterCalls).toBe(0);
   });
 
   test('short autocomplete query returns empty without fetch', async () => {
     let fetchCount = 0;
+    let limiterCalls = 0;
     globalThis.fetch = async () => {
       fetchCount += 1;
       return Response.json({ suggestions: [] });
     };
 
     await expect(
-      autocomplete._handler(buildCtx(), {
-        query: ' a ',
-        sessionToken: 'session_1',
-      })
+      autocomplete._handler(
+        buildCtx({
+          runMutation: async () => {
+            limiterCalls += 1;
+          },
+        }),
+        {
+          query: ' a ',
+          sessionToken: 'session_1',
+        }
+      )
     ).resolves.toEqual([]);
     expect(fetchCount).toBe(0);
+    expect(limiterCalls).toBe(0);
   });
 
   test('autocomplete posts the New API request with Hebrew, Israel and session configuration', async () => {
     let capturedUrl;
     let capturedInit;
+    let fetchCount = 0;
+    const limiterArgs = [];
     globalThis.fetch = async (url, init) => {
+      fetchCount += 1;
       capturedUrl = String(url);
       capturedInit = init;
       return Response.json({
@@ -99,10 +142,19 @@ describe('Convex Google Places actions', () => {
       });
     };
 
-    const result = await autocomplete._handler(buildCtx(), {
-      query: '  Neighborhood   Cafe ',
-      sessionToken: 'session_1',
-    });
+    const result = await autocomplete._handler(
+      buildCtx({
+        tokenIdentifier: 'issuer|autocomplete-user',
+        runMutation: async (_reference, args) => {
+          limiterArgs.push(args);
+          return null;
+        },
+      }),
+      {
+        query: '  Neighborhood   Cafe ',
+        sessionToken: 'session_1',
+      }
+    );
     const headers = new Headers(capturedInit.headers);
 
     expect(capturedUrl).toBe(
@@ -123,6 +175,13 @@ describe('Convex Google Places actions', () => {
     });
     expect(capturedInit.body).not.toContain('includeQueryPredictions');
     expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(limiterArgs).toEqual([
+      {
+        operation: 'autocomplete',
+        userKey: 'issuer|autocomplete-user',
+      },
+    ]);
+    expect(fetchCount).toBe(1);
     expect(result).toEqual([
       {
         description: 'Neighborhood Cafe, Tel Aviv, Israel',
@@ -277,41 +336,70 @@ describe('Convex Google Places actions', () => {
 
   test('missing Places key is a configuration error', async () => {
     delete process.env.GOOGLE_PLACES_API_KEY;
+    let limiterCalls = 0;
 
     const message = await getErrorMessage(() =>
-      autocomplete._handler(buildCtx(), {
-        query: 'coffee',
-        sessionToken: 'session_1',
-      })
+      autocomplete._handler(
+        buildCtx({
+          runMutation: async () => {
+            limiterCalls += 1;
+          },
+        }),
+        {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        }
+      )
     );
 
     expect(message).toBe('PLACES_CONFIGURATION_MISSING');
+    expect(limiterCalls).toBe(0);
   });
 
   test('place details rejects unauthenticated callers and invalid ids', async () => {
+    let limiterCalls = 0;
     await expect(
       getErrorMessage(() =>
-        placeDetails._handler(buildCtx({ authenticated: false }), {
-          placeId: 'place_1',
-          sessionToken: 'session_1',
-        })
+        placeDetails._handler(
+          buildCtx({
+            authenticated: false,
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          {
+            placeId: 'place_1',
+            sessionToken: 'session_1',
+          }
+        )
       )
     ).resolves.toBe('PLACES_UNAUTHENTICATED');
 
     await expect(
       getErrorMessage(() =>
-        placeDetails._handler(buildCtx(), {
-          placeId: '',
-          sessionToken: 'session_1',
-        })
+        placeDetails._handler(
+          buildCtx({
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          {
+            placeId: '',
+            sessionToken: 'session_1',
+          }
+        )
       )
     ).resolves.toBe('PLACES_PLACE_ID_REQUIRED');
+    expect(limiterCalls).toBe(0);
   });
 
   test('place details gets the URL-encoded New API resource with Hebrew, region and session parameters', async () => {
     let capturedUrl;
     let capturedInit;
+    let fetchCount = 0;
+    const limiterArgs = [];
     globalThis.fetch = async (url, init) => {
+      fetchCount += 1;
       capturedUrl = String(url);
       capturedInit = init;
       return Response.json({
@@ -338,10 +426,19 @@ describe('Convex Google Places actions', () => {
       });
     };
 
-    const result = await placeDetails._handler(buildCtx(), {
-      placeId: 'place/with space?',
-      sessionToken: 'session_1',
-    });
+    const result = await placeDetails._handler(
+      buildCtx({
+        tokenIdentifier: 'issuer|details-user',
+        runMutation: async (_reference, args) => {
+          limiterArgs.push(args);
+          return null;
+        },
+      }),
+      {
+        placeId: 'place/with space?',
+        sessionToken: 'session_1',
+      }
+    );
     const url = new URL(capturedUrl);
     const headers = new Headers(capturedInit.headers);
 
@@ -359,6 +456,13 @@ describe('Convex Google Places actions', () => {
       GOOGLE_PLACE_DETAILS_FIELD_MASK
     );
     expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(limiterArgs).toEqual([
+      {
+        operation: 'placeDetails',
+        userKey: 'issuer|details-user',
+      },
+    ]);
+    expect(fetchCount).toBe(1);
     expect(result).toEqual({
       placeId: 'place/with space?',
       formattedAddress: 'דרך מנחם בגין 132, תל אביב-יפו',
@@ -368,6 +472,74 @@ describe('Convex Google Places actions', () => {
       street: 'דרך מנחם בגין',
       streetNumber: '132',
     });
+  });
+
+  test('limiter denial blocks autocomplete and place details fetches', async () => {
+    let fetchCount = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({});
+    };
+    const deniedCtx = buildCtx({
+      runMutation: async () => {
+        throw new ConvexError({
+          code: 'PLACES_RATE_LIMITED',
+          retryAfterMs: 2500,
+        });
+      },
+    });
+
+    const autocompleteError = await getThrownError(() =>
+      autocomplete._handler(deniedCtx, {
+        query: 'coffee',
+        sessionToken: 'session_1',
+      })
+    );
+    const detailsError = await getThrownError(() =>
+      placeDetails._handler(deniedCtx, {
+        placeId: 'place_1',
+        sessionToken: 'session_1',
+      })
+    );
+
+    expect(autocompleteError.data).toEqual({
+      code: 'PLACES_RATE_LIMITED',
+      retryAfterMs: 2500,
+    });
+    expect(detailsError.data).toEqual({
+      code: 'PLACES_RATE_LIMITED',
+      retryAfterMs: 2500,
+    });
+    expect(fetchCount).toBe(0);
+  });
+
+  test('unexpected limiter failures fail closed before Google fetch', async () => {
+    let fetchCount = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({});
+    };
+
+    const error = await getThrownError(() =>
+      autocomplete._handler(
+        buildCtx({
+          runMutation: async () => {
+            throw new Error(
+              'component placesAutocompleteGlobalDailyV1 failed for secret-user'
+            );
+          },
+        }),
+        {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        }
+      )
+    );
+
+    expect(error.data).toEqual({ code: 'PLACES_SERVICE_UNAVAILABLE' });
+    expect(JSON.stringify(error.data)).not.toContain('GlobalDaily');
+    expect(JSON.stringify(error.data)).not.toContain('secret-user');
+    expect(fetchCount).toBe(0);
   });
 
   test('place details request builder uses the exact minimal field mask', () => {

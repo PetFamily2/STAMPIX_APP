@@ -1,6 +1,8 @@
 import { v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import { action } from './_generated/server';
+import { normalizeGooglePlacesLimiterError } from './googlePlacesRateLimits';
 
 type GooglePlacesAutocompleteResponse = {
   suggestions?: Array<{
@@ -94,6 +96,21 @@ async function requireAuthenticatedIdentity(ctx: any) {
     throw new Error('PLACES_UNAUTHENTICATED');
   }
   return identity;
+}
+
+async function consumePlacesRateLimit(
+  ctx: any,
+  operation: 'autocomplete' | 'placeDetails',
+  userKey: string
+) {
+  try {
+    await ctx.runMutation(internal.googlePlacesRateLimits.consume, {
+      operation,
+      userKey,
+    });
+  } catch (error) {
+    throw normalizeGooglePlacesLimiterError(error);
+  }
 }
 
 function normalizeQuery(query: string) {
@@ -229,11 +246,11 @@ export function normalizeGoogleAutocompleteResponse(
         placeId,
         primaryText:
           getTrimmedString(
-            prediction.structuredFormat?.mainText?.text
+            prediction?.structuredFormat?.mainText?.text
           ) || description,
         secondaryText:
           getTrimmedString(
-            prediction.structuredFormat?.secondaryText?.text
+            prediction?.structuredFormat?.secondaryText?.text
           ),
       };
     })
@@ -335,13 +352,18 @@ export const autocomplete = action({
   },
   returns: v.array(PLACE_SUGGESTION_VALIDATOR),
   handler: async (ctx, { query, sessionToken }) => {
-    await requireAuthenticatedIdentity(ctx);
+    const identity = await requireAuthenticatedIdentity(ctx);
     const normalizedQuery = normalizeQuery(query);
     if (!normalizedQuery) {
       return [];
     }
     const normalizedSessionToken = normalizeSessionToken(sessionToken);
     const apiKey = getGooglePlacesApiKey();
+    await consumePlacesRateLimit(
+      ctx,
+      'autocomplete',
+      identity.tokenIdentifier
+    );
     const request = buildGoogleAutocompleteRequest({
       apiKey,
       query: normalizedQuery,
@@ -363,10 +385,15 @@ export const placeDetails = action({
   },
   returns: PLACE_DETAILS_VALIDATOR,
   handler: async (ctx, { placeId, sessionToken }) => {
-    await requireAuthenticatedIdentity(ctx);
+    const identity = await requireAuthenticatedIdentity(ctx);
     const normalizedPlaceId = normalizePlaceId(placeId);
     const normalizedSessionToken = normalizeSessionToken(sessionToken);
     const apiKey = getGooglePlacesApiKey();
+    await consumePlacesRateLimit(
+      ctx,
+      'placeDetails',
+      identity.tokenIdentifier
+    );
     const request = buildGoogleDetailsRequest({
       apiKey,
       placeId: normalizedPlaceId,
