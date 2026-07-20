@@ -2,14 +2,17 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import {
   autocomplete,
-  buildGoogleAutocompleteUrl,
-  buildGoogleDetailsUrl,
+  buildGoogleAutocompleteRequest,
+  buildGoogleDetailsRequest,
+  GOOGLE_AUTOCOMPLETE_FIELD_MASK,
+  GOOGLE_PLACE_DETAILS_FIELD_MASK,
   normalizeGoogleAutocompleteResponse,
   normalizeGooglePlaceDetails,
   placeDetails,
 } from '../googlePlaces';
 
 const originalFetch = globalThis.fetch;
+const originalSetTimeout = globalThis.setTimeout;
 const originalKey = process.env.GOOGLE_PLACES_API_KEY;
 
 function buildCtx({ authenticated = true } = {}) {
@@ -36,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  globalThis.setTimeout = originalSetTimeout;
   if (originalKey === undefined) {
     delete process.env.GOOGLE_PLACES_API_KEY;
   } else {
@@ -61,7 +65,7 @@ describe('Convex Google Places actions', () => {
     let fetchCount = 0;
     globalThis.fetch = async () => {
       fetchCount += 1;
-      return Response.json({ status: 'OK', predictions: [] });
+      return Response.json({ suggestions: [] });
     };
 
     await expect(
@@ -73,35 +77,105 @@ describe('Convex Google Places actions', () => {
     expect(fetchCount).toBe(0);
   });
 
-  test('autocomplete includes Israel, Hebrew and session token without address-only filter', async () => {
-    const url = buildGoogleAutocompleteUrl({
-      apiKey: 'key',
-      query: 'Neighborhood Cafe',
+  test('autocomplete posts the New API request with Hebrew, Israel and session configuration', async () => {
+    let capturedUrl;
+    let capturedInit;
+    globalThis.fetch = async (url, init) => {
+      capturedUrl = String(url);
+      capturedInit = init;
+      return Response.json({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'place_1',
+              text: { text: 'Neighborhood Cafe, Tel Aviv, Israel' },
+              structuredFormat: {
+                mainText: { text: 'Neighborhood Cafe' },
+                secondaryText: { text: 'Tel Aviv' },
+              },
+            },
+          },
+        ],
+      });
+    };
+
+    const result = await autocomplete._handler(buildCtx(), {
+      query: '  Neighborhood   Cafe ',
       sessionToken: 'session_1',
     });
+    const headers = new Headers(capturedInit.headers);
 
-    expect(url).toContain('/autocomplete/json?');
-    expect(url).toContain('language=he');
-    expect(url).toContain('region=il');
-    expect(url).toContain('components=country%3Ail');
-    expect(url).toContain('sessiontoken=session_1');
-    expect(url).not.toContain('types=address');
+    expect(capturedUrl).toBe(
+      'https://places.googleapis.com/v1/places:autocomplete'
+    );
+    expect(capturedInit.method).toBe('POST');
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('X-Goog-Api-Key')).toBe('server-only-test-key');
+    expect(headers.get('X-Goog-FieldMask')).toBe(
+      GOOGLE_AUTOCOMPLETE_FIELD_MASK
+    );
+    expect(JSON.parse(capturedInit.body)).toEqual({
+      input: 'Neighborhood Cafe',
+      languageCode: 'he',
+      regionCode: 'il',
+      includedRegionCodes: ['il'],
+      sessionToken: 'session_1',
+    });
+    expect(capturedInit.body).not.toContain('includeQueryPredictions');
+    expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(result).toEqual([
+      {
+        description: 'Neighborhood Cafe, Tel Aviv, Israel',
+        placeId: 'place_1',
+        primaryText: 'Neighborhood Cafe',
+        secondaryText: 'Tel Aviv',
+      },
+    ]);
   });
 
-  test('autocomplete supports business and street-address results and bounds count', () => {
+  test('autocomplete request builder uses the exact minimal field mask', () => {
+    const request = buildGoogleAutocompleteRequest({
+      apiKey: 'key',
+      query: 'Cafe',
+      sessionToken: 'session_1',
+    });
+    const headers = new Headers(request.init.headers);
+
+    expect(GOOGLE_AUTOCOMPLETE_FIELD_MASK).toBe(
+      'suggestions.placePrediction.placeId,' +
+        'suggestions.placePrediction.text.text,' +
+        'suggestions.placePrediction.structuredFormat.mainText.text,' +
+        'suggestions.placePrediction.structuredFormat.secondaryText.text'
+    );
+    expect(headers.get('X-Goog-FieldMask')).toBe(
+      GOOGLE_AUTOCOMPLETE_FIELD_MASK
+    );
+    expect(headers.get('X-Goog-FieldMask')).not.toContain('*');
+  });
+
+  test('autocomplete filters query predictions, malformed place predictions and bounds count', () => {
     const suggestions = normalizeGoogleAutocompleteResponse({
-      status: 'OK',
-      predictions: Array.from({ length: 7 }, (_, index) => ({
-        description:
-          index === 0
-            ? 'Neighborhood Cafe, Tel Aviv, Israel'
-            : `Dizengoff ${index}, Tel Aviv, Israel`,
-        place_id: `place_${index}`,
-        structured_formatting: {
-          main_text: index === 0 ? 'Neighborhood Cafe' : `Dizengoff ${index}`,
-          secondary_text: 'Tel Aviv',
-        },
-      })),
+      suggestions: [
+        { queryPrediction: { text: { text: 'coffee near Tel Aviv' } } },
+        { placePrediction: { placeId: '', text: { text: 'Missing ID' } } },
+        ...Array.from({ length: 7 }, (_, index) => ({
+          placePrediction: {
+            placeId: `place_${index}`,
+            text: {
+              text:
+                index === 0
+                  ? 'Neighborhood Cafe, Tel Aviv, Israel'
+                  : `Dizengoff ${index}, Tel Aviv, Israel`,
+            },
+            structuredFormat: {
+              mainText: {
+                text: index === 0 ? 'Neighborhood Cafe' : `Dizengoff ${index}`,
+              },
+              secondaryText: { text: 'Tel Aviv' },
+            },
+          },
+        })),
+      ],
     });
 
     expect(suggestions).toHaveLength(5);
@@ -114,18 +188,87 @@ describe('Convex Google Places actions', () => {
     expect(suggestions[1].primaryText).toBe('Dizengoff 1');
   });
 
-  test('autocomplete zero results and service errors normalize safely', async () => {
-    expect(
-      normalizeGoogleAutocompleteResponse({
-        status: 'ZERO_RESULTS',
-        predictions: undefined,
+  test('autocomplete action ignores malformed scalar fields without dropping valid predictions', async () => {
+    globalThis.fetch = async () =>
+      Response.json({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 42,
+              text: { text: 'Non-string place ID' },
+            },
+          },
+          {
+            placePrediction: {
+              placeId: 'invalid_description',
+              text: { text: 42 },
+            },
+          },
+          {
+            placePrediction: {
+              placeId: 'valid_with_malformed_main',
+              text: { text: 'Cafe Main, Tel Aviv' },
+              structuredFormat: {
+                mainText: { text: 42 },
+                secondaryText: { text: 'Tel Aviv' },
+              },
+            },
+          },
+          {
+            placePrediction: {
+              placeId: 'valid_with_malformed_secondary',
+              text: { text: 'Cafe Secondary, Haifa' },
+              structuredFormat: {
+                mainText: { text: 'Cafe Secondary' },
+                secondaryText: { text: 42 },
+              },
+            },
+          },
+          {
+            placePrediction: {
+              placeId: 'valid_place',
+              text: { text: 'Valid Cafe, Jerusalem' },
+              structuredFormat: {
+                mainText: { text: 'Valid Cafe' },
+                secondaryText: { text: 'Jerusalem' },
+              },
+            },
+          },
+        ],
+      });
+
+    await expect(
+      autocomplete._handler(buildCtx(), {
+        query: 'cafe',
+        sessionToken: 'session_1',
       })
-    ).toEqual([]);
+    ).resolves.toEqual([
+      {
+        description: 'Cafe Main, Tel Aviv',
+        placeId: 'valid_with_malformed_main',
+        primaryText: 'Cafe Main, Tel Aviv',
+        secondaryText: 'Tel Aviv',
+      },
+      {
+        description: 'Cafe Secondary, Haifa',
+        placeId: 'valid_with_malformed_secondary',
+        primaryText: 'Cafe Secondary',
+        secondaryText: '',
+      },
+      {
+        description: 'Valid Cafe, Jerusalem',
+        placeId: 'valid_place',
+        primaryText: 'Valid Cafe',
+        secondaryText: 'Jerusalem',
+      },
+    ]);
+  });
+
+  test('autocomplete handles empty and malformed New API responses safely', async () => {
+    expect(normalizeGoogleAutocompleteResponse({})).toEqual([]);
 
     const message = await getErrorMessage(async () =>
-      normalizeGoogleAutocompleteResponse({
-        status: 'REQUEST_DENIED',
-      })
+      normalizeGoogleAutocompleteResponse({ suggestions: {} })
     );
 
     expect(message).toBe('PLACES_SERVICE_UNAVAILABLE');
@@ -165,40 +308,98 @@ describe('Convex Google Places actions', () => {
     ).resolves.toBe('PLACES_PLACE_ID_REQUIRED');
   });
 
-  test('place details URL includes session token and requested fields', () => {
-    const url = buildGoogleDetailsUrl({
+  test('place details gets the URL-encoded New API resource with Hebrew, region and session parameters', async () => {
+    let capturedUrl;
+    let capturedInit;
+    globalThis.fetch = async (url, init) => {
+      capturedUrl = String(url);
+      capturedInit = init;
+      return Response.json({
+        id: 'place/with space?',
+        formattedAddress: 'דרך מנחם בגין 132, תל אביב-יפו',
+        location: { latitude: 32.074, longitude: 34.792 },
+        addressComponents: [
+          {
+            longText: 'תל אביב-יפו',
+            shortText: 'תל אביב-יפו',
+            types: ['locality', 'political'],
+          },
+          {
+            longText: 'דרך מנחם בגין',
+            shortText: 'דרך מנחם בגין',
+            types: ['route'],
+          },
+          {
+            longText: '132',
+            shortText: '132',
+            types: ['street_number'],
+          },
+        ],
+      });
+    };
+
+    const result = await placeDetails._handler(buildCtx(), {
+      placeId: 'place/with space?',
+      sessionToken: 'session_1',
+    });
+    const url = new URL(capturedUrl);
+    const headers = new Headers(capturedInit.headers);
+
+    expect(url.origin + url.pathname).toBe(
+      'https://places.googleapis.com/v1/places/place%2Fwith%20space%3F'
+    );
+    expect(url.searchParams.get('languageCode')).toBe('he');
+    expect(url.searchParams.get('regionCode')).toBe('il');
+    expect(url.searchParams.get('sessionToken')).toBe('session_1');
+    expect(capturedInit.method).toBe('GET');
+    expect(capturedInit.body).toBeUndefined();
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('X-Goog-Api-Key')).toBe('server-only-test-key');
+    expect(headers.get('X-Goog-FieldMask')).toBe(
+      GOOGLE_PLACE_DETAILS_FIELD_MASK
+    );
+    expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(result).toEqual({
+      placeId: 'place/with space?',
+      formattedAddress: 'דרך מנחם בגין 132, תל אביב-יפו',
+      lat: 32.074,
+      lng: 34.792,
+      city: 'תל אביב-יפו',
+      street: 'דרך מנחם בגין',
+      streetNumber: '132',
+    });
+  });
+
+  test('place details request builder uses the exact minimal field mask', () => {
+    const request = buildGoogleDetailsRequest({
       apiKey: 'key',
       placeId: 'place_1',
       sessionToken: 'session_1',
     });
+    const headers = new Headers(request.init.headers);
 
-    expect(url).toContain('/details/json?');
-    expect(url).toContain('place_id=place_1');
-    expect(url).toContain('language=he');
-    expect(url).toContain('sessiontoken=session_1');
-    expect(url).toContain('fields=place_id%2Cformatted_address%2Cgeometry');
+    expect(GOOGLE_PLACE_DETAILS_FIELD_MASK).toBe(
+      'id,formattedAddress,location,addressComponents'
+    );
+    expect(headers.get('X-Goog-FieldMask')).toBe(
+      GOOGLE_PLACE_DETAILS_FIELD_MASK
+    );
+    expect(headers.get('X-Goog-FieldMask')).not.toContain('*');
+    expect(headers.get('X-Goog-FieldMask')).not.toContain('displayName');
   });
 
-  test('place details parses business and street address fields', () => {
+  test('place details preserves city fallback and empty supported address fields', () => {
     const details = normalizeGooglePlaceDetails({
-      status: 'OK',
-      result: {
-        place_id: 'place_1',
-        formatted_address: 'Azrieli Center, Tel Aviv, Israel',
-        geometry: { location: { lat: 32.074, lng: 34.792 } },
-        address_components: [
-          {
-            long_name: 'Tel Aviv',
-            short_name: 'Tel Aviv',
-            types: ['locality'],
-          },
-          {
-            long_name: 'Menachem Begin',
-            short_name: 'Begin',
-            types: ['route'],
-          },
-        ],
-      },
+      id: 'place_1',
+      formattedAddress: 'Azrieli Center, Tel Aviv, Israel',
+      location: { latitude: 32.074, longitude: 34.792 },
+      addressComponents: [
+        {
+          longText: 'Tel Aviv District',
+          shortText: 'TA',
+          types: ['administrative_area_level_1'],
+        },
+      ],
     });
 
     expect(details).toEqual({
@@ -206,23 +407,20 @@ describe('Convex Google Places actions', () => {
       formattedAddress: 'Azrieli Center, Tel Aviv, Israel',
       lat: 32.074,
       lng: 34.792,
-      city: 'Tel Aviv',
-      street: 'Menachem Begin',
+      city: 'Tel Aviv District',
+      street: '',
       streetNumber: '',
     });
   });
 
-  test('place details rejects missing address and non-finite coordinates', async () => {
+  test('place details rejects malformed New API responses', async () => {
     await expect(
       getErrorMessage(async () =>
         normalizeGooglePlaceDetails({
-          status: 'OK',
-          result: {
-            place_id: 'place_1',
-            formatted_address: '',
-            geometry: { location: { lat: 32.08, lng: 34.78 } },
-            address_components: [],
-          },
+          id: 'place_1',
+          formattedAddress: '',
+          location: { latitude: 32.08, longitude: 34.78 },
+          addressComponents: [],
         })
       )
     ).resolves.toBe('PLACES_INVALID_DETAILS');
@@ -230,26 +428,149 @@ describe('Convex Google Places actions', () => {
     await expect(
       getErrorMessage(async () =>
         normalizeGooglePlaceDetails({
-          status: 'OK',
-          result: {
-            place_id: 'place_1',
-            formatted_address: 'Dizengoff 100, Tel Aviv',
-            geometry: { location: { lat: Number.NaN, lng: 34.78 } },
-            address_components: [],
-          },
+          id: 'place_1',
+          formattedAddress: 'Dizengoff 100, Tel Aviv',
+          location: { latitude: Number.NaN, longitude: 34.78 },
+          addressComponents: [],
         })
       )
     ).resolves.toBe('PLACES_INVALID_DETAILS');
   });
 
-  test('place details service errors never include the API key', async () => {
-    const message = await getErrorMessage(async () =>
-      normalizeGooglePlaceDetails({
-        status: 'OVER_QUERY_LIMIT',
+  test('place details action normalizes non-string mandatory scalar fields', async () => {
+    globalThis.fetch = async () =>
+      Response.json({
+        id: 42,
+        formattedAddress: 'Dizengoff 100, Tel Aviv',
+        location: { latitude: 32.08, longitude: 34.78 },
+        addressComponents: [],
+      });
+
+    const invalidIdMessage = await getErrorMessage(() =>
+      placeDetails._handler(buildCtx(), {
+        placeId: 'place_1',
+        sessionToken: 'session_1',
+      })
+    );
+    expect(invalidIdMessage).toBe('PLACES_INVALID_DETAILS');
+    expect(invalidIdMessage).not.toContain('TypeError');
+
+    globalThis.fetch = async () =>
+      Response.json({
+        id: 'place_1',
+        formattedAddress: 42,
+        location: { latitude: 32.08, longitude: 34.78 },
+        addressComponents: [],
+      });
+
+    const invalidAddressMessage = await getErrorMessage(() =>
+      placeDetails._handler(buildCtx(), {
+        placeId: 'place_1',
+        sessionToken: 'session_1',
+      })
+    );
+    expect(invalidAddressMessage).toBe('PLACES_INVALID_DETAILS');
+    expect(invalidAddressMessage).not.toContain('TypeError');
+  });
+
+  test('upstream HTTP and malformed JSON errors normalize without leaking the API key', async () => {
+    globalThis.fetch = async () =>
+      new Response('server-only-test-key', { status: 429 });
+    await expect(
+      getErrorMessage(() =>
+        autocomplete._handler(buildCtx(), {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        })
+      )
+    ).resolves.toBe('PLACES_RATE_LIMITED');
+
+    globalThis.fetch = async () => new Response('{}', { status: 503 });
+    await expect(
+      getErrorMessage(() =>
+        placeDetails._handler(buildCtx(), {
+          placeId: 'place_1',
+          sessionToken: 'session_1',
+        })
+      )
+    ).resolves.toBe('PLACES_SERVICE_UNAVAILABLE');
+
+    globalThis.fetch = async () => new Response('{}', { status: 404 });
+    await expect(
+      getErrorMessage(() =>
+        placeDetails._handler(buildCtx(), {
+          placeId: 'missing_place',
+          sessionToken: 'session_1',
+        })
+      )
+    ).resolves.toBe('PLACES_NO_RESULTS');
+
+    globalThis.fetch = async () => new Response('{}', { status: 403 });
+    await expect(
+      getErrorMessage(() =>
+        autocomplete._handler(buildCtx(), {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        })
+      )
+    ).resolves.toBe('PLACES_SERVICE_UNAVAILABLE');
+
+    globalThis.fetch = async () => new Response('{', { status: 200 });
+    const malformedMessage = await getErrorMessage(() =>
+      autocomplete._handler(buildCtx(), {
+        query: 'coffee',
+        sessionToken: 'session_1',
+      })
+    );
+    expect(malformedMessage).toBe('PLACES_SERVICE_UNAVAILABLE');
+    expect(malformedMessage).not.toContain('server-only-test-key');
+  });
+
+  test('request timeout aborts the upstream request and returns the normalized timeout error', async () => {
+    globalThis.setTimeout = (callback) => {
+      queueMicrotask(callback);
+      return 1;
+    };
+    globalThis.fetch = async (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('request aborted');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true }
+        );
+      });
+
+    const message = await getErrorMessage(() =>
+      autocomplete._handler(buildCtx(), {
+        query: 'coffee',
+        sessionToken: 'session_1',
       })
     );
 
-    expect(message).toBe('PLACES_RATE_LIMITED');
+    expect(message).toBe('PLACES_TIMEOUT');
+    expect(message).not.toContain('server-only-test-key');
+  });
+
+  test('network errors cannot expose the credential through a request URL or action error', async () => {
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = String(url);
+      throw new Error(`failed request to ${capturedUrl}`);
+    };
+
+    const message = await getErrorMessage(() =>
+      placeDetails._handler(buildCtx(), {
+        placeId: 'place_1',
+        sessionToken: 'session_1',
+      })
+    );
+
+    expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(message).toBe('PLACES_SERVICE_UNAVAILABLE');
     expect(message).not.toContain('server-only-test-key');
   });
 });
