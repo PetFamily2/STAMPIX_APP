@@ -4,36 +4,18 @@ import { internal } from './_generated/api';
 import { action } from './_generated/server';
 import { normalizeGooglePlacesLimiterError } from './googlePlacesRateLimits';
 
+export type GooglePlacesAutocompleteMode = 'default' | 'city' | 'street';
+
 type GooglePlacesAutocompleteResponse = {
   suggestions?: Array<{
     placePrediction?: {
       placeId?: string;
-      text?: {
-        text?: string;
-      };
+      text?: { text?: string };
       structuredFormat?: {
-        mainText?: {
-          text?: string;
-        };
-        secondaryText?: {
-          text?: string;
-        };
+        mainText?: { text?: string };
+        secondaryText?: { text?: string };
       };
     };
-  }>;
-};
-
-type GooglePlacesDetailsResponse = {
-  id?: string;
-  formattedAddress?: string;
-  location?: {
-    latitude?: number;
-    longitude?: number;
-  };
-  addressComponents?: Array<{
-    longText?: string;
-    shortText?: string;
-    types?: string[];
   }>;
 };
 
@@ -43,13 +25,50 @@ type AddressComponent = {
   types?: string[];
 };
 
+type GooglePlacesDetailsResponse = {
+  id?: string;
+  formattedAddress?: string;
+  location?: { latitude?: number; longitude?: number };
+  addressComponents?: AddressComponent[];
+};
+
+type GoogleGeocodingResult = {
+  placeId?: string;
+  formattedAddress?: string;
+  location?: { latitude?: number; longitude?: number };
+  granularity?: string;
+  addressComponents?: AddressComponent[];
+  types?: string[];
+};
+
+type GoogleGeocodingResponse = {
+  results?: GoogleGeocodingResult[];
+};
+
+export type ResolvedBusinessAddress = {
+  placeId: string;
+  formattedAddress: string;
+  latitude: number;
+  longitude: number;
+  city: string;
+  street: string;
+  streetNumber: string;
+};
+
 const GOOGLE_PLACES_BASE_URL = 'https://places.googleapis.com/v1';
+const GOOGLE_GEOCODING_ADDRESS_URL =
+  'https://geocode.googleapis.com/v4/geocode/address';
 const REQUEST_TIMEOUT_MS = 5000;
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 120;
 const MAX_PLACE_ID_LENGTH = 256;
 const MAX_SESSION_TOKEN_LENGTH = 128;
 const MAX_SUGGESTIONS = 5;
+const MAX_ADDRESS_FIELD_LENGTH = 120;
+const MAX_STREET_NUMBER_LENGTH = 16;
+const MAX_GEOCODING_RESULTS_TO_INSPECT = 10;
+const MAX_ACCEPTED_GEOCODING_CANDIDATES = 3;
+const RAW_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/;
 
 export const GOOGLE_AUTOCOMPLETE_FIELD_MASK = [
   'suggestions.placePrediction.placeId',
@@ -63,6 +82,15 @@ export const GOOGLE_PLACE_DETAILS_FIELD_MASK = [
   'formattedAddress',
   'location',
   'addressComponents',
+].join(',');
+
+export const GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK = [
+  'results.placeId',
+  'results.location',
+  'results.granularity',
+  'results.formattedAddress',
+  'results.addressComponents',
+  'results.types',
 ].join(',');
 
 const PLACE_SUGGESTION_VALIDATOR = v.object({
@@ -82,6 +110,28 @@ const PLACE_DETAILS_VALIDATOR = v.object({
   streetNumber: v.string(),
 });
 
+const SELECTED_BUSINESS_ADDRESS_VALIDATOR = v.object({
+  placeId: v.string(),
+  formattedAddress: v.string(),
+  latitude: v.number(),
+  longitude: v.number(),
+  city: v.string(),
+  street: v.string(),
+  streetNumber: v.string(),
+});
+
+const ADDRESS_RESOLUTION_RESULT_VALIDATOR = v.union(
+  v.object({
+    status: v.literal('resolved'),
+    address: SELECTED_BUSINESS_ADDRESS_VALIDATOR,
+  }),
+  v.object({
+    status: v.literal('ambiguous'),
+    candidates: v.array(SELECTED_BUSINESS_ADDRESS_VALIDATOR),
+  }),
+  v.object({ status: v.literal('notFound') })
+);
+
 function getGooglePlacesApiKey() {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY?.trim();
   if (!apiKey) {
@@ -100,7 +150,7 @@ async function requireAuthenticatedIdentity(ctx: any) {
 
 async function consumePlacesRateLimit(
   ctx: any,
-  operation: 'autocomplete' | 'placeDetails',
+  operation: 'autocomplete' | 'placeDetails' | 'addressResolution',
   userKey: string
 ) {
   try {
@@ -124,6 +174,24 @@ function normalizeQuery(query: string) {
   return normalized;
 }
 
+function normalizeSelectedCityDisplayName(value: string) {
+  assertNoRawControlCharacters(value, 'PLACES_CITY_CONTEXT_INVALID');
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (
+    normalized.length < MIN_QUERY_LENGTH ||
+    normalized.length > MAX_ADDRESS_FIELD_LENGTH
+  ) {
+    throw new Error('PLACES_CITY_CONTEXT_INVALID');
+  }
+  return normalized;
+}
+
+function assertNoRawControlCharacters(value: string, errorCode: string) {
+  if (RAW_CONTROL_CHARACTER_PATTERN.test(value)) {
+    throw new Error(errorCode);
+  }
+}
+
 function normalizePlaceId(placeId: string) {
   const normalized = placeId.trim();
   if (!normalized) {
@@ -135,8 +203,8 @@ function normalizePlaceId(placeId: string) {
   return normalized;
 }
 
-function normalizeSessionToken(sessionToken: string) {
-  const normalized = sessionToken.trim();
+function normalizeSessionToken(sessionToken: string | undefined) {
+  const normalized = sessionToken?.trim() ?? '';
   if (!normalized || normalized.length > MAX_SESSION_TOKEN_LENGTH) {
     throw new Error('PLACES_SESSION_TOKEN_INVALID');
   }
@@ -154,8 +222,27 @@ function buildGooglePlacesHeaders(apiKey: string, fieldMask: string) {
 export function buildGoogleAutocompleteRequest(args: {
   apiKey: string;
   query: string;
-  sessionToken: string;
+  sessionToken?: string;
+  mode?: GooglePlacesAutocompleteMode;
+  selectedCityDisplayName?: string;
 }) {
+  const mode = args.mode ?? 'default';
+  const input =
+    mode === 'street'
+      ? `${args.query}, ${args.selectedCityDisplayName ?? ''}`
+      : args.query;
+  const body = {
+    input,
+    languageCode: 'he',
+    regionCode: 'il',
+    includedRegionCodes: ['il'],
+    ...(mode === 'city'
+      ? { includedPrimaryTypes: ['(cities)'] }
+      : mode === 'street'
+        ? { includedPrimaryTypes: ['route'] }
+        : { sessionToken: args.sessionToken }),
+  };
+
   return {
     url: `${GOOGLE_PLACES_BASE_URL}/places:autocomplete`,
     init: {
@@ -164,13 +251,7 @@ export function buildGoogleAutocompleteRequest(args: {
         args.apiKey,
         GOOGLE_AUTOCOMPLETE_FIELD_MASK
       ),
-      body: JSON.stringify({
-        input: args.query,
-        languageCode: 'he',
-        regionCode: 'il',
-        includedRegionCodes: ['il'],
-        sessionToken: args.sessionToken,
-      }),
+      body: JSON.stringify(body),
     } satisfies RequestInit,
   };
 }
@@ -200,11 +281,40 @@ export function buildGoogleDetailsRequest(args: {
   };
 }
 
+export function buildGoogleAddressResolutionRequest(args: {
+  apiKey: string;
+  city: string;
+  street: string;
+  streetNumber: string;
+}) {
+  const searchParams = new URLSearchParams();
+  searchParams.set(
+    'address.addressLines',
+    `${args.street} ${args.streetNumber}`
+  );
+  searchParams.set('address.locality', args.city);
+  searchParams.set('address.regionCode', 'IL');
+  searchParams.set('languageCode', 'he');
+  searchParams.set('regionCode', 'il');
+
+  return {
+    url: `${GOOGLE_GEOCODING_ADDRESS_URL}?${searchParams.toString()}`,
+    init: {
+      method: 'GET',
+      headers: {
+        'X-Goog-Api-Key': args.apiKey,
+        'X-Goog-FieldMask': GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK,
+      },
+    } satisfies RequestInit,
+  };
+}
+
 function getAddressComponent(components: AddressComponent[], type: string) {
   return components.find(
     (component) =>
       component &&
       Array.isArray(component.types) &&
+      component.types.every((item) => typeof item === 'string') &&
       component.types.includes(type)
   );
 }
@@ -213,8 +323,7 @@ function getLongAddressComponentText(
   components: AddressComponent[],
   type: string
 ) {
-  const longText = getAddressComponent(components, type)?.longText;
-  return typeof longText === 'string' ? longText.trim() : '';
+  return getTrimmedString(getAddressComponent(components, type)?.longText);
 }
 
 function getTrimmedString(value: unknown) {
@@ -227,8 +336,7 @@ export function normalizeGoogleAutocompleteResponse(
   if (
     !payload ||
     typeof payload !== 'object' ||
-    (payload.suggestions !== undefined &&
-      !Array.isArray(payload.suggestions))
+    (payload.suggestions !== undefined && !Array.isArray(payload.suggestions))
   ) {
     throw new Error('PLACES_SERVICE_UNAVAILABLE');
   }
@@ -245,13 +353,11 @@ export function normalizeGoogleAutocompleteResponse(
         description,
         placeId,
         primaryText:
-          getTrimmedString(
-            prediction?.structuredFormat?.mainText?.text
-          ) || description,
-        secondaryText:
-          getTrimmedString(
-            prediction?.structuredFormat?.secondaryText?.text
-          ),
+          getTrimmedString(prediction?.structuredFormat?.mainText?.text) ||
+          description,
+        secondaryText: getTrimmedString(
+          prediction?.structuredFormat?.secondaryText?.text
+        ),
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -282,20 +388,9 @@ export function normalizeGooglePlaceDetails(
 
   const city =
     getLongAddressComponentText(components, 'locality') ||
-    getLongAddressComponentText(
-      components,
-      'administrative_area_level_2'
-    ) ||
-    getLongAddressComponentText(
-      components,
-      'administrative_area_level_1'
-    ) ||
+    getLongAddressComponentText(components, 'administrative_area_level_2') ||
+    getLongAddressComponentText(components, 'administrative_area_level_1') ||
     '';
-  const street = getLongAddressComponentText(components, 'route');
-  const streetNumber = getLongAddressComponentText(
-    components,
-    'street_number'
-  );
 
   return {
     formattedAddress,
@@ -303,9 +398,171 @@ export function normalizeGooglePlaceDetails(
     lat,
     lng,
     city,
+    street: getLongAddressComponentText(components, 'route'),
+    streetNumber: getLongAddressComponentText(components, 'street_number'),
+  };
+}
+
+function normalizeAddressComparison(value: string) {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('he')
+    .trim()
+    .replace(/[\u05F3\u05F4'\u2019".,]/g, '')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeStreetNumberComparison(value: string) {
+  return normalizeAddressComparison(value).replace(/\s+/g, '');
+}
+
+function componentMatches(
+  input: string,
+  component: AddressComponent,
+  normalizer: (value: string) => string = normalizeAddressComparison
+) {
+  const expected = normalizer(input);
+  return [component.longText, component.shortText].some(
+    (value) => typeof value === 'string' && normalizer(value) === expected
+  );
+}
+
+function normalizeAddressResolutionInput(args: {
+  city: string;
+  street: string;
+  streetNumber: string;
+}) {
+  assertNoRawControlCharacters(args.city, 'PLACES_INVALID_ADDRESS');
+  assertNoRawControlCharacters(args.street, 'PLACES_INVALID_ADDRESS');
+  assertNoRawControlCharacters(args.streetNumber, 'PLACES_INVALID_ADDRESS');
+
+  const city = args.city.trim().replace(/\s+/g, ' ');
+  const street = args.street.trim().replace(/\s+/g, ' ');
+  const streetNumber = args.streetNumber.trim().replace(/\s+/g, ' ');
+
+  if (
+    !city ||
+    city.length > MAX_ADDRESS_FIELD_LENGTH ||
+    !street ||
+    street.length > MAX_ADDRESS_FIELD_LENGTH ||
+    !streetNumber ||
+    streetNumber.length > MAX_STREET_NUMBER_LENGTH ||
+    !/[0-9]/.test(streetNumber) ||
+    !/^[0-9A-Za-z\u05D0-\u05EA\u05F3\u05F4 /-]+$/.test(streetNumber)
+  ) {
+    throw new Error('PLACES_INVALID_ADDRESS');
+  }
+
+  return { city, street, streetNumber };
+}
+
+function normalizeGeocodingCandidate(
+  result: GoogleGeocodingResult,
+  input: { city: string; street: string; streetNumber: string }
+): ResolvedBusinessAddress | null {
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+  const placeId = getTrimmedString(result.placeId);
+  const formattedAddress = getTrimmedString(result.formattedAddress);
+  const latitude = result.location?.latitude;
+  const longitude = result.location?.longitude;
+  const components = Array.isArray(result.addressComponents)
+    ? result.addressComponents
+    : [];
+  const types = Array.isArray(result.types)
+    ? result.types.filter((type): type is string => typeof type === 'string')
+    : [];
+  const countryComponent = getAddressComponent(components, 'country');
+  const cityComponent = getAddressComponent(components, 'locality');
+  const routeComponent = getAddressComponent(components, 'route');
+  const numberComponent = getAddressComponent(components, 'street_number');
+  const city = getTrimmedString(cityComponent?.longText);
+  const street = getTrimmedString(routeComponent?.longText);
+  const streetNumber = getTrimmedString(numberComponent?.longText);
+  const hasExactAddressType = types.some((type) =>
+    ['street_address', 'premise', 'subpremise'].includes(type)
+  );
+  const allowedGranularity =
+    result.granularity === 'ROOFTOP' ||
+    result.granularity === 'RANGE_INTERPOLATED';
+
+  if (
+    !placeId ||
+    !formattedAddress ||
+    typeof latitude !== 'number' ||
+    typeof longitude !== 'number' ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180 ||
+    getTrimmedString(countryComponent?.shortText).toUpperCase() !== 'IL' ||
+    !city ||
+    !street ||
+    !streetNumber ||
+    !hasExactAddressType ||
+    !allowedGranularity ||
+    !componentMatches(input.city, cityComponent!) ||
+    !componentMatches(input.street, routeComponent!) ||
+    !componentMatches(
+      input.streetNumber,
+      numberComponent!,
+      normalizeStreetNumberComparison
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    placeId,
+    formattedAddress,
+    latitude,
+    longitude,
+    city,
     street,
     streetNumber,
   };
+}
+
+export function normalizeGoogleAddressResolutionResponse(
+  payload: GoogleGeocodingResponse,
+  input: { city: string; street: string; streetNumber: string }
+):
+  | { status: 'resolved'; address: ResolvedBusinessAddress }
+  | { status: 'ambiguous'; candidates: ResolvedBusinessAddress[] }
+  | { status: 'notFound' } {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    (payload.results !== undefined && !Array.isArray(payload.results))
+  ) {
+    throw new Error('PLACES_SERVICE_UNAVAILABLE');
+  }
+
+  const candidates: ResolvedBusinessAddress[] = [];
+  for (const result of (payload.results ?? []).slice(
+    0,
+    MAX_GEOCODING_RESULTS_TO_INSPECT
+  )) {
+    const candidate = normalizeGeocodingCandidate(result, input);
+    if (candidate) {
+      candidates.push(candidate);
+    }
+    if (candidates.length === MAX_ACCEPTED_GEOCODING_CANDIDATES) {
+      break;
+    }
+  }
+
+  if (candidates.length === 1) {
+    return { status: 'resolved', address: candidates[0] };
+  }
+  if (candidates.length > 1) {
+    return { status: 'ambiguous', candidates };
+  }
+  return { status: 'notFound' };
 }
 
 async function fetchJsonWithTimeout(url: string, init: RequestInit) {
@@ -320,10 +577,7 @@ async function fetchJsonWithTimeout(url: string, init: RequestInit) {
     if (response.status === 404) {
       throw new Error('PLACES_NO_RESULTS');
     }
-    if ([400, 401, 403].includes(response.status)) {
-      throw new Error('PLACES_SERVICE_UNAVAILABLE');
-    }
-    if (response.status >= 500) {
+    if ([400, 401, 403].includes(response.status) || response.status >= 500) {
       throw new Error('PLACES_SERVICE_UNAVAILABLE');
     }
     if (!response.ok) {
@@ -348,26 +602,36 @@ async function fetchJsonWithTimeout(url: string, init: RequestInit) {
 export const autocomplete = action({
   args: {
     query: v.string(),
-    sessionToken: v.string(),
+    sessionToken: v.optional(v.string()),
+    mode: v.optional(
+      v.union(v.literal('default'), v.literal('city'), v.literal('street'))
+    ),
+    selectedCity: v.optional(v.object({ displayName: v.string() })),
   },
   returns: v.array(PLACE_SUGGESTION_VALIDATOR),
-  handler: async (ctx, { query, sessionToken }) => {
+  handler: async (ctx, args) => {
     const identity = await requireAuthenticatedIdentity(ctx);
-    const normalizedQuery = normalizeQuery(query);
+    const normalizedQuery = normalizeQuery(args.query);
     if (!normalizedQuery) {
       return [];
     }
-    const normalizedSessionToken = normalizeSessionToken(sessionToken);
+    const mode = args.mode ?? 'default';
+    const normalizedSessionToken =
+      mode === 'default' ? normalizeSessionToken(args.sessionToken) : undefined;
+    const selectedCityDisplayName =
+      mode === 'street'
+        ? normalizeSelectedCityDisplayName(args.selectedCity?.displayName ?? '')
+        : undefined;
     const apiKey = getGooglePlacesApiKey();
-    await consumePlacesRateLimit(
-      ctx,
-      'autocomplete',
-      identity.tokenIdentifier
-    );
+    await consumePlacesRateLimit(ctx, 'autocomplete', identity.tokenIdentifier);
     const request = buildGoogleAutocompleteRequest({
       apiKey,
       query: normalizedQuery,
-      sessionToken: normalizedSessionToken,
+      mode,
+      ...(normalizedSessionToken
+        ? { sessionToken: normalizedSessionToken }
+        : {}),
+      ...(selectedCityDisplayName ? { selectedCityDisplayName } : {}),
     });
     const payload = (await fetchJsonWithTimeout(
       request.url,
@@ -389,11 +653,7 @@ export const placeDetails = action({
     const normalizedPlaceId = normalizePlaceId(placeId);
     const normalizedSessionToken = normalizeSessionToken(sessionToken);
     const apiKey = getGooglePlacesApiKey();
-    await consumePlacesRateLimit(
-      ctx,
-      'placeDetails',
-      identity.tokenIdentifier
-    );
+    await consumePlacesRateLimit(ctx, 'placeDetails', identity.tokenIdentifier);
     const request = buildGoogleDetailsRequest({
       apiKey,
       placeId: normalizedPlaceId,
@@ -405,5 +665,34 @@ export const placeDetails = action({
     )) as GooglePlacesDetailsResponse;
 
     return normalizeGooglePlaceDetails(payload);
+  },
+});
+
+export const resolveAddress = action({
+  args: {
+    city: v.string(),
+    street: v.string(),
+    streetNumber: v.string(),
+  },
+  returns: ADDRESS_RESOLUTION_RESULT_VALIDATOR,
+  handler: async (ctx, args) => {
+    const identity = await requireAuthenticatedIdentity(ctx);
+    const normalizedInput = normalizeAddressResolutionInput(args);
+    const apiKey = getGooglePlacesApiKey();
+    await consumePlacesRateLimit(
+      ctx,
+      'addressResolution',
+      identity.tokenIdentifier
+    );
+    const request = buildGoogleAddressResolutionRequest({
+      apiKey,
+      ...normalizedInput,
+    });
+    const payload = (await fetchJsonWithTimeout(
+      request.url,
+      request.init
+    )) as GoogleGeocodingResponse;
+
+    return normalizeGoogleAddressResolutionResponse(payload, normalizedInput);
   },
 });

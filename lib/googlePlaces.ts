@@ -15,11 +15,26 @@ export type PlaceDetails = {
   streetNumber: string;
 };
 
+export type GooglePlacesAutocompleteMode = 'default' | 'city' | 'street';
+
+export type AddressResolutionResult =
+  | {
+      status: 'resolved';
+      address: import('./businessAddressSelection').SelectedBusinessAddress;
+    }
+  | {
+      status: 'ambiguous';
+      candidates: import('./businessAddressSelection').SelectedBusinessAddress[];
+    }
+  | { status: 'notFound' };
+
 export type PlacesErrorCode =
   | 'PLACES_UNAUTHENTICATED'
   | 'PLACES_CONFIGURATION_MISSING'
   | 'PLACES_QUERY_TOO_SHORT'
   | 'PLACES_QUERY_TOO_LONG'
+  | 'PLACES_CITY_CONTEXT_INVALID'
+  | 'PLACES_INVALID_ADDRESS'
   | 'PLACES_PLACE_ID_REQUIRED'
   | 'PLACES_PLACE_ID_TOO_LONG'
   | 'PLACES_SESSION_TOKEN_INVALID'
@@ -35,6 +50,8 @@ const PLACES_ERROR_CODES = new Set<string>([
   'PLACES_CONFIGURATION_MISSING',
   'PLACES_QUERY_TOO_SHORT',
   'PLACES_QUERY_TOO_LONG',
+  'PLACES_CITY_CONTEXT_INVALID',
+  'PLACES_INVALID_ADDRESS',
   'PLACES_PLACE_ID_REQUIRED',
   'PLACES_PLACE_ID_TOO_LONG',
   'PLACES_SESSION_TOKEN_INVALID',

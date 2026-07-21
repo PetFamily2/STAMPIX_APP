@@ -39,14 +39,14 @@ import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusin
 import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  title: 'כתובת ומיקום העסק',
-  subtitle: 'בחרו עסק או כתובת מהרשימה ואשרו שהסמן נמצא במקום הנכון.',
-  searchLabel: 'חיפוש עסק או כתובת',
+  title: 'כתובת העסק',
+  subtitle: 'בחרו עיר ורחוב והזינו מספר בית כדי לאמת כתובת מדויקת.',
+  searchLabel: 'פרטי הכתובת',
   continue: 'יצירת העסק והמשך לכרטיסייה',
   creating: 'יוצרים עסק...',
   missingBasics:
     'חסרים פרטי עסק. חזרו לשלב פרטי העסק והשלימו את כל השדות.',
-  addressRequired: 'יש לבחור תוצאה מהרשימה לפני ההמשך.',
+  addressRequired: 'יש להשלים ולאמת עיר, רחוב ומספר בית לפני ההמשך.',
   createError: 'יצירת העסק נכשלה. נסו שוב.',
 };
 

@@ -115,6 +115,30 @@ describe('Google Places rate-limit policies', () => {
         period: DAY,
         shards: 5,
       },
+      placesAddressResolutionUserSustainedV1: {
+        kind: 'token bucket',
+        rate: 6,
+        period: MINUTE,
+        capacity: 3,
+      },
+      placesAddressResolutionUserDailyV1: {
+        kind: 'fixed window',
+        rate: 30,
+        period: DAY,
+      },
+      placesAddressResolutionGlobalSustainedV1: {
+        kind: 'token bucket',
+        rate: 60,
+        period: MINUTE,
+        capacity: 20,
+        shards: 5,
+      },
+      placesAddressResolutionGlobalDailyV1: {
+        kind: 'fixed window',
+        rate: 1000,
+        period: DAY,
+        shards: 5,
+      },
     });
 
     expect(GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION.autocomplete).toEqual([
@@ -128,6 +152,14 @@ describe('Google Places rate-limit policies', () => {
       'placesDetailsUserDailyV1',
       'placesDetailsGlobalSustainedV1',
       'placesDetailsGlobalDailyV1',
+    ]);
+    expect(
+      GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION.addressResolution
+    ).toEqual([
+      'placesAddressResolutionUserSustainedV1',
+      'placesAddressResolutionUserDailyV1',
+      'placesAddressResolutionGlobalSustainedV1',
+      'placesAddressResolutionGlobalDailyV1',
     ]);
   });
 
@@ -168,6 +200,35 @@ describe('Google Places rate-limit policies', () => {
     ]);
   });
 
+  test('address resolution consumes its separate buckets in atomic order', async () => {
+    const harness = createPolicyHarness();
+
+    await consumeGooglePlacesRateLimitGroup(
+      {},
+      { operation: 'addressResolution', userKey: 'issuer|user-a' },
+      harness.limiter
+    );
+
+    expect(harness.calls).toEqual([
+      {
+        name: 'placesAddressResolutionUserSustainedV1',
+        options: { key: 'issuer|user-a', reserve: false, throws: true },
+      },
+      {
+        name: 'placesAddressResolutionUserDailyV1',
+        options: { key: 'issuer|user-a', reserve: false, throws: true },
+      },
+      {
+        name: 'placesAddressResolutionGlobalSustainedV1',
+        options: { reserve: false, throws: true },
+      },
+      {
+        name: 'placesAddressResolutionGlobalDailyV1',
+        options: { reserve: false, throws: true },
+      },
+    ]);
+  });
+
   test('keeps users and operations isolated and recovers sustained capacity', async () => {
     const harness = createPolicyHarness();
 
@@ -200,10 +261,47 @@ describe('Google Places rate-limit policies', () => {
         throws: true,
       })
     ).resolves.toEqual({ ok: true });
+    await expect(
+      harness.limiter.limit({}, 'placesAddressResolutionUserSustainedV1', {
+        key: 'user-a',
+        reserve: false,
+        throws: true,
+      })
+    ).resolves.toEqual({ ok: true });
 
     harness.advanceBy(2000);
     await expect(
       harness.limiter.limit({}, 'placesAutocompleteUserSustainedV1', {
+        key: 'user-a',
+        reserve: false,
+        throws: true,
+      })
+    ).resolves.toEqual({ ok: true });
+
+    for (let index = 0; index < 2; index += 1) {
+      await harness.limiter.limit(
+        {},
+        'placesAddressResolutionUserSustainedV1',
+        { key: 'user-a', reserve: false, throws: true }
+      );
+    }
+    await expect(
+      harness.limiter.limit({}, 'placesAddressResolutionUserSustainedV1', {
+        key: 'user-a',
+        reserve: false,
+        throws: true,
+      })
+    ).rejects.toBeInstanceOf(ConvexError);
+    await expect(
+      harness.limiter.limit({}, 'placesAddressResolutionUserSustainedV1', {
+        key: 'user-b',
+        reserve: false,
+        throws: true,
+      })
+    ).resolves.toEqual({ ok: true });
+    harness.advanceBy(10000);
+    await expect(
+      harness.limiter.limit({}, 'placesAddressResolutionUserSustainedV1', {
         key: 'user-a',
         reserve: false,
         throws: true,
@@ -214,10 +312,10 @@ describe('Google Places rate-limit policies', () => {
   test('global exhaustion applies collectively while daily and sustained state remain distinct', async () => {
     const harness = createPolicyHarness();
 
-    for (let index = 0; index < 100; index += 1) {
+    for (let index = 0; index < 20; index += 1) {
       await harness.limiter.limit(
         {},
-        'placesAutocompleteGlobalSustainedV1',
+        'placesAddressResolutionGlobalSustainedV1',
         { reserve: false, throws: true }
       );
     }
@@ -225,22 +323,22 @@ describe('Google Places rate-limit policies', () => {
     await expect(
       harness.limiter.limit(
         {},
-        'placesAutocompleteGlobalSustainedV1',
+        'placesAddressResolutionGlobalSustainedV1',
         { reserve: false, throws: true }
       )
     ).rejects.toBeInstanceOf(ConvexError);
     await expect(
-      harness.limiter.limit({}, 'placesAutocompleteGlobalDailyV1', {
+      harness.limiter.limit({}, 'placesAddressResolutionGlobalDailyV1', {
         reserve: false,
         throws: true,
       })
     ).resolves.toEqual({ ok: true });
 
-    harness.advanceBy(200);
+    harness.advanceBy(1000);
     await expect(
       harness.limiter.limit(
         {},
-        'placesAutocompleteGlobalSustainedV1',
+        'placesAddressResolutionGlobalSustainedV1',
         { reserve: false, throws: true }
       )
     ).resolves.toEqual({ ok: true });
@@ -250,7 +348,7 @@ describe('Google Places rate-limit policies', () => {
     const harness = createPolicyHarness();
 
     for (let index = 0; index < 30; index += 1) {
-      await harness.limiter.limit({}, 'placesDetailsUserDailyV1', {
+      await harness.limiter.limit({}, 'placesAddressResolutionUserDailyV1', {
         key: 'user-a',
         reserve: false,
         throws: true,
@@ -258,7 +356,7 @@ describe('Google Places rate-limit policies', () => {
     }
 
     await expect(
-      harness.limiter.limit({}, 'placesDetailsUserDailyV1', {
+      harness.limiter.limit({}, 'placesAddressResolutionUserDailyV1', {
         key: 'user-a',
         reserve: false,
         throws: true,
@@ -267,7 +365,7 @@ describe('Google Places rate-limit policies', () => {
 
     harness.advanceBy(DAY);
     await expect(
-      harness.limiter.limit({}, 'placesDetailsUserDailyV1', {
+      harness.limiter.limit({}, 'placesAddressResolutionUserDailyV1', {
         key: 'user-a',
         reserve: false,
         throws: true,
@@ -277,15 +375,15 @@ describe('Google Places rate-limit policies', () => {
 
   test('a later global denial throws so the transaction can roll back user buckets', async () => {
     const harness = createPolicyHarness();
-    for (let index = 0; index < 100; index += 1) {
+    for (let index = 0; index < 20; index += 1) {
       await harness.limiter.limit(
         {},
-        'placesAutocompleteGlobalSustainedV1',
+        'placesAddressResolutionGlobalSustainedV1',
         { reserve: false, throws: true }
       );
     }
     const before = harness.getState(
-      'placesAutocompleteUserSustainedV1',
+      'placesAddressResolutionUserSustainedV1',
       'issuer|user-a'
     );
 
@@ -293,7 +391,7 @@ describe('Google Places rate-limit policies', () => {
       harness.transaction(() =>
         consumeGooglePlacesRateLimitGroup(
           {},
-          { operation: 'autocomplete', userKey: 'issuer|user-a' },
+          { operation: 'addressResolution', userKey: 'issuer|user-a' },
           harness.limiter
         )
       )
@@ -303,7 +401,7 @@ describe('Google Places rate-limit policies', () => {
 
     expect(
       harness.getState(
-        'placesAutocompleteUserSustainedV1',
+        'placesAddressResolutionUserSustainedV1',
         'issuer|user-a'
       )
     ).toEqual(before);

@@ -3,13 +3,17 @@ import { ConvexError } from 'convex/values';
 
 import {
   autocomplete,
+  buildGoogleAddressResolutionRequest,
   buildGoogleAutocompleteRequest,
   buildGoogleDetailsRequest,
+  GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK,
   GOOGLE_AUTOCOMPLETE_FIELD_MASK,
   GOOGLE_PLACE_DETAILS_FIELD_MASK,
+  normalizeGoogleAddressResolutionResponse,
   normalizeGoogleAutocompleteResponse,
   normalizeGooglePlaceDetails,
   placeDetails,
+  resolveAddress,
 } from '../googlePlaces';
 
 const originalFetch = globalThis.fetch;
@@ -53,6 +57,36 @@ async function getErrorMessage(work) {
   }
   return null;
 }
+
+function geocodingCandidate(overrides = {}) {
+  return {
+    placeId: 'resolved_place_1',
+    formattedAddress: 'דיזנגוף 100, תל אביב-יפו, ישראל',
+    location: { latitude: 32.0801, longitude: 34.7742 },
+    granularity: 'ROOFTOP',
+    types: ['street_address'],
+    addressComponents: [
+      { longText: 'ישראל', shortText: 'IL', types: ['country', 'political'] },
+      {
+        longText: 'תל אביב-יפו',
+        shortText: 'תל אביב-יפו',
+        types: ['locality', 'political'],
+      },
+      { longText: 'דיזנגוף', shortText: 'דיזנגוף', types: ['route'] },
+      { longText: '100', shortText: '100', types: ['street_number'] },
+    ],
+    ...overrides,
+  };
+}
+
+const RAW_CONTROL_CASES = [
+  { label: 'newline', character: '\n' },
+  { label: 'carriage return', character: '\r' },
+  { label: 'tab', character: '\t' },
+  { label: 'null character', character: '\u0000' },
+  { label: 'DEL control character', character: '\u007F' },
+  { label: 'C1 control character', character: '\u0085' },
+];
 
 beforeEach(() => {
   process.env.GOOGLE_PLACES_API_KEY = 'server-only-test-key';
@@ -211,6 +245,106 @@ describe('Convex Google Places actions', () => {
     );
     expect(headers.get('X-Goog-FieldMask')).not.toContain('*');
   });
+
+  test('city and street modes use fixed Google types without session tokens', async () => {
+    const requests = [];
+    globalThis.fetch = async (url, init) => {
+      requests.push({ url: String(url), init });
+      return Response.json({ suggestions: [] });
+    };
+
+    await autocomplete._handler(buildCtx(), {
+      query: 'תל א',
+      mode: 'city',
+      sessionToken: 'must_be_ignored',
+      url: 'https://attacker.test',
+      includedPrimaryTypes: ['establishment'],
+      includedRegionCodes: ['us'],
+      languageCode: 'en',
+      fieldMask: '*',
+    });
+    await autocomplete._handler(buildCtx(), {
+      query: 'דיז',
+      mode: 'street',
+      selectedCity: { displayName: 'תל אביב-יפו' },
+    });
+
+    const cityBody = JSON.parse(requests[0].init.body);
+    expect(cityBody).toEqual({
+      input: 'תל א',
+      languageCode: 'he',
+      regionCode: 'il',
+      includedRegionCodes: ['il'],
+      includedPrimaryTypes: ['(cities)'],
+    });
+    expect(cityBody).not.toHaveProperty('sessionToken');
+
+    const streetBody = JSON.parse(requests[1].init.body);
+    expect(streetBody).toEqual({
+      input: 'דיז, תל אביב-יפו',
+      languageCode: 'he',
+      regionCode: 'il',
+      includedRegionCodes: ['il'],
+      includedPrimaryTypes: ['route'],
+    });
+    expect(streetBody).not.toHaveProperty('sessionToken');
+  });
+
+  test('street mode requires only validated application city context', async () => {
+    let fetchCount = 0;
+    let limiterCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({ suggestions: [] });
+    };
+
+    await expect(
+      getErrorMessage(() =>
+        autocomplete._handler(
+          buildCtx({
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          { query: 'דיז', mode: 'street' }
+        )
+      )
+    ).resolves.toBe('PLACES_CITY_CONTEXT_INVALID');
+    expect(limiterCalls).toBe(0);
+    expect(fetchCount).toBe(0);
+  });
+
+  for (const { label, character } of RAW_CONTROL_CASES) {
+    test(`street mode rejects selected City context containing ${label} before limiter and fetch`, async () => {
+      let fetchCount = 0;
+      let limiterCalls = 0;
+      globalThis.fetch = async () => {
+        fetchCount += 1;
+        return Response.json({ suggestions: [] });
+      };
+
+      const message = await getErrorMessage(() =>
+        autocomplete._handler(
+          buildCtx({
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          {
+            query: 'דיז',
+            mode: 'street',
+            selectedCity: { displayName: `תל${character}אביב` },
+          }
+        )
+      );
+
+      expect(message).toBe('PLACES_CITY_CONTEXT_INVALID');
+      expect(message).not.toContain('TypeError');
+      expect(message).not.toContain('control');
+      expect(limiterCalls).toBe(0);
+      expect(fetchCount).toBe(0);
+    });
+  }
 
   test('autocomplete filters query predictions, malformed place predictions and bounds count', () => {
     const suggestions = normalizeGoogleAutocompleteResponse({
@@ -698,6 +832,293 @@ describe('Convex Google Places actions', () => {
     expect(malformedMessage).not.toContain('server-only-test-key');
   });
 
+  test('address resolution uses the exact v4 structured request and minimal headers', async () => {
+    let capturedUrl;
+    let capturedInit;
+    const limiterArgs = [];
+    globalThis.fetch = async (url, init) => {
+      capturedUrl = String(url);
+      capturedInit = init;
+      return Response.json({ results: [geocodingCandidate()] });
+    };
+
+    const result = await resolveAddress._handler(
+      buildCtx({
+        tokenIdentifier: 'issuer|resolution-user',
+        runMutation: async (_reference, args) => {
+          limiterArgs.push(args);
+          return null;
+        },
+      }),
+      { city: ' תל  אביב-יפו ', street: ' דיזנגוף ', streetNumber: ' 100 ' }
+    );
+    const url = new URL(capturedUrl);
+    const headers = new Headers(capturedInit.headers);
+
+    expect(url.origin + url.pathname).toBe(
+      'https://geocode.googleapis.com/v4/geocode/address'
+    );
+    expect(url.searchParams.get('address.addressLines')).toBe('דיזנגוף 100');
+    expect(url.searchParams.get('address.locality')).toBe('תל אביב-יפו');
+    expect(url.searchParams.get('address.regionCode')).toBe('IL');
+    expect(url.searchParams.get('languageCode')).toBe('he');
+    expect(url.searchParams.get('regionCode')).toBe('il');
+    expect(capturedInit.method).toBe('GET');
+    expect(capturedInit.body).toBeUndefined();
+    expect(headers.get('X-Goog-Api-Key')).toBe('server-only-test-key');
+    expect(headers.get('X-Goog-FieldMask')).toBe(
+      GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK
+    );
+    expect(GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK).toBe(
+      'results.placeId,results.location,results.granularity,' +
+        'results.formattedAddress,results.addressComponents,results.types'
+    );
+    expect(GOOGLE_ADDRESS_RESOLUTION_FIELD_MASK).not.toContain('*');
+    expect(capturedUrl).not.toContain('server-only-test-key');
+    expect(limiterArgs).toEqual([
+      {
+        operation: 'addressResolution',
+        userKey: 'issuer|resolution-user',
+      },
+    ]);
+    expect(result).toEqual({
+      status: 'resolved',
+      address: {
+        placeId: 'resolved_place_1',
+        formattedAddress: 'דיזנגוף 100, תל אביב-יפו, ישראל',
+        latitude: 32.0801,
+        longitude: 34.7742,
+        city: 'תל אביב-יפו',
+        street: 'דיזנגוף',
+        streetNumber: '100',
+      },
+    });
+  });
+
+  test('address candidate policy accepts exact rooftop and interpolated results', () => {
+    const input = {
+      city: 'תל אביב-יפו',
+      street: 'דיזנגוף',
+      streetNumber: '100',
+    };
+    expect(
+      normalizeGoogleAddressResolutionResponse(
+        { results: [geocodingCandidate()] },
+        input
+      ).status
+    ).toBe('resolved');
+    expect(
+      normalizeGoogleAddressResolutionResponse(
+        {
+          results: [
+            geocodingCandidate({ granularity: 'RANGE_INTERPOLATED' }),
+          ],
+        },
+        input
+      ).status
+    ).toBe('resolved');
+  });
+
+  test('address candidate policy rejects approximate, wrong-country and incomplete results', () => {
+    const input = {
+      city: 'תל אביב-יפו',
+      street: 'דיזנגוף',
+      streetNumber: '100',
+    };
+    const withoutType = (candidate, type) => ({
+      ...candidate,
+      addressComponents: candidate.addressComponents.filter(
+        (component) => !component.types.includes(type)
+      ),
+    });
+    const wrongCountry = geocodingCandidate({
+      addressComponents: geocodingCandidate().addressComponents.map(
+        (component) =>
+          component.types.includes('country')
+            ? { ...component, shortText: 'US' }
+            : component
+      ),
+    });
+
+    for (const candidate of [
+      geocodingCandidate({ granularity: 'APPROXIMATE' }),
+      geocodingCandidate({ granularity: 'GEOMETRIC_CENTER' }),
+      wrongCountry,
+      withoutType(geocodingCandidate(), 'locality'),
+      withoutType(geocodingCandidate(), 'route'),
+      withoutType(geocodingCandidate(), 'street_number'),
+      geocodingCandidate({ location: { latitude: Number.NaN, longitude: 34 } }),
+      geocodingCandidate({ types: ['route'] }),
+    ]) {
+      expect(
+        normalizeGoogleAddressResolutionResponse({ results: [candidate] }, input)
+      ).toEqual({ status: 'notFound' });
+    }
+  });
+
+  test('address candidate policy rejects mismatches and bounds ambiguity to three', () => {
+    const input = {
+      city: 'תל אביב-יפו',
+      street: 'דיזנגוף',
+      streetNumber: '100',
+    };
+    const mismatched = geocodingCandidate({
+      addressComponents: geocodingCandidate().addressComponents.map(
+        (component) =>
+          component.types.includes('street_number')
+            ? { ...component, longText: '101', shortText: '101' }
+            : component
+      ),
+    });
+    expect(
+      normalizeGoogleAddressResolutionResponse({ results: [mismatched] }, input)
+    ).toEqual({ status: 'notFound' });
+
+    const candidates = Array.from({ length: 5 }, (_, index) =>
+      geocodingCandidate({ placeId: `candidate_${index}` })
+    );
+    const result = normalizeGoogleAddressResolutionResponse(
+      { results: candidates },
+      input
+    );
+    expect(result.status).toBe('ambiguous');
+    expect(result.candidates).toHaveLength(3);
+  });
+
+  test('address resolution validates before limits and limiter denial causes zero fetches', async () => {
+    let fetchCount = 0;
+    let limiterCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({});
+    };
+
+    await expect(
+      getErrorMessage(() =>
+        resolveAddress._handler(buildCtx({ authenticated: false }), {
+          city: 'תל אביב-יפו',
+          street: 'דיזנגוף',
+          streetNumber: '100',
+        })
+      )
+    ).resolves.toBe('PLACES_UNAUTHENTICATED');
+
+    await expect(
+      getErrorMessage(() =>
+        resolveAddress._handler(
+          buildCtx({
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          { city: 'תל אביב', street: 'דיזנגוף', streetNumber: 'בית' }
+        )
+      )
+    ).resolves.toBe('PLACES_INVALID_ADDRESS');
+    expect(limiterCalls).toBe(0);
+
+    delete process.env.GOOGLE_PLACES_API_KEY;
+    await expect(
+      getErrorMessage(() =>
+        resolveAddress._handler(
+          buildCtx({
+            runMutation: async () => {
+              limiterCalls += 1;
+            },
+          }),
+          { city: 'תל אביב-יפו', street: 'דיזנגוף', streetNumber: '100' }
+        )
+      )
+    ).resolves.toBe('PLACES_CONFIGURATION_MISSING');
+    expect(limiterCalls).toBe(0);
+    process.env.GOOGLE_PLACES_API_KEY = 'server-only-test-key';
+
+    const denied = await getThrownError(() =>
+      resolveAddress._handler(
+        buildCtx({
+          runMutation: async () => {
+            throw new ConvexError({
+              code: 'PLACES_RATE_LIMITED',
+              retryAfterMs: 2500,
+            });
+          },
+        }),
+        { city: 'תל אביב-יפו', street: 'דיזנגוף', streetNumber: '100' }
+      )
+    );
+    expect(denied.data).toEqual({
+      code: 'PLACES_RATE_LIMITED',
+      retryAfterMs: 2500,
+    });
+    expect(fetchCount).toBe(0);
+  });
+
+  for (const field of ['city', 'street', 'streetNumber']) {
+    for (const { label, character } of RAW_CONTROL_CASES) {
+      test(`address resolution rejects ${field} containing ${label} before limiter and fetch`, async () => {
+        let fetchCount = 0;
+        let limiterCalls = 0;
+        globalThis.fetch = async () => {
+          fetchCount += 1;
+          return Response.json({ results: [] });
+        };
+        const input = {
+          city: 'תל אביב-יפו',
+          street: 'דיזנגוף',
+          streetNumber: '100',
+        };
+        const safeValueByField = {
+          city: `תל${character}אביב`,
+          street: `דיז${character}נגוף`,
+          streetNumber: `12${character}1`,
+        };
+
+        const message = await getErrorMessage(() =>
+          resolveAddress._handler(
+            buildCtx({
+              runMutation: async () => {
+                limiterCalls += 1;
+              },
+            }),
+            { ...input, [field]: safeValueByField[field] }
+          )
+        );
+
+        expect(message).toBe('PLACES_INVALID_ADDRESS');
+        expect(message).not.toContain('TypeError');
+        expect(message).not.toContain('control');
+        expect(limiterCalls).toBe(0);
+        expect(fetchCount).toBe(0);
+      });
+    }
+  }
+
+  test('address resolution sanitizes malformed JSON and network errors', async () => {
+    globalThis.fetch = async () => new Response('{', { status: 200 });
+    const malformed = await getErrorMessage(() =>
+      resolveAddress._handler(buildCtx(), {
+        city: 'תל אביב-יפו',
+        street: 'דיזנגוף',
+        streetNumber: '100',
+      })
+    );
+    expect(malformed).toBe('PLACES_SERVICE_UNAVAILABLE');
+    expect(malformed).not.toContain('server-only-test-key');
+
+    globalThis.fetch = async () => {
+      throw new Error('upstream headers server-only-test-key');
+    };
+    const network = await getErrorMessage(() =>
+      resolveAddress._handler(buildCtx(), {
+        city: 'תל אביב-יפו',
+        street: 'דיזנגוף',
+        streetNumber: '100',
+      })
+    );
+    expect(network).toBe('PLACES_SERVICE_UNAVAILABLE');
+    expect(network).not.toContain('server-only-test-key');
+  });
+
   test('request timeout aborts the upstream request and returns the normalized timeout error', async () => {
     globalThis.setTimeout = (callback) => {
       queueMicrotask(callback);
@@ -722,9 +1143,18 @@ describe('Convex Google Places actions', () => {
         sessionToken: 'session_1',
       })
     );
+    const resolutionMessage = await getErrorMessage(() =>
+      resolveAddress._handler(buildCtx(), {
+        city: 'תל אביב-יפו',
+        street: 'דיזנגוף',
+        streetNumber: '100',
+      })
+    );
 
     expect(message).toBe('PLACES_TIMEOUT');
+    expect(resolutionMessage).toBe('PLACES_TIMEOUT');
     expect(message).not.toContain('server-only-test-key');
+    expect(resolutionMessage).not.toContain('server-only-test-key');
   });
 
   test('network errors cannot expose the credential through a request URL or action error', async () => {

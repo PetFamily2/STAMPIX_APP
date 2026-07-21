@@ -6,19 +6,104 @@ export type SelectedBusinessAddress = {
   city: string;
   street: string;
   streetNumber: string;
-  manuallyAdjusted?: boolean;
 };
 
-type LatestIntentInput = {
-  requestSequence: number;
-  currentSequence: number;
-  querySnapshot: string;
-  currentQuery: string;
+export type AddressFieldSelection = {
+  displayName: string;
+  placeId?: string;
+};
+
+export type StreetFieldSelection = AddressFieldSelection & {
+  cityKey: string;
+};
+
+export type BusinessAddressSelectionStatus =
+  | 'idle'
+  | 'resolving'
+  | 'resolved'
+  | 'ambiguous'
+  | 'error';
+
+export type BusinessAddressSelectionState = {
+  cityText: string;
+  citySelection: AddressFieldSelection | null;
+  streetText: string;
+  streetSelection: StreetFieldSelection | null;
+  houseNumber: string;
+  resolvedAddress: SelectedBusinessAddress | null;
+  candidates: SelectedBusinessAddress[];
+  status: BusinessAddressSelectionStatus;
+  error: string | null;
+};
+
+type LatestResolutionIntentInput = {
+  requestGeneration: number;
+  currentGeneration: number;
+  cityKey: string;
+  currentCityKey: string;
+  streetKey: string;
+  currentStreetKey: string;
+  streetNumber: string;
+  currentStreetNumber: string;
   isMounted: boolean;
 };
 
 function normalizeOptionalText(value: string | null | undefined) {
   return value?.trim() ?? '';
+}
+
+export function normalizeAddressFieldText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+export function normalizeHouseNumber(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+export function isValidHouseNumber(value: string) {
+  if (/[\u0000-\u001F\u007F-\u009F]/.test(value)) {
+    return false;
+  }
+  const normalized = normalizeHouseNumber(value);
+  return (
+    normalized.length > 0 &&
+    normalized.length <= 16 &&
+    /[0-9]/.test(normalized) &&
+    /^[0-9A-Za-z\u05D0-\u05EA\u05F3\u05F4 /-]+$/.test(normalized)
+  );
+}
+
+export function getCitySelectionKey(selection: AddressFieldSelection | null) {
+  if (!selection) {
+    return '';
+  }
+  const displayName = normalizeAddressFieldText(selection.displayName).toLocaleLowerCase(
+    'he'
+  );
+  const placeId = selection.placeId?.trim() ?? '';
+  return `${placeId || 'stored'}|${displayName}`;
+}
+
+export function getStreetSelectionKey(selection: StreetFieldSelection | null) {
+  if (!selection) {
+    return '';
+  }
+  const displayName = normalizeAddressFieldText(selection.displayName).toLocaleLowerCase(
+    'he'
+  );
+  const placeId = selection.placeId?.trim() ?? '';
+  return `${selection.cityKey}|${placeId || 'stored'}|${displayName}`;
+}
+
+function hasValidCoordinates(value: SelectedBusinessAddress) {
+  return (
+    Number.isFinite(value.latitude) &&
+    Number.isFinite(value.longitude) &&
+    value.latitude >= -90 &&
+    value.latitude <= 90 &&
+    value.longitude >= -180 &&
+    value.longitude <= 180
+  );
 }
 
 export function isValidSelectedBusinessAddress(
@@ -28,51 +113,169 @@ export function isValidSelectedBusinessAddress(
     value &&
       value.placeId.trim().length > 0 &&
       value.formattedAddress.trim().length > 0 &&
-      Number.isFinite(value.latitude) &&
-      Number.isFinite(value.longitude)
+      hasValidCoordinates(value) &&
+      value.city.trim().length > 0 &&
+      value.street.trim().length > 0 &&
+      value.streetNumber.trim().length > 0
   );
 }
 
-export function invalidateSelectionAfterQueryEdit(
-  query: string,
-  selectedAddress: SelectedBusinessAddress | null
-) {
-  if (!selectedAddress) {
-    return null;
+export function createBusinessAddressSelectionState(
+  selectedAddress: SelectedBusinessAddress | null | undefined
+): BusinessAddressSelectionState {
+  if (!isValidSelectedBusinessAddress(selectedAddress) || !selectedAddress) {
+    return {
+      cityText: '',
+      citySelection: null,
+      streetText: '',
+      streetSelection: null,
+      houseNumber: '',
+      resolvedAddress: null,
+      candidates: [],
+      status: 'idle',
+      error: null,
+    };
   }
 
-  return query.trim() === selectedAddress.formattedAddress.trim()
-    ? selectedAddress
-    : null;
-}
-
-export function applyManualCoordinateCorrection(
-  selectedAddress: SelectedBusinessAddress,
-  coordinate: { latitude: number; longitude: number }
-): SelectedBusinessAddress {
-  if (!Number.isFinite(coordinate.latitude) || !Number.isFinite(coordinate.longitude)) {
-    throw new Error('INVALID_COORDINATE');
-  }
+  const citySelection: AddressFieldSelection = {
+    displayName: selectedAddress.city.trim(),
+  };
+  const streetSelection: StreetFieldSelection = {
+    displayName: selectedAddress.street.trim(),
+    cityKey: getCitySelectionKey(citySelection),
+  };
 
   return {
-    ...selectedAddress,
-    latitude: coordinate.latitude,
-    longitude: coordinate.longitude,
-    manuallyAdjusted: true,
+    cityText: citySelection.displayName,
+    citySelection,
+    streetText: streetSelection.displayName,
+    streetSelection,
+    houseNumber: selectedAddress.streetNumber.trim(),
+    resolvedAddress: selectedAddress,
+    candidates: [],
+    status: 'resolved',
+    error: null,
   };
 }
 
-export function shouldAcceptAddressDetailsResponse({
-  requestSequence,
-  currentSequence,
-  querySnapshot,
-  currentQuery,
+export function editBusinessAddressCity(
+  state: BusinessAddressSelectionState,
+  cityText: string
+): BusinessAddressSelectionState {
+  return {
+    ...state,
+    cityText,
+    citySelection: null,
+    streetText: '',
+    streetSelection: null,
+    houseNumber: '',
+    resolvedAddress: null,
+    candidates: [],
+    status: 'idle',
+    error: null,
+  };
+}
+
+export function selectBusinessAddressCity(
+  state: BusinessAddressSelectionState,
+  selection: AddressFieldSelection
+): BusinessAddressSelectionState {
+  const displayName = normalizeAddressFieldText(selection.displayName);
+  return {
+    ...state,
+    cityText: displayName,
+    citySelection: {
+      displayName,
+      ...(selection.placeId?.trim() ? { placeId: selection.placeId.trim() } : {}),
+    },
+    streetText: '',
+    streetSelection: null,
+    houseNumber: '',
+    resolvedAddress: null,
+    candidates: [],
+    status: 'idle',
+    error: null,
+  };
+}
+
+export function editBusinessAddressStreet(
+  state: BusinessAddressSelectionState,
+  streetText: string
+): BusinessAddressSelectionState {
+  return {
+    ...state,
+    streetText,
+    streetSelection: null,
+    houseNumber: '',
+    resolvedAddress: null,
+    candidates: [],
+    status: 'idle',
+    error: null,
+  };
+}
+
+export function selectBusinessAddressStreet(
+  state: BusinessAddressSelectionState,
+  selection: AddressFieldSelection
+): BusinessAddressSelectionState {
+  const displayName = normalizeAddressFieldText(selection.displayName);
+  return {
+    ...state,
+    streetText: displayName,
+    streetSelection: {
+      displayName,
+      ...(selection.placeId?.trim() ? { placeId: selection.placeId.trim() } : {}),
+      cityKey: getCitySelectionKey(state.citySelection),
+    },
+    houseNumber: '',
+    resolvedAddress: null,
+    candidates: [],
+    status: 'idle',
+    error: null,
+  };
+}
+
+export function editBusinessAddressHouseNumber(
+  state: BusinessAddressSelectionState,
+  houseNumber: string
+): BusinessAddressSelectionState {
+  return {
+    ...state,
+    houseNumber,
+    resolvedAddress: null,
+    candidates: [],
+    status: 'idle',
+    error: null,
+  };
+}
+
+export function isAddressResolutionReady(state: BusinessAddressSelectionState) {
+  const cityKey = getCitySelectionKey(state.citySelection);
+  return Boolean(
+    cityKey &&
+      state.streetSelection &&
+      state.streetSelection.cityKey === cityKey &&
+      isValidHouseNumber(state.houseNumber)
+  );
+}
+
+export function shouldAcceptAddressResolutionResponse({
+  requestGeneration,
+  currentGeneration,
+  cityKey,
+  currentCityKey,
+  streetKey,
+  currentStreetKey,
+  streetNumber,
+  currentStreetNumber,
   isMounted,
-}: LatestIntentInput) {
+}: LatestResolutionIntentInput) {
   return (
     isMounted &&
-    requestSequence === currentSequence &&
-    querySnapshot.trim() === currentQuery.trim()
+    requestGeneration === currentGeneration &&
+    cityKey === currentCityKey &&
+    streetKey === currentStreetKey &&
+    normalizeHouseNumber(streetNumber) === normalizeHouseNumber(currentStreetNumber)
   );
 }
 

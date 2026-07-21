@@ -30,10 +30,11 @@ import {
 } from '@/lib/businessAddressSelection';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { selfEnd } from '@/lib/rtl';
 
 const TEXT = {
   title: 'עריכת כתובת העסק',
-  subtitle: 'בחרו כתובת מרשימת ההצעות ושמרו',
+  subtitle: 'בחרו עיר ורחוב, הזינו מספר בית ושמרו את הכתובת המדויקת',
   addressLabel: 'כתובת העסק',
   noActiveBusiness: 'לא נמצא עסק פעיל.',
   loadingFailed: 'לא נמצאו נתוני עסק להצגת כתובת.',
@@ -251,6 +252,7 @@ export default function BusinessSettingsAddressScreen() {
 
               <View style={styles.card}>
                 <BusinessAddressSelector
+                  key={`${activeBusinessId}:${baseUpdatedAt ?? 'loading'}`}
                   query={addressQuery}
                   selectedAddress={selectedAddress}
                   onQueryChange={(value) => {
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   warningButton: {
-    alignSelf: 'flex-start',
+    alignSelf: selfEnd,
     borderRadius: 999,
     backgroundColor: '#F59E0B',
     paddingHorizontal: 12,

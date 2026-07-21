@@ -339,8 +339,24 @@ function normalizeBusinessAddressInput(input: BusinessAddressInput) {
   if (!placeId) {
     throw new Error('PLACE_ID_REQUIRED');
   }
-  if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) {
+  if (
+    !Number.isFinite(input.lat) ||
+    !Number.isFinite(input.lng) ||
+    input.lat < -90 ||
+    input.lat > 90 ||
+    input.lng < -180 ||
+    input.lng > 180
+  ) {
     throw new Error('LOCATION_REQUIRED');
+  }
+  if (!city) {
+    throw new Error('CITY_REQUIRED');
+  }
+  if (!street) {
+    throw new Error('STREET_REQUIRED');
+  }
+  if (!streetNumber) {
+    throw new Error('STREET_NUMBER_REQUIRED');
   }
 
   return {

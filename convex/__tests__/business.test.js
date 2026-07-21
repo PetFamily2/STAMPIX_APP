@@ -582,6 +582,46 @@ describe('business profile settings and discovery filters', () => {
     ).rejects.toThrow('NOT_AUTHORIZED');
   });
 
+  test('updateBusinessAddress rejects incomplete components and invalid coordinates', async () => {
+    const manager = createMockCtx({
+      currentUserId: 'user_manager',
+      users: [buildUser({ _id: 'user_manager' })],
+      businessStaff: [
+        buildStaff({
+          _id: 'staff_manager_validation',
+          userId: 'user_manager',
+          staffRole: 'manager',
+        }),
+      ],
+    });
+    const valid = {
+      businessId: 'business_1',
+      formattedAddress: 'Herzl 1, Tel Aviv',
+      placeId: 'place_2',
+      lat: 32.0853,
+      lng: 34.7818,
+      city: 'Tel Aviv',
+      street: 'Herzl',
+      streetNumber: '1',
+    };
+
+    for (const [field, error] of [
+      ['city', 'CITY_REQUIRED'],
+      ['street', 'STREET_REQUIRED'],
+      ['streetNumber', 'STREET_NUMBER_REQUIRED'],
+    ]) {
+      await expect(
+        updateBusinessAddress._handler(manager.ctx, {
+          ...valid,
+          [field]: '',
+        })
+      ).rejects.toThrow(error);
+    }
+    await expect(
+      updateBusinessAddress._handler(manager.ctx, { ...valid, lat: 91 })
+    ).rejects.toThrow('LOCATION_REQUIRED');
+  });
+
   test('createOrResumeBusinessOnboarding creates a complete draft business', async () => {
     const { ctx, state } = createMockCtx({
       businesses: [],
@@ -624,7 +664,7 @@ describe('business profile settings and discovery filters', () => {
       ctx,
       onboardingCreateArgs({
         name: 'Cafe Test Updated',
-        streetNumber: '',
+        streetNumber: '101',
       })
     );
 
@@ -633,7 +673,27 @@ describe('business profile settings and discovery filters', () => {
     expect(state.businesses.size).toBe(1);
     const updated = state.businesses.get(first.businessId);
     expect(updated.name).toBe('Cafe Test Updated');
-    expect(updated.streetNumber).toBe('');
+    expect(updated.streetNumber).toBe('101');
+  });
+
+  test('new business address writes reject missing canonical components', async () => {
+    const { ctx } = createMockCtx({ businesses: [], businessStaff: [] });
+
+    for (const [field, error] of [
+      ['city', 'CITY_REQUIRED'],
+      ['street', 'STREET_REQUIRED'],
+      ['streetNumber', 'STREET_NUMBER_REQUIRED'],
+    ]) {
+      await expect(
+        createOrResumeBusinessOnboarding._handler(
+          ctx,
+          onboardingCreateArgs({
+            externalId: `missing-${field}`,
+            [field]: '',
+          })
+        )
+      ).rejects.toThrow(error);
+    }
   });
 
   test('createOrResumeBusinessOnboarding blocks another owner externalId reuse', async () => {

@@ -1,48 +1,56 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Marker, type Region } from 'react-native-maps';
 
+import { useGoogleAddressResolution } from '@/hooks/useGoogleAddressResolution';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
-import { useGooglePlaceDetails } from '@/hooks/useGooglePlaceDetails';
 import {
-  applyManualCoordinateCorrection,
-  invalidateSelectionAfterQueryEdit,
-  isValidSelectedBusinessAddress,
-  shouldAcceptAddressDetailsResponse,
+  createBusinessAddressSelectionState,
+  editBusinessAddressCity,
+  editBusinessAddressHouseNumber,
+  editBusinessAddressStreet,
+  getCitySelectionKey,
+  getStreetSelectionKey,
+  isAddressResolutionReady,
+  isValidHouseNumber,
+  normalizeHouseNumber,
+  selectBusinessAddressCity,
+  selectBusinessAddressStreet,
+  shouldAcceptAddressResolutionResponse,
+  type BusinessAddressSelectionState,
   type SelectedBusinessAddress,
 } from '@/lib/businessAddressSelection';
-import type { PlaceDetails, PlaceSuggestion } from '@/lib/googlePlaces';
-import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
-
-const CAN_RENDER_NATIVE_MAP = Platform.OS !== 'web';
+import type { PlaceSuggestion } from '@/lib/googlePlaces';
+import { alignItems, flexDirection, ltrIslandText } from '@/lib/rtl';
 
 const TEXT = {
   label: 'כתובת העסק',
-  placeholder: 'הקלידו שם עסק או כתובת',
-  loadingSuggestions: 'מחפשים כתובות ועסקים...',
-  loadingPlace: 'טוענים את פרטי המקום...',
-  noSuggestions: 'לא נמצאו תוצאות מתאימות. נסו שם או כתובת מדויקים יותר.',
-  selectedAddress: 'כתובת שנבחרה',
-  mapLabel: 'אישור מיקום על המפה',
-  manualCorrection: 'תיקון המיקום על המפה',
-  confirmCorrection: 'אישור המיקום',
-  cancelCorrection: 'ביטול התיקון',
-  correctionMode: 'מצב תיקון פעיל - לחצו על המפה כדי להזיז את הסמן.',
-  adjustedPin: 'הסמן עודכן ידנית',
-  googleAttribution: 'Powered by Google',
-  mapUnavailableTitle: 'המפה לא זמינה בתצוגה הזו',
-  mapUnavailableSubtitle:
-    'אפשר להמשיך עם הכתובת שנבחרה, כל עוד התקבלו קואורדינטות תקינות מפרטי המקום.',
-  cityFallback: 'ללא עיר',
-  streetFallback: 'ללא רחוב',
+  city: 'עיר',
+  cityPlaceholder: 'הקלידו עיר',
+  street: 'רחוב',
+  streetPlaceholder: 'הקלידו רחוב',
+  houseNumber: 'מספר בית',
+  houseNumberPlaceholder: 'לדוגמה: 12, 12א או 12/1',
+  loadingSuggestions: 'מחפשים הצעות...',
+  resolvingAddress: 'בודקים את הכתובת...',
+  noSuggestions: 'לא נמצאו תוצאות מתאימות. נסו ניסוח מדויק יותר.',
+  selectedAddress: 'הכתובת שנבחרה',
+  existingAddress: 'הכתובת הקיימת',
+  chooseCandidate: 'נמצאו כמה כתובות מתאימות. בחרו את הכתובת הנכונה:',
+  invalidHouseNumber:
+    'מספר הבית חייב לכלול ספרה ועד 16 תווים: אותיות, רווח, מקף או לוכסן.',
+  autocompleteFailed: 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.',
+  notFound:
+    'לא הצלחנו לאתר את הכתובת. בדקו את העיר, הרחוב ומספר הבית.',
+  serviceFailure:
+    'לא ניתן לבדוק את הכתובת כרגע. נסו שוב בעוד מספר רגעים.',
+  googleAttribution: 'Google Maps',
 };
 
 type BusinessAddressSelectorProps = {
@@ -57,55 +65,28 @@ type BusinessAddressSelectorProps = {
   onError?: (value: string | null) => void;
 };
 
-function toErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    switch (error.message) {
-      case 'PLACES_AUTOCOMPLETE_REQUEST_FAILED':
-      case 'PLACES_AUTOCOMPLETE_FAILED':
-      case 'PLACES_CONFIGURATION_MISSING':
-      case 'PLACES_RATE_LIMITED':
-      case 'PLACES_TIMEOUT':
-      case 'PLACES_SERVICE_UNAVAILABLE':
-      case 'PLACES_UNKNOWN_SERVICE_ERROR':
-        return 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.';
-      case 'PLACE_DETAILS_REQUEST_FAILED':
-      case 'PLACE_DETAILS_INCOMPLETE':
-      case 'PLACE_ID_REQUIRED':
-      case 'PLACES_PLACE_ID_REQUIRED':
-      case 'PLACES_PLACE_ID_TOO_LONG':
-      case 'PLACES_SESSION_TOKEN_INVALID':
-      case 'PLACES_NO_RESULTS':
-      case 'PLACES_INVALID_DETAILS':
-        return 'לא הצלחנו לטעון את פרטי המקום. בחרו שוב מהרשימה.';
-      default:
-        return 'בחירת הכתובת נכשלה. נסו שוב.';
-    }
+function toAutocompleteErrorMessage(error: string) {
+  if (error === 'PLACES_RATE_LIMITED') {
+    return TEXT.autocompleteFailed;
   }
-  return 'בחירת הכתובת נכשלה. נסו שוב.';
+  return TEXT.autocompleteFailed;
 }
 
-function toSelectedAddress(details: PlaceDetails) {
-  return {
-    placeId: details.placeId,
-    formattedAddress: details.formattedAddress,
-    latitude: details.lat,
-    longitude: details.lng,
-    city: details.city,
-    street: details.street,
-    streetNumber: details.streetNumber,
-  } satisfies SelectedBusinessAddress;
+function toResolutionErrorMessage(error: string) {
+  if (error === 'ADDRESS_NOT_FOUND') {
+    return TEXT.notFound;
+  }
+  if (error === 'PLACES_RATE_LIMITED') {
+    return TEXT.autocompleteFailed;
+  }
+  return TEXT.serviceFailure;
 }
 
-function getSelectedAddressKey(value: SelectedBusinessAddress | null) {
-  if (!value) {
-    return '';
+function limitHouseNumberInput(value: string) {
+  if (value.trim().length <= 16) {
+    return value;
   }
-  return [
-    value.placeId,
-    value.formattedAddress,
-    value.latitude,
-    value.longitude,
-  ].join('|');
+  return value.trim().slice(0, 16);
 }
 
 function SuggestionRow({
@@ -136,6 +117,14 @@ function SuggestionRow({
   );
 }
 
+function GoogleAttribution() {
+  return (
+    <Text numberOfLines={1} style={styles.googleAttribution}>
+      {TEXT.googleAttribution}
+    </Text>
+  );
+}
+
 export default function BusinessAddressSelector({
   query,
   selectedAddress,
@@ -143,344 +132,419 @@ export default function BusinessAddressSelector({
   onSelectedAddressChange,
   disabled,
   label = TEXT.label,
-  placeholder = TEXT.placeholder,
+  placeholder = TEXT.cityPlaceholder,
   errorText,
   onError,
 }: BusinessAddressSelectorProps) {
-  const [isSelectingPlace, setIsSelectingPlace] = useState(false);
-  const [isCorrectionMode, setIsCorrectionMode] = useState(false);
-  const [correctionDraft, setCorrectionDraft] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const [state, setState] = useState<BusinessAddressSelectionState>(() =>
+    createBusinessAddressSelectionState(selectedAddress)
+  );
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const streetInputRef = useRef<TextInput>(null);
+  const houseNumberInputRef = useRef<TextInput>(null);
   const mountedRef = useRef(false);
-  const requestSequenceRef = useRef(0);
-  const activeDetailsRequestRef = useRef<number | null>(null);
-  const latestQueryRef = useRef(query);
-  const selectedAddressKeyRef = useRef(getSelectedAddressKey(selectedAddress));
-  const searchQuery = useMemo(() => {
-    const normalizedQuery = query.trim();
-    if (
-      selectedAddress &&
-      normalizedQuery === selectedAddress.formattedAddress.trim()
-    ) {
-      return '';
-    }
-    return normalizedQuery;
-  }, [query, selectedAddress]);
-  const {
-    suggestions,
-    isLoading: isSuggestionsLoading,
-    error: autocompleteError,
-    sessionToken,
-    clearSuggestions,
-    resetSessionToken,
-  } = useGooglePlaceAutocomplete(searchQuery);
-  const loadPlaceDetails = useGooglePlaceDetails();
-
-  const invalidatePendingDetailsRequest = () => {
-    if (activeDetailsRequestRef.current !== null) {
-      requestSequenceRef.current += 1;
-      activeDetailsRequestRef.current = null;
-      setIsSelectingPlace(false);
-    }
-  };
+  const resolutionGenerationRef = useRef(0);
+  const resolveAddress = useGoogleAddressResolution();
+  const citySearchQuery = state.citySelection ? '' : state.cityText;
+  const streetSearchQuery = state.streetSelection ? '' : state.streetText;
+  const cityAutocomplete = useGooglePlaceAutocomplete(citySearchQuery, {
+    mode: 'city',
+  });
+  const streetAutocomplete = useGooglePlaceAutocomplete(streetSearchQuery, {
+    mode: 'street',
+    selectedCity: state.citySelection
+      ? { displayName: state.citySelection.displayName }
+      : null,
+  });
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      requestSequenceRef.current += 1;
-      activeDetailsRequestRef.current = null;
+      resolutionGenerationRef.current += 1;
     };
   }, []);
 
-  useEffect(() => {
-    if (latestQueryRef.current === query) {
-      return;
-    }
-    latestQueryRef.current = query;
-    invalidatePendingDetailsRequest();
-  }, [query]);
-
-  useEffect(() => {
-    const nextSelectedAddressKey = getSelectedAddressKey(selectedAddress);
-    if (selectedAddressKeyRef.current === nextSelectedAddressKey) {
-      return;
-    }
-    selectedAddressKeyRef.current = nextSelectedAddressKey;
-    invalidatePendingDetailsRequest();
-  }, [selectedAddress]);
-
-  useEffect(() => {
-    if (!selectedAddress) {
-      setIsCorrectionMode(false);
-      setCorrectionDraft(null);
-    }
-  }, [selectedAddress]);
-
-  const handleQueryChange = (value: string) => {
-    latestQueryRef.current = value;
-    invalidatePendingDetailsRequest();
-    onQueryChange(value);
+  const invalidateCanonicalAddress = () => {
+    resolutionGenerationRef.current += 1;
+    onSelectedAddressChange(null);
+    onQueryChange('');
     onError?.(null);
-    const nextSelected = invalidateSelectionAfterQueryEdit(
-      value,
-      selectedAddress
-    );
-    if (nextSelected !== selectedAddress) {
-      onSelectedAddressChange(nextSelected);
-      clearSuggestions();
-    }
   };
 
-  const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
-    const requestSequence = requestSequenceRef.current + 1;
-    requestSequenceRef.current = requestSequence;
-    activeDetailsRequestRef.current = requestSequence;
-    const querySnapshot = latestQueryRef.current;
-    setIsSelectingPlace(true);
+  const acceptResolvedAddress = (address: SelectedBusinessAddress) => {
+    setState((current) => ({
+      ...current,
+      cityText: address.city,
+      streetText: address.street,
+      houseNumber: address.streetNumber,
+      resolvedAddress: address,
+      candidates: [],
+      status: 'resolved',
+      error: null,
+    }));
+    onSelectedAddressChange(address);
+    onQueryChange(address.formattedAddress);
     onError?.(null);
+  };
+
+  const beginResolution = async () => {
+    const snapshot = stateRef.current;
+    if (
+      !isAddressResolutionReady(snapshot) ||
+      snapshot.status === 'resolving' ||
+      disabled
+    ) {
+      return;
+    }
+
+    const requestGeneration = resolutionGenerationRef.current + 1;
+    resolutionGenerationRef.current = requestGeneration;
+    const cityKey = getCitySelectionKey(snapshot.citySelection);
+    const streetKey = getStreetSelectionKey(snapshot.streetSelection);
+    const streetNumber = normalizeHouseNumber(snapshot.houseNumber);
+    setState((current) => ({
+      ...current,
+      status: 'resolving',
+      error: null,
+      candidates: [],
+    }));
+    onError?.(null);
+
     try {
-      const details = await loadPlaceDetails(suggestion.placeId, sessionToken);
-      const shouldAccept = shouldAcceptAddressDetailsResponse({
-        requestSequence,
-        currentSequence: requestSequenceRef.current,
-        querySnapshot,
-        currentQuery: latestQueryRef.current,
-        isMounted: mountedRef.current,
+      const result = await resolveAddress({
+        city: snapshot.citySelection!.displayName,
+        street: snapshot.streetSelection!.displayName,
+        streetNumber,
       });
-      if (!shouldAccept) {
-        return;
-      }
-      const nextSelected = toSelectedAddress(details);
-      activeDetailsRequestRef.current = null;
-      onSelectedAddressChange(nextSelected);
-      onQueryChange(nextSelected.formattedAddress);
-      clearSuggestions();
-      resetSessionToken();
-    } catch (selectionError) {
-      const shouldAccept = shouldAcceptAddressDetailsResponse({
-        requestSequence,
-        currentSequence: requestSequenceRef.current,
-        querySnapshot,
-        currentQuery: latestQueryRef.current,
-        isMounted: mountedRef.current,
-      });
-      if (!shouldAccept) {
-        return;
-      }
-      activeDetailsRequestRef.current = null;
-      onSelectedAddressChange(null);
-      onError?.(toErrorMessage(selectionError));
-    } finally {
+      const current = stateRef.current;
       if (
-        mountedRef.current &&
-        activeDetailsRequestRef.current === requestSequence
+        !shouldAcceptAddressResolutionResponse({
+          requestGeneration,
+          currentGeneration: resolutionGenerationRef.current,
+          cityKey,
+          currentCityKey: getCitySelectionKey(current.citySelection),
+          streetKey,
+          currentStreetKey: getStreetSelectionKey(current.streetSelection),
+          streetNumber,
+          currentStreetNumber: current.houseNumber,
+          isMounted: mountedRef.current,
+        })
       ) {
-        activeDetailsRequestRef.current = null;
-        setIsSelectingPlace(false);
-      } else if (
-        mountedRef.current &&
-        activeDetailsRequestRef.current === null
-      ) {
-        setIsSelectingPlace(false);
+        return;
       }
+
+      if (result.status === 'resolved') {
+        acceptResolvedAddress(result.address);
+        return;
+      }
+      if (result.status === 'ambiguous') {
+        setState((latest) => ({
+          ...latest,
+          candidates: result.candidates.slice(0, 3),
+          resolvedAddress: null,
+          status: 'ambiguous',
+          error: null,
+        }));
+        return;
+      }
+
+      setState((latest) => ({
+        ...latest,
+        resolvedAddress: null,
+        candidates: [],
+        status: 'error',
+        error: 'ADDRESS_NOT_FOUND',
+      }));
+      onError?.(TEXT.notFound);
+    } catch (resolutionError) {
+      const current = stateRef.current;
+      if (
+        !shouldAcceptAddressResolutionResponse({
+          requestGeneration,
+          currentGeneration: resolutionGenerationRef.current,
+          cityKey,
+          currentCityKey: getCitySelectionKey(current.citySelection),
+          streetKey,
+          currentStreetKey: getStreetSelectionKey(current.streetSelection),
+          streetNumber,
+          currentStreetNumber: current.houseNumber,
+          isMounted: mountedRef.current,
+        })
+      ) {
+        return;
+      }
+      const code =
+        resolutionError instanceof Error
+          ? resolutionError.message
+          : 'PLACES_SERVICE_UNAVAILABLE';
+      const message = toResolutionErrorMessage(code);
+      setState((latest) => ({
+        ...latest,
+        resolvedAddress: null,
+        candidates: [],
+        status: 'error',
+        error: code,
+      }));
+      onError?.(message);
     }
   };
 
-  const coordinates =
-    correctionDraft ??
-    (selectedAddress
-      ? {
-          latitude: selectedAddress.latitude,
-          longitude: selectedAddress.longitude,
-        }
-      : null);
-  const selectedRegion: Region | null = coordinates
-    ? {
-        ...coordinates,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }
-    : null;
-  const hasValidSelection = isValidSelectedBusinessAddress(selectedAddress);
-  const showNoSuggestions =
-    searchQuery.length >= 2 &&
-    !isSuggestionsLoading &&
-    suggestions.length === 0 &&
-    !autocompleteError;
-
-  const startCorrection = () => {
-    if (!selectedAddress) {
+  useEffect(() => {
+    if (state.status !== 'idle' || !isAddressResolutionReady(state) || disabled) {
       return;
     }
-    setCorrectionDraft({
-      latitude: selectedAddress.latitude,
-      longitude: selectedAddress.longitude,
-    });
-    setIsCorrectionMode(true);
+    const timeoutId = setTimeout(() => {
+      void beginResolution();
+    }, 650);
+    return () => clearTimeout(timeoutId);
+  }, [
+    disabled,
+    state.citySelection,
+    state.houseNumber,
+    state.status,
+    state.streetSelection,
+  ]);
+
+  const handleCityChange = (value: string) => {
+    invalidateCanonicalAddress();
+    streetAutocomplete.clearSuggestions();
+    setState((current) => editBusinessAddressCity(current, value));
   };
 
-  const cancelCorrection = () => {
-    setCorrectionDraft(null);
-    setIsCorrectionMode(false);
-  };
-
-  const confirmCorrection = () => {
-    if (!selectedAddress || !correctionDraft) {
-      return;
-    }
-    onSelectedAddressChange(
-      applyManualCoordinateCorrection(selectedAddress, correctionDraft)
+  const handleSelectCity = (suggestion: PlaceSuggestion) => {
+    invalidateCanonicalAddress();
+    cityAutocomplete.clearSuggestions();
+    streetAutocomplete.clearSuggestions();
+    setState((current) =>
+      selectBusinessAddressCity(current, {
+        displayName: suggestion.primaryText,
+        placeId: suggestion.placeId,
+      })
     );
-    setIsCorrectionMode(false);
+    setTimeout(() => streetInputRef.current?.focus(), 0);
   };
+
+  const handleStreetChange = (value: string) => {
+    invalidateCanonicalAddress();
+    setState((current) => editBusinessAddressStreet(current, value));
+  };
+
+  const handleSelectStreet = (suggestion: PlaceSuggestion) => {
+    invalidateCanonicalAddress();
+    streetAutocomplete.clearSuggestions();
+    setState((current) =>
+      selectBusinessAddressStreet(current, {
+        displayName: suggestion.primaryText,
+        placeId: suggestion.placeId,
+      })
+    );
+    setTimeout(() => houseNumberInputRef.current?.focus(), 0);
+  };
+
+  const handleHouseNumberChange = (value: string) => {
+    invalidateCanonicalAddress();
+    setState((current) =>
+      editBusinessAddressHouseNumber(current, limitHouseNumberInput(value))
+    );
+  };
+
+  const showCityNoSuggestions =
+    citySearchQuery.trim().length >= 2 &&
+    !cityAutocomplete.isLoading &&
+    cityAutocomplete.suggestions.length === 0 &&
+    !cityAutocomplete.error;
+  const showStreetNoSuggestions =
+    streetSearchQuery.trim().length >= 2 &&
+    !streetAutocomplete.isLoading &&
+    streetAutocomplete.suggestions.length === 0 &&
+    !streetAutocomplete.error;
+  const showInvalidHouseNumber =
+    state.houseNumber.trim().length > 0 &&
+    !isValidHouseNumber(state.houseNumber);
+  const legacyAddress =
+    !state.resolvedAddress &&
+    query.trim() &&
+    !state.cityText.trim() &&
+    !state.streetText.trim() &&
+    !state.houseNumber.trim()
+      ? query.trim()
+      : '';
 
   return (
     <View style={styles.container}>
+      <Text style={styles.groupLabel}>{label}</Text>
+
+      {legacyAddress ? (
+        <View style={styles.readOnlyCard}>
+          <Text style={styles.previewLabel}>{TEXT.existingAddress}</Text>
+          <Text style={styles.previewValue}>{legacyAddress}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.field}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>{TEXT.city}</Text>
         <TextInput
-          value={query}
-          onChangeText={handleQueryChange}
+          value={state.cityText}
+          onChangeText={handleCityChange}
           editable={!disabled}
           placeholder={placeholder}
           placeholderTextColor="#9EA7B8"
-          style={styles.input}
+          style={[styles.input, disabled ? styles.inputDisabled : null]}
           autoCapitalize="words"
           autoCorrect={false}
           textAlign="right"
-          accessibilityLabel={label}
+          accessibilityLabel={TEXT.city}
         />
       </View>
 
-      {isSuggestionsLoading || isSelectingPlace ? (
+      {cityAutocomplete.isLoading ? (
         <View style={styles.inlineStatusRow}>
           <ActivityIndicator color="#2563EB" />
-          <Text style={styles.inlineStatusText}>
-            {isSelectingPlace ? TEXT.loadingPlace : TEXT.loadingSuggestions}
-          </Text>
+          <Text style={styles.inlineStatusText}>{TEXT.loadingSuggestions}</Text>
         </View>
       ) : null}
-
-      {autocompleteError ? (
+      {cityAutocomplete.error ? (
         <Text style={styles.helperErrorText}>
-          {toErrorMessage(new Error(autocompleteError))}
+          {toAutocompleteErrorMessage(cityAutocomplete.error)}
         </Text>
       ) : null}
-
-      {errorText ? <Text style={styles.helperErrorText}>{errorText}</Text> : null}
-
-      {showNoSuggestions ? (
+      {showCityNoSuggestions ? (
         <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
       ) : null}
-
-      {suggestions.length > 0 ? (
+      {cityAutocomplete.suggestions.length > 0 ? (
         <View style={styles.suggestionsCard}>
-          {suggestions.map((suggestion) => (
+          {cityAutocomplete.suggestions.map((suggestion) => (
             <SuggestionRow
               key={suggestion.placeId}
               suggestion={suggestion}
-              onPress={() => {
-                void handleSelectSuggestion(suggestion);
-              }}
+              onPress={() => handleSelectCity(suggestion)}
             />
           ))}
-          <Text style={styles.googleAttribution}>{TEXT.googleAttribution}</Text>
+          <GoogleAttribution />
         </View>
       ) : null}
 
-      {hasValidSelection && selectedAddress && selectedRegion ? (
-        <View style={styles.previewSection}>
-          <View style={styles.previewHeader}>
-            <Text style={styles.previewLabel}>{TEXT.selectedAddress}</Text>
-            <Text style={styles.previewValue}>
-              {selectedAddress.formattedAddress}
-            </Text>
+      <View style={styles.field}>
+        <Text style={styles.label}>{TEXT.street}</Text>
+        <TextInput
+          ref={streetInputRef}
+          value={state.streetText}
+          onChangeText={handleStreetChange}
+          editable={!disabled && Boolean(state.citySelection)}
+          placeholder={TEXT.streetPlaceholder}
+          placeholderTextColor="#9EA7B8"
+          style={[
+            styles.input,
+            disabled || !state.citySelection ? styles.inputDisabled : null,
+          ]}
+          autoCapitalize="words"
+          autoCorrect={false}
+          textAlign="right"
+          accessibilityLabel={TEXT.street}
+        />
+      </View>
+
+      {streetAutocomplete.isLoading ? (
+        <View style={styles.inlineStatusRow}>
+          <ActivityIndicator color="#2563EB" />
+          <Text style={styles.inlineStatusText}>{TEXT.loadingSuggestions}</Text>
+        </View>
+      ) : null}
+      {streetAutocomplete.error ? (
+        <Text style={styles.helperErrorText}>
+          {toAutocompleteErrorMessage(streetAutocomplete.error)}
+        </Text>
+      ) : null}
+      {showStreetNoSuggestions ? (
+        <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
+      ) : null}
+      {streetAutocomplete.suggestions.length > 0 ? (
+        <View style={styles.suggestionsCard}>
+          {streetAutocomplete.suggestions.map((suggestion) => (
+            <SuggestionRow
+              key={suggestion.placeId}
+              suggestion={suggestion}
+              onPress={() => handleSelectStreet(suggestion)}
+            />
+          ))}
+          <GoogleAttribution />
+        </View>
+      ) : null}
+
+      <View style={styles.field}>
+        <Text style={styles.label}>{TEXT.houseNumber}</Text>
+        <TextInput
+          ref={houseNumberInputRef}
+          value={state.houseNumber}
+          onChangeText={handleHouseNumberChange}
+          onSubmitEditing={() => {
+            void beginResolution();
+          }}
+          editable={!disabled && Boolean(state.streetSelection)}
+          placeholder={TEXT.houseNumberPlaceholder}
+          placeholderTextColor="#9EA7B8"
+          style={[
+            styles.input,
+            disabled || !state.streetSelection ? styles.inputDisabled : null,
+          ]}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="default"
+          returnKeyType="done"
+          textAlign="right"
+          accessibilityLabel={TEXT.houseNumber}
+        />
+      </View>
+
+      {showInvalidHouseNumber ? (
+        <Text style={styles.helperErrorText}>{TEXT.invalidHouseNumber}</Text>
+      ) : null}
+
+      {state.status === 'resolving' ? (
+        <View style={styles.inlineStatusRow}>
+          <ActivityIndicator color="#2563EB" />
+          <Text style={styles.inlineStatusText}>{TEXT.resolvingAddress}</Text>
+        </View>
+      ) : null}
+
+      {state.status === 'ambiguous' && state.candidates.length > 0 ? (
+        <View style={styles.candidateSection}>
+          <Text style={styles.helperText}>{TEXT.chooseCandidate}</Text>
+          <View style={styles.suggestionsCard}>
+            {state.candidates.slice(0, 3).map((candidate) => (
+              <Pressable
+                key={candidate.placeId}
+                onPress={() => acceptResolvedAddress(candidate)}
+                style={({ pressed }) => [
+                  styles.suggestionRow,
+                  pressed ? styles.pressed : null,
+                ]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.suggestionPrimary}>
+                  {candidate.formattedAddress}
+                </Text>
+              </Pressable>
+            ))}
+            <GoogleAttribution />
           </View>
+        </View>
+      ) : null}
 
-          <View style={styles.previewMetaRow}>
-            <Text style={styles.previewMetaText}>
-              {selectedAddress.city || TEXT.cityFallback}
-            </Text>
-            <Text style={styles.previewMetaText}>
-              {selectedAddress.street || TEXT.streetFallback}
-            </Text>
-            <Text style={styles.previewMetaNumber}>
-              {selectedAddress.streetNumber || '-'}
-            </Text>
-          </View>
+      {errorText || (state.status === 'error' && state.error) ? (
+        <Text style={styles.helperErrorText}>
+          {errorText ?? toResolutionErrorMessage(state.error ?? '')}
+        </Text>
+      ) : null}
 
-          {selectedAddress.manuallyAdjusted ? (
-            <Text style={styles.helperText}>{TEXT.adjustedPin}</Text>
-          ) : null}
-
-          <View style={styles.mapBlock}>
-            <Text style={styles.label}>{TEXT.mapLabel}</Text>
-            <View style={styles.mapShell}>
-              {CAN_RENDER_NATIVE_MAP ? (
-                <MapView
-                  style={styles.map}
-                  pointerEvents={isCorrectionMode ? 'auto' : 'none'}
-                  region={selectedRegion}
-                  onPress={(event) => {
-                    if (!isCorrectionMode) {
-                      return;
-                    }
-                    setCorrectionDraft(event.nativeEvent.coordinate);
-                  }}
-                >
-                  {coordinates ? <Marker coordinate={coordinates} /> : null}
-                </MapView>
-              ) : (
-                <View style={styles.mapFallback}>
-                  <Text style={styles.mapFallbackTitle}>
-                    {TEXT.mapUnavailableTitle}
-                  </Text>
-                  <Text style={styles.mapFallbackSubtitle}>
-                    {TEXT.mapUnavailableSubtitle}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {isCorrectionMode ? (
-            <View style={styles.correctionPanel}>
-              <Text style={styles.helperText}>{TEXT.correctionMode}</Text>
-              <View style={styles.correctionActions}>
-                <Pressable
-                  onPress={cancelCorrection}
-                  style={[styles.secondaryButton, styles.actionButton]}
-                >
-                  <Text style={styles.secondaryButtonText}>
-                    {TEXT.cancelCorrection}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={confirmCorrection}
-                  style={[styles.primaryButton, styles.actionButton]}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {TEXT.confirmCorrection}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : CAN_RENDER_NATIVE_MAP ? (
-            <Pressable
-              onPress={startCorrection}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {TEXT.manualCorrection}
-              </Text>
-            </Pressable>
-          ) : null}
+      {state.status === 'resolved' && state.resolvedAddress ? (
+        <View style={styles.readOnlyCard}>
+          <Text style={styles.previewLabel}>{TEXT.selectedAddress}</Text>
+          <Text style={styles.previewValue}>
+            {state.resolvedAddress.formattedAddress}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -490,6 +554,13 @@ export default function BusinessAddressSelector({
 const styles = StyleSheet.create({
   container: {
     gap: 10,
+  },
+  groupLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   field: {
     gap: 8,
@@ -513,6 +584,10 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+  },
+  inputDisabled: {
+    backgroundColor: '#F3F4F6',
+    color: '#9CA3AF',
   },
   inlineStatusRow: {
     flexDirection: flexDirection.row,
@@ -572,18 +647,24 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   googleAttribution: {
+    ...ltrIslandText,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-    textAlign: 'left',
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#5E5E5E',
   },
-  previewSection: {
-    gap: 12,
+  candidateSection: {
+    gap: 8,
   },
-  previewHeader: {
+  readOnlyCard: {
     gap: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCE5F5',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     alignItems: alignItems.start,
   },
   previewLabel: {
@@ -598,111 +679,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
     textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  previewMetaRow: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  previewMetaText: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#E8EEF9',
-    color: '#334155',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  previewMetaNumber: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#E8EEF9',
-    color: '#334155',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'left',
-    writingDirection: 'ltr',
-  },
-  mapBlock: {
-    gap: 8,
-  },
-  mapShell: {
-    height: 220,
-    borderRadius: 22,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  map: {
-    flex: 1,
-  },
-  mapFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 18,
-    gap: 8,
-  },
-  mapFallbackTitle: {
-    width: '100%',
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#111827',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  mapFallbackSubtitle: {
-    width: '100%',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    lineHeight: 18,
-  },
-  correctionPanel: {
-    gap: 10,
-  },
-  correctionActions: {
-    flexDirection: flexDirection.row,
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  primaryButton: {
-    borderRadius: 999,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  secondaryButton: {
-    alignSelf: selfStart,
-    borderRadius: 999,
-    backgroundColor: '#E0E7FF',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
     writingDirection: 'rtl',
   },
   pressed: {

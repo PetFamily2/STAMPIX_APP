@@ -10,7 +10,10 @@ import { ConvexError, v } from 'convex/values';
 import { components } from './_generated/api';
 import { internalMutation } from './_generated/server';
 
-export type GooglePlacesOperation = 'autocomplete' | 'placeDetails';
+export type GooglePlacesOperation =
+  | 'autocomplete'
+  | 'placeDetails'
+  | 'addressResolution';
 
 export const GOOGLE_PLACES_RATE_LIMIT_DEFINITIONS = {
   placesAutocompleteUserSustainedV1: {
@@ -61,6 +64,30 @@ export const GOOGLE_PLACES_RATE_LIMIT_DEFINITIONS = {
     period: DAY,
     shards: 5,
   },
+  placesAddressResolutionUserSustainedV1: {
+    kind: 'token bucket',
+    rate: 6,
+    period: MINUTE,
+    capacity: 3,
+  },
+  placesAddressResolutionUserDailyV1: {
+    kind: 'fixed window',
+    rate: 30,
+    period: DAY,
+  },
+  placesAddressResolutionGlobalSustainedV1: {
+    kind: 'token bucket',
+    rate: 60,
+    period: MINUTE,
+    capacity: 20,
+    shards: 5,
+  },
+  placesAddressResolutionGlobalDailyV1: {
+    kind: 'fixed window',
+    rate: 1000,
+    period: DAY,
+    shards: 5,
+  },
 } as const;
 
 export const GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION = {
@@ -75,6 +102,12 @@ export const GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION = {
     'placesDetailsUserDailyV1',
     'placesDetailsGlobalSustainedV1',
     'placesDetailsGlobalDailyV1',
+  ],
+  addressResolution: [
+    'placesAddressResolutionUserSustainedV1',
+    'placesAddressResolutionUserDailyV1',
+    'placesAddressResolutionGlobalSustainedV1',
+    'placesAddressResolutionGlobalDailyV1',
   ],
 } as const;
 
@@ -205,7 +238,8 @@ export const consume = internalMutation({
   args: {
     operation: v.union(
       v.literal('autocomplete'),
-      v.literal('placeDetails')
+      v.literal('placeDetails'),
+      v.literal('addressResolution')
     ),
     userKey: v.string(),
   },
