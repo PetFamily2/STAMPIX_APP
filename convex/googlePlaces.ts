@@ -64,6 +64,8 @@ const MAX_QUERY_LENGTH = 120;
 const MAX_PLACE_ID_LENGTH = 256;
 const MAX_SESSION_TOKEN_LENGTH = 128;
 const MAX_SUGGESTIONS = 5;
+const MAX_AUTOCOMPLETE_PREDICTIONS_TO_INSPECT = 10;
+const MAX_PREDICTION_TEXT_LENGTH_TO_COMPARE = 240;
 const MAX_ADDRESS_FIELD_LENGTH = 120;
 const MAX_STREET_NUMBER_LENGTH = 16;
 const MAX_GEOCODING_RESULTS_TO_INSPECT = 10;
@@ -225,11 +227,12 @@ export function buildGoogleAutocompleteRequest(args: {
   sessionToken?: string;
   mode?: GooglePlacesAutocompleteMode;
   selectedCityDisplayName?: string;
+  streetQueryOnly?: boolean;
 }) {
   const mode = args.mode ?? 'default';
   const input =
-    mode === 'street'
-      ? `${args.query}, ${args.selectedCityDisplayName ?? ''}`
+    mode === 'street' && !args.streetQueryOnly
+      ? `${args.query} ${args.selectedCityDisplayName ?? ''}`.trim()
       : args.query;
   const body = {
     input,
@@ -331,7 +334,9 @@ function getTrimmedString(value: unknown) {
 }
 
 export function normalizeGoogleAutocompleteResponse(
-  payload: GooglePlacesAutocompleteResponse
+  payload: GooglePlacesAutocompleteResponse,
+  maximumSuggestions = MAX_SUGGESTIONS,
+  rejectMalformedSecondaryText = false
 ) {
   if (
     !payload ||
@@ -341,12 +346,26 @@ export function normalizeGoogleAutocompleteResponse(
     throw new Error('PLACES_SERVICE_UNAVAILABLE');
   }
 
+  const boundedMaximum = Math.min(
+    Math.max(0, maximumSuggestions),
+    MAX_AUTOCOMPLETE_PREDICTIONS_TO_INSPECT
+  );
+
   return (payload.suggestions ?? [])
+    .slice(0, MAX_AUTOCOMPLETE_PREDICTIONS_TO_INSPECT)
     .map((suggestion) => {
       const prediction = suggestion?.placePrediction;
       const description = getTrimmedString(prediction?.text?.text);
       const placeId = getTrimmedString(prediction?.placeId);
-      if (!description || !placeId) {
+      const rawSecondaryText =
+        prediction?.structuredFormat?.secondaryText?.text;
+      if (
+        !description ||
+        !placeId ||
+        (rejectMalformedSecondaryText &&
+          rawSecondaryText !== undefined &&
+          typeof rawSecondaryText !== 'string')
+      ) {
         return null;
       }
       return {
@@ -355,12 +374,84 @@ export function normalizeGoogleAutocompleteResponse(
         primaryText:
           getTrimmedString(prediction?.structuredFormat?.mainText?.text) ||
           description,
-        secondaryText: getTrimmedString(
-          prediction?.structuredFormat?.secondaryText?.text
-        ),
+        secondaryText: getTrimmedString(rawSecondaryText),
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
+    .slice(0, boundedMaximum);
+}
+
+function normalizeAutocompleteGeographicSegment(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > MAX_PREDICTION_TEXT_LENGTH_TO_COMPARE) {
+    return '';
+  }
+  return trimmed
+    .normalize('NFKC')
+    .toLocaleLowerCase('he')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function splitBoundedPredictionSegments(
+  value: string,
+  preserveEmptySegments = false
+) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > MAX_PREDICTION_TEXT_LENGTH_TO_COMPARE) {
+    return [];
+  }
+  const segments = trimmed
+    .split(',')
+    .map(normalizeAutocompleteGeographicSegment);
+  return preserveEmptySegments ? segments : segments.filter(Boolean);
+}
+
+function isSuggestionAssociatedWithSelectedCity(
+  suggestion: ReturnType<typeof normalizeGoogleAutocompleteResponse>[number],
+  selectedCity: string
+) {
+  const normalizedSelectedCity =
+    normalizeAutocompleteGeographicSegment(selectedCity);
+  if (!normalizedSelectedCity) {
+    return false;
+  }
+
+  if (suggestion.secondaryText) {
+    const secondarySegments = splitBoundedPredictionSegments(
+      suggestion.secondaryText
+    );
+    return secondarySegments[0] === normalizedSelectedCity;
+  }
+
+  const normalizedMainText = normalizeAutocompleteGeographicSegment(
+    suggestion.primaryText
+  );
+  const descriptionSegments = splitBoundedPredictionSegments(
+    suggestion.description,
+    true
+  );
+  if (
+    !normalizedMainText ||
+    descriptionSegments.length !== 3 ||
+    descriptionSegments[0] !== normalizedMainText ||
+    descriptionSegments[1] !== normalizedSelectedCity
+  ) {
+    return false;
+  }
+
+  return ['ישראל', 'israel'].includes(descriptionSegments[2]);
+}
+
+function filterStreetSuggestionsForSelectedCity(
+  suggestions: ReturnType<typeof normalizeGoogleAutocompleteResponse>,
+  selectedCity: string
+) {
+  return suggestions
+    .filter((suggestion) =>
+      isSuggestionAssociatedWithSelectedCity(suggestion, selectedCity)
+    )
     .slice(0, MAX_SUGGESTIONS);
 }
 
@@ -637,8 +728,32 @@ export const autocomplete = action({
       request.url,
       request.init
     )) as GooglePlacesAutocompleteResponse;
+    const primarySuggestions = normalizeGoogleAutocompleteResponse(payload);
 
-    return normalizeGoogleAutocompleteResponse(payload);
+    if (mode !== 'street' || primarySuggestions.length > 0) {
+      return primarySuggestions;
+    }
+
+    const fallbackRequest = buildGoogleAutocompleteRequest({
+      apiKey,
+      query: normalizedQuery,
+      mode: 'street',
+      streetQueryOnly: true,
+    });
+    const fallbackPayload = (await fetchJsonWithTimeout(
+      fallbackRequest.url,
+      fallbackRequest.init
+    )) as GooglePlacesAutocompleteResponse;
+    const fallbackSuggestions = normalizeGoogleAutocompleteResponse(
+      fallbackPayload,
+      MAX_AUTOCOMPLETE_PREDICTIONS_TO_INSPECT,
+      true
+    );
+
+    return filterStreetSuggestionsForSelectedCity(
+      fallbackSuggestions,
+      selectedCityDisplayName ?? ''
+    );
   },
 });
 

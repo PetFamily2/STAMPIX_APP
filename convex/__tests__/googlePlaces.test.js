@@ -88,6 +88,59 @@ const RAW_CONTROL_CASES = [
   { label: 'C1 control character', character: '\u0085' },
 ];
 
+function autocompletePrediction({
+  placeId,
+  mainText,
+  description,
+  secondaryText,
+}) {
+  return {
+    placePrediction: {
+      placeId,
+      text: { text: description },
+      structuredFormat: {
+        mainText: { text: mainText },
+        ...(secondaryText === undefined
+          ? {}
+          : { secondaryText: { text: secondaryText } }),
+      },
+    },
+  };
+}
+
+async function runStreetFallbackFilteringCase({
+  selectedCity,
+  prediction,
+}) {
+  let fetchCount = 0;
+  let limiterCalls = 0;
+  const requests = [];
+  globalThis.fetch = async (_url, init) => {
+    fetchCount += 1;
+    requests.push(JSON.parse(init.body));
+    return Response.json(
+      fetchCount === 1
+        ? { suggestions: [] }
+        : { suggestions: [prediction] }
+    );
+  };
+
+  const result = await autocomplete._handler(
+    buildCtx({
+      runMutation: async () => {
+        limiterCalls += 1;
+      },
+    }),
+    {
+      query: 'הו',
+      mode: 'street',
+      selectedCity: { displayName: selectedCity },
+    }
+  );
+
+  return { fetchCount, limiterCalls, requests, result };
+}
+
 beforeEach(() => {
   process.env.GOOGLE_PLACES_API_KEY = 'server-only-test-key';
 });
@@ -149,6 +202,44 @@ describe('Convex Google Places actions', () => {
     ).resolves.toEqual([]);
     expect(fetchCount).toBe(0);
     expect(limiterCalls).toBe(0);
+  });
+
+  test('City autocomplete starts at two trimmed characters', async () => {
+    const requests = [];
+    let limiterCalls = 0;
+    globalThis.fetch = async (_url, init) => {
+      requests.push(JSON.parse(init.body));
+      return Response.json({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'city_two_characters',
+              text: { text: 'אבו גוש, ישראל' },
+              structuredFormat: {
+                mainText: { text: 'אבו גוש' },
+                secondaryText: { text: 'ישראל' },
+              },
+            },
+          },
+        ],
+      });
+    };
+
+    const result = await autocomplete._handler(
+      buildCtx({
+        runMutation: async () => {
+          limiterCalls += 1;
+        },
+      }),
+      { query: ' אב ', mode: 'city' }
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].input).toBe('אב');
+    expect(requests[0].includedPrimaryTypes).toEqual(['(cities)']);
+    expect(requests[0]).not.toHaveProperty('sessionToken');
+    expect(limiterCalls).toBe(1);
+    expect(result[0].placeId).toBe('city_two_characters');
   });
 
   test('autocomplete posts the New API request with Hebrew, Israel and session configuration', async () => {
@@ -267,6 +358,7 @@ describe('Convex Google Places actions', () => {
       query: 'דיז',
       mode: 'street',
       selectedCity: { displayName: 'תל אביב-יפו' },
+      streetQueryOnly: true,
     });
 
     const cityBody = JSON.parse(requests[0].init.body);
@@ -281,13 +373,385 @@ describe('Convex Google Places actions', () => {
 
     const streetBody = JSON.parse(requests[1].init.body);
     expect(streetBody).toEqual({
-      input: 'דיז, תל אביב-יפו',
+      input: 'דיז תל אביב-יפו',
       languageCode: 'he',
       regionCode: 'il',
       includedRegionCodes: ['il'],
       includedPrimaryTypes: ['route'],
     });
     expect(streetBody).not.toHaveProperty('sessionToken');
+  });
+
+  test('street primary request uses query plus selected City with one fetch when predictions are valid', async () => {
+    const requests = [];
+    let limiterCalls = 0;
+    globalThis.fetch = async (_url, init) => {
+      requests.push(JSON.parse(init.body));
+      return Response.json({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'street_primary_1',
+              text: { text: 'הנשיא, טבריה, ישראל' },
+              structuredFormat: {
+                mainText: { text: 'הנשיא' },
+                secondaryText: { text: 'טבריה, ישראל' },
+              },
+            },
+          },
+        ],
+      });
+    };
+
+    const result = await autocomplete._handler(
+      buildCtx({
+        runMutation: async () => {
+          limiterCalls += 1;
+        },
+      }),
+      {
+        query: ' הנ ',
+        mode: 'street',
+        selectedCity: { displayName: ' טבריה ' },
+      }
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toEqual({
+      input: 'הנ טבריה',
+      languageCode: 'he',
+      regionCode: 'il',
+      includedRegionCodes: ['il'],
+      includedPrimaryTypes: ['route'],
+    });
+    expect(requests[0].input).not.toContain(',');
+    expect(requests[0]).not.toHaveProperty('sessionToken');
+    expect(limiterCalls).toBe(1);
+    expect(result.map((suggestion) => suggestion.placeId)).toEqual([
+      'street_primary_1',
+    ]);
+  });
+
+  test('successful empty street primary response performs one City-filtered query-only fallback', async () => {
+    const requests = [];
+    let limiterCalls = 0;
+    let fetchCount = 0;
+    globalThis.fetch = async (_url, init) => {
+      fetchCount += 1;
+      requests.push(JSON.parse(init.body));
+      if (fetchCount === 1) {
+        return Response.json({ suggestions: [] });
+      }
+      return Response.json({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'wrong_city',
+              text: { text: 'הנשיא, חיפה, ישראל' },
+              structuredFormat: {
+                mainText: { text: 'הנשיא' },
+                secondaryText: { text: 'חיפה, ישראל' },
+              },
+            },
+          },
+          ...Array.from({ length: 6 }, (_, index) => ({
+            placePrediction: {
+              placeId: `tiberias_${index}`,
+              text: { text: `הנשיא ${index}, טבריה, ישראל` },
+              structuredFormat: {
+                mainText: { text: `הנשיא ${index}` },
+                secondaryText: {
+                  text: index === 0 ? 'מחוז הצפון' : 'טבריה, ישראל',
+                },
+              },
+            },
+          })),
+        ],
+      });
+    };
+
+    const result = await autocomplete._handler(
+      buildCtx({
+        runMutation: async () => {
+          limiterCalls += 1;
+        },
+      }),
+      {
+        query: 'הנ',
+        mode: 'street',
+        selectedCity: { displayName: 'טבריה' },
+      }
+    );
+
+    expect(fetchCount).toBe(2);
+    expect(limiterCalls).toBe(1);
+    expect(requests[0].input).toBe('הנ טבריה');
+    expect(requests[1]).toEqual({
+      input: 'הנ',
+      languageCode: 'he',
+      regionCode: 'il',
+      includedRegionCodes: ['il'],
+      includedPrimaryTypes: ['route'],
+    });
+    expect(requests[1]).not.toHaveProperty('sessionToken');
+    expect(result).toHaveLength(5);
+    expect(result.some((suggestion) => suggestion.placeId === 'wrong_city')).toBe(
+      false
+    );
+    expect(result.map((suggestion) => suggestion.placeId)).toEqual([
+      'tiberias_1',
+      'tiberias_2',
+      'tiberias_3',
+      'tiberias_4',
+      'tiberias_5',
+    ]);
+  });
+
+  for (const {
+    label,
+    selectedCity,
+    prediction,
+    expectedPlaceIds,
+  } of [
+    {
+      label: 'retains an exact structured Tiberias locality segment',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'structured_tiberias',
+        mainText: 'הופיין',
+        description: 'הופיין, טבריה, ישראל',
+        secondaryText: 'טבריה, ישראל',
+      }),
+      expectedPlaceIds: ['structured_tiberias'],
+    },
+    {
+      label: 'rejects Haifa found only in the Kiryat Ata district segment',
+      selectedCity: 'חיפה',
+      prediction: autocompletePrediction({
+        placeId: 'kiryat_ata_haifa_district',
+        mainText: 'העצמאות',
+        description: 'העצמאות, קריית אתא, מחוז חיפה, ישראל',
+        secondaryText: 'קריית אתא, מחוז חיפה, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects Jerusalem found only in the Maale Adumim district segment',
+      selectedCity: 'ירושלים',
+      prediction: autocompletePrediction({
+        placeId: 'maale_adumim_jerusalem_district',
+        mainText: 'דרך קדם',
+        description: 'דרך קדם, מעלה אדומים, מחוז ירושלים, ישראל',
+        secondaryText: 'מעלה אדומים, מחוז ירושלים, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects a related word instead of the exact Haifa locality',
+      selectedCity: 'חיפה',
+      prediction: autocompletePrediction({
+        placeId: 'haifai_word',
+        mainText: 'הנשיא',
+        description: 'הנשיא, חיפאי, ישראל',
+        secondaryText: 'חיפאי, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects missing secondary text with an unparseable description',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'missing_secondary_unparseable',
+        mainText: 'הופיין',
+        description: 'הופיין טבריה ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects malformed secondary text even with a parseable description',
+      selectedCity: 'טבריה',
+      prediction: {
+        placePrediction: {
+          placeId: 'malformed_secondary_parseable',
+          text: { text: 'הופיין, טבריה, ישראל' },
+          structuredFormat: {
+            mainText: { text: 'הופיין' },
+            secondaryText: { text: 42 },
+          },
+        },
+      },
+      expectedPlaceIds: [],
+    },
+  ]) {
+    test(`street fallback ${label}`, async () => {
+      const { fetchCount, limiterCalls, requests, result } =
+        await runStreetFallbackFilteringCase({ selectedCity, prediction });
+
+      expect(fetchCount).toBe(2);
+      expect(limiterCalls).toBe(1);
+      expect(requests).toHaveLength(2);
+      expect(requests[0].input).toBe(`הו ${selectedCity}`);
+      expect(requests[1]).toEqual({
+        input: 'הו',
+        languageCode: 'he',
+        regionCode: 'il',
+        includedRegionCodes: ['il'],
+        includedPrimaryTypes: ['route'],
+      });
+      expect(requests[1]).not.toHaveProperty('sessionToken');
+      expect(result.map((suggestion) => suggestion.placeId)).toEqual(
+        expectedPlaceIds
+      );
+    });
+  }
+
+  for (const {
+    label,
+    selectedCity,
+    prediction,
+    expectedPlaceIds,
+  } of [
+    {
+      label: 'accepts exact route locality and Israel description segments',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'description_tiberias',
+        mainText: 'הופיין',
+        description: 'הופיין, טבריה, ישראל',
+      }),
+      expectedPlaceIds: ['description_tiberias'],
+    },
+    {
+      label: 'rejects a selected City found only in a later district segment',
+      selectedCity: 'חיפה',
+      prediction: autocompletePrediction({
+        placeId: 'description_haifa_district',
+        mainText: 'העצמאות',
+        description: 'העצמאות, קריית אתא, מחוז חיפה, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects another City in the immediate locality segment',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'description_wrong_locality',
+        mainText: 'הנשיא',
+        description: 'הנשיא, חיפה, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects a description whose first segment differs from main text',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'description_main_mismatch',
+        mainText: 'הנשיא',
+        description: 'הופיין, טבריה, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects a description with missing structural segments',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'description_missing_segments',
+        mainText: 'הופיין',
+        description: 'הופיין, טבריה',
+      }),
+      expectedPlaceIds: [],
+    },
+    {
+      label: 'rejects a description with an empty malformed segment',
+      selectedCity: 'טבריה',
+      prediction: autocompletePrediction({
+        placeId: 'description_empty_segment',
+        mainText: 'הופיין',
+        description: 'הופיין,, טבריה, ישראל',
+      }),
+      expectedPlaceIds: [],
+    },
+  ]) {
+    test(`street fallback without structured secondary ${label}`, async () => {
+      const { fetchCount, limiterCalls, requests, result } =
+        await runStreetFallbackFilteringCase({ selectedCity, prediction });
+
+      expect(fetchCount).toBe(2);
+      expect(limiterCalls).toBe(1);
+      expect(requests).toHaveLength(2);
+      expect(requests[0].input).toBe(`הו ${selectedCity}`);
+      expect(requests[1]).toEqual({
+        input: 'הו',
+        languageCode: 'he',
+        regionCode: 'il',
+        includedRegionCodes: ['il'],
+        includedPrimaryTypes: ['route'],
+      });
+      expect(requests[1]).not.toHaveProperty('sessionToken');
+      expect(result.map((suggestion) => suggestion.placeId)).toEqual(
+        expectedPlaceIds
+      );
+    });
+  }
+
+  test('failed street primary request does not run the fallback', async () => {
+    let fetchCount = 0;
+    let limiterCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return new Response('{}', { status: 503 });
+    };
+
+    const message = await getErrorMessage(() =>
+      autocomplete._handler(
+        buildCtx({
+          runMutation: async () => {
+            limiterCalls += 1;
+          },
+        }),
+        {
+          query: 'הנ',
+          mode: 'street',
+          selectedCity: { displayName: 'טבריה' },
+        }
+      )
+    );
+
+    expect(message).toBe('PLACES_SERVICE_UNAVAILABLE');
+    expect(fetchCount).toBe(1);
+    expect(limiterCalls).toBe(1);
+  });
+
+  test('street limiter denial causes zero primary and fallback fetches', async () => {
+    let fetchCount = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({ suggestions: [] });
+    };
+
+    const error = await getThrownError(() =>
+      autocomplete._handler(
+        buildCtx({
+          runMutation: async () => {
+            throw new ConvexError({
+              code: 'PLACES_RATE_LIMITED',
+              retryAfterMs: 2500,
+            });
+          },
+        }),
+        {
+          query: 'הנ',
+          mode: 'street',
+          selectedCity: { displayName: 'טבריה' },
+        }
+      )
+    );
+
+    expect(error.data).toEqual({
+      code: 'PLACES_RATE_LIMITED',
+      retryAfterMs: 2500,
+    });
+    expect(fetchCount).toBe(0);
   });
 
   test('street mode requires only validated application city context', async () => {

@@ -154,6 +154,7 @@ export default function CreateBusinessScreen() {
   );
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const { flow, bref } = useLocalSearchParams<{
     flow?: string;
     bref?: string;
@@ -340,10 +341,12 @@ export default function CreateBusinessScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           stickyHeaderIndices={[0]}
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
         >
           <StickyScrollHeader
             topPadding={0}
@@ -386,6 +389,7 @@ export default function CreateBusinessScreen() {
             label={TEXT.searchLabel}
             errorText={addressError}
             onError={setAddressError}
+            scrollViewRef={scrollViewRef}
           />
 
           {!hasRequiredBasics ? (

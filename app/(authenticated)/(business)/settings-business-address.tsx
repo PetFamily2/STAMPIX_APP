@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -112,6 +112,7 @@ export default function BusinessSettingsAddressScreen() {
   const [error, setError] = useState<string | null>(null);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   const applyBusinessAddressSnapshot = (settings: typeof businessSettings) => {
     if (!settings) {
@@ -173,8 +174,15 @@ export default function BusinessSettingsAddressScreen() {
         setBaseUpdatedAt(result.updatedAt);
       }
       setLoadedAddress(selectedAddress);
-      Alert.alert(TEXT.savedTitle, TEXT.savedMessage);
-      router.back();
+      Alert.alert(TEXT.savedTitle, TEXT.savedMessage, [
+        {
+          text: 'אישור',
+          onPress: () =>
+            router.replace(
+              '/(authenticated)/(business)/settings-business-profile'
+            ),
+        },
+      ]);
     } catch (saveError) {
       const conflict = getEditConflictError(saveError);
       if (conflict) {
@@ -216,12 +224,14 @@ export default function BusinessSettingsAddressScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           stickyHeaderIndices={[0]}
           contentContainerStyle={[
             styles.content,
             { paddingTop: (insets.top || 0) + 12 },
           ]}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
         >
           <StickyScrollHeader
             topPadding={0}
@@ -267,6 +277,7 @@ export default function BusinessSettingsAddressScreen() {
                   label={TEXT.addressLabel}
                   errorText={error}
                   onError={setError}
+                  scrollViewRef={scrollViewRef}
                 />
               </View>
 

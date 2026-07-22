@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ActivityIndicator,
+  findNodeHandle,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -63,7 +65,10 @@ type BusinessAddressSelectorProps = {
   placeholder?: string;
   errorText?: string | null;
   onError?: (value: string | null) => void;
+  scrollViewRef?: RefObject<ScrollView | null>;
 };
+
+type AddressField = 'city' | 'street' | 'houseNumber';
 
 function toAutocompleteErrorMessage(error: string) {
   if (error === 'PLACES_RATE_LIMITED') {
@@ -125,6 +130,35 @@ function GoogleAttribution() {
   );
 }
 
+function AutocompleteResults({
+  suggestions,
+  onSelect,
+}: {
+  suggestions: PlaceSuggestion[];
+  onSelect: (suggestion: PlaceSuggestion) => void;
+}) {
+  return (
+    <View style={styles.suggestionsCard}>
+      <ScrollView
+        style={styles.suggestionsScroll}
+        contentContainerStyle={styles.suggestionsContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={suggestions.length >= 5}
+      >
+        {suggestions.slice(0, 5).map((suggestion) => (
+          <SuggestionRow
+            key={suggestion.placeId}
+            suggestion={suggestion}
+            onPress={() => onSelect(suggestion)}
+          />
+        ))}
+      </ScrollView>
+      <GoogleAttribution />
+    </View>
+  );
+}
+
 export default function BusinessAddressSelector({
   query,
   selectedAddress,
@@ -135,14 +169,17 @@ export default function BusinessAddressSelector({
   placeholder = TEXT.cityPlaceholder,
   errorText,
   onError,
+  scrollViewRef,
 }: BusinessAddressSelectorProps) {
   const [state, setState] = useState<BusinessAddressSelectionState>(() =>
     createBusinessAddressSelectionState(selectedAddress)
   );
   const stateRef = useRef(state);
   stateRef.current = state;
+  const cityInputRef = useRef<TextInput>(null);
   const streetInputRef = useRef<TextInput>(null);
   const houseNumberInputRef = useRef<TextInput>(null);
+  const activeFieldRef = useRef<AddressField | null>(null);
   const mountedRef = useRef(false);
   const resolutionGenerationRef = useRef(0);
   const resolveAddress = useGoogleAddressResolution();
@@ -157,6 +194,49 @@ export default function BusinessAddressSelector({
       ? { displayName: state.citySelection.displayName }
       : null,
   });
+
+  const requestFieldVisibility = (field: AddressField) => {
+    const input =
+      field === 'city'
+        ? cityInputRef.current
+        : field === 'street'
+          ? streetInputRef.current
+          : houseNumberInputRef.current;
+    const nodeHandle = findNodeHandle(input);
+    if (nodeHandle === null) {
+      return;
+    }
+    const resultCount =
+      field === 'city'
+        ? cityAutocomplete.suggestions.length
+        : field === 'street'
+          ? streetAutocomplete.suggestions.length
+          : 0;
+    const additionalOffset =
+      resultCount > 0 ? Math.min(resultCount, 5) * 64 + 56 : 56;
+    scrollViewRef?.current?.scrollResponderScrollNativeHandleToKeyboard(
+      nodeHandle,
+      additionalOffset,
+      true
+    );
+  };
+
+  useEffect(() => {
+    const activeField = activeFieldRef.current;
+    const hasActiveResults =
+      (activeField === 'city' && cityAutocomplete.suggestions.length > 0) ||
+      (activeField === 'street' && streetAutocomplete.suggestions.length > 0);
+    if (!activeField || !hasActiveResults) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      requestFieldVisibility(activeField);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [
+    cityAutocomplete.suggestions.length,
+    streetAutocomplete.suggestions.length,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -386,8 +466,13 @@ export default function BusinessAddressSelector({
       <View style={styles.field}>
         <Text style={styles.label}>{TEXT.city}</Text>
         <TextInput
+          ref={cityInputRef}
           value={state.cityText}
           onChangeText={handleCityChange}
+          onFocus={() => {
+            activeFieldRef.current = 'city';
+            requestFieldVisibility('city');
+          }}
           editable={!disabled}
           placeholder={placeholder}
           placeholderTextColor="#9EA7B8"
@@ -414,16 +499,10 @@ export default function BusinessAddressSelector({
         <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
       ) : null}
       {cityAutocomplete.suggestions.length > 0 ? (
-        <View style={styles.suggestionsCard}>
-          {cityAutocomplete.suggestions.map((suggestion) => (
-            <SuggestionRow
-              key={suggestion.placeId}
-              suggestion={suggestion}
-              onPress={() => handleSelectCity(suggestion)}
-            />
-          ))}
-          <GoogleAttribution />
-        </View>
+        <AutocompleteResults
+          suggestions={cityAutocomplete.suggestions}
+          onSelect={handleSelectCity}
+        />
       ) : null}
 
       <View style={styles.field}>
@@ -432,6 +511,10 @@ export default function BusinessAddressSelector({
           ref={streetInputRef}
           value={state.streetText}
           onChangeText={handleStreetChange}
+          onFocus={() => {
+            activeFieldRef.current = 'street';
+            requestFieldVisibility('street');
+          }}
           editable={!disabled && Boolean(state.citySelection)}
           placeholder={TEXT.streetPlaceholder}
           placeholderTextColor="#9EA7B8"
@@ -461,16 +544,10 @@ export default function BusinessAddressSelector({
         <Text style={styles.helperText}>{TEXT.noSuggestions}</Text>
       ) : null}
       {streetAutocomplete.suggestions.length > 0 ? (
-        <View style={styles.suggestionsCard}>
-          {streetAutocomplete.suggestions.map((suggestion) => (
-            <SuggestionRow
-              key={suggestion.placeId}
-              suggestion={suggestion}
-              onPress={() => handleSelectStreet(suggestion)}
-            />
-          ))}
-          <GoogleAttribution />
-        </View>
+        <AutocompleteResults
+          suggestions={streetAutocomplete.suggestions}
+          onSelect={handleSelectStreet}
+        />
       ) : null}
 
       <View style={styles.field}>
@@ -479,6 +556,10 @@ export default function BusinessAddressSelector({
           ref={houseNumberInputRef}
           value={state.houseNumber}
           onChangeText={handleHouseNumberChange}
+          onFocus={() => {
+            activeFieldRef.current = 'houseNumber';
+            requestFieldVisibility('houseNumber');
+          }}
           onSubmitEditing={() => {
             void beginResolution();
           }}
@@ -620,11 +701,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
+  },
+  suggestionsScroll: {
+    maxHeight: 320,
+  },
+  suggestionsContent: {
+    flexGrow: 0,
   },
   suggestionRow: {
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
