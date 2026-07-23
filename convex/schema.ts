@@ -446,6 +446,112 @@ export default defineSchema({
     .index('by_businessId_userId', ['businessId', 'userId'])
     .index('by_businessId_status', ['businessId', 'status']),
 
+  recommendationInteractions: defineTable({
+    businessId: v.id('businesses'),
+    actorUserId: v.id('users'),
+    stableId: v.union(
+      v.literal('subscription.action_required'),
+      v.literal('setup.address.resolve'),
+      v.literal('setup.profile.complete'),
+      v.literal('program.publish_first'),
+      v.literal('program.publish_draft'),
+      v.literal('campaign.create_first'),
+      v.literal('campaign.publish_draft'),
+      v.literal('campaign.resume_paused'),
+      v.literal('campaign.next_scheduled'),
+      v.literal('retention.reengage_inactive'),
+      v.literal('growth.near_reward'),
+      v.literal('team.pending_invitations'),
+      v.literal('subscription.quota_near')
+    ),
+    evidenceFingerprint: v.string(),
+    interactionState: v.union(
+      v.literal('dismissed'),
+      v.literal('snoozed'),
+      v.literal('completed'),
+      v.literal('invalidated')
+    ),
+    hiddenUntil: v.optional(v.number()),
+    reasonCode: v.optional(
+      v.union(
+        v.literal('USER_DISMISSED'),
+        v.literal('USER_SNOOZED'),
+        v.literal('SERVER_COMPLETED'),
+        v.literal('EVIDENCE_CHANGED'),
+        v.literal('TARGET_MISSING'),
+        v.literal('TARGET_INCONSISTENT'),
+        v.literal('BUSINESS_MISMATCH'),
+        v.literal('PERMISSION_CHANGED'),
+        v.literal('NO_LONGER_APPLICABLE')
+      )
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    invalidatedAt: v.optional(v.number()),
+  })
+    .index('by_actor_business', ['actorUserId', 'businessId'])
+    .index('by_actor_business_stableId', [
+      'actorUserId',
+      'businessId',
+      'stableId',
+    ])
+    .index('by_actor_business_stableId_fingerprint', [
+      'actorUserId',
+      'businessId',
+      'stableId',
+      'evidenceFingerprint',
+    ]),
+
+  recommendationGuideSessions: defineTable({
+    businessId: v.id('businesses'),
+    actorUserId: v.id('users'),
+    stableId: v.union(
+      v.literal('subscription.action_required'),
+      v.literal('setup.address.resolve'),
+      v.literal('setup.profile.complete'),
+      v.literal('program.publish_first'),
+      v.literal('program.publish_draft'),
+      v.literal('campaign.create_first'),
+      v.literal('campaign.publish_draft'),
+      v.literal('campaign.resume_paused'),
+      v.literal('campaign.next_scheduled'),
+      v.literal('retention.reengage_inactive'),
+      v.literal('growth.near_reward'),
+      v.literal('team.pending_invitations'),
+      v.literal('subscription.quota_near')
+    ),
+    guideId: v.union(
+      v.literal('subscription-recover'),
+      v.literal('address-resolve'),
+      v.literal('profile-complete'),
+      v.literal('program-create'),
+      v.literal('program-publish'),
+      v.literal('campaign-create'),
+      v.literal('campaign-publish'),
+      v.literal('campaign-resume'),
+      v.literal('campaign-schedule-review'),
+      v.literal('inactive-review'),
+      v.literal('near-reward'),
+      v.literal('team-pending'),
+      v.literal('quota-review')
+    ),
+    evidenceFingerprint: v.string(),
+    entityId: v.optional(v.string()),
+    entityKind: v.optional(
+      v.union(v.literal('program'), v.literal('campaign'))
+    ),
+    issuedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_actor_business', ['actorUserId', 'businessId'])
+    .index('by_actor_business_stableId', [
+      'actorUserId',
+      'businessId',
+      'stableId',
+    ])
+    .index('by_expiresAt', ['expiresAt']),
+
   loyaltyPrograms: defineTable({
     businessId: v.id('businesses'),
     status: v.optional(

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   SafeAreaView,
@@ -9,6 +9,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { BarComparisonChart, KpiCard } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
@@ -203,6 +204,8 @@ export default function BusinessTeamManagementScreen() {
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const guideTargetRef = useRef<View | null>(null);
+  const guideScrollRef = useRef<ScrollView | null>(null);
   const isOwner = activeBusiness?.staffRole === 'owner';
   const activeBusinessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -800,6 +803,7 @@ export default function BusinessTeamManagementScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
@@ -1072,7 +1076,10 @@ export default function BusinessTeamManagementScreen() {
             ) : null}
           </View>
 
-          <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
+          <View
+            ref={guideTargetRef}
+            className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5"
+          >
             <TouchableOpacity
               onPress={() => setIsPendingExpanded((current) => !current)}
               className={`${tw.flexRow} items-center justify-between`}
@@ -1305,6 +1312,15 @@ export default function BusinessTeamManagementScreen() {
           </View>
         </FeatureGate>
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="team"
+        targetRef={guideTargetRef}
+        focusTarget={() => setIsPendingExpanded(true)}
+        scrollTargetIntoView={() =>
+          guideScrollRef.current?.scrollToEnd({ animated: false })
+        }
+      />
     </SafeAreaView>
   );
 }

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -249,6 +250,8 @@ function getScheduledTimestamp(daysFromNow: number, hour: number) {
 }
 
 export default function CampaignDraftEditorScreen() {
+  const guideTargetRef = useRef<View | null>(null);
+  const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -1363,6 +1366,7 @@ export default function CampaignDraftEditorScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
@@ -1464,7 +1468,7 @@ export default function CampaignDraftEditorScreen() {
 
           <View className="my-5 h-px bg-[#E7EEFF]" />
 
-          <View className="gap-3">
+          <View ref={guideTargetRef} className="gap-3">
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
@@ -1853,6 +1857,19 @@ export default function CampaignDraftEditorScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="campaign-detail"
+        routeEntityId={campaignId}
+        routeEntityKind="campaign"
+        targetRef={guideTargetRef}
+        scrollTargetIntoView={() =>
+          guideScrollRef.current?.scrollTo({
+            y: 900,
+            animated: false,
+          })
+        }
+      />
     </SafeAreaView>
   );
 }

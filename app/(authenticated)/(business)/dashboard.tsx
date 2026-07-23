@@ -61,7 +61,12 @@ import {
   getRecommendationAnalyticsProps,
   safelyTrackRecommendationEvent,
 } from '@/lib/recommendations/analytics';
-import { openRecommendationAction } from '@/lib/recommendations/interaction';
+import {
+  executeCurrentRecommendationInteraction,
+  isRecommendationInteractionRequestCurrent,
+  openRecommendationAction,
+  type CurrentRecommendationInteractionState,
+} from '@/lib/recommendations/interaction';
 import {
   flexDirection,
   justifyContent,
@@ -155,9 +160,28 @@ function DashboardRecommendationsSection({
   const [loadingRecommendationId, setLoadingRecommendationId] = useState<
     string | null
   >(null);
+  const [interactionLoadingKey, setInteractionLoadingKey] = useState<
+    string | null
+  >(null);
+  const dismissRecommendation = useMutation(
+    api.recommendations.dismissBusinessRecommendation
+  );
+  const snoozeRecommendation = useMutation(
+    api.recommendations.snoozeBusinessRecommendation
+  );
+  const startRecommendationGuide = useMutation(
+    api.recommendations.startBusinessRecommendationGuide
+  );
   const recommendationShownGuardRef = useRef(
     createRecommendationShownGuard()
   );
+  const latestInteractionStateRef =
+    useRef<CurrentRecommendationInteractionState>({
+      activeBusinessId: null,
+      isSwitchingBusiness: false,
+      responseBusinessId: null,
+      visibleRecommendations: [],
+    });
   const recommendationResponse = useQuery(
     api.recommendations.getBusinessRecommendations,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
@@ -180,6 +204,23 @@ function DashboardRecommendationsSection({
     activeBusinessId && hasCurrentRecommendationResponse
       ? ('ready' as const)
       : ('loading' as const);
+  latestInteractionStateRef.current = {
+    activeBusinessId: activeBusinessId ? String(activeBusinessId) : null,
+    isSwitchingBusiness,
+    responseBusinessId:
+      recommendationResponse?.businessId != null
+        ? String(recommendationResponse.businessId)
+        : null,
+    visibleRecommendations: [
+      ...(recommendationPrimary ? [recommendationPrimary] : []),
+      ...recommendationSecondary,
+    ].map((recommendation) => ({
+      stableId: recommendation.stableId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
+      guideId: recommendation.guideId,
+      entityId: recommendation.entityId,
+    })),
+  };
 
   useEffect(() => {
     if (!activeBusinessId || !hasCurrentRecommendationResponse) {
@@ -211,7 +252,7 @@ function DashboardRecommendationsSection({
     recommendationSecondary,
   ]);
 
-  const handleOpen = (recommendation: DashboardRecommendation) => {
+  const handleOpen = async (recommendation: DashboardRecommendation) => {
     if (
       !activeBusinessId ||
       isSwitchingBusiness ||
@@ -219,30 +260,157 @@ function DashboardRecommendationsSection({
     ) {
       return;
     }
-    let result: ReturnType<typeof openRecommendationAction> | undefined;
+    const openedBusinessId = String(activeBusinessId);
+    const currentRequest = {
+      businessId: openedBusinessId,
+      stableId: recommendation.stableId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
+      guideId: recommendation.guideId,
+      ...(recommendation.entityId
+        ? { entityId: recommendation.entityId }
+        : {}),
+    };
+    if (
+      !isRecommendationInteractionRequestCurrent(
+        currentRequest,
+        latestInteractionStateRef.current
+      )
+    ) {
+      Alert.alert('', 'ההמלצה כבר התעדכנה.');
+      return;
+    }
+    setLoadingRecommendationId(recommendation.stableId);
     try {
-      result = openRecommendationAction({
-        businessId: String(activeBusinessId),
+      const session = await startRecommendationGuide({
+        businessId: openedBusinessId as Id<'businesses'>,
+        stableId: recommendation.stableId,
+        guideId: recommendation.guideId,
+      });
+      const sessionMatches =
+        String(session.businessId) === openedBusinessId &&
+        session.stableId === recommendation.stableId &&
+        session.guideId === recommendation.guideId &&
+        session.evidenceFingerprint ===
+          recommendation.evidenceFingerprint &&
+        String(session.entityId ?? '') ===
+          String(recommendation.entityId ?? '') &&
+        typeof session.guideSessionId === 'string' &&
+        session.guideSessionId.length > 0 &&
+        session.expiresAt > Date.now();
+      if (
+        !sessionMatches ||
+        !isRecommendationInteractionRequestCurrent(
+          currentRequest,
+          latestInteractionStateRef.current
+        )
+      ) {
+        throw new Error('STALE_RECOMMENDATION_GUIDE');
+      }
+      const result = openRecommendationAction({
+        businessId: openedBusinessId,
         action: recommendation.action,
+        guideSessionId: session.guideSessionId,
+        guideId: session.guideId,
+        stableId: session.stableId,
+        evidenceFingerprint: session.evidenceFingerprint,
+        entityId: session.entityId,
         analyticsProps: getRecommendationAnalyticsProps(recommendation),
         trackEvent: track,
         navigate: (target) => router.push(target as never),
-        onStart: () =>
-          setLoadingRecommendationId(recommendation.stableId),
-        onSettled: () => setLoadingRecommendationId(null),
       });
+      if (!result.ok) {
+        throw new Error('INVALID_RECOMMENDATION_NAVIGATION');
+      }
     } catch {
+      Alert.alert('', 'ההמלצה כבר התעדכנה. נסו שוב.');
+    } finally {
       setLoadingRecommendationId(null);
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את הפעולה כרגע.');
+    }
+  };
+
+  const performInteraction = async (
+    recommendation: DashboardRecommendation,
+    action: 'dismiss' | 'snooze',
+    openedBusinessId: string
+  ) => {
+    const key = `${recommendation.stableId}:${recommendation.evidenceFingerprint}`;
+    setInteractionLoadingKey(key);
+    await executeCurrentRecommendationInteraction({
+      request: {
+        businessId: openedBusinessId,
+        stableId: recommendation.stableId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
+      },
+      getCurrentState: () => latestInteractionStateRef.current,
+      mutate: async () => {
+        const args = {
+          businessId: openedBusinessId as Id<'businesses'>,
+          stableId: recommendation.stableId,
+          evidenceFingerprint: recommendation.evidenceFingerprint,
+        };
+        return action === 'dismiss'
+          ? await dismissRecommendation(args)
+          : await snoozeRecommendation(args);
+      },
+      onSuccess: (result) => {
+        safelyTrackRecommendationEvent(
+          track,
+          action === 'dismiss'
+            ? ANALYTICS_EVENTS.recommendationDismissed
+            : ANALYTICS_EVENTS.recommendationSnoozed,
+          {
+            ...getRecommendationAnalyticsProps(recommendation),
+            reason_code: result.reasonCode,
+          }
+        );
+      },
+      onStale: () => {
+        Alert.alert('', 'ההמלצה כבר התעדכנה.');
+      },
+      onError: () => {
+        Alert.alert(
+          'לא הצלחנו לעדכן',
+          'ההמלצה נשארה מוצגת. נסו שוב.'
+        );
+      },
+      onSettled: () => setInteractionLoadingKey(null),
+    });
+  };
+
+  const handleShowOptions = (
+    recommendation: DashboardRecommendation
+  ) => {
+    if (
+      !activeBusinessId ||
+      isSwitchingBusiness ||
+      interactionLoadingKey
+    ) {
       return;
     }
-    if (!result || !result.ok) {
-      setLoadingRecommendationId(null);
-      Alert.alert(
-        'לא ניתן לפתוח את הפעולה',
-        'חסר מידע מדויק לניווט. הנתונים יתעדכנו אוטומטית.'
-      );
-    }
+    Alert.alert('אפשרויות להמלצה', undefined, [
+      {
+        text: 'הזכירו לי אחר כך',
+        onPress: () => {
+          void performInteraction(
+            recommendation,
+            'snooze',
+            String(activeBusinessId)
+          );
+        },
+      },
+      {
+        text: 'הסתרת ההמלצה',
+        style: 'destructive',
+        onPress: () => {
+          void performInteraction(
+            recommendation,
+            'dismiss',
+            String(activeBusinessId)
+          );
+        },
+      },
+      { text: 'ביטול', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -252,7 +420,9 @@ function DashboardRecommendationsSection({
       primary={recommendationPrimary}
       secondary={recommendationSecondary}
       loadingRecommendationId={loadingRecommendationId}
+      interactionLoadingKey={interactionLoadingKey}
       onOpen={handleOpen}
+      onShowOptions={handleShowOptions}
     />
   );
 }

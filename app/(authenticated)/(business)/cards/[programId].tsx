@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
@@ -110,6 +111,8 @@ function toStampShape(value: string | undefined): StampShape {
 }
 
 export default function ProgramDetailsScreen() {
+  const guideTargetRef = useRef<View | null>(null);
+  const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -572,6 +575,7 @@ export default function ProgramDetailsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
@@ -839,7 +843,7 @@ export default function ProgramDetailsScreen() {
               </View>
             </View>
 
-            <View className="gap-3">
+            <View ref={guideTargetRef} className="gap-3">
               {conflictLocked ? (
                 <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
                   <Text className="text-right text-xs text-[#92400E]">
@@ -932,6 +936,16 @@ export default function ProgramDetailsScreen() {
           </View>
         ) : null}
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="program-detail"
+        routeEntityId={programId}
+        routeEntityKind="program"
+        targetRef={guideTargetRef}
+        scrollTargetIntoView={() =>
+          guideScrollRef.current?.scrollToEnd({ animated: false })
+        }
+      />
     </SafeAreaView>
   );
 }

@@ -29,8 +29,23 @@ export type RecommendationAction =
   | { type: 'open_team_pending' }
   | { type: 'open_subscription'; limitKey?: 'campaigns' };
 
+export type RecommendationStableId =
+  | 'subscription.action_required'
+  | 'setup.address.resolve'
+  | 'setup.profile.complete'
+  | 'program.publish_first'
+  | 'program.publish_draft'
+  | 'campaign.create_first'
+  | 'campaign.publish_draft'
+  | 'campaign.resume_paused'
+  | 'campaign.next_scheduled'
+  | 'retention.reengage_inactive'
+  | 'growth.near_reward'
+  | 'team.pending_invitations'
+  | 'subscription.quota_near';
+
 export type BusinessRecommendation = {
-  stableId: string;
+  stableId: RecommendationStableId;
   category: RecommendationCategory;
   priority: RecommendationPriority;
   placement: 'primary' | 'secondary';
@@ -43,7 +58,23 @@ export type BusinessRecommendation = {
   entityId?: string;
   count?: number;
   tone: RecommendationTone;
+  guideId: RecommendationGuideId;
 };
+
+export type RecommendationGuideId =
+  | 'subscription-recover'
+  | 'address-resolve'
+  | 'profile-complete'
+  | 'program-create'
+  | 'program-publish'
+  | 'campaign-create'
+  | 'campaign-publish'
+  | 'campaign-resume'
+  | 'campaign-schedule-review'
+  | 'inactive-review'
+  | 'near-reward'
+  | 'team-pending'
+  | 'quota-review';
 
 type KnownFact<T> = {
   state: 'known';
@@ -134,6 +165,25 @@ type Candidate = Omit<BusinessRecommendation, 'placement'> & {
   secondaryOnly?: boolean;
 };
 
+export const RECOMMENDATION_GUIDE_IDS: Record<
+  RecommendationStableId,
+  RecommendationGuideId
+> = {
+  'subscription.action_required': 'subscription-recover',
+  'setup.address.resolve': 'address-resolve',
+  'setup.profile.complete': 'profile-complete',
+  'program.publish_first': 'program-create',
+  'program.publish_draft': 'program-publish',
+  'campaign.create_first': 'campaign-create',
+  'campaign.publish_draft': 'campaign-publish',
+  'campaign.resume_paused': 'campaign-resume',
+  'campaign.next_scheduled': 'campaign-schedule-review',
+  'retention.reengage_inactive': 'inactive-review',
+  'growth.near_reward': 'near-reward',
+  'team.pending_invitations': 'team-pending',
+  'subscription.quota_near': 'quota-review',
+};
+
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_MEANINGFUL_SEGMENT_COUNT = 1;
 const ADDRESS_FIELD_ID = 'address';
@@ -158,6 +208,119 @@ function isKnown<T>(fact: Fact<T>): fact is KnownFact<T> {
   return fact.state === 'known';
 }
 
+export type RecommendationAccessDecision =
+  | { state: 'allowed' }
+  | {
+      state: 'restricted';
+      reasonCode: 'CAPABILITY_REQUIRED' | 'ENTITLEMENT_REQUIRED';
+    }
+  | { state: 'unavailable'; reasonCode: 'FACT_UNAVAILABLE' };
+
+function unavailableFactDecision(
+  fact: Fact<unknown>
+): RecommendationAccessDecision | null {
+  if (fact.state === 'restricted') {
+    return { state: 'restricted', reasonCode: 'CAPABILITY_REQUIRED' };
+  }
+  if (fact.state === 'unknown') {
+    return { state: 'unavailable', reasonCode: 'FACT_UNAVAILABLE' };
+  }
+  return null;
+}
+
+export function getRecommendationAccessDecision(
+  input: RecommendationCatalogInput,
+  stableId: RecommendationStableId
+): RecommendationAccessDecision {
+  const { capabilities } = input.actor;
+  const { facts } = input;
+  let hasRequiredCapabilities = false;
+  let requiredFacts: Fact<unknown>[] = [];
+
+  switch (stableId) {
+    case 'subscription.action_required':
+      hasRequiredCapabilities = capabilities.manageSubscription;
+      requiredFacts = [facts.subscription];
+      break;
+    case 'subscription.quota_near':
+      hasRequiredCapabilities = capabilities.manageSubscription;
+      requiredFacts = [facts.campaignQuota];
+      break;
+    case 'setup.address.resolve':
+      hasRequiredCapabilities = capabilities.editBusinessProfile;
+      requiredFacts = [facts.address];
+      break;
+    case 'setup.profile.complete':
+      hasRequiredCapabilities = capabilities.editBusinessProfile;
+      requiredFacts = [facts.businessProfile];
+      break;
+    case 'program.publish_first':
+    case 'program.publish_draft':
+      hasRequiredCapabilities = capabilities.editLoyaltyCards;
+      requiredFacts = [facts.programs];
+      break;
+    case 'campaign.create_first':
+      hasRequiredCapabilities =
+        capabilities.accessCampaigns && capabilities.createCampaigns;
+      requiredFacts = [facts.campaigns, facts.customers];
+      break;
+    case 'campaign.publish_draft':
+      hasRequiredCapabilities =
+        capabilities.accessCampaigns &&
+        capabilities.editCampaigns &&
+        capabilities.activateSendCampaigns;
+      requiredFacts = [facts.campaigns];
+      break;
+    case 'campaign.resume_paused':
+      hasRequiredCapabilities =
+        capabilities.accessCampaigns &&
+        capabilities.activateSendCampaigns;
+      requiredFacts = [facts.campaigns];
+      break;
+    case 'campaign.next_scheduled':
+      hasRequiredCapabilities = capabilities.accessCampaigns;
+      requiredFacts = [facts.campaigns];
+      break;
+    case 'retention.reengage_inactive':
+      hasRequiredCapabilities = capabilities.accessCustomers;
+      requiredFacts = [facts.customerLifecycleSegments.inactive];
+      break;
+    case 'growth.near_reward':
+      hasRequiredCapabilities = capabilities.accessCustomers;
+      requiredFacts = [facts.customerLifecycleSegments.nearReward];
+      break;
+    case 'team.pending_invitations':
+      hasRequiredCapabilities = capabilities.manageTeam;
+      requiredFacts = [facts.team];
+      break;
+  }
+
+  if (!hasRequiredCapabilities) {
+    return { state: 'restricted', reasonCode: 'CAPABILITY_REQUIRED' };
+  }
+  for (const fact of requiredFacts) {
+    const unavailable = unavailableFactDecision(fact);
+    if (unavailable) {
+      return unavailable;
+    }
+  }
+  if (
+    stableId === 'campaign.create_first' &&
+    isKnown(facts.campaignQuota) &&
+    facts.campaignQuota.value.isAtOrAboveLimit
+  ) {
+    return { state: 'restricted', reasonCode: 'ENTITLEMENT_REQUIRED' };
+  }
+  return { state: 'allowed' };
+}
+
+function hasRecommendationAccess(
+  input: RecommendationCatalogInput,
+  stableId: RecommendationStableId
+) {
+  return getRecommendationAccessDecision(input, stableId).state === 'allowed';
+}
+
 function safeCount(value: number) {
   return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
@@ -172,16 +335,23 @@ function buildEvidenceFingerprint(parts: Array<string | number | boolean>) {
   return `rec_v1_${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
+export function buildRecommendationEvidenceFingerprint(
+  stableId: RecommendationStableId,
+  ...safeParts: Array<string | number | boolean>
+) {
+  return buildEvidenceFingerprint([stableId, ...safeParts]);
+}
+
 function evidence(
-  stableId: string,
+  stableId: RecommendationStableId,
   observedAt: number,
   ...safeParts: Array<string | number | boolean>
 ) {
   return {
-    evidenceFingerprint: buildEvidenceFingerprint([
+    evidenceFingerprint: buildRecommendationEvidenceFingerprint(
       stableId,
       ...safeParts,
-    ]),
+    ),
     evidenceObservedAt: observedAt,
   };
 }
@@ -197,10 +367,13 @@ function compareCandidates(left: Candidate, right: Candidate) {
 
 function addCandidate(
   candidates: Map<string, Candidate>,
-  candidate: Candidate
+  candidate: Omit<Candidate, 'guideId'>
 ) {
   if (!candidates.has(candidate.stableId)) {
-    candidates.set(candidate.stableId, candidate);
+    const guideId = RECOMMENDATION_GUIDE_IDS[candidate.stableId];
+    if (guideId) {
+      candidates.set(candidate.stableId, { ...candidate, guideId });
+    }
   }
 }
 
@@ -216,15 +389,18 @@ function withPlacement(
 }
 
 export function buildBusinessRecommendationCatalog(
-  input: RecommendationCatalogInput
+  input: RecommendationCatalogInput,
+  options?: {
+    suppressEvidence?: ReadonlySet<string>;
+    includeAllEligible?: boolean;
+  }
 ) {
   const candidates = new Map<string, Candidate>();
-  const { capabilities } = input.actor;
   const { facts } = input;
 
   if (
     isKnown(facts.subscription) &&
-    capabilities.manageSubscription &&
+    hasRecommendationAccess(input, 'subscription.action_required') &&
     (facts.subscription.value.status === 'past_due' ||
       facts.subscription.value.status === 'canceled' ||
       facts.subscription.value.status === 'inactive')
@@ -250,7 +426,7 @@ export function buildBusinessRecommendationCatalog(
   if (
     isKnown(facts.address) &&
     !facts.address.value.isComplete &&
-    capabilities.editBusinessProfile
+    hasRecommendationAccess(input, 'setup.address.resolve')
   ) {
     addCandidate(candidates, {
       stableId: 'setup.address.resolve',
@@ -273,7 +449,7 @@ export function buildBusinessRecommendationCatalog(
   if (
     isKnown(facts.businessProfile) &&
     !facts.businessProfile.value.isComplete &&
-    capabilities.editBusinessProfile
+    hasRecommendationAccess(input, 'setup.profile.complete')
   ) {
     const remainingMissingFields =
       facts.businessProfile.value.missingFieldIds.filter(
@@ -316,7 +492,7 @@ export function buildBusinessRecommendationCatalog(
   if (
     programs &&
     !hasActiveProgram &&
-    capabilities.editLoyaltyCards
+    hasRecommendationAccess(input, 'program.publish_first')
   ) {
     const draftCount = safeCount(programs.value.draftCount);
     const firstDraftProgramId = programs.value.firstDraftProgramId;
@@ -369,10 +545,7 @@ export function buildBusinessRecommendationCatalog(
   const quota = isKnown(facts.campaignQuota)
     ? facts.campaignQuota
     : null;
-  const quotaIsKnownBlocked =
-    quota?.value.isAtOrAboveLimit === true;
-
-  if (hasActiveProgram && campaigns && capabilities.accessCampaigns) {
+  if (hasActiveProgram && campaigns) {
     const hasScheduledOrRecurringPosture =
       safeCount(campaigns.value.scheduledCount) > 0 ||
       safeCount(campaigns.value.recurringCount) > 0;
@@ -381,6 +554,7 @@ export function buildBusinessRecommendationCatalog(
       const nextScheduled = campaigns.value.nextScheduled;
       if (
         nextScheduled &&
+        hasRecommendationAccess(input, 'campaign.next_scheduled') &&
         Number.isFinite(nextScheduled.timestamp) &&
         nextScheduled.timestamp > input.generatedAt &&
         nextScheduled.timestamp <= input.generatedAt + SEVEN_DAYS_MS
@@ -412,7 +586,7 @@ export function buildBusinessRecommendationCatalog(
     } else if (
       safeCount(campaigns.value.pausedCount) > 0 &&
       campaigns.value.firstPausedCampaignId != null &&
-      capabilities.activateSendCampaigns
+      hasRecommendationAccess(input, 'campaign.resume_paused')
     ) {
       const campaignId = String(campaigns.value.firstPausedCampaignId);
       addCandidate(candidates, {
@@ -438,8 +612,7 @@ export function buildBusinessRecommendationCatalog(
     } else if (
       safeCount(campaigns.value.draftCount) > 0 &&
       campaigns.value.firstDraftCampaignId != null &&
-      capabilities.editCampaigns &&
-      capabilities.activateSendCampaigns
+      hasRecommendationAccess(input, 'campaign.publish_draft')
     ) {
       const draftCount = safeCount(campaigns.value.draftCount);
       const campaignId = String(campaigns.value.firstDraftCampaignId);
@@ -471,8 +644,7 @@ export function buildBusinessRecommendationCatalog(
       safeCount(campaigns.value.inconsistentCount) === 0 &&
       isKnown(facts.customers) &&
       safeCount(facts.customers.value.uniqueActiveCustomerCount) > 0 &&
-      capabilities.createCampaigns &&
-      !quotaIsKnownBlocked
+      hasRecommendationAccess(input, 'campaign.create_first')
     ) {
       addCandidate(candidates, {
         stableId: 'campaign.create_first',
@@ -495,10 +667,11 @@ export function buildBusinessRecommendationCatalog(
     }
   }
 
-  if (hasActiveProgram && capabilities.accessCustomers) {
+  if (hasActiveProgram) {
     const inactive = facts.customerLifecycleSegments.inactive;
     if (
       isKnown(inactive) &&
+      hasRecommendationAccess(input, 'retention.reengage_inactive') &&
       safeCount(inactive.value.count) >= MIN_MEANINGFUL_SEGMENT_COUNT
     ) {
       const count = safeCount(inactive.value.count);
@@ -528,6 +701,7 @@ export function buildBusinessRecommendationCatalog(
     const nearReward = facts.customerLifecycleSegments.nearReward;
     if (
       isKnown(nearReward) &&
+      hasRecommendationAccess(input, 'growth.near_reward') &&
       safeCount(nearReward.value.count) >= MIN_MEANINGFUL_SEGMENT_COUNT
     ) {
       const count = safeCount(nearReward.value.count);
@@ -558,7 +732,7 @@ export function buildBusinessRecommendationCatalog(
 
   if (
     isKnown(facts.team) &&
-    capabilities.manageTeam &&
+    hasRecommendationAccess(input, 'team.pending_invitations') &&
     safeCount(facts.team.value.unexpiredPendingInvitationCount) > 0
   ) {
     const count = safeCount(
@@ -589,7 +763,7 @@ export function buildBusinessRecommendationCatalog(
 
   if (
     quota &&
-    capabilities.manageSubscription &&
+    hasRecommendationAccess(input, 'subscription.quota_near') &&
     Number.isFinite(quota.value.campaignDefinitionLimit) &&
     quota.value.campaignDefinitionLimit > 0
   ) {
@@ -626,7 +800,15 @@ export function buildBusinessRecommendationCatalog(
     }
   }
 
-  const ranked = [...candidates.values()].sort(compareCandidates);
+  const eligible = [...candidates.values()];
+  const ranked = eligible
+    .filter(
+      (candidate) =>
+        !options?.suppressEvidence?.has(
+          `${candidate.stableId}|${candidate.evidenceFingerprint}`
+        )
+    )
+    .sort(compareCandidates);
   const primaryIndex = ranked.findIndex(
     (candidate) => candidate.secondaryOnly !== true
   );
@@ -643,7 +825,7 @@ export function buildBusinessRecommendationCatalog(
     (candidate) => withPlacement(candidate, 'secondary')
   );
 
-  return {
+  const response = {
     schemaVersion: 1,
     businessId: input.businessId,
     generatedAt: input.generatedAt,
@@ -651,4 +833,13 @@ export function buildBusinessRecommendationCatalog(
     secondary,
     totalEligibleCount: ranked.length,
   };
+  if (options?.includeAllEligible === true) {
+    return {
+      ...response,
+      allEligible: eligible.map((candidate) =>
+        withPlacement(candidate, 'secondary')
+      ),
+    };
+  }
+  return response;
 }

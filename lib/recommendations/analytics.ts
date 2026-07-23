@@ -11,6 +11,7 @@ type AnalyticsRecommendation = {
   placement: 'primary' | 'secondary';
   action: unknown;
   evidenceFingerprint: string;
+  guideId?: string;
 };
 
 const RECOMMENDATION_ACTION_TYPES = new Set<RecommendationAction['type']>([
@@ -79,6 +80,9 @@ export function getRecommendationAnalyticsProps(
     placement: recommendation.placement,
     action_type: getSafeRecommendationActionType(recommendation.action),
     evidence_fingerprint: recommendation.evidenceFingerprint,
+    ...(recommendation.guideId
+      ? { guide_id: recommendation.guideId }
+      : {}),
   };
 }
 
@@ -107,6 +111,32 @@ export function createRecommendationShownGuard(maxEntries = 96) {
           break;
         }
         seen.delete(oldestKey);
+      }
+      return true;
+    },
+  };
+}
+
+export function createGuideOutcomeGuard(maxEntries = 96) {
+  const seen = new Set<string>();
+  return {
+    shouldTrack(input: {
+      businessId: string;
+      stableId: string;
+      evidenceFingerprint: string;
+      state: 'completed' | 'invalidated';
+    }) {
+      const key = `${input.businessId}|${input.stableId}|${input.evidenceFingerprint}|${input.state}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      while (seen.size > Math.max(1, Math.floor(maxEntries))) {
+        const oldest = seen.values().next().value;
+        if (typeof oldest !== 'string') {
+          break;
+        }
+        seen.delete(oldest);
       }
       return true;
     },

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import {
   HorizontalRankingChart,
   InsightCard,
@@ -212,6 +213,7 @@ export function CampaignsHubContent() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const guideTargetRef = useRef<View | null>(null);
   const businessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -569,7 +571,8 @@ export function CampaignsHubContent() {
           />
         </StickyScrollHeader>
 
-        <TouchableOpacity
+        <View ref={guideTargetRef} collapsable={false}>
+          <TouchableOpacity
           disabled={!canCreateCampaign}
           onPress={handleCreateCampaign}
           className={`mt-4 rounded-3xl px-4 py-4 ${
@@ -580,7 +583,8 @@ export function CampaignsHubContent() {
             <Ionicons name="add" size={20} color="#FFFFFF" />
             <Text className="text-sm font-black text-white">צור מבצע</Text>
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {!isEntitlementsLoading ? (
           <View className="mt-4 rounded-3xl border border-[#DCE7F8] bg-white p-5">
@@ -1069,6 +1073,11 @@ export function CampaignsHubContent() {
           ) : null}
         </View>
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="campaigns"
+        targetRef={guideTargetRef}
+      />
     </SafeAreaView>
   );
 }

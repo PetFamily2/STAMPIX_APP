@@ -40,6 +40,12 @@ export const ANALYTICS_EVENTS = {
   // Business recommendations
   recommendationShown: 'recommendation_shown',
   recommendationOpened: 'recommendation_opened',
+  guidedActionStarted: 'guided_action_started',
+  guidedStepCompleted: 'guided_step_completed',
+  recommendationCompleted: 'recommendation_completed',
+  recommendationDismissed: 'recommendation_dismissed',
+  recommendationSnoozed: 'recommendation_snoozed',
+  recommendationInvalidated: 'recommendation_invalidated',
 } as const;
 
 export type AnalyticsEventName =
@@ -64,4 +70,9 @@ export type RecommendationAnalyticsProps = {
   placement: 'primary' | 'secondary';
   action_type: string;
   evidence_fingerprint: string;
+  guide_id?: string;
+  route_key?: string;
+  step_index?: number;
+  step_count?: number;
+  reason_code?: string;
 };

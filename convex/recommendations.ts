@@ -1,6 +1,6 @@
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
-import { query } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { computeBusinessProfileCompletion } from './business';
 import {
   buildDashboardLifecycleCountsFromStampEvents,
@@ -16,7 +16,19 @@ import {
   classifyCampaignState,
   type CampaignProductState,
 } from './lib/campaignState';
-import { buildBusinessRecommendationCatalog } from './lib/recommendationCatalog';
+import {
+  buildBusinessRecommendationCatalog,
+  buildRecommendationEvidenceFingerprint,
+  getRecommendationAccessDecision,
+  RECOMMENDATION_GUIDE_IDS,
+} from './lib/recommendationCatalog';
+import { isRecommendationCompletionSatisfied } from './lib/recommendationGuideCompletion';
+import type {
+  BusinessRecommendation,
+  RecommendationCatalogInput,
+  RecommendationGuideId,
+  RecommendationStableId,
+} from './lib/recommendationCatalog';
 import type {
   BusinessCapability,
   BusinessCapabilityMap,
@@ -26,6 +38,119 @@ import { getRetentionThresholdsForBusiness } from './lib/customerIntelligence';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 
 const RECOMMENDATION_FACTS_SCHEMA_VERSION = 1;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const GUIDE_SESSION_TTL_MS = DAY_MS;
+
+const recommendationStableIdValidator = v.union(
+  v.literal('subscription.action_required'),
+  v.literal('setup.address.resolve'),
+  v.literal('setup.profile.complete'),
+  v.literal('program.publish_first'),
+  v.literal('program.publish_draft'),
+  v.literal('campaign.create_first'),
+  v.literal('campaign.publish_draft'),
+  v.literal('campaign.resume_paused'),
+  v.literal('campaign.next_scheduled'),
+  v.literal('retention.reengage_inactive'),
+  v.literal('growth.near_reward'),
+  v.literal('team.pending_invitations'),
+  v.literal('subscription.quota_near')
+);
+
+const recommendationGuideIdValidator = v.union(
+  v.literal('subscription-recover'),
+  v.literal('address-resolve'),
+  v.literal('profile-complete'),
+  v.literal('program-create'),
+  v.literal('program-publish'),
+  v.literal('campaign-create'),
+  v.literal('campaign-publish'),
+  v.literal('campaign-resume'),
+  v.literal('campaign-schedule-review'),
+  v.literal('inactive-review'),
+  v.literal('near-reward'),
+  v.literal('team-pending'),
+  v.literal('quota-review')
+);
+
+type InteractionState =
+  | 'dismissed'
+  | 'snoozed'
+  | 'completed'
+  | 'invalidated';
+
+type GuideStatusState = 'active' | 'completed' | 'invalidated';
+
+const SETUP_RECOMMENDATIONS = new Set<RecommendationStableId>([
+  'setup.address.resolve',
+  'setup.profile.complete',
+  'program.publish_first',
+  'program.publish_draft',
+  'campaign.create_first',
+  'campaign.publish_draft',
+]);
+const OPERATIONAL_RECOMMENDATIONS = new Set<RecommendationStableId>([
+  'subscription.action_required',
+  'campaign.resume_paused',
+  'campaign.next_scheduled',
+  'team.pending_invitations',
+]);
+const GROWTH_RECOMMENDATIONS = new Set<RecommendationStableId>([
+  'retention.reengage_inactive',
+  'growth.near_reward',
+]);
+
+export function getRecommendationInteractionPolicy(
+  stableId: RecommendationStableId,
+  action: 'dismiss' | 'snooze',
+  now: number
+) {
+  if (SETUP_RECOMMENDATIONS.has(stableId)) {
+    return {
+      hiddenUntil: now + (action === 'dismiss' ? 30 : 7) * DAY_MS,
+      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
+    } as const;
+  }
+  if (OPERATIONAL_RECOMMENDATIONS.has(stableId)) {
+    return {
+      hiddenUntil:
+        action === 'dismiss' ? undefined : now + DAY_MS,
+      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
+    } as const;
+  }
+  if (GROWTH_RECOMMENDATIONS.has(stableId)) {
+    return {
+      hiddenUntil: now + (action === 'dismiss' ? 30 : 7) * DAY_MS,
+      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
+    } as const;
+  }
+  return {
+    hiddenUntil: now + (action === 'dismiss' ? 14 : 7) * DAY_MS,
+    reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
+  } as const;
+}
+
+function publicRecommendationError(): never {
+  throw new ConvexError({
+    code: 'RECOMMENDATION_NOT_ACTIONABLE',
+  });
+}
+
+function requireValidRecommendationGuide(
+  stableId: RecommendationStableId,
+  guideId: RecommendationGuideId
+) {
+  if (RECOMMENDATION_GUIDE_IDS[stableId] !== guideId) {
+    publicRecommendationError();
+  }
+}
+
+function candidateKey(recommendation: {
+  stableId: string;
+  evidenceFingerprint: string;
+}) {
+  return `${recommendation.stableId}|${recommendation.evidenceFingerprint}`;
+}
 
 export type KnownFact<T> = {
   state: 'known';
@@ -51,6 +176,10 @@ export type RecommendationFact<T> =
 type RecommendationActorAuthorization = {
   staffRole: StaffRole;
   capabilities: BusinessCapabilityMap;
+};
+
+type RecommendationGuideAuthorization = RecommendationActorAuthorization & {
+  actor: { _id: Id<'users'> };
 };
 
 type CampaignFactRow = {
@@ -659,6 +788,870 @@ export const getBusinessRecommendationFacts = query({
   },
 });
 
+async function loadEligibleRecommendations(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  authorization: RecommendationActorAuthorization,
+  generatedAt: number
+) {
+  const facts = await loadBusinessRecommendationFacts(
+    ctx,
+    businessId,
+    authorization,
+    generatedAt
+  );
+  const catalogInput: RecommendationCatalogInput = {
+    ...facts,
+    businessId: String(facts.businessId),
+  };
+  const catalog = buildBusinessRecommendationCatalog(catalogInput, {
+    includeAllEligible: true,
+  });
+  return {
+    facts,
+    catalogInput,
+    catalog,
+    allEligible:
+      'allEligible' in catalog
+        ? (catalog.allEligible as BusinessRecommendation[])
+        : [],
+  };
+}
+
+async function loadVisibleRecommendationResponse(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  authorization: RecommendationGuideAuthorization,
+  generatedAt: number
+) {
+  const facts = await loadBusinessRecommendationFacts(
+    ctx,
+    businessId,
+    authorization,
+    generatedAt
+  );
+  const interactions = await ctx.db
+    .query('recommendationInteractions')
+    .withIndex('by_actor_business', (q: any) =>
+      q
+        .eq('actorUserId', authorization.actor._id)
+        .eq('businessId', businessId)
+    )
+    .collect();
+  const suppressEvidence = new Set<string>();
+  for (const interaction of interactions) {
+    if (
+      interaction.hiddenUntil !== undefined &&
+      interaction.hiddenUntil <= generatedAt
+    ) {
+      continue;
+    }
+    suppressEvidence.add(candidateKey(interaction));
+  }
+  return buildBusinessRecommendationCatalog(
+    {
+      ...facts,
+      businessId: String(facts.businessId),
+    },
+    { suppressEvidence }
+  );
+}
+
+async function upsertRecommendationInteraction(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    actorUserId: Id<'users'>;
+    stableId: RecommendationStableId;
+    evidenceFingerprint: string;
+    interactionState: InteractionState;
+    hiddenUntil?: number;
+    reasonCode:
+      | 'USER_DISMISSED'
+      | 'USER_SNOOZED'
+      | 'SERVER_COMPLETED'
+      | 'EVIDENCE_CHANGED'
+      | 'TARGET_MISSING'
+      | 'TARGET_INCONSISTENT'
+      | 'BUSINESS_MISMATCH'
+      | 'PERMISSION_CHANGED'
+      | 'NO_LONGER_APPLICABLE';
+    now: number;
+  }
+) {
+  const existing = await ctx.db
+    .query('recommendationInteractions')
+    .withIndex('by_actor_business_stableId_fingerprint', (q: any) =>
+      q
+        .eq('actorUserId', args.actorUserId)
+        .eq('businessId', args.businessId)
+        .eq('stableId', args.stableId)
+        .eq('evidenceFingerprint', args.evidenceFingerprint)
+    )
+    .first();
+  const values = {
+    interactionState: args.interactionState,
+    hiddenUntil: args.hiddenUntil,
+    reasonCode: args.reasonCode,
+    updatedAt: args.now,
+    completedAt:
+      args.interactionState === 'completed' ? args.now : undefined,
+    invalidatedAt:
+      args.interactionState === 'invalidated' ? args.now : undefined,
+  };
+  if (existing) {
+    await ctx.db.patch(existing._id, values);
+    return existing._id;
+  }
+  return await ctx.db.insert('recommendationInteractions', {
+    businessId: args.businessId,
+    actorUserId: args.actorUserId,
+    stableId: args.stableId,
+    evidenceFingerprint: args.evidenceFingerprint,
+    createdAt: args.now,
+    ...values,
+  });
+}
+
+async function persistUserInteraction(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    stableId: RecommendationStableId;
+    evidenceFingerprint: string;
+    action: 'dismiss' | 'snooze';
+  }
+) {
+  const authorization = await requireActorHasBusinessCapability(
+    ctx,
+    args.businessId,
+    'access_dashboard'
+  );
+  const now = Date.now();
+  const { allEligible } = await loadEligibleRecommendations(
+    ctx,
+    args.businessId,
+    authorization,
+    now
+  );
+  const current = allEligible.find(
+    (recommendation) =>
+      recommendation.stableId === args.stableId &&
+      recommendation.evidenceFingerprint === args.evidenceFingerprint
+  );
+  if (!current) {
+    publicRecommendationError();
+  }
+  const policy = getRecommendationInteractionPolicy(
+    args.stableId,
+    args.action,
+    now
+  );
+  await upsertRecommendationInteraction(ctx, {
+    businessId: args.businessId,
+    actorUserId: authorization.actor._id,
+    stableId: args.stableId,
+    evidenceFingerprint: args.evidenceFingerprint,
+    interactionState:
+      args.action === 'dismiss' ? 'dismissed' : 'snoozed',
+    hiddenUntil: policy.hiddenUntil,
+    reasonCode: policy.reasonCode,
+    now,
+  });
+  return {
+    ok: true as const,
+    reasonCode: policy.reasonCode,
+    hiddenUntil: policy.hiddenUntil ?? null,
+  };
+}
+
+export const dismissBusinessRecommendation = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    stableId: recommendationStableIdValidator,
+    evidenceFingerprint: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await persistUserInteraction(ctx, { ...args, action: 'dismiss' }),
+});
+
+export const snoozeBusinessRecommendation = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    stableId: recommendationStableIdValidator,
+    evidenceFingerprint: v.string(),
+  },
+  handler: async (ctx, args) =>
+    await persistUserInteraction(ctx, { ...args, action: 'snooze' }),
+});
+
+type RecommendationGuideEntityKind = 'program' | 'campaign';
+
+function getRecommendationGuideEntityKind(
+  stableId: RecommendationStableId
+): RecommendationGuideEntityKind | undefined {
+  if (stableId === 'program.publish_draft') {
+    return 'program';
+  }
+  if (
+    stableId === 'campaign.publish_draft' ||
+    stableId === 'campaign.resume_paused' ||
+    stableId === 'campaign.next_scheduled'
+  ) {
+    return 'campaign';
+  }
+  return undefined;
+}
+
+function deriveServerRecommendationEntityBinding(
+  recommendation: BusinessRecommendation
+) {
+  const entityKind = getRecommendationGuideEntityKind(
+    recommendation.stableId
+  );
+  if (!entityKind) {
+    return {};
+  }
+  const entityId =
+    typeof recommendation.entityId === 'string'
+      ? recommendation.entityId.trim()
+      : '';
+  if (!entityId) {
+    publicRecommendationError();
+  }
+  if (
+    (entityKind === 'program' &&
+      (recommendation.action.type !== 'open_program' ||
+        String(recommendation.action.programId) !== entityId)) ||
+    (entityKind === 'campaign' &&
+      (recommendation.action.type !== 'open_campaign' ||
+        String(recommendation.action.campaignId) !== entityId))
+  ) {
+    publicRecommendationError();
+  }
+  return { entityId, entityKind };
+}
+
+function publicGuideSessionResult(session: {
+  _id: Id<'recommendationGuideSessions'>;
+  businessId: Id<'businesses'>;
+  stableId: RecommendationStableId;
+  guideId: RecommendationGuideId;
+  evidenceFingerprint: string;
+  entityId?: string;
+  expiresAt: number;
+}) {
+  return {
+    guideSessionId: session._id,
+    businessId: session.businessId,
+    stableId: session.stableId,
+    guideId: session.guideId,
+    evidenceFingerprint: session.evidenceFingerprint,
+    ...(session.entityId ? { entityId: session.entityId } : {}),
+    expiresAt: session.expiresAt,
+  };
+}
+
+export const startBusinessRecommendationGuide = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    stableId: recommendationStableIdValidator,
+    guideId: recommendationGuideIdValidator,
+  },
+  handler: async (ctx, args) => {
+    const authorization = await requireActorHasBusinessCapability(
+      ctx,
+      args.businessId,
+      'access_dashboard'
+    );
+    requireValidRecommendationGuide(args.stableId, args.guideId);
+    const now = Date.now();
+    const response = await loadVisibleRecommendationResponse(
+      ctx,
+      args.businessId,
+      authorization,
+      now
+    );
+    const recommendation = [response.primary, ...response.secondary].find(
+      (candidate) =>
+        candidate?.stableId === args.stableId &&
+        candidate.guideId === args.guideId
+    );
+    if (!recommendation) {
+      publicRecommendationError();
+    }
+    const entityBinding =
+      deriveServerRecommendationEntityBinding(recommendation);
+    const sessions = await ctx.db
+      .query('recommendationGuideSessions')
+      .withIndex('by_actor_business_stableId', (q: any) =>
+        q
+          .eq('actorUserId', authorization.actor._id)
+          .eq('businessId', args.businessId)
+          .eq('stableId', args.stableId)
+      )
+      .collect();
+    const reusable = sessions.find(
+      (session: any) =>
+        session.expiresAt > now &&
+        session.guideId === args.guideId &&
+        session.evidenceFingerprint ===
+          recommendation.evidenceFingerprint &&
+        (session.entityId ?? undefined) ===
+          (entityBinding.entityId ?? undefined) &&
+        (session.entityKind ?? undefined) ===
+          (entityBinding.entityKind ?? undefined)
+    );
+    if (reusable) {
+      return publicGuideSessionResult(reusable);
+    }
+    const expiresAt = now + GUIDE_SESSION_TTL_MS;
+    const guideSessionId = await ctx.db.insert(
+      'recommendationGuideSessions',
+      {
+        businessId: args.businessId,
+        actorUserId: authorization.actor._id,
+        stableId: recommendation.stableId,
+        guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
+        ...entityBinding,
+        issuedAt: now,
+        expiresAt,
+      }
+    );
+    return publicGuideSessionResult({
+      _id: guideSessionId,
+      businessId: args.businessId,
+      stableId: recommendation.stableId,
+      guideId: recommendation.guideId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
+      ...entityBinding,
+      expiresAt,
+    });
+  },
+});
+
+async function loadBoundProgram(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  entityId?: string
+) {
+  if (!entityId) {
+    return { state: 'missing' as const };
+  }
+  const programId = ctx.db.normalizeId('loyaltyPrograms', entityId);
+  if (!programId) {
+    return { state: 'missing' as const };
+  }
+  const program = await ctx.db.get(programId);
+  if (!program) {
+    return { state: 'missing' as const };
+  }
+  if (String(program.businessId) !== String(businessId)) {
+    return { state: 'foreign' as const };
+  }
+  return { state: 'valid' as const, value: program };
+}
+
+async function loadBoundCampaign(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  entityId?: string
+) {
+  if (!entityId) {
+    return { state: 'missing' as const };
+  }
+  const campaignId = ctx.db.normalizeId('campaigns', entityId);
+  if (!campaignId) {
+    return { state: 'missing' as const };
+  }
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign) {
+    return { state: 'missing' as const };
+  }
+  if (String(campaign.businessId) !== String(businessId)) {
+    return { state: 'foreign' as const };
+  }
+  return { state: 'valid' as const, value: campaign };
+}
+
+type GuideEvaluation =
+  | {
+      state: GuideStatusState;
+      reasonCode:
+        | 'ACTIONABLE'
+        | 'SERVER_COMPLETED'
+        | 'EVIDENCE_CHANGED'
+        | 'TARGET_MISSING'
+        | 'TARGET_INCONSISTENT'
+        | 'BUSINESS_MISMATCH'
+        | 'NO_LONGER_APPLICABLE';
+      observedAt: number;
+    }
+  | {
+      state: 'restricted';
+      reasonCode: 'PERMISSION_CHANGED';
+      observedAt: number;
+    };
+
+type SessionBackedGuideArgs = {
+  guideSessionId: Id<'recommendationGuideSessions'>;
+  businessId: Id<'businesses'>;
+  stableId?: RecommendationStableId;
+  guideId?: RecommendationGuideId;
+  evidenceFingerprint?: string;
+  entityId?: string;
+};
+
+type ValidatedGuideSession = {
+  session: {
+    _id: Id<'recommendationGuideSessions'>;
+    businessId: Id<'businesses'>;
+    actorUserId: Id<'users'>;
+    stableId: RecommendationStableId;
+    guideId: RecommendationGuideId;
+    evidenceFingerprint: string;
+    entityId?: string;
+    entityKind?: RecommendationGuideEntityKind;
+    issuedAt: number;
+    expiresAt: number;
+  };
+  exactEntity?:
+    | { kind: 'program'; value: any }
+    | { kind: 'campaign'; value: any };
+  entityEvaluation?: GuideEvaluation;
+};
+
+function optionalBindingConflicts(
+  supplied: string | undefined,
+  authoritative: string | undefined
+) {
+  return supplied !== undefined && supplied !== authoritative;
+}
+
+async function loadValidatedGuideSession(
+  ctx: any,
+  args: SessionBackedGuideArgs,
+  authorization: RecommendationGuideAuthorization,
+  now: number
+): Promise<ValidatedGuideSession> {
+  const rawSession = await ctx.db.get(args.guideSessionId);
+  if (
+    !rawSession ||
+    String(rawSession._id) !== String(args.guideSessionId) ||
+    String(rawSession.actorUserId) !== String(authorization.actor._id) ||
+    String(rawSession.businessId) !== String(args.businessId) ||
+    !Number.isFinite(rawSession.expiresAt) ||
+    rawSession.expiresAt <= now
+  ) {
+    publicRecommendationError();
+  }
+  const session = rawSession as ValidatedGuideSession['session'];
+  requireValidRecommendationGuide(session.stableId, session.guideId);
+  if (
+    optionalBindingConflicts(args.stableId, session.stableId) ||
+    optionalBindingConflicts(args.guideId, session.guideId) ||
+    optionalBindingConflicts(
+      args.evidenceFingerprint,
+      session.evidenceFingerprint
+    ) ||
+    optionalBindingConflicts(args.entityId, session.entityId)
+  ) {
+    publicRecommendationError();
+  }
+  const expectedEntityKind = getRecommendationGuideEntityKind(
+    session.stableId
+  );
+  if (!expectedEntityKind) {
+    if (session.entityId !== undefined || session.entityKind !== undefined) {
+      publicRecommendationError();
+    }
+    return { session };
+  }
+  if (session.entityKind !== expectedEntityKind) {
+    publicRecommendationError();
+  }
+  if (typeof session.entityId !== 'string' || !session.entityId.trim()) {
+    return {
+      session,
+      entityEvaluation: {
+        state: 'invalidated',
+        reasonCode: 'TARGET_MISSING',
+        observedAt: now,
+      },
+    };
+  }
+  const loaded =
+    expectedEntityKind === 'program'
+      ? await loadBoundProgram(ctx, args.businessId, session.entityId)
+      : await loadBoundCampaign(ctx, args.businessId, session.entityId);
+  if (loaded.state === 'missing') {
+    return {
+      session,
+      entityEvaluation: {
+        state: 'invalidated',
+        reasonCode: 'TARGET_MISSING',
+        observedAt: now,
+      },
+    };
+  }
+  if (loaded.state === 'foreign') {
+    return {
+      session,
+      entityEvaluation: {
+        state: 'invalidated',
+        reasonCode: 'BUSINESS_MISMATCH',
+        observedAt: now,
+      },
+    };
+  }
+  return {
+    session,
+    exactEntity: {
+      kind: expectedEntityKind,
+      value: loaded.value,
+    } as ValidatedGuideSession['exactEntity'],
+  };
+}
+
+async function evaluateRecommendationGuide(
+  ctx: any,
+  binding: ValidatedGuideSession,
+  authorization: RecommendationActorAuthorization,
+  now: number
+): Promise<GuideEvaluation> {
+  if (binding.entityEvaluation) {
+    return binding.entityEvaluation;
+  }
+  const args = binding.session;
+  const {
+    facts,
+    catalogInput,
+    allEligible,
+  } = await loadEligibleRecommendations(
+    ctx,
+    args.businessId,
+    authorization,
+    now
+  );
+  const access = getRecommendationAccessDecision(
+    catalogInput,
+    args.stableId
+  );
+  if (access.state === 'restricted') {
+    return {
+      state: 'restricted',
+      reasonCode: 'PERMISSION_CHANGED',
+      observedAt: now,
+    };
+  }
+  const currentForStableId = allEligible.find(
+    (recommendation) => recommendation.stableId === args.stableId
+  );
+  if (
+    currentForStableId?.evidenceFingerprint === args.evidenceFingerprint
+  ) {
+    const expectedEntityKind = getRecommendationGuideEntityKind(
+      args.stableId
+    );
+    if (
+      expectedEntityKind &&
+      String(currentForStableId.entityId ?? '') !==
+        String(args.entityId ?? '')
+    ) {
+      return {
+        state: 'invalidated',
+        reasonCode: 'TARGET_INCONSISTENT',
+        observedAt: now,
+      };
+    }
+    return { state: 'active', reasonCode: 'ACTIONABLE', observedAt: now };
+  }
+
+  const values = facts.facts;
+  const completionSnapshot = {
+    subscriptionStatus:
+      values.subscription.state === 'known'
+        ? values.subscription.value.status
+        : undefined,
+    addressComplete:
+      values.address.state === 'known'
+        ? values.address.value.isComplete
+        : undefined,
+    profileComplete:
+      values.businessProfile.state === 'known'
+        ? values.businessProfile.value.isComplete
+        : undefined,
+    activeProgramCount:
+      values.programs.state === 'known'
+        ? values.programs.value.activeCount
+        : undefined,
+    totalNonarchivedCampaigns:
+      values.campaigns.state === 'known'
+        ? values.campaigns.value.totalNonarchivedCampaigns
+        : undefined,
+    inactiveCustomerCount:
+      values.customerLifecycleSegments.inactive.state === 'known'
+        ? values.customerLifecycleSegments.inactive.value.count
+        : undefined,
+    nearRewardCustomerCount:
+      values.customerLifecycleSegments.nearReward.state === 'known'
+        ? values.customerLifecycleSegments.nearReward.value.count
+        : undefined,
+    pendingInvitationCount:
+      values.team.state === 'known'
+        ? values.team.value.unexpiredPendingInvitationCount
+        : undefined,
+    campaignQuotaUsage:
+      values.campaignQuota.state === 'known'
+        ? values.campaignQuota.value.campaignDefinitionUsage
+        : undefined,
+    campaignQuotaLimit:
+      values.campaignQuota.state === 'known'
+        ? values.campaignQuota.value.campaignDefinitionLimit
+        : undefined,
+  };
+  if (
+    isRecommendationCompletionSatisfied(
+      args.stableId,
+      completionSnapshot
+    )
+  ) {
+    return {
+      state: 'completed',
+      reasonCode: 'SERVER_COMPLETED',
+      observedAt: now,
+    };
+  }
+  switch (args.stableId) {
+    case 'subscription.action_required':
+    case 'setup.address.resolve':
+    case 'setup.profile.complete':
+    case 'program.publish_first':
+    case 'campaign.create_first':
+    case 'retention.reengage_inactive':
+    case 'growth.near_reward':
+    case 'team.pending_invitations':
+    case 'subscription.quota_near':
+      break;
+    case 'program.publish_draft': {
+      if (binding.exactEntity?.kind !== 'program') {
+        return {
+          state: 'invalidated',
+          reasonCode: 'TARGET_MISSING',
+          observedAt: now,
+        };
+      }
+      const program = binding.exactEntity.value;
+      const programLifecycle = resolveProgramLifecycle(program);
+      if (
+        program.isActive === true &&
+        program.isArchived !== true &&
+        programLifecycle === 'active'
+      ) {
+        return {
+          state: 'completed',
+          reasonCode: 'SERVER_COMPLETED',
+          observedAt: now,
+        };
+      }
+      return {
+        state: 'invalidated',
+        reasonCode: 'TARGET_INCONSISTENT',
+        observedAt: now,
+      };
+    }
+    case 'campaign.publish_draft':
+    case 'campaign.resume_paused':
+    case 'campaign.next_scheduled': {
+      if (binding.exactEntity?.kind !== 'campaign') {
+        return {
+          state: 'invalidated',
+          reasonCode: 'TARGET_MISSING',
+          observedAt: now,
+        };
+      }
+      const campaign = binding.exactEntity.value;
+      const run = await ctx.db
+        .query('campaignRuns')
+        .withIndex('by_campaignId', (q: any) =>
+          q.eq('campaignId', campaign._id)
+        )
+        .first();
+      const campaignClassification = classifyCampaignState(campaign, {
+        now,
+        hasPersistedCompletionEvidence: Boolean(run),
+      });
+      const state = campaignClassification.state;
+      const exactScheduledFingerprint =
+        args.stableId === 'campaign.next_scheduled' &&
+        state === 'scheduled' &&
+        typeof campaignClassification.scheduledAt === 'number'
+          ? buildRecommendationEvidenceFingerprint(
+              'campaign.next_scheduled',
+              facts.schemaVersion,
+              campaignClassification.sourceVersion,
+              String(campaign._id),
+              campaignClassification.scheduledAt
+            )
+          : null;
+      if (
+        args.stableId === 'campaign.next_scheduled' &&
+        exactScheduledFingerprint === args.evidenceFingerprint
+      ) {
+        return {
+          state: 'active',
+          reasonCode: 'ACTIONABLE',
+          observedAt: now,
+        };
+      }
+      const scheduledEvidenceChanged =
+        args.stableId === 'campaign.next_scheduled' &&
+        exactScheduledFingerprint !== null &&
+        exactScheduledFingerprint !== args.evidenceFingerprint;
+      if (
+        isRecommendationCompletionSatisfied(args.stableId, {
+          campaignLifecycle: state,
+          scheduledEvidenceChanged,
+        })
+      ) {
+        return {
+          state: 'completed',
+          reasonCode: scheduledEvidenceChanged
+            ? 'EVIDENCE_CHANGED'
+            : 'SERVER_COMPLETED',
+          observedAt: now,
+        };
+      }
+      if (state === 'inconsistent') {
+        return {
+          state: 'invalidated',
+          reasonCode: 'TARGET_INCONSISTENT',
+          observedAt: now,
+        };
+      }
+      break;
+    }
+  }
+  return {
+    state: 'invalidated',
+    reasonCode:
+      currentForStableId &&
+      currentForStableId.evidenceFingerprint !== args.evidenceFingerprint
+        ? 'EVIDENCE_CHANGED'
+        : 'NO_LONGER_APPLICABLE',
+    observedAt: now,
+  };
+}
+
+export const getBusinessRecommendationGuideStatus = query({
+  args: {
+    guideSessionId: v.id('recommendationGuideSessions'),
+    businessId: v.id('businesses'),
+    stableId: v.optional(recommendationStableIdValidator),
+    guideId: v.optional(recommendationGuideIdValidator),
+    evidenceFingerprint: v.optional(v.string()),
+    entityId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const authorization = await requireActorHasBusinessCapability(
+      ctx,
+      args.businessId,
+      'access_dashboard'
+    );
+    const binding = await loadValidatedGuideSession(
+      ctx,
+      args,
+      authorization,
+      now
+    );
+    try {
+      return await evaluateRecommendationGuide(
+        ctx,
+        binding,
+        authorization,
+        now
+      );
+    } catch {
+      return {
+        state: 'invalidated' as const,
+        reasonCode: 'NO_LONGER_APPLICABLE' as const,
+        observedAt: now,
+      };
+    }
+  },
+});
+
+export const acknowledgeBusinessRecommendationGuideStatus = mutation({
+  args: {
+    guideSessionId: v.id('recommendationGuideSessions'),
+    businessId: v.id('businesses'),
+    stableId: v.optional(recommendationStableIdValidator),
+    guideId: v.optional(recommendationGuideIdValidator),
+    evidenceFingerprint: v.optional(v.string()),
+    entityId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const authorization = await requireActorHasBusinessCapability(
+      ctx,
+      args.businessId,
+      'access_dashboard'
+    );
+    const now = Date.now();
+    const binding = await loadValidatedGuideSession(
+      ctx,
+      args,
+      authorization,
+      now
+    );
+    let evaluation: GuideEvaluation;
+    try {
+      evaluation = await evaluateRecommendationGuide(
+        ctx,
+        binding,
+        authorization,
+        now
+      );
+    } catch {
+      publicRecommendationError();
+    }
+    if (
+      evaluation.state !== 'completed' &&
+      evaluation.state !== 'invalidated'
+    ) {
+      publicRecommendationError();
+    }
+    const reasonCode =
+      evaluation.reasonCode === 'SERVER_COMPLETED'
+        ? 'SERVER_COMPLETED'
+        : evaluation.reasonCode === 'EVIDENCE_CHANGED'
+          ? 'EVIDENCE_CHANGED'
+          : evaluation.reasonCode === 'TARGET_MISSING'
+            ? 'TARGET_MISSING'
+            : evaluation.reasonCode === 'TARGET_INCONSISTENT'
+              ? 'TARGET_INCONSISTENT'
+              : evaluation.reasonCode === 'BUSINESS_MISMATCH'
+                ? 'BUSINESS_MISMATCH'
+                : 'NO_LONGER_APPLICABLE';
+    await upsertRecommendationInteraction(ctx, {
+      businessId: binding.session.businessId,
+      actorUserId: authorization.actor._id,
+      stableId: binding.session.stableId,
+      evidenceFingerprint: binding.session.evidenceFingerprint,
+      interactionState: evaluation.state,
+      reasonCode,
+      now,
+    });
+    return {
+      ok: true as const,
+      state: evaluation.state,
+      reasonCode,
+      acknowledgedAt: now,
+    };
+  },
+});
+
 export const getBusinessRecommendations = query({
   args: {
     businessId: v.id('businesses'),
@@ -670,16 +1663,11 @@ export const getBusinessRecommendations = query({
       'access_dashboard'
     );
     const generatedAt = Date.now();
-    const facts = await loadBusinessRecommendationFacts(
+    return await loadVisibleRecommendationResponse(
       ctx,
       businessId,
       authorization,
       generatedAt
     );
-
-    return buildBusinessRecommendationCatalog({
-      ...facts,
-      businessId: String(facts.businessId),
-    });
   },
 });

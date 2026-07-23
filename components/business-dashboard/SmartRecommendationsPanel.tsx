@@ -11,6 +11,10 @@ import {
   type DashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import type { RecommendationAction } from '@/lib/recommendations/navigation';
+import type {
+  RecommendationGuideId,
+  RecommendationStableId,
+} from '@/lib/recommendations/guidance';
 import {
   flexDirection,
   rtlBaseView,
@@ -19,7 +23,7 @@ import {
 } from '@/lib/rtl';
 
 export type DashboardRecommendation = {
-  stableId: string;
+  stableId: RecommendationStableId;
   category: RecommendationCategory;
   priority: number;
   placement: 'primary' | 'secondary';
@@ -32,6 +36,7 @@ export type DashboardRecommendation = {
   entityId?: string;
   count?: number;
   tone: RecommendationTone;
+  guideId: RecommendationGuideId;
 };
 
 export function SmartRecommendationsPanel({
@@ -40,7 +45,9 @@ export function SmartRecommendationsPanel({
   primary,
   secondary,
   loadingRecommendationId,
+  interactionLoadingKey,
   onOpen,
+  onShowOptions,
   onRetry,
 }: {
   layoutMode: DashboardLayoutMode;
@@ -48,7 +55,9 @@ export function SmartRecommendationsPanel({
   primary: DashboardRecommendation | null;
   secondary: DashboardRecommendation[];
   loadingRecommendationId?: string | null;
+  interactionLoadingKey?: string | null;
   onOpen: (recommendation: DashboardRecommendation) => void;
+  onShowOptions?: (recommendation: DashboardRecommendation) => void;
   onRetry?: () => void;
 }) {
   if (status === 'loading') {
@@ -122,7 +131,14 @@ export function SmartRecommendationsPanel({
             ctaLabel={primary.ctaLabel}
             emphasis="primary"
             isLoading={loadingRecommendationId === primary.stableId}
+            isInteractionLoading={
+              interactionLoadingKey ===
+              `${primary.stableId}:${primary.evidenceFingerprint}`
+            }
             onPress={() => onOpen(primary)}
+            onShowOptions={
+              onShowOptions ? () => onShowOptions(primary) : undefined
+            }
           />
         </View>
       ) : null}
@@ -146,7 +162,16 @@ export function SmartRecommendationsPanel({
               isLoading={
                 loadingRecommendationId === recommendation.stableId
               }
+              isInteractionLoading={
+                interactionLoadingKey ===
+                `${recommendation.stableId}:${recommendation.evidenceFingerprint}`
+              }
               onPress={() => onOpen(recommendation)}
+              onShowOptions={
+                onShowOptions
+                  ? () => onShowOptions(recommendation)
+                  : undefined
+              }
             />
           ))}
         </View>

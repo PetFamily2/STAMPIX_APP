@@ -1,3 +1,10 @@
+import {
+  isApprovedGuideId,
+  isApprovedRecommendationStableId,
+  recommendationRequiresExactEntity,
+  RECOMMENDATION_GUIDE_IDS,
+} from './guidance';
+
 export type RecommendationAction =
   | { type: 'open_business_address' }
   | { type: 'open_business_profile'; fieldId?: string }
@@ -43,7 +50,9 @@ export type RecommendationNavigationResult =
         | 'invalid_action_shape'
         | 'unknown_action_type'
         | 'invalid_customer_segment'
-        | 'invalid_subscription_limit_key';
+        | 'invalid_subscription_limit_key'
+        | 'invalid_guide'
+        | 'guide_entity_mismatch';
     };
 
 type RuntimeAction = Record<string, unknown>;
@@ -69,6 +78,11 @@ function hasOwn(action: RuntimeAction, key: string) {
 export function getRecommendationNavigationTarget(input: {
   businessId: string | null | undefined;
   action: unknown;
+  guideSessionId?: unknown;
+  guideId?: unknown;
+  stableId?: unknown;
+  evidenceFingerprint?: unknown;
+  entityId?: unknown;
 }): RecommendationNavigationResult {
   const businessId = requiredId(input.businessId);
   if (!businessId) {
@@ -85,7 +99,36 @@ export function getRecommendationNavigationTarget(input: {
       return { ok: false, reason: 'invalid_action' };
     }
 
-    const baseParams = { businessId };
+    const hasGuide =
+      input.guideSessionId !== undefined ||
+      input.guideId !== undefined ||
+      input.stableId !== undefined ||
+      input.evidenceFingerprint !== undefined;
+    let guideParams: Record<string, string> = {};
+    if (hasGuide) {
+      if (
+        !isApprovedGuideId(input.guideId) ||
+        !isApprovedRecommendationStableId(input.stableId) ||
+        RECOMMENDATION_GUIDE_IDS[input.stableId] !== input.guideId ||
+        !requiredId(input.guideSessionId) ||
+        !requiredId(input.evidenceFingerprint) ||
+        (recommendationRequiresExactEntity(input.stableId) &&
+          !requiredId(input.entityId))
+      ) {
+        return { ok: false, reason: 'invalid_guide' };
+      }
+      guideParams = {
+        guideSessionId: requiredId(input.guideSessionId)!,
+        guideId: input.guideId,
+        stableId: input.stableId,
+        evidenceFingerprint: requiredId(input.evidenceFingerprint)!,
+        recommendationBusinessId: businessId,
+        ...(requiredId(input.entityId)
+          ? { entityId: requiredId(input.entityId)! }
+          : {}),
+      };
+    }
+    const baseParams = { businessId, ...guideParams };
     switch (actionType) {
       case 'open_business_address':
         if (!hasOnlyKeys(input.action, ['type'])) {
@@ -141,6 +184,13 @@ export function getRecommendationNavigationTarget(input: {
         if (!programId) {
           return { ok: false, reason: 'missing_program_id' };
         }
+        if (
+          hasGuide &&
+          requiredId(input.entityId) &&
+          requiredId(input.entityId) !== programId
+        ) {
+          return { ok: false, reason: 'guide_entity_mismatch' };
+        }
         return {
           ok: true,
           target: {
@@ -167,6 +217,13 @@ export function getRecommendationNavigationTarget(input: {
         const campaignId = requiredId(input.action.campaignId);
         if (!campaignId) {
           return { ok: false, reason: 'missing_campaign_id' };
+        }
+        if (
+          hasGuide &&
+          requiredId(input.entityId) &&
+          requiredId(input.entityId) !== campaignId
+        ) {
+          return { ok: false, reason: 'guide_entity_mismatch' };
         }
         return {
           ok: true,

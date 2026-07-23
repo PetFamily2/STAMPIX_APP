@@ -108,7 +108,9 @@ export function RecommendationActionCard({
   ctaLabel,
   emphasis,
   isLoading,
+  isInteractionLoading,
   onPress,
+  onShowOptions,
 }: {
   category: RecommendationCategory;
   tone: RecommendationTone;
@@ -117,7 +119,9 @@ export function RecommendationActionCard({
   ctaLabel: string;
   emphasis: 'primary' | 'secondary';
   isLoading: boolean;
+  isInteractionLoading?: boolean;
   onPress: () => void;
+  onShowOptions?: () => void;
 }) {
   const palette = TONE_PALETTE[tone];
   const isPrimary = emphasis === 'primary';
@@ -134,6 +138,30 @@ export function RecommendationActionCard({
       ]}
     >
       <View style={styles.headingRow}>
+        {onShowOptions ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="אפשרויות להמלצה"
+            accessibilityHint="פתיחת פעולות דחייה והסתרה"
+            disabled={isInteractionLoading}
+            hitSlop={4}
+            onPress={onShowOptions}
+            style={({ pressed }) => [
+              styles.optionsButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            {isInteractionLoading ? (
+              <ActivityIndicator size="small" color={palette.label} />
+            ) : (
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={22}
+                color={palette.label}
+              />
+            )}
+          </Pressable>
+        ) : null}
         <View
           style={[
             styles.iconBubble,
@@ -235,6 +263,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     ...rtlBaseView,
+  },
+  optionsButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   iconBubble: {
     alignItems: 'center',

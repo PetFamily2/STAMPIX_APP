@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import {
   BarComparisonChart,
@@ -235,6 +236,7 @@ export function LoyaltyCardsHubContent() {
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const guideTargetRef = useRef<View | null>(null);
   const businessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -403,7 +405,8 @@ export function LoyaltyCardsHubContent() {
           />
         </StickyScrollHeader>
 
-        <TouchableOpacity
+        <View ref={guideTargetRef} collapsable={false}>
+          <TouchableOpacity
           disabled={!canCreate}
           onPress={() => {
             if (!canCreate) {
@@ -428,7 +431,8 @@ export function LoyaltyCardsHubContent() {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.kpiGrid}>
           <View style={styles.kpiCell}>
@@ -610,6 +614,11 @@ export function LoyaltyCardsHubContent() {
           }
         />
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="programs"
+        targetRef={guideTargetRef}
+      />
     </SafeAreaView>
   );
 }

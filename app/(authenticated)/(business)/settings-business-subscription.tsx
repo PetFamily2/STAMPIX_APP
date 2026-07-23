@@ -19,6 +19,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
@@ -135,6 +136,8 @@ function resolveTeamSeatUsageChip(args: {
 }
 
 export default function BusinessSettingsSubscriptionScreen() {
+  const guideTargetRef = useRef<View | null>(null);
+  const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
@@ -143,6 +146,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     upgradeReason?: string | string[];
     featureKey?: string | string[];
     autoOpenUpgrade?: string | string[];
+    guideId?: string | string[];
   }>();
   const hasAutoOpenedModalRef = useRef(false);
 
@@ -186,6 +190,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   const upgradeReasonParam = parseUpgradeReasonParam(params.upgradeReason);
   const featureKeyParam = firstParam(params.featureKey);
   const autoOpenUpgradeParam = firstParam(params.autoOpenUpgrade) === 'true';
+  const guideIdParam = firstParam(params.guideId);
 
   const normalizedPlanCatalog = useMemo(
     () => normalizePlanCatalog(planCatalogQuery),
@@ -503,6 +508,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   return (
     <SafeAreaView style={styles.container} edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -526,7 +532,16 @@ export default function BusinessSettingsSubscriptionScreen() {
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
-            <View key={item.key} style={styles.usageChip}>
+            <View
+              key={item.key}
+              ref={
+                item.key === 'campaigns_usage' &&
+                guideIdParam === 'quota-review'
+                  ? guideTargetRef
+                  : undefined
+              }
+              style={styles.usageChip}
+            >
               {isLoading ||
               usageSummary === undefined ||
               item.showSpinner === true ? (
@@ -621,7 +636,14 @@ export default function BusinessSettingsSubscriptionScreen() {
           </View>
         </View>
 
-        <View style={styles.panelWrap}>
+        <View
+          ref={
+            guideIdParam !== 'quota-review'
+              ? guideTargetRef
+              : undefined
+          }
+          style={styles.panelWrap}
+        >
           <SubscriptionSalesPanel
             plans={normalizedPlanCatalog}
             rows={comparisonRows}
@@ -649,6 +671,21 @@ export default function BusinessSettingsSubscriptionScreen() {
         reason={upgradeReason}
         featureKey={upgradeFeatureKey}
         onClose={() => setIsUpgradeVisible(false)}
+      />
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="business-subscription"
+        targetRef={guideTargetRef}
+        scrollTargetIntoView={() => {
+          if (guideIdParam === 'quota-review') {
+            guideScrollRef.current?.scrollTo({
+              y: 0,
+              animated: false,
+            });
+            return;
+          }
+          guideScrollRef.current?.scrollToEnd({ animated: false });
+        }}
       />
     </SafeAreaView>
   );

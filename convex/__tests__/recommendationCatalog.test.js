@@ -97,6 +97,25 @@ function visibleIds(result) {
   ];
 }
 
+function campaignCreateInput() {
+  const input = baseInput();
+  input.facts.campaigns = known({
+    totalNonarchivedCampaigns: 0,
+    draftCount: 0,
+    scheduledCount: 0,
+    recurringCount: 0,
+    pausedCount: 0,
+    completedCount: 0,
+    inconsistentCount: 0,
+    meaningfullyActiveCount: 0,
+    firstDraftCampaignId: null,
+    firstPausedCampaignId: null,
+    nextScheduled: null,
+    lifecycleSourceVersion: 'campaign_lifecycle_v1',
+  });
+  return input;
+}
+
 describe('deterministic business recommendation catalog', () => {
   test('subscription blocker outranks setup and growth', () => {
     const input = baseInput();
@@ -386,6 +405,47 @@ describe('deterministic business recommendation catalog', () => {
       visibleIds(buildBusinessRecommendationCatalog(input))
     ).not.toContain('subscription.quota_near');
   });
+
+  test('known below-limit quota allows campaign.create_first', () => {
+    const input = campaignCreateInput();
+    input.facts.campaignQuota = known({
+      campaignDefinitionUsage: 0,
+      campaignDefinitionLimit: 10,
+      isAtOrAboveLimit: false,
+    });
+
+    expect(
+      visibleIds(buildBusinessRecommendationCatalog(input))
+    ).toContain('campaign.create_first');
+  });
+
+  test('known hard-limit quota suppresses campaign.create_first', () => {
+    const input = campaignCreateInput();
+    input.facts.campaignQuota = known({
+      campaignDefinitionUsage: 10,
+      campaignDefinitionLimit: 10,
+      isAtOrAboveLimit: true,
+    });
+
+    expect(
+      visibleIds(buildBusinessRecommendationCatalog(input))
+    ).not.toContain('campaign.create_first');
+  });
+
+  test.each([
+    ['unknown', unknown()],
+    ['restricted', restricted()],
+  ])(
+    '%s quota does not suppress campaign.create_first by itself',
+    (_label, quotaFact) => {
+      const input = campaignCreateInput();
+      input.facts.campaignQuota = quotaFact;
+      const ids = visibleIds(buildBusinessRecommendationCatalog(input));
+
+      expect(ids).toContain('campaign.create_first');
+      expect(ids).not.toContain('subscription.quota_near');
+    }
+  );
 
   test('unknown and restricted facts never become zero-based eligibility', () => {
     const input = baseInput();

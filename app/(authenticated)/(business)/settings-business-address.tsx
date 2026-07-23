@@ -20,6 +20,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -113,6 +114,7 @@ export default function BusinessSettingsAddressScreen() {
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const guideTargetRef = useRef<View | null>(null);
 
   const applyBusinessAddressSnapshot = (settings: typeof businessSettings) => {
     if (!settings) {
@@ -260,7 +262,7 @@ export default function BusinessSettingsAddressScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.card}>
+              <View ref={guideTargetRef} style={styles.card}>
                 <BusinessAddressSelector
                   key={`${activeBusinessId}:${baseUpdatedAt ?? 'loading'}`}
                   query={addressQuery}
@@ -315,6 +317,14 @@ export default function BusinessSettingsAddressScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="business-address"
+        targetRef={guideTargetRef}
+        scrollTargetIntoView={() =>
+          scrollViewRef.current?.scrollTo({ y: 120, animated: false })
+        }
+      />
     </SafeAreaView>
   );
 }

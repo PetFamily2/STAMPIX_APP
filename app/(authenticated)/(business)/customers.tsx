@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import {
   DonutChartCard,
   HorizontalRankingChart,
@@ -194,6 +195,8 @@ export function CustomersHubContent() {
       : null;
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const guideTargetRef = useRef<View | null>(null);
+  const guideScrollRef = useRef<ScrollView | null>(null);
   const businessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -465,6 +468,7 @@ export function CustomersHubContent() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         style={styles.scroll}
         contentContainerStyle={{
@@ -776,7 +780,7 @@ export function CustomersHubContent() {
           </View>
         </SurfaceCard>
 
-        <View style={styles.listHeader}>
+        <View ref={guideTargetRef} style={styles.listHeader}>
           <Text
             style={styles.listHeaderText}
           >{`${formatNumber(filteredCustomers.length)} לקוחות`}</Text>
@@ -935,6 +939,17 @@ export function CustomersHubContent() {
           )}
         </View>
       </ScrollView>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="customers"
+        targetRef={guideTargetRef}
+        scrollTargetIntoView={() =>
+          guideScrollRef.current?.scrollTo({
+            y: 620,
+            animated: false,
+          })
+        }
+      />
     </SafeAreaView>
   );
 }

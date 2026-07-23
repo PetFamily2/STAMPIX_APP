@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -294,6 +295,7 @@ function ProfileRow({
 }
 
 export default function BusinessSettingsProfileScreen() {
+  const guideTargetRef = useRef<View | null>(null);
   const insets = useSafeAreaInsets();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
@@ -879,7 +881,10 @@ export default function BusinessSettingsProfileScreen() {
               </View>
             )}
 
-            <View className="rounded-3xl border border-[#E3E9FF] bg-white px-4 py-2">
+            <View
+              ref={guideTargetRef}
+              className="rounded-3xl border border-[#E3E9FF] bg-white px-4 py-2"
+            >
               <Pressable
                 disabled={!canEditBusiness}
                 onPress={() =>
@@ -1288,6 +1293,11 @@ export default function BusinessSettingsProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      <GuidedActionScreenOverlay
+        activeBusinessId={activeBusinessId}
+        routeKey="business-profile"
+        targetRef={guideTargetRef}
+      />
     </SafeAreaView>
   );
 }
