@@ -12,6 +12,7 @@ import {
   getCurrentUserOrNull,
   requireActorHasBusinessCapability,
 } from './guards';
+import { classifyCampaignState } from './lib/campaignState';
 import { recordCampaignRun } from './lib/campaignRuns';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import { sendPushNotificationToUser } from './pushNotifications';
@@ -470,6 +471,17 @@ async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
     .collect();
 }
 
+async function hasPersistedCampaignRun(
+  ctx: any,
+  campaignId: Id<'campaigns'>
+) {
+  const run = await ctx.db
+    .query('campaignRuns')
+    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
+    .first();
+  return run !== null;
+}
+
 function buildCampaignDeliveryStats(
   logs: Array<{ toUserId: Id<'users'>; createdAt: number }>
 ): CampaignDeliveryStats {
@@ -855,6 +867,7 @@ export const listManagementCampaignsByBusiness = query({
       .query('campaigns')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
       .collect();
+    const now = Date.now();
 
     const result = await Promise.all(
       campaigns.map(async (campaign) => {
@@ -863,16 +876,6 @@ export const listManagementCampaignsByBusiness = query({
         );
         const scheduleMode = getScheduleModeFromCampaign(campaign);
         const isCountedTowardLimit = campaign.isActive === true;
-        const lifecycle =
-          campaign.isActive !== true
-            ? 'archived'
-            : campaign.type === 'retention_action'
-              ? campaign.status === 'active' && automationEnabled
-                ? 'active'
-                : 'inactive'
-              : automationEnabled
-                ? 'active'
-                : 'inactive';
         const family =
           campaign.type === 'retention_action'
             ? 'retention'
@@ -880,9 +883,15 @@ export const listManagementCampaignsByBusiness = query({
                 campaign.type === 'ai_retention'
               ? 'ai'
               : 'management';
-        const [logs, managementEstimate, missingBirthdayCount] =
+        const [
+          logs,
+          hasPersistedCompletionEvidence,
+          managementEstimate,
+          missingBirthdayCount,
+        ] =
           await Promise.all([
             getCampaignLogs(ctx, campaign._id),
+            hasPersistedCampaignRun(ctx, campaign._id),
             isManagementType(campaign.type)
               ? estimateAudienceForCampaign(ctx, campaign)
               : Promise.resolve(null),
@@ -890,6 +899,16 @@ export const listManagementCampaignsByBusiness = query({
               ? countMissingBirthdayForCampaign(ctx, campaign)
               : Promise.resolve(null),
           ]);
+        const productState = classifyCampaignState(campaign, {
+          now,
+          hasPersistedCompletionEvidence,
+        });
+        const lifecycle =
+          productState.state === 'archived'
+            ? 'archived'
+            : productState.isMeaningfullyActive
+              ? 'active'
+              : 'inactive';
         const deliveryStats = buildCampaignDeliveryStats(logs);
         const estimatedAudience = isManagementType(campaign.type)
           ? (managementEstimate?.total ?? 0)
@@ -914,6 +933,8 @@ export const listManagementCampaignsByBusiness = query({
           status: normalizeEditableManagementStatus(
             campaign.status ?? defaultStatus
           ),
+          productState: productState.state,
+          lifecycleSourceVersion: productState.sourceVersion,
           scheduleMode,
           scheduledForAt:
             typeof campaign.schedule?.sendAt === 'number'

@@ -33,6 +33,10 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import {
+  getDashboardDayAtRiskCustomersForActiveBusiness,
+  isDashboardResponseForActiveBusiness,
+} from '@/lib/dashboardBusinessIntegrity';
+import {
   DASHBOARD_CUSTOMER_NAV_LABELS,
   resolveDashboardCustomerInsightsNavLabel,
 } from '@/lib/dashboard/navigationCopy';
@@ -222,6 +226,7 @@ export default function BusinessDashboardScreen() {
     activeBusinessId,
     activeBusiness,
     isLoading: isBusinessLoading,
+    isSwitchingBusiness,
   } = useActiveBusiness();
   const businessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -303,6 +308,24 @@ export default function BusinessDashboardScreen() {
 
   const lifetimeMetrics = dashboardSummary?.lifetimeMetrics;
   const kpis = dashboardDay?.kpis;
+  const currentBusinessDayAtRiskCustomers =
+    getDashboardDayAtRiskCustomersForActiveBusiness({
+      dashboardDay,
+      activeBusinessId,
+      isSwitchingBusiness,
+    });
+  const dashboardResponseBusinessId =
+    dashboardSummary?.businessId ??
+    dashboardSummary?.business?.businessId ??
+    null;
+  const hasCurrentBusinessDashboardSummary =
+    dashboardSummary !== undefined &&
+    dashboardSummary !== null &&
+    isDashboardResponseForActiveBusiness({
+      responseBusinessId: dashboardResponseBusinessId,
+      activeBusinessId,
+      isSwitchingBusiness,
+    });
   const selectedPeriodLabel =
     selectedPreset === 'today'
       ? 'היום'
@@ -358,7 +381,7 @@ export default function BusinessDashboardScreen() {
     lifetimeMetrics?.totalRedemptionsAllTime
   );
   const isFirstBusinessExperience =
-    dashboardSummary !== undefined &&
+    hasCurrentBusinessDashboardSummary &&
     lifetimeMetrics != null &&
     Number.isFinite(lifetimeCustomers) &&
     Number.isFinite(lifetimeStamps) &&
@@ -368,6 +391,9 @@ export default function BusinessDashboardScreen() {
     lifetimeRedemptions <= 0;
 
   const recommendationCards = useMemo(() => {
+    if (!hasCurrentBusinessDashboardSummary) {
+      return [];
+    }
     const cards = (dashboardSummary?.recommendations?.cards ??
       []) as DashboardRecommendationCard[];
     const source =
@@ -389,12 +415,13 @@ export default function BusinessDashboardScreen() {
     if (
       !isFirstBusinessExperience &&
       !hasAtRiskTask &&
-      (kpis?.atRiskCustomers ?? 0) > 0
+      currentBusinessDayAtRiskCustomers !== null &&
+      currentBusinessDayAtRiskCustomers > 0
     ) {
       normalized.unshift({
         key: 'at_risk_task',
         title: 'לקוחות בסיכון',
-        body: `${formatNumber(kpis?.atRiskCustomers ?? 0)} לקוחות לא ביקרו לאחרונה`,
+        body: `${formatNumber(currentBusinessDayAtRiskCustomers)} לקוחות לא ביקרו לאחרונה`,
         evidenceTags: [],
         tone: 'critical',
         primaryCta: {
@@ -406,7 +433,12 @@ export default function BusinessDashboardScreen() {
       });
     }
     return normalized;
-  }, [dashboardSummary, isFirstBusinessExperience, kpis?.atRiskCustomers]);
+  }, [
+    dashboardSummary,
+    hasCurrentBusinessDashboardSummary,
+    isFirstBusinessExperience,
+    currentBusinessDayAtRiskCustomers,
+  ]);
 
   const openRoute = (route: BusinessRoute) => router.push(route as never);
   const teamSeatStatus = teamSummary

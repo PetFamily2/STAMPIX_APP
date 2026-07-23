@@ -9,7 +9,14 @@ import {
 } from './customerLifecycle';
 import { getBusinessUsageSummary } from './entitlements';
 import { getCustomerManagementSnapshot } from './events';
-import { requireActorIsStaffForBusiness } from './guards';
+import {
+  requireActorHasBusinessCapability,
+  requireActorIsStaffForBusiness,
+} from './guards';
+import {
+  loadBusinessRecommendationFacts,
+  type CampaignLifecycleFactValue,
+} from './recommendations';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
@@ -416,17 +423,17 @@ function buildUsageWarnings(args: {
   cardsLimit: number;
   customersUsed: number;
   customersLimit: number;
-  campaignsUsed: number;
-  campaignsLimit: number;
+  campaignsUsed: number | null;
+  campaignsLimit: number | null;
 }) {
   const warnings: string[] = [];
 
   const addLimitState = (
     key: 'cards' | 'customers' | 'campaigns',
-    used: number,
-    limit: number
+    used: number | null,
+    limit: number | null
   ) => {
-    if (limit <= 0) {
+    if (used === null || limit === null || limit <= 0) {
       return;
     }
     const ratio = used / limit;
@@ -503,30 +510,31 @@ function buildAiRecommendationCandidate(
   };
 }
 
-function buildFallbackRecommendationCard(): DashboardRecommendationCard {
-  return {
-    key: 'fallback_stable',
-    priority: 999,
-    tone: 'neutral',
-    title: 'אין פעולה דחופה כרגע',
-    body: 'העסק יציב כרגע ואין צורך בפעולה מיידית. אפשר להמשיך לעקוב אחרי המדדים היומיים.',
-    evidenceTags: [],
-    primaryCta: null,
-  };
+export function shouldEmitTransitionalCreateFirstCampaign(input: {
+  campaignFacts: CampaignLifecycleFactValue | null;
+  activeProgramsCount: number;
+  activeCustomerCount: number | null;
+  canCreateCampaigns: boolean;
+}) {
+  return (
+    input.campaignFacts?.totalNonarchivedCampaigns === 0 &&
+    input.activeProgramsCount > 0 &&
+    input.activeCustomerCount !== null &&
+    input.activeCustomerCount > 0 &&
+    input.canCreateCampaigns
+  );
 }
 
 function buildRecommendationCandidates(input: {
   aiRecommendation: any;
   activeProgramsCount: number;
-  campaignsUsed: number;
+  campaignFacts: CampaignLifecycleFactValue | null;
+  canCreateCampaigns: boolean;
+  activeCustomerCount: number | null;
   customerNearRewardCount: number;
   cycleAtRiskCustomers: number;
-  lifetimeMetrics: {
-    totalCustomersJoinedAllTime: number;
-  };
   profileIncomplete: boolean;
   missingFieldsCount: number;
-  stampsLast7Days: number;
   usageWarnings: string[];
 }) {
   const candidates: DashboardRecommendationCard[] = [];
@@ -636,39 +644,17 @@ function buildRecommendationCandidates(input: {
     });
   }
 
-  if (
-    input.campaignsUsed === 0 &&
-    input.activeProgramsCount > 0 &&
-    input.lifetimeMetrics.totalCustomersJoinedAllTime > 0
-  ) {
+  if (shouldEmitTransitionalCreateFirstCampaign(input)) {
     candidates.push({
-      key: 'no_active_campaign',
+      key: 'create_first_campaign',
       priority: 40,
       tone: 'warning',
-      title: 'אין כרגע קמפיין פעיל',
-      body: 'יש לקוחות פעילים במערכת, אבל אין מהלך שיווקי פעיל שמחזיר אותם לביקור.',
-      evidenceTags: ['אין קמפיין פעיל'],
+      title: 'צרו מבצע ראשון',
+      body: 'עדיין לא נוצרו מבצעים לעסק.',
+      evidenceTags: ['אין מבצעים קיימים'],
       primaryCta: {
         kind: 'open_campaigns',
-        label: 'פתח קמפיינים',
-      },
-    });
-  }
-
-  if (
-    input.stampsLast7Days === 0 &&
-    input.lifetimeMetrics.totalCustomersJoinedAllTime > 0
-  ) {
-    candidates.push({
-      key: 'no_activity_7d',
-      priority: 50,
-      tone: 'warning',
-      title: 'לא נרשמה פעילות בשבעת הימים האחרונים',
-      body: 'כדאי לבדוק אם נדרש מהלך הפעלה, קמפיין חדש, או דחיפה יזומה ללקוחות.',
-      evidenceTags: ['0 ניקובים ב-7 ימים'],
-      primaryCta: {
-        kind: 'open_campaigns',
-        label: 'פתח קמפיינים',
+        label: 'צרו מבצע',
       },
     });
   }
@@ -684,7 +670,7 @@ function buildRecommendationCandidates(input: {
     .sort((left, right) => left.priority - right.priority)
     .slice(0, 3);
 
-  return ranked.length > 0 ? ranked : [buildFallbackRecommendationCard()];
+  return ranked;
 }
 
 export const getBusinessDashboardSummary = query({
@@ -699,7 +685,11 @@ export const getBusinessDashboardSummary = query({
       return null;
     }
 
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    const authorization = await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_dashboard'
+    );
 
     const safeRun = async <T>(fn: () => Promise<T>, fallback: T) => {
       try {
@@ -715,6 +705,7 @@ export const getBusinessDashboardSummary = query({
       usageSummary,
       aiRecommendation,
       customerSnapshot,
+      recommendationFacts,
       allEvents,
       allMemberships,
       allPrograms,
@@ -746,6 +737,12 @@ export const getBusinessDashboardSummary = query({
             businessId,
           }),
         null
+      ),
+      loadBusinessRecommendationFacts(
+        ctx,
+        businessId,
+        authorization,
+        now
       ),
       ctx.db
         .query('events')
@@ -790,10 +787,10 @@ export const getBusinessDashboardSummary = query({
     ).filter(
       (program: any) => resolveProgramLifecycle(program) === 'active'
     ).length;
-    const campaignsUsed = safeNumber(
-      (usageSummary as any)?.activeManagementCampaignsUsed,
-      0
-    );
+    const campaignQuota =
+      recommendationFacts.facts.campaignQuota.state === 'known'
+        ? recommendationFacts.facts.campaignQuota.value
+        : null;
     const usageWarnings = buildUsageWarnings({
       cardsUsed: safeNumber((usageSummary as any)?.cardsUsed, 0),
       cardsLimit: safeNumber((usageSummary as any)?.limits?.maxCards, 0),
@@ -802,11 +799,8 @@ export const getBusinessDashboardSummary = query({
         (usageSummary as any)?.limits?.maxCustomers,
         0
       ),
-      campaignsUsed,
-      campaignsLimit: safeNumber(
-        (usageSummary as any)?.limits?.maxCampaigns,
-        0
-      ),
+      campaignsUsed: campaignQuota?.campaignDefinitionUsage ?? null,
+      campaignsLimit: campaignQuota?.campaignDefinitionLimit ?? null,
     });
     const profileIncomplete =
       (businessSettings as any)?.profileCompletion?.isComplete === false;
@@ -819,11 +813,16 @@ export const getBusinessDashboardSummary = query({
         (customerSnapshot as any)?.summary?.closeToRewardCustomers,
       0
     );
-    const stampsLast7Days = stampEvents.filter(
-      (event) => safeNumber(event.createdAt, 0) >= now - 7 * DAY_MS
-    ).length;
-
+    const campaignFacts =
+      recommendationFacts.facts.campaigns.state === 'known'
+        ? recommendationFacts.facts.campaigns.value
+        : null;
+    const activeCustomerCount =
+      recommendationFacts.facts.customers.state === 'known'
+        ? recommendationFacts.facts.customers.value.uniqueActiveCustomerCount
+        : null;
     return {
+      businessId,
       business: {
         businessId,
         businessName: String((businessSettings as any)?.name ?? ''),
@@ -838,13 +837,14 @@ export const getBusinessDashboardSummary = query({
         cards: buildRecommendationCandidates({
           aiRecommendation,
           activeProgramsCount,
-          campaignsUsed,
+          campaignFacts,
+          canCreateCampaigns:
+            recommendationFacts.actor.capabilities.createCampaigns === true,
+          activeCustomerCount,
           customerNearRewardCount,
           cycleAtRiskCustomers: cycleCountsNow.atRiskCustomers,
-          lifetimeMetrics,
           profileIncomplete,
           missingFieldsCount,
-          stampsLast7Days,
           usageWarnings,
         }),
       },
@@ -1008,6 +1008,7 @@ export const getBusinessDashboardDay = query({
     });
 
     return {
+      businessId,
       dateContext: {
         dayKey: selectedBounds.dayKey,
         dayStart: selectedBounds.startMs,

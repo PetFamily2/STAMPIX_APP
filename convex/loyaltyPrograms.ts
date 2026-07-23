@@ -23,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const CARD_RULES_LOCKED_ERROR_MESSAGE =
   'Card rules cannot be changed after the card is published.';
 
-type ProgramLifecycle = 'draft' | 'active' | 'archived';
+export type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
 const LIFECYCLE_SORT_ORDER: Record<ProgramLifecycle, number> = {
   active: 0,
@@ -84,7 +84,7 @@ function normalizeStructureText(value: string | undefined) {
   return normalizeOptionalText(value) ?? '';
 }
 
-function resolveProgramLifecycle(program: any): ProgramLifecycle {
+export function resolveProgramLifecycle(program: any): ProgramLifecycle {
   if (
     program?.status === 'draft' ||
     program?.status === 'active' ||
