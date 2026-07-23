@@ -16,6 +16,7 @@ import {
   classifyCampaignState,
   type CampaignProductState,
 } from './lib/campaignState';
+import { buildBusinessRecommendationCatalog } from './lib/recommendationCatalog';
 import type {
   BusinessCapability,
   BusinessCapabilityMap,
@@ -542,10 +543,13 @@ export async function loadBusinessRecommendationFacts(
         accessCustomers: authorization.capabilities.access_customers,
         accessCampaigns: authorization.capabilities.access_campaigns,
         createCampaigns: authorization.capabilities.create_campaigns,
+        editCampaigns: authorization.capabilities.edit_campaigns,
         activateSendCampaigns:
           authorization.capabilities.activate_send_campaigns,
         viewUsageQuota: authorization.capabilities.view_usage_quota,
         viewBillingState: authorization.capabilities.view_billing_state,
+        manageSubscription:
+          authorization.capabilities.manage_subscription,
         manageTeam: authorization.capabilities.manage_team,
         editLoyaltyCards: authorization.capabilities.edit_loyalty_cards,
         editBusinessProfile:
@@ -652,5 +656,30 @@ export const getBusinessRecommendationFacts = query({
       businessId,
       authorization
     );
+  },
+});
+
+export const getBusinessRecommendations = query({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const authorization = await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'access_dashboard'
+    );
+    const generatedAt = Date.now();
+    const facts = await loadBusinessRecommendationFacts(
+      ctx,
+      businessId,
+      authorization,
+      generatedAt
+    );
+
+    return buildBusinessRecommendationCatalog({
+      ...facts,
+      businessId: String(facts.businessId),
+    });
   },
 });

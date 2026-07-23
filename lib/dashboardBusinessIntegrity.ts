@@ -25,6 +25,12 @@ export function isDashboardDayResponseForActiveBusiness(
   return hasCurrentBusinessIdentity(input);
 }
 
+export function isRecommendationResponseForActiveBusiness(
+  input: DashboardBusinessIdentityInput
+) {
+  return hasCurrentBusinessIdentity(input);
+}
+
 export function getDashboardDayAtRiskCustomersForActiveBusiness(input: {
   dashboardDay:
     | {

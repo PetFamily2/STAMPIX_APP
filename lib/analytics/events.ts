@@ -37,6 +37,9 @@ export const ANALYTICS_EVENTS = {
   stampFailed: 'stamp_failed',
   // Landing page
   landingPageViewed: 'landing_page_viewed',
+  // Business recommendations
+  recommendationShown: 'recommendation_shown',
+  recommendationOpened: 'recommendation_opened',
 } as const;
 
 export type AnalyticsEventName =
@@ -52,4 +55,13 @@ export type BaseAnalyticsProps = {
   onboardingSessionId?: string;
   pathname?: string;
   screen?: string;
+};
+
+export type RecommendationAnalyticsProps = {
+  stable_recommendation_id: string;
+  category: string;
+  priority: number;
+  placement: 'primary' | 'secondary';
+  action_type: string;
+  evidence_fingerprint: string;
 };

@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Alert,
   Pressable,
@@ -15,7 +22,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BusinessReferralCard } from '@/components/business-dashboard/BusinessReferralCard';
-import { BusinessStatusCard } from '@/components/business-dashboard/BusinessStatusCard';
 import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
@@ -24,45 +30,47 @@ import {
 } from '@/components/business-dashboard/DateSelectorBar';
 import { LifetimeMetricsRow } from '@/components/business-dashboard/LifetimeMetricsRow';
 import { QuickShortcutsGrid } from '@/components/business-dashboard/QuickShortcutsGrid';
-import { SmartRecommendationsPanel } from '@/components/business-dashboard/SmartRecommendationsPanel';
+import {
+  type DashboardRecommendation,
+  SmartRecommendationsPanel,
+} from '@/components/business-dashboard/SmartRecommendationsPanel';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { track } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
-  getDashboardDayAtRiskCustomersForActiveBusiness,
   isDashboardResponseForActiveBusiness,
+  isRecommendationResponseForActiveBusiness,
 } from '@/lib/dashboardBusinessIntegrity';
-import {
-  DASHBOARD_CUSTOMER_NAV_LABELS,
-  resolveDashboardCustomerInsightsNavLabel,
-} from '@/lib/dashboard/navigationCopy';
+import { DASHBOARD_CUSTOMER_NAV_LABELS } from '@/lib/dashboard/navigationCopy';
 import {
   DASHBOARD_TOKENS,
+  type DashboardLayoutMode,
   getDashboardLayout,
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
+  createRecommendationShownGuard,
+  getRecommendationAnalyticsProps,
+  safelyTrackRecommendationEvent,
+} from '@/lib/recommendations/analytics';
+import { openRecommendationAction } from '@/lib/recommendations/interaction';
+import {
   flexDirection,
   justifyContent,
   rtlBaseView,
-  selfStart,
   tw,
 } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ISRAEL_TIME_ZONE = 'Asia/Jerusalem';
-const DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: ISRAEL_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL', {
   maximumFractionDigits: 0,
 });
@@ -80,114 +88,8 @@ type BusinessRoute =
   | '/(authenticated)/(business)/settings-business-subscription'
   | '/(authenticated)/(business)/team/index';
 
-type CustomerRouteFilter = 'near_reward' | 'at_risk' | 'new_customers';
-type RecommendationActionKind =
-  | 'open_campaign_draft'
-  | 'open_cards'
-  | 'open_campaigns'
-  | 'open_qr'
-  | 'open_scanner'
-  | 'open_profile'
-  | 'view_analytics'
-  | 'view_customers'
-  | 'view_subscription'
-  | 'none';
-
-type DashboardRecommendationCard = {
-  key: string;
-  title: string;
-  body: string;
-  supportingText?: string;
-  evidenceTags: string[];
-  tone: 'critical' | 'warning' | 'neutral' | 'success';
-  recommendationId?: string | null;
-  primaryCta?: {
-    kind: RecommendationActionKind;
-    label: string;
-    draftType?: 'welcome' | 'winback' | 'promo' | null;
-    customerFilter?: CustomerRouteFilter | null;
-  } | null;
-};
-
 function formatNumber(value: number) {
   return NUMBER_FORMATTER.format(value);
-}
-
-function _formatSignedNumber(value: number) {
-  const absoluteValue = formatNumber(Math.abs(value));
-  if (value < 0) {
-    return `↓ -${absoluteValue}`;
-  }
-  return `↑ ${value === 0 ? '0' : `+${absoluteValue}`}`;
-}
-
-function _getIsraelDayKey(timestamp: number) {
-  return DAY_KEY_FORMATTER.format(new Date(timestamp));
-}
-
-function _buildKpiTrend(value: number, previousValue: number) {
-  if (value === previousValue) {
-    return { direction: 'up' as const, label: '↑ 0%' };
-  }
-  const delta = value - previousValue;
-  if (previousValue <= 0) {
-    if (delta < 0) {
-      return {
-        direction: 'down' as const,
-        label: `↓ -${formatNumber(Math.abs(delta))}`,
-      };
-    }
-    return {
-      direction: 'up' as const,
-      label: `↑ +${formatNumber(Math.abs(delta))}`,
-    };
-  }
-  const percent = Math.round(Math.abs((delta / previousValue) * 100));
-  const direction = delta > 0 ? ('up' as const) : ('down' as const);
-  return {
-    direction,
-    label: `${direction === 'up' ? '↑' : '↓'} ${
-      delta > 0 ? '+' : '-'
-    }${percent}%`,
-  };
-}
-
-function buildFirstActionRecommendationCards(): DashboardRecommendationCard[] {
-  return [
-    {
-      key: 'share_join_qr',
-      title: 'שתפו QR להצטרפות',
-      body: 'הדרך הכי מהירה להתחיל היא להציג את קוד ההצטרפות בקופה או לשלוח אותו ללקוחות.',
-      evidenceTags: [],
-      tone: 'neutral',
-      primaryCta: {
-        kind: 'open_qr',
-        label: 'הצגת QR',
-      },
-    },
-    {
-      key: 'scan_first_customer',
-      title: 'סרקו לקוח ראשון',
-      body: 'כשלקוח מצטרף, אפשר לתת ניקוב ראשון מהסורק.',
-      evidenceTags: [],
-      tone: 'success',
-      primaryCta: {
-        kind: 'open_scanner',
-        label: 'פתיחת סורק',
-      },
-    },
-    {
-      key: 'review_card',
-      title: 'בדקו את הכרטיסייה',
-      body: 'ודאו שהתגמול, מספר החותמות והתנאים ברורים ללקוחות.',
-      evidenceTags: [],
-      tone: 'neutral',
-      primaryCta: {
-        kind: 'open_cards',
-        label: 'ניהול כרטיסיות',
-      },
-    },
-  ];
 }
 
 function getRangeDaysForPreset(preset: DatePresetKey) {
@@ -208,6 +110,151 @@ function getDayStartForPreset(
     return anchorNow - DAY_MS;
   }
   return anchorNow;
+}
+
+class RecommendationQueryErrorBoundary extends Component<
+  {
+    children: ReactNode;
+    layoutMode: DashboardLayoutMode;
+  },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SmartRecommendationsPanel
+          layoutMode={this.props.layoutMode}
+          status="error"
+          primary={null}
+          secondary={[]}
+          onOpen={() => undefined}
+          onRetry={() => this.setState({ hasError: false })}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DashboardRecommendationsSection({
+  activeBusinessId,
+  isSwitchingBusiness,
+  layoutMode,
+}: {
+  activeBusinessId: Id<'businesses'> | null;
+  isSwitchingBusiness: boolean;
+  layoutMode: DashboardLayoutMode;
+}) {
+  const router = useRouter();
+  const [loadingRecommendationId, setLoadingRecommendationId] = useState<
+    string | null
+  >(null);
+  const recommendationShownGuardRef = useRef(
+    createRecommendationShownGuard()
+  );
+  const recommendationResponse = useQuery(
+    api.recommendations.getBusinessRecommendations,
+    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+  );
+  const hasCurrentRecommendationResponse =
+    recommendationResponse !== undefined &&
+    recommendationResponse !== null &&
+    isRecommendationResponseForActiveBusiness({
+      responseBusinessId: recommendationResponse.businessId,
+      activeBusinessId,
+      isSwitchingBusiness,
+    });
+  const recommendationPrimary = hasCurrentRecommendationResponse
+    ? (recommendationResponse.primary as DashboardRecommendation | null)
+    : null;
+  const recommendationSecondary = hasCurrentRecommendationResponse
+    ? (recommendationResponse.secondary as DashboardRecommendation[])
+    : [];
+  const recommendationStatus =
+    activeBusinessId && hasCurrentRecommendationResponse
+      ? ('ready' as const)
+      : ('loading' as const);
+
+  useEffect(() => {
+    if (!activeBusinessId || !hasCurrentRecommendationResponse) {
+      return;
+    }
+    const visibleRecommendations = [
+      ...(recommendationPrimary ? [recommendationPrimary] : []),
+      ...recommendationSecondary,
+    ];
+    for (const recommendation of visibleRecommendations) {
+      if (
+        recommendationShownGuardRef.current.shouldTrack({
+          businessId: String(activeBusinessId),
+          stableId: recommendation.stableId,
+          evidenceFingerprint: recommendation.evidenceFingerprint,
+        })
+      ) {
+        safelyTrackRecommendationEvent(
+          track,
+          ANALYTICS_EVENTS.recommendationShown,
+          getRecommendationAnalyticsProps(recommendation)
+        );
+      }
+    }
+  }, [
+    activeBusinessId,
+    hasCurrentRecommendationResponse,
+    recommendationPrimary,
+    recommendationSecondary,
+  ]);
+
+  const handleOpen = (recommendation: DashboardRecommendation) => {
+    if (
+      !activeBusinessId ||
+      isSwitchingBusiness ||
+      loadingRecommendationId
+    ) {
+      return;
+    }
+    let result: ReturnType<typeof openRecommendationAction> | undefined;
+    try {
+      result = openRecommendationAction({
+        businessId: String(activeBusinessId),
+        action: recommendation.action,
+        analyticsProps: getRecommendationAnalyticsProps(recommendation),
+        trackEvent: track,
+        navigate: (target) => router.push(target as never),
+        onStart: () =>
+          setLoadingRecommendationId(recommendation.stableId),
+        onSettled: () => setLoadingRecommendationId(null),
+      });
+    } catch {
+      setLoadingRecommendationId(null);
+      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את הפעולה כרגע.');
+      return;
+    }
+    if (!result || !result.ok) {
+      setLoadingRecommendationId(null);
+      Alert.alert(
+        'לא ניתן לפתוח את הפעולה',
+        'חסר מידע מדויק לניווט. הנתונים יתעדכנו אוטומטית.'
+      );
+    }
+  };
+
+  return (
+    <SmartRecommendationsPanel
+      layoutMode={layoutMode}
+      status={recommendationStatus}
+      primary={recommendationPrimary}
+      secondary={recommendationSecondary}
+      loadingRecommendationId={loadingRecommendationId}
+      onOpen={handleOpen}
+    />
+  );
 }
 
 export default function BusinessDashboardScreen() {
@@ -239,9 +286,6 @@ export default function BusinessDashboardScreen() {
   const teamGate = gate('team');
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
-  const [applyingRecommendationKey, setApplyingRecommendationKey] = useState<
-    string | null
-  >(null);
   const [isReferralShareLoading, setIsReferralShareLoading] = useState(false);
 
   const dashboardSummary = useQuery(
@@ -274,10 +318,6 @@ export default function BusinessDashboardScreen() {
       ? { businessId: activeBusinessId }
       : 'skip'
   ) as { usedSeats: number; maxSeats: number } | null | undefined;
-  const executeRecommendationCta = useMutation(
-    api.aiRecommendations.executeRecommendationPrimaryCta
-  );
-  const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const createBusinessReferralLink = useMutation(
     api.referrals.getOrCreateBusinessReferralLink
   );
@@ -291,29 +331,6 @@ export default function BusinessDashboardScreen() {
     }
   }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
-  const anchorNow = dashboardSummary?.freshness?.generatedAt ?? Date.now();
-  const businessName =
-    dashboardSummary?.business?.businessName?.trim() ||
-    activeBusiness?.name?.trim() ||
-    'העסק שלך';
-  const currentUser = sessionContext?.user;
-  const displayName =
-    currentUser?.firstName?.trim() ||
-    currentUser?.fullName?.trim()?.split(/\s+/)[0] ||
-    [currentUser?.firstName?.trim(), currentUser?.lastName?.trim()]
-      .filter(Boolean)
-      .join(' ')
-      .trim() ||
-    businessName;
-
-  const lifetimeMetrics = dashboardSummary?.lifetimeMetrics;
-  const kpis = dashboardDay?.kpis;
-  const currentBusinessDayAtRiskCustomers =
-    getDashboardDayAtRiskCustomersForActiveBusiness({
-      dashboardDay,
-      activeBusinessId,
-      isSwitchingBusiness,
-    });
   const dashboardResponseBusinessId =
     dashboardSummary?.businessId ??
     dashboardSummary?.business?.businessId ??
@@ -326,6 +343,27 @@ export default function BusinessDashboardScreen() {
       activeBusinessId,
       isSwitchingBusiness,
     });
+  const currentDashboardSummary = hasCurrentBusinessDashboardSummary
+    ? dashboardSummary
+    : null;
+  const anchorNow =
+    currentDashboardSummary?.freshness?.generatedAt ?? Date.now();
+  const businessName =
+    currentDashboardSummary?.business?.businessName?.trim() ||
+    activeBusiness?.name?.trim() ||
+    'העסק שלך';
+  const currentUser = sessionContext?.user;
+  const displayName =
+    currentUser?.firstName?.trim() ||
+    currentUser?.fullName?.trim()?.split(/\s+/)[0] ||
+    [currentUser?.firstName?.trim(), currentUser?.lastName?.trim()]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    businessName;
+
+  const lifetimeMetrics = currentDashboardSummary?.lifetimeMetrics;
+  const kpis = dashboardDay?.kpis;
   const selectedPeriodLabel =
     selectedPreset === 'today'
       ? 'היום'
@@ -373,73 +411,6 @@ export default function BusinessDashboardScreen() {
     },
   ];
 
-  const lifetimeCustomers = Number(
-    lifetimeMetrics?.totalCustomersJoinedAllTime
-  );
-  const lifetimeStamps = Number(lifetimeMetrics?.totalStampsAllTime);
-  const lifetimeRedemptions = Number(
-    lifetimeMetrics?.totalRedemptionsAllTime
-  );
-  const isFirstBusinessExperience =
-    hasCurrentBusinessDashboardSummary &&
-    lifetimeMetrics != null &&
-    Number.isFinite(lifetimeCustomers) &&
-    Number.isFinite(lifetimeStamps) &&
-    Number.isFinite(lifetimeRedemptions) &&
-    lifetimeCustomers <= 0 &&
-    lifetimeStamps <= 0 &&
-    lifetimeRedemptions <= 0;
-
-  const recommendationCards = useMemo(() => {
-    if (!hasCurrentBusinessDashboardSummary) {
-      return [];
-    }
-    const cards = (dashboardSummary?.recommendations?.cards ??
-      []) as DashboardRecommendationCard[];
-    const source =
-      cards.length > 0
-        ? cards
-        : isFirstBusinessExperience
-          ? buildFirstActionRecommendationCards()
-          : [];
-    const normalized = source.map((card) => ({
-      ...card,
-      primaryCtaLabel: resolveDashboardCustomerInsightsNavLabel(
-        card.primaryCta,
-        { key: card.key, title: card.title }
-      ),
-    }));
-    const hasAtRiskTask = normalized.some(
-      (card) => card.key === 'at_risk_task'
-    );
-    if (
-      !isFirstBusinessExperience &&
-      !hasAtRiskTask &&
-      currentBusinessDayAtRiskCustomers !== null &&
-      currentBusinessDayAtRiskCustomers > 0
-    ) {
-      normalized.unshift({
-        key: 'at_risk_task',
-        title: 'לקוחות בסיכון',
-        body: `${formatNumber(currentBusinessDayAtRiskCustomers)} לקוחות לא ביקרו לאחרונה`,
-        evidenceTags: [],
-        tone: 'critical',
-        primaryCta: {
-          kind: 'view_customers',
-          label: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
-          customerFilter: 'at_risk',
-        },
-        primaryCtaLabel: DASHBOARD_CUSTOMER_NAV_LABELS.atRisk,
-      });
-    }
-    return normalized;
-  }, [
-    dashboardSummary,
-    hasCurrentBusinessDashboardSummary,
-    isFirstBusinessExperience,
-    currentBusinessDayAtRiskCustomers,
-  ]);
-
   const openRoute = (route: BusinessRoute) => router.push(route as never);
   const teamSeatStatus = teamSummary
     ? limitStatus('maxTeamSeats', teamSummary.usedSeats)
@@ -470,72 +441,6 @@ export default function BusinessDashboardScreen() {
     }
     openRoute('/(authenticated)/(business)/team/index');
   };
-  const openCustomersWithFilter = (filter?: CustomerRouteFilter | null) => {
-    if (!filter) {
-      return openRoute('/(authenticated)/(business)/customers');
-    }
-    router.push({
-      pathname: '/(authenticated)/(business)/customers',
-      params: { filter },
-    });
-  };
-
-  const openRecommendationTarget = async (
-    primaryCta: DashboardRecommendationCard['primaryCta']
-  ) => {
-    if (!primaryCta) {
-      return;
-    }
-    if (primaryCta.kind === 'open_campaign_draft' && activeBusinessId) {
-      const draftType =
-        primaryCta.draftType === 'welcome' ||
-        primaryCta.draftType === 'winback' ||
-        primaryCta.draftType === 'promo'
-          ? primaryCta.draftType
-          : 'promo';
-      const draft = await createCampaignDraft({
-        businessId: activeBusinessId,
-        type: draftType,
-        rules:
-          draftType === 'welcome'
-            ? { audience: 'new_customers', joinedWithinDays: 14 }
-            : draftType === 'winback'
-              ? { audience: 'inactive_days', daysInactive: 30 }
-              : { audience: 'all_active_members' },
-      });
-      router.push({
-        pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
-        params: {
-          campaignId: String(draft.campaignId),
-          businessId: String(activeBusinessId),
-        },
-      });
-      return;
-    }
-    if (primaryCta.kind === 'view_customers') {
-      return openCustomersWithFilter(primaryCta.customerFilter ?? null);
-    }
-    if (primaryCta.kind === 'open_cards') {
-      return openRoute('/(authenticated)/(business)/programs');
-    }
-    if (primaryCta.kind === 'open_campaigns') {
-      return openRoute('/(authenticated)/(business)/campaigns');
-    }
-    if (primaryCta.kind === 'open_qr') {
-      return openRoute('/(authenticated)/(business)/qr');
-    }
-    if (primaryCta.kind === 'open_scanner') {
-      return openRoute('/(authenticated)/(business)/scanner');
-    }
-    if (primaryCta.kind === 'open_profile') {
-      return openRoute('/(authenticated)/(business)/settings-business-profile');
-    }
-    if (primaryCta.kind === 'view_subscription') {
-      return openRoute(
-        '/(authenticated)/(business)/settings-business-subscription'
-      );
-    }
-  };
 
   const handleShareBusinessReferral = useCallback(async () => {
     if (!activeBusinessId || isReferralShareLoading) {
@@ -565,60 +470,6 @@ ${joinUrl}`;
       setIsReferralShareLoading(false);
     }
   }, [activeBusinessId, createBusinessReferralLink, isReferralShareLoading]);
-
-  const handleRecommendationCta = async (cardKey: string) => {
-    if (!activeBusinessId || applyingRecommendationKey) {
-      return;
-    }
-    const card = recommendationCards.find((entry) => entry.key === cardKey);
-    if (!card?.primaryCta || card.primaryCta.kind === 'none') {
-      return;
-    }
-    setApplyingRecommendationKey(cardKey);
-    try {
-      if (!card.recommendationId) {
-        return await openRecommendationTarget(card.primaryCta);
-      }
-      const result = await executeRecommendationCta({
-        businessId: activeBusinessId,
-        recommendationId: card.recommendationId as never,
-      });
-      if (result.kind === 'open_draft') {
-        router.push({
-          pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
-          params: {
-            campaignId: String(result.campaignId),
-            businessId: String(activeBusinessId),
-          },
-        });
-        return;
-      }
-      if (result.kind === 'view_customers') {
-        return openCustomersWithFilter(result.customerFilter ?? null);
-      }
-      if (result.kind === 'open_cards') {
-        return openRoute('/(authenticated)/(business)/programs');
-      }
-      if (result.kind === 'open_profile') {
-        return openRoute(
-          '/(authenticated)/(business)/settings-business-profile'
-        );
-      }
-      if (result.kind === 'view_subscription') {
-        return openRoute(
-          '/(authenticated)/(business)/settings-business-subscription'
-        );
-      }
-      if (result.kind === 'view_analytics') {
-        return openRoute('/(authenticated)/(business)/customers');
-      }
-      return await openRecommendationTarget(card.primaryCta);
-    } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לפתוח את ההמלצה.');
-    } finally {
-      setApplyingRecommendationKey(null);
-    }
-  };
 
   const handleSelectPreset = (preset: DatePresetKey) => {
     setSelectedPreset(preset);
@@ -655,77 +506,6 @@ ${joinUrl}`;
           }
           onPressMenu={() => openRoute('/(authenticated)/(business)/settings')}
         />
-
-        <BusinessStatusCard
-          layoutMode={layoutMode}
-          plan={dashboardSummary?.business?.plan ?? ''}
-          profileIncomplete={
-            dashboardSummary?.business?.profileIncomplete ?? false
-          }
-          usageWarnings={
-            Array.isArray(
-              (dashboardSummary as { usageWarnings?: unknown })?.usageWarnings
-            )
-              ? (((dashboardSummary as { usageWarnings?: unknown })
-                  .usageWarnings ?? []) as string[])
-              : []
-          }
-          isFirstBusinessExperience={isFirstBusinessExperience}
-        />
-
-        {isFirstBusinessExperience ? (
-          <View style={styles.firstActionCard}>
-            <View style={styles.firstActionIconWrap}>
-              <Ionicons name="checkmark-circle" size={24} color="#16A34A" />
-            </View>
-            <View style={styles.firstActionCopy}>
-              <Text className={tw.textStart} style={styles.firstActionTitle}>
-                הכרטיסייה פורסמה
-              </Text>
-              <Text className={tw.textStart} style={styles.firstActionBody}>
-                עכשיו כדאי לשתף את קוד ההצטרפות או לסרוק לקוח ראשון בקופה.
-                אחרי שלקוחות יצטרפו, המדדים וההמלצות יתעדכנו כאן.
-              </Text>
-            </View>
-            <View style={styles.firstActionButtons}>
-              <Pressable
-                onPress={() => openRoute('/(authenticated)/(business)/qr')}
-                style={({ pressed }) => [
-                  styles.firstActionPrimaryButton,
-                  pressed ? styles.firstActionButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.firstActionPrimaryText}>הצגת QR</Text>
-              </Pressable>
-              <Pressable
-                onPress={() =>
-                  openRoute('/(authenticated)/(business)/scanner')
-                }
-                style={({ pressed }) => [
-                  styles.firstActionSecondaryButton,
-                  pressed ? styles.firstActionButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.firstActionSecondaryText}>
-                  סריקת לקוח
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() =>
-                  openRoute('/(authenticated)/(business)/programs')
-                }
-                style={({ pressed }) => [
-                  styles.firstActionSecondaryButton,
-                  pressed ? styles.firstActionButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.firstActionSecondaryText}>
-                  עריכת כרטיסייה
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
 
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
@@ -839,54 +619,36 @@ ${joinUrl}`;
         </View>
 
         <View style={styles.section}>
-          <View style={styles.recommendationsCard}>
-            <View style={styles.recommendationsHeader}>
-              <View style={styles.recommendationsTopRow}>
-                <View style={styles.recommendationsTitleRow}>
-                  <Ionicons
-                    name="alert-circle-outline"
-                    size={18}
-                    color="#D97706"
-                  />
-                  <Text
-                    className={tw.textStart}
-                    style={[
-                      styles.sectionTitle,
-                      styles.recommendationsSectionTitle,
-                      {
-                        fontSize: layout.sectionTitleSize,
-                        lineHeight: layout.sectionTitleLineHeight,
-                      },
-                    ]}
-                  >
-                    נדרש טיפול
-                  </Text>
-                </View>
-
-                <Text
-                  className={tw.textStart}
-                  style={styles.recommendationsMeta}
-                >
-                  {`${Math.min(recommendationCards.length, 3)} פעולות פתוחות`}
-                </Text>
-              </View>
-            </View>
-
-            <SmartRecommendationsPanel
-              layoutMode={layoutMode}
-              cards={recommendationCards}
-              onPressCta={(cardKey) => void handleRecommendationCta(cardKey)}
-              onPressDetails={(cardKey) => {
-                const card = recommendationCards.find(
-                  (entry) => entry.key === cardKey
-                );
-                if (card?.primaryCta) {
-                  void openRecommendationTarget(card.primaryCta);
-                }
-              }}
-              loadingCardKey={applyingRecommendationKey}
+          <View style={styles.recommendationsTitleRow}>
+            <Ionicons
+              name="sparkles-outline"
+              size={18}
+              color={DASHBOARD_TOKENS.colors.brandBlue}
             />
+            <Text
+              className={tw.textStart}
+              style={[
+                styles.sectionTitle,
+                styles.recommendationsSectionTitle,
+                {
+                  fontSize: layout.sectionTitleSize,
+                  lineHeight: layout.sectionTitleLineHeight,
+                },
+              ]}
+            >
+              הפעולות הבאות
+            </Text>
           </View>
+          <RecommendationQueryErrorBoundary
+            key={String(activeBusinessId ?? 'preview')}
+            layoutMode={layoutMode}
+          >
+            <DashboardRecommendationsSection
+              activeBusinessId={activeBusinessId}
+              isSwitchingBusiness={isSwitchingBusiness}
+              layoutMode={layoutMode}
+            />
+          </RecommendationQueryErrorBoundary>
         </View>
 
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
@@ -979,87 +741,6 @@ const styles = StyleSheet.create({
     gap: 10,
     ...rtlBaseView,
   },
-  firstActionCard: {
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 20,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-    ...rtlBaseView,
-  },
-  firstActionIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: selfStart,
-  },
-  firstActionCopy: {
-    gap: 5,
-  },
-  firstActionTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '900',
-    color: '#14532D',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  firstActionBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '600',
-    color: '#166534',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  firstActionButtons: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 10,
-    ...rtlBaseView,
-  },
-  firstActionPrimaryButton: {
-    minHeight: 42,
-    borderRadius: 14,
-    backgroundColor: '#16A34A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  firstActionSecondaryButton: {
-    minHeight: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#86EFAC',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  firstActionButtonPressed: {
-    opacity: 0.86,
-  },
-  firstActionPrimaryText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  firstActionSecondaryText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '800',
-    color: '#166534',
-    textAlign: 'center',
-  },
   sectionTitleRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -1079,40 +760,12 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     writingDirection: 'rtl',
   },
-  recommendationsCard: {
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 6,
-    gap: 6,
-  },
-  recommendationsHeader: {
-    gap: 2,
-  },
-  recommendationsTopRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    justifyContent: 'space-between',
-    ...rtlBaseView,
-  },
   recommendationsTitleRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: justifyContent.start,
     gap: 6,
     ...rtlBaseView,
-  },
-  recommendationsMeta: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: '#9A3412',
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   activityHeadingRow: {
     flexDirection: flexDirection.row,

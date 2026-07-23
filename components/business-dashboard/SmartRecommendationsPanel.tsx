@@ -1,227 +1,253 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
-import { RtlActionLink } from '@/components/ui/RtlActionLink';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import {
+  RecommendationActionCard,
+  type RecommendationCategory,
+  type RecommendationTone,
+} from '@/components/business-dashboard/RecommendationActionCard';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
-  getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
+import type { RecommendationAction } from '@/lib/recommendations/navigation';
 import {
   flexDirection,
-  justifyContent,
   rtlBaseView,
   selfStart,
   tw,
 } from '@/lib/rtl';
 
-type RecommendationCard = {
-  key: string;
-  tone: 'critical' | 'warning' | 'neutral' | 'success';
+export type DashboardRecommendation = {
+  stableId: string;
+  category: RecommendationCategory;
+  priority: number;
+  placement: 'primary' | 'secondary';
   title: string;
-  body: string;
-  supportingText?: string;
-  evidenceTags: string[];
-  primaryCtaLabel?: string | null;
+  reason: string;
+  ctaLabel: string;
+  action: RecommendationAction;
+  evidenceFingerprint: string;
+  evidenceObservedAt: number;
+  entityId?: string;
+  count?: number;
+  tone: RecommendationTone;
 };
-
-function getIconForTone(tone: RecommendationCard['tone']) {
-  if (tone === 'critical') {
-    return 'warning-outline' as const;
-  }
-  if (tone === 'warning') {
-    return 'megaphone-outline' as const;
-  }
-  if (tone === 'success') {
-    return 'checkmark-circle-outline' as const;
-  }
-  return 'sparkles-outline' as const;
-}
-
-function getIconColorForTone(tone: RecommendationCard['tone']) {
-  if (tone === 'critical') {
-    return '#DC2626';
-  }
-  if (tone === 'warning') {
-    return '#D97706';
-  }
-  if (tone === 'success') {
-    return '#16A34A';
-  }
-  return '#64748B';
-}
 
 export function SmartRecommendationsPanel({
   layoutMode,
-  cards,
-  onPressCta,
-  onPressDetails,
-  loadingCardKey,
+  status,
+  primary,
+  secondary,
+  loadingRecommendationId,
+  onOpen,
+  onRetry,
 }: {
   layoutMode: DashboardLayoutMode;
-  cards: RecommendationCard[];
-  onPressCta: (cardKey: string) => void;
-  onPressDetails?: (cardKey: string) => void;
-  loadingCardKey?: string | null;
+  status: 'loading' | 'ready' | 'error';
+  primary: DashboardRecommendation | null;
+  secondary: DashboardRecommendation[];
+  loadingRecommendationId?: string | null;
+  onOpen: (recommendation: DashboardRecommendation) => void;
+  onRetry?: () => void;
 }) {
-  const layout = getDashboardLayout(layoutMode);
-  const normalizedCards = cards.slice(0, 3);
-
-  if (normalizedCards.length === 0) {
+  if (status === 'loading') {
     return (
-      <View style={[styles.emptyState, { borderRadius: layout.cardRadius }]}>
-        <Ionicons name="sparkles-outline" size={18} color="#2563EB" />
-        <Text style={styles.emptyText}>אין המלצות כרגע</Text>
+      <View
+        accessibilityLabel="טוען פעולות מומלצות"
+        style={styles.loadingState}
+      >
+        <View style={[styles.skeletonLine, styles.skeletonShort]} />
+        <View style={[styles.skeletonLine, styles.skeletonLong]} />
+        <View style={[styles.skeletonLine, styles.skeletonButton]} />
       </View>
     );
   }
 
+  if (status === 'error') {
+    return (
+      <View style={styles.statusLine}>
+        <Ionicons
+          name="cloud-offline-outline"
+          size={20}
+          color={DASHBOARD_TOKENS.colors.textMuted}
+        />
+        <Text className={tw.textStart} style={styles.statusText}>
+          לא הצלחנו לטעון את הפעולות כרגע.
+        </Text>
+        {onRetry ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRetry}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryText}>ניסיון נוסף</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
+  const visibleSecondary = secondary.slice(0, 2);
+  if (!primary && visibleSecondary.length === 0) {
+    return (
+      <View style={styles.statusLine}>
+        <Ionicons
+          name="information-circle-outline"
+          size={20}
+          color={DASHBOARD_TOKENS.colors.textMuted}
+        />
+        <Text className={tw.textStart} style={styles.statusText}>
+          אין כרגע פעולה שדורשת טיפול.
+        </Text>
+      </View>
+    );
+  }
+
+  const isTablet = layoutMode === 'tablet';
   return (
-    <View style={styles.panel}>
-      {normalizedCards.map((card, index) => {
-        const isPriorityItem = index === 0;
-        const isLoading = loadingCardKey === card.key;
-        const actionLabel =
-          card.primaryCtaLabel || (onPressDetails ? 'פרטים' : null);
-        const onPressAction = card.primaryCtaLabel
-          ? () => onPressCta(card.key)
-          : onPressDetails
-            ? () => onPressDetails(card.key)
-            : null;
+    <View
+      style={[
+        styles.panel,
+        isTablet ? styles.tabletPanel : styles.phonePanel,
+      ]}
+    >
+      {primary ? (
+        <View style={styles.primaryColumn}>
+          <RecommendationActionCard
+            category={primary.category}
+            tone={primary.tone}
+            title={primary.title}
+            reason={primary.reason}
+            ctaLabel={primary.ctaLabel}
+            emphasis="primary"
+            isLoading={loadingRecommendationId === primary.stableId}
+            onPress={() => onOpen(primary)}
+          />
+        </View>
+      ) : null}
 
-        return (
-          <View key={card.key}>
-            <View
-              style={[styles.row, isPriorityItem ? styles.priorityRow : null]}
-            >
-              <View style={styles.rowHeader}>
-                <View style={styles.titleGroup}>
-                  <Ionicons
-                    name={getIconForTone(card.tone)}
-                    size={19}
-                    color={getIconColorForTone(card.tone)}
-                  />
-                  <Text
-                    className={tw.textStart}
-                    style={[
-                      styles.title,
-                      isPriorityItem
-                        ? styles.priorityTitle
-                        : styles.regularTitle,
-                    ]}
-                  >
-                    {card.title}
-                  </Text>
-                </View>
-              </View>
-
-              <Text className={tw.textStart} style={styles.body}>
-                {card.body}
-              </Text>
-
-              {actionLabel && onPressAction ? (
-                <RtlActionLink
-                  label={actionLabel}
-                  onPress={onPressAction}
-                  loading={isLoading}
-                  style={styles.actionLink}
-                  textStyle={styles.actionLinkText}
-                />
-              ) : null}
-            </View>
-
-            {index < normalizedCards.length - 1 ? (
-              <View style={styles.divider} />
-            ) : null}
-          </View>
-        );
-      })}
+      {visibleSecondary.length > 0 ? (
+        <View
+          style={[
+            styles.secondaryColumn,
+            !primary && isTablet ? styles.secondaryOnlyTablet : null,
+          ]}
+        >
+          {visibleSecondary.map((recommendation) => (
+            <RecommendationActionCard
+              key={`${recommendation.stableId}:${recommendation.evidenceFingerprint}`}
+              category={recommendation.category}
+              tone={recommendation.tone}
+              title={recommendation.title}
+              reason={recommendation.reason}
+              ctaLabel={recommendation.ctaLabel}
+              emphasis="secondary"
+              isLoading={
+                loadingRecommendationId === recommendation.stableId
+              }
+              onPress={() => onOpen(recommendation)}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   panel: {
-    minHeight: 1,
-    gap: 0,
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+    gap: 12,
+    ...rtlBaseView,
   },
-  row: {
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    gap: 7,
+  phonePanel: {
+    flexDirection: 'column',
+  },
+  tabletPanel: {
+    flexDirection: flexDirection.row,
     alignItems: 'stretch',
-    ...rtlBaseView,
   },
-  priorityRow: {
-    borderRightWidth: 3,
-    borderRightColor: '#EA580C',
-    paddingRight: 9,
+  primaryColumn: {
+    flex: 1.12,
+    minWidth: 0,
+    maxWidth: 520,
   },
-  rowHeader: {
+  secondaryColumn: {
+    flex: 0.88,
+    minWidth: 0,
+    maxWidth: 400,
+    gap: 10,
+  },
+  secondaryOnlyTablet: {
+    flex: 1,
+    maxWidth: 620,
+  },
+  loadingState: {
+    width: '100%',
+    maxWidth: 920,
+    height: 176,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    gap: 13,
+    borderWidth: 1,
+    borderColor: DASHBOARD_TOKENS.colors.border,
+    borderRadius: DASHBOARD_TOKENS.cardRadiusLarge,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#E2E8F0',
+    alignSelf: selfStart,
+  },
+  skeletonShort: {
+    width: '34%',
+  },
+  skeletonLong: {
+    width: '76%',
+  },
+  skeletonButton: {
+    width: 140,
+    height: 46,
+    borderRadius: 12,
+  },
+  statusLine: {
+    width: '100%',
+    maxWidth: 920,
+    minHeight: 64,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: DASHBOARD_TOKENS.colors.border,
+    borderRadius: DASHBOARD_TOKENS.cardRadius,
+    backgroundColor: '#FFFFFF',
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: justifyContent.start,
-    alignSelf: 'stretch',
     gap: 8,
+    paddingHorizontal: 14,
     ...rtlBaseView,
   },
-  titleGroup: {
+  statusText: {
     flex: 1,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 8,
-    ...rtlBaseView,
-  },
-  title: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
-    color: '#111827',
+    fontWeight: '500',
+    color: DASHBOARD_TOKENS.colors.textMuted,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  priorityTitle: {
-    fontWeight: '700',
+  retryButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
-  regularTitle: {
-    fontWeight: '400',
-  },
-  body: {
+  retryText: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '400',
-    color: '#475569',
-    textAlign: 'right',
-    alignSelf: 'stretch',
-    writingDirection: 'rtl',
-  },
-  actionLink: {
-    alignSelf: selfStart,
-    paddingTop: 2,
-  },
-  actionLinkText: {
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-  },
-  emptyState: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderColor: '#DCE8FF',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: flexDirection.row,
-    gap: 8,
-    paddingHorizontal: DASHBOARD_TOKENS.spacingCardInner,
-    ...rtlBaseView,
-    ...DASHBOARD_TOKENS.cardShadowSoft,
-  },
-  emptyText: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: '#334155',
+    fontWeight: '800',
+    color: DASHBOARD_TOKENS.colors.brandBlue,
   },
 });

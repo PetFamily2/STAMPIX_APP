@@ -30,6 +30,7 @@ import type * as lib_customerIntelligence from "../lib/customerIntelligence.js";
 import type * as lib_editConflicts from "../lib/editConflicts.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_ids from "../lib/ids.js";
+import type * as lib_recommendationCatalog from "../lib/recommendationCatalog.js";
 import type * as lib_recommendationUtils from "../lib/recommendationUtils.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "lib/editConflicts": typeof lib_editConflicts;
   "lib/email": typeof lib_email;
   "lib/ids": typeof lib_ids;
+  "lib/recommendationCatalog": typeof lib_recommendationCatalog;
   "lib/recommendationUtils": typeof lib_recommendationUtils;
   "lib/staffPermissions": typeof lib_staffPermissions;
   loyaltyPrograms: typeof loyaltyPrograms;

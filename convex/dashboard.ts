@@ -1,14 +1,12 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { query } from './_generated/server';
-import { getLatestRecommendationForBusiness } from './aiRecommendations';
 import { getBusinessSettings } from './business';
 import {
   buildDashboardLifecycleCountsFromStampEvents,
   type DashboardStampEvent,
 } from './customerLifecycle';
 import { getBusinessUsageSummary } from './entitlements';
-import { getCustomerManagementSnapshot } from './events';
 import {
   requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
@@ -33,36 +31,6 @@ const TIME_ZONE_OFFSET_FORMATTER = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 });
 const TEMP_DASHBOARD_LARGE_NUMBERS = false;
-
-type RecommendationTone = 'critical' | 'warning' | 'neutral' | 'success';
-type RecommendationCtaKind =
-  | 'open_cards'
-  | 'open_profile'
-  | 'open_campaign_draft'
-  | 'view_customers'
-  | 'view_analytics'
-  | 'view_subscription'
-  | 'open_campaigns'
-  | 'none';
-
-type RecommendationPrimaryCta = {
-  kind: RecommendationCtaKind;
-  label: string;
-  draftType?: 'welcome' | 'winback' | 'promo' | null;
-  customerFilter?: 'near_reward' | 'at_risk' | 'new_customers' | null;
-};
-
-type DashboardRecommendationCard = {
-  key: string;
-  priority: number;
-  tone: RecommendationTone;
-  title: string;
-  body: string;
-  supportingText?: string;
-  evidenceTags: string[];
-  recommendationId?: Id<'aiRecommendations'> | null;
-  primaryCta?: RecommendationPrimaryCta | null;
-};
 
 type DayBounds = {
   dayKey: string;
@@ -453,63 +421,6 @@ function buildUsageWarnings(args: {
   return warnings;
 }
 
-function buildAiRecommendationCandidate(
-  aiRecommendation: any
-): DashboardRecommendationCard | null {
-  if (!aiRecommendation?.title || !aiRecommendation?.body) {
-    return null;
-  }
-
-  const statusTone = String(aiRecommendation.statusTone ?? 'opportunity');
-  const hasActionableCta =
-    aiRecommendation.primaryCta?.kind &&
-    aiRecommendation.primaryCta.kind !== 'none';
-
-  if (statusTone === 'stable' && !hasActionableCta) {
-    return null;
-  }
-
-  const tone: RecommendationTone =
-    statusTone === 'setup_needed' || statusTone === 'wait'
-      ? 'warning'
-      : statusTone === 'watch'
-        ? 'critical'
-        : statusTone === 'stable'
-          ? 'success'
-          : 'neutral';
-
-  const priority =
-    statusTone === 'setup_needed'
-      ? 12
-      : statusTone === 'watch'
-        ? 24
-        : statusTone === 'wait'
-          ? 26
-          : statusTone === 'opportunity'
-            ? 34
-            : 90;
-
-  return {
-    key: `ai_${String(aiRecommendation.recommendationId ?? 'latest')}`,
-    priority,
-    tone,
-    title: String(aiRecommendation.title),
-    body: String(aiRecommendation.body),
-    supportingText:
-      typeof aiRecommendation.supportingText === 'string'
-        ? aiRecommendation.supportingText
-        : '',
-    evidenceTags: Array.isArray(aiRecommendation.evidenceTags)
-      ? aiRecommendation.evidenceTags
-          .map((tag: unknown) => String(tag))
-          .slice(0, 3)
-      : [],
-    recommendationId: (aiRecommendation.recommendationId ??
-      null) as Id<'aiRecommendations'> | null,
-    primaryCta: aiRecommendation.primaryCta ?? null,
-  };
-}
-
 export function shouldEmitTransitionalCreateFirstCampaign(input: {
   campaignFacts: CampaignLifecycleFactValue | null;
   activeProgramsCount: number;
@@ -523,154 +434,6 @@ export function shouldEmitTransitionalCreateFirstCampaign(input: {
     input.activeCustomerCount > 0 &&
     input.canCreateCampaigns
   );
-}
-
-function buildRecommendationCandidates(input: {
-  aiRecommendation: any;
-  activeProgramsCount: number;
-  campaignFacts: CampaignLifecycleFactValue | null;
-  canCreateCampaigns: boolean;
-  activeCustomerCount: number | null;
-  customerNearRewardCount: number;
-  cycleAtRiskCustomers: number;
-  profileIncomplete: boolean;
-  missingFieldsCount: number;
-  usageWarnings: string[];
-}) {
-  const candidates: DashboardRecommendationCard[] = [];
-  const aiCandidate = buildAiRecommendationCandidate(input.aiRecommendation);
-
-  if (aiCandidate) {
-    candidates.push(aiCandidate);
-  }
-
-  if (input.profileIncomplete) {
-    candidates.push({
-      key: 'profile_incomplete',
-      priority: 10,
-      tone: 'critical',
-      title: 'יש להשלים את פרופיל העסק',
-      body: `יש ${input.missingFieldsCount} שדות חסרים בפרופיל. השלמה שלהם תשפר את ההפעלה והדיוק של ההמלצות.`,
-      evidenceTags:
-        input.missingFieldsCount > 0
-          ? [`${input.missingFieldsCount} שדות חסרים`]
-          : [],
-      primaryCta: {
-        kind: 'open_profile',
-        label: 'השלם פרופיל',
-      },
-    });
-  }
-
-  if (
-    input.usageWarnings.includes('cards_limit_reached') ||
-    input.usageWarnings.includes('customers_limit_reached') ||
-    input.usageWarnings.includes('campaigns_limit_reached')
-  ) {
-    candidates.push({
-      key: 'plan_limit_reached',
-      priority: 15,
-      tone: 'critical',
-      title: 'הגעת למגבלת התוכנית',
-      body: 'חלק מהפעולות בעסק מוגבלות עד לעדכון התוכנית הפעילה.',
-      evidenceTags: ['נדרש עדכון תוכנית'],
-      primaryCta: {
-        kind: 'view_subscription',
-        label: 'בדוק תוכנית',
-      },
-    });
-  } else if (
-    input.usageWarnings.includes('cards_limit_near') ||
-    input.usageWarnings.includes('customers_limit_near') ||
-    input.usageWarnings.includes('campaigns_limit_near')
-  ) {
-    candidates.push({
-      key: 'plan_limit_near',
-      priority: 16,
-      tone: 'warning',
-      title: 'מתקרבים למגבלת התוכנית',
-      body: 'כדאי להיערך מראש כדי להימנע מחסימה של פעולות נוספות.',
-      evidenceTags: ['שימוש גבוה בתוכנית'],
-      primaryCta: {
-        kind: 'view_subscription',
-        label: 'בדוק תוכנית',
-      },
-    });
-  }
-
-  if (input.activeProgramsCount === 0) {
-    candidates.push({
-      key: 'no_active_program',
-      priority: 20,
-      tone: 'warning',
-      title: 'אין כרגע תוכנית נאמנות פעילה',
-      body: 'בלי תוכנית פעילה אי אפשר להניע לקוחות ולצבור פעילות עקבית.',
-      evidenceTags: [],
-      primaryCta: {
-        kind: 'open_cards',
-        label: 'פתח תוכנית',
-      },
-    });
-  }
-
-  if (input.cycleAtRiskCustomers > 0) {
-    candidates.push({
-      key: 'customers_at_risk_cycle',
-      priority: 30,
-      tone: 'critical',
-      title: `${input.cycleAtRiskCustomers} לקוחות התרחקו מהקצב הרגיל שלהם`,
-      body: 'כדאי לזהות מי האט את תדירות הביקורים ולבחור פעולה להחזרה.',
-      evidenceTags: [`${input.cycleAtRiskCustomers} לקוחות בסיכון`],
-      primaryCta: {
-        kind: 'view_customers',
-        label: 'פתח לקוחות',
-      },
-    });
-  }
-
-  if (input.customerNearRewardCount > 0) {
-    candidates.push({
-      key: 'customers_near_reward',
-      priority: 34,
-      tone: 'neutral',
-      title: `${input.customerNearRewardCount} לקוחות קרובים להטבה`,
-      body: 'זה הזמן לדחיפה קצרה שתעזור להם להשלים את הכרטיס.',
-      evidenceTags: [`${input.customerNearRewardCount} קרובים להטבה`],
-      primaryCta: {
-        kind: 'view_customers',
-        label: 'צפה בלקוחות',
-        customerFilter: 'near_reward',
-      },
-    });
-  }
-
-  if (shouldEmitTransitionalCreateFirstCampaign(input)) {
-    candidates.push({
-      key: 'create_first_campaign',
-      priority: 40,
-      tone: 'warning',
-      title: 'צרו מבצע ראשון',
-      body: 'עדיין לא נוצרו מבצעים לעסק.',
-      evidenceTags: ['אין מבצעים קיימים'],
-      primaryCta: {
-        kind: 'open_campaigns',
-        label: 'צרו מבצע',
-      },
-    });
-  }
-
-  const deduped = new Map<string, DashboardRecommendationCard>();
-  for (const candidate of candidates) {
-    if (!deduped.has(candidate.key)) {
-      deduped.set(candidate.key, candidate);
-    }
-  }
-
-  const ranked = [...deduped.values()]
-    .sort((left, right) => left.priority - right.priority)
-    .slice(0, 3);
-
-  return ranked;
 }
 
 export const getBusinessDashboardSummary = query({
@@ -703,12 +466,9 @@ export const getBusinessDashboardSummary = query({
     const [
       businessSettings,
       usageSummary,
-      aiRecommendation,
-      customerSnapshot,
       recommendationFacts,
       allEvents,
       allMemberships,
-      allPrograms,
     ] = await Promise.all([
       safeRun(
         () =>
@@ -720,20 +480,6 @@ export const getBusinessDashboardSummary = query({
       safeRun(
         () =>
           ctx.runQuery(getBusinessUsageSummary, {
-            businessId,
-          }),
-        null
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(getLatestRecommendationForBusiness, {
-            businessId,
-          }),
-        null
-      ),
-      safeRun(
-        () =>
-          ctx.runQuery(getCustomerManagementSnapshot, {
             businessId,
           }),
         null
@@ -754,16 +500,8 @@ export const getBusinessDashboardSummary = query({
         .query('memberships')
         .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
         .collect(),
-      ctx.db
-        .query('loyaltyPrograms')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) => q.eq(q.field('isActive'), true))
-        .collect(),
     ]);
 
-    const stampEvents = (Array.isArray(allEvents) ? allEvents : []).filter(
-      (event: any) => event.type === 'STAMP_ADDED'
-    ) as DashboardStampEvent[];
     const lifetimeMetrics = applyTemporaryLargeNumberSummary(
       collectLifetimeMetrics(
         Array.isArray(allEvents) ? allEvents : [],
@@ -778,15 +516,6 @@ export const getBusinessDashboardSummary = query({
         windowDays: 7,
       })
     );
-    const cycleCountsNow = buildDashboardLifecycleCountsFromStampEvents(
-      stampEvents,
-      now
-    );
-    const activeProgramsCount = (
-      Array.isArray(allPrograms) ? allPrograms : []
-    ).filter(
-      (program: any) => resolveProgramLifecycle(program) === 'active'
-    ).length;
     const campaignQuota =
       recommendationFacts.facts.campaignQuota.state === 'known'
         ? recommendationFacts.facts.campaignQuota.value
@@ -808,19 +537,6 @@ export const getBusinessDashboardSummary = query({
       (businessSettings as any)?.profileCompletion?.missingFields?.length,
       0
     );
-    const customerNearRewardCount = safeNumber(
-      (customerSnapshot as any)?.summary?.nearRewardCustomers ??
-        (customerSnapshot as any)?.summary?.closeToRewardCustomers,
-      0
-    );
-    const campaignFacts =
-      recommendationFacts.facts.campaigns.state === 'known'
-        ? recommendationFacts.facts.campaigns.value
-        : null;
-    const activeCustomerCount =
-      recommendationFacts.facts.customers.state === 'known'
-        ? recommendationFacts.facts.customers.value.uniqueActiveCustomerCount
-        : null;
     return {
       businessId,
       business: {
@@ -833,21 +549,6 @@ export const getBusinessDashboardSummary = query({
       },
       lifetimeMetrics,
       lifetimeMetricChanges,
-      recommendations: {
-        cards: buildRecommendationCandidates({
-          aiRecommendation,
-          activeProgramsCount,
-          campaignFacts,
-          canCreateCampaigns:
-            recommendationFacts.actor.capabilities.createCampaigns === true,
-          activeCustomerCount,
-          customerNearRewardCount,
-          cycleAtRiskCustomers: cycleCountsNow.atRiskCustomers,
-          profileIncomplete,
-          missingFieldsCount,
-          usageWarnings,
-        }),
-      },
       usageWarnings,
       freshness: {
         generatedAt: now,
