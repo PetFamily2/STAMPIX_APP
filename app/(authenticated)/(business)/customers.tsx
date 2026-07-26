@@ -19,6 +19,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import {
   DonutChartCard,
   HorizontalRankingChart,
@@ -195,7 +196,7 @@ export function CustomersHubContent() {
       : null;
 
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const guideTargetRef = useRef<View | null>(null);
+  const guideTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const businessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -780,22 +781,32 @@ export function CustomersHubContent() {
           </View>
         </SurfaceCard>
 
-        <View ref={guideTargetRef} style={styles.listHeader}>
-          <Text
-            style={styles.listHeaderText}
-          >{`${formatNumber(filteredCustomers.length)} לקוחות`}</Text>
-          <Text
-            style={styles.listHeaderText}
-          >{`${formatNumber(customerList.length)} סה"כ`}</Text>
-        </View>
-
-        {effectiveFilter ? (
-          <View style={styles.filterBadge}>
-            <Text style={styles.filterBadgeText}>
-              {buildActiveFilterLabel(effectiveFilter)}
-            </Text>
+        <View
+          ref={
+            effectiveFilter === 'at_risk' ||
+            effectiveFilter === 'near_reward'
+              ? guideTargetRef
+              : undefined
+          }
+          collapsable={false}
+        >
+          <View style={styles.listHeader}>
+            <Text
+              style={styles.listHeaderText}
+            >{`${formatNumber(filteredCustomers.length)} לקוחות`}</Text>
+            <Text
+              style={styles.listHeaderText}
+            >{`${formatNumber(customerList.length)} סה"כ`}</Text>
           </View>
-        ) : null}
+
+          {effectiveFilter ? (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>
+                {buildActiveFilterLabel(effectiveFilter)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.listWrap}>
           {customerList.length === 0 ? (
@@ -942,6 +953,10 @@ export function CustomersHubContent() {
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}
         routeKey="customers"
+        destinationTargetValid={
+          effectiveFilter === 'at_risk' ||
+          effectiveFilter === 'near_reward'
+        }
         targetRef={guideTargetRef}
         scrollTargetIntoView={() =>
           guideScrollRef.current?.scrollTo({

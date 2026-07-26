@@ -19,6 +19,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
@@ -27,8 +28,14 @@ import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  isSubscriptionRecoveryStatus,
+  resolveSubscriptionGuideTarget,
+} from '@/lib/recommendations/guidance';
 import { alignItems, flexDirection, textAlign } from '@/lib/rtl';
+import { buildRevenueCatBusinessAppUserId } from '@/lib/subscription/billingGuards';
 import {
   buildComparisonRows,
   normalizePlanCatalog,
@@ -136,7 +143,8 @@ function resolveTeamSeatUsageChip(args: {
 }
 
 export default function BusinessSettingsSubscriptionScreen() {
-  const guideTargetRef = useRef<View | null>(null);
+  const subscriptionRecoveryTargetRef = useGuidedTargetRef();
+  const quotaTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -147,6 +155,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     featureKey?: string | string[];
     autoOpenUpgrade?: string | string[];
     guideId?: string | string[];
+    limitKey?: string | string[];
   }>();
   const hasAutoOpenedModalRef = useRef(false);
 
@@ -165,6 +174,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     gate,
     isLoading,
   } = useEntitlements(activeBusinessId);
+  const { restorePurchases } = useRevenueCat();
   const teamGate = gate('team');
   const usageSummary = useQuery(
     api.entitlements.getBusinessUsageSummary,
@@ -191,6 +201,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   const featureKeyParam = firstParam(params.featureKey);
   const autoOpenUpgradeParam = firstParam(params.autoOpenUpgrade) === 'true';
   const guideIdParam = firstParam(params.guideId);
+  const guideLimitKeyParam = firstParam(params.limitKey);
 
   const normalizedPlanCatalog = useMemo(
     () => normalizePlanCatalog(planCatalogQuery),
@@ -312,6 +323,8 @@ export default function BusinessSettingsSubscriptionScreen() {
   const [comparisonBillingPeriod, setComparisonBillingPeriod] =
     useState<BillingPeriod>('monthly');
   const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
+  const [isRestoringSubscription, setIsRestoringSubscription] =
+    useState(false);
 
   const openUpgrade = useCallback(
     (targetPlan?: 'pro' | 'premium') => {
@@ -337,6 +350,27 @@ export default function BusinessSettingsSubscriptionScreen() {
       upgradeReasonParam,
     ]
   );
+
+  const handleRestoreSubscription = useCallback(async () => {
+    if (!activeBusinessId || isRestoringSubscription) {
+      return;
+    }
+    const appUserId = buildRevenueCatBusinessAppUserId(
+      String(activeBusinessId)
+    );
+    if (!appUserId) {
+      return;
+    }
+    setIsRestoringSubscription(true);
+    try {
+      await restorePurchases({
+        appUserId,
+        syncUserSubscription: false,
+      });
+    } finally {
+      setIsRestoringSubscription(false);
+    }
+  }, [activeBusinessId, isRestoringSubscription, restorePurchases]);
 
   const handleShareBusinessReferral = useCallback(
     async (mode: 'whatsapp' | 'copy') => {
@@ -436,6 +470,14 @@ export default function BusinessSettingsSubscriptionScreen() {
 
   const currentStatusLabel =
     STATUS_LABELS[entitlements?.subscriptionStatus ?? 'active'] ?? 'פעיל';
+  const showSubscriptionRecoveryAction = isSubscriptionRecoveryStatus(
+    entitlements?.subscriptionStatus
+  );
+  const subscriptionGuideTarget = resolveSubscriptionGuideTarget({
+    guideId: guideIdParam,
+    subscriptionStatus: entitlements?.subscriptionStatus,
+    limitKey: guideLimitKeyParam,
+  });
   const comparisonUpgradePlan: 'pro' | 'premium' =
     comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
   const comparisonCtaLabel =
@@ -536,8 +578,9 @@ export default function BusinessSettingsSubscriptionScreen() {
               key={item.key}
               ref={
                 item.key === 'campaigns_usage' &&
-                guideIdParam === 'quota-review'
-                  ? guideTargetRef
+                subscriptionGuideTarget?.action ===
+                  'review_campaigns_quota'
+                  ? quotaTargetRef
                   : undefined
               }
               style={styles.usageChip}
@@ -560,6 +603,48 @@ export default function BusinessSettingsSubscriptionScreen() {
             </View>
           ))}
         </View>
+
+        {showSubscriptionRecoveryAction ? (
+          <View
+            ref={
+              subscriptionGuideTarget?.action === 'restore_purchases'
+                ? subscriptionRecoveryTargetRef
+                : undefined
+            }
+            collapsable={false}
+            style={styles.subscriptionRecoveryRow}
+          >
+            <View style={styles.subscriptionRecoveryCopy}>
+              <Text style={styles.subscriptionRecoveryTitle}>
+                סטטוס מנוי: {currentStatusLabel}
+              </Text>
+              <Text style={styles.subscriptionRecoveryDescription}>
+                אפשר לנסות לשחזר את הרכישה הקיימת.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="שחזור רכישות למנוי הנוכחי"
+              disabled={isRestoringSubscription}
+              onPress={() => {
+                void handleRestoreSubscription();
+              }}
+              style={({ pressed }) => [
+                styles.subscriptionRecoveryButton,
+                pressed ? styles.b2bSecondaryButtonPressed : null,
+                isRestoringSubscription ? styles.b2bButtonDisabled : null,
+              ]}
+            >
+              {isRestoringSubscription ? (
+                <ActivityIndicator size="small" color="#1D4ED8" />
+              ) : (
+                <Text style={styles.subscriptionRecoveryButtonText}>
+                  שחזור רכישות
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
 
         {usageWarnings.length > 0 ? (
           <View style={styles.warningStrip}>
@@ -636,14 +721,7 @@ export default function BusinessSettingsSubscriptionScreen() {
           </View>
         </View>
 
-        <View
-          ref={
-            guideIdParam !== 'quota-review'
-              ? guideTargetRef
-              : undefined
-          }
-          style={styles.panelWrap}
-        >
+        <View style={styles.panelWrap}>
           <SubscriptionSalesPanel
             plans={normalizedPlanCatalog}
             rows={comparisonRows}
@@ -675,7 +753,10 @@ export default function BusinessSettingsSubscriptionScreen() {
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}
         routeKey="business-subscription"
-        targetRef={guideTargetRef}
+        targetRefs={{
+          'subscription-recover': subscriptionRecoveryTargetRef,
+          'quota-review': quotaTargetRef,
+        }}
         scrollTargetIntoView={() => {
           if (guideIdParam === 'quota-review') {
             guideScrollRef.current?.scrollTo({
@@ -684,7 +765,10 @@ export default function BusinessSettingsSubscriptionScreen() {
             });
             return;
           }
-          guideScrollRef.current?.scrollToEnd({ animated: false });
+          guideScrollRef.current?.scrollTo({
+            y: 80,
+            animated: false,
+          });
         }}
       />
     </SafeAreaView>
@@ -769,6 +853,53 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textAlign: TEXT_END,
+  },
+  subscriptionRecoveryRow: {
+    minHeight: 76,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  subscriptionRecoveryCopy: {
+    flex: 1,
+    alignItems: alignItems.start,
+    gap: 3,
+  },
+  subscriptionRecoveryTitle: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: TEXT_START,
+  },
+  subscriptionRecoveryDescription: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  subscriptionRecoveryButton: {
+    minHeight: 48,
+    minWidth: 112,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  subscriptionRecoveryButtonText: {
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   warningStrip: {
     flexDirection: flexDirection.row,

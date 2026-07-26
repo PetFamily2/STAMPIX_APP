@@ -9,6 +9,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { BarComparisonChart, KpiCard } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -204,7 +205,7 @@ export default function BusinessTeamManagementScreen() {
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const guideTargetRef = useRef<View | null>(null);
+  const guideTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const isOwner = activeBusiness?.staffRole === 'owner';
   const activeBusinessCapabilities = activeBusiness
@@ -1077,7 +1078,8 @@ export default function BusinessTeamManagementScreen() {
           </View>
 
           <View
-            ref={guideTargetRef}
+            ref={isPendingExpanded ? guideTargetRef : undefined}
+            collapsable={false}
             className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5"
           >
             <TouchableOpacity
@@ -1316,7 +1318,7 @@ export default function BusinessTeamManagementScreen() {
         activeBusinessId={activeBusinessId}
         routeKey="team"
         targetRef={guideTargetRef}
-        focusTarget={() => setIsPendingExpanded(true)}
+        prepareTarget={() => setIsPendingExpanded(true)}
         scrollTargetIntoView={() =>
           guideScrollRef.current?.scrollToEnd({ animated: false })
         }

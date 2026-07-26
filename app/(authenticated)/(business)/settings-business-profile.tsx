@@ -1,30 +1,42 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery } from 'convex/react';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import {
+    resolveExactMissingProfileGuideField,
+    resolveProfileGuideField,
+    type ProfileGuideField,
+} from '@/lib/recommendations/guidance';
 import { rtlBaseView, tw } from '@/lib/rtl';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { router, useLocalSearchParams } from 'expo-router';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type Ref,
+} from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -216,6 +228,16 @@ function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, ' ');
 }
 
+function isTextProfileGuideField(
+  field: ProfileGuideField | null
+): field is 'name' | 'shortDescription' | 'businessPhone' {
+  return (
+    field === 'name' ||
+    field === 'shortDescription' ||
+    field === 'businessPhone'
+  );
+}
+
 function sanitizeServiceTypes(value: string[] | undefined) {
   const unique: BusinessServiceType[] = [];
   if (!value) return unique;
@@ -259,43 +281,65 @@ function ProfileRow({
   value,
   disabled,
   onPress,
+  targetRef,
+  onTargetLayout,
 }: {
   label: string;
   value: string;
   disabled: boolean;
   onPress: () => void;
+  targetRef?: Ref<View>;
+  onTargetLayout?: (y: number) => void;
 }) {
   return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        opacity: disabled ? 0.72 : pressed ? 0.86 : 1,
-      })}
-      className="min-h-[64px] border-b border-[#EDF2FF] py-2"
+    <View
+      ref={targetRef}
+      collapsable={false}
+      onLayout={(event) => onTargetLayout?.(event.nativeEvent.layout.y)}
     >
-      <View
-        className={`${tw.flexRow} items-center justify-between gap-3`}
-        style={rtlBaseView}
+      <Pressable
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => ({
+          opacity: disabled ? 0.72 : pressed ? 0.86 : 1,
+        })}
+        className="min-h-[64px] border-b border-[#EDF2FF] py-2"
       >
-        <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
-          <Ionicons
-            name="create-outline"
-            size={16}
-            color={disabled ? '#94A3B8' : '#2563EB'}
-          />
+        <View
+          className={`${tw.flexRow} items-center justify-between gap-3`}
+          style={rtlBaseView}
+        >
+          <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
+            <Ionicons
+              name="create-outline"
+              size={16}
+              color={disabled ? '#94A3B8' : '#2563EB'}
+            />
+          </View>
+          <View className={`flex-1 ${tw.itemsStart}`}>
+            <Text className="text-xs font-bold text-[#64748B]">{label}</Text>
+            <Text className="mt-1 text-sm font-bold text-[#0F172A]">{value}</Text>
+          </View>
         </View>
-        <View className={`flex-1 ${tw.itemsStart}`}>
-          <Text className="text-xs font-bold text-[#64748B]">{label}</Text>
-          <Text className="mt-1 text-sm font-bold text-[#0F172A]">{value}</Text>
-        </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
 export default function BusinessSettingsProfileScreen() {
-  const guideTargetRef = useRef<View | null>(null);
+  const params = useLocalSearchParams<{
+    fieldId?: string | string[];
+  }>();
+  const requestedFieldId = Array.isArray(params.fieldId)
+    ? params.fieldId[0]
+    : params.fieldId;
+  const profileGuideField = resolveProfileGuideField(requestedFieldId);
+  const guideTargetRef = useGuidedTargetRef();
+  const guideScrollRef = useRef<ScrollView | null>(null);
+  const guideCardYRef = useRef(0);
+  const guideTargetYRef = useRef(0);
+  const guideTextInputRef = useRef<TextInput | null>(null);
+  const pendingGuideTextFocusRef = useRef(false);
   const insets = useSafeAreaInsets();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
@@ -432,6 +476,17 @@ export default function BusinessSettingsProfileScreen() {
       )
       .map((item) => MISSING_FIELD_LABELS[item]);
   }, [businessSettings?.profileCompletion?.missingFields]);
+  const exactGuideField = useMemo(
+    () =>
+      resolveExactMissingProfileGuideField(
+        profileGuideField,
+        businessSettings?.profileCompletion?.missingFields ?? []
+      ),
+    [
+      businessSettings?.profileCompletion?.missingFields,
+      profileGuideField,
+    ]
+  );
 
   const rows = useMemo(
     () => [
@@ -567,6 +622,22 @@ export default function BusinessSettingsProfileScreen() {
     setEditingField(null);
     setConflictLocked(false);
   };
+
+  useEffect(() => {
+    if (
+      !pendingGuideTextFocusRef.current ||
+      !isTextProfileGuideField(exactGuideField) ||
+      editingField !== exactGuideField
+    ) {
+      return;
+    }
+    const input = guideTextInputRef.current;
+    if (!input) {
+      return;
+    }
+    pendingGuideTextFocusRef.current = false;
+    input.focus();
+  }, [editingField, exactGuideField]);
 
   const buildProfilePayload = (overrides?: {
     name?: string;
@@ -817,6 +888,7 @@ export default function BusinessSettingsProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
+        ref={guideScrollRef}
         stickyHeaderIndices={[0]}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -882,10 +954,13 @@ export default function BusinessSettingsProfileScreen() {
             )}
 
             <View
-              ref={guideTargetRef}
+              onLayout={(event) => {
+                guideCardYRef.current = event.nativeEvent.layout.y;
+              }}
               className="rounded-3xl border border-[#E3E9FF] bg-white px-4 py-2"
             >
-              <Pressable
+              <View>
+                <Pressable
                 disabled={!canEditBusiness}
                 onPress={() =>
                   router.push(
@@ -918,7 +993,8 @@ export default function BusinessSettingsProfileScreen() {
                     </Text>
                   </View>
                 </View>
-              </Pressable>
+                </Pressable>
+              </View>
 
               {rows.map(([field, label, value]) => (
                 <ProfileRow
@@ -927,6 +1003,16 @@ export default function BusinessSettingsProfileScreen() {
                   value={value}
                   disabled={!canEditBusiness}
                   onPress={() => openEditor(field)}
+                  targetRef={
+                    exactGuideField === field ? guideTargetRef : undefined
+                  }
+                  onTargetLayout={
+                    exactGuideField === field
+                      ? (y) => {
+                          guideTargetYRef.current = y;
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </View>
@@ -971,6 +1057,7 @@ export default function BusinessSettingsProfileScreen() {
                       : 'עריכת טלפון עסקי'}
                 </Text>
                 <TextInput
+                  ref={guideTextInputRef}
                   value={draftText}
                   onChangeText={setDraftText}
                   placeholder={
@@ -1296,7 +1383,25 @@ export default function BusinessSettingsProfileScreen() {
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}
         routeKey="business-profile"
+        destinationTargetValid={exactGuideField !== null}
         targetRef={guideTargetRef}
+        focusTarget={
+          isTextProfileGuideField(exactGuideField)
+            ? () => {
+                pendingGuideTextFocusRef.current = true;
+                openEditor(exactGuideField);
+              }
+            : undefined
+        }
+        scrollTargetIntoView={() =>
+          guideScrollRef.current?.scrollTo({
+            y: Math.max(
+              0,
+              guideCardYRef.current + guideTargetYRef.current - 120
+            ),
+            animated: false,
+          })
+        }
       />
     </SafeAreaView>
   );

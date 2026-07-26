@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type Ref,
+  type RefObject,
+} from 'react';
 import {
   ActivityIndicator,
   findNodeHandle,
@@ -22,6 +29,7 @@ import {
   isAddressResolutionReady,
   isValidHouseNumber,
   normalizeHouseNumber,
+  resolveBusinessAddressGuideTarget,
   selectBusinessAddressCity,
   selectBusinessAddressStreet,
   shouldAcceptAddressResolutionResponse,
@@ -66,6 +74,8 @@ type BusinessAddressSelectorProps = {
   errorText?: string | null;
   onError?: (value: string | null) => void;
   scrollViewRef?: RefObject<ScrollView | null>;
+  guideTargetRef?: Ref<View>;
+  guideFocusTargetRef?: MutableRefObject<(() => void) | null>;
 };
 
 type AddressField = 'city' | 'street' | 'houseNumber';
@@ -170,6 +180,8 @@ export default function BusinessAddressSelector({
   errorText,
   onError,
   scrollViewRef,
+  guideTargetRef,
+  guideFocusTargetRef,
 }: BusinessAddressSelectorProps) {
   const [state, setState] = useState<BusinessAddressSelectionState>(() =>
     createBusinessAddressSelectionState(selectedAddress)
@@ -451,6 +463,17 @@ export default function BusinessAddressSelector({
     !state.houseNumber.trim()
       ? query.trim()
       : '';
+  const guideTarget = resolveBusinessAddressGuideTarget(state);
+  if (guideFocusTargetRef) {
+    guideFocusTargetRef.current =
+      guideTarget === 'city'
+        ? () => cityInputRef.current?.focus()
+        : guideTarget === 'street'
+          ? () => streetInputRef.current?.focus()
+          : guideTarget === 'houseNumber'
+            ? () => houseNumberInputRef.current?.focus()
+            : null;
+  }
 
   return (
     <View style={styles.container}>
@@ -463,7 +486,15 @@ export default function BusinessAddressSelector({
         </View>
       ) : null}
 
-      <View style={styles.field}>
+      <View
+        ref={
+          guideTarget === 'city'
+            ? guideTargetRef
+            : undefined
+        }
+        collapsable={false}
+        style={styles.field}
+      >
         <Text style={styles.label}>{TEXT.city}</Text>
         <TextInput
           ref={cityInputRef}
@@ -505,7 +536,15 @@ export default function BusinessAddressSelector({
         />
       ) : null}
 
-      <View style={styles.field}>
+      <View
+        ref={
+          guideTarget === 'street'
+            ? guideTargetRef
+            : undefined
+        }
+        collapsable={false}
+        style={styles.field}
+      >
         <Text style={styles.label}>{TEXT.street}</Text>
         <TextInput
           ref={streetInputRef}
@@ -550,7 +589,15 @@ export default function BusinessAddressSelector({
         />
       ) : null}
 
-      <View style={styles.field}>
+      <View
+        ref={
+          guideTarget === 'houseNumber'
+            ? guideTargetRef
+            : undefined
+        }
+        collapsable={false}
+        style={styles.field}
+      >
         <Text style={styles.label}>{TEXT.houseNumber}</Text>
         <TextInput
           ref={houseNumberInputRef}
@@ -591,7 +638,11 @@ export default function BusinessAddressSelector({
       ) : null}
 
       {state.status === 'ambiguous' && state.candidates.length > 0 ? (
-        <View style={styles.candidateSection}>
+        <View
+          ref={guideTarget === 'confirm' ? guideTargetRef : undefined}
+          collapsable={false}
+          style={styles.candidateSection}
+        >
           <Text style={styles.helperText}>{TEXT.chooseCandidate}</Text>
           <View style={styles.suggestionsCard}>
             {state.candidates.slice(0, 3).map((candidate) => (

@@ -1,4 +1,8 @@
-import { useEffect, useRef, type ReactElement } from 'react';
+import {
+  useEffect,
+  useRef,
+  type ReactElement,
+} from 'react';
 import {
   View,
   type LayoutChangeEvent,
@@ -6,13 +10,27 @@ import {
 } from 'react-native';
 
 import type { GuidedActionController } from '@/hooks/useGuidedAction';
+import {
+  createObservableGuidedTargetRef,
+  type ObservableGuidedTargetRef,
+} from '@/lib/recommendations/guidance';
+
+export type GuidedTargetRef<T extends View = View> =
+  ObservableGuidedTargetRef<T>;
+
+export function useGuidedTargetRef<T extends View = View>() {
+  const targetRef = useRef<GuidedTargetRef<T> | null>(null);
+  if (targetRef.current === null) {
+    targetRef.current = createObservableGuidedTargetRef<T>();
+  }
+  return targetRef.current;
+}
 
 export function GuidedActionAnchor({
   anchorId,
   guide,
   children,
   focus,
-  expand,
   scrollIntoView,
   style,
 }: {
@@ -20,28 +38,43 @@ export function GuidedActionAnchor({
   guide: GuidedActionController;
   children: ReactElement | ReactElement[];
   focus?: () => void;
-  expand?: () => void;
   scrollIntoView?: () => void;
   style?: ViewProps['style'];
 }) {
-  const ref = useRef<View | null>(null);
+  const ref = useGuidedTargetRef();
   const focusRef = useRef(focus);
-  const expandRef = useRef(expand);
   const scrollIntoViewRef = useRef(scrollIntoView);
   focusRef.current = focus;
-  expandRef.current = expand;
   scrollIntoViewRef.current = scrollIntoView;
   useEffect(() => {
     if (!guide.canActivateTarget) {
       return;
     }
-    return guide.registerAnchor({
-      id: anchorId,
-      ref: ref.current,
-      focus: () => focusRef.current?.(),
-      expand: () => expandRef.current?.(),
-      scrollIntoView: () => scrollIntoViewRef.current?.(),
-    });
+    let unregister: (() => void) | null = null;
+    const syncRegistration = (node: View | null) => {
+      unregister?.();
+      unregister = null;
+      if (!node || !guide.canActivateTarget) {
+        return;
+      }
+      unregister = guide.registerAnchor({
+        id: anchorId,
+        ref: node,
+        getRef: () => ref.current,
+        getFocus: () => focusRef.current ?? null,
+        ...(scrollIntoViewRef.current
+          ? {
+              scrollIntoView: () => scrollIntoViewRef.current?.(),
+            }
+          : {}),
+      });
+    };
+    const unsubscribe = ref.subscribe(syncRegistration);
+    syncRegistration(ref.current);
+    return () => {
+      unsubscribe();
+      unregister?.();
+    };
   }, [anchorId, guide.canActivateTarget, guide.registerAnchor]);
   const onLayout = (_event: LayoutChangeEvent) => {
     if (guide.canActivateTarget) {

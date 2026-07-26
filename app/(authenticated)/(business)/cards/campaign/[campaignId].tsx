@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
@@ -29,6 +30,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -250,16 +252,24 @@ function getScheduledTimestamp(daysFromNow: number, hour: number) {
 }
 
 export default function CampaignDraftEditorScreen() {
-  const guideTargetRef = useRef<View | null>(null);
+  const campaignPublishTargetRef = useGuidedTargetRef();
+  const campaignResumeTargetRef = useGuidedTargetRef();
+  const campaignScheduleReviewTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
     campaignId?: string;
     businessId?: string;
+    guideId?: string | string[];
   }>();
 
   const campaignIdParam = params.campaignId;
+  const guideIdParam = Array.isArray(params.guideId)
+    ? params.guideId[0]
+    : params.guideId;
+  const campaignGuideTarget =
+    resolveCampaignDetailGuideTarget(guideIdParam);
   const isCreateFlow = !campaignIdParam || campaignIdParam === 'new';
   const campaignId = isCreateFlow
     ? undefined
@@ -1468,7 +1478,7 @@ export default function CampaignDraftEditorScreen() {
 
           <View className="my-5 h-px bg-[#E7EEFF]" />
 
-          <View ref={guideTargetRef} className="gap-3">
+          <View className="gap-3">
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
@@ -1514,7 +1524,15 @@ export default function CampaignDraftEditorScreen() {
               </TouchableOpacity>
             </View>
             {isOneTimeMode ? (
-              <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
+              <View
+                ref={
+                  campaignGuideTarget === 'schedule-summary'
+                    ? campaignScheduleReviewTargetRef
+                    : undefined
+                }
+                collapsable={false}
+                className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
+              >
                 <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
                   זמן שליחה נבחר: {oneTimeScheduleDisplay}
                 </Text>
@@ -1573,6 +1591,12 @@ export default function CampaignDraftEditorScreen() {
               שליחה יומית ב-09:00 (ישראל)
             </Text>
             <View
+              ref={
+                campaignGuideTarget === 'resume-action'
+                  ? campaignResumeTargetRef
+                  : undefined
+              }
+              collapsable={false}
               className={`${tw.flexRow} items-center justify-between gap-3`}
             >
               <Text className={`flex-1 text-xs text-[#64748B] ${tw.textStart}`}>
@@ -1798,37 +1822,46 @@ export default function CampaignDraftEditorScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            disabled={
-              !canEditContent ||
-              !canActivateSendCampaigns ||
-              isSubmitting ||
-              isArchiving ||
-              conflictLocked ||
-              (!isEntitlementsLoading && campaignLimit.isOverLimit)
+          <View
+            ref={
+              campaignGuideTarget === 'publish-action'
+                ? campaignPublishTargetRef
+                : undefined
             }
-            onPress={() => {
-              if (isOneTimeMode) {
-                void handleSaveAndSchedule();
-                return;
-              }
-              void handleSaveAndSend();
-            }}
-            className={`rounded-2xl px-4 py-3 ${
-              canEditContent &&
-              canActivateSendCampaigns &&
-              !isSubmitting &&
-              !isArchiving &&
-              !conflictLocked &&
-              (isEntitlementsLoading || !campaignLimit.isOverLimit)
-                ? 'bg-[#0F766E]'
-                : 'bg-[#CBD5E1]'
-            }`}
+            collapsable={false}
           >
-            <Text className="text-center text-sm font-bold text-white">
-              {isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              disabled={
+                !canEditContent ||
+                !canActivateSendCampaigns ||
+                isSubmitting ||
+                isArchiving ||
+                conflictLocked ||
+                (!isEntitlementsLoading && campaignLimit.isOverLimit)
+              }
+              onPress={() => {
+                if (isOneTimeMode) {
+                  void handleSaveAndSchedule();
+                  return;
+                }
+                void handleSaveAndSend();
+              }}
+              className={`rounded-2xl px-4 py-3 ${
+                canEditContent &&
+                canActivateSendCampaigns &&
+                !isSubmitting &&
+                !isArchiving &&
+                !conflictLocked &&
+                (isEntitlementsLoading || !campaignLimit.isOverLimit)
+                  ? 'bg-[#0F766E]'
+                  : 'bg-[#CBD5E1]'
+              }`}
+            >
+              <Text className="text-center text-sm font-bold text-white">
+                {isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             disabled={
@@ -1862,13 +1895,25 @@ export default function CampaignDraftEditorScreen() {
         routeKey="campaign-detail"
         routeEntityId={campaignId}
         routeEntityKind="campaign"
-        targetRef={guideTargetRef}
-        scrollTargetIntoView={() =>
+        targetRefs={{
+          'campaign-publish': campaignPublishTargetRef,
+          'campaign-resume': campaignResumeTargetRef,
+          'campaign-schedule-review':
+            campaignScheduleReviewTargetRef,
+        }}
+        scrollTargetIntoView={() => {
+          if (guideIdParam === 'campaign-publish') {
+            guideScrollRef.current?.scrollToEnd({ animated: false });
+            return;
+          }
           guideScrollRef.current?.scrollTo({
-            y: 900,
+            y:
+              guideIdParam === 'campaign-resume'
+                ? 1120
+                : 900,
             animated: false,
-          })
-        }
+          });
+        }}
       />
     </SafeAreaView>
   );

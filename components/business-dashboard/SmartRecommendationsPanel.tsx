@@ -87,6 +87,7 @@ export function SmartRecommendationsPanel({
         {onRetry ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="ניסיון נוסף לטעינת הפעולות המומלצות"
             onPress={onRetry}
             style={styles.retryButton}
           >

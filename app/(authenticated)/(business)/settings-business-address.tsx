@@ -20,6 +20,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
@@ -114,7 +115,8 @@ export default function BusinessSettingsAddressScreen() {
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const guideTargetRef = useRef<View | null>(null);
+  const guideTargetRef = useGuidedTargetRef();
+  const guideFocusTargetRef = useRef<(() => void) | null>(null);
 
   const applyBusinessAddressSnapshot = (settings: typeof businessSettings) => {
     if (!settings) {
@@ -262,7 +264,7 @@ export default function BusinessSettingsAddressScreen() {
                 </View>
               ) : null}
 
-              <View ref={guideTargetRef} style={styles.card}>
+              <View style={styles.card}>
                 <BusinessAddressSelector
                   key={`${activeBusinessId}:${baseUpdatedAt ?? 'loading'}`}
                   query={addressQuery}
@@ -280,6 +282,8 @@ export default function BusinessSettingsAddressScreen() {
                   errorText={error}
                   onError={setError}
                   scrollViewRef={scrollViewRef}
+                  guideTargetRef={guideTargetRef}
+                  guideFocusTargetRef={guideFocusTargetRef}
                 />
               </View>
 
@@ -321,6 +325,7 @@ export default function BusinessSettingsAddressScreen() {
         activeBusinessId={activeBusinessId}
         routeKey="business-address"
         targetRef={guideTargetRef}
+        focusTargetRef={guideFocusTargetRef}
         scrollTargetIntoView={() =>
           scrollViewRef.current?.scrollTo({ y: 120, animated: false })
         }

@@ -1,5 +1,6 @@
 import {
   isApprovedGuideId,
+  isApprovedProfileGuideField,
   isApprovedRecommendationStableId,
   recommendationRequiresExactEntity,
   RECOMMENDATION_GUIDE_IDS,
@@ -51,6 +52,7 @@ export type RecommendationNavigationResult =
         | 'unknown_action_type'
         | 'invalid_customer_segment'
         | 'invalid_subscription_limit_key'
+        | 'invalid_profile_field'
         | 'invalid_guide'
         | 'guide_entity_mismatch';
     };
@@ -150,8 +152,13 @@ export function getRecommendationNavigationTarget(input: {
         const fieldId = hasFieldId
           ? requiredId(input.action.fieldId)
           : null;
-        if (hasFieldId && !fieldId) {
-          return { ok: false, reason: 'invalid_action_shape' };
+        if (
+          (hasFieldId && !isApprovedProfileGuideField(fieldId)) ||
+          (hasGuide &&
+            input.guideId === 'profile-complete' &&
+            !isApprovedProfileGuideField(fieldId))
+        ) {
+          return { ok: false, reason: 'invalid_profile_field' };
         }
         return {
           ok: true,

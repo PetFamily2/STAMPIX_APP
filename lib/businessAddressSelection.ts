@@ -259,6 +259,34 @@ export function isAddressResolutionReady(state: BusinessAddressSelectionState) {
   );
 }
 
+export type BusinessAddressGuideTarget =
+  | 'city'
+  | 'street'
+  | 'houseNumber'
+  | 'confirm';
+
+export function resolveBusinessAddressGuideTarget(
+  state: BusinessAddressSelectionState
+): BusinessAddressGuideTarget | null {
+  if (!state.citySelection) {
+    return 'city';
+  }
+  const cityKey = getCitySelectionKey(state.citySelection);
+  if (
+    !state.streetSelection ||
+    state.streetSelection.cityKey !== cityKey
+  ) {
+    return 'street';
+  }
+  if (!isValidHouseNumber(state.houseNumber)) {
+    return 'houseNumber';
+  }
+  if (state.status === 'ambiguous' && state.candidates.length > 0) {
+    return 'confirm';
+  }
+  return null;
+}
+
 export function shouldAcceptAddressResolutionResponse({
   requestGeneration,
   currentGeneration,

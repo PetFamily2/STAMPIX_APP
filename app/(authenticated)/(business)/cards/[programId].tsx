@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -111,7 +112,7 @@ function toStampShape(value: string | undefined): StampShape {
 }
 
 export default function ProgramDetailsScreen() {
-  const guideTargetRef = useRef<View | null>(null);
+  const guideTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -843,7 +844,7 @@ export default function ProgramDetailsScreen() {
               </View>
             </View>
 
-            <View ref={guideTargetRef} className="gap-3">
+            <View className="gap-3">
               {conflictLocked ? (
                 <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
                   <Text className="text-right text-xs text-[#92400E]">
@@ -882,21 +883,26 @@ export default function ProgramDetailsScreen() {
               </TouchableOpacity>
 
               {lifecycle === 'draft' ? (
-                <TouchableOpacity
-                  disabled={!canManage || isSubmitting || conflictLocked}
-                  onPress={() => {
-                    void handlePublish();
-                  }}
-                  className={`rounded-2xl px-4 py-3 ${
-                    canManage && !isSubmitting && !conflictLocked
-                      ? 'bg-[#16A34A]'
-                      : 'bg-[#CBD5E1]'
-                  }`}
+                <View
+                  ref={guideTargetRef}
+                  collapsable={false}
                 >
-                  <Text className="text-center text-sm font-bold text-white">
-                    {TEXT.publish}
-                  </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canManage || isSubmitting || conflictLocked}
+                    onPress={() => {
+                      void handlePublish();
+                    }}
+                    className={`rounded-2xl px-4 py-3 ${
+                      canManage && !isSubmitting && !conflictLocked
+                        ? 'bg-[#16A34A]'
+                        : 'bg-[#CBD5E1]'
+                    }`}
+                  >
+                    <Text className="text-center text-sm font-bold text-white">
+                      {TEXT.publish}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : null}
 
               {lifecycle === 'active' ? (
