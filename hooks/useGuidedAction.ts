@@ -21,6 +21,8 @@ import {
   safelyTrackRecommendationEvent,
 } from '@/lib/recommendations/analytics';
 import {
+  buildBusinessMismatchCleanupKey,
+  buildGuidedStatusQueriesRequest,
   buildGuidedStatusRetryIdentity,
   canActivateGuidedTarget,
   clampGuideSteps,
@@ -30,15 +32,19 @@ import {
   createGuidedFocusController,
   createGuidedMeasurementSequence,
   getClearedGuideRouteParams,
-  hasGuideLikeRouteMetadata,
   GUIDE_INSTRUCTIONS,
   GUIDE_TARGET_IDS,
   isPermanentGuideQueryError,
   isGuideRectVisible,
   REJECTED_GUIDE_CLEANUP_MESSAGE,
   resolveGuidedActionStatus,
+  resolveGuidedClientPresence,
   resolveProfileGuideField,
+  shouldAutoClearBusinessMismatchGuide,
+  shouldClearRejectedGuideRouteParams,
+  shouldResetGuidedStatusRetryAfterSuccess,
   type GuideViewport,
+  type GuidedActionRuntimeCoordinator,
   type GuidedTargetActivationInput,
   type GuidedTargetServerStatus,
   type RecommendationGuideEntityKind,
@@ -102,6 +108,21 @@ export function useGuidedAction(input: {
   const limitKey = firstParam(params.limitKey);
   const filter = firstParam(params.filter);
   const section = firstParam(params.section);
+  const clientPresence = resolveGuidedClientPresence({
+    guideSessionId,
+    guideId,
+    stableId,
+    evidenceFingerprint,
+    recommendationBusinessId,
+    businessId: routeBusinessId,
+    entityId,
+    filter,
+    section,
+    fieldId,
+    limitKey,
+  });
+  const hasGuideMetadata = clientPresence.hasGuideMetadata;
+  const isInertVisit = clientPresence.isInert;
   const binding = validateGuideBinding({
     guideSessionId,
     guideId,
@@ -114,36 +135,62 @@ export function useGuidedAction(input: {
     routeEntityId: input.routeEntityId,
     routeEntityKind: input.routeEntityKind,
   });
+  const bindingOk = binding.ok;
+  const bindingReasonCode = binding.ok ? null : binding.reasonCode;
+  const bindingGuideSessionId = binding.ok ? binding.guideSessionId : null;
+  const bindingGuideId = binding.ok ? binding.guideId : null;
+  const bindingStableId = binding.ok ? binding.stableId : null;
+  const bindingBusinessId = binding.ok ? binding.businessId : null;
   const convex = useConvex();
   const connectionState = useConvexConnectionState();
   const requiredMetadataValid =
     typeof evidenceFingerprint === 'string' &&
     evidenceFingerprint.length > 0 &&
     evidenceFingerprint === evidenceFingerprint.trim();
-  const guideStatusArgs =
-    binding.ok && requiredMetadataValid
-      ? {
-          guideSessionId:
-            binding.guideSessionId as Id<'recommendationGuideSessions'>,
-          businessId: binding.businessId as Id<'businesses'>,
-          stableId: binding.stableId,
-          guideId: binding.guideId,
-          evidenceFingerprint,
-          ...(entityId ? { entityId } : {}),
-        }
-      : null;
   const [pauseReactiveStatus, setPauseReactiveStatus] = useState(false);
-  const statusQueries = useQueries(
-    guideStatusArgs && !pauseReactiveStatus
-      ? {
-          guideStatus: {
-            query:
-              api.recommendations.getBusinessRecommendationGuideStatus,
-            args: guideStatusArgs,
-          },
-        }
-      : {}
+  const guideStatusArgs = useMemo(() => {
+    if (
+      isInertVisit ||
+      !bindingOk ||
+      !requiredMetadataValid ||
+      !bindingGuideSessionId ||
+      !bindingBusinessId ||
+      !bindingStableId ||
+      !bindingGuideId ||
+      !evidenceFingerprint
+    ) {
+      return null;
+    }
+    return {
+      guideSessionId:
+        bindingGuideSessionId as Id<'recommendationGuideSessions'>,
+      businessId: bindingBusinessId as Id<'businesses'>,
+      stableId: bindingStableId,
+      guideId: bindingGuideId,
+      evidenceFingerprint,
+      ...(entityId ? { entityId } : {}),
+    };
+  }, [
+    bindingBusinessId,
+    bindingGuideId,
+    bindingGuideSessionId,
+    bindingOk,
+    bindingStableId,
+    entityId,
+    evidenceFingerprint,
+    isInertVisit,
+    requiredMetadataValid,
+  ]);
+  const statusQueryRequest = useMemo(
+    () =>
+      buildGuidedStatusQueriesRequest({
+        enabled: !pauseReactiveStatus && guideStatusArgs !== null,
+        query: api.recommendations.getBusinessRecommendationGuideStatus,
+        args: guideStatusArgs,
+      }),
+    [guideStatusArgs, pauseReactiveStatus]
   );
+  const statusQueries = useQueries(statusQueryRequest);
   const acknowledge = useMutation(
     api.recommendations.acknowledgeBusinessRecommendationGuideStatus
   );
@@ -158,11 +205,24 @@ export function useGuidedAction(input: {
   const measurementViewportRef = useRef<GuideViewport | null>(null);
   const activeAnchorIdRef = useRef<string | null>(null);
   const focusControllerRef = useRef(createGuidedFocusController());
-  const runtimeCoordinatorRef = useRef(createGuidedActionRuntimeCoordinator());
+  const runtimeCoordinatorRef = useRef<GuidedActionRuntimeCoordinator | null>(
+    null
+  );
+  if (runtimeCoordinatorRef.current === null) {
+    runtimeCoordinatorRef.current = createGuidedActionRuntimeCoordinator();
+  }
+  const getRuntimeCoordinator = useCallback(() => {
+    if (runtimeCoordinatorRef.current === null) {
+      runtimeCoordinatorRef.current = createGuidedActionRuntimeCoordinator();
+    }
+    return runtimeCoordinatorRef.current;
+  }, []);
   const prepareTargetRef = useRef(input.prepareTarget);
   const outcomeGuardRef = useRef(createGuideOutcomeGuard());
   const acknowledgedRef = useRef(createBoundedKeySet());
   const startedRef = useRef(createBoundedKeySet());
+  const businessMismatchClearedKeyRef = useRef<string | null>(null);
+  const rejectedFeedbackKeyRef = useRef<string | null>(null);
   const [anchorRect, setAnchorRect] = useState<LayoutRectangle | null>(
     null
   );
@@ -186,13 +246,6 @@ export function useGuidedAction(input: {
   const [closedGuideRequestKey, setClosedGuideRequestKey] = useState<
     string | null
   >(null);
-  const hasGuideMetadata = hasGuideLikeRouteMetadata({
-    guideSessionId,
-    guideId,
-    stableId,
-    evidenceFingerprint,
-    recommendationBusinessId,
-  });
   const guideRequestKey = hasGuideMetadata
     ? [
         guideSessionId ?? '',
@@ -245,54 +298,56 @@ export function useGuidedAction(input: {
     !connectionState.isWebSocketConnected &&
     (connectionState.hasEverConnected ||
       connectionState.connectionRetries > 0);
-  const serverStatus: GuidedTargetServerStatus =
-    resolveGuidedActionStatus({
-      bindingValid: binding.ok,
-      requiredMetadataValid,
-      connected: !connectionUnavailable,
-      queryResult: effectiveStatusResult,
-    });
+  const serverStatus: GuidedTargetServerStatus = isInertVisit
+    ? 'loading'
+    : resolveGuidedActionStatus({
+        bindingValid: bindingOk,
+        requiredMetadataValid,
+        connected: !connectionUnavailable,
+        queryResult: effectiveStatusResult,
+      });
   const status =
     effectiveStatusResult &&
     !(effectiveStatusResult instanceof Error)
       ? effectiveStatusResult
       : undefined;
   const businessMatches =
-    binding.ok &&
+    bindingOk &&
     input.activeBusinessId !== null &&
-    String(input.activeBusinessId) === binding.businessId;
+    bindingBusinessId !== null &&
+    String(input.activeBusinessId) === bindingBusinessId;
   const profileField =
-    binding.ok && binding.guideId === 'profile-complete'
+    bindingOk && bindingGuideId === 'profile-complete'
       ? resolveProfileGuideField(fieldId)
       : null;
   const targetMetadataValid =
-    !binding.ok ||
-    (binding.guideId === 'profile-complete'
+    !bindingOk ||
+    (bindingGuideId === 'profile-complete'
       ? profileField !== null
-      : binding.guideId === 'inactive-review'
+      : bindingGuideId === 'inactive-review'
         ? filter === 'at_risk'
-        : binding.guideId === 'near-reward'
+        : bindingGuideId === 'near-reward'
           ? filter === 'near_reward'
-          : binding.guideId === 'team-pending'
+          : bindingGuideId === 'team-pending'
             ? section === 'pending'
-            : binding.guideId === 'quota-review'
+            : bindingGuideId === 'quota-review'
               ? limitKey === 'campaigns'
               : true);
   const targetActivation = useMemo<GuidedTargetActivationInput>(
     () => ({
-      bindingValid: binding.ok,
+      bindingValid: bindingOk,
       guideSessionId,
       serverStatus,
       businessMatches,
       isSwitchingBusiness: input.isSwitchingBusiness === true,
       isClosed,
       routeAndEntityMatch:
-        binding.ok &&
+        bindingOk &&
         targetMetadataValid &&
         input.destinationTargetValid !== false,
     }),
     [
-      binding.ok,
+      bindingOk,
       businessMatches,
       guideSessionId,
       input.isSwitchingBusiness,
@@ -302,7 +357,8 @@ export function useGuidedAction(input: {
       input.destinationTargetValid,
     ]
   );
-  const canActivateTarget = canActivateGuidedTarget(targetActivation);
+  const canActivateTarget =
+    !isInertVisit && canActivateGuidedTarget(targetActivation);
   const targetActivationKey = [
     guideRequestKey ?? 'none',
     input.routeKey,
@@ -316,23 +372,30 @@ export function useGuidedAction(input: {
   const suppliedSteps =
     input.steps && input.steps.length > 0
       ? input.steps.slice(0, clampGuideSteps(input.steps.length))
-      : binding.ok
-        ? [GUIDE_INSTRUCTIONS[binding.guideId]]
+      : bindingOk && bindingGuideId
+        ? [GUIDE_INSTRUCTIONS[bindingGuideId]]
         : [];
-  const targetId = binding.ok ? GUIDE_TARGET_IDS[binding.guideId] : null;
+  const targetId =
+    bindingOk && bindingGuideId ? GUIDE_TARGET_IDS[bindingGuideId] : null;
 
   const syncStatusRetryState = useCallback(() => {
-    const next = runtimeCoordinatorRef.current.getStatusRetryState();
-    setStatusRetryState({
-      attempts: next.attempts,
-      inFlight: next.inFlight,
-      exhausted: next.exhausted,
-    });
-  }, []);
+    const next = getRuntimeCoordinator().getStatusRetryState();
+    setStatusRetryState((current) =>
+      current.attempts === next.attempts &&
+      current.inFlight === next.inFlight &&
+      current.exhausted === next.exhausted
+        ? current
+        : {
+            attempts: next.attempts,
+            inFlight: next.inFlight,
+            exhausted: next.exhausted,
+          }
+    );
+  }, [getRuntimeCoordinator]);
 
   const cancelTargetPreparation = useCallback(() => {
-    runtimeCoordinatorRef.current.cancelPreparation();
-  }, []);
+    getRuntimeCoordinator().cancelPreparation();
+  }, [getRuntimeCoordinator]);
 
   const runTargetPreparation = useCallback((force = false) => {
     const prepare = prepareTargetRef.current;
@@ -340,7 +403,7 @@ export function useGuidedAction(input: {
     if (!prepare || !targetActivationAllowedRef.current) {
       return false;
     }
-    const result = runtimeCoordinatorRef.current.prepareTarget({
+    const result = getRuntimeCoordinator().prepareTarget({
       activation: {
         bindingValid: true,
         guideSessionId: guideSessionId ?? 'session',
@@ -365,36 +428,45 @@ export function useGuidedAction(input: {
       },
     });
     return result.ran;
-  }, [guideSessionId]);
+  }, [getRuntimeCoordinator, guideSessionId]);
 
   const deactivateGuidedTarget = useCallback(() => {
     targetActivationAllowedRef.current = false;
     cancelTargetPreparation();
-    runtimeCoordinatorRef.current.deactivate();
+    getRuntimeCoordinator().deactivate();
     measurementRetryRef.current.stop();
     lastMeasurementKeyRef.current = null;
     focusControllerRef.current.reset();
     activeAnchorIdRef.current = null;
     anchorsRef.current.clear();
-    setAnchorRect(null);
-    setTargetUnavailable(false);
-  }, [cancelTargetPreparation]);
+    setAnchorRect((current) => (current === null ? current : null));
+    setTargetUnavailable((current) => (current === false ? current : false));
+  }, [cancelTargetPreparation, getRuntimeCoordinator]);
 
   const clearGuide = useCallback(() => {
+    const mayClearRoute = shouldClearRejectedGuideRouteParams({
+      hasGuideMetadata,
+      userRequestedClose: true,
+    });
     if (guideRequestKey) {
       setClosedGuideRequestKey(guideRequestKey);
     }
     deactivateGuidedTarget();
-    runtimeCoordinatorRef.current.cancelStatusRetry();
+    getRuntimeCoordinator().cancelStatusRetry();
     syncStatusRetryState();
     setPauseReactiveStatus(false);
     setQueryRetry(null);
     setFeedback(null);
     setStepIndex(0);
-    router.setParams(getClearedGuideRouteParams() as never);
+    rejectedFeedbackKeyRef.current = null;
+    if (mayClearRoute) {
+      router.setParams(getClearedGuideRouteParams() as never);
+    }
   }, [
     deactivateGuidedTarget,
+    getRuntimeCoordinator,
     guideRequestKey,
+    hasGuideMetadata,
     router,
     syncStatusRetryState,
   ]);
@@ -402,12 +474,12 @@ export function useGuidedAction(input: {
   const measureAnchor = useCallback(
     (anchorId: string, _force = false) => {
       if (!targetActivationAllowedRef.current) {
-        setAnchorRect(null);
+        setAnchorRect((current) => (current === null ? current : null));
         return;
       }
       const registration = anchorsRef.current.get(anchorId);
       if (!registration) {
-        setAnchorRect(null);
+        setAnchorRect((current) => (current === null ? current : null));
         return;
       }
       const activationKey = targetActivationKeyRef.current;
@@ -510,12 +582,17 @@ export function useGuidedAction(input: {
   );
 
   useEffect(() => {
+    if (isInertVisit) {
+      return;
+    }
     if (activeBusinessIdRef.current === input.activeBusinessId) {
       return;
     }
     activeBusinessIdRef.current = input.activeBusinessId;
+    businessMismatchClearedKeyRef.current = null;
+    rejectedFeedbackKeyRef.current = null;
     deactivateGuidedTarget();
-    runtimeCoordinatorRef.current.cancelStatusRetry();
+    getRuntimeCoordinator().cancelStatusRetry();
     syncStatusRetryState();
     setPauseReactiveStatus(false);
     setQueryRetry(null);
@@ -525,33 +602,49 @@ export function useGuidedAction(input: {
     setFeedback(null);
   }, [
     deactivateGuidedTarget,
+    getRuntimeCoordinator,
     input.activeBusinessId,
+    isInertVisit,
     syncStatusRetryState,
   ]);
 
   const statusRequestIdentityRef = useRef<string | null>(null);
   useEffect(() => {
+    if (isInertVisit) {
+      if (statusRequestIdentityRef.current !== null) {
+        statusRequestIdentityRef.current = null;
+        getRuntimeCoordinator().setIdentity(null);
+      }
+      return;
+    }
     if (statusRequestIdentityRef.current === statusRequestIdentity) {
       return;
     }
     statusRequestIdentityRef.current = statusRequestIdentity;
-    runtimeCoordinatorRef.current.setIdentity(statusRequestIdentity);
+    getRuntimeCoordinator().setIdentity(statusRequestIdentity);
     syncStatusRetryState();
     setPauseReactiveStatus(false);
     setQueryRetry(null);
     setFeedback(null);
     acknowledgedRef.current.clear();
     startedRef.current.clear();
-  }, [statusRequestIdentity, syncStatusRetryState]);
+    rejectedFeedbackKeyRef.current = null;
+  }, [
+    getRuntimeCoordinator,
+    isInertVisit,
+    statusRequestIdentity,
+    syncStatusRetryState,
+  ]);
 
   useEffect(() => {
-    if (!canActivateTarget) {
-      deactivateGuidedTarget();
+    if (isInertVisit || canActivateTarget) {
+      return;
     }
-  }, [canActivateTarget, deactivateGuidedTarget]);
+    deactivateGuidedTarget();
+  }, [canActivateTarget, deactivateGuidedTarget, isInertVisit]);
 
   useEffect(() => {
-    if (!canActivateTarget || !prepareTargetRef.current) {
+    if (isInertVisit || !canActivateTarget || !prepareTargetRef.current) {
       return;
     }
     runTargetPreparation();
@@ -559,26 +652,31 @@ export function useGuidedAction(input: {
   }, [
     canActivateTarget,
     cancelTargetPreparation,
+    isInertVisit,
     runTargetPreparation,
     targetActivationKey,
   ]);
 
   useEffect(() => {
     if (
+      isInertVisit ||
       !statusRequestIdentity ||
       effectiveStatusResult === undefined ||
       effectiveStatusResult instanceof Error
     ) {
       return;
     }
-    const retryState = runtimeCoordinatorRef.current.getStatusRetryState();
+    const retryState = getRuntimeCoordinator().getStatusRetryState();
     if (
-      retryState.identity === statusRequestIdentity &&
-      (retryState.attempts > 0 ||
-        retryState.inFlight ||
-        retryState.exhausted)
+      shouldResetGuidedStatusRetryAfterSuccess({
+        identity: statusRequestIdentity,
+        retryIdentity: retryState.identity,
+        attempts: retryState.attempts,
+        inFlight: retryState.inFlight,
+        exhausted: retryState.exhausted,
+      })
     ) {
-      runtimeCoordinatorRef.current.resetStatusRetry(statusRequestIdentity);
+      getRuntimeCoordinator().resetStatusRetry(statusRequestIdentity);
       syncStatusRetryState();
     }
     if (
@@ -589,9 +687,11 @@ export function useGuidedAction(input: {
       setPauseReactiveStatus(false);
       setQueryRetry(null);
     }
-    setFeedback(null);
+    setFeedback((current) => (current === null ? current : null));
   }, [
     effectiveStatusResult,
+    getRuntimeCoordinator,
+    isInertVisit,
     matchingQueryRetry,
     reactiveStatusResult,
     statusRequestIdentity,
@@ -599,10 +699,15 @@ export function useGuidedAction(input: {
   ]);
 
   useEffect(() => {
-    if (serverStatus !== 'rejected' || !hasGuideMetadata) {
+    if (isInertVisit || serverStatus !== 'rejected' || !hasGuideMetadata) {
       return;
     }
-    runtimeCoordinatorRef.current.cancelStatusRetry();
+    const rejectionKey = guideRequestKey ?? statusRequestIdentity ?? 'rejected';
+    if (rejectedFeedbackKeyRef.current === rejectionKey) {
+      return;
+    }
+    rejectedFeedbackKeyRef.current = rejectionKey;
+    getRuntimeCoordinator().cancelStatusRetry();
     syncStatusRetryState();
     const isManualPermanentRejection =
       matchingQueryRetry?.state === 'error' &&
@@ -613,28 +718,42 @@ export function useGuidedAction(input: {
     }
     setFeedback(REJECTED_GUIDE_CLEANUP_MESSAGE);
   }, [
+    getRuntimeCoordinator,
+    guideRequestKey,
     hasGuideMetadata,
+    isInertVisit,
     matchingQueryRetry,
     serverStatus,
+    statusRequestIdentity,
     syncStatusRetryState,
   ]);
 
   useEffect(() => {
-    if (input.isSwitchingBusiness !== true) {
+    if (isInertVisit || input.isSwitchingBusiness !== true) {
       return;
     }
-    runtimeCoordinatorRef.current.cancelStatusRetry();
+    getRuntimeCoordinator().cancelStatusRetry();
     syncStatusRetryState();
     setPauseReactiveStatus(false);
     setQueryRetry(null);
-  }, [input.isSwitchingBusiness, syncStatusRetryState]);
+  }, [
+    getRuntimeCoordinator,
+    input.isSwitchingBusiness,
+    isInertVisit,
+    syncStatusRetryState,
+  ]);
 
   useEffect(
     () => () => {
       targetActivationAllowedRef.current = false;
       cancelTargetPreparation();
-      runtimeCoordinatorRef.current.deactivate();
-      runtimeCoordinatorRef.current.cancelStatusRetry();
+      const coordinator = runtimeCoordinatorRef.current;
+      if (coordinator) {
+        coordinator.deactivate();
+        coordinator.cancelStatusRetry();
+        coordinator.dispose();
+      }
+      runtimeCoordinatorRef.current = null;
       measurementRetryRef.current.stop();
       anchorsRef.current.clear();
     },
@@ -642,26 +761,56 @@ export function useGuidedAction(input: {
   );
 
   useEffect(() => {
-    if (
-      input.activeBusinessId &&
-      guideId &&
-      !binding.ok &&
-      binding.reasonCode === 'BUSINESS_MISMATCH'
-    ) {
-      clearGuide();
+    if (isInertVisit) {
+      return;
     }
-  }, [binding, clearGuide, guideId, input.activeBusinessId]);
+    const cleanupKey = buildBusinessMismatchCleanupKey({
+      activeBusinessId: input.activeBusinessId,
+      guideId,
+      guideSessionId,
+      stableId,
+      recommendationBusinessId,
+    });
+    if (
+      !shouldAutoClearBusinessMismatchGuide({
+        activeBusinessId: input.activeBusinessId,
+        guideId,
+        bindingOk,
+        reasonCode: bindingReasonCode,
+        cleanupKey,
+        alreadyClearedKey: businessMismatchClearedKeyRef.current,
+      })
+    ) {
+      return;
+    }
+    businessMismatchClearedKeyRef.current = cleanupKey;
+    clearGuide();
+  }, [
+    bindingOk,
+    bindingReasonCode,
+    clearGuide,
+    guideId,
+    guideSessionId,
+    input.activeBusinessId,
+    isInertVisit,
+    recommendationBusinessId,
+    stableId,
+  ]);
 
   useEffect(() => {
     if (
+      isInertVisit ||
       !canActivateTarget ||
-      !binding.ok ||
+      !bindingOk ||
+      !bindingBusinessId ||
+      !bindingStableId ||
+      !bindingGuideId ||
       !evidenceFingerprint ||
       status?.state !== 'active'
     ) {
       return;
     }
-    const key = `${binding.businessId}|${binding.stableId}|${evidenceFingerprint}`;
+    const key = `${bindingBusinessId}|${bindingStableId}|${evidenceFingerprint}`;
     if (!startedRef.current.add(key)) {
       return;
     }
@@ -669,8 +818,8 @@ export function useGuidedAction(input: {
       track,
       ANALYTICS_EVENTS.guidedActionStarted,
       {
-        stable_recommendation_id: binding.stableId,
-        guide_id: binding.guideId,
+        stable_recommendation_id: bindingStableId,
+        guide_id: bindingGuideId,
         evidence_fingerprint: evidenceFingerprint,
         route_key: input.routeKey,
         step_index: 0,
@@ -678,17 +827,26 @@ export function useGuidedAction(input: {
       }
     );
   }, [
-    binding,
+    bindingBusinessId,
+    bindingGuideId,
+    bindingOk,
+    bindingStableId,
     canActivateTarget,
     evidenceFingerprint,
     input.routeKey,
+    isInertVisit,
     status?.state,
     suppliedSteps.length,
   ]);
 
   useEffect(() => {
     if (
-      !binding.ok ||
+      isInertVisit ||
+      !bindingOk ||
+      !bindingBusinessId ||
+      !bindingStableId ||
+      !bindingGuideId ||
+      !bindingGuideSessionId ||
       !evidenceFingerprint ||
       !connectionState.isWebSocketConnected ||
       (status?.state !== 'completed' &&
@@ -696,24 +854,25 @@ export function useGuidedAction(input: {
     ) {
       return;
     }
-    const key = `${binding.businessId}|${binding.stableId}|${evidenceFingerprint}|${status.state}`;
+    const outcomeState = status.state;
+    const key = `${bindingBusinessId}|${bindingStableId}|${evidenceFingerprint}|${outcomeState}`;
     if (!acknowledgedRef.current.add(key)) {
       return;
     }
     void acknowledge({
       guideSessionId:
-        binding.guideSessionId as Id<'recommendationGuideSessions'>,
-      businessId: binding.businessId as Id<'businesses'>,
-      stableId: binding.stableId,
-      guideId: binding.guideId,
+        bindingGuideSessionId as Id<'recommendationGuideSessions'>,
+      businessId: bindingBusinessId as Id<'businesses'>,
+      stableId: bindingStableId,
+      guideId: bindingGuideId,
       evidenceFingerprint,
       ...(entityId ? { entityId } : {}),
     })
       .then((result) => {
         if (
           outcomeGuardRef.current.shouldTrack({
-            businessId: binding.businessId,
-            stableId: binding.stableId,
+            businessId: bindingBusinessId,
+            stableId: bindingStableId,
             evidenceFingerprint,
             state: result.state,
           })
@@ -724,8 +883,8 @@ export function useGuidedAction(input: {
               ? ANALYTICS_EVENTS.recommendationCompleted
               : ANALYTICS_EVENTS.recommendationInvalidated,
             {
-              stable_recommendation_id: binding.stableId,
-              guide_id: binding.guideId,
+              stable_recommendation_id: bindingStableId,
+              guide_id: bindingGuideId,
               evidence_fingerprint: evidenceFingerprint,
               route_key: input.routeKey,
               reason_code: result.reasonCode,
@@ -740,17 +899,28 @@ export function useGuidedAction(input: {
       });
   }, [
     acknowledge,
-    binding,
+    bindingBusinessId,
+    bindingGuideId,
+    bindingGuideSessionId,
+    bindingOk,
+    bindingStableId,
     clearGuide,
     connectionState.isWebSocketConnected,
     entityId,
     evidenceFingerprint,
     input.routeKey,
-    status,
+    isInertVisit,
+    status?.state,
   ]);
 
   const next = useCallback(() => {
-    if (!canActivateTarget || !binding.ok || !evidenceFingerprint) {
+    if (
+      !canActivateTarget ||
+      !bindingOk ||
+      !bindingStableId ||
+      !bindingGuideId ||
+      !evidenceFingerprint
+    ) {
       return;
     }
     const nextIndex = Math.min(
@@ -761,8 +931,8 @@ export function useGuidedAction(input: {
       track,
       ANALYTICS_EVENTS.guidedStepCompleted,
       {
-        stable_recommendation_id: binding.stableId,
-        guide_id: binding.guideId,
+        stable_recommendation_id: bindingStableId,
+        guide_id: bindingGuideId,
         evidence_fingerprint: evidenceFingerprint,
         route_key: input.routeKey,
         step_index: stepIndex,
@@ -771,7 +941,9 @@ export function useGuidedAction(input: {
     );
     setStepIndex(nextIndex);
   }, [
-    binding,
+    bindingGuideId,
+    bindingOk,
+    bindingStableId,
     canActivateTarget,
     evidenceFingerprint,
     input.routeKey,
@@ -792,6 +964,7 @@ export function useGuidedAction(input: {
 
   const retryGuideStatus = useCallback(async () => {
     if (
+      isInertVisit ||
       !guideStatusArgs ||
       !statusRequestIdentity ||
       serverStatus === 'rejected'
@@ -800,7 +973,8 @@ export function useGuidedAction(input: {
     }
     const requestIdentity = statusRequestIdentity;
     const requestArgs = { ...guideStatusArgs };
-    const outcome = await runtimeCoordinatorRef.current.retryFreshStatus({
+    const coordinator = getRuntimeCoordinator();
+    const outcome = await coordinator.retryFreshStatus({
       identity: requestIdentity,
       status: serverStatus,
       connected: connectionState.isWebSocketConnected,
@@ -828,9 +1002,8 @@ export function useGuidedAction(input: {
             setTimeout(resolve, STATUS_RETRY_CACHE_RELEASE_DELAY_MS);
           });
           if (
-            runtimeCoordinatorRef.current.getStatusRetryState().identity !==
-              requestIdentity ||
-            !runtimeCoordinatorRef.current.getStatusRetryState().inFlight
+            coordinator.getStatusRetryState().identity !== requestIdentity ||
+            !coordinator.getStatusRetryState().inFlight
           ) {
             throw new Error('GUIDE_QUERY_STALE');
           }
@@ -905,13 +1078,18 @@ export function useGuidedAction(input: {
   }, [
     connectionState.isWebSocketConnected,
     convex,
+    getRuntimeCoordinator,
     guideStatusArgs,
+    isInertVisit,
     serverStatus,
     statusRequestIdentity,
     syncStatusRetryState,
   ]);
 
   const retry = useCallback(() => {
+    if (isInertVisit) {
+      return;
+    }
     setFeedback(null);
     setTargetUnavailable(false);
     if (serverStatus === 'error' || serverStatus === 'unavailable') {
@@ -927,6 +1105,7 @@ export function useGuidedAction(input: {
       measureAnchor(activeAnchorId, true);
     }
   }, [
+    isInertVisit,
     measureAnchor,
     retryGuideStatus,
     runTargetPreparation,
@@ -935,37 +1114,48 @@ export function useGuidedAction(input: {
   ]);
 
   const bindObservableTarget = useCallback(
-    (input: {
+    (bindInput: {
       identity: string;
       getCurrent: () => unknown | null;
       subscribe: (listener: (node: unknown | null) => void) => () => void;
       register: (node: unknown) => (() => void) | void;
-    }) =>
-      runtimeCoordinatorRef.current.bindObservableTarget({
+    }) => {
+      if (isInertVisit || !canActivateTarget) {
+        return false;
+      }
+      return getRuntimeCoordinator().bindObservableTarget({
         activation: targetActivation,
-        identity: input.identity,
-        getCurrent: input.getCurrent,
-        subscribe: input.subscribe,
-        register: input.register,
-      }),
-    [targetActivation]
+        identity: bindInput.identity,
+        getCurrent: bindInput.getCurrent,
+        subscribe: bindInput.subscribe,
+        register: bindInput.register,
+      });
+    },
+    [
+      canActivateTarget,
+      getRuntimeCoordinator,
+      isInertVisit,
+      targetActivation,
+    ]
   );
 
   return useMemo(
     () => ({
       isRequested: hasGuideMetadata && !isClosed,
       hasGuideMetadata,
-      isBindingValid: binding.ok && requiredMetadataValid,
+      isInert: isInertVisit,
+      isBindingValid: bindingOk && requiredMetadataValid,
       isReady: canActivateTarget,
       canActivateTarget,
       targetActivation,
       targetActivationKey,
-      isLoading: serverStatus === 'loading',
-      status: serverStatus,
-      reasonCode:
-        status?.state === serverStatus
+      isLoading: !isInertVisit && serverStatus === 'loading',
+      status: isInertVisit ? ('loading' as const) : serverStatus,
+      reasonCode: isInertVisit
+        ? 'INERT'
+        : status?.state === serverStatus
           ? status.reasonCode
-          : binding.ok
+          : bindingOk
             ? serverStatus === 'rejected'
               ? 'REJECTED'
               : serverStatus === 'error'
@@ -973,21 +1163,23 @@ export function useGuidedAction(input: {
                 : serverStatus === 'unavailable'
                   ? 'UNAVAILABLE'
                   : 'LOADING'
-            : binding.reasonCode,
-      guideId: binding.ok ? binding.guideId : null,
-      stableId: binding.ok ? binding.stableId : null,
+            : (bindingReasonCode ?? 'INVALID_GUIDE'),
+      guideId: bindingOk ? bindingGuideId : null,
+      stableId: bindingOk ? bindingStableId : null,
       targetId,
       instruction:
         suppliedSteps[stepIndex] ??
-        (binding.ok ? GUIDE_INSTRUCTIONS[binding.guideId] : null),
+        (bindingOk && bindingGuideId
+          ? GUIDE_INSTRUCTIONS[bindingGuideId]
+          : null),
       stepIndex,
       stepCount: suppliedSteps.length,
       fieldId: profileField,
       limitKey,
       entityId,
       anchorRect,
-      feedback,
-      targetUnavailable,
+      feedback: isInertVisit ? null : feedback,
+      targetUnavailable: isInertVisit ? false : targetUnavailable,
       isStatusRetrying: statusRetryState.inFlight,
       statusRetryExhausted: statusRetryState.exhausted,
       statusRetryAttempt: statusRetryState.attempts,
@@ -1003,16 +1195,19 @@ export function useGuidedAction(input: {
     }),
     [
       anchorRect,
-      binding,
+      bindingGuideId,
+      bindingOk,
+      bindingReasonCode,
+      bindingStableId,
       bindObservableTarget,
       canActivateTarget,
       clearGuide,
       deactivateGuidedTarget,
       entityId,
       feedback,
-      guideId,
       hasGuideMetadata,
       isClosed,
+      isInertVisit,
       limitKey,
       measureAnchor,
       next,

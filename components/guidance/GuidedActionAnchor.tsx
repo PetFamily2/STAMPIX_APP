@@ -44,20 +44,25 @@ export function GuidedActionAnchor({
   const ref = useGuidedTargetRef();
   const focusRef = useRef(focus);
   const scrollIntoViewRef = useRef(scrollIntoView);
+  const guideRef = useRef(guide);
   focusRef.current = focus;
   scrollIntoViewRef.current = scrollIntoView;
+  guideRef.current = guide;
+  const setNodeRef = useRef((node: View | null) => {
+    ref.current = node;
+  }).current;
   useEffect(() => {
-    if (!guide.canActivateTarget) {
+    if (!guide.canActivateTarget || guide.isInert) {
       return;
     }
     let unregister: (() => void) | null = null;
     const syncRegistration = (node: View | null) => {
       unregister?.();
       unregister = null;
-      if (!node || !guide.canActivateTarget) {
+      if (!node || !guideRef.current.canActivateTarget) {
         return;
       }
-      unregister = guide.registerAnchor({
+      unregister = guideRef.current.registerAnchor({
         id: anchorId,
         ref: node,
         getRef: () => ref.current,
@@ -75,15 +80,15 @@ export function GuidedActionAnchor({
       unsubscribe();
       unregister?.();
     };
-  }, [anchorId, guide.canActivateTarget, guide.registerAnchor]);
+  }, [anchorId, guide.canActivateTarget, guide.isInert, ref]);
   const onLayout = (_event: LayoutChangeEvent) => {
-    if (guide.canActivateTarget) {
+    if (guide.canActivateTarget && !guide.isInert) {
       guide.measureAnchor(anchorId);
     }
   };
   return (
     <View
-      ref={ref}
+      ref={setNodeRef}
       collapsable={false}
       onLayout={onLayout}
       style={style}

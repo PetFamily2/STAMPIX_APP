@@ -1016,6 +1016,187 @@ export function hasGuideLikeRouteMetadata(input: {
   );
 }
 
+/**
+ * Destination-only route params must never be treated as guide metadata.
+ * Ordinary business navigation may include these without activating guidance.
+ */
+export const ORDINARY_DESTINATION_ROUTE_KEYS = [
+  'businessId',
+  'programId',
+  'campaignId',
+  'entityId',
+  'filter',
+  'section',
+  'fieldId',
+  'limitKey',
+] as const;
+
+export type GuidedClientPresence = {
+  hasGuideMetadata: boolean;
+  isInert: boolean;
+};
+
+export function resolveGuidedClientPresence(input: {
+  guideSessionId?: unknown;
+  guideId?: unknown;
+  stableId?: unknown;
+  evidenceFingerprint?: unknown;
+  recommendationBusinessId?: unknown;
+  businessId?: unknown;
+  programId?: unknown;
+  campaignId?: unknown;
+  entityId?: unknown;
+  filter?: unknown;
+  section?: unknown;
+  fieldId?: unknown;
+  limitKey?: unknown;
+}): GuidedClientPresence {
+  const hasGuideMetadata = hasGuideLikeRouteMetadata({
+    guideSessionId: input.guideSessionId,
+    guideId: input.guideId,
+    stableId: input.stableId,
+    evidenceFingerprint: input.evidenceFingerprint,
+    recommendationBusinessId: input.recommendationBusinessId,
+  });
+  return {
+    hasGuideMetadata,
+    isInert: !hasGuideMetadata,
+  };
+}
+
+/**
+ * Stable empty request for Convex `useQueries`.
+ * Passing a fresh `{}` every render causes useSubscription to setState during
+ * render and infinite-loop ("Too many re-renders").
+ */
+export const EMPTY_GUIDED_STATUS_QUERIES: Record<string, never> =
+  Object.freeze({});
+
+export type GuidedStatusQueryRequestArgs = {
+  guideSessionId: string;
+  businessId: string;
+  stableId: string;
+  guideId: string;
+  evidenceFingerprint: string;
+  entityId?: string;
+};
+
+export function buildGuidedStatusQueriesRequest<TQuery>(input: {
+  enabled: boolean;
+  query: TQuery;
+  args: GuidedStatusQueryRequestArgs | null;
+}):
+  | typeof EMPTY_GUIDED_STATUS_QUERIES
+  | {
+      guideStatus: {
+        query: TQuery;
+        args: GuidedStatusQueryRequestArgs;
+      };
+    } {
+  if (!input.enabled || !input.args) {
+    return EMPTY_GUIDED_STATUS_QUERIES;
+  }
+  return {
+    guideStatus: {
+      query: input.query,
+      args: input.args,
+    },
+  };
+}
+
+export function buildBusinessMismatchCleanupKey(input: {
+  activeBusinessId: unknown;
+  guideId: unknown;
+  guideSessionId?: unknown;
+  stableId?: unknown;
+  recommendationBusinessId?: unknown;
+}) {
+  return [
+    String(input.activeBusinessId ?? ''),
+    String(input.guideId ?? ''),
+    String(input.guideSessionId ?? ''),
+    String(input.stableId ?? ''),
+    String(input.recommendationBusinessId ?? ''),
+  ].join('|');
+}
+
+export function shouldAutoClearBusinessMismatchGuide(input: {
+  activeBusinessId: unknown;
+  guideId: unknown;
+  bindingOk: boolean;
+  reasonCode: unknown;
+  cleanupKey: string;
+  alreadyClearedKey: string | null;
+}) {
+  if (
+    !input.activeBusinessId ||
+    typeof input.guideId !== 'string' ||
+    input.guideId.trim().length === 0 ||
+    input.bindingOk ||
+    input.reasonCode !== 'BUSINESS_MISMATCH'
+  ) {
+    return false;
+  }
+  return input.alreadyClearedKey !== input.cleanupKey;
+}
+
+export function shouldResetGuidedStatusRetryAfterSuccess(input: {
+  identity: string | null;
+  retryIdentity: string | null;
+  attempts: number;
+  inFlight: boolean;
+  exhausted: boolean;
+}) {
+  return (
+    typeof input.identity === 'string' &&
+    input.identity.length > 0 &&
+    input.retryIdentity === input.identity &&
+    (input.attempts > 0 || input.inFlight || input.exhausted)
+  );
+}
+
+export function shouldClearRejectedGuideRouteParams(input: {
+  hasGuideMetadata: boolean;
+  userRequestedClose: boolean;
+}) {
+  return input.hasGuideMetadata === true && input.userRequestedClose === true;
+}
+
+export type GuidedRuntimeTransitionDecision =
+  | { kind: 'inert'; mutated: false }
+  | { kind: 'activation'; mutated: boolean; identity: string }
+  | { kind: 'deactivation'; mutated: boolean };
+
+/**
+ * Pure decision helper used by the client runtime coordinator path.
+ * Same activation identity is a no-op; inert presence never mutates.
+ */
+export function decideGuidedRuntimeTransition(input: {
+  isInert: boolean;
+  canActivate: boolean;
+  activationIdentity: string;
+  activeIdentity: string | null;
+}): GuidedRuntimeTransitionDecision {
+  if (input.isInert || !input.canActivate) {
+    return {
+      kind: 'deactivation',
+      mutated: input.activeIdentity !== null,
+    };
+  }
+  if (input.activeIdentity === input.activationIdentity) {
+    return {
+      kind: 'activation',
+      mutated: false,
+      identity: input.activationIdentity,
+    };
+  }
+  return {
+    kind: 'activation',
+    mutated: true,
+    identity: input.activationIdentity,
+  };
+}
+
 export type GuidedStatusPanelMode =
   | 'none'
   | 'guided'

@@ -88,7 +88,12 @@ export function GuidedActionScreenOverlay({
     targetRef;
 
   useEffect(() => {
-    if (!selectedTargetRef || !guide.targetId || !guide.canActivateTarget) {
+    if (
+      !selectedTargetRef ||
+      !guide.targetId ||
+      !guide.canActivateTarget ||
+      guide.isInert
+    ) {
       return;
     }
     const observableTarget = selectedTargetRef as Partial<
@@ -157,6 +162,7 @@ export function GuidedActionScreenOverlay({
   }, [
     guide.bindObservableTarget,
     guide.canActivateTarget,
+    guide.isInert,
     guide.registerAnchor,
     guide.targetActivationKey,
     guide.targetId,
@@ -211,6 +217,9 @@ export function GuidedActionOverlay({
   }, []);
 
   useEffect(() => {
+    if (!guide.canActivateTarget) {
+      return;
+    }
     guide.setMeasurementViewport({
       width: window.width,
       height: window.height,
@@ -219,6 +228,7 @@ export function GuidedActionOverlay({
       keyboardHeight,
     });
   }, [
+    guide.canActivateTarget,
     guide.setMeasurementViewport,
     insets.bottom,
     insets.top,
