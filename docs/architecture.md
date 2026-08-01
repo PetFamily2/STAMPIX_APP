@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Last synced: 2026-06-05
+Last synced: 2026-08-01
 
 This is the canonical architecture document. The older `docs/spec/architecture.md` content was merged here and the original file was archived at `docs/archive/merged/spec-architecture.md`.
 
@@ -107,6 +107,24 @@ SecureStore:
 AsyncStorage:
 - pending deep-link join payload
 - onboarding and activation helper state
+
+## RTL verification contract
+
+StampAix uses one explicit manual-RTL model. Native/runtime RTL forcing remains
+disabled to avoid double inversion; Hebrew rows, start alignment, and the small
+number of deliberate LTR islands use the semantic helpers in `lib/rtl.ts`.
+
+The data-only source of truth is `config/rtlArchitecture.json`, with marker
+`stampaix-rtl-manual-row-right-v1`. `app/_layout.tsx` retains that marker in the
+shared iOS/Android production bundle without rendering UI or changing provider,
+navigation, state, or effect behavior.
+
+`scripts/rtl-source-contract.mjs` supplies the same marker and scan contract to
+the source verifier and tests. Static RTL and visible-Hebrew coverage includes
+`app/`, `components/`, `screens/`, `lib/`, `constants/`, and `config/`.
+Android APK verification later proves that the canonical marker reached the
+embedded bundle. iOS and Android device-level visual RTL QA remains a later
+runtime checkpoint; no artifact build is part of this source-only contract.
 
 ## Payments
 - `contexts/RevenueCatContext.tsx` is the single runtime integration point for package loading, purchase, restore, and subscription sync.

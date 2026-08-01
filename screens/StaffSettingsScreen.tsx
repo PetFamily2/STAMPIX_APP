@@ -248,7 +248,7 @@ export default function StaffSettingsScreen() {
                     <View
                       className={`${tw.flexRow} items-center justify-between`}
                     >
-                      <View className="items-end">
+                      <View className={tw.itemsStart}>
                         <Text
                           className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
                         >

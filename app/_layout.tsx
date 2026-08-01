@@ -16,10 +16,12 @@ import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
+import { retainRtlArchitectureMarker } from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 // StampAix uses manual RTL helpers from lib/rtl.ts to avoid double inversion
 // between native RTL and explicit row-reverse layout.
+retainRtlArchitectureMarker();
 
 const convexUrl = getConvexUrl();
 const convex = new ConvexReactClient(convexUrl);

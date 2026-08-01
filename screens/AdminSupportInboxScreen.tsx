@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -21,28 +20,24 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { flexDirection } from '@/lib/rtl';
 
 const TEXT = {
-  title:
-    '\u05e4\u05e0\u05d9\u05d5\u05ea \u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-  noAccess:
-    '\u05d4\u05de\u05e1\u05da \u05d6\u05de\u05d9\u05df \u05dc\u05d0\u05d3\u05de\u05d9\u05df \u05d1\u05dc\u05d1\u05d3.',
-  emptyTitle:
-    '\u05d0\u05d9\u05df \u05e4\u05e0\u05d9\u05d5\u05ea \u05d7\u05d3\u05e9\u05d5\u05ea',
-  emptySubtitle:
-    '\u05db\u05e9\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea \u05d9\u05e9\u05dc\u05d7\u05d5 \u05d4\u05d5\u05d3\u05e2\u05d4 \u05de\u05de\u05e1\u05da \u05d4\u05e2\u05d6\u05e8\u05d4, \u05d4\u05d9\u05d0 \u05ea\u05d5\u05e4\u05d9\u05e2 \u05db\u05d0\u05df.',
-  statusNew: '\u05d7\u05d3\u05e9',
-  statusHandled: '\u05d8\u05d5\u05e4\u05dc',
-  markHandled: '\u05e1\u05de\u05df \u05db\u05d8\u05d5\u05e4\u05dc',
-  markNew: '\u05d4\u05d7\u05d6\u05e8 \u05dc\u05d7\u05d3\u05e9',
-  fullName: '\u05e9\u05dd',
-  email: '\u05d0\u05d9\u05de\u05d9\u05d9\u05dc',
-  phone: '\u05d8\u05dc\u05e4\u05d5\u05df',
-  sentAt: '\u05e0\u05e9\u05dc\u05d7 \u05d1-',
-  unknown: '\u05dc\u05d0 \u05d4\u05d5\u05d2\u05d3\u05e8',
-  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
-  updateFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05d0\u05ea \u05e1\u05d8\u05d8\u05d5\u05e1 \u05d4\u05e4\u05e0\u05d9\u05d9\u05d4.',
+  title: 'פניות שירות לקוחות',
+  noAccess: 'המסך זמין לאדמין בלבד.',
+  emptyTitle: 'אין פניות חדשות',
+  emptySubtitle: 'כשלקוחות ישלחו הודעה ממסך העזרה, היא תופיע כאן.',
+  statusNew: 'חדש',
+  statusHandled: 'טופל',
+  markHandled: 'סמן כטופל',
+  markNew: 'החזר לחדש',
+  fullName: 'שם',
+  email: 'אימייל',
+  phone: 'טלפון',
+  sentAt: 'נשלח ב-',
+  unknown: 'לא הוגדר',
+  errorTitle: 'שגיאה',
+  updateFailed: 'לא הצלחנו לעדכן את סטטוס הפנייה.',
 };
 
 function formatTimestamp(value: number) {
@@ -260,7 +255,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   requestHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 10,

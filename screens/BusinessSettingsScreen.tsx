@@ -24,10 +24,10 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type ProfileCompletionField =
   | 'name'
@@ -54,8 +54,7 @@ const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
   ownerAgeRange: 'טווח גיל בעלים',
 };
 
-const ADD_BUSINESS_LABEL =
-  '\u05e6\u05d5\u05e8 \u05e2\u05e1\u05e7 \u05e0\u05d5\u05e1\u05e3';
+const ADD_BUSINESS_LABEL = 'צור עסק נוסף';
 
 function MenuRow({
   title,
@@ -107,7 +106,7 @@ function MenuRow({
           <Ionicons name={icon} size={18} color="#1D4ED8" />
         </View>
 
-        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+        <View style={{ flex: 1, alignItems: alignItems.start }}>
           <Text
             style={{
               fontSize: 15,
@@ -317,7 +316,7 @@ export default function BusinessSettingsScreen() {
           >
             <View
               style={{
-                flexDirection: 'row',
+                flexDirection: flexDirection.row,
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 12,
@@ -326,7 +325,7 @@ export default function BusinessSettingsScreen() {
               <View
                 style={{
                   flex: 1,
-                  alignItems: 'flex-end',
+                  alignItems: alignItems.start,
                 }}
               >
                 <Text
@@ -570,7 +569,7 @@ export default function BusinessSettingsScreen() {
                         paddingHorizontal: 12,
                         paddingVertical: 10,
                         opacity: pressed ? 0.86 : 1,
-                        flexDirection: 'row',
+                        flexDirection: flexDirection.row,
                         alignItems: 'center',
                         gap: 10,
                       },
@@ -626,7 +625,7 @@ export default function BusinessSettingsScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   opacity: pressed ? 0.86 : 1,
-                  flexDirection: 'row',
+                  flexDirection: flexDirection.row,
                   alignItems: 'center',
                   gap: 10,
                 },

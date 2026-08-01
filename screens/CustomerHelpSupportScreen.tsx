@@ -21,58 +21,45 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { ContinueButton } from '@/components/ContinueButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
+import { alignItems, flexDirection } from '@/lib/rtl';
 
 const SUPPORT_MESSAGE_MAX_LENGTH = 1200;
 
 const TEXT = {
-  title: '\u05e2\u05d6\u05e8\u05d4 \u05d5\u05ea\u05de\u05d9\u05db\u05d4',
-  sectionFaq:
-    '\u05e9\u05d0\u05dc\u05d5\u05ea \u05d5\u05ea\u05e9\u05d5\u05d1\u05d5\u05ea',
-  sectionContact: '\u05e6\u05d5\u05e8 \u05e7\u05e9\u05e8',
-  messagePlaceholder:
-    '\u05db\u05ea\u05d1\u05d5 \u05db\u05d0\u05df \u05de\u05d4 \u05d4\u05d1\u05e2\u05d9\u05d4 \u05d0\u05d5 \u05de\u05d4 \u05d0\u05ea\u05dd \u05e6\u05e8\u05d9\u05db\u05d9\u05dd...',
-  send: '\u05e9\u05dc\u05d7\u05d5 \u05dc\u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-  sending: '\u05e9\u05d5\u05dc\u05d7...',
-  sentTitle:
-    '\u05d4\u05e4\u05e0\u05d9\u05d9\u05d4 \u05e0\u05e9\u05dc\u05d7\u05d4',
-  sentMessage:
-    '\u05d4\u05d4\u05d5\u05d3\u05e2\u05d4 \u05e9\u05dc\u05db\u05dd \u05e0\u05e9\u05de\u05e8\u05d4 \u05d5\u05d6\u05de\u05d9\u05e0\u05d4 \u05db\u05e2\u05ea \u05d1\u05e4\u05d0\u05e0\u05dc \u05d4\u05d0\u05d3\u05de\u05d9\u05df.',
-  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
-  messageRequired:
-    '\u05db\u05ea\u05d1\u05d5 \u05d4\u05d5\u05d3\u05e2\u05d4 \u05dc\u05e4\u05e0\u05d9 \u05d4\u05e9\u05dc\u05d9\u05d7\u05d4.',
-  messageTooLong:
-    '\u05d4\u05d4\u05d5\u05d3\u05e2\u05d4 \u05d0\u05e8\u05d5\u05db\u05d4 \u05de\u05d3\u05d9. \u05e0\u05e1\u05d5 \u05dc\u05e7\u05e6\u05e8 \u05dc\u05e2\u05d3 1200 \u05ea\u05d5\u05d5\u05d9\u05dd.',
-  sendFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05dc\u05d5\u05d7 \u05d0\u05ea \u05d4\u05e4\u05e0\u05d9\u05d9\u05d4. \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1.',
-  messageLabel:
-    '\u05de\u05d4 \u05ea\u05e8\u05e6\u05d5 \u05dc\u05e9\u05dc\u05d5\u05d7 \u05dc\u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea?',
-  counterSuffix: '\u05ea\u05d5\u05d5\u05d9\u05dd',
+  title: 'עזרה ותמיכה',
+  sectionFaq: 'שאלות ותשובות',
+  sectionContact: 'צור קשר',
+  messagePlaceholder: 'כתבו כאן מה הבעיה או מה אתם צריכים...',
+  send: 'שלחו לשירות לקוחות',
+  sending: 'שולח...',
+  sentTitle: 'הפנייה נשלחה',
+  sentMessage: 'ההודעה שלכם נשמרה וזמינה כעת בפאנל האדמין.',
+  errorTitle: 'שגיאה',
+  messageRequired: 'כתבו הודעה לפני השליחה.',
+  messageTooLong: 'ההודעה ארוכה מדי. נסו לקצר לעד 1200 תווים.',
+  sendFailed: 'לא הצלחנו לשלוח את הפנייה. נסו שוב.',
+  messageLabel: 'מה תרצו לשלוח לשירות לקוחות?',
+  counterSuffix: 'תווים',
 };
 
 const FAQ_ITEMS = [
   {
-    question:
-      '\u05d0\u05d9\u05da \u05de\u05d5\u05e6\u05d0\u05d9\u05dd \u05d0\u05ea \u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05e9\u05dc\u05d9?',
-    answer:
-      '\u05d1\u05dc\u05e9\u05d5\u05e0\u05d9\u05ea \u05d4\u05d0\u05e8\u05e0\u05e7 \u05ea\u05e8\u05d0\u05d5 \u05d0\u05ea \u05db\u05dc \u05d4\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea, \u05d4\u05e0\u05d9\u05e7\u05d5\u05d1\u05d9\u05dd \u05d5\u05d4\u05ea\u05e7\u05d3\u05de\u05d5\u05ea \u05e9\u05dc\u05db\u05dd.',
+    question: 'איך מוצאים את כל הכרטיסיות שלי?',
+    answer: 'בלשונית הארנק תראו את כל הכרטיסיות, הניקובים והתקדמות שלכם.',
   },
   {
-    question:
-      '\u05d0\u05d9\u05e4\u05d4 \u05d0\u05e0\u05d9 \u05e8\u05d5\u05d0\u05d4 \u05d4\u05d8\u05d1\u05d5\u05ea \u05d6\u05de\u05d9\u05e0\u05d5\u05ea?',
+    question: 'איפה אני רואה הטבות זמינות?',
     answer:
-      '\u05d1\u05dc\u05e9\u05d5\u05e0\u05d9\u05ea \u05d4\u05d8\u05d1\u05d5\u05ea \u05ea\u05e8\u05d0\u05d5 \u05d0\u05ea \u05db\u05dc \u05d4\u05de\u05d9\u05de\u05d5\u05e9\u05d9\u05dd \u05d5\u05d4\u05e7\u05d5\u05e4\u05d5\u05e0\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc\u05d9\u05dd \u05e9\u05e0\u05e6\u05d1\u05e8\u05d5 \u05d1\u05d7\u05e9\u05d1\u05d5\u05df.',
+      'בלשונית הטבות תראו את כל המימושים והקופונים הפעילים שנצברו בחשבון.',
   },
   {
-    question:
-      '\u05d0\u05d9\u05da \u05de\u05e2\u05d3\u05db\u05e0\u05d9\u05dd \u05d8\u05dc\u05e4\u05d5\u05df \u05d0\u05d5 \u05e4\u05e8\u05d8\u05d9 \u05d7\u05e9\u05d1\u05d5\u05df?',
-    answer:
-      '\u05d1\u05de\u05e1\u05da \u05e4\u05e8\u05d8\u05d9 \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d0\u05e4\u05e9\u05e8 \u05dc\u05e2\u05d3\u05db\u05df \u05d8\u05dc\u05e4\u05d5\u05df \u05d5\u05dc\u05d1\u05d3\u05d5\u05e7 \u05d0\u05ea \u05e4\u05e8\u05d8\u05d9 \u05d4\u05de\u05e9\u05ea\u05de\u05e9.',
+    question: 'איך מעדכנים טלפון או פרטי חשבון?',
+    answer: 'במסך פרטי החשבון אפשר לעדכן טלפון ולבדוק את פרטי המשתמש.',
   },
   {
-    question:
-      '\u05de\u05d4 \u05dc\u05e2\u05e9\u05d5\u05ea \u05d0\u05dd \u05db\u05e8\u05d8\u05d9\u05e1 \u05dc\u05d0 \u05de\u05ea\u05e2\u05d3\u05db\u05df?',
+    question: 'מה לעשות אם כרטיס לא מתעדכן?',
     answer:
-      '\u05e8\u05e2\u05e0\u05e0\u05d5 \u05d0\u05ea \u05d4\u05de\u05e1\u05da \u05d0\u05d5 \u05d4\u05de\u05ea\u05d9\u05e0\u05d5 \u05e9\u05e0\u05d9\u05d5\u05ea \u05d1\u05d5\u05d3\u05d3\u05d5\u05ea. \u05d0\u05dd \u05d4\u05d1\u05e2\u05d9\u05d4 \u05de\u05de\u05e9\u05d9\u05db\u05d4, \u05e9\u05dc\u05d7\u05d5 \u05de\u05db\u05d0\u05df \u05e4\u05e0\u05d9\u05d9\u05d4 \u05dc\u05e9\u05d9\u05e8\u05d5\u05ea \u05dc\u05e7\u05d5\u05d7\u05d5\u05ea.',
+      'רעננו את המסך או המתינו שניות בודדות. אם הבעיה ממשיכה, שלחו מכאן פנייה לשירות לקוחות.',
   },
 ];
 
@@ -284,7 +271,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   faqHeader: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
   },
@@ -327,7 +314,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   counterRow: {
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
   },
   counterText: {
     fontSize: 11,

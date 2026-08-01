@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Last synced: 2026-06-15
+Last synced: 2026-08-01
 
 This is the canonical deployment and EAS infrastructure guide. The older `docs/EAS_INFRASTRUCTURE.md` content was merged here and the original file was archived at `docs/archive/merged/EAS_INFRASTRUCTURE.md`.
 
@@ -198,6 +198,11 @@ Preview build checklist:
   Android builds when the git working tree is dirty. Commit the intended RTL
   source changes before building so the APK can be traced to the same code that
   was reviewed.
+  The guard enforces the manual-RTL contract from
+  `config/rtlArchitecture.json`, including canonical marker
+  `stampaix-rtl-manual-row-right-v1`, root-layout bundle retention, and static
+  RTL/visible-Hebrew scanning across `app/`, `components/`, `screens/`, `lib/`,
+  `constants/`, and `config/`. The obsolete native-RTL marker is rejected.
 - Commands, after local checks pass:
   ```bash
   bun run eas:build:android:preview
@@ -205,10 +210,14 @@ Preview build checklist:
   bun run eas:build:all:preview
   ```
 - Before installing an Android preview APK for RTL QA, verify that the artifact
-  contains the current RTL architecture marker:
+  contains the canonical manual-RTL architecture marker and, when embedded app
+  config is present, the expected Android package and app scheme:
   ```bash
   bun run verify:android:rtl-apk -- path-or-url/to/preview.apk
   ```
+  This artifact verification is intentionally deferred until an approved APK
+  exists. Complete shared-screen RTL visual QA on both Android and iOS devices
+  at that later runtime checkpoint.
 - If iOS credentials need an interactive setup pass:
   ```bash
   bun run eas:credentials:ios:preview

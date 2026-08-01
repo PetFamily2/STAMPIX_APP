@@ -81,7 +81,7 @@ Last synced: 2026-02-18
 - Implications: npm/yarn are fallback only, not first-line docs path.
 
 ## Decision: Explicit RTL strategy
-- Date: 2025-12-29
-- Decision: Combine Expo Localization RTL flags with explicit screen-level RTL handling.
-- Rationale: Expo Go behavior is not always reliable with automatic RTL inversion.
-- Implications: New screens must explicitly keep RTL-safe alignment/direction behavior.
+- Date: 2026-08-01
+- Decision: Use explicit manual RTL helpers while leaving native/runtime RTL forcing disabled.
+- Rationale: One manual model avoids double inversion and keeps Hebrew row order and logical start alignment predictable across shared screens.
+- Implications: New screens must use `lib/rtl.ts` semantic helpers, preserve deliberate LTR islands explicitly, and remain covered by the static contract rooted in `config/rtlArchitecture.json`.

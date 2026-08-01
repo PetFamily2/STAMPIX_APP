@@ -37,7 +37,14 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  justifyContent,
+  rtlBaseView,
+  selfEnd,
+  selfStart,
+} from '@/lib/rtl';
 
 const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
 // Legacy typo key kept for migration only.
@@ -48,106 +55,65 @@ type IconName = keyof typeof Ionicons.glyphMap;
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
 const TEXT = {
-  quickWalletTitle: '\u05d4\u05d0\u05e8\u05e0\u05e7',
-  quickWalletSubtitle:
-    '\u05db\u05e8\u05d8\u05d9\u05e1\u05d9\u05d5\u05ea \u05d5\u05e0\u05e7\u05d5\u05d3\u05d5\u05ea',
-  quickRewardsTitle: '\u05d4\u05d8\u05d1\u05d5\u05ea',
-  quickRewardsSubtitle:
-    '\u05e7\u05d5\u05e4\u05d5\u05e0\u05d9\u05dd \u05d5\u05de\u05d9\u05de\u05d5\u05e9\u05d9\u05dd',
-  quickNew: '\u05d7\u05d3\u05e9',
-  sectionPreferences: '\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea',
-  accountSettingsTitle:
-    '\u05e4\u05e8\u05d8\u05d9 \u05d7\u05e9\u05d1\u05d5\u05df',
-  accountSettingsSubtitle:
-    '\u05e9\u05dd, \u05d0\u05d9\u05de\u05d9\u05d9\u05dc \u05d5\u05d0\u05d1\u05d8\u05d7\u05d4',
-  notificationsToggleTitle: '\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea',
-  notificationsToggleSubtitle:
-    '\u05e7\u05d1\u05dc\u05ea \u05e2\u05d3\u05db\u05d5\u05e0\u05d9\u05dd \u05d5\u05d4\u05d8\u05d1\u05d5\u05ea',
-  marketingToggleTitle:
-    '\u05d3\u05d9\u05d5\u05d5\u05e8 \u05e9\u05d9\u05d5\u05d5\u05e7\u05d9',
-  marketingToggleSubtitle:
-    '\u05d4\u05e1\u05db\u05de\u05d4 \u05dc\u05e7\u05d1\u05dc\u05ea \u05de\u05d1\u05e6\u05e2\u05d9\u05dd \u05d5\u05d4\u05d8\u05d1\u05d5\u05ea',
-  sectionSupport:
-    '\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05de\u05e1\u05de\u05db\u05d9\u05dd',
-  helpTitle: '\u05e2\u05d6\u05e8\u05d4 \u05d5\u05ea\u05de\u05d9\u05db\u05d4',
-  helpSubtitle:
-    '\u05e9\u05d0\u05dc\u05d5\u05ea \u05e0\u05e4\u05d5\u05e6\u05d5\u05ea \u05d5\u05d9\u05e6\u05d9\u05e8\u05ea \u05e7\u05e9\u05e8',
-  termsTitle: '\u05ea\u05e0\u05d0\u05d9 \u05e9\u05d9\u05de\u05d5\u05e9',
-  termsSubtitle:
-    '\u05d4\u05de\u05e1\u05de\u05da \u05d4\u05de\u05e9\u05e4\u05d8\u05d9 \u05e9\u05dc STAMPAIX',
-  privacyTitle:
-    '\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05e4\u05e8\u05d8\u05d9\u05d5\u05ea',
-  privacySubtitle:
-    '\u05d0\u05d9\u05da \u05d0\u05e0\u05d7\u05e0\u05d5 \u05e9\u05d5\u05de\u05e8\u05d9\u05dd \u05e2\u05dc \u05d4\u05de\u05d9\u05d3\u05e2 \u05e9\u05dc\u05db\u05dd',
-  accountDeletionPolicyTitle:
-    '\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
-  accountDeletionPolicySubtitle:
-    '\u05de\u05d4 \u05e0\u05de\u05d7\u05e7, \u05de\u05d4 \u05e0\u05e9\u05de\u05e8 \u05d5\u05de\u05d2\u05d1\u05dc\u05ea \u05d1\u05e2\u05dc\u05d9\u05dd \u05d9\u05d7\u05d9\u05d3',
-  sectionAccount:
-    '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d7\u05e9\u05d1\u05d5\u05df',
-  logoutTitle:
-    '\u05d9\u05e6\u05d9\u05d0\u05d4 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
-  logoutSubtitle:
-    '\u05d4\u05ea\u05e0\u05ea\u05e7\u05d5\u05ea \u05de\u05d4\u05de\u05db\u05e9\u05d9\u05e8 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9',
-  logoutConfirmTitle:
-    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d9\u05e6\u05d9\u05d0\u05d4',
-  logoutConfirmMessage:
-    '\u05d4\u05d0\u05dd \u05d0\u05ea\u05dd \u05d1\u05d8\u05d5\u05d7\u05d9\u05dd \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05db\u05dd \u05dc\u05d4\u05ea\u05e0\u05ea\u05e7 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df?',
-  logoutConfirmAction:
-    '\u05d9\u05e6\u05d9\u05d0\u05d4 \u05de\u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
-  deleteTitle: '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
-  deleteSubtitle:
-    '\u05de\u05d7\u05d9\u05e7\u05d4 \u05de\u05dc\u05d0\u05d4 \u05e9\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d5\u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd',
-  footerNote:
-    'STAMPAIX - \u05e0\u05d0\u05de\u05e0\u05d5\u05ea \u05d3\u05d9\u05d2\u05d9\u05d8\u05dc\u05d9\u05ea \u05e4\u05e9\u05d5\u05d8\u05d4 \u05dc\u05e2\u05e1\u05e7\u05d9\u05dd \u05d5\u05dc\u05dc\u05e7\u05d5\u05d7\u05d5\u05ea',
-  helpCenterText:
-    '\u05e6\u05e8\u05d9\u05db\u05d9\u05dd \u05e2\u05d6\u05e8\u05d4? \u05e4\u05e0\u05d5 \u05d0\u05dc\u05d9\u05e0\u05d5 \u05d3\u05e8\u05da \u05de\u05e8\u05db\u05d6 \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4',
-  notificationsSaveFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  marketingSaveFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e9\u05de\u05d5\u05e8 \u05d0\u05ea \u05d4\u05e2\u05d3\u05e4\u05ea \u05d4\u05d3\u05d9\u05d5\u05d5\u05e8 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  notificationsPermissionTitle:
-    '\u05d4\u05e8\u05e9\u05d0\u05ea \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05d3\u05e8\u05e9\u05ea',
+  quickWalletTitle: 'הארנק',
+  quickWalletSubtitle: 'כרטיסיות ונקודות',
+  quickRewardsTitle: 'הטבות',
+  quickRewardsSubtitle: 'קופונים ומימושים',
+  quickNew: 'חדש',
+  sectionPreferences: 'העדפות',
+  accountSettingsTitle: 'פרטי חשבון',
+  accountSettingsSubtitle: 'שם, אימייל ואבטחה',
+  notificationsToggleTitle: 'התראות',
+  notificationsToggleSubtitle: 'קבלת עדכונים והטבות',
+  marketingToggleTitle: 'דיוור שיווקי',
+  marketingToggleSubtitle: 'הסכמה לקבלת מבצעים והטבות',
+  sectionSupport: 'תמיכה ומסמכים',
+  helpTitle: 'עזרה ותמיכה',
+  helpSubtitle: 'שאלות נפוצות ויצירת קשר',
+  termsTitle: 'תנאי שימוש',
+  termsSubtitle: 'המסמך המשפטי של STAMPAIX',
+  privacyTitle: 'מדיניות פרטיות',
+  privacySubtitle: 'איך אנחנו שומרים על המידע שלכם',
+  accountDeletionPolicyTitle: 'מדיניות מחיקת חשבון',
+  accountDeletionPolicySubtitle: 'מה נמחק, מה נשמר ומגבלת בעלים יחיד',
+  sectionAccount: 'ניהול חשבון',
+  logoutTitle: 'יציאה מהחשבון',
+  logoutSubtitle: 'התנתקות מהמכשיר הנוכחי',
+  logoutConfirmTitle: 'אישור יציאה',
+  logoutConfirmMessage: 'האם אתם בטוחים שברצונכם להתנתק מהחשבון?',
+  logoutConfirmAction: 'יציאה מהחשבון',
+  deleteTitle: 'מחיקת חשבון',
+  deleteSubtitle: 'מחיקה מלאה של החשבון והנתונים',
+  footerNote: 'STAMPAIX - נאמנות דיגיטלית פשוטה לעסקים וללקוחות',
+  helpCenterText: 'צריכים עזרה? פנו אלינו דרך מרכז התמיכה באפליקציה',
+  notificationsSaveFailed: 'לא הצלחנו לשמור את העדפת ההתראות נסו שוב',
+  marketingSaveFailed: 'לא הצלחנו לשמור את העדפת הדיוור נסו שוב',
+  notificationsPermissionTitle: 'הרשאת התראות נדרשת',
   notificationsPermissionMessage:
-    '\u05db\u05d3\u05d9 \u05dc\u05e7\u05d1\u05dc \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea, \u05d0\u05e9\u05e8\u05d5 \u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea \u05d4\u05de\u05db\u05e9\u05d9\u05e8.',
-  switchModeFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05e2\u05d3\u05db\u05df \u05de\u05e6\u05d1 \u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  staffBusinessTitlePrefix: '\u05de\u05e2\u05d1\u05e8 \u05dc',
-  staffScannerAction: '\u05dc\u05d7\u05e5 \u05dc\u05de\u05e2\u05d1\u05e8',
-  staffBusinessesTitle:
-    '\u05d4\u05e2\u05e1\u05e7\u05d9\u05dd \u05e9\u05d1\u05d4\u05dd \u05d0\u05e0\u05d9 \u05e2\u05d5\u05d1\u05d3',
-  logoutFailed:
-    '\u05dc\u05d0 \u05d4\u05e6\u05dc\u05d7\u05e0\u05d5 \u05dc\u05d1\u05e6\u05e2 \u05d9\u05e6\u05d9\u05d0\u05d4 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  deleteModalTitle:
-    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
-  deleteModalWarning:
-    '\u05d4\u05e4\u05e2\u05d5\u05dc\u05d4 \u05ea\u05de\u05d7\u05e7 \u05dc\u05e6\u05de\u05d9\u05ea\u05d5\u05ea \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d5\u05d0\u05ea \u05db\u05dc \u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd',
-  deleteModalConfirmHint:
-    '\u05dc\u05d4\u05de\u05e9\u05da, \u05d4\u05e7\u05dc\u05d9\u05d3\u05d5 DELETE',
-  deleteModalBusy:
-    '\u05de\u05d5\u05d7\u05e7\u05d9\u05dd \u05e0\u05ea\u05d5\u05e0\u05d9\u05dd',
-  cancel: '\u05d1\u05d9\u05d8\u05d5\u05dc',
-  confirmDelete: '\u05dc\u05d4\u05de\u05e9\u05da',
-  deletePermanent:
-    '\u05de\u05d7\u05d9\u05e7\u05d4 \u05dc\u05e6\u05de\u05d9\u05ea\u05d5\u05ea',
-  deleteAlertTitle:
-    '\u05d0\u05d9\u05e9\u05d5\u05e8 \u05de\u05d7\u05d9\u05e7\u05d4',
-  deleteAlertMessage:
-    '\u05d9\u05e9 \u05dc\u05d4\u05e7\u05dc\u05d9\u05d3 DELETE \u05db\u05d3\u05d9 \u05dc\u05d0\u05e9\u05e8 \u05de\u05d7\u05d9\u05e7\u05d4',
-  deleteFailedTitle:
-    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d7\u05e9\u05d1\u05d5\u05df',
-  deleteUnknownError:
-    '\u05de\u05d7\u05d9\u05e7\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05e0\u05db\u05e9\u05dc\u05d4 \u05e0\u05e1\u05d5 \u05e9\u05d5\u05d1',
-  soleOwnerDeleteBlockedTitle:
-    '\u05dc\u05d0 \u05e0\u05d9\u05ea\u05df \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df',
+    'כדי לקבל התראות, אשרו התראות בהגדרות המכשיר.',
+  switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
+  staffBusinessTitlePrefix: 'מעבר ל',
+  staffScannerAction: 'לחץ למעבר',
+  staffBusinessesTitle: 'העסקים שבהם אני עובד',
+  logoutFailed: 'לא הצלחנו לבצע יציאה נסו שוב',
+  deleteModalTitle: 'מחיקת חשבון',
+  deleteModalWarning: 'הפעולה תמחק לצמיתות את החשבון ואת כל הנתונים',
+  deleteModalConfirmHint: 'להמשך, הקלידו DELETE',
+  deleteModalBusy: 'מוחקים נתונים',
+  cancel: 'ביטול',
+  confirmDelete: 'להמשך',
+  deletePermanent: 'מחיקה לצמיתות',
+  deleteAlertTitle: 'אישור מחיקה',
+  deleteAlertMessage: 'יש להקליד DELETE כדי לאשר מחיקה',
+  deleteFailedTitle: 'מחיקת חשבון',
+  deleteUnknownError: 'מחיקת החשבון נכשלה נסו שוב',
+  soleOwnerDeleteBlockedTitle: 'לא ניתן למחוק את החשבון',
   soleOwnerDeleteBlockedMessage:
-    '\u05d4\u05d7\u05e9\u05d1\u05d5\u05df \u05d4\u05d6\u05d4 \u05d4\u05d5\u05d0 \u05d4\u05d1\u05e2\u05dc\u05d9\u05dd \u05d4\u05e4\u05e2\u05d9\u05dc \u05d4\u05d9\u05d7\u05d9\u05d3 \u05e9\u05dc \u05e2\u05e1\u05e7. \u05db\u05d3\u05d9 \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d9\u05e9 \u05dc\u05d4\u05e2\u05d1\u05d9\u05e8 \u05ea\u05d7\u05d9\u05dc\u05d4 \u05d0\u05ea \u05d4\u05d1\u05e2\u05dc\u05d5\u05ea \u05d0\u05d5 \u05dc\u05de\u05d7\u05d5\u05e7 \u05d0\u05ea \u05d4\u05e2\u05e1\u05e7 \u05d1\u05ea\u05d4\u05dc\u05d9\u05da \u05e0\u05e4\u05e8\u05d3.',
-  deleteSuccessTitle:
-    '\u05d4\u05de\u05d7\u05d9\u05e7\u05d4 \u05d4\u05d5\u05e9\u05dc\u05de\u05d4',
-  deleteSuccessPrefix:
-    '\u05d4\u05de\u05d7\u05d9\u05e7\u05d4 \u05d4\u05e1\u05ea\u05d9\u05d9\u05de\u05d4 \u05e1\u05d9\u05db\u05d5\u05dd \u05d8\u05d1\u05dc\u05d0\u05d5\u05ea:',
-  ok: '\u05d0\u05d9\u05e9\u05d5\u05e8',
-  errorTitle: '\u05e9\u05d2\u05d9\u05d0\u05d4',
+    'החשבון הזה הוא הבעלים הפעיל היחיד של עסק. כדי למחוק את החשבון, יש להעביר תחילה את הבעלות או למחוק את העסק בתהליך נפרד.',
+  deleteSuccessTitle: 'המחיקה הושלמה',
+  deleteSuccessPrefix: 'המחיקה הסתיימה סיכום טבלאות:',
+  ok: 'אישור',
+  errorTitle: 'שגיאה',
 };
 
 function toErrorMessage(error: unknown, fallback: string) {
@@ -591,11 +557,11 @@ export default function SettingsScreen() {
       >
         <View style={styles.headerRow}>
           <BusinessScreenHeader
-            title={'\u05d4\u05d2\u05d3\u05e8\u05d5\u05ea'}
+            title={'הגדרות'}
             subtitle={
               isBusinessSettingsScreen
-                ? '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea \u05d4\u05e2\u05e1\u05e7'
-                : '\u05e0\u05d9\u05d4\u05d5\u05dc \u05d4\u05d7\u05e9\u05d1\u05d5\u05df, \u05d4\u05ea\u05de\u05d9\u05db\u05d4 \u05d5\u05d4\u05e2\u05d3\u05e4\u05d5\u05ea \u05d4\u05dc\u05e7\u05d5\u05d7'
+                ? 'ניהול החשבון, התמיכה והעדפות העסק'
+                : 'ניהול החשבון, התמיכה והעדפות הלקוח'
             }
             showAvatar={!isBusinessSettingsScreen}
             avatarUrl={user?.avatarUrl}
@@ -929,7 +895,7 @@ const styles = StyleSheet.create({
   },
   staffBusinessTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
   },
   staffBusinessTitle: {
     fontSize: 15,
@@ -984,7 +950,7 @@ const styles = StyleSheet.create({
   },
   staffBusinessRowTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
   },
   staffBusinessRowTitle: {
     fontSize: 14,
@@ -1044,7 +1010,7 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: '#E61E5A',
   },
-  menuTextWrap: { flex: 1, alignItems: 'flex-end' },
+  menuTextWrap: { flex: 1, alignItems: alignItems.start },
   menuTitle: {
     fontSize: 15,
     fontWeight: '800',
@@ -1071,7 +1037,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   notificationToggleInner: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'flex-start',
     gap: 12,
   },
@@ -1085,7 +1051,7 @@ const styles = StyleSheet.create({
   },
   notificationToggleTextWrap: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
   },
   notificationToggleTitle: {
     fontSize: 15,
@@ -1130,10 +1096,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#A1A1AA',
   },
   notificationSwitchThumbRight: {
-    alignSelf: 'flex-end',
+    alignSelf: selfStart,
   },
   notificationSwitchThumbLeft: {
-    alignSelf: 'flex-start',
+    alignSelf: selfEnd,
   },
 
   footerNote: {
@@ -1187,14 +1153,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalBusyRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    // Preserve text-then-spinner source order while anchoring at Hebrew start.
+    flexDirection: flexDirection.rowReverse,
+    justifyContent: justifyContent.start,
     alignItems: 'center',
     gap: 8,
   },
   modalBusyText: { color: '#52525B', fontWeight: '600' },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
   },

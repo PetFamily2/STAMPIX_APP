@@ -22,6 +22,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   title: 'פרטי החשבון',
@@ -471,9 +472,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   profileHero: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: justifyContent.start,
     gap: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
@@ -481,7 +482,7 @@ const styles = StyleSheet.create({
   },
   profileHeroCopy: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
     gap: 2,
   },
   profileHeroName: {
@@ -499,7 +500,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   detailRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.rowReverse,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
   phoneEditWrap: {
     flex: 1,
     gap: 8,
-    alignItems: 'flex-end',
+    alignItems: alignItems.start,
   },
   phoneInput: {
     width: '100%',
@@ -541,7 +542,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   phoneActionRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.row,
     gap: 8,
   },
   smallButtonSecondary: {
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   dateRow: {
-    flexDirection: 'row',
+    flexDirection: flexDirection.rowReverse,
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
@@ -615,7 +616,7 @@ const styles = StyleSheet.create({
   },
   dateInputs: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: flexDirection.rowReverse,
     gap: 8,
   },
   dateInput: {

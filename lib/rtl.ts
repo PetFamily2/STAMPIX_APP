@@ -7,10 +7,20 @@
  */
 
 import type { FlexStyle, TextStyle, ViewStyle } from 'react-native';
+import rtlArchitecture from '@/config/rtlArchitecture.json';
 
 export const IS_RTL = true;
 
-export const RTL_ARCHITECTURE_MARKER = 'stampaix-rtl-manual-row-right-v1';
+export const RTL_ARCHITECTURE_MARKER = rtlArchitecture.marker;
+
+type RtlArchitectureGlobal = typeof globalThis & {
+  __STAMPAIX_RTL_ARCHITECTURE_MARKER__?: string;
+};
+
+export function retainRtlArchitectureMarker() {
+  (globalThis as RtlArchitectureGlobal).__STAMPAIX_RTL_ARCHITECTURE_MARKER__ =
+    RTL_ARCHITECTURE_MARKER;
+}
 
 export const flexDirection = {
   row: 'row-reverse' as FlexStyle['flexDirection'],
