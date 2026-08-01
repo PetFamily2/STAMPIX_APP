@@ -265,7 +265,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     }
     if (campaignsStatus.isNearLimit || campaignsStatus.isAtLimit) {
       warnings.push(
-        `מבצעים ${formatLimit(
+        `קמפיינים ${formatLimit(
           campaignsStatus.currentValue,
           campaignsStatus.limitValue
         )}`
@@ -518,11 +518,11 @@ export default function BusinessSettingsSubscriptionScreen() {
         usageSummary?.activeRetentionActionsUsed ?? 0,
         retentionStatus.limitValue
       ),
-      hint: 'מבצעים',
+      hint: 'קמפיינים',
     },
     {
       key: 'campaigns_usage',
-      label: 'מבצעים',
+      label: 'קמפיינים',
       value: formatLimit(
         usageSummary?.activeManagementCampaignsUsed ?? 0,
         campaignsStatus.limitValue

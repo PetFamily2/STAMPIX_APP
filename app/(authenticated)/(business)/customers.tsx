@@ -331,7 +331,7 @@ export function CustomersHubContent() {
     if (!canCreateCampaigns) {
       Alert.alert(
         'אין הרשאה',
-        'רק בעלים או מנהלים יכולים ליצור מבצע ללקוחות בסיכון.'
+        'רק בעלים או מנהלים יכולים ליצור קמפיין ללקוחות בסיכון.'
       );
       return;
     }
@@ -355,7 +355,7 @@ export function CustomersHubContent() {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
         Alert.alert(
-          'לא ניתן ליצור מבצע',
+          'לא ניתן ליצור קמפיין',
           entitlementErrorToHebrewMessage(entitlementError),
           [
             {
@@ -379,7 +379,7 @@ export function CustomersHubContent() {
         return;
       }
 
-      Alert.alert('שגיאה', 'יצירת מבצע החזרה נכשלה.');
+      Alert.alert('שגיאה', 'יצירת קמפיין החזרה נכשלה.');
     } finally {
       setIsCreatingWinbackCampaign(false);
     }
@@ -648,7 +648,7 @@ export function CustomersHubContent() {
                             color="#FFFFFF"
                           />
                           <Text style={styles.primaryActionText}>
-                            צרו מבצע החזרה
+                            צרו קמפיין החזרה
                           </Text>
                         </>
                       )}
@@ -662,7 +662,7 @@ export function CustomersHubContent() {
                       ]}
                     >
                       <Text style={styles.secondaryActionText}>
-                        כל המבצעים
+                        כל הקמפיינים
                       </Text>
                     </Pressable>
                   </View>
@@ -672,7 +672,7 @@ export function CustomersHubContent() {
                       className={tw.textStart}
                       style={styles.permissionHint}
                     >
-                      למשתמש הנוכחי אין הרשאה ליצור מבצעים.
+                      למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
                     </Text>
                   ) : null}
                 </SurfaceCard>

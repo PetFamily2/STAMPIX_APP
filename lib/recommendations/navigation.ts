@@ -1,3 +1,4 @@
+import { BUSINESS_ROUTES } from '../navigation/businessRoutes';
 import {
   isApprovedGuideId,
   isApprovedProfileGuideField,
@@ -28,7 +29,7 @@ type RecommendationPathname =
   | '/(authenticated)/(business)/campaigns'
   | '/(authenticated)/(business)/cards/campaign/[campaignId]'
   | '/(authenticated)/(business)/customers'
-  | '/(authenticated)/(business)/team'
+  | typeof BUSINESS_ROUTES.team
   | '/(authenticated)/(business)/settings-business-subscription';
 
 export type RecommendationNavigationTarget = {
@@ -267,7 +268,7 @@ export function getRecommendationNavigationTarget(input: {
         return {
           ok: true,
           target: {
-            pathname: '/(authenticated)/(business)/team',
+            pathname: BUSINESS_ROUTES.team,
             params: {
               ...baseParams,
               section: 'pending',

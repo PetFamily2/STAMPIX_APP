@@ -74,8 +74,8 @@ const CAMPAIGN_TEMPLATES: Array<{
   },
   {
     type: 'promo',
-    title: 'מבצע כללי',
-    subtitle: 'מבצע לכל הלקוחות הפעילים',
+    title: 'קמפיין כללי',
+    subtitle: 'קמפיין לכל הלקוחות הפעילים',
   },
 ];
 
@@ -163,7 +163,7 @@ function audienceCopy(type: CampaignType): {
     default:
       return {
         title: 'קהל יעד',
-        subtitle: 'קהל קבוע לפי סוג המבצע.',
+        subtitle: 'קהל קבוע לפי סוג הקמפיין.',
       };
   }
 }
@@ -178,7 +178,7 @@ function campaignMeta(type: CampaignType): {
   switch (type) {
     case 'welcome':
       return {
-        title: 'מבצע ברוכים הבאים',
+        title: 'קמפיין ברוכים הבאים',
         subtitle: 'הודעת פתיחה למצטרפים חדשים',
         icon: 'hand-left-outline',
         accentClass: 'text-[#1D4ED8]',
@@ -186,7 +186,7 @@ function campaignMeta(type: CampaignType): {
       };
     case 'birthday':
       return {
-        title: 'מבצע יום הולדת',
+        title: 'קמפיין יום הולדת',
         subtitle: 'הטבה אישית ביום ההולדת',
         icon: 'gift-outline',
         accentClass: 'text-[#C2410C]',
@@ -194,7 +194,7 @@ function campaignMeta(type: CampaignType): {
       };
     case 'anniversary':
       return {
-        title: 'מבצע יום נישואין',
+        title: 'קמפיין יום נישואין',
         subtitle: 'הודעה ייעודית ליום הנישואין',
         icon: 'heart-outline',
         accentClass: 'text-[#9D174D]',
@@ -202,7 +202,7 @@ function campaignMeta(type: CampaignType): {
       };
     case 'winback':
       return {
-        title: 'מבצע החזרת לקוחות',
+        title: 'קמפיין החזרת לקוחות',
         subtitle: 'פנייה ללקוחות שלא ביקרו לאחרונה',
         icon: 'refresh-outline',
         accentClass: 'text-[#0F766E]',
@@ -210,7 +210,7 @@ function campaignMeta(type: CampaignType): {
       };
     case 'promo':
       return {
-        title: 'מבצע כללי',
+        title: 'קמפיין כללי',
         subtitle: 'מסר שיווקי לכל הלקוחות הפעילים',
         icon: 'megaphone-outline',
         accentClass: 'text-[#4C1D95]',
@@ -218,8 +218,8 @@ function campaignMeta(type: CampaignType): {
       };
     default:
       return {
-        title: 'מבצע',
-        subtitle: 'ניהול מבצע',
+        title: 'קמפיין',
+        subtitle: 'ניהול קמפיין',
         icon: 'megaphone-outline',
         accentClass: 'text-[#1D4ED8]',
         accentBgClass: 'bg-[#DBEAFE]',
@@ -547,7 +547,7 @@ export default function CampaignDraftEditorScreen() {
       if (handleEntitlementError(error)) {
         return;
       }
-      Alert.alert('שגיאה', 'יצירת מבצע נכשלה.');
+      Alert.alert('שגיאה', 'יצירת קמפיין נכשלה.');
     } finally {
       setIsCreatingDraft(null);
     }
@@ -566,7 +566,7 @@ export default function CampaignDraftEditorScreen() {
       const created = await createCampaignDraft({
         businessId: selectedBusinessId,
         type: 'promo',
-        title: 'מבצע מותאם אישית',
+        title: 'קמפיין מותאם אישית',
         messageTitle: 'עדכון מהעסק',
         messageBody: 'כתבו כאן את תוכן ההודעה ללקוחות.',
       });
@@ -575,7 +575,7 @@ export default function CampaignDraftEditorScreen() {
       if (handleEntitlementError(error)) {
         return;
       }
-      Alert.alert('שגיאה', 'יצירת מבצע נכשלה.');
+      Alert.alert('שגיאה', 'יצירת קמפיין נכשלה.');
     } finally {
       setIsCreatingDraft(null);
     }
@@ -634,8 +634,8 @@ export default function CampaignDraftEditorScreen() {
             backgroundColor="#E9F0FF"
           >
             <BusinessScreenHeader
-              title="יצירת מבצע"
-              subtitle="בחרו תבנית מוכנה או צרו מבצע מותאם אישית"
+              title="יצירת קמפיין"
+              subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
               titleAccessory={<BackButton onPress={goBackToCampaignList} />}
             />
           </StickyScrollHeader>
@@ -643,14 +643,14 @@ export default function CampaignDraftEditorScreen() {
           {!canCreateCampaigns ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
               <Text className="text-right text-sm font-semibold text-red-700">
-                רק בעלים או מנהל יכולים ליצור מבצעים.
+                רק בעלים או מנהל יכולים ליצור קמפיינים.
               </Text>
             </View>
           ) : null}
           {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
               <Text className="text-right text-sm font-semibold text-red-700">
-                יש חריגה ממכסת המבצעים במסלול הנוכחי. יצירה או הפעלה חסומות עד
+                יש חריגה ממכסת הקמפיינים במסלול הנוכחי. יצירה או הפעלה חסומות עד
                 שחוזרים למכסה או משדרגים.
               </Text>
               {!isEntitlementsLoading && recurringLimit.isAtLimit ? (
@@ -670,7 +670,7 @@ export default function CampaignDraftEditorScreen() {
           ) : !isEntitlementsLoading && campaignLimit.isAtLimit ? (
             <View className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
               <Text className="text-right text-sm font-semibold text-amber-700">
-                הגעתם למכסת המבצעים. כדי ליצור מבצע חדש יש לארכב מבצע קיים
+                הגעתם למכסת הקמפיינים. כדי ליצור קמפיין חדש יש לארכב קמפיין קיים
                 או לשדרג.
               </Text>
             </View>
@@ -709,7 +709,7 @@ export default function CampaignDraftEditorScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                תבניות מבצע
+                תבניות קמפיין
               </Text>
               <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
                 בחירת תבנית תיצור טיוטה מוכנה שאפשר לערוך לפני שמירה ושליחה.
@@ -773,7 +773,7 @@ export default function CampaignDraftEditorScreen() {
               <Text
                 className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
               >
-                מבצע מותאם אישית
+                קמפיין מותאם אישית
               </Text>
               <Text className={`mt-1 text-sm text-[#475569] ${tw.textStart}`}>
                 ניצור טיוטה פתוחה לעריכה מלאה של טקסט, קהל יעד ושיוך לתוכנית.
@@ -799,7 +799,7 @@ export default function CampaignDraftEditorScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text className="text-center text-sm font-bold text-white">
-                    התחל מבצע מותאם אישית
+                    התחל קמפיין מותאם אישית
                   </Text>
                 )}
               </TouchableOpacity>
@@ -814,7 +814,7 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
         <Text className="w-full text-right text-sm text-[#64748B]">
-          חסרים פרטי מבצע לעריכה.
+          חסרים פרטי קמפיין לעריכה.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
@@ -838,7 +838,7 @@ export default function CampaignDraftEditorScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
         <Text className="w-full text-right text-sm text-[#64748B]">
-          לא נמצאה טיוטת מבצע.
+          לא נמצאה טיוטת קמפיין.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
@@ -975,7 +975,7 @@ export default function CampaignDraftEditorScreen() {
     ) {
       Alert.alert(
         'חריגה מהמכסה',
-        'לא ניתן להפעיל אוטומציה למבצע כשכבר קיימת חריגה ממכסת המבצעים.'
+        'לא ניתן להפעיל אוטומציה לקמפיין כשכבר קיימת חריגה ממכסת הקמפיינים.'
       );
       return;
     }
@@ -1011,7 +1011,7 @@ export default function CampaignDraftEditorScreen() {
       if (conflict) {
         Alert.alert(
           'הנתונים השתנו',
-          'נמצאה גרסה חדשה של המבצע. טענו אותה לפני שינוי האוטומציה.',
+          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני שינוי האוטומציה.',
           [
             {
               text: 'טען גרסה עדכנית',
@@ -1066,7 +1066,7 @@ export default function CampaignDraftEditorScreen() {
       if (conflict) {
         Alert.alert(
           'הנתונים השתנו',
-          'נמצאה גרסה חדשה של המבצע. אפשר לטעון אותה או להשאיר את הטיוטה המקומית.',
+          'נמצאה גרסה חדשה של הקמפיין. אפשר לטעון אותה או להשאיר את הטיוטה המקומית.',
           [
             {
               text: 'טען גרסה עדכנית',
@@ -1102,7 +1102,7 @@ export default function CampaignDraftEditorScreen() {
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
       Alert.alert(
         'חריגה מהמכסה',
-        'לא ניתן לשלוח מבצע כאשר קיימת חריגה ממכסת המבצעים הפעילים.'
+        'לא ניתן לשלוח קמפיין כאשר קיימת חריגה ממכסת הקמפיינים הפעילים.'
       );
       openCampaignsUpgrade();
       return;
@@ -1145,7 +1145,7 @@ export default function CampaignDraftEditorScreen() {
       });
 
       if (estimate.total === 0) {
-        Alert.alert('אין נמענים', 'לא נמצאו לקוחות זכאים (Opt-in) למבצע הזה.');
+        Alert.alert('אין נמענים', 'לא נמצאו לקוחות זכאים (Opt-in) לקמפיין הזה.');
         return;
       }
 
@@ -1176,7 +1176,7 @@ export default function CampaignDraftEditorScreen() {
       if (conflict) {
         Alert.alert(
           'הנתונים השתנו',
-          'נמצאה גרסה חדשה של המבצע. טענו אותה לפני השליחה.',
+          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני השליחה.',
           [
             {
               text: 'טען גרסה עדכנית',
@@ -1217,7 +1217,7 @@ export default function CampaignDraftEditorScreen() {
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
       Alert.alert(
         'חריגה מהמכסה',
-        'לא ניתן להפעיל מבצע חדש כאשר קיימת חריגה ממכסת המבצעים.'
+        'לא ניתן להפעיל קמפיין חדש כאשר קיימת חריגה ממכסת הקמפיינים.'
       );
       openCampaignsUpgrade();
       return;
@@ -1256,7 +1256,7 @@ export default function CampaignDraftEditorScreen() {
       if (typeof scheduled?.updatedAt === 'number') {
         setBaseUpdatedAt(scheduled.updatedAt);
       }
-      Alert.alert('נשמר והופעל', `המבצע יישלח ב-${oneTimeScheduleDisplay}.`, [
+      Alert.alert('נשמר והופעל', `הקמפיין יישלח ב-${oneTimeScheduleDisplay}.`, [
         {
           text: 'אישור',
           onPress: goBackToCampaignList,
@@ -1270,7 +1270,7 @@ export default function CampaignDraftEditorScreen() {
       if (conflict) {
         Alert.alert(
           'הנתונים השתנו',
-          'נמצאה גרסה חדשה של המבצע. טענו אותה לפני התזמון.',
+          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני התזמון.',
           [
             {
               text: 'טען גרסה עדכנית',
@@ -1311,7 +1311,7 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
 
-    Alert.alert('העברה לארכיון', 'להעביר את המבצע לארכיון?', [
+    Alert.alert('העברה לארכיון', 'להעביר את הקמפיין לארכיון?', [
       { text: 'ביטול', style: 'cancel' },
       {
         text: 'העבר לארכיון',
@@ -1325,7 +1325,7 @@ export default function CampaignDraftEditorScreen() {
                 campaignId,
                 expectedUpdatedAt: baseUpdatedAt ?? undefined,
               });
-              Alert.alert('הועבר לארכיון', 'המבצע הועבר לארכיון בהצלחה.', [
+              Alert.alert('הועבר לארכיון', 'הקמפיין הועבר לארכיון בהצלחה.', [
                 { text: 'אישור', onPress: goBackToCampaignList },
               ]);
             } catch (error) {
@@ -1333,7 +1333,7 @@ export default function CampaignDraftEditorScreen() {
               if (conflict) {
                 Alert.alert(
                   'הנתונים השתנו',
-                  'נמצאה גרסה חדשה של המבצע. טענו אותה לפני העברה לארכיון.',
+                  'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני העברה לארכיון.',
                   [
                     {
                       text: 'טען גרסה עדכנית',
@@ -1359,7 +1359,7 @@ export default function CampaignDraftEditorScreen() {
               ) {
                 Alert.alert(
                   'לא ניתן להעביר לארכיון',
-                  'יש לכבות קודם את המבצע ורק לאחר מכן להעביר לארכיון.'
+                  'יש לכבות קודם את הקמפיין ורק לאחר מכן להעביר לארכיון.'
                 );
                 return;
               }
@@ -1389,7 +1389,7 @@ export default function CampaignDraftEditorScreen() {
           backgroundColor="#E9F0FF"
         >
           <BusinessScreenHeader
-            title="עריכת מבצע"
+            title="עריכת קמפיין"
             titleAccessory={<BackButton onPress={goBackToCampaignList} />}
           />
         </StickyScrollHeader>
@@ -1397,7 +1397,7 @@ export default function CampaignDraftEditorScreen() {
         {!canEditContent ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
             <Text className="text-right text-sm font-semibold text-red-700">
-              רק בעלים או מנהל יכולים לערוך ולשלוח מבצעים.
+              רק בעלים או מנהל יכולים לערוך ולשלוח קמפיינים.
             </Text>
           </View>
         ) : null}
@@ -1405,14 +1405,14 @@ export default function CampaignDraftEditorScreen() {
         {isRulesLocked ? (
           <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
             <Text className="text-right text-sm font-semibold text-blue-700">
-              מבצע פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
+              קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
             </Text>
           </View>
         ) : null}
         {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
             <Text className="text-right text-sm font-semibold text-red-700">
-              העסק כרגע בחריגה ממכסת מבצעים. שליחה או הפעלה של מבצע חסומות
+              העסק כרגע בחריגה ממכסת קמפיינים. שליחה או הפעלה של קמפיין חסומות
               עד לחזרה למכסה.
             </Text>
             <TouchableOpacity
@@ -1568,7 +1568,7 @@ export default function CampaignDraftEditorScreen() {
               </View>
             ) : (
               <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                שליחה ידנית עכשיו: המבצע נשמר ונשלח רק לאחר אישור.
+                שליחה ידנית עכשיו: הקמפיין נשמר ונשלח רק לאחר אישור.
               </Text>
             )}
             <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
@@ -1601,8 +1601,8 @@ export default function CampaignDraftEditorScreen() {
             >
               <Text className={`flex-1 text-xs text-[#64748B] ${tw.textStart}`}>
                 {automationEnabled
-                  ? 'המבצע ירוץ אוטומטית בכל יום.'
-                  : 'המבצע לא ירוץ אוטומטית עד להפעלה.'}
+                  ? 'הקמפיין ירוץ אוטומטית בכל יום.'
+                  : 'הקמפיין לא ירוץ אוטומטית עד להפעלה.'}
               </Text>
               <TouchableOpacity
                 disabled={
@@ -1730,7 +1730,7 @@ export default function CampaignDraftEditorScreen() {
               שיוך לתוכנית נאמנות
             </Text>
             <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-              ברירת מחדל: כל העסק. אפשר לשייך למבצע תוכנית ספציפית.
+              ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
             </Text>
             <View className={`${tw.flexRow} flex-wrap gap-2`}>
               <TouchableOpacity
@@ -1784,7 +1784,7 @@ export default function CampaignDraftEditorScreen() {
           {conflictLocked ? (
             <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
               <Text className="text-right text-xs text-[#92400E]">
-                נמצאה גרסה חדשה של המבצע. השמירה נעולה עד לטעינת הגרסה
+                נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה
                 העדכנית.
               </Text>
               <TouchableOpacity

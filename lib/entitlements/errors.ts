@@ -85,9 +85,9 @@ export function entitlementErrorToHebrewMessage(
           typeof payload.currentValue === 'number' &&
           payload.currentValue > payload.limitValue
         ) {
-          return `יש חריגה ממכסת המבצעים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב מבצעים או לשדרג כדי להפעיל שוב.`;
+          return `יש חריגה ממכסת הקמפיינים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב קמפיינים או לשדרג כדי להפעיל שוב.`;
         }
-        return `הגעתם למכסת מספר המבצעים הפעילים במסלול הנוכחי (${payload.limitValue}).`;
+        return `הגעתם למכסת מספר הקמפיינים הפעילים במסלול הנוכחי (${payload.limitValue}).`;
       }
       if (
         (payload.limitKey === 'maxAiExecutionsPerMonth' ||

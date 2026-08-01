@@ -24,6 +24,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
@@ -431,7 +432,7 @@ export default function BusinessSettingsScreen() {
               title="ניהול עובדים"
               subtitle="הצג את צוות העסק ונהלי הרשאות"
               icon="people-outline"
-              onPress={() => router.push('/(authenticated)/(business)/team')}
+              onPress={() => router.push(BUSINESS_ROUTES.team)}
             />
           ) : null}
           {canEditBusiness ? (

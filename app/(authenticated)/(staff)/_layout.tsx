@@ -19,7 +19,7 @@ import {
 const TEXT = {
   scanner: 'סורק',
   customers: 'לקוחות',
-  promotions: 'מבצעים',
+  promotions: 'קמפיינים',
   settings: 'הגדרות',
 };
 

@@ -65,7 +65,7 @@ type ManagementProgram = {
 };
 
 const _TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
-  { key: 'campaigns', label: 'מבצעים' },
+  { key: 'campaigns', label: 'קמפיינים' },
   { key: 'loyalty', label: 'כרטיסיות נאמנות' },
 ];
 

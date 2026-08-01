@@ -97,14 +97,14 @@ function campaignTypeMeta(type: ManagementCampaignType): {
       };
     case 'promo':
       return {
-        label: 'מבצע כללי',
+        label: 'קמפיין כללי',
         icon: 'megaphone-outline',
         iconColor: '#4C1D95',
         iconBgClass: 'bg-[#EDE9FE]',
       };
     default:
       return {
-        label: 'מבצע',
+        label: 'קמפיין',
         icon: 'megaphone-outline',
         iconColor: '#1D4ED8',
         iconBgClass: 'bg-[#DBEAFE]',
@@ -174,7 +174,7 @@ export default function StaffPromotionsScreen() {
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
         >
-          <BusinessScreenHeader title="מבצעים" subtitle="מבצעים פעילים לעסק" />
+          <BusinessScreenHeader title="קמפיינים" subtitle="קמפיינים פעילים לעסק" />
         </StickyScrollHeader>
 
         {campaignsQuery === undefined ? (
@@ -184,7 +184,7 @@ export default function StaffPromotionsScreen() {
         ) : activeCampaigns.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-[#E5EAF2] bg-white p-6">
             <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-              אין מבצעים פעילים כרגע.
+              אין קמפיינים פעילים כרגע.
             </Text>
           </View>
         ) : (

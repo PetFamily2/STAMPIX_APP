@@ -22,6 +22,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   mapTeamInviteErrorToMessage,
@@ -219,7 +220,7 @@ export default function AddBusinessStaffScreen() {
             titleAccessory={
               <BackButton
                 onPress={() =>
-                  router.replace('/(authenticated)/(business)/team')
+                  router.replace(BUSINESS_ROUTES.team)
                 }
               />
             }
@@ -411,7 +412,7 @@ export default function AddBusinessStaffScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.replace('/(authenticated)/(business)/team')}
+              onPress={() => router.replace(BUSINESS_ROUTES.team)}
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">

@@ -42,6 +42,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
@@ -91,7 +92,7 @@ type BusinessRoute =
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-referrals'
   | '/(authenticated)/(business)/settings-business-subscription'
-  | '/(authenticated)/(business)/team/index';
+  | typeof BUSINESS_ROUTES.team;
 
 function formatNumber(value: number) {
   return NUMBER_FORMATTER.format(value);
@@ -609,7 +610,7 @@ export default function BusinessDashboardScreen() {
       });
       return;
     }
-    openRoute('/(authenticated)/(business)/team/index');
+    openRoute(BUSINESS_ROUTES.team);
   };
 
   const handleShareBusinessReferral = useCallback(async () => {
@@ -747,7 +748,7 @@ ${joinUrl}`;
               },
               {
                 key: 'campaigns',
-                label: 'מבצעים',
+                label: 'קמפיינים',
                 icon: 'megaphone-outline',
                 onPress: () =>
                   openRoute('/(authenticated)/(business)/campaigns'),

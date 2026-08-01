@@ -187,14 +187,14 @@ export const GUIDE_INSTRUCTIONS: Record<RecommendationGuideId, string> = {
   'profile-complete': 'השלימו את הפרטים החסרים ושמרו.',
   'program-create': 'צרו כרטיסייה ראשונה ללקוחות.',
   'program-publish': 'בדקו את הכרטיסייה ופרסמו אותה.',
-  'campaign-create': 'צרו מבצע חדש לעסק.',
-  'campaign-publish': 'השלימו את המבצע והפעילו אותו.',
+  'campaign-create': 'צרו קמפיין חדש לעסק.',
+  'campaign-publish': 'השלימו את הקמפיין והפעילו אותו.',
   'campaign-resume': 'בדקו את ההגדרות והפעילו מחדש.',
   'campaign-schedule-review': 'בדקו את מועד השליחה המתוכנן.',
   'inactive-review': 'עברו על הלקוחות שלא ביקרו לאחרונה.',
   'near-reward': 'עברו על הלקוחות שקרובים להטבה.',
   'team-pending': 'בדקו את ההזמנות שממתינות לאישור.',
-  'quota-review': 'בדקו את מכסת המבצעים במסלול.',
+  'quota-review': 'בדקו את מכסת הקמפיינים במסלול.',
 };
 
 export const GUIDE_ROUTE_KEYS: Record<RecommendationGuideId, string> = {

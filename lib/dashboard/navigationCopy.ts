@@ -59,7 +59,7 @@ export function localizeDashboardCtaLabel(label: string) {
     return 'צפו במנוי';
   }
   if (normalized === 'open campaigns') {
-    return 'פתחו מבצעים';
+    return 'פתחו קמפיינים';
   }
   if (normalized === 'open cards') {
     return 'פתחו כרטיסיות נאמנות';

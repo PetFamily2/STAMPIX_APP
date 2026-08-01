@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<'active' | 'suspended' | 'removed', string> = {
 };
 
 const PERMISSION_LABELS: Record<string, string> = {
-  scanner_access: 'סריקת לקוחות, חיפוש לקוחות וצפייה במבצעים',
+  scanner_access: 'סריקת לקוחות, חיפוש לקוחות וצפייה בקמפיינים',
   manage_staff_only: 'ניהול עובדים (עובדים בלבד)',
   manage_business_settings: 'ניהול הגדרות עסק',
   manage_team: 'ניהול צוות מלא',
