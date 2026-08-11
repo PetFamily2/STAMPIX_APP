@@ -1,19 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  Component,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -21,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BusinessReferralCard } from '@/components/business-dashboard/BusinessReferralCard';
 import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
@@ -35,45 +26,39 @@ import {
   SmartRecommendationsPanel,
 } from '@/components/business-dashboard/SmartRecommendationsPanel';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { DASHBOARD_CUSTOMER_NAV_LABELS } from '@/lib/dashboard/navigationCopy';
 import {
   isDashboardResponseForActiveBusiness,
   isRecommendationResponseForActiveBusiness,
 } from '@/lib/dashboardBusinessIntegrity';
-import { DASHBOARD_CUSTOMER_NAV_LABELS } from '@/lib/dashboard/navigationCopy';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
   getDashboardLayout,
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
-import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
   createRecommendationShownGuard,
   getRecommendationAnalyticsProps,
   safelyTrackRecommendationEvent,
 } from '@/lib/recommendations/analytics';
 import {
+  type CurrentRecommendationInteractionState,
   executeCurrentRecommendationInteraction,
   isRecommendationInteractionRequestCurrent,
   openRecommendationAction,
-  type CurrentRecommendationInteractionState,
 } from '@/lib/recommendations/interaction';
-import {
-  flexDirection,
-  justifyContent,
-  rtlBaseView,
-  tw,
-} from '@/lib/rtl';
+import { flexDirection, justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -173,9 +158,7 @@ function DashboardRecommendationsSection({
   const startRecommendationGuide = useMutation(
     api.recommendations.startBusinessRecommendationGuide
   );
-  const recommendationShownGuardRef = useRef(
-    createRecommendationShownGuard()
-  );
+  const recommendationShownGuardRef = useRef(createRecommendationShownGuard());
   const latestInteractionStateRef =
     useRef<CurrentRecommendationInteractionState>({
       activeBusinessId: null,
@@ -254,11 +237,7 @@ function DashboardRecommendationsSection({
   ]);
 
   const handleOpen = async (recommendation: DashboardRecommendation) => {
-    if (
-      !activeBusinessId ||
-      isSwitchingBusiness ||
-      loadingRecommendationId
-    ) {
+    if (!activeBusinessId || isSwitchingBusiness || loadingRecommendationId) {
       return;
     }
     const openedBusinessId = String(activeBusinessId);
@@ -267,9 +246,7 @@ function DashboardRecommendationsSection({
       stableId: recommendation.stableId,
       evidenceFingerprint: recommendation.evidenceFingerprint,
       guideId: recommendation.guideId,
-      ...(recommendation.entityId
-        ? { entityId: recommendation.entityId }
-        : {}),
+      ...(recommendation.entityId ? { entityId: recommendation.entityId } : {}),
     };
     if (
       !isRecommendationInteractionRequestCurrent(
@@ -291,8 +268,7 @@ function DashboardRecommendationsSection({
         String(session.businessId) === openedBusinessId &&
         session.stableId === recommendation.stableId &&
         session.guideId === recommendation.guideId &&
-        session.evidenceFingerprint ===
-          recommendation.evidenceFingerprint &&
+        session.evidenceFingerprint === recommendation.evidenceFingerprint &&
         String(session.entityId ?? '') ===
           String(recommendation.entityId ?? '') &&
         typeof session.guideSessionId === 'string' &&
@@ -369,23 +345,14 @@ function DashboardRecommendationsSection({
         Alert.alert('', 'ההמלצה כבר התעדכנה.');
       },
       onError: () => {
-        Alert.alert(
-          'לא הצלחנו לעדכן',
-          'ההמלצה נשארה מוצגת. נסו שוב.'
-        );
+        Alert.alert('לא הצלחנו לעדכן', 'ההמלצה נשארה מוצגת. נסו שוב.');
       },
       onSettled: () => setInteractionLoadingKey(null),
     });
   };
 
-  const handleShowOptions = (
-    recommendation: DashboardRecommendation
-  ) => {
-    if (
-      !activeBusinessId ||
-      isSwitchingBusiness ||
-      interactionLoadingKey
-    ) {
+  const handleShowOptions = (recommendation: DashboardRecommendation) => {
+    if (!activeBusinessId || isSwitchingBusiness || interactionLoadingKey) {
       return;
     }
     Alert.alert('אפשרויות להמלצה', undefined, [
@@ -446,18 +413,10 @@ export default function BusinessDashboardScreen() {
     isLoading: isBusinessLoading,
     isSwitchingBusiness,
   } = useActiveBusiness();
-  const businessCapabilities = activeBusiness
-    ? resolveBusinessCapabilities(
-        activeBusiness.capabilities ?? null,
-        activeBusiness.staffRole
-      )
-    : null;
-  const canViewBillingState = businessCapabilities?.view_billing_state === true;
   const { entitlements, gate, limitStatus } = useEntitlements(activeBusinessId);
   const teamGate = gate('team');
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
-  const [isReferralShareLoading, setIsReferralShareLoading] = useState(false);
 
   const dashboardSummary = useQuery(
     api.dashboard.getBusinessDashboardSummary,
@@ -473,12 +432,6 @@ export default function BusinessDashboardScreen() {
         }
       : 'skip'
   );
-  const referralCreditSummary = useQuery(
-    api.referrals.getBusinessReferralCreditSummary,
-    activeBusinessId && canViewBillingState
-      ? { businessId: activeBusinessId }
-      : 'skip'
-  );
   const recentActivity = useQuery(
     api.events.getRecentActivity,
     activeBusinessId ? { businessId: activeBusinessId, limit: 5 } : 'skip'
@@ -489,9 +442,6 @@ export default function BusinessDashboardScreen() {
       ? { businessId: activeBusinessId }
       : 'skip'
   ) as { usedSeats: number; maxSeats: number } | null | undefined;
-  const createBusinessReferralLink = useMutation(
-    api.referrals.getOrCreateBusinessReferralLink
-  );
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -547,14 +497,18 @@ export default function BusinessDashboardScreen() {
     amount: `+${formatNumber(Math.max(0, value))}`,
     period: selectedPeriodLabel,
   });
+  const formatPeriodActiveCustomers = (value: number) => ({
+    amount: `${formatNumber(Math.max(0, value))} פעילים`,
+    period: selectedPeriodLabel,
+  });
   const unifiedKpiItems = [
     {
-      key: 'recovered_customers',
-      label: 'לקוחות שחזרו',
+      key: 'total_customers',
+      label: 'סה״כ לקוחות',
       value: formatNumber(lifetimeMetrics?.totalCustomersJoinedAllTime ?? 0),
       icon: 'shield-checkmark-outline' as const,
       tone: 'amber' as const,
-      helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
+      helperValue: formatPeriodActiveCustomers(kpis?.activeCustomers ?? 0),
     },
     {
       key: 'lifetime_stamps',
@@ -571,14 +525,6 @@ export default function BusinessDashboardScreen() {
       icon: 'gift-outline-custom' as const,
       tone: 'violet' as const,
       helperValue: formatPeriodDelta(kpis?.redemptions?.value ?? 0),
-    },
-    {
-      key: 'lifetime_returning_customers',
-      label: 'לקוחות חוזרים',
-      value: formatNumber(lifetimeMetrics?.returningCustomersAllTime ?? 0),
-      icon: 'people-outline' as const,
-      tone: 'teal' as const,
-      helperValue: formatPeriodDelta(kpis?.activeCustomers ?? 0),
     },
   ];
 
@@ -613,35 +559,6 @@ export default function BusinessDashboardScreen() {
     openRoute(BUSINESS_ROUTES.team);
   };
 
-  const handleShareBusinessReferral = useCallback(async () => {
-    if (!activeBusinessId || isReferralShareLoading) {
-      return;
-    }
-
-    try {
-      setIsReferralShareLoading(true);
-      const link = await createBusinessReferralLink({
-        businessId: activeBusinessId,
-      });
-      const joinUrl = `https://stampix.app/join?bref=${link.code}`;
-      const message = `אני משתמש ב-StampAix לניהול כרטיסי ניקוב ללקוחות.
-
-אם אתה בעל עסק זה יכול להתאים גם לך.
-
-הצטרף דרך הקישור שלי:
-${joinUrl}`;
-      await Share.share({ message });
-    } catch (error) {
-      const message =
-        error instanceof Error && error.message === 'PAID_PLAN_REQUIRED'
-          ? 'השיתוף זמין אחרי הצטרפות למסלול בתשלום.'
-          : 'לא הצלחנו לפתוח את חלון השיתוף כרגע.';
-      Alert.alert('שגיאה', message);
-    } finally {
-      setIsReferralShareLoading(false);
-    }
-  }, [activeBusinessId, createBusinessReferralLink, isReferralShareLoading]);
-
   const handleSelectPreset = (preset: DatePresetKey) => {
     setSelectedPreset(preset);
     setSelectedDayStart(getDayStartForPreset(preset, anchorNow));
@@ -671,123 +588,8 @@ ${joinUrl}`;
           displayName={displayName}
           businessName={businessName}
           avatarUrl={currentUser?.avatarUrl ?? null}
-          notificationCount={0}
-          onPressNotifications={() =>
-            Alert.alert('התראות', 'אין התראות זמינות כרגע.')
-          }
           onPressMenu={() => openRoute('/(authenticated)/(business)/settings')}
         />
-
-        <View style={styles.section}>
-          <View style={styles.sectionTitleRow}>
-            <Ionicons
-              name="information-circle-outline"
-              size={18}
-              color="#64748B"
-            />
-            <Text
-              className={tw.textStart}
-              style={[
-                styles.sectionTitle,
-                {
-                  fontSize: layout.sectionTitleSize,
-                  lineHeight: layout.sectionTitleLineHeight,
-                },
-              ]}
-            >
-              מצב העסק
-            </Text>
-          </View>
-          <DateSelectorBar
-            layoutMode={layoutMode}
-            value={selectedPreset}
-            onChange={handleSelectPreset}
-          />
-          <LifetimeMetricsRow
-            layoutMode={layoutMode}
-            metrics={unifiedKpiItems}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.sectionTitle,
-              styles.recommendationsSectionTitle,
-              {
-                fontSize: layout.sectionTitleSize,
-                lineHeight: layout.sectionTitleLineHeight,
-              },
-            ]}
-          >
-            פעולות מהירות
-          </Text>
-          <QuickShortcutsGrid
-            layoutMode={layoutMode}
-            items={[
-              {
-                key: 'scanner',
-                label: 'סריקה',
-                icon: 'scan-outline',
-                onPress: () => openRoute('/(authenticated)/(business)/scanner'),
-              },
-              {
-                key: 'customers',
-                label: DASHBOARD_CUSTOMER_NAV_LABELS.customers,
-                icon: 'people-outline',
-                onPress: () =>
-                  openRoute('/(authenticated)/(business)/customers'),
-              },
-              {
-                key: 'programs',
-                label: 'כרטיסיות',
-                icon: 'albums-outline',
-                onPress: () =>
-                  openRoute('/(authenticated)/(business)/programs'),
-              },
-              {
-                key: 'campaigns',
-                label: 'קמפיינים',
-                icon: 'megaphone-outline',
-                onPress: () =>
-                  openRoute('/(authenticated)/(business)/campaigns'),
-              },
-              {
-                key: 'referrals',
-                label: 'שיתוף',
-                icon: 'share-social-outline',
-                onPress: () =>
-                  openRoute(
-                    '/(authenticated)/(business)/settings-business-referrals'
-                  ),
-              },
-              {
-                key: 'team',
-                label: 'עובדים',
-                icon: teamGate.isLocked
-                  ? 'lock-closed-outline'
-                  : 'person-add-outline',
-                badgeLabel: teamGate.isLocked
-                  ? 'נעול'
-                  : isTeamSeatLimitReached
-                    ? 'מלא'
-                    : undefined,
-                isLocked: teamGate.isLocked || isTeamSeatLimitReached,
-                onPress: openTeamShortcut,
-              },
-              {
-                key: 'subscription',
-                label: 'מנוי',
-                icon: 'card-outline',
-                onPress: () =>
-                  openRoute(
-                    '/(authenticated)/(business)/settings-business-subscription'
-                  ),
-              },
-            ]}
-          />
-        </View>
 
         <View style={styles.section}>
           <View style={styles.recommendationsTitleRow}>
@@ -807,7 +609,7 @@ ${joinUrl}`;
                 },
               ]}
             >
-              הפעולות הבאות
+              הפעולה הבאה
             </Text>
           </View>
           <RecommendationQueryErrorBoundary
@@ -820,6 +622,30 @@ ${joinUrl}`;
               layoutMode={layoutMode}
             />
           </RecommendationQueryErrorBoundary>
+        </View>
+
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            תמונת מצב
+          </Text>
+          <DateSelectorBar
+            layoutMode={layoutMode}
+            value={selectedPreset}
+            onChange={handleSelectPreset}
+          />
+          <LifetimeMetricsRow
+            layoutMode={layoutMode}
+            metrics={unifiedKpiItems}
+          />
         </View>
 
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
@@ -871,18 +697,48 @@ ${joinUrl}`;
         ) : null}
 
         <View style={styles.section}>
-          <BusinessReferralCard
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            פעולות מהירות
+          </Text>
+          <QuickShortcutsGrid
             layoutMode={layoutMode}
-            totalFreeMonthsEarned={referralCreditSummary?.creditedMonths ?? 0}
-            pendingInvitesCount={
-              referralCreditSummary?.pendingInvitesCount ?? 0
-            }
-            activeReferralsCount={
-              referralCreditSummary?.activeReferralsCount ?? 0
-            }
-            isShareLoading={isReferralShareLoading}
-            shareDisabled={!activeBusinessId}
-            onPressShare={() => void handleShareBusinessReferral()}
+            items={[
+              {
+                key: 'scanner',
+                label: 'סריקת לקוח',
+                icon: 'scan-outline',
+                onPress: () => openRoute('/(authenticated)/(business)/scanner'),
+              },
+              {
+                key: 'join-qr',
+                label: 'קוד הצטרפות',
+                icon: 'qr-code-outline',
+                onPress: () => openRoute('/(authenticated)/(business)/qr'),
+              },
+              {
+                key: 'team',
+                label: 'הוספת עובד',
+                icon: teamGate.isLocked
+                  ? 'lock-closed-outline'
+                  : 'person-add-outline',
+                badgeLabel: teamGate.isLocked
+                  ? 'נעול'
+                  : isTeamSeatLimitReached
+                    ? 'מלא'
+                    : undefined,
+                isLocked: teamGate.isLocked || isTeamSeatLimitReached,
+                onPress: openTeamShortcut,
+              },
+            ]}
           />
         </View>
       </ScrollView>
@@ -902,6 +758,9 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   content: {
+    width: '100%',
+    maxWidth: 1180,
+    alignSelf: 'center',
     paddingHorizontal: DASHBOARD_TOKENS.spacingPageHorizontal,
     paddingTop: 2,
     paddingBottom: 124,
@@ -910,12 +769,6 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
-    ...rtlBaseView,
-  },
-  sectionTitleRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 6,
     ...rtlBaseView,
   },
   sectionTitle: {

@@ -1,3 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery } from 'convex/react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { type Ref, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
@@ -8,35 +26,11 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
 import {
-    resolveExactMissingProfileGuideField,
-    resolveProfileGuideField,
-    type ProfileGuideField,
+  type ProfileGuideField,
+  resolveExactMissingProfileGuideField,
+  resolveProfileGuideField,
 } from '@/lib/recommendations/guidance';
 import { rtlBaseView, tw } from '@/lib/rtl';
-import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery } from 'convex/react';
-import { router, useLocalSearchParams } from 'expo-router';
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type Ref,
-} from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
-import {
-    SafeAreaView,
-    useSafeAreaInsets,
-} from 'react-native-safe-area-context';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -318,7 +312,9 @@ function ProfileRow({
           </View>
           <View className={`flex-1 ${tw.itemsStart}`}>
             <Text className="text-xs font-bold text-[#64748B]">{label}</Text>
-            <Text className="mt-1 text-sm font-bold text-[#0F172A]">{value}</Text>
+            <Text className="mt-1 text-sm font-bold text-[#0F172A]">
+              {value}
+            </Text>
           </View>
         </View>
       </Pressable>
@@ -482,10 +478,7 @@ export default function BusinessSettingsProfileScreen() {
         profileGuideField,
         businessSettings?.profileCompletion?.missingFields ?? []
       ),
-    [
-      businessSettings?.profileCompletion?.missingFields,
-      profileGuideField,
-    ]
+    [businessSettings?.profileCompletion?.missingFields, profileGuideField]
   );
 
   const rows = useMemo(
@@ -802,10 +795,7 @@ export default function BusinessSettingsProfileScreen() {
         );
       } else if (editingField === 'weakTimePromosRelevant') {
         if (draftWeakTimePromosRelevant === null) {
-          Alert.alert(
-            'שגיאה',
-            'יש לבחור האם מבצעי שעות/ימים חלשים רלוונטיים.'
-          );
+          Alert.alert('שגיאה', 'יש לבחור האם מבצעי שעות/ימים חלשים רלוונטיים.');
           return;
         }
         await saveBusinessOnboardingSnapshot({
@@ -894,6 +884,9 @@ export default function BusinessSettingsProfileScreen() {
           paddingHorizontal: 20,
           paddingBottom: 30,
           gap: 12,
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader
@@ -961,38 +954,38 @@ export default function BusinessSettingsProfileScreen() {
             >
               <View>
                 <Pressable
-                disabled={!canEditBusiness}
-                onPress={() =>
-                  router.push(
-                    '/(authenticated)/(business)/settings-business-address'
-                  )
-                }
-                style={({ pressed }) => ({
-                  opacity: !canEditBusiness ? 0.72 : pressed ? 0.86 : 1,
-                })}
-                className="min-h-[64px] border-b border-[#EDF2FF] py-2"
-              >
-                <View
-                  className={`${tw.flexRow} items-center justify-between gap-3`}
-                  style={rtlBaseView}
+                  disabled={!canEditBusiness}
+                  onPress={() =>
+                    router.push(
+                      '/(authenticated)/(business)/settings-business-address'
+                    )
+                  }
+                  style={({ pressed }) => ({
+                    opacity: !canEditBusiness ? 0.72 : pressed ? 0.86 : 1,
+                  })}
+                  className="min-h-[64px] border-b border-[#EDF2FF] py-2"
                 >
-                  <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
-                    <Ionicons
-                      name="create-outline"
-                      size={16}
-                      color={canEditBusiness ? '#2563EB' : '#94A3B8'}
-                    />
+                  <View
+                    className={`${tw.flexRow} items-center justify-between gap-3`}
+                    style={rtlBaseView}
+                  >
+                    <View className="h-7 w-7 items-center justify-center rounded-full border border-[#DBEAFE] bg-[#F8FAFF]">
+                      <Ionicons
+                        name="create-outline"
+                        size={16}
+                        color={canEditBusiness ? '#2563EB' : '#94A3B8'}
+                      />
+                    </View>
+                    <View className={`flex-1 ${tw.itemsStart}`}>
+                      <Text className="text-xs font-bold text-[#64748B]">
+                        כתובת העסק
+                      </Text>
+                      <Text className="mt-1 text-sm font-bold text-[#0F172A]">
+                        {normalizeText(businessSettings.formattedAddress) ||
+                          MISSING_VALUE}
+                      </Text>
+                    </View>
                   </View>
-                  <View className={`flex-1 ${tw.itemsStart}`}>
-                    <Text className="text-xs font-bold text-[#64748B]">
-                      כתובת העסק
-                    </Text>
-                    <Text className="mt-1 text-sm font-bold text-[#0F172A]">
-                      {normalizeText(businessSettings.formattedAddress) ||
-                        MISSING_VALUE}
-                    </Text>
-                  </View>
-                </View>
                 </Pressable>
               </View>
 

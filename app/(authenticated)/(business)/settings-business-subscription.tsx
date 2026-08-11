@@ -25,10 +25,10 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
+import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   isSubscriptionRecoveryStatus,
@@ -323,8 +323,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   const [comparisonBillingPeriod, setComparisonBillingPeriod] =
     useState<BillingPeriod>('monthly');
   const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
-  const [isRestoringSubscription, setIsRestoringSubscription] =
-    useState(false);
+  const [isRestoringSubscription, setIsRestoringSubscription] = useState(false);
 
   const openUpgrade = useCallback(
     (targetPlan?: 'pro' | 'premium') => {
@@ -578,8 +577,7 @@ export default function BusinessSettingsSubscriptionScreen() {
               key={item.key}
               ref={
                 item.key === 'campaigns_usage' &&
-                subscriptionGuideTarget?.action ===
-                  'review_campaigns_quota'
+                subscriptionGuideTarget?.action === 'review_campaigns_quota'
                   ? quotaTargetRef
                   : undefined
               }
@@ -784,6 +782,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 0,
     gap: 10,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   stickyHeader: {
     paddingBottom: 8,

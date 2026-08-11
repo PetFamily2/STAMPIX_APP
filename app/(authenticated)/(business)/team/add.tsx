@@ -17,12 +17,10 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   mapTeamInviteErrorToMessage,
@@ -32,6 +30,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -208,6 +208,9 @@ export default function AddBusinessStaffScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader
@@ -219,9 +222,7 @@ export default function AddBusinessStaffScreen() {
             subtitle="סרקו קוד אישי מסוג QR של העובד כדי להזמין אותו"
             titleAccessory={
               <BackButton
-                onPress={() =>
-                  router.replace(BUSINESS_ROUTES.team)
-                }
+                onPress={() => router.replace(BUSINESS_ROUTES.team)}
               />
             }
           />

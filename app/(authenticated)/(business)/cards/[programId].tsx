@@ -17,9 +17,9 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import {
@@ -582,6 +582,9 @@ export default function ProgramDetailsScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 28,
+          width: '100%',
+          maxWidth: 960,
+          alignSelf: 'center',
         }}
       >
         <View className="bg-[#E9F0FF]">
@@ -883,10 +886,7 @@ export default function ProgramDetailsScreen() {
               </TouchableOpacity>
 
               {lifecycle === 'draft' ? (
-                <View
-                  ref={guideTargetRef}
-                  collapsable={false}
-                >
+                <View ref={guideTargetRef} collapsable={false}>
                   <TouchableOpacity
                     disabled={!canManage || isSubmitting || conflictLocked}
                     onPress={() => {

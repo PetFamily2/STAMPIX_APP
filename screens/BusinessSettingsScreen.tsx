@@ -70,14 +70,15 @@ function MenuRow({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [
         {
-          borderRadius: 18,
-          borderWidth: 1,
+          minHeight: 64,
+          borderBottomWidth: 1,
           borderColor: '#E3E9FF',
-          backgroundColor: '#FFFFFF',
-          paddingHorizontal: 14,
-          paddingVertical: 14,
+          paddingHorizontal: 4,
+          paddingVertical: 10,
           opacity: pressed ? 0.88 : 1,
         },
       ]}
@@ -93,14 +94,12 @@ function MenuRow({
       >
         <View
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
+            width: 36,
+            height: 36,
+            borderRadius: 12,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: '#EEF3FF',
-            borderWidth: 1,
-            borderColor: '#DCE6FF',
           }}
         >
           <Ionicons name={icon} size={18} color="#1D4ED8" />
@@ -248,6 +247,9 @@ export default function BusinessSettingsScreen() {
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingBottom: 24,
+            width: '100%',
+            maxWidth: 760,
+            alignSelf: 'center',
           }}
         >
           <StickyScrollHeader
@@ -287,6 +289,9 @@ export default function BusinessSettingsScreen() {
           paddingHorizontal: 20,
           paddingBottom: 30,
           gap: 12,
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader
@@ -298,7 +303,7 @@ export default function BusinessSettingsScreen() {
 
         <BusinessModeCtaCard accentButton={true} />
 
-        <View className="rounded-3xl border border-[#E3E9FF] bg-white p-4">
+        <View className="mt-1">
           <Pressable
             onPress={() => setIsPickerVisible(true)}
             disabled={isSwitchingBusiness}
@@ -409,67 +414,107 @@ export default function BusinessSettingsScreen() {
           </View>
         ) : null}
 
-        <View className="gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
-          <MenuRow
-            title="פרופיל עסק"
-            subtitle="שם העסק, תיאור, טלפון וסוגי שירות"
-            icon="business-outline"
-            onPress={() =>
-              router.push(
-                '/(authenticated)/(business)/settings-business-profile'
-              )
-            }
-          />
-          <MenuRow
-            title="קוד QR להצטרפות לקוחות"
-            subtitle="מסך שיתוף קוד QR להצטרפות למועדון"
-            icon="qr-code-outline"
-            onPress={() => router.push('/(authenticated)/(business)/qr')}
-          />
-          {canManageTeam ? (
+        <View className="mt-2">
+          <Text
+            className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
+          >
+            פרטי העסק
+          </Text>
+          <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
             <MenuRow
-              title="ניהול עובדים"
-              subtitle="הצג את צוות העסק ונהלי הרשאות"
-              icon="people-outline"
-              onPress={() => router.push(BUSINESS_ROUTES.team)}
-            />
-          ) : null}
-          {canEditBusiness ? (
-            <MenuRow
-              title="הפניות והזמנות"
-              subtitle="תגמולי הזמנת חברים ומעקב ביצועים"
-              icon="gift-outline"
+              title="פרופיל עסק"
+              subtitle="שם העסק, תיאור, טלפון וסוגי שירות"
+              icon="business-outline"
               onPress={() =>
                 router.push(
-                  '/(authenticated)/(business)/settings-business-referrals'
+                  '/(authenticated)/(business)/settings-business-profile'
                 )
               }
             />
-          ) : null}
-          <MenuRow
-            title="פרטי חשבון"
-            subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"
-            icon="person-outline"
-            onPress={() =>
-              router.push(
-                '/(authenticated)/(business)/settings-business-account'
-              )
-            }
-          />
-          {canViewBillingState ? (
+            {canEditBusiness ? (
+              <MenuRow
+                title="כתובת העסק"
+                subtitle="כתובת, אזור ופרטי הגעה"
+                icon="location-outline"
+                onPress={() =>
+                  router.push(
+                    '/(authenticated)/(business)/settings-business-address'
+                  )
+                }
+              />
+            ) : null}
             <MenuRow
-              title="מנוי וחבילה"
-              subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
-              icon="card-outline"
-              onPress={() =>
-                router.push(
-                  '/(authenticated)/(business)/settings-business-subscription'
-                )
-              }
+              title="קוד QR להצטרפות לקוחות"
+              subtitle="שיתוף קוד ההצטרפות למועדון"
+              icon="qr-code-outline"
+              onPress={() => router.push('/(authenticated)/(business)/qr')}
             />
-          ) : null}
+          </View>
         </View>
 
+        {canManageTeam || canEditBusiness || canViewBillingState ? (
+          <View className="mt-2">
+            <Text
+              className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
+            >
+              ניהול העסק
+            </Text>
+            <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
+              {canManageTeam ? (
+                <MenuRow
+                  title="ניהול עובדים"
+                  subtitle="צוות העסק והרשאות"
+                  icon="people-outline"
+                  onPress={() => router.push(BUSINESS_ROUTES.team)}
+                />
+              ) : null}
+              {canEditBusiness ? (
+                <MenuRow
+                  title="הפניות והזמנות"
+                  subtitle="תגמולי הזמנת חברים ומעקב ביצועים"
+                  icon="gift-outline"
+                  onPress={() =>
+                    router.push(
+                      '/(authenticated)/(business)/settings-business-referrals'
+                    )
+                  }
+                />
+              ) : null}
+              {canViewBillingState ? (
+                <MenuRow
+                  title="מנוי וחבילה"
+                  subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
+                  icon="card-outline"
+                  onPress={() =>
+                    router.push(
+                      '/(authenticated)/(business)/settings-business-subscription'
+                    )
+                  }
+                />
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        <View className="mt-2">
+          <Text
+            className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
+          >
+            חשבון
+          </Text>
+          <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
+            <MenuRow
+              title="פרטי חשבון"
+              subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"
+              icon="person-outline"
+              onPress={() =>
+                router.push(
+                  '/(authenticated)/(business)/settings-business-account'
+                )
+              }
+            />
+          </View>
+        </View>
         {canLeaveBusiness ? (
           <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
             <Text

@@ -18,8 +18,8 @@ import {
 } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/BackButton';
-import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -54,14 +54,16 @@ const TEXT = {
     'נמצאה גרסה חדשה של הכתובת. השמירה נעולה עד לטעינת הגרסה העדכנית.',
 };
 
-function toSelectedAddress(settings: {
-  formattedAddress?: string;
-  placeId?: string;
-  location?: { lat?: number; lng?: number } | null;
-  city?: string;
-  street?: string;
-  streetNumber?: string;
-} | null): SelectedBusinessAddress | null {
+function toSelectedAddress(
+  settings: {
+    formattedAddress?: string;
+    placeId?: string;
+    location?: { lat?: number; lng?: number } | null;
+    city?: string;
+    street?: string;
+    streetNumber?: string;
+  } | null
+): SelectedBusinessAddress | null {
   const formattedAddress = settings?.formattedAddress?.trim() ?? '';
   const placeId = settings?.placeId?.trim() ?? '';
   const lat = settings?.location?.lat;
@@ -235,12 +237,9 @@ export default function BusinessSettingsAddressScreen() {
             { paddingTop: (insets.top || 0) + 12 },
           ]}
           keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
+          nestedScrollEnabled={true}
         >
-          <StickyScrollHeader
-            topPadding={0}
-            backgroundColor="#E9F0FF"
-          >
+          <StickyScrollHeader topPadding={0} backgroundColor="#E9F0FF">
             <BusinessScreenHeader
               title={TEXT.title}
               subtitle={TEXT.subtitle}
@@ -309,7 +308,10 @@ export default function BusinessSettingsAddressScreen() {
                   void handleSave();
                 }}
                 disabled={!canSave}
-                style={[styles.saveButton, !canSave ? styles.saveButtonOff : null]}
+                style={[
+                  styles.saveButton,
+                  !canSave ? styles.saveButtonOff : null,
+                ]}
               >
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -346,6 +348,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 30,
     gap: 12,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   centered: {
     flex: 1,

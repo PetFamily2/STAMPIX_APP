@@ -20,12 +20,12 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
   alignItems,
   flexDirection,
@@ -775,6 +775,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
     gap: 14,
+    width: '100%',
+    maxWidth: 960,
+    alignSelf: 'center',
   },
   headerBackButton: {
     width: 40,

@@ -31,7 +31,6 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -47,6 +46,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -393,14 +393,15 @@ export default function ScannerScreen() {
   const shouldAutoAlignProgramCarouselRef = useRef(true);
   const lastProgramCarouselLayoutKeyRef = useRef('');
   const { width: windowWidth } = useWindowDimensions();
+  const scannerContentWidth = Math.min(Math.max(windowWidth - 40, 240), 920);
   const [programSliderMeasuredWidth, setProgramSliderMeasuredWidth] =
     useState(0);
   const programSliderViewportWidth = useMemo(() => {
     if (programSliderMeasuredWidth > 0) {
       return programSliderMeasuredWidth;
     }
-    return Math.max(240, windowWidth);
-  }, [programSliderMeasuredWidth, windowWidth]);
+    return Math.max(240, scannerContentWidth);
+  }, [programSliderMeasuredWidth, scannerContentWidth]);
   const CARD_SIDE_PEEK = useMemo(
     () =>
       Math.min(
@@ -413,7 +414,11 @@ export default function ScannerScreen() {
     [programSliderViewportWidth]
   );
   const CARD_WIDTH = useMemo(
-    () => Math.max(240, programSliderViewportWidth - CARD_SIDE_PEEK * 2),
+    () =>
+      Math.min(
+        520,
+        Math.max(240, programSliderViewportWidth - CARD_SIDE_PEEK * 2)
+      ),
     [CARD_SIDE_PEEK, programSliderViewportWidth]
   );
   const ITEM_STRIDE = useMemo(() => CARD_WIDTH + CARD_GAP, [CARD_WIDTH]);
@@ -1358,7 +1363,7 @@ export default function ScannerScreen() {
           </View>
         </StickyScrollHeader>
 
-        <View style={[styles.carouselWrap, { width: windowWidth }]}>
+        <View style={[styles.carouselWrap, { width: scannerContentWidth }]}>
           {programs.length === 0 ? (
             <View style={styles.emptyProgramsCard}>
               <Text style={styles.emptyProgramsTitle}>
@@ -1381,6 +1386,16 @@ export default function ScannerScreen() {
             </View>
           ) : (
             <>
+              <View style={styles.programSelectionHeader}>
+                <Text style={styles.programSelectionLabel}>
+                  כרטיסייה לסריקה
+                </Text>
+                <Text style={styles.programSelectionHint}>
+                  {programs.length > 1
+                    ? 'החליקו כדי לבחור כרטיסייה אחרת'
+                    : selectedProgram?.title}
+                </Text>
+              </View>
               <View
                 style={styles.programSliderViewport}
                 onLayout={handleProgramSliderLayout}
@@ -1441,7 +1456,7 @@ export default function ScannerScreen() {
                             stampShape={item.stampShape ?? 'circle'}
                             cardThemeId={item.cardThemeId ?? null}
                             businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                            variant="hero"
+                            variant="compact"
                             selected={isActive}
                           />
                         </Pressable>
@@ -1498,7 +1513,7 @@ export default function ScannerScreen() {
             onScan={handleScan}
             resetKey={scannerResetKey}
             showStatus={false}
-            cameraMinHeight={240}
+            cameraMinHeight={windowWidth >= 768 ? 400 : 240}
             isBusy={
               isBusy ||
               !canScan ||
@@ -1526,39 +1541,34 @@ export default function ScannerScreen() {
                 </View>
               ) : null}
             </View>
-            <View style={styles.redeemButtonsColumn}>
-              <View style={styles.redeemSideBox}>
-                <Pressable
-                  onPress={handleRedeemCommit}
-                  disabled={isBusy}
-                  accessibilityRole="button"
-                  accessibilityLabel="ממש הטבה"
-                  style={({ pressed }) => [
-                    styles.redeemSideButton,
-                    pressed ? styles.redeemSideButtonPressed : null,
-                    isBusy ? styles.redeemSideButtonDisabled : null,
-                  ]}
-                >
-                  <Ionicons name="gift-outline" size={24} color="#16A34A" />
-                  <Text style={styles.redeemSideButtonLabel}>
-                    {isStamping ? 'מממשים...' : 'ממש הטבה'}
-                  </Text>
-                </Pressable>
-              </View>
-              <View style={styles.cancelSideBox}>
-                <Pressable
-                  onPress={resetScanner}
-                  accessibilityRole="button"
-                  accessibilityLabel="ביטול"
-                  style={({ pressed }) => [
-                    styles.cancelSideButton,
-                    pressed ? styles.cancelSideButtonPressed : null,
-                  ]}
-                >
-                  <Ionicons name="close-outline" size={24} color="#DC2626" />
-                  <Text style={styles.cancelSideButtonLabel}>ביטול</Text>
-                </Pressable>
-              </View>
+            <View style={styles.redeemActionsRow}>
+              <Pressable
+                onPress={handleRedeemCommit}
+                disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="ממש הטבה"
+                style={({ pressed }) => [
+                  styles.redeemPrimaryButton,
+                  pressed ? styles.redeemPrimaryButtonPressed : null,
+                  isBusy ? styles.redeemPrimaryButtonDisabled : null,
+                ]}
+              >
+                <Ionicons name="gift-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.redeemPrimaryButtonLabel}>
+                  {isStamping ? 'מממשים...' : 'ממש הטבה'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={resetScanner}
+                accessibilityRole="button"
+                accessibilityLabel="ביטול"
+                style={({ pressed }) => [
+                  styles.redeemCancelButton,
+                  pressed ? styles.redeemCancelButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.redeemCancelButtonLabel}>ביטול</Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
@@ -1583,62 +1593,55 @@ export default function ScannerScreen() {
         ) : null}
 
         {resultBanner ? (
-          <View style={styles.resultBannerRow}>
-            <View style={styles.resultBanner}>
-              <Text style={styles.resultCustomerName}>
-                {resultBanner.customerDisplayName}
-              </Text>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>מעמד</Text>
-                <Text style={styles.resultValue}>
-                  {resultBanner.statusLabel}
-                </Text>
-              </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>ניקובים</Text>
-                <Text style={styles.resultValue}>
-                  {resultBanner.currentStamps}/{resultBanner.maxStamps}
-                </Text>
-              </View>
-              {resultBanner.undoBlockedReason ===
-              'REFERRAL_REWARD_TRIGGERED' ? (
-                <View style={styles.undoBlockedBadge}>
-                  <Text style={styles.undoBlockedBadgeText}>
-                    לא ניתן לבטל את הניקוב כי הוא כבר הפעיל תגמול הפניה.
-                  </Text>
-                </View>
-              ) : null}
+          <View style={styles.resultBanner}>
+            <Text style={styles.resultCustomerName}>
+              {resultBanner.customerDisplayName}
+            </Text>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>מעמד</Text>
+              <Text style={styles.resultValue}>{resultBanner.statusLabel}</Text>
             </View>
-            {undoActionActive && undoPresentation ? (
-              <View style={styles.undoSideBox}>
-                <Pressable
-                  onPress={handleUndoLastAction}
-                  disabled={isBusy || !undoState?.eventId}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    undoPresentation.buttonLabel ?? 'בטל פעולה'
-                  }
-                  style={({ pressed }) => [
-                    styles.undoSideButton,
-                    pressed ? styles.undoSideButtonPressed : null,
-                    isBusy || !undoState?.eventId
-                      ? styles.undoSideButtonDisabled
-                      : null,
-                  ]}
-                >
-                  <Ionicons
-                    name="arrow-undo-outline"
-                    size={24}
-                    color="#DC2626"
-                  />
-                  <Text style={styles.undoSideButtonLabel}>ביטול</Text>
-                </Pressable>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>ניקובים</Text>
+              <Text style={styles.resultValue}>
+                {resultBanner.currentStamps}/{resultBanner.maxStamps}
+              </Text>
+            </View>
+            {resultBanner.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ? (
+              <View style={styles.undoBlockedBadge}>
+                <Text style={styles.undoBlockedBadgeText}>
+                  לא ניתן לבטל את הניקוב כי הוא כבר הפעיל תגמול הפניה.
+                </Text>
               </View>
+            ) : null}
+            {undoActionActive && undoPresentation ? (
+              <Pressable
+                onPress={handleUndoLastAction}
+                disabled={isBusy || !undoState?.eventId}
+                accessibilityRole="button"
+                accessibilityLabel={undoPresentation.buttonLabel ?? 'בטל פעולה'}
+                style={({ pressed }) => [
+                  styles.undoCompactAction,
+                  pressed ? styles.undoCompactActionPressed : null,
+                  isBusy || !undoState?.eventId
+                    ? styles.undoCompactActionDisabled
+                    : null,
+                ]}
+              >
+                <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
+                <Text style={styles.undoCompactLabel}>
+                  {undoPresentation.buttonLabel ?? 'ביטול'}
+                </Text>
+                <Text style={styles.undoCompactTimer}>
+                  {undoPresentation.countdownLabel}
+                </Text>
+              </Pressable>
             ) : null}
           </View>
         ) : null}
 
-        {lastScannedCustomer ? (
+        {lastScannedCustomer &&
+        (referralBenefits.length > 0 || benefitActionMessage) ? (
           <View style={styles.referralBenefitsCard}>
             <View style={styles.referralBenefitsHeader}>
               <Text style={styles.referralBenefitsTitle}>
@@ -1653,49 +1656,45 @@ export default function ScannerScreen() {
                 {benefitActionMessage}
               </Text>
             ) : null}
-            {referralBenefits.length === 0 ? (
-              <Text style={styles.referralBenefitsEmpty}>
-                אין כרגע הטבות הפניה פעילות ללקוח הזה.
-              </Text>
-            ) : (
-              referralBenefits.map((benefit) => {
-                const isRedeeming = isRedeemingBenefitId === benefit.rewardId;
-                return (
-                  <View
-                    key={benefit.rewardId}
-                    style={styles.referralBenefitRow}
-                  >
-                    <View style={styles.referralBenefitTextWrap}>
-                      <Text style={styles.referralBenefitName}>
-                        {benefit.benefitTitle}
-                      </Text>
-                      <Text style={styles.referralBenefitMeta}>
-                        תוקף: {formatBenefitExpiryLabel(benefit.expiresAt)}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() =>
-                        void handleRedeemReferralBenefit(benefit.rewardId)
-                      }
-                      disabled={isBusy || isRedeemingBenefitId !== null}
-                      style={({ pressed }) => [
-                        styles.referralBenefitRedeemButton,
-                        pressed
-                          ? styles.referralBenefitRedeemButtonPressed
-                          : null,
-                        isBusy || isRedeemingBenefitId !== null
-                          ? styles.referralBenefitRedeemButtonDisabled
-                          : null,
-                      ]}
+            {referralBenefits.length > 0
+              ? referralBenefits.map((benefit) => {
+                  const isRedeeming = isRedeemingBenefitId === benefit.rewardId;
+                  return (
+                    <View
+                      key={benefit.rewardId}
+                      style={styles.referralBenefitRow}
                     >
-                      <Text style={styles.referralBenefitRedeemButtonLabel}>
-                        {isRedeeming ? 'מממש...' : 'ממש'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })
-            )}
+                      <View style={styles.referralBenefitTextWrap}>
+                        <Text style={styles.referralBenefitName}>
+                          {benefit.benefitTitle}
+                        </Text>
+                        <Text style={styles.referralBenefitMeta}>
+                          תוקף: {formatBenefitExpiryLabel(benefit.expiresAt)}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() =>
+                          void handleRedeemReferralBenefit(benefit.rewardId)
+                        }
+                        disabled={isBusy || isRedeemingBenefitId !== null}
+                        style={({ pressed }) => [
+                          styles.referralBenefitRedeemButton,
+                          pressed
+                            ? styles.referralBenefitRedeemButtonPressed
+                            : null,
+                          isBusy || isRedeemingBenefitId !== null
+                            ? styles.referralBenefitRedeemButtonDisabled
+                            : null,
+                        ]}
+                      >
+                        <Text style={styles.referralBenefitRedeemButtonLabel}>
+                          {isRedeeming ? 'מממש...' : 'ממש'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              : null}
           </View>
         ) : null}
       </ScrollView>
@@ -1712,6 +1711,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   scrollContainer: {
+    width: '100%',
+    maxWidth: 960,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     gap: 8,
   },
@@ -1726,12 +1728,29 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   carouselWrap: {
-    gap: 10,
-    borderRadius: 22,
-    marginHorizontal: -20,
-    paddingTop: 16,
-    paddingBottom: 14,
+    gap: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
     overflow: 'hidden',
+  },
+  programSelectionHeader: {
+    paddingHorizontal: 20,
+    alignItems: alignItems.start,
+    gap: 2,
+  },
+  programSelectionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1A2B4A',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  programSelectionHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   programSliderViewport: {
     width: '100%',
@@ -1853,27 +1872,19 @@ const styles = StyleSheet.create({
   },
   scannerBox: {
     flex: 1,
-    marginTop: -10,
+    marginTop: 0,
     minHeight: 220,
   },
   redeemRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'stretch',
-    gap: 12,
+    gap: 10,
   },
   redeemInfoCard: {
-    flex: 3,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#C7DBFF',
-    padding: 16,
-    gap: 10,
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
-    elevation: 3,
+    padding: 14,
+    gap: 8,
   },
   redeemInfoTitle: {
     color: '#1A2B4A',
@@ -1881,62 +1892,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'right',
   },
-  redeemButtonsColumn: {
-    flex: 1,
-    flexDirection: 'column',
-    gap: 8,
+  redeemActionsRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'stretch',
+    gap: 10,
   },
-  redeemSideBox: {
+  redeemPrimaryButton: {
     flex: 1,
-    backgroundColor: '#DCFCE7',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#16A34A',
+    minHeight: 52,
+    borderRadius: 14,
+    backgroundColor: '#16A34A',
+    flexDirection: flexDirection.row,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 16,
   },
-  redeemSideButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+  redeemPrimaryButtonPressed: {
+    opacity: 0.86,
   },
-  redeemSideButtonPressed: {
-    opacity: 0.7,
-  },
-  redeemSideButtonDisabled: {
+  redeemPrimaryButtonDisabled: {
     opacity: 0.5,
   },
-  redeemSideButtonLabel: {
-    color: '#16A34A',
+  redeemPrimaryButtonLabel: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '900',
     textAlign: 'center',
   },
-  cancelSideBox: {
-    flex: 1,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#DC2626',
+  redeemCancelButton: {
+    minWidth: 96,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
-  cancelSideButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+  redeemCancelButtonPressed: {
+    opacity: 0.78,
   },
-  cancelSideButtonPressed: {
-    opacity: 0.7,
-  },
-  cancelSideButtonLabel: {
-    color: '#DC2626',
-    fontSize: 14,
-    fontWeight: '900',
+  redeemCancelButtonLabel: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '800',
     textAlign: 'center',
   },
   messageCard: {
@@ -1970,93 +1971,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 12,
   },
-  undoButton: {
-    marginTop: 2,
-    backgroundColor: '#C2410C',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#9A3412',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#9A3412',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 3,
-  },
-  undoButtonPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.99 }],
-  },
-  undoButtonDisabled: {
-    opacity: 0.65,
-  },
-  undoButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  resultBannerRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'stretch',
-    gap: 12,
-  },
-  undoSideBox: {
-    flex: 1,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  undoSideButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  undoSideButtonPressed: {
-    opacity: 0.7,
-  },
-  undoSideButtonDisabled: {
-    opacity: 0.5,
-  },
-  undoSideButtonLabel: {
-    color: '#DC2626',
-    fontSize: 15,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
   resultBanner: {
-    flex: 3,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#C7DBFF',
-    padding: 16,
-    gap: 10,
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 22,
-    elevation: 3,
-  },
-  resultBannerUndoBadge: {
-    backgroundColor: '#E0EAFF',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  resultBannerUndoBadgeText: {
-    color: '#1E4ED8',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
+    padding: 14,
+    gap: 8,
   },
   resultCustomerName: {
     fontSize: 20,
@@ -2129,13 +2050,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  referralBenefitsEmpty: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   referralBenefitRow: {
     borderRadius: 12,
     borderWidth: 1,
@@ -2191,20 +2105,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     alignSelf: selfStart,
     minWidth: 132,
-    backgroundColor: '#EAF1FF',
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#2F6BFF',
+    minHeight: 44,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
-    shadowColor: '#2F6BFF',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
   },
   undoCompactActionPressed: {
     opacity: 0.92,
@@ -2218,83 +2128,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
-  undoCompactDot: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '900',
-    marginTop: -1,
-  },
   undoCompactTimer: {
     color: '#1D4ED8',
     fontSize: 13,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
-  },
-  undoCard: {
-    marginTop: 4,
-    backgroundColor: '#F7F9FF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#D7E4FF',
-    padding: 14,
-    gap: 10,
-  },
-  undoCardTopRow: {
-    flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  undoBadge: {
-    backgroundColor: '#E5EDFF',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  undoBadgeText: {
-    color: '#1E3A8A',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  undoCountdownBadge: {
-    backgroundColor: '#FFF4DB',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  undoCountdownText: {
-    color: '#9A3412',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  undoCardTitle: {
-    color: '#102A56',
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  undoCardDescription: {
-    color: '#475569',
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  undoConfirmationBox: {
-    backgroundColor: '#FFF8EA',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#F4D8A8',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  undoConfirmationText: {
-    color: '#7C2D12',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
-    textAlign: 'right',
   },
 });

@@ -9,12 +9,11 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BarComparisonChart, KpiCard } from '@/components/business-ui';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import { BarComparisonChart, KpiCard } from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -26,6 +25,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -810,6 +810,9 @@ export default function BusinessTeamManagementScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
+          width: '100%',
+          maxWidth: 920,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader
@@ -967,8 +970,11 @@ export default function BusinessTeamManagementScreen() {
 
           {hasOnlyOwnerTeam ? (
             <View className="mt-3 rounded-2xl border border-[#DCE7F8] bg-white px-4 py-3">
-              <Text className={`text-sm font-semibold text-[#64748B] ${tw.textStart}`}>
-                רק בעלי העסק נמצאים כרגע בצוות. אפשר להוסיף עובד כשמוכנים לתת גישה לסריקה.
+              <Text
+                className={`text-sm font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                רק בעלי העסק נמצאים כרגע בצוות. אפשר להוסיף עובד כשמוכנים לתת
+                גישה לסריקה.
               </Text>
             </View>
           ) : null}

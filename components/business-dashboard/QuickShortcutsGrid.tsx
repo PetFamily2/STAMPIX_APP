@@ -39,10 +39,11 @@ export function QuickShortcutsGrid({
         <Pressable
           key={item.key}
           onPress={item.onPress}
+          accessibilityRole="button"
+          accessibilityLabel={item.label}
           style={({ pressed }) => [
             styles.itemCard,
             {
-              width: layout.quickShortcutWidth,
               minHeight: layout.quickShortcutMinHeight,
               borderRadius: layout.cardRadius,
             },
@@ -90,12 +91,13 @@ export function QuickShortcutsGrid({
 const styles = StyleSheet.create({
   row: {
     flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
     alignItems: alignItems.start,
     paddingVertical: 3,
     ...rtlBaseView,
   },
   itemCard: {
+    flex: 1,
+    maxWidth: 240,
     borderWidth: 1,
     borderColor: '#DDE5F1',
     backgroundColor: '#FFFFFF',

@@ -455,8 +455,8 @@ export default function BusinessReferralSettingsScreen() {
                 </Pressable>
               </View>
               <Text style={styles.quotaNote}>
-                פעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת הקמפיינים של המסלול.
-                כשההפניות כבויות, הן לא נספרות במכסה.
+                פעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת הקמפיינים של
+                המסלול. כשההפניות כבויות, הן לא נספרות במכסה.
               </Text>
 
               <Text style={styles.label}>סוג תגמול</Text>
@@ -834,6 +834,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     gap: 10,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   tabRow: {
     flexDirection: flexDirection.row,

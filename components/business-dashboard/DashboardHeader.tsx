@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { UserAvatar } from '@/components/UserAvatar';
@@ -33,16 +32,12 @@ export function DashboardHeader({
   businessName,
   avatarUrl,
   onPressMenu,
-  onPressNotifications,
-  notificationCount = 0,
 }: {
   layoutMode: DashboardLayoutMode;
   displayName: string;
   businessName?: string;
   avatarUrl?: string | null;
   onPressMenu: () => void;
-  onPressNotifications?: () => void;
-  notificationCount?: number;
 }) {
   const layout = getDashboardLayout(layoutMode);
   const greeting = getGreeting();
@@ -80,71 +75,17 @@ export function DashboardHeader({
                 {businessName}
               </Text>
             ) : null}
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color="#334155"
-              style={styles.businessChevron}
-            />
           </View>
         </View>
 
-        <View style={styles.identityCluster}>
-          <Pressable
-            onPress={onPressMenu}
-            accessibilityRole="button"
-            accessibilityLabel="תפריט עסק"
-          >
-            <UserAvatar
-              avatarUrl={avatarUrl}
-              fullName={displayName}
-              size={40}
-            />
-          </Pressable>
-
-          <Pressable
-            onPress={onPressMenu}
-            style={styles.menuButton}
-            accessibilityRole="button"
-            accessibilityLabel="פתיחת תפריט"
-          >
-            <Ionicons name="ellipsis-horizontal" size={30} color="#1E3A8A" />
-          </Pressable>
-
-          <Text
-            style={[
-              styles.brandLine,
-              {
-                fontSize: layout.headerBrandSize,
-                lineHeight: layout.headerBrandSize + 6,
-              },
-            ]}
-          >
-            StampAix
-          </Text>
-
-          <View style={styles.actionCluster}>
-            <Pressable
-              onPress={onPressNotifications}
-              style={styles.notificationButton}
-              accessibilityRole="button"
-              accessibilityLabel="התראות עסק"
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={24}
-                color="#0F172A"
-              />
-              {notificationCount > 0 ? (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {notificationCount > 9 ? '9+' : notificationCount}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          </View>
-        </View>
+        <Pressable
+          onPress={onPressMenu}
+          style={styles.identityButton}
+          accessibilityRole="button"
+          accessibilityLabel="פתיחת הגדרות העסק"
+        >
+          <UserAvatar avatarUrl={avatarUrl} fullName={displayName} size={40} />
+        </Pressable>
       </View>
     </View>
   );
@@ -161,57 +102,12 @@ const styles = StyleSheet.create({
     gap: 12,
     ...rtlBaseView,
   },
-  identityCluster: {
-    flexDirection: flexDirection.rowReverse,
+  identityButton: {
+    width: 48,
+    height: 48,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
     flexShrink: 0,
-    ...rtlBaseView,
-  },
-  actionCluster: {
-    flexDirection: flexDirection.rowReverse,
-    alignItems: 'center',
-    gap: 4,
-    ...rtlBaseView,
-  },
-  notificationButton: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  menuButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 1,
-    right: 1,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 8.5,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    lineHeight: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  brandLine: {
-    fontWeight: '700',
-    color: '#1E4ED8',
-    letterSpacing: 0,
-    textAlign: 'left',
-    writingDirection: 'ltr',
   },
   greetingBlock: {
     flex: 1,
@@ -241,9 +137,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: DASHBOARD_TOKENS.colors.textPrimary,
     ...rtlBaseText,
-  },
-  businessChevron: {
-    flexShrink: 0,
-    marginTop: 2,
   },
 });

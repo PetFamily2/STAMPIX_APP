@@ -95,6 +95,9 @@ export default function BusinessSettingsAccountScreen() {
           paddingHorizontal: 20,
           paddingBottom: 30,
           gap: 12,
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader

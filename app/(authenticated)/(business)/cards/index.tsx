@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -16,29 +15,20 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
-import {
-  BarComparisonChart,
-  HorizontalRankingChart,
-  InsightCard,
-  KpiCard,
-  ProgramHealthRow,
-} from '@/components/business-ui';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import type { StampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
+import { rtlBaseView, tw } from '@/lib/rtl';
 
-type MarketingTopTab = 'campaigns' | 'loyalty';
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
 type ManagementProgram = {
@@ -64,31 +54,17 @@ type ManagementProgram = {
   };
 };
 
-const _TOP_TABS: Array<{ key: MarketingTopTab; label: string }> = [
-  { key: 'campaigns', label: 'קמפיינים' },
-  { key: 'loyalty', label: 'כרטיסיות נאמנות' },
-];
-
 const TEXT = {
   errorTitle: 'שגיאה',
   createFailed: 'יצירת כרטיסיה נכשלה.',
   businessFallback: 'העסק שלך',
   screenTitle: 'כרטיסיות נאמנות',
-  screenSubtitle: 'יצירה וניהול כרטיסי נאמנות במצב טיוטה, פעיל או ארכיון',
   createNewCard: 'צור כרטיסיה חדשה',
-  usageTitle: 'שימוש במסלול',
-  cardsLabel: 'כרטיסים פעילים',
-  inUseLabel: 'נספרים במגבלה',
-  customersLabel: 'לקוחות פעילים',
-  activeLabel: 'בכרטיסים פעילים',
-  redemptionsLabel: 'כרטיסיות שמומשו',
-  days30Label: '30 יום',
   limitReached: 'הגעתם למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   nearLimit: 'אתם מתקרבים למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   draftCardsTitle: 'טיוטות',
   noDraftCards: 'אין כרגע כרטיסים במצב טיוטה.',
   activeCardsTitle: 'כרטיסים פעילים',
-  noActiveCards: 'אין כרגע כרטיסים פעילים.',
   archivedCardsTitle: 'כרטיסים בארכיון',
   noArchivedCards: 'אין כרגע כרטיסים בארכיון.',
   openDetails: 'פתח לעריכה',
@@ -136,7 +112,7 @@ function ProgramListSection({
   const shouldRenderContent = !isCollapsible || isExpanded;
 
   return (
-    <View className="mt-5 rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-3">
+    <View className="mt-5 gap-3 border-t border-[#D7E2F4] pt-4">
       {isCollapsible ? (
         <TouchableOpacity
           onPress={onToggleExpand}
@@ -166,7 +142,9 @@ function ProgramListSection({
         programs.length === 0 ? (
           <View className="gap-1">
             {emptyTitle ? (
-              <Text className={`text-sm font-black text-[#0F172A] ${tw.textStart}`}>
+              <Text
+                className={`text-sm font-black text-[#0F172A] ${tw.textStart}`}
+              >
                 {emptyTitle}
               </Text>
             ) : null}
@@ -179,7 +157,9 @@ function ProgramListSection({
             <TouchableOpacity
               key={String(program.loyaltyProgramId)}
               onPress={() => onOpenProgram(program)}
-              className="rounded-[28px] border border-[#DCE7FF] bg-[#F8FBFF] p-3 gap-3"
+              className="gap-2 border-b border-[#DCE6F7] py-3"
+              accessibilityRole="button"
+              accessibilityLabel={`פתיחת הכרטיסייה ${program.title}`}
             >
               <ProgramCustomerCardPreview
                 businessName={businessName}
@@ -194,7 +174,7 @@ function ProgramListSection({
                 status={
                   program.lifecycle === 'archived' ? 'archived' : 'default'
                 }
-                variant="list"
+                variant="compact"
               />
 
               <View
@@ -226,6 +206,7 @@ function ProgramListSection({
     </View>
   );
 }
+
 export function LoyaltyCardsHubContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -260,11 +241,6 @@ export function LoyaltyCardsHubContent() {
     api.loyaltyPrograms.listManagementByBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   ) ?? []) as ManagementProgram[];
-  const rewardEligibilitySummary = useQuery(
-    api.memberships.getBusinessRewardEligibilitySummary,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-  );
-
   const createLoyaltyProgram = useMutation(
     api.loyaltyPrograms.createLoyaltyProgram
   );
@@ -320,17 +296,6 @@ export function LoyaltyCardsHubContent() {
     }
   };
 
-  const totalCustomers = activePrograms.reduce(
-    (sum, program) => sum + program.metrics.activeMembers,
-    0
-  );
-  const totalRedemptions30d = activePrograms.reduce(
-    (sum, program) => sum + program.metrics.redemptions30d,
-    0
-  );
-  const redeemableCustomersCount =
-    rewardEligibilitySummary?.redeemableCustomers ?? 0;
-  const redeemableCardsCount = rewardEligibilitySummary?.redeemableCards ?? 0;
   const businessDisplayName =
     activeBusiness?.name?.trim() || TEXT.businessFallback;
 
@@ -347,51 +312,15 @@ export function LoyaltyCardsHubContent() {
     });
   };
 
-  const topProgramActivity = useMemo(
-    () =>
-      activePrograms
-        .slice()
-        .sort((a, b) => (b.metrics.stamps7d ?? 0) - (a.metrics.stamps7d ?? 0))
-        .slice(0, 5)
-        .map((program) => ({
-          label: program.title,
-          value: Number(program.metrics.stamps7d ?? 0),
-        })),
-    [activePrograms]
-  );
-
-  const topProgramRedemptions = useMemo(
-    () =>
-      activePrograms
-        .slice()
-        .sort(
-          (a, b) =>
-            (b.metrics.redemptions30d ?? 0) - (a.metrics.redemptions30d ?? 0)
-        )
-        .slice(0, 5)
-        .map((program) => ({
-          label: program.title,
-          value: Number(program.metrics.redemptions30d ?? 0),
-        })),
-    [activePrograms]
-  );
-
-  const mostActiveProgram = useMemo(
-    () =>
-      activePrograms
-        .slice()
-        .sort(
-          (a, b) => (b.metrics.stamps7d ?? 0) - (a.metrics.stamps7d ?? 0)
-        )[0] ?? null,
-    [activePrograms]
-  );
-
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
+          width: '100%',
+          maxWidth: 920,
+          alignSelf: 'center',
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
@@ -402,182 +331,68 @@ export function LoyaltyCardsHubContent() {
         >
           <BusinessScreenHeader
             title={TEXT.screenTitle}
-            subtitle={TEXT.screenSubtitle}
+            subtitle="ניהול הכרטיסיות הפעילות והטיוטות"
           />
         </StickyScrollHeader>
 
         <View ref={guideTargetRef} collapsable={false}>
           <TouchableOpacity
-          disabled={!canCreate}
-          onPress={() => {
-            if (!canCreate) {
-              return;
-            }
-            void handleCreate();
-          }}
-          className={`mt-4 rounded-3xl px-4 py-4 ${
-            !canCreate ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
-          }`}
-        >
-          {isCreating ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <View
-              className={`${tw.flexRow} items-center justify-center gap-2`}
-              style={rtlBaseView}
-            >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text className="text-sm font-black text-white">
-                {TEXT.createNewCard}
-              </Text>
-            </View>
-          )}
+            disabled={!canCreate}
+            onPress={() => {
+              if (!canCreate) {
+                return;
+              }
+              void handleCreate();
+            }}
+            className={`mt-4 min-h-[52px] rounded-2xl px-4 py-3 ${
+              !canCreate ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
+            }`}
+          >
+            {isCreating ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <View
+                className={`${tw.flexRow} items-center justify-center gap-2`}
+                style={rtlBaseView}
+              >
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+                <Text className="text-sm font-black text-white">
+                  {TEXT.createNewCard}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="כרטיסים פעילים"
-              value={formatNumber(activePrograms.length)}
-              icon="albums-outline"
-              tone="blue"
-            />
+        <View className="mt-4 border-b border-[#D7E2F4] pb-4">
+          <View className={`${tw.flexRow} items-center justify-between gap-3`}>
+            <Text
+              className={`text-sm font-bold text-[#334155] ${tw.textStart}`}
+            >
+              כרטיסיות פעילות
+            </Text>
+            <Text className={`text-sm font-black text-[#0F172A] ${tw.textEnd}`}>
+              {activePrograms.length}/{cardLimit.limitValue}
+            </Text>
           </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="לקוחות פעילים"
-              value={formatNumber(totalCustomers)}
-              icon="people-outline"
-              tone="teal"
-            />
-          </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="מימושים 30 יום"
-              value={formatNumber(totalRedemptions30d)}
-              icon="gift-outline"
-              tone="violet"
-            />
-          </View>
-          <View style={styles.kpiCell}>
-            <KpiCard
-              label="זכאים למימוש"
-              value={formatNumber(redeemableCustomersCount)}
-              icon="sparkles-outline"
-              tone="emerald"
-            />
-          </View>
-        </View>
-
-        <View className="mt-4 rounded-3xl border border-[#E3E9FF] bg-white p-5">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            {TEXT.usageTitle}
-          </Text>
-
-          <View className={`${tw.flexRow} mt-3 gap-2`}>
-            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
-              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-                {TEXT.cardsLabel}
-              </Text>
-              <Text
-                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
-              >
-                {activePrograms.length}/{cardLimit.limitValue}
-              </Text>
-              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
-                {TEXT.inUseLabel}
-              </Text>
-            </View>
-
-            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
-              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-                {TEXT.customersLabel}
-              </Text>
-              <Text
-                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
-              >
-                {formatNumber(totalCustomers)}
-              </Text>
-              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
-                {TEXT.activeLabel}
-              </Text>
-            </View>
-
-            <View className="flex-1 rounded-2xl border border-[#DCE7F8] bg-white p-3">
-              <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-                {TEXT.redemptionsLabel}
-              </Text>
-              <Text
-                className={`mt-1 text-lg font-black text-[#0F172A] ${tw.textStart}`}
-              >
-                {formatNumber(totalRedemptions30d)}
-              </Text>
-              <Text className={`text-[10px] text-[#94A3B8] ${tw.textStart}`}>
-                {TEXT.days30Label}
-              </Text>
-            </View>
-          </View>
-          <Text
-            className={`mt-3 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            לקוחות זכאים להטבה: {formatNumber(redeemableCustomersCount)} ·
-            כרטיסיות מלאות: {formatNumber(redeemableCardsCount)}
-          </Text>
-
           {cardLimit.isNearLimit || cardLimit.isAtLimit ? (
-            <View className="mt-4 rounded-2xl border border-[#F59E0B] bg-[#FFF7ED] p-3">
-              <Text
-                className={`text-xs font-bold text-[#B45309] ${tw.textStart}`}
-              >
-                {cardLimit.isAtLimit ? TEXT.limitReached : TEXT.nearLimit}
-              </Text>
-            </View>
+            <Text
+              className={`mt-2 text-xs font-bold text-[#B45309] ${tw.textStart}`}
+            >
+              {cardLimit.isAtLimit ? TEXT.limitReached : TEXT.nearLimit}
+            </Text>
           ) : null}
         </View>
 
-        <View style={styles.analyticsStack}>
-          <HorizontalRankingChart
-            title="תוכניות מובילות לפי פעילות"
-            subtitle="דירוג לפי ניקובים ב-7 ימים"
-            data={topProgramActivity}
-            color={DASHBOARD_TOKENS.colors.teal}
-          />
-          <BarComparisonChart
-            title="השוואת מימושים"
-            subtitle="מימושים ב-30 ימים אחרונים"
-            data={topProgramRedemptions}
-            color={DASHBOARD_TOKENS.colors.violet}
-          />
-          <InsightCard
-            title="תובנת נאמנות"
-            body={
-              mostActiveProgram
-                ? `התוכנית "${mostActiveProgram.title}" מובילה עם ${formatNumber(
-                    mostActiveProgram.metrics.stamps7d
-                  )} ניקובים ב-7 ימים.`
-                : 'עדיין אין פעילות מספקת להצגת תוכנית מובילה.'
-            }
-            tags={[
-              `לקוחות זכאים: ${formatNumber(redeemableCustomersCount)}`,
-              `כרטיסיות מלאות: ${formatNumber(redeemableCardsCount)}`,
-            ]}
-          />
-          <View style={styles.programHealthList}>
-            {activePrograms.slice(0, 3).map((program) => (
-              <ProgramHealthRow
-                key={String(program.loyaltyProgramId)}
-                title={program.title}
-                members={program.metrics.activeMembers}
-                stamps7d={program.metrics.stamps7d}
-                redemptions30d={program.metrics.redemptions30d}
-                onPress={() => openProgramDetails(program)}
-              />
-            ))}
-          </View>
-        </View>
+        <ProgramListSection
+          title={TEXT.activeCardsTitle}
+          emptyTitle="אין כרטיסיות פעילות"
+          emptyText="פרסמו כרטיסייה כדי שלקוחות יוכלו להצטרף ולצבור ניקובים."
+          programs={activePrograms}
+          businessName={businessDisplayName}
+          businessLogoUrl={activeBusiness?.logoUrl ?? null}
+          onOpenProgram={openProgramDetails}
+        />
 
         <ProgramListSection
           title={TEXT.draftCardsTitle}
@@ -589,16 +404,6 @@ export function LoyaltyCardsHubContent() {
           isCollapsible={true}
           isExpanded={isDraftCardsExpanded}
           onToggleExpand={() => setIsDraftCardsExpanded((current) => !current)}
-        />
-
-        <ProgramListSection
-          title={TEXT.activeCardsTitle}
-          emptyTitle="אין כרטיסיות פעילות"
-          emptyText="פרסמו כרטיסייה כדי שלקוחות יוכלו להצטרף ולצבור ניקובים."
-          programs={activePrograms}
-          businessName={businessDisplayName}
-          businessLogoUrl={activeBusiness?.logoUrl ?? null}
-          onOpenProgram={openProgramDetails}
         />
 
         <ProgramListSection
@@ -623,25 +428,6 @@ export function LoyaltyCardsHubContent() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  kpiGrid: {
-    marginTop: 16,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  kpiCell: {
-    width: '48%',
-  },
-  analyticsStack: {
-    marginTop: 16,
-    gap: 14,
-  },
-  programHealthList: {
-    gap: 10,
-  },
-});
 
 export default function BusinessCardsManagementScreen() {
   const { preview, map, section } = useLocalSearchParams<{

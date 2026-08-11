@@ -268,8 +268,7 @@ export default function CampaignDraftEditorScreen() {
   const guideIdParam = Array.isArray(params.guideId)
     ? params.guideId[0]
     : params.guideId;
-  const campaignGuideTarget =
-    resolveCampaignDetailGuideTarget(guideIdParam);
+  const campaignGuideTarget = resolveCampaignDetailGuideTarget(guideIdParam);
   const isCreateFlow = !campaignIdParam || campaignIdParam === 'new';
   const campaignId = isCreateFlow
     ? undefined
@@ -627,6 +626,9 @@ export default function CampaignDraftEditorScreen() {
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingBottom: 28,
+            width: '100%',
+            maxWidth: 960,
+            alignSelf: 'center',
           }}
         >
           <StickyScrollHeader
@@ -1145,7 +1147,10 @@ export default function CampaignDraftEditorScreen() {
       });
 
       if (estimate.total === 0) {
-        Alert.alert('אין נמענים', 'לא נמצאו לקוחות זכאים (Opt-in) לקמפיין הזה.');
+        Alert.alert(
+          'אין נמענים',
+          'לא נמצאו לקוחות זכאים (Opt-in) לקמפיין הזה.'
+        );
         return;
       }
 
@@ -1382,6 +1387,9 @@ export default function CampaignDraftEditorScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingBottom: 28,
+          width: '100%',
+          maxWidth: 960,
+          alignSelf: 'center',
         }}
       >
         <StickyScrollHeader
@@ -1898,8 +1906,7 @@ export default function CampaignDraftEditorScreen() {
         targetRefs={{
           'campaign-publish': campaignPublishTargetRef,
           'campaign-resume': campaignResumeTargetRef,
-          'campaign-schedule-review':
-            campaignScheduleReviewTargetRef,
+          'campaign-schedule-review': campaignScheduleReviewTargetRef,
         }}
         scrollTargetIntoView={() => {
           if (guideIdParam === 'campaign-publish') {
@@ -1907,10 +1914,7 @@ export default function CampaignDraftEditorScreen() {
             return;
           }
           guideScrollRef.current?.scrollTo({
-            y:
-              guideIdParam === 'campaign-resume'
-                ? 1120
-                : 900,
+            y: guideIdParam === 'campaign-resume' ? 1120 : 900,
             animated: false,
           });
         }}

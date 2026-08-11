@@ -116,6 +116,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
     gap: 16,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   header: {
     gap: 6,

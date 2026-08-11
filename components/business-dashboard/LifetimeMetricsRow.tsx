@@ -174,11 +174,12 @@ export function LifetimeMetricsRow({
   showIcons?: boolean;
 }) {
   const layout = getDashboardLayout(layoutMode);
+  const visibleMetrics = metrics.slice(0, 3);
 
   return (
     <View style={[styles.card, { borderRadius: layout.cardRadius }]}>
       <View style={styles.row}>
-        {metrics.slice(0, 4).map((metric, index) => {
+        {visibleMetrics.map((metric, index) => {
           const palette = TONE_MAP[metric.tone];
 
           return (
@@ -186,7 +187,7 @@ export function LifetimeMetricsRow({
               key={metric.key}
               style={[
                 styles.metricItem,
-                index < 3 ? styles.metricDivider : null,
+                index < visibleMetrics.length - 1 ? styles.metricDivider : null,
               ]}
             >
               {showIcons ? (
@@ -276,7 +277,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 104,
+    minHeight: 96,
     paddingHorizontal: 5,
   },
   metricDivider: {
