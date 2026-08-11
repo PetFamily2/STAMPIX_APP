@@ -26,18 +26,12 @@ type ManagementCampaignType =
 
 type ManagementCampaign = {
   campaignId: Id<'campaigns'>;
-  businessId: Id<'businesses'>;
   programId: Id<'loyaltyPrograms'> | null;
   type: ManagementCampaignType;
   title: string;
-  status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
   automationEnabled: boolean;
   lifecycle: 'active' | 'inactive' | 'archived';
-  canArchive: boolean;
-  estimatedAudience: number;
-  reachedMessagesAllTime: number;
   lastSentAt: number | null;
-  archivedAt: number | null;
   updatedAt: number;
 };
 
@@ -52,12 +46,6 @@ function formatDateTime(value: number | null) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(
-    value
-  );
 }
 
 function campaignTypeMeta(type: ManagementCampaignType): {
@@ -166,6 +154,9 @@ export default function StaffPromotionsScreen() {
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
@@ -174,7 +165,7 @@ export default function StaffPromotionsScreen() {
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
         >
-          <BusinessScreenHeader title="קמפיינים" subtitle="קמפיינים פעילים לעסק" />
+          <BusinessScreenHeader title="קמפיינים פעילים" />
         </StickyScrollHeader>
 
         {campaignsQuery === undefined ? (
@@ -188,8 +179,8 @@ export default function StaffPromotionsScreen() {
             </Text>
           </View>
         ) : (
-          <View className="mt-4 gap-3">
-            {activeCampaigns.map((campaign) => {
+          <View className="mt-3 overflow-hidden rounded-2xl border border-[#E3E9FF] bg-white">
+            {activeCampaigns.map((campaign, index) => {
               const typeMeta = campaignTypeMeta(campaign.type);
               const campaignProgram =
                 campaign.programId != null
@@ -200,53 +191,54 @@ export default function StaffPromotionsScreen() {
               return (
                 <View
                   key={String(campaign.campaignId)}
-                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] p-4"
+                  className={`px-4 py-4 ${
+                    index < activeCampaigns.length - 1
+                      ? 'border-b border-[#E5EAF2]'
+                      : ''
+                  }`}
                 >
                   <View
-                    className={`${tw.flexRow} items-center justify-between gap-3`}
+                    className={`${tw.flexRow} items-center gap-3`}
                   >
-                    <View className={`${tw.flexRow} flex-1 items-center gap-3`}>
-                      <View
-                        className={`h-11 w-11 items-center justify-center rounded-xl ${typeMeta.iconBgClass}`}
-                      >
-                        <Ionicons
-                          name={typeMeta.icon}
-                          size={20}
-                          color={typeMeta.iconColor}
-                        />
-                      </View>
-                      <View className={`flex-1 ${tw.itemsStart}`}>
-                        <Text
-                          className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                        >
-                          {campaign.title}
-                        </Text>
-                        <Text
-                          className={`mt-0.5 text-xs font-semibold ${tw.textStart}`}
-                          style={{ color: typeMeta.iconColor }}
-                        >
-                          {typeMeta.label}
-                        </Text>
-                      </View>
+                    <View
+                      className={`h-11 w-11 shrink-0 items-center justify-center rounded-xl ${typeMeta.iconBgClass}`}
+                    >
+                      <Ionicons
+                        name={typeMeta.icon}
+                        size={20}
+                        color={typeMeta.iconColor}
+                      />
                     </View>
-                    <View className="rounded-full bg-[#16A34A] px-3 py-1.5">
-                      <Text className="text-xs font-extrabold text-white">
-                        פעיל
+                    <View className={`min-w-0 flex-1 ${tw.itemsStart}`}>
+                      <Text
+                        numberOfLines={2}
+                        className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
+                      >
+                        {campaign.title}
+                      </Text>
+                      <Text
+                        className={`mt-0.5 text-xs font-semibold ${tw.textStart}`}
+                        style={{ color: typeMeta.iconColor }}
+                      >
+                        {typeMeta.label}
                       </Text>
                     </View>
+                    <Text
+                      className={`shrink-0 text-xs font-bold ${tw.textEnd}`}
+                      style={{
+                        color: campaign.automationEnabled
+                          ? '#15803D'
+                          : '#64748B',
+                      }}
+                    >
+                      {campaign.automationEnabled
+                        ? 'אוטומטי'
+                        : 'ללא אוטומציה'}
+                    </Text>
                   </View>
-                  <View className="mt-3 gap-1">
+                  <View className="mt-2 gap-1">
                     <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      סוג: {typeMeta.label} • אוטומציה:{' '}
-                      {campaign.automationEnabled ? 'פעילה' : 'כבויה'}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      שיוך: {campaignProgram}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      קהל מוערך: {formatNumber(campaign.estimatedAudience)} •
-                      הודעות שנשלחו:{' '}
-                      {formatNumber(campaign.reachedMessagesAllTime)}
+                      {campaignProgram}
                     </Text>
                     <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
                       שליחה אחרונה: {formatDateTime(campaign.lastSentAt)}

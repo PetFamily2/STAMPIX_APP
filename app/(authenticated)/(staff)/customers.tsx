@@ -45,24 +45,10 @@ const STATE_LABELS: Record<CustomerState, string> = {
   CLOSE_TO_REWARD: 'קרוב להטבה',
 };
 
-const STATE_COLORS: Record<CustomerState, string> = {
-  NEW: 'bg-sky-100 text-sky-700',
-  ACTIVE: 'bg-slate-100 text-slate-700',
-  NEEDS_NURTURE: 'bg-orange-100 text-orange-700',
-  NEEDS_WINBACK: 'bg-rose-100 text-rose-700',
-  CLOSE_TO_REWARD: 'bg-amber-100 text-amber-700',
-};
-
 const VALUE_TIER_LABELS: Record<CustomerValueTier, string> = {
   REGULAR: 'רגיל',
   LOYAL: 'נאמן',
   VIP: 'VIP',
-};
-
-const VALUE_TIER_COLORS: Record<CustomerValueTier, string> = {
-  REGULAR: 'bg-slate-100 text-slate-700',
-  LOYAL: 'bg-emerald-100 text-emerald-700',
-  VIP: 'bg-indigo-100 text-indigo-700',
 };
 
 function resolveCustomerState(customer: {
@@ -172,6 +158,9 @@ export default function StaffCustomersScreen() {
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
+          width: '100%',
+          maxWidth: 760,
+          alignSelf: 'center',
           paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
         }}
@@ -180,13 +169,10 @@ export default function StaffCustomersScreen() {
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
         >
-          <BusinessScreenHeader
-            title="לקוחות"
-            subtitle="חיפוש וצפייה בפרטי לקוחות"
-          />
+          <BusinessScreenHeader title="לקוחות" />
         </StickyScrollHeader>
 
-        <View className="mt-4 rounded-full border border-[#D6E2F8] bg-white px-4 py-3">
+        <View className="mt-3 min-h-12 justify-center rounded-2xl border border-[#D6E2F8] bg-white px-4">
           <View className={`${tw.flexRow} items-center gap-2`}>
             <Ionicons name="search-outline" size={20} color="#B0BAC8" />
             <TextInput
@@ -194,21 +180,18 @@ export default function StaffCustomersScreen() {
               onChangeText={setSearch}
               placeholder="חפשו לקוח לפי שם או טלפון"
               placeholderTextColor="#B0BAC8"
-              className={`flex-1 text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
+              className={`min-h-11 flex-1 text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
             />
           </View>
         </View>
 
-        <View className={`${tw.flexRow} mt-4 items-center justify-between`}>
-          <Text className="text-xs font-semibold text-[#64748B]">
-            {`${formatNumber(filteredCustomers.length)} לקוחות`}
+        {customerList ? (
+          <Text className={`mt-4 text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+            {search.trim()
+              ? `${formatNumber(filteredCustomers.length)} מתוך ${formatNumber(customerList.length)} לקוחות`
+              : `${formatNumber(customerList.length)} לקוחות`}
           </Text>
-          {customerList ? (
-            <Text className="text-xs font-semibold text-[#64748B]">
-              {formatNumber(customerList.length)} סה״כ
-            </Text>
-          ) : null}
-        </View>
+        ) : null}
 
         <View className="mt-3 gap-3">
           {customerList === undefined ? (
@@ -230,75 +213,54 @@ export default function StaffCustomersScreen() {
                 <Pressable
                   key={customer.primaryMembershipId}
                   onPress={() => openCustomerCard(String(customer.customerId))}
-                  className="rounded-2xl border border-[#E5EAF2] bg-white px-4 py-4"
+                  accessibilityRole="button"
+                  accessibilityLabel={`פתיחת הכרטיס של ${customer.name}`}
+                  accessibilityHint="מציג פרטי לקוח והיסטוריית פעילות"
+                  className="min-h-[76px] justify-center rounded-2xl border border-[#E5EAF2] bg-white px-4 py-3"
                 >
                   <View
-                    className={`${tw.flexRow} ${tw.itemsStart} justify-between`}
+                    className={`${tw.flexRow} items-center justify-between gap-3`}
                   >
-                    <View className={`${tw.itemsStart}`}>
-                      <Text
-                        className={`text-xs text-[#94A3B8] ${tw.textStart}`}
-                      >
-                        ביקור אחרון
-                      </Text>
-                      <Text
-                        className={`mt-1 text-sm font-black text-[#0F172A] ${tw.textStart}`}
-                      >
-                        {formatLastVisit(customer.lastVisitDaysAgo)}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                      >
-                        {customer.visitCount} ביקורים •{' '}
-                        {customer.primaryProgramName}
-                      </Text>
-                    </View>
-
-                    <View className={`flex-1 ${tw.itemsStart} px-3`}>
-                      <Text
-                        className={`text-lg font-black text-[#0F294B] ${tw.textStart}`}
-                      >
-                        {customer.name}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-xs text-[#8A97AC] ${tw.textStart}`}
-                      >
-                        {customer.phone ?? 'ללא טלפון'}
-                      </Text>
-                      <View className={`${tw.flexRow} mt-2 items-center gap-2`}>
-                        <View
-                          className={`rounded-full px-3 py-1 ${
-                            STATE_COLORS[customerState]
-                          }`}
-                        >
-                          <Text className="text-xs font-bold">
-                            {STATE_LABELS[customerState]}
-                          </Text>
-                        </View>
-                        <View
-                          className={`rounded-full px-3 py-1 ${
-                            VALUE_TIER_COLORS[customerValueTier]
-                          }`}
-                        >
-                          <Text className="text-xs font-bold">
-                            {VALUE_TIER_LABELS[customerValueTier]}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text
-                        className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}
-                      >
-                        התקדמות להטבה: {customer.loyaltyProgress}/
-                        {customer.rewardThreshold}
-                      </Text>
-                    </View>
-
-                    <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#ECF1FF]">
+                    <View className="h-11 w-11 items-center justify-center rounded-full bg-[#ECF1FF]">
                       <Ionicons
                         name="person-outline"
                         size={20}
                         color="#2F6BFF"
                       />
+                    </View>
+
+                    <View className={`min-w-0 flex-1 ${tw.itemsStart}`}>
+                      <Text
+                        numberOfLines={1}
+                        className={`text-base font-black text-[#0F294B] ${tw.textStart}`}
+                      >
+                        {customer.name}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        className={`mt-0.5 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        {customer.phone ?? 'ללא טלפון'} •{' '}
+                        {customer.primaryProgramName}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        className={`mt-1 text-xs font-semibold text-[#475569] ${tw.textStart}`}
+                      >
+                        {STATE_LABELS[customerState]} •{' '}
+                        {VALUE_TIER_LABELS[customerValueTier]} •{' '}
+                        {customer.loyaltyProgress}/{customer.rewardThreshold}{' '}
+                        להטבה
+                      </Text>
+                    </View>
+
+                    <View className="shrink-0">
+                      <Text className={`text-[11px] text-[#94A3B8] ${tw.textEnd}`}>
+                        ביקור אחרון
+                      </Text>
+                      <Text className={`mt-1 text-xs font-bold text-[#0F172A] ${tw.textEnd}`}>
+                        {formatLastVisit(customer.lastVisitDaysAgo)}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>

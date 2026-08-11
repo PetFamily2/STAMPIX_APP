@@ -21,6 +21,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { selfEnd } from '@/lib/rtl';
 
 const TEXT = {
   title: 'ניהול הזמנות חברים',
@@ -211,6 +212,7 @@ export default function AdminReferralsScreen() {
             onChangeText={setReferralCode}
             style={[styles.input, styles.codeInput]}
             placeholder={TEXT.referralCode}
+            accessibilityLabel={TEXT.referralCode}
             autoCapitalize="characters"
           />
           <TextInput
@@ -218,6 +220,7 @@ export default function AdminReferralsScreen() {
             onChangeText={setBusinessId}
             style={[styles.input, styles.codeInput]}
             placeholder={TEXT.businessId}
+            accessibilityLabel={TEXT.businessId}
             autoCapitalize="none"
           />
           <TextInput
@@ -225,6 +228,7 @@ export default function AdminReferralsScreen() {
             onChangeText={setCustomerReferralId}
             style={[styles.input, styles.codeInput]}
             placeholder={TEXT.customerReferralId}
+            accessibilityLabel={TEXT.customerReferralId}
             autoCapitalize="none"
           />
           <TextInput
@@ -232,13 +236,17 @@ export default function AdminReferralsScreen() {
             onChangeText={setRewardId}
             style={[styles.input, styles.codeInput]}
             placeholder={TEXT.rewardId}
+            accessibilityLabel={TEXT.rewardId}
             autoCapitalize="none"
           />
+          <View style={styles.sectionDivider} />
+          <Text style={styles.fieldGroupTitle}>סיבת פעולת מנהל</Text>
           <TextInput
             value={reasonCode}
             onChangeText={setReasonCode}
             style={[styles.input, styles.codeInput]}
             placeholder={TEXT.reasonCode}
+            accessibilityLabel={TEXT.reasonCode}
             autoCapitalize="none"
           />
           <TextInput
@@ -246,6 +254,7 @@ export default function AdminReferralsScreen() {
             onChangeText={setReasonNote}
             style={[styles.input, styles.multilineInput]}
             placeholder={TEXT.reasonNote}
+            accessibilityLabel={TEXT.reasonNote}
             multiline={true}
           />
         </View>
@@ -285,6 +294,9 @@ export default function AdminReferralsScreen() {
                   </Text>
                   <Pressable
                     disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${TEXT.disableLink} ${asString(payload.code)}`}
+                    accessibilityState={{ disabled }}
                     onPress={() =>
                       void runAction(
                         actionKey,
@@ -344,6 +356,9 @@ export default function AdminReferralsScreen() {
                   </Text>
                   <Pressable
                     disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={TEXT.markInvalid}
+                    accessibilityState={{ disabled }}
                     onPress={() =>
                       void runAction(
                         actionKey,
@@ -403,6 +418,9 @@ export default function AdminReferralsScreen() {
                   </Text>
                   <Pressable
                     disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={TEXT.revokeReward}
+                    accessibilityState={{ disabled }}
                     onPress={() =>
                       void runAction(
                         actionKey,
@@ -468,6 +486,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F4F8',
   },
   content: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
     paddingHorizontal: 18,
     gap: 12,
   },
@@ -512,7 +533,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   input: {
-    minHeight: 42,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#D4DCE8',
@@ -532,6 +553,19 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     paddingTop: 10,
   },
+  sectionDivider: {
+    height: 1,
+    marginVertical: 4,
+    backgroundColor: '#E2E8F0',
+  },
+  fieldGroupTitle: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#475569',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   emptyText: {
     fontSize: 12,
     color: '#64748B',
@@ -540,12 +574,10 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   itemCard: {
-    borderRadius: 12,
-    borderWidth: 1,
+    borderTopWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    gap: 4,
+    paddingVertical: 12,
+    gap: 3,
   },
   itemLine: {
     fontSize: 12,
@@ -556,8 +588,10 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actionButton: {
-    marginTop: 4,
-    minHeight: 40,
+    marginTop: 6,
+    minWidth: 140,
+    minHeight: 44,
+    alignSelf: selfEnd,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',

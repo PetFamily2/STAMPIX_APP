@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -65,10 +66,11 @@ export default function StaffSettingsScreen() {
     api.business.getMyStaffProfileForBusiness,
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
-  const myMemberships =
-    (useQuery(api.business.getMyBusinessMemberships, {}) as
-      | MyBusinessMembershipRow[]
-      | undefined) ?? [];
+  const membershipsQuery = useQuery(
+    api.business.getMyBusinessMemberships,
+    {}
+  ) as MyBusinessMembershipRow[] | undefined;
+  const myMemberships = membershipsQuery ?? [];
 
   const [busyBusinessId, setBusyBusinessId] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -137,6 +139,9 @@ export default function StaffSettingsScreen() {
         className="flex-1"
         stickyHeaderIndices={[0]}
         contentContainerStyle={{
+          width: '100%',
+          maxWidth: 720,
+          alignSelf: 'center',
           paddingHorizontal: 20,
           paddingBottom: 32,
           gap: 12,
@@ -146,25 +151,28 @@ export default function StaffSettingsScreen() {
           topPadding={(insets.top || 0) + 12}
           backgroundColor="#E9F0FF"
         >
-          <BusinessScreenHeader
-            title="הגדרות קופאי"
-            subtitle="פרופיל קופאי, הרשאות ועסק פעיל"
-          />
-          <TouchableOpacity
-            onPress={() => void goToPrivateArea()}
-            className="mt-3 rounded-2xl bg-[#2F6BFF] px-4 py-3"
-          >
-            <Text className="text-center text-sm font-bold text-white">
+          <BusinessScreenHeader title="הגדרות עובד" />
+        </StickyScrollHeader>
+
+        <TouchableOpacity
+          onPress={() => void goToPrivateArea()}
+          accessibilityRole="button"
+          accessibilityLabel="חזרה לארנק האישי"
+          className="min-h-12 justify-center rounded-2xl border border-[#C7D8F7] bg-white px-4"
+        >
+          <View className={`${tw.flexRow} items-center gap-3`}>
+            <Ionicons name="wallet-outline" size={20} color="#2F6BFF" />
+            <Text className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}>
               חזרה לארנק האישי
             </Text>
-          </TouchableOpacity>
-        </StickyScrollHeader>
+          </View>
+        </TouchableOpacity>
 
         <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
           <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
           >
-            פרופיל בעסק פעיל
+            הגישה שלי
           </Text>
           {profile === undefined ? (
             <ActivityIndicator color="#2F6BFF" style={{ marginTop: 12 }} />
@@ -173,13 +181,10 @@ export default function StaffSettingsScreen() {
               <Text
                 className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
               >
-                עסק: {profile.businessName}
+                {profile.businessName}
               </Text>
               <Text className={`text-sm text-[#475569] ${tw.textStart}`}>
-                תפקיד: {ROLE_LABEL[profile.staffRole]}
-              </Text>
-              <Text className={`text-sm text-[#475569] ${tw.textStart}`}>
-                סטטוס: {STATUS_LABEL[profile.status]}
+                {ROLE_LABEL[profile.staffRole]} • {STATUS_LABEL[profile.status]}
               </Text>
             </View>
           ) : (
@@ -187,15 +192,12 @@ export default function StaffSettingsScreen() {
               לא נמצא פרופיל עובד לעסק הפעיל.
             </Text>
           )}
-        </View>
 
-        <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            ההרשאות שלי
+          <View className="my-4 h-px bg-[#E5EAF2]" />
+          <Text className={`text-xs font-bold text-[#64748B] ${tw.textStart}`}>
+            הרשאות
           </Text>
-          <View className="mt-3 gap-2">
+          <View className="mt-2 gap-2">
             {permissionLabels.length === 0 ? (
               <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
                 אין הרשאות להצגה.
@@ -204,10 +206,15 @@ export default function StaffSettingsScreen() {
               permissionLabels.map((permission) => (
                 <View
                   key={permission}
-                  className="rounded-xl border border-[#E3E9FF] bg-[#F8FAFF] px-3 py-2"
+                  className={`${tw.flexRow} gap-2`}
                 >
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={17}
+                    color="#2F6BFF"
+                  />
                   <Text
-                    className={`text-xs font-semibold text-[#334155] ${tw.textStart}`}
+                    className={`flex-1 text-xs font-semibold text-[#334155] ${tw.textStart}`}
                   >
                     {permission}
                   </Text>
@@ -219,12 +226,14 @@ export default function StaffSettingsScreen() {
 
         <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
           <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
           >
-            מעבר בין עסקים
+            העסק הפעיל
           </Text>
           <View className="mt-3 gap-2">
-            {myMemberships.length === 0 ? (
+            {membershipsQuery === undefined ? (
+              <ActivityIndicator color="#2F6BFF" />
+            ) : myMemberships.length === 0 ? (
               <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
                 אין עסקים זמינים.
               </Text>
@@ -239,7 +248,14 @@ export default function StaffSettingsScreen() {
                       void switchBusiness(membership.businessId);
                     }}
                     disabled={isBusy || isSwitchingBusiness || isActive}
-                    className={`rounded-xl border px-3 py-3 ${
+                    accessibilityRole="button"
+                    accessibilityLabel={`${membership.businessName}, ${
+                      isActive ? 'העסק הפעיל' : 'מעבר לעסק'
+                    }`}
+                    accessibilityState={{
+                      disabled: isBusy || isSwitchingBusiness || isActive,
+                    }}
+                    className={`min-h-14 justify-center rounded-xl border px-3 py-2 ${
                       isActive
                         ? 'border-[#A9C7FF] bg-[#EFF4FF]'
                         : 'border-[#E3E9FF] bg-[#F8FAFF]'
@@ -261,7 +277,19 @@ export default function StaffSettingsScreen() {
                           {STATUS_LABEL[membership.status]}
                         </Text>
                       </View>
-                      {isBusy ? <ActivityIndicator color="#2F6BFF" /> : null}
+                      {isBusy ? (
+                        <ActivityIndicator color="#2F6BFF" />
+                      ) : isActive ? (
+                        <Text className="text-xs font-bold text-[#2F6BFF]">
+                          פעיל
+                        </Text>
+                      ) : (
+                        <Ionicons
+                          name="swap-horizontal-outline"
+                          size={20}
+                          color="#64748B"
+                        />
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -282,7 +310,10 @@ export default function StaffSettingsScreen() {
           <TouchableOpacity
             onPress={handleLeaveBusiness}
             disabled={isRemoving}
-            className="mt-4 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
+            accessibilityRole="button"
+            accessibilityLabel="עזיבת העסק"
+            accessibilityState={{ disabled: isRemoving }}
+            className="mt-4 min-h-12 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4"
           >
             {isRemoving ? (
               <ActivityIndicator color="white" />

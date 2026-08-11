@@ -20,7 +20,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { flexDirection } from '@/lib/rtl';
+import { alignItems, flexDirection, selfEnd } from '@/lib/rtl';
 
 const TEXT = {
   title: 'פניות שירות לקוחות',
@@ -31,7 +31,6 @@ const TEXT = {
   statusHandled: 'טופל',
   markHandled: 'סמן כטופל',
   markNew: 'החזר לחדש',
-  fullName: 'שם',
   email: 'אימייל',
   phone: 'טלפון',
   sentAt: 'נשלח ב-',
@@ -118,6 +117,14 @@ export default function AdminSupportInboxScreen() {
             return (
               <View key={request._id} style={styles.requestCard}>
                 <View style={styles.requestHeader}>
+                  <View style={styles.requestIdentity}>
+                    <Text style={styles.requestName}>
+                      {request.name || TEXT.unknown}
+                    </Text>
+                    <Text style={styles.requestTimestamp}>
+                      {TEXT.sentAt} {formatTimestamp(request.createdAt)}
+                    </Text>
+                  </View>
                   <View
                     style={[
                       styles.statusChip,
@@ -137,16 +144,9 @@ export default function AdminSupportInboxScreen() {
                       {isHandled ? TEXT.statusHandled : TEXT.statusNew}
                     </Text>
                   </View>
-
-                  <Text style={styles.requestTimestamp}>
-                    {TEXT.sentAt} {formatTimestamp(request.createdAt)}
-                  </Text>
                 </View>
 
                 <View style={styles.detailList}>
-                  <Text style={styles.detailLine}>
-                    {TEXT.fullName}: {request.name || TEXT.unknown}
-                  </Text>
                   <Text style={styles.detailLine}>
                     {TEXT.email}: {request.email || TEXT.unknown}
                   </Text>
@@ -162,6 +162,11 @@ export default function AdminSupportInboxScreen() {
                     handleToggleStatus(request._id, request.status)
                   }
                   disabled={isUpdating}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isHandled ? TEXT.markNew : TEXT.markHandled
+                  }
+                  accessibilityState={{ disabled: isUpdating }}
                   style={({ pressed }) => [
                     styles.actionButton,
                     pressed ? styles.pressed : null,
@@ -188,23 +193,16 @@ export default function AdminSupportInboxScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F3F3F1' },
   scrollContent: {
+    width: '100%',
+    maxWidth: 880,
+    alignSelf: 'center',
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 12,
   },
   pressed: { opacity: 0.88 },
 
   headerRow: {
     width: '100%',
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   pageTitle: {
     fontSize: 24,
@@ -247,12 +245,12 @@ const styles = StyleSheet.create({
   },
 
   requestCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
     padding: 14,
-    gap: 12,
+    gap: 10,
   },
   requestHeader: {
     flexDirection: flexDirection.row,
@@ -261,12 +259,26 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   requestTimestamp: {
-    flex: 1,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
     color: '#6B7280',
     textAlign: 'right',
+  },
+  requestIdentity: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: alignItems.start,
+    gap: 2,
+  },
+  requestName: {
+    width: '100%',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '900',
+    color: '#18181B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   statusChip: {
     borderRadius: 999,
@@ -309,6 +321,8 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     minHeight: 44,
+    minWidth: 140,
+    alignSelf: selfEnd,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#D1D5DB',

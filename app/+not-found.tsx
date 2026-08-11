@@ -23,10 +23,12 @@ export default function NotFoundScreen() {
           onPress={() => safeBack('/(auth)/sign-up')}
           accessibilityRole="button"
           accessibilityLabel={TEXT.action}
+          style={({ pressed }) => [
+            styles.button,
+            pressed ? styles.buttonPressed : null,
+          ]}
         >
-          <View style={styles.button}>
-            <Text style={styles.buttonText}>{TEXT.action}</Text>
-          </View>
+          <Text style={styles.buttonText}>{TEXT.action}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -40,6 +42,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
     gap: 14,
@@ -61,10 +66,15 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
+    minHeight: 48,
     backgroundColor: '#2563eb',
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonPressed: {
+    opacity: 0.9,
   },
   buttonText: {
     color: '#ffffff',

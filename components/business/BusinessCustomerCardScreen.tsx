@@ -460,36 +460,55 @@ export default function BusinessCustomerCardScreen() {
               </Text>
             </View>
 
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>ביקור אחרון</Text>
-                <Text style={styles.statValue}>
-                  {formatLastVisit(card.summary.lastVisitDaysAgo)}
-                </Text>
+            {isStaffRoute ? (
+              <View style={styles.staffQuickFacts}>
+                <View style={styles.staffQuickFact}>
+                  <Text style={styles.statLabel}>ביקור אחרון</Text>
+                  <Text style={styles.statValue}>
+                    {formatLastVisit(card.summary.lastVisitDaysAgo)}
+                  </Text>
+                </View>
+                <View style={styles.staffQuickFact}>
+                  <Text style={styles.statLabel}>מוכנות למימוש</Text>
+                  <Text style={styles.statValue}>
+                    {card.summary.redeemableProgramsCount}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>ניקובים</Text>
-                <Text style={styles.statValue}>
-                  {card.summary.totalStampsAdded}
-                </Text>
+            ) : (
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>ביקור אחרון</Text>
+                  <Text style={styles.statValue}>
+                    {formatLastVisit(card.summary.lastVisitDaysAgo)}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>ניקובים</Text>
+                  <Text style={styles.statValue}>
+                    {card.summary.totalStampsAdded}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>כרטיסיות פעילות</Text>
+                  <Text style={styles.statValue}>
+                    {card.summary.activeProgramsCount}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>מוכנות למימוש</Text>
+                  <Text style={styles.statValue}>
+                    {card.summary.redeemableProgramsCount}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>כרטיסיות פעילות</Text>
-                <Text style={styles.statValue}>
-                  {card.summary.activeProgramsCount}
-                </Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>מוכנות למימוש</Text>
-                <Text style={styles.statValue}>
-                  {card.summary.redeemableProgramsCount}
-                </Text>
-              </View>
-            </View>
+            )}
 
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>הפניות והטבות לקוח</Text>
-              {referralSummary ? (
+              <Text style={styles.sectionTitle}>
+                {isStaffRoute ? 'הטבות הפניה' : 'הפניות והטבות לקוח'}
+              </Text>
+              {!isStaffRoute && referralSummary ? (
                 <View style={styles.referralSummaryCard}>
                   <View style={styles.referralSummaryRow}>
                     <Text style={styles.referralSummaryLabel}>הצטרף דרך:</Text>
@@ -522,15 +541,15 @@ export default function BusinessCustomerCardScreen() {
                     </Text>
                   </View>
                 </View>
-              ) : (
+              ) : !isStaffRoute ? (
                 <Text style={styles.referralEmptyText}>
                   הלקוח לא מסומן כמצטרף דרך הפניה.
                 </Text>
-              )}
+              ) : null}
 
               <View style={styles.referralBenefitsList}>
                 <Text style={styles.referralBenefitsTitle}>
-                  הטבות BENEFIT זמינות
+                  הטבות זמינות
                 </Text>
                 {referralBenefits.length === 0 ? (
                   <Text style={styles.referralEmptyText}>
@@ -560,6 +579,8 @@ export default function BusinessCustomerCardScreen() {
                           disabled={
                             isSubmitting || isRedeemingReferralRewardId !== null
                           }
+                          accessibilityRole="button"
+                          accessibilityLabel={`מימוש ${benefit.benefitTitle}`}
                           style={({ pressed }) => [
                             styles.referralRedeemButton,
                             pressed ? styles.referralRedeemButtonPressed : null,
@@ -655,6 +676,8 @@ export default function BusinessCustomerCardScreen() {
                               onPress={() =>
                                 openAdjustmentDialog(item.id, item.detail)
                               }
+                              accessibilityRole="button"
+                              accessibilityLabel={`ביצוע תיקון עבור ${item.detail}`}
                               style={({ pressed }) => [
                                 styles.adjustmentButton,
                                 pressed ? styles.adjustmentButtonPressed : null,
@@ -700,6 +723,8 @@ export default function BusinessCustomerCardScreen() {
                   <Pressable
                     key={option.code}
                     onPress={() => setReasonCode(option.code)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
                     style={({ pressed }) => [
                       styles.reasonOption,
                       selected ? styles.reasonOptionSelected : null,
@@ -736,6 +761,8 @@ export default function BusinessCustomerCardScreen() {
               <Pressable
                 onPress={closeAdjustmentDialog}
                 disabled={isSubmitting}
+                accessibilityRole="button"
+                accessibilityLabel="ביטול התיקון"
                 style={({ pressed }) => [
                   styles.modalCancelButton,
                   pressed ? styles.modalPressed : null,
@@ -746,6 +773,8 @@ export default function BusinessCustomerCardScreen() {
               <Pressable
                 onPress={submitManualAdjustment}
                 disabled={isSubmitting}
+                accessibilityRole="button"
+                accessibilityLabel="אישור התיקון"
                 style={({ pressed }) => [
                   styles.modalConfirmButton,
                   pressed ? styles.modalPressed : null,
@@ -911,6 +940,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  staffQuickFacts: {
+    flexDirection: flexDirection.row,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#DCE6FB',
+    paddingVertical: 10,
+  },
+  staffQuickFact: {
+    flex: 1,
+    alignItems: alignItems.start,
+    gap: 3,
+  },
   statCard: {
     width: '48%',
     borderRadius: 18,
@@ -1017,12 +1058,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   referralRedeemButton: {
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#16A34A',
     backgroundColor: '#DCFCE7',
     paddingHorizontal: 12,
     paddingVertical: 7,
+    justifyContent: 'center',
   },
   referralRedeemButtonPressed: {
     opacity: 0.85,
@@ -1112,6 +1155,7 @@ const styles = StyleSheet.create({
   },
   adjustmentButton: {
     marginTop: 2,
+    minHeight: 44,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1119,6 +1163,7 @@ const styles = StyleSheet.create({
     borderColor: '#C7DBFF',
     backgroundColor: '#EEF4FF',
     alignSelf: selfStart,
+    justifyContent: 'center',
   },
   adjustmentButtonPressed: {
     opacity: 0.9,
@@ -1142,6 +1187,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalCard: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     borderRadius: 18,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -1174,12 +1222,14 @@ const styles = StyleSheet.create({
     justifyContent: justifyContent.start,
   },
   reasonOption: {
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D5E3FF',
     backgroundColor: '#F8FAFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
+    justifyContent: 'center',
   },
   reasonOptionSelected: {
     borderColor: '#1F57DC',
@@ -1218,6 +1268,7 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     flex: 1,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -1232,6 +1283,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     flex: 1,
+    minHeight: 44,
     borderRadius: 10,
     backgroundColor: '#2F6BFF',
     paddingVertical: 10,

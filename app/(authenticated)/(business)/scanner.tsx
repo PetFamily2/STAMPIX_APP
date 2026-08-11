@@ -7,7 +7,7 @@ import {
   useNavigation,
 } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -357,6 +357,8 @@ function generateScannerDeviceId() {
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
+  const isStaffRoute = (segments as string[]).includes('(staff)');
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -393,7 +395,10 @@ export default function ScannerScreen() {
   const shouldAutoAlignProgramCarouselRef = useRef(true);
   const lastProgramCarouselLayoutKeyRef = useRef('');
   const { width: windowWidth } = useWindowDimensions();
-  const scannerContentWidth = Math.min(Math.max(windowWidth - 40, 240), 920);
+  const scannerContentWidth = Math.min(
+    Math.max(windowWidth - 40, 240),
+    isStaffRoute ? 720 : 920
+  );
   const [programSliderMeasuredWidth, setProgramSliderMeasuredWidth] =
     useState(0);
   const programSliderViewportWidth = useMemo(() => {
@@ -664,9 +669,12 @@ export default function ScannerScreen() {
       requiredPlan: 'starter' | 'pro' | 'premium' | null,
       reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
     ) => {
+      if (isStaffRoute) {
+        return;
+      }
       openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
     },
-    [router]
+    [isStaffRoute, router]
   );
 
   const resetScanner = useCallback(() => {
@@ -1357,12 +1365,19 @@ export default function ScannerScreen() {
           <View style={styles.header}>
             <BusinessScreenHeader
               title={SCANNER_HEADER_TITLE}
+              subtitle={isStaffRoute ? selectedBusiness?.name : undefined}
               style={styles.scannerHeaderCompact}
               contentStyle={styles.scannerHeaderContentCompact}
             />
           </View>
         </StickyScrollHeader>
 
+        <View
+          style={[
+            styles.operationalFrame,
+            isStaffRoute ? styles.staffOperationalFrame : null,
+          ]}
+        >
         <View style={[styles.carouselWrap, { width: scannerContentWidth }]}>
           {programs.length === 0 ? (
             <View style={styles.emptyProgramsCard}>
@@ -1370,19 +1385,27 @@ export default function ScannerScreen() {
                 אין תוכנית פעילה לסריקה
               </Text>
               <Text style={styles.emptyProgramsSubtitle}>
-                כדי להתחיל, הפעילו לפחות תוכנית נאמנות אחת.
+                {isStaffRoute
+                  ? 'יש לפנות למנהל העסק כדי להפעיל כרטיסייה לסריקה.'
+                  : 'כדי להתחיל, הפעילו לפחות תוכנית נאמנות אחת.'}
               </Text>
-              <Pressable
-                onPress={() => router.push('/(authenticated)/(business)/cards')}
-                style={({ pressed }) => [
-                  styles.emptyProgramsButton,
-                  pressed ? styles.emptyProgramsButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.emptyProgramsButtonText}>
-                  מעבר לניהול כרטיסים
-                </Text>
-              </Pressable>
+              {!isStaffRoute ? (
+                <Pressable
+                  onPress={() =>
+                    router.push('/(authenticated)/(business)/cards')
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="מעבר לניהול כרטיסיות"
+                  style={({ pressed }) => [
+                    styles.emptyProgramsButton,
+                    pressed ? styles.emptyProgramsButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.emptyProgramsButtonText}>
+                    מעבר לניהול כרטיסיות
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <>
@@ -1513,7 +1536,9 @@ export default function ScannerScreen() {
             onScan={handleScan}
             resetKey={scannerResetKey}
             showStatus={false}
-            cameraMinHeight={windowWidth >= 768 ? 400 : 240}
+            cameraMinHeight={
+              windowWidth >= 768 ? (isStaffRoute ? 360 : 400) : 240
+            }
             isBusy={
               isBusy ||
               !canScan ||
@@ -1580,6 +1605,8 @@ export default function ScannerScreen() {
               <Pressable
                 onPress={handleRetryCommit}
                 disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="ניסיון חוזר של הפעולה"
                 style={({ pressed }) => [
                   styles.retryButton,
                   pressed ? styles.retryButtonPressed : null,
@@ -1677,6 +1704,8 @@ export default function ScannerScreen() {
                           void handleRedeemReferralBenefit(benefit.rewardId)
                         }
                         disabled={isBusy || isRedeemingBenefitId !== null}
+                        accessibilityRole="button"
+                        accessibilityLabel={`מימוש ${benefit.benefitTitle}`}
                         style={({ pressed }) => [
                           styles.referralBenefitRedeemButton,
                           pressed
@@ -1697,6 +1726,7 @@ export default function ScannerScreen() {
               : null}
           </View>
         ) : null}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1716,6 +1746,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 20,
     gap: 8,
+  },
+  operationalFrame: {
+    width: '100%',
+    gap: 8,
+  },
+  staffOperationalFrame: {
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   header: {
     gap: 2,
@@ -1856,11 +1894,13 @@ const styles = StyleSheet.create({
   },
   emptyProgramsButton: {
     marginTop: 4,
+    minHeight: 44,
     alignSelf: selfStart,
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    justifyContent: 'center',
   },
   emptyProgramsButtonPressed: {
     opacity: 0.9,
@@ -1955,10 +1995,12 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     alignSelf: selfStart,
+    minHeight: 44,
     backgroundColor: '#2F6BFF',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    justifyContent: 'center',
   },
   retryButtonPressed: {
     opacity: 0.9,
@@ -2081,6 +2123,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   referralBenefitRedeemButton: {
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#16A34A',
