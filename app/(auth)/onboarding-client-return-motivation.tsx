@@ -26,8 +26,8 @@ export default function OnboardingReturnMotivationScreen() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { completeStep, trackContinue, trackEvent } = useOnboardingTracking({
-      screen: 'onboarding_client_return_motivation',
-      role: 'client',
+    screen: 'onboarding_client_return_motivation',
+    role: 'client',
   });
 
   const handleContinue = async () => {
@@ -79,6 +79,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
@@ -103,15 +106,11 @@ const styles = StyleSheet.create({
   },
   note: {
     marginTop: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: '#64748B',
     textAlign: 'right',
     lineHeight: 19,
   },

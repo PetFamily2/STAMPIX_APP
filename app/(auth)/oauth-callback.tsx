@@ -128,6 +128,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,

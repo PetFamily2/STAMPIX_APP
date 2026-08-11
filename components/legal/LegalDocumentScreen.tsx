@@ -287,6 +287,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 32,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   eyebrow: {
     color: '#6B7280',

@@ -139,7 +139,9 @@ export default function OnboardingInterestsScreen() {
         >
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{TEXT.interestSectionTitle}</Text>
+              <Text style={styles.sectionTitle}>
+                {TEXT.interestSectionTitle}
+              </Text>
               <Text style={styles.sectionHelper}>{TEXT.interestHelper}</Text>
             </View>
 
@@ -170,7 +172,9 @@ export default function OnboardingInterestsScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{TEXT.benefitSectionTitle}</Text>
+              <Text style={styles.sectionTitle}>
+                {TEXT.benefitSectionTitle}
+              </Text>
               <Text style={styles.sectionHelper}>{TEXT.benefitHelper}</Text>
             </View>
 
@@ -219,6 +223,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
@@ -247,8 +254,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   section: {
-    marginTop: 28,
-    gap: 12,
+    marginTop: 22,
+    gap: 10,
   },
   sectionHeader: {
     gap: 2,
@@ -267,7 +274,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   optionsContainer: {
-    gap: 12,
+    gap: 8,
   },
   footer: {
     paddingTop: 12,

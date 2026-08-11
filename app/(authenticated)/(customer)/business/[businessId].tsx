@@ -557,6 +557,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
     gap: 14,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   headerRow: {
     alignItems: 'stretch',
@@ -679,10 +682,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   programCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E3E9FF',
+    paddingVertical: 10,
     gap: 8,
   },
   programCardSelected: {

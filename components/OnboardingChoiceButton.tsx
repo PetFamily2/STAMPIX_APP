@@ -72,24 +72,19 @@ export function OnboardingChoiceButton({
 
 const styles = StyleSheet.create({
   option: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    minHeight: 52,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   optionSelected: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
-    shadowColor: '#93C5FD',
   },
   optionUnselected: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E5E7EB',
-    shadowColor: '#9CA3AF',
   },
   optionContent: {
     position: 'relative',
@@ -109,7 +104,7 @@ const styles = StyleSheet.create({
   optionText: {
     width: '100%',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     textAlign: 'center',
     ...rtlCenterText,
   },

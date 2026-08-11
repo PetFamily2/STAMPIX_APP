@@ -224,6 +224,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     gap: 10,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   pressed: { opacity: 0.88 },
 
@@ -255,19 +258,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 14,
     gap: 12,
-    shadowColor: '#111827',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
 
   faqCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D9E2F2',
+    paddingHorizontal: 2,
+    paddingVertical: 12,
     gap: 10,
   },
   faqHeader: {

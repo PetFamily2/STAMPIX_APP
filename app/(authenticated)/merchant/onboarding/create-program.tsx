@@ -61,8 +61,7 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 const CREATE_PROGRAM_COPY = {
   title: 'הכרטיסייה הראשונה שלך',
-  subtitle:
-    'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך.',
+  subtitle: 'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך.',
   continue: 'שמירה והמשך לפרסום',
 };
 
@@ -219,10 +218,7 @@ export default function CreateProgramScreen() {
       });
 
       safePush(
-        withBusinessOnboardingFlow(
-          BUSINESS_ONBOARDING_ROUTES.previewCard,
-          flow
-        )
+        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
       );
     } catch (submitError: unknown) {
       setError(toErrorMessage(submitError, TEXT.errorFallback));
@@ -248,10 +244,7 @@ export default function CreateProgramScreen() {
           leftAccessory={
             <OnboardingProgress
               total={getBusinessOnboardingTotalSteps(flow)}
-              current={getBusinessOnboardingProgressStep(
-                'createProgram',
-                flow
-              )}
+              current={getBusinessOnboardingProgressStep('createProgram', flow)}
             />
           }
           style={styles.header}
@@ -469,6 +462,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 24,
@@ -493,16 +489,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContent: {
-    gap: 12,
+    gap: 18,
     paddingBottom: 16,
   },
   field: {
     gap: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    padding: 12,
+    paddingVertical: 2,
   },
   label: {
     fontSize: 12,

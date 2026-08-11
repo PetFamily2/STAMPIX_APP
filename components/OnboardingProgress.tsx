@@ -46,12 +46,13 @@ export function OnboardingProgress({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginStart: 16,
+    maxWidth: 112,
+    marginStart: 12,
     alignItems: 'stretch',
     justifyContent: 'center',
   },
   track: {
-    height: 14,
+    height: 6,
     width: '100%',
     borderRadius: 999,
     backgroundColor: '#E5E7EB',

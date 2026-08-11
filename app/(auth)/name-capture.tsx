@@ -290,12 +290,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 32,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -332,7 +335,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   form: {
-    marginTop: 32,
+    marginTop: 20,
     gap: 16,
   },
   inputBlock: {

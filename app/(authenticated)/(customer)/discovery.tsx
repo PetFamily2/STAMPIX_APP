@@ -44,8 +44,7 @@ const TEXT = {
   retry: 'נסו שוב',
   savedEmpty: 'עסקים שתצטרפו אליהם יופיעו כאן.',
   emptyTitle: 'לא מצאנו עסקים בטווח הזה',
-  emptySubtitle:
-    'אפשר להגדיל רדיוס או להצטרף דרך QR בבית העסק.',
+  emptySubtitle: 'אפשר להגדיל רדיוס או להצטרף דרך QR בבית העסק.',
   joinWithQrCta: 'הצטרפות עם QR',
   myLocation: 'המיקום שלי',
   addressFallback: 'כתובת לא זמינה',
@@ -738,6 +737,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   headerRow: {
     alignItems: 'stretch',
@@ -916,11 +918,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   businessCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5ECFF',
-    backgroundColor: '#F8FAFF',
-    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DCE6F7',
+    paddingHorizontal: 2,
+    paddingVertical: 14,
   },
   businessHeader: {
     flexDirection: flexDirection.row,
@@ -1027,7 +1028,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     marginTop: 14,
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#D8E4FF',
     backgroundColor: '#FFFFFF',
@@ -1087,7 +1088,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignSelf: 'stretch',
-    borderRadius: 999,
+    borderRadius: 14,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1101,7 +1102,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignSelf: 'stretch',
-    borderRadius: 999,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#2F6BFF',
     paddingHorizontal: 16,

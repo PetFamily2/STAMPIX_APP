@@ -25,7 +25,6 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -35,6 +34,7 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
@@ -644,6 +644,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
     gap: 16,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   stickyTopSection: {
     backgroundColor: '#E9F0FF',
@@ -666,23 +669,14 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    borderRadius: 22,
+    paddingBottom: 4,
   },
   progressCardReady: {
-    backgroundColor: '#F3FFF8',
-    borderColor: '#B6E7CC',
+    backgroundColor: 'transparent',
   },
   progressCardPending: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E3E9FF',
+    backgroundColor: 'transparent',
   },
   redeemPanel: {
     marginTop: 14,
@@ -863,10 +857,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activityItem: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E3E9FA',
-    backgroundColor: '#FAFCFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E3E9FA',
     paddingVertical: 8,
     paddingHorizontal: 10,
     gap: 2,

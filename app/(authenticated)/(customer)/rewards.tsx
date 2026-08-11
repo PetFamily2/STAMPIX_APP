@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ const TEXT = {
     'הטבות ומבצעים יופיעו כאן אחרי שתצטרפו לכרטיסיות ותתקדמו בניקובים.',
   emptyCta: 'מציאת עסק להצטרפות',
   noMessages: 'אין הודעות חדשות כרגע.',
+  messageAction: 'לפרטים',
 };
 
 type CustomerMembershipRecord = {
@@ -175,6 +177,7 @@ export default function RewardsScreen() {
                 key={item.messageId}
                 onPress={() => handleInboxPress(item.destinationHref)}
                 disabled={!item.destinationHref}
+                accessibilityRole={item.destinationHref ? 'button' : undefined}
                 style={({ pressed }) => [
                   styles.messageCard,
                   item.destinationHref ? styles.messageCardWithAction : null,
@@ -191,6 +194,14 @@ export default function RewardsScreen() {
                 </View>
                 <Text style={styles.messageTitle}>{item.title}</Text>
                 <Text style={styles.messageBody}>{item.body}</Text>
+                {item.destinationHref ? (
+                  <View style={styles.messageActionRow}>
+                    <Text style={styles.messageActionText}>
+                      {TEXT.messageAction}
+                    </Text>
+                    <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
+                  </View>
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -207,6 +218,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   headerRow: {
     alignItems: 'stretch',
@@ -297,11 +311,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   readyRewardsSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#D7E8FF',
-    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#C9D8F5',
+    paddingTop: 14,
     gap: 8,
   },
   readyRewardsTitle: {
@@ -319,11 +331,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   readyRewardCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    backgroundColor: '#F8FBFF',
-    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DCE6F7',
+    paddingVertical: 10,
     gap: 6,
   },
   readyRewardHeader: {
@@ -363,18 +373,29 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   messageCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DCE6F7',
+    paddingHorizontal: 2,
+    paddingVertical: 12,
     gap: 8,
   },
   messageCardWithAction: {
-    borderColor: '#D1E2FF',
+    borderBottomColor: '#BFD3FF',
   },
   messageCardPressed: {
     opacity: 0.88,
+  },
+  messageActionRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 4,
+  },
+  messageActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   metaRow: {
     flexDirection: flexDirection.row,

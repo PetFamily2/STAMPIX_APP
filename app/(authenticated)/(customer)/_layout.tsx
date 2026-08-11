@@ -203,14 +203,6 @@ export default function CustomerTabsLayout() {
                       isActive && styles.qrTabBubbleShadowFocused,
                     ]}
                   >
-                    <View
-                      pointerEvents="none"
-                      style={styles.qrTabBubbleDepthOuter}
-                    />
-                    <View
-                      pointerEvents="none"
-                      style={styles.qrTabBubbleDepthInner}
-                    />
                     <View style={styles.qrTabBubble}>
                       <Image
                         source={STAMPAIX_IMAGE_LOGO}
@@ -369,48 +361,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrTabBubbleShadow: {
-    marginTop: -56,
-    width: 92,
-    height: 98,
+    marginTop: -38,
+    width: 68,
+    height: 76,
     alignItems: 'center',
     justifyContent: justifyContent.start,
     alignSelf: 'center',
     shadowColor: '#163A87',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.24,
-    shadowRadius: 22,
-    elevation: 18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 10,
   },
   qrTabBubbleShadowFocused: {
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.3,
-    shadowRadius: 26,
-    elevation: 22,
-  },
-  qrTabBubbleDepthOuter: {
-    position: 'absolute',
-    top: 16,
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: '#204EBD',
-    opacity: 0.2,
-    transform: [{ scaleX: 0.96 }, { scaleY: 0.92 }],
-  },
-  qrTabBubbleDepthInner: {
-    position: 'absolute',
-    top: 9,
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: '#9DB6FF',
-    opacity: 0.28,
-    transform: [{ scaleX: 0.98 }, { scaleY: 0.96 }],
+    shadowOpacity: 0.24,
+    elevation: 12,
   },
   qrTabBubble: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -424,9 +394,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   qrTabLogo: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   qrTabLabel: {
     marginTop: 3,

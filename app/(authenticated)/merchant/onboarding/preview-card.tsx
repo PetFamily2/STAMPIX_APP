@@ -90,8 +90,7 @@ type CardTheme = {
 const PREVIEW_COPY = {
   title: 'בדיקה אחרונה לפני פרסום',
   subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה.',
-  publishNote:
-    'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
+  publishNote: 'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
   referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
   continue: 'פרסום וכניסה לניהול',
 };
@@ -838,6 +837,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
@@ -857,7 +859,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',

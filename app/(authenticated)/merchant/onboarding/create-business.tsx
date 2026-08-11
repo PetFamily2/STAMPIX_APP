@@ -22,7 +22,10 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { isValidSelectedBusinessAddress, type SelectedBusinessAddress } from '@/lib/businessAddressSelection';
+import {
+  isValidSelectedBusinessAddress,
+  type SelectedBusinessAddress,
+} from '@/lib/businessAddressSelection';
 import {
   consumePendingJoin,
   savePendingJoin,
@@ -44,8 +47,7 @@ const TEXT = {
   searchLabel: 'פרטי הכתובת',
   continue: 'יצירת העסק והמשך לכרטיסייה',
   creating: 'יוצרים עסק...',
-  missingBasics:
-    'חסרים פרטי עסק. חזרו לשלב פרטי העסק והשלימו את כל השדות.',
+  missingBasics: 'חסרים פרטי עסק. חזרו לשלב פרטי העסק והשלימו את כל השדות.',
   addressRequired: 'יש להשלים ולאמת עיר, רחוב ומספר בית לפני ההמשך.',
   createError: 'יצירת העסק נכשלה. נסו שוב.',
 };
@@ -237,7 +239,9 @@ export default function CreateBusinessScreen() {
     isValidSelectedBusinessAddress(selectedAddress) &&
     !isSubmitting;
 
-  const handleSelectedAddressChange = (value: SelectedBusinessAddress | null) => {
+  const handleSelectedAddressChange = (
+    value: SelectedBusinessAddress | null
+  ) => {
     setSelectedAddress(value);
     setBusinessOnboardingDraft((prev) => ({
       ...prev,
@@ -325,7 +329,10 @@ export default function CreateBusinessScreen() {
         userId: user?._id,
       });
       safePush(
-        withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.createProgram, flow)
+        withBusinessOnboardingFlow(
+          BUSINESS_ONBOARDING_ROUTES.createProgram,
+          flow
+        )
       );
     } catch {
       setError(TEXT.createError);
@@ -346,7 +353,7 @@ export default function CreateBusinessScreen() {
           style={styles.body}
           contentContainerStyle={styles.bodyContent}
           keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
+          nestedScrollEnabled={true}
         >
           <StickyScrollHeader
             topPadding={0}
@@ -419,6 +426,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
@@ -433,7 +443,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    gap: 18,
+    gap: 16,
     paddingBottom: 16,
   },
   titleContainer: {

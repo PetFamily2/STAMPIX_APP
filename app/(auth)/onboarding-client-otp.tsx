@@ -458,9 +458,15 @@ export default function OnboardingOtpScreen() {
       <View style={styles.content}>
         <StandaloneBackTitleHeader
           title={TEXT.title}
+          subtitle={
+            contactValue
+              ? `שלחנו קוד אל ${contactValue}`
+              : TEXT.noContactSubtitle
+          }
           onBackPress={() => safeBack(backRoute)}
           style={styles.headerRow}
           titleStyle={styles.title}
+          subtitleStyle={styles.subtitle}
         />
 
         <View style={styles.digitsContainer}>
@@ -532,12 +538,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
   },
   headerRow: {
-    marginBottom: 64,
+    marginBottom: 28,
   },
   title: {
     fontSize: 24,
@@ -547,20 +556,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
+    marginTop: 5,
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563eb',
+    color: '#64748B',
     textAlign: 'right',
   },
   digitsContainer: {
-    marginTop: 40,
+    marginTop: 22,
     flexDirection: flexDirection.row,
     direction: 'ltr',
     justifyContent: 'space-between',
+    gap: 6,
   },
   digitInput: {
+    flex: 1,
     height: 48,
-    width: 48,
+    minWidth: 38,
+    maxWidth: 48,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -579,7 +592,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   actionsContainer: {
-    marginTop: 32,
+    marginTop: 24,
     alignItems: 'center',
   },
   resendText: {

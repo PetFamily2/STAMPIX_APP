@@ -33,15 +33,12 @@ const TEXT = {
   findNearbyCta: 'מציאת עסקים בסביבה',
   businessFallback: 'עסק',
   joinedPrograms: 'כרטיסיות שלי',
-  redeemReady: 'מוכנות למימוש',
   openBusiness: 'פתח את העסק',
   pendingInviteTitle: 'יש לך הזמנה ממתינה לצוות',
   pendingInviteAction: 'לצפייה ואישור',
 };
 
 const REFERRALS_TITLE = 'הזמנות חברים';
-const REFERRALS_SUBTITLE =
-  'אחרי שתצטרפו לכרטיסיות תוכלו להזמין חברים ולעקוב כאן אחרי מתנות.';
 const REFERRALS_OPEN = 'למסך ההזמנות';
 
 type WalletBusiness = {
@@ -122,10 +119,7 @@ export default function WalletScreen() {
           backgroundColor="#E9F0FF"
         >
           <View style={styles.headerRow}>
-            <BusinessScreenHeader
-              title={TEXT.title}
-              subtitle={TEXT.subtitle}
-            />
+            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
           </View>
         </StickyScrollHeader>
 
@@ -228,6 +222,26 @@ export default function WalletScreen() {
           {!isLoading
             ? businesses.map((business) => {
                 const businessId = String(business.businessId);
+                const aggregateMetaItems: string[] = [];
+
+                if (
+                  business.joinedProgramCount > 1 &&
+                  business.previewRewardName !== null
+                ) {
+                  aggregateMetaItems.push(
+                    `${business.joinedProgramCount} כרטיסיות`
+                  );
+                }
+
+                if (business.redeemableCount === 1) {
+                  aggregateMetaItems.push('הטבה אחת מוכנה למימוש');
+                } else if (business.redeemableCount > 1) {
+                  aggregateMetaItems.push(
+                    `${business.redeemableCount} הטבות מוכנות למימוש`
+                  );
+                }
+
+                const aggregateMeta = aggregateMetaItems.join(' · ');
                 return (
                   <Pressable
                     key={businessId}
@@ -271,14 +285,11 @@ export default function WalletScreen() {
                       showAllStamps={true}
                     />
 
-                    <View style={styles.metaRow}>
-                      <Text style={styles.metaText}>
-                        {TEXT.joinedPrograms}: {business.joinedProgramCount}
+                    {aggregateMeta ? (
+                      <Text style={styles.aggregateMetaText}>
+                        {aggregateMeta}
                       </Text>
-                      <Text style={styles.metaText}>
-                        {TEXT.redeemReady}: {business.redeemableCount}
-                      </Text>
-                    </View>
+                    ) : null}
 
                     <View style={styles.openRow}>
                       <Text style={styles.openText}>{TEXT.openBusiness}</Text>
@@ -297,22 +308,16 @@ export default function WalletScreen() {
             pressed ? styles.pressed : null,
           ]}
         >
-          <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
-          <Text style={styles.referralCardSubtitle}>{REFERRALS_SUBTITLE}</Text>
-          <View style={styles.referralCardStats}>
-            <Text style={styles.referralCardStat}>
-              {'ממתינות'}: {referralDashboard?.pending ?? 0}
-            </Text>
-            <Text style={styles.referralCardStat}>
-              {'הושלמו'}: {referralDashboard?.completed ?? 0}
-            </Text>
-            <Text style={styles.referralCardStat}>
-              {'תגמולים'}: {referralDashboard?.earned ?? 0}
+          <View style={styles.referralCopy}>
+            <Text style={styles.referralCardTitle}>{REFERRALS_TITLE}</Text>
+            <Text style={styles.referralCardSubtitle}>
+              {referralDashboard?.pending ?? 0} ממתינות ·{' '}
+              {referralDashboard?.earned ?? 0} תגמולים
             </Text>
           </View>
           <View style={styles.referralOpenRow}>
             <Text style={styles.referralOpenText}>{REFERRALS_OPEN}</Text>
-            <Ionicons name="chevron-back" size={14} color="#5B6475" />
+            <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
           </View>
         </Pressable>
       </ScrollView>
@@ -327,6 +332,9 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   scrollBackground: {
     backgroundColor: '#E9F0FF',
@@ -384,40 +392,36 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   referralCard: {
-    marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#D7E8FF',
-    padding: 14,
-    gap: 8,
+    marginTop: 20,
+    minHeight: 58,
+    borderTopWidth: 1,
+    borderTopColor: '#C9D8F5',
+    paddingHorizontal: 2,
+    paddingTop: 14,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  referralCopy: {
+    flex: 1,
+    alignItems: alignItems.start,
+    gap: 2,
   },
   referralCardTitle: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#1E3A8A',
     textAlign: 'right',
   },
   referralCardSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#64748B',
     textAlign: 'right',
     lineHeight: 18,
   },
-  referralCardStats: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  referralCardStat: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    textAlign: 'right',
-  },
   referralOpenRow: {
-    marginTop: 4,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,
@@ -426,7 +430,7 @@ const styles = StyleSheet.create({
   referralOpenText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#5B6475',
+    color: '#1D4ED8',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -474,15 +478,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    borderRadius: 22,
+    paddingBottom: 2,
+  },
+  aggregateMetaText: {
+    marginTop: 8,
+    paddingHorizontal: 4,
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   emptyTitle: {
     fontSize: 16,
@@ -537,20 +543,9 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
-  metaRow: {
-    marginTop: 10,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  metaText: {
-    fontSize: 12,
-    color: '#5B6475',
-    textAlign: 'right',
-    fontWeight: '700',
-  },
   openRow: {
-    marginTop: 12,
+    marginTop: 8,
+    paddingHorizontal: 4,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 6,

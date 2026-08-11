@@ -9,10 +9,10 @@ import Svg, { Path } from 'react-native-svg';
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
@@ -309,12 +309,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 32,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 20,
   },
   title: {
     fontSize: 22,
@@ -334,8 +337,8 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   optionsContainer: {
-    marginTop: 40,
-    gap: 16,
+    marginTop: 20,
+    gap: 12,
   },
   optionSelected: {
     flexDirection: flexDirection.row,
@@ -344,16 +347,12 @@ const styles = StyleSheet.create({
     gap: 12,
     ...rtlBaseView,
     backgroundColor: '#eff6ff',
-    borderRadius: 16,
+    minHeight: 52,
+    borderRadius: 14,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderWidth: 1,
     borderColor: '#93c5fd',
-    shadowColor: '#93c5fd',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   optionUnselected: {
     flexDirection: flexDirection.row,
@@ -362,26 +361,22 @@ const styles = StyleSheet.create({
     gap: 12,
     ...rtlBaseView,
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    minHeight: 52,
+    borderRadius: 14,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    shadowColor: '#9ca3af',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   optionTextSelected: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#2563eb',
     textAlign: 'center',
   },
   optionTextUnselected: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
   },
@@ -389,7 +384,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 12,
-    marginVertical: 8,
+    marginVertical: 4,
   },
   dividerLine: {
     flex: 1,
@@ -399,7 +394,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#cbd5f2',
+    color: '#94A3B8',
     textAlign: 'center',
   },
   footer: {
@@ -408,7 +403,7 @@ const styles = StyleSheet.create({
   terms: {
     marginTop: 16,
     fontSize: 10,
-    color: '#cbd5f2',
+    color: '#64748B',
     textAlign: 'center',
     writingDirection: 'rtl',
   },

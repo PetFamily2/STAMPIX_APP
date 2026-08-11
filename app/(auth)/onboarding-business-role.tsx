@@ -64,8 +64,7 @@ const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
 
 const SETUP_COPY = {
   title: 'פרטים אחרונים לפני שמקימים עסק',
-  subtitle:
-    'נשתמש בפרטים האלה לניהול החשבון ולהתאמה ראשונית של ההמלצות.',
+  subtitle: 'נשתמש בפרטים האלה לניהול החשבון ולהתאמה ראשונית של ההמלצות.',
   firstNameLabel: 'שם פרטי',
   firstNamePlaceholder: 'שם פרטי',
   lastNameLabel: 'שם משפחה',
@@ -302,7 +301,9 @@ export default function OnboardingBusinessRoleScreen() {
                   isLeaving || isSubmitting ? styles.closeButtonDisabled : null,
                 ]}
               >
-                <Text style={styles.closeButtonText}>X</Text>
+                <View style={styles.closeButtonVisual}>
+                  <Text style={styles.closeButtonText}>X</Text>
+                </View>
               </Pressable>
               <OnboardingProgress
                 total={BUSINESS_ONBOARDING_TOTAL_STEPS}
@@ -410,6 +411,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
@@ -423,9 +427,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   closeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonVisual: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
@@ -458,7 +468,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   form: {
-    marginTop: 24,
+    marginTop: 20,
     gap: 12,
   },
   inputLabel: {
@@ -482,7 +492,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   ageSection: {
-    marginTop: 24,
+    marginTop: 20,
   },
   ageGrid: {
     flexDirection: flexDirection.row,
@@ -509,11 +519,6 @@ const styles = StyleSheet.create({
   ageChipSelected: {
     backgroundColor: '#2F66E8',
     borderColor: '#2F66E8',
-    shadowColor: '#2F66E8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 3,
   },
   ageChipText: {
     fontSize: 13,

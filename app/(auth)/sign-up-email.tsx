@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { safeBack } from '@/lib/navigation';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 
 const TEXT = {
   title: 'התחברות עם אימייל',
@@ -186,12 +186,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 28,
   },
   header: {
-    marginBottom: 48,
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
@@ -210,7 +213,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   form: {
-    marginTop: 28,
+    marginTop: 20,
     width: '100%',
   },
   label: {
@@ -238,8 +241,9 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   button: {
-    borderRadius: 999,
-    paddingVertical: 16,
+    minHeight: 52,
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   buttonActive: {
@@ -249,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d8dce2',
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     writingDirection: 'rtl',
   },

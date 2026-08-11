@@ -442,7 +442,13 @@ export default function CustomerAccountDetailsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
-  scrollContent: { paddingHorizontal: 20, gap: 10 },
+  scrollContent: {
+    paddingHorizontal: 20,
+    gap: 16,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
   headerRow: { alignItems: 'stretch', marginBottom: 4 },
   pressed: { opacity: 0.88 },
   buttonDisabled: { opacity: 0.6 },

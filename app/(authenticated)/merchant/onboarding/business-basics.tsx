@@ -27,9 +27,9 @@ import {
   BUSINESS_EXAMPLE_CADENCE_OPTIONS,
   BUSINESS_EXAMPLE_DEFAULTS,
   BUSINESS_EXAMPLES,
-  CADENCE_LABELS,
   type BusinessCadenceId,
   type BusinessExampleId,
+  CADENCE_LABELS,
 } from '@/lib/onboarding/businessOnboardingOptions';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { flexDirection } from '@/lib/rtl';
@@ -918,6 +918,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
@@ -930,7 +933,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContent: {
-    gap: 14,
+    gap: 18,
     paddingBottom: 18,
   },
   title: {
@@ -958,15 +961,11 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 9,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 18,
-    padding: 14,
+    paddingVertical: 2,
   },
   label: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#334155',
     textAlign: 'right',
     writingDirection: 'rtl',

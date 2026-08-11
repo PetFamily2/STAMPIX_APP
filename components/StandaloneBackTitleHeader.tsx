@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import {
+  type StyleProp,
   StyleSheet,
   Text,
-  type StyleProp,
   type TextStyle,
   View,
   type ViewStyle,
@@ -72,14 +72,14 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
   },
   titleRow: {
     flex: 1,
     minWidth: 0,
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   titleBlock: {
     flex: 1,
