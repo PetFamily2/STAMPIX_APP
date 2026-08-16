@@ -333,6 +333,22 @@ describe('business closure and restoration lifecycle', () => {
     expect(await listMyClosedBusinesses._handler(other.ctx, {})).toEqual([]);
   });
 
+  test('permanent-deletion businesses are excluded from recovery and cannot restore', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          isActive: false,
+          permanentDeletionStatus: 'in_progress',
+        }),
+      ],
+    });
+
+    expect(await listMyClosedBusinesses._handler(ctx, {})).toEqual([]);
+    await expect(
+      restoreBusinessAccount._handler(ctx, { businessId: 'business_1' })
+    ).rejects.toThrow('BUSINESS_PERMANENT_DELETION_IN_PROGRESS');
+  });
+
   test('canonical owner restores the exact preserved business state', async () => {
     const closedAt = 200;
     const { ctx, state } = createMockCtx({

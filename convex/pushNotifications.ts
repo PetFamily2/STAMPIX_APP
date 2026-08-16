@@ -8,6 +8,54 @@ const EXPO_PUSH_DEFAULT_CHANNEL_ID = 'default';
 
 type PushPlatform = 'ios' | 'android';
 
+export type ExpoPushMessage = {
+  to: string;
+  title: string;
+  body: string;
+  sound: 'default';
+  channelId: string;
+  data?: Record<string, unknown>;
+};
+
+export type ExpoPushTicket = {
+  status?: string;
+  details?: { error?: string };
+};
+
+export async function sendExpoPushMessages(messages: ExpoPushMessage[]) {
+  if (messages.length === 0) {
+    return { ok: true as const, tickets: [] as ExpoPushTicket[] };
+  }
+
+  try {
+    const response = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+    const result = (await response.json().catch(() => null)) as {
+      data?: ExpoPushTicket[];
+    } | null;
+
+    if (!response.ok || !Array.isArray(result?.data)) {
+      return {
+        ok: false as const,
+        errorMessage: `expo_push_http_${response.status}`,
+      };
+    }
+    return { ok: true as const, tickets: result.data };
+  } catch (error) {
+    return {
+      ok: false as const,
+      errorMessage:
+        error instanceof Error ? error.message : 'push_delivery_failed',
+    };
+  }
+}
+
 function normalizePushToken(value: string) {
   const normalized = value.trim();
   if (!normalized) {
@@ -102,7 +150,7 @@ export async function sendPushNotificationToUser(
     };
   }
 
-  const payload = tokens.map((tokenRow: any) => ({
+  const payload: ExpoPushMessage[] = tokens.map((tokenRow: any) => ({
     to: tokenRow.token,
     title: args.title,
     body: args.body,
@@ -114,79 +162,8 @@ export async function sendPushNotificationToUser(
     },
   }));
 
-  try {
-    const response = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = (await response.json().catch(() => null)) as {
-      data?: Array<{ status?: string; details?: { error?: string } }>;
-    } | null;
-
-    if (!response.ok || !Array.isArray(result?.data)) {
-      for (const tokenRow of tokens) {
-        await insertPushLog(ctx, {
-          businessId: args.businessId,
-          campaignId: args.campaignId,
-          toUserId: args.toUserId,
-          token: tokenRow.token,
-          status: 'failed',
-          errorMessage: `expo_push_http_${response.status}`,
-        });
-      }
-
-      return {
-        sent: 0,
-        failed: tokens.length,
-        skipped: 0,
-      };
-    }
-
-    let sent = 0;
-    let failed = 0;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const tokenRow = tokens[index];
-      const ticket = result.data[index];
-      const errorCode = ticket?.details?.error;
-      const status = ticket?.status === 'ok' ? 'sent' : 'failed';
-
-      if (status === 'sent') {
-        sent += 1;
-      } else {
-        failed += 1;
-      }
-
-      await insertPushLog(ctx, {
-        businessId: args.businessId,
-        campaignId: args.campaignId,
-        toUserId: args.toUserId,
-        token: tokenRow.token,
-        status,
-        errorMessage: errorCode,
-      });
-
-      if (errorCode === 'DeviceNotRegistered') {
-        await ctx.db.patch(tokenRow._id, {
-          isActive: false,
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    return {
-      sent,
-      failed,
-      skipped: 0,
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'push_delivery_failed';
-
+  const transportResult = await sendExpoPushMessages(payload);
+  if (!transportResult.ok) {
     for (const tokenRow of tokens) {
       await insertPushLog(ctx, {
         businessId: args.businessId,
@@ -194,16 +171,48 @@ export async function sendPushNotificationToUser(
         toUserId: args.toUserId,
         token: tokenRow.token,
         status: 'failed',
-        errorMessage: message,
+        errorMessage: transportResult.errorMessage,
       });
     }
-
     return {
       sent: 0,
       failed: tokens.length,
       skipped: 0,
     };
   }
+
+  let sent = 0;
+  let failed = 0;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const tokenRow = tokens[index];
+    const ticket = transportResult.tickets[index];
+    const errorCode = ticket?.details?.error;
+    const status = ticket?.status === 'ok' ? 'sent' : 'failed';
+
+    if (status === 'sent') {
+      sent += 1;
+    } else {
+      failed += 1;
+    }
+
+    await insertPushLog(ctx, {
+      businessId: args.businessId,
+      campaignId: args.campaignId,
+      toUserId: args.toUserId,
+      token: tokenRow.token,
+      status,
+      errorMessage: errorCode,
+    });
+
+    if (errorCode === 'DeviceNotRegistered') {
+      await ctx.db.patch(tokenRow._id, {
+        isActive: false,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  return { sent, failed, skipped: 0 };
 }
 
 export const registerPushToken = mutation({

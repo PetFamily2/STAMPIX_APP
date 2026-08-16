@@ -3,6 +3,7 @@ import { cronJobs } from 'convex/server';
 import { internal } from './_generated/api';
 
 const crons = cronJobs();
+const internalDeletionApi = (internal as any).businessDeletion;
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -38,6 +39,12 @@ crons.hourly(
   'business referral credit sweep hourly',
   { minuteUTC: 15 },
   internal.referrals.processDueBusinessReferralCreditsInternal
+);
+
+crons.daily(
+  'permanent deletion audit and receipt retention cleanup daily',
+  { hourUTC: 2, minuteUTC: 10 },
+  internalDeletionApi.purgePermanentDeletionRetentionInternal
 );
 
 export default crons;

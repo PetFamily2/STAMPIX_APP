@@ -71,6 +71,10 @@ class FakeDb {
     return null;
   }
 
+  normalizeId(table, id) {
+    return (this.tables[table] ?? []).some((doc) => doc._id === id) ? id : null;
+  }
+
   async patch(id, updates) {
     for (const docs of Object.values(this.tables)) {
       const doc = docs.find((item) => item._id === id);
@@ -276,6 +280,21 @@ describe('deleteMyAccountHardImpl', () => {
       ],
       authVerifiers: [{ _id: 'verifier_customer', sessionId: 'sess_customer' }],
       emailOtps: [{ _id: 'otp_customer', email: 'customer@example.com' }],
+      businessDeletionJobs: [
+        {
+          _id: 'completed_deletion_job',
+          businessId: 'b_already_deleted',
+          requestedByUserId: 'u_customer',
+          status: 'completed',
+        },
+      ],
+      businessDeletionRecipients: [
+        {
+          _id: 'completed_deletion_recipient',
+          jobId: 'completed_deletion_job',
+          userId: 'u_customer',
+        },
+      ],
     });
 
     const result = await deleteMyAccountHardImpl(ctx);
@@ -363,6 +382,8 @@ describe('deleteMyAccountHardImpl', () => {
     expect(ctx.db.rows('authVerificationCodes')).toEqual([]);
     expect(ctx.db.rows('authVerifiers')).toEqual([]);
     expect(ctx.db.rows('emailOtps')).toEqual([]);
+    expect(ctx.db.rows('businessDeletionJobs')).toEqual([]);
+    expect(ctx.db.rows('businessDeletionRecipients')).toEqual([]);
   });
 
   test('blocks deletion for the sole active business owner without deleting data', async () => {
@@ -389,6 +410,14 @@ describe('deleteMyAccountHardImpl', () => {
           { _id: 'm_owner', userId: 'u_owner', businessId: 'b_owned' },
         ],
         authAccounts: [{ _id: 'acct_owner', userId: 'u_owner' }],
+        businessDeletionJobs: [
+          {
+            _id: 'incomplete_deletion_job',
+            businessId: 'b_owned',
+            requestedByUserId: 'u_owner',
+            status: 'running',
+          },
+        ],
       },
       'u_owner'
     );
@@ -413,6 +442,7 @@ describe('deleteMyAccountHardImpl', () => {
     expect(ctx.db.rows('authAccounts').map((doc) => doc._id)).toEqual([
       'acct_owner',
     ]);
+    expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(1);
     expect(ctx.db.deleted).toEqual([]);
   });
 

@@ -10,8 +10,13 @@ import {
 } from './_generated/server';
 import { computeBusinessProfileCompletion } from './business';
 import {
+  cleanupCompletedDeletionReferencesForUser,
+  getIncompleteDeletionBusinessIdsForUser,
+} from './businessDeletion';
+import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
+  requireActiveBusiness,
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
@@ -146,6 +151,9 @@ const DELETE_BATCH_SIZE = 100;
 const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
+  'businessDeletionRecipients',
+  'businessDeletionAssets',
+  'businessDeletionJobs',
   'supportRequests',
   'referralAdminAuditLog',
   'businessReferrals',
@@ -909,6 +917,7 @@ export const setActiveBusiness = mutation({
     if (getBusinessStaffStatus(staffRecord) !== 'active') {
       throw new Error('NOT_AUTHORIZED');
     }
+    await requireActiveBusiness(ctx, businessId);
 
     await ctx.db.patch(user._id, {
       activeBusinessId: businessId,
@@ -1185,13 +1194,18 @@ export async function deleteMyAccountHardImpl(
 
   const { blockedBusinessIds, ownerReassignments } =
     await assertCanDeleteUserWithoutOrphaningSoleOwnedBusiness(ctx, user._id);
-  if (blockedBusinessIds.length > 0) {
+  const incompleteDeletionBusinessIds =
+    await getIncompleteDeletionBusinessIdsForUser(ctx, user._id);
+  const allBlockedBusinessIds = Array.from(
+    new Set([...blockedBusinessIds, ...incompleteDeletionBusinessIds])
+  );
+  if (allBlockedBusinessIds.length > 0) {
     return {
       success: false,
       errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
       message:
         'לא ניתן למחוק את החשבון כל עוד קיים עסק בבעלותך ללא בעלים חלופי. ההגבלה חלה גם על עסק סגור, משום שנתוני העסק נשמרים לצורך שחזור.',
-      blockedBusinessIds,
+      blockedBusinessIds: allBlockedBusinessIds,
     };
   }
 
@@ -1201,6 +1215,8 @@ export async function deleteMyAccountHardImpl(
       updatedAt: Date.now(),
     });
   }
+
+  await cleanupCompletedDeletionReferencesForUser(ctx, user._id);
 
   const deleted = emptyDeleteStats();
 

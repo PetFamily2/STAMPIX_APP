@@ -59,6 +59,20 @@ export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
   return user;
 }
 
+export function isBusinessPermanentDeletionInProgress(business: unknown) {
+  if (typeof business !== 'object' || business === null) {
+    return false;
+  }
+  const status = (business as { permanentDeletionStatus?: unknown })
+    .permanentDeletionStatus;
+  return (
+    status === 'in_progress' ||
+    status === 'queued' ||
+    status === 'running' ||
+    status === 'failed'
+  );
+}
+
 export async function requireActiveBusiness(
   ctx: any,
   businessId: Id<'businesses'>
@@ -66,6 +80,9 @@ export async function requireActiveBusiness(
   const business = await ctx.db.get(businessId);
   if (!business) {
     throw new Error('BUSINESS_NOT_FOUND');
+  }
+  if (isBusinessPermanentDeletionInProgress(business)) {
+    throw new Error('BUSINESS_PERMANENT_DELETION_IN_PROGRESS');
   }
   if (business.isActive !== true) {
     throw new Error('BUSINESS_CLOSED');

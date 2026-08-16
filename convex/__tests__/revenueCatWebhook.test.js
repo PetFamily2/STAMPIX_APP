@@ -335,9 +335,17 @@ describe('RevenueCat server-authoritative business subscription state', () => {
     expect(ctx.rows('revenueCatWebhookEvents')).toHaveLength(1);
     expect(ctx.rows('revenueCatWebhookEvents')[0]).toMatchObject({
       eventId: 'evt_deleted_business',
-      businessId: BUSINESS_ID,
+      appUserId: 'redacted',
+      rawEvent: { redacted: true },
       status: 'ignored',
     });
+    expect(ctx.rows('revenueCatWebhookEvents')[0].businessId).toBeUndefined();
+    expect(typeof ctx.rows('revenueCatWebhookEvents')[0].redactedAt).toBe(
+      'number'
+    );
+    expect(ctx.rows('revenueCatWebhookEvents')[0].purgeAfter).toBeGreaterThan(
+      ctx.rows('revenueCatWebhookEvents')[0].redactedAt
+    );
     expect(ctx.rows('businesses')).toHaveLength(0);
     expect(ctx.rows('subscriptions')).toHaveLength(0);
   });

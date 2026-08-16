@@ -12,6 +12,18 @@ import {
 } from './guards';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
 
+function addMonthsUtc(timestamp: number, months: number) {
+  const date = new Date(timestamp);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date.getTime();
+}
+
 export type BusinessPlan = 'starter' | 'pro' | 'premium';
 export type LegacyBusinessPlan = 'starter' | 'pro' | 'unlimited' | 'free';
 export type BusinessSubscriptionStatus =
@@ -1438,14 +1450,15 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       await ctx.db.insert('revenueCatWebhookEvents', {
         eventId: args.eventId,
         eventType: args.eventType,
-        appUserId: args.appUserId,
-        businessId,
+        appUserId: 'redacted',
         productId: args.productId,
         entitlementIds: args.entitlementIds,
         status: 'ignored',
         receivedAt: now,
         processedAt: now,
-        rawEvent: args.rawEvent,
+        rawEvent: { redacted: true },
+        redactedAt: now,
+        purgeAfter: addMonthsUtc(now, 12),
       });
       return {
         ok: true,

@@ -5,6 +5,7 @@ import { internalMutation, mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
   getBusinessStaffStatus,
+  isBusinessPermanentDeletionInProgress,
   requireActorCanInviteRole,
   requireActorCanManageTargetStaff,
   requireActorCanManageTeamForBusiness,
@@ -724,6 +725,9 @@ function isCurrentBusinessClosureOccurrence(
   if (!business) {
     return false;
   }
+  if (isBusinessPermanentDeletionInProgress(business)) {
+    return false;
+  }
   return Number(business.lastClosedAt ?? business.closedAt ?? 0) === closedAt;
 }
 
@@ -1094,7 +1098,11 @@ export const listMyClosedBusinesses = query({
       .collect();
 
     return ownedBusinesses
-      .filter((business: Doc<'businesses'>) => business.isActive === false)
+      .filter(
+        (business: Doc<'businesses'>) =>
+          business.isActive === false &&
+          !isBusinessPermanentDeletionInProgress(business)
+      )
       .map((business: Doc<'businesses'>) => ({
         businessId: business._id,
         name: business.name,
@@ -1118,6 +1126,9 @@ export const restoreBusinessAccount = mutation({
     }
     if (String(business.ownerUserId) !== String(user._id)) {
       throw new Error('NOT_AUTHORIZED');
+    }
+    if (isBusinessPermanentDeletionInProgress(business)) {
+      throw new Error('BUSINESS_PERMANENT_DELETION_IN_PROGRESS');
     }
     if (business.isActive !== false) {
       throw new Error('BUSINESS_NOT_CLOSED');
