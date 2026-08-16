@@ -82,6 +82,7 @@ function createMockCtx({
   };
   let businessInsertCount = 0;
   let staffInsertCount = 0;
+  const scheduled = [];
 
   const ctx = {
     auth: {
@@ -156,9 +157,15 @@ function createMockCtx({
       }),
     },
     runMutation: async () => null,
+    scheduler: {
+      runAfter: async (delayMs, functionReference, args) => {
+        scheduled.push({ delayMs, functionReference, args });
+        return `_scheduled_${scheduled.length}`;
+      },
+    },
   };
 
-  return { ctx, state };
+  return { ctx, state, scheduled };
 }
 
 describe('business closure and restoration lifecycle', () => {
@@ -203,7 +210,7 @@ describe('business closure and restoration lifecycle', () => {
   };
 
   test('canonical owner closes the business without changing preserved state', async () => {
-    const { ctx, state } = createMockCtx({
+    const { ctx, state, scheduled } = createMockCtx({
       users: [
         buildUser({
           activeBusinessId: 'business_1',
@@ -247,6 +254,20 @@ describe('business closure and restoration lifecycle', () => {
     );
     expect(Array.from(state.events.values())).toEqual(preserved.events);
     expect(Array.from(state.campaigns.values())).toEqual(preserved.campaigns);
+    expect(scheduled).toHaveLength(2);
+    expect(scheduled.map((job) => job.delayMs)).toEqual([0, 0]);
+    expect(scheduled.map((job) => job.args)).toEqual([
+      {
+        businessId: 'business_1',
+        closedAt: result.closedAt,
+        cursor: null,
+      },
+      {
+        businessId: 'business_1',
+        closedAt: result.closedAt,
+        cursor: null,
+      },
+    ]);
   });
 
   test.each([

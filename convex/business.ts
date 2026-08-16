@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
   getBusinessStaffStatus,
@@ -21,6 +21,7 @@ import {
   generateJoinCode,
   generatePublicId,
 } from './lib/ids';
+import { sendPushNotificationToUser } from './pushNotifications';
 import {
   assertScanTokenSignature,
   getScanTokenIdentity,
@@ -68,6 +69,8 @@ const BUSINESS_SERVICE_TYPE_MAX_COUNT = 6;
 const BUSINESS_SERVICE_TAG_MAX_COUNT = 8;
 const BUSINESS_SERVICE_TAG_MIN_LENGTH = 2;
 const BUSINESS_SERVICE_TAG_MAX_LENGTH = 24;
+export const BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE = 50;
+const internalBusinessApi = (internal as any).business;
 
 const BUSINESS_SERVICE_TYPE_LITERALS = [
   'food_drink',
@@ -694,6 +697,318 @@ export async function createBusinessForOwner(
   return { businessId, businessPublicId, joinCode };
 }
 
+type BusinessClosureNotificationAudience = 'customer' | 'staff';
+
+function getBusinessClosureNotificationCopy(
+  businessName: string,
+  audience: BusinessClosureNotificationAudience
+) {
+  const title = `${businessName} אינו פעיל כרגע ב-StampAix`;
+  if (audience === 'customer') {
+    return {
+      title,
+      body: 'כרטיסיות העסק הוסתרו. הניקובים וההיסטוריה שלך נשמרו ויופיעו שוב אם העסק ישוחזר.',
+    };
+  }
+
+  return {
+    title,
+    body: 'הגישה לניהול העסק הופסקה. נתוני העסק נשמרו ויהיו זמינים שוב אם בעל העסק ישחזר אותו.',
+  };
+}
+
+function isCurrentBusinessClosureOccurrence(
+  business: Doc<'businesses'> | null,
+  closedAt: number
+): business is Doc<'businesses'> {
+  if (!business) {
+    return false;
+  }
+  return Number(business.lastClosedAt ?? business.closedAt ?? 0) === closedAt;
+}
+
+async function deliverBusinessClosureNotification(
+  ctx: any,
+  args: {
+    businessId: Id<'businesses'>;
+    businessName: string;
+    closedAt: number;
+    toUserId: Id<'users'>;
+    audience: BusinessClosureNotificationAudience;
+  }
+) {
+  const dedupeKey = `business_closed:${String(args.businessId)}:${args.closedAt}:${args.audience}`;
+  const existing = await ctx.db
+    .query('messageLog')
+    .withIndex('by_toUserId_dedupeKey', (q: any) =>
+      q.eq('toUserId', args.toUserId).eq('dedupeKey', dedupeKey)
+    )
+    .first();
+  if (existing) {
+    return { delivered: false as const, messageId: existing._id };
+  }
+
+  const copy = getBusinessClosureNotificationCopy(
+    args.businessName,
+    args.audience
+  );
+  const createdAt = Date.now();
+  const messageId = await ctx.db.insert('messageLog', {
+    businessId: args.businessId,
+    campaignId: undefined,
+    campaignRunId: undefined,
+    campaignFamily: undefined,
+    opportunityType: undefined,
+    toUserId: args.toUserId,
+    channel: 'in_app',
+    notificationType: 'business_closed',
+    dedupeKey,
+    status: 'sent',
+    deliveryStatus: 'inbox',
+    providerMessageId: undefined,
+    inboxPayload: {
+      title: copy.title,
+      body: copy.body,
+      destinationHref: null,
+      payload: {
+        businessId: String(args.businessId),
+        audience: args.audience,
+        closedAt: args.closedAt,
+      },
+      type: 'business_lifecycle',
+      createdAt,
+    },
+    readAt: undefined,
+    createdAt,
+  });
+
+  await ctx.scheduler.runAfter(
+    0,
+    internalBusinessApi.sendBusinessClosurePushInternal,
+    { messageId }
+  );
+
+  return { delivered: true as const, messageId };
+}
+
+export const sendBusinessClosurePushInternal = internalMutation({
+  args: {
+    messageId: v.id('messageLog'),
+  },
+  handler: async (ctx, { messageId }) => {
+    const message = await ctx.db.get(messageId);
+    if (
+      !message ||
+      message.notificationType !== 'business_closed' ||
+      message.deliveryStatus !== 'inbox'
+    ) {
+      return { status: 'already_processed' as const };
+    }
+
+    const inboxPayload =
+      message.inboxPayload && typeof message.inboxPayload === 'object'
+        ? (message.inboxPayload as Record<string, unknown>)
+        : null;
+    const title =
+      inboxPayload && typeof inboxPayload.title === 'string'
+        ? inboxPayload.title
+        : null;
+    const body =
+      inboxPayload && typeof inboxPayload.body === 'string'
+        ? inboxPayload.body
+        : null;
+    if (!title || !body) {
+      throw new Error('BUSINESS_CLOSURE_NOTIFICATION_PAYLOAD_INVALID');
+    }
+
+    try {
+      await sendPushNotificationToUser(ctx, {
+        businessId: message.businessId,
+        toUserId: message.toUserId,
+        title,
+        body,
+      });
+      await ctx.db.patch(messageId, {
+        deliveryStatus: 'inbox_push_attempted',
+      });
+      return { status: 'attempted' as const };
+    } catch {
+      await ctx.db.patch(messageId, {
+        deliveryStatus: 'inbox_push_failed',
+      });
+      return { status: 'failed' as const };
+    }
+  },
+});
+
+export const deliverBusinessClosureNotificationInternal = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    closedAt: v.number(),
+    toUserId: v.id('users'),
+    audience: v.union(v.literal('customer'), v.literal('staff')),
+  },
+  handler: async (ctx, args) => {
+    const business = await ctx.db.get(args.businessId);
+    if (!isCurrentBusinessClosureOccurrence(business, args.closedAt)) {
+      return { status: 'stale_closure' as const };
+    }
+
+    const result = await deliverBusinessClosureNotification(ctx, {
+      ...args,
+      businessName: business.name,
+    });
+    return {
+      status: result.delivered
+        ? ('delivered' as const)
+        : ('already_delivered' as const),
+      messageId: result.messageId,
+    };
+  },
+});
+
+export const processBusinessClosureCustomerBatchInternal = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    closedAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { businessId, closedAt, cursor }) => {
+    const business = await ctx.db.get(businessId);
+    if (!isCurrentBusinessClosureOccurrence(business, closedAt)) {
+      return {
+        status: 'stale_closure' as const,
+        scheduledRecipientCount: 0,
+      };
+    }
+
+    const page = await ctx.db
+      .query('memberships')
+      .withIndex('by_businessId', (q: any) =>
+        q.eq('businessId', businessId)
+      )
+      .filter((q: any) => q.eq(q.field('isActive'), true))
+      .paginate({
+        cursor,
+        numItems: BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE,
+      });
+
+    const uniqueCustomerIds = new Map<string, Id<'users'>>();
+    for (const membership of page.page) {
+      uniqueCustomerIds.set(String(membership.userId), membership.userId);
+    }
+
+    for (const customerUserId of uniqueCustomerIds.values()) {
+      await ctx.scheduler.runAfter(
+        0,
+        internalBusinessApi.deliverBusinessClosureNotificationInternal,
+        {
+          businessId,
+          closedAt,
+          toUserId: customerUserId,
+          audience: 'customer',
+        }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internalBusinessApi.processBusinessClosureCustomerBatchInternal,
+        {
+          businessId,
+          closedAt,
+          cursor: page.continueCursor,
+        }
+      );
+    }
+
+    return {
+      status: 'processed' as const,
+      scheduledRecipientCount: uniqueCustomerIds.size,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
+export const processBusinessClosureStaffBatchInternal = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    closedAt: v.number(),
+    cursor: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, { businessId, closedAt, cursor }) => {
+    const business = await ctx.db.get(businessId);
+    if (!isCurrentBusinessClosureOccurrence(business, closedAt)) {
+      return {
+        status: 'stale_closure' as const,
+        scheduledRecipientCount: 0,
+      };
+    }
+
+    const page = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId', (q: any) =>
+        q.eq('businessId', businessId)
+      )
+      .paginate({
+        cursor,
+        numItems: BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE,
+      });
+
+    const uniqueStaffUserIds = new Map<string, Id<'users'>>();
+    for (const staffMembership of page.page) {
+      const isEmployeeRole =
+        staffMembership.staffRole === 'manager' ||
+        staffMembership.staffRole === 'staff';
+      if (
+        !isEmployeeRole ||
+        getBusinessStaffStatus(staffMembership) !== 'active' ||
+        String(staffMembership.userId) === String(business.ownerUserId)
+      ) {
+        continue;
+      }
+      uniqueStaffUserIds.set(
+        String(staffMembership.userId),
+        staffMembership.userId
+      );
+    }
+
+    for (const staffUserId of uniqueStaffUserIds.values()) {
+      await ctx.scheduler.runAfter(
+        0,
+        internalBusinessApi.deliverBusinessClosureNotificationInternal,
+        {
+          businessId,
+          closedAt,
+          toUserId: staffUserId,
+          audience: 'staff',
+        }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internalBusinessApi.processBusinessClosureStaffBatchInternal,
+        {
+          businessId,
+          closedAt,
+          cursor: page.continueCursor,
+        }
+      );
+    }
+
+    return {
+      status: 'processed' as const,
+      scheduledRecipientCount: uniqueStaffUserIds.size,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
+  },
+});
+
 export const closeBusinessAccount = mutation({
   args: {
     businessId: v.id('businesses'),
@@ -739,6 +1054,25 @@ export const closeBusinessAccount = mutation({
         updatedAt: now,
       });
     }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internalBusinessApi.processBusinessClosureCustomerBatchInternal,
+      {
+        businessId,
+        closedAt: now,
+        cursor: null,
+      }
+    );
+    await ctx.scheduler.runAfter(
+      0,
+      internalBusinessApi.processBusinessClosureStaffBatchInternal,
+      {
+        businessId,
+        closedAt: now,
+        cursor: null,
+      }
+    );
 
     return {
       businessId,
