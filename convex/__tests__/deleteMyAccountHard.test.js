@@ -416,6 +416,112 @@ describe('deleteMyAccountHardImpl', () => {
     expect(ctx.db.deleted).toEqual([]);
   });
 
+  test('blocks deletion for a closed business without another active owner', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_manager',
+            email: 'manager@example.com',
+            externalId: 'auth|u_manager',
+            isActive: true,
+          },
+          {
+            _id: 'u_staff',
+            email: 'staff@example.com',
+            externalId: 'auth|u_staff',
+            isActive: true,
+          },
+        ],
+        businesses: [
+          {
+            _id: 'b_closed',
+            ownerUserId: 'u_owner',
+            name: 'Closed business',
+            isActive: false,
+            closedAt: 300,
+            lastClosedAt: 300,
+            lastRestoredAt: 200,
+          },
+        ],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_closed',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+          },
+          {
+            _id: 'staff_manager',
+            businessId: 'b_closed',
+            userId: 'u_manager',
+            staffRole: 'manager',
+            status: 'active',
+          },
+          {
+            _id: 'staff_member',
+            businessId: 'b_closed',
+            userId: 'u_staff',
+            staffRole: 'staff',
+            status: 'active',
+          },
+        ],
+        memberships: [
+          { _id: 'm_owner', userId: 'u_owner', businessId: 'b_closed' },
+        ],
+        authAccounts: [{ _id: 'acct_owner', userId: 'u_owner' }],
+      },
+      'u_owner'
+    );
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
+      message:
+        'לא ניתן למחוק את החשבון כל עוד קיים עסק בבעלותך ללא בעלים חלופי. ההגבלה חלה גם על עסק סגור, משום שנתוני העסק נשמרים לצורך שחזור.',
+      blockedBusinessIds: ['b_closed'],
+    });
+    expect(ctx.db.rows('businesses')).toEqual([
+      {
+        _id: 'b_closed',
+        ownerUserId: 'u_owner',
+        name: 'Closed business',
+        isActive: false,
+        closedAt: 300,
+        lastClosedAt: 300,
+        lastRestoredAt: 200,
+      },
+    ]);
+    expect(
+      ctx.db
+        .rows('users')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['u_manager', 'u_owner', 'u_staff']);
+    expect(
+      ctx.db
+        .rows('businessStaff')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['staff_manager', 'staff_member', 'staff_owner']);
+    expect(ctx.db.rows('memberships').map((row) => row._id)).toEqual([
+      'm_owner',
+    ]);
+    expect(ctx.db.rows('authAccounts').map((row) => row._id)).toEqual([
+      'acct_owner',
+    ]);
+    expect(ctx.db.deleted).toEqual([]);
+  });
+
   test('allows an owner to delete their account and deterministically reassigns to another active owner', async () => {
     const ctx = buildCtx(
       {
@@ -582,6 +688,113 @@ describe('deleteMyAccountHardImpl', () => {
         customerId: undefined,
         actorUserId: 'u_customer',
       },
+    ]);
+    expect(ctx.db.rows('authAccounts')).toEqual([]);
+  });
+
+  test('keeps a closed business closed when reassigning it to another active owner', async () => {
+    const ctx = buildCtx(
+      {
+        users: [
+          {
+            _id: 'u_owner',
+            email: 'owner@example.com',
+            externalId: 'auth|u_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_other_owner',
+            email: 'other-owner@example.com',
+            externalId: 'auth|u_other_owner',
+            isActive: true,
+          },
+          {
+            _id: 'u_manager',
+            email: 'manager@example.com',
+            externalId: 'auth|u_manager',
+            isActive: true,
+          },
+        ],
+        businesses: [
+          {
+            _id: 'b_closed',
+            ownerUserId: 'u_owner',
+            name: 'Closed business',
+            isActive: false,
+            closedAt: 500,
+            lastClosedAt: 500,
+            lastRestoredAt: 400,
+          },
+        ],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_closed',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 10,
+          },
+          {
+            _id: 'staff_other_owner',
+            businessId: 'b_closed',
+            userId: 'u_other_owner',
+            staffRole: 'owner',
+            status: 'active',
+            createdAt: 20,
+          },
+          {
+            _id: 'staff_manager',
+            businessId: 'b_closed',
+            userId: 'u_manager',
+            staffRole: 'manager',
+            status: 'active',
+            createdAt: 1,
+          },
+        ],
+        loyaltyPrograms: [{ _id: 'lp_keep', businessId: 'b_closed' }],
+        memberships: [
+          { _id: 'm_owner', userId: 'u_owner', businessId: 'b_closed' },
+          {
+            _id: 'm_other_owner',
+            userId: 'u_other_owner',
+            businessId: 'b_closed',
+          },
+        ],
+        authAccounts: [{ _id: 'acct_owner', userId: 'u_owner' }],
+      },
+      'u_owner'
+    );
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(result.deletedBusinessIds).toEqual([]);
+    expect(ctx.db.rows('businesses')).toHaveLength(1);
+    expect(ctx.db.rows('businesses')[0]).toMatchObject({
+      _id: 'b_closed',
+      ownerUserId: 'u_other_owner',
+      name: 'Closed business',
+      isActive: false,
+      closedAt: 500,
+      lastClosedAt: 500,
+      lastRestoredAt: 400,
+    });
+    expect(ctx.db.rows('users').map((row) => row._id).sort()).toEqual([
+      'u_manager',
+      'u_other_owner',
+    ]);
+    expect(
+      ctx.db
+        .rows('businessStaff')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['staff_manager', 'staff_other_owner']);
+    expect(ctx.db.rows('loyaltyPrograms').map((row) => row._id)).toEqual([
+      'lp_keep',
+    ]);
+    expect(ctx.db.rows('memberships').map((row) => row._id)).toEqual([
+      'm_other_owner',
     ]);
     expect(ctx.db.rows('authAccounts')).toEqual([]);
   });

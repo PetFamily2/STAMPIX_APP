@@ -473,7 +473,7 @@ async function assertCanDeleteUserWithoutOrphaningSoleOwnedBusiness(
 
   for (const businessId of businessIdsToCheck) {
     const business = await ctx.db.get(businessId);
-    if (!business || business.isActive === false) {
+    if (!business) {
       continue;
     }
 
@@ -1190,7 +1190,7 @@ export async function deleteMyAccountHardImpl(
       success: false,
       errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
       message:
-        'Account deletion is blocked because this account is the sole active owner of one or more businesses. Transfer ownership or delete the business through a separate explicit flow first.',
+        'לא ניתן למחוק את החשבון כל עוד קיים עסק בבעלותך ללא בעלים חלופי. ההגבלה חלה גם על עסק סגור, משום שנתוני העסק נשמרים לצורך שחזור.',
       blockedBusinessIds,
     };
   }
