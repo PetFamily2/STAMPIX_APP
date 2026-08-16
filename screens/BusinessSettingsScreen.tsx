@@ -142,6 +142,9 @@ export default function BusinessSettingsScreen() {
   const router = useRouter();
   const { setAppMode } = useAppMode();
   const setActiveMode = useMutation(api.users.setActiveMode);
+  const closeBusinessAccount = useMutation(
+    api.business.closeBusinessAccount
+  );
   const selfRemoveFromBusiness = useMutation(
     api.business.selfRemoveFromBusiness
   );
@@ -168,6 +171,7 @@ export default function BusinessSettingsScreen() {
   const canLeaveBusiness = activeBusiness
     ? activeBusiness.staffRole !== 'owner'
     : false;
+  const canCloseBusiness = activeBusiness?.staffRole === 'owner';
   const addBusinessRoute = getBusinessOnboardingEntryRoute(
     sessionContext?.user.businessOnboardedAt != null
   );
@@ -177,6 +181,7 @@ export default function BusinessSettingsScreen() {
   );
 
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [isClosingBusiness, setIsClosingBusiness] = useState(false);
   const [isLeavingBusiness, setIsLeavingBusiness] = useState(false);
 
   const missingFieldLabels = (
@@ -224,6 +229,43 @@ export default function BusinessSettingsScreen() {
               Alert.alert('שגיאה', 'לא הצלחנו לעזוב את העסק. נסו שוב.');
             } finally {
               setIsLeavingBusiness(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCloseBusiness = () => {
+    if (!activeBusinessId || !canCloseBusiness || isClosingBusiness) {
+      return;
+    }
+
+    Alert.alert(
+      'סגירת העסק?',
+      'העסק יפסיק לפעול ב-StampAix, העובדים יאבדו גישה תפעולית וכרטיסיות העסק יוסתרו מהלקוחות. כל המידע יישמר ויהיה ניתן לשחזר את העסק בהמשך.',
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'סגור את העסק',
+          style: 'destructive',
+          onPress: async () => {
+            if (!activeBusinessId || isClosingBusiness) {
+              return;
+            }
+
+            setIsClosingBusiness(true);
+            try {
+              await closeBusinessAccount({ businessId: activeBusinessId });
+              await setAppMode('customer');
+              router.replace('/(authenticated)/(customer)/wallet');
+            } catch {
+              Alert.alert(
+                'שגיאה',
+                'לא הצלחנו לסגור את העסק. ודאו שיש לכם הרשאת בעלים ונסו שוב.'
+              );
+            } finally {
+              setIsClosingBusiness(false);
             }
           },
         },
@@ -535,6 +577,39 @@ export default function BusinessSettingsScreen() {
               ) : (
                 <Text className="text-center text-sm font-bold text-white">
                   עזוב את העסק
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : canCloseBusiness ? (
+          <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
+            <Text
+              className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
+            >
+              אזור רגיש
+            </Text>
+            <Text
+              className={`mt-2 text-base font-extrabold text-[#7F1D1D] ${tw.textStart}`}
+            >
+              סגירת העסק ב-StampAix
+            </Text>
+            <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
+              פעילות העסק תופסק והכרטיסיות יוסתרו מהלקוחות. כל המידע,
+              הלקוחות, הניקובים, ההטבות וההיסטוריה יישמרו ויהיה ניתן לשחזר
+              את העסק בהמשך.
+            </Text>
+            <TouchableOpacity
+              onPress={handleCloseBusiness}
+              disabled={isClosingBusiness}
+              accessibilityRole="button"
+              accessibilityLabel="סגירת העסק"
+              className="mt-4 min-h-11 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
+            >
+              {isClosingBusiness ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-center text-sm font-bold text-white">
+                  סגירת העסק
                 </Text>
               )}
             </TouchableOpacity>

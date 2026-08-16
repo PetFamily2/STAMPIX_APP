@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -35,6 +35,9 @@ const TEXT = {
   switchToCustomerTitle: 'חזרה למצב לקוח',
   switchToCustomerSubtitle: 'מעבר מהיר לארנק ולהטבות האישיות שלכם',
   switchToCustomerButton: 'מעבר ללקוח',
+  closedBusinessTitle: 'יש לך עסק סגור ב-StampAix',
+  closedBusinessSubtitle: 'המידע של העסק נשמר וניתן לשחזר אותו בכל זמן.',
+  restoreBusinessButton: 'שחזור עסק',
   switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
   errorTitle: 'שגיאה',
 };
@@ -111,26 +114,47 @@ export default function BusinessModeCtaCard({
     !hasManageableBusiness || targetBusinessRequiresOnboarding;
   const showExistingBusinessCta = hasNamedManagedBusiness;
   const isBusinessMode = appMode === 'business';
+  const shouldCheckForClosedBusinesses =
+    !isBusinessMode && !hasManageableBusiness;
+  const closedBusinesses = useQuery(
+    api.business.listMyClosedBusinesses,
+    shouldCheckForClosedBusinesses ? {} : 'skip'
+  );
+  const hasClosedBusiness = (closedBusinesses?.length ?? 0) > 0;
+  const showClosedBusinessRecovery =
+    shouldCheckForClosedBusinesses && hasClosedBusiness;
   // On discovery we keep the promotional banner for users who don't own a
   // business, even if they can access one as managers. Existing business access
   // is presented in customer settings, not inside the banner itself.
   const showPromotionalBanner =
     forcePromotionalBanner && !isBusinessMode && !hasOwnedBusiness;
-  const hostActionDisabled = disabled || isAppModeLoading || modeSwitchBusy;
+  const isClosedBusinessQueryLoading =
+    shouldCheckForClosedBusinesses && closedBusinesses === undefined;
+  const hostActionDisabled =
+    disabled ||
+    isAppModeLoading ||
+    modeSwitchBusy ||
+    isClosedBusinessQueryLoading;
   const hostTitle =
-    !showPromotionalBanner && showExistingBusinessCta
-      ? formatSwitchToBusinessTitle(manageableBusinessName)
-      : TEXT.hostTitle;
+    showClosedBusinessRecovery
+      ? TEXT.closedBusinessTitle
+      : !showPromotionalBanner && showExistingBusinessCta
+        ? formatSwitchToBusinessTitle(manageableBusinessName)
+        : TEXT.hostTitle;
   const hostSubtitle =
-    !showPromotionalBanner && showExistingBusinessCta
-      ? shouldStartBusinessOnboarding
-        ? TEXT.existingBusinessSetupSubtitle
-        : TEXT.existingBusinessSubtitle
-      : TEXT.hostSubtitle;
+    showClosedBusinessRecovery
+      ? TEXT.closedBusinessSubtitle
+      : !showPromotionalBanner && showExistingBusinessCta
+        ? shouldStartBusinessOnboarding
+          ? TEXT.existingBusinessSetupSubtitle
+          : TEXT.existingBusinessSubtitle
+        : TEXT.hostSubtitle;
   const hostButtonLabel =
-    !showPromotionalBanner && showExistingBusinessCta
-      ? TEXT.switchToBusinessButton
-      : TEXT.hostButton;
+    showClosedBusinessRecovery
+      ? TEXT.restoreBusinessButton
+      : !showPromotionalBanner && showExistingBusinessCta
+        ? TEXT.switchToBusinessButton
+        : TEXT.hostButton;
   const shouldUseAccentButton = !isBusinessMode || accentButton;
 
   useEffect(() => {
@@ -171,6 +195,11 @@ export default function BusinessModeCtaCard({
       ? null
       : targetBusinessForBusinessMode;
     if (hostActionDisabled) {
+      return;
+    }
+
+    if (showClosedBusinessRecovery) {
+      router.push('/(authenticated)/business-recovery');
       return;
     }
 
@@ -246,6 +275,10 @@ export default function BusinessModeCtaCard({
           isBusinessMode ? handleSwitchToCustomer : handleSwitchToBusiness
         }
         disabled={hostActionDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isBusinessMode ? TEXT.switchToCustomerButton : hostButtonLabel
+        }
         style={({ pressed }) => [
           styles.hostCard,
           pressed ? styles.pressed : null,
@@ -255,7 +288,13 @@ export default function BusinessModeCtaCard({
         <View style={styles.hostCardInner}>
           <View style={styles.hostIconShell}>
             <Ionicons
-              name={isBusinessMode ? 'person-outline' : 'storefront-outline'}
+              name={
+                isBusinessMode
+                  ? 'person-outline'
+                  : showClosedBusinessRecovery
+                    ? 'refresh-circle-outline'
+                    : 'storefront-outline'
+              }
               size={22}
               color="#111827"
             />
