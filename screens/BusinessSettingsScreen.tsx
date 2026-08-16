@@ -468,14 +468,14 @@ export default function BusinessSettingsScreen() {
                   onPress={() => router.push(BUSINESS_ROUTES.team)}
                 />
               ) : null}
-              {canEditBusiness ? (
+              {canViewBillingState ? (
                 <MenuRow
-                  title="הפניות והזמנות"
-                  subtitle="תגמולי הזמנת חברים ומעקב ביצועים"
-                  icon="gift-outline"
+                  title="הזמנת עסקים"
+                  subtitle="הזמינו בעלי עסקים וקבלו חודשי שימוש חינם"
+                  icon="share-social-outline"
                   onPress={() =>
                     router.push(
-                      '/(authenticated)/(business)/settings-business-referrals'
+                      '/(authenticated)/(business)/settings-business-invite-businesses'
                     )
                   }
                 />

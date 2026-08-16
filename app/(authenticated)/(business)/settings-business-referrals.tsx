@@ -5,10 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -150,7 +148,6 @@ export default function BusinessReferralSettingsScreen() {
   const canEditConfig = capabilities?.edit_loyalty_cards === true;
   const canViewDashboard = capabilities?.access_dashboard === true;
   const canViewCustomers = capabilities?.access_customers === true;
-  const canViewBilling = capabilities?.view_billing_state === true;
   const canViewUsageQuota = capabilities?.view_usage_quota === true;
   const { entitlements } = useEntitlements(
     activeBusinessId && canViewUsageQuota ? activeBusinessId : null
@@ -180,17 +177,7 @@ export default function BusinessReferralSettingsScreen() {
       ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
-  const b2bSummary = useQuery(
-    api.referrals.getBusinessReferralCreditSummary,
-    activeBusinessId && canViewBilling
-      ? { businessId: activeBusinessId }
-      : 'skip'
-  );
-
   const saveReferralConfig = useMutation(api.referrals.saveReferralConfig);
-  const getOrCreateBusinessReferralLink = useMutation(
-    api.referrals.getOrCreateBusinessReferralLink
-  );
 
   const [activeTab, setActiveTab] = useState<ReferralTab>(
     normalizeTab(params.tab)
@@ -206,7 +193,6 @@ export default function BusinessReferralSettingsScreen() {
     useState<RewardRecipients>('both');
   const [monthlyLimit, setMonthlyLimit] = useState<MonthlyLimit>(10);
   const [isSaving, setIsSaving] = useState(false);
-  const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
 
   useEffect(() => {
     setActiveTab(normalizeTab(params.tab));
@@ -327,45 +313,6 @@ export default function BusinessReferralSettingsScreen() {
       Alert.alert('שגיאה', 'שמירת ההגדרות נכשלה');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleShareBusinessReferral = async (mode: 'whatsapp' | 'copy') => {
-    if (!activeBusinessId || !canViewBilling || isB2bShareLoading) {
-      return;
-    }
-    try {
-      setIsB2bShareLoading(true);
-      const link = await getOrCreateBusinessReferralLink({
-        businessId: activeBusinessId,
-      });
-      const message = `הזמינו בעלי עסקים ל-StampAix וקבלו חודשי מנוי מתנה.\n${link.url}`;
-
-      if (mode === 'whatsapp') {
-        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-        const canOpen = await Linking.canOpenURL(whatsappUrl);
-        if (canOpen) {
-          await Linking.openURL(whatsappUrl);
-        } else {
-          await Share.share({ message });
-        }
-      } else {
-        const maybeNavigator = globalThis as {
-          navigator?: {
-            clipboard?: { writeText?: (value: string) => Promise<void> };
-          };
-        };
-        if (maybeNavigator.navigator?.clipboard?.writeText) {
-          await maybeNavigator.navigator.clipboard.writeText(link.url);
-        } else {
-          await Share.share({ message: link.url });
-        }
-        Alert.alert('', 'קישור השיתוף מוכן');
-      }
-    } catch {
-      Alert.alert('שגיאה', 'יצירת קישור שיתוף נכשלה');
-    } finally {
-      setIsB2bShareLoading(false);
     }
   };
 
@@ -609,49 +556,6 @@ export default function BusinessReferralSettingsScreen() {
               </Pressable>
             </View>
           )
-        ) : null}
-
-        {activeTab === 'settings' && canViewBilling ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>הזמנת בעלי עסקים</Text>
-            <Text style={styles.metricLine}>
-              חודשים שזוכו: {b2bSummary?.creditedMonths ?? 0}
-            </Text>
-            <Text style={styles.metricLine}>
-              חודשים ממתינים: {b2bSummary?.pendingMonths ?? 0}
-            </Text>
-            <Text style={styles.metricLine}>
-              יתרה עד לתקרה: {b2bSummary?.remainingCapMonths ?? 24}
-            </Text>
-            <View style={styles.actionsRow}>
-              <Pressable
-                onPress={() => void handleShareBusinessReferral('whatsapp')}
-                disabled={isB2bShareLoading}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  styles.actionButton,
-                  pressed ? styles.pressed : null,
-                  isB2bShareLoading ? styles.buttonDisabled : null,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isB2bShareLoading ? 'טוען...' : 'שיתוף ב-WhatsApp'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void handleShareBusinessReferral('copy')}
-                disabled={isB2bShareLoading}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  styles.actionButton,
-                  pressed ? styles.pressed : null,
-                  isB2bShareLoading ? styles.buttonDisabled : null,
-                ]}
-              >
-                <Text style={styles.secondaryButtonText}>העתקת קישור</Text>
-              </Pressable>
-            </View>
-          </View>
         ) : null}
 
         {activeTab === 'customers' ? (
@@ -987,28 +891,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
-  },
-  secondaryButton: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D5DEEE',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#334155',
-    textAlign: 'center',
-  },
-  actionsRow: {
-    flexDirection: flexDirection.row,
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
   },
   metricLine: {
     fontSize: 13,
