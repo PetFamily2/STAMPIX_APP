@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-import { createOrUpdateUser, getEmailSignInStatus } from '../auth';
+import {
+  assertProductionAuthLogLevelSafe,
+  createOrUpdateUser,
+  getEmailSignInStatus,
+} from '../auth';
 
 function createEmailStatusCtx(users = []) {
   return {
@@ -88,5 +92,57 @@ describe('Phase B1 public auth identity hardening', () => {
       provider: 'google',
       profile: { email: 'attacker@example.com' },
     });
+  });
+});
+
+describe('production auth logging guard', () => {
+  test('rejects DEBUG auth logging in production', () => {
+    expect(() =>
+      assertProductionAuthLogLevelSafe({
+        STAMPAIX_ENV: 'production',
+        AUTH_LOG_LEVEL: 'DEBUG',
+      })
+    ).toThrow('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');
+  });
+
+  test('allows DEBUG only with an explicit development marker', () => {
+    expect(() =>
+      assertProductionAuthLogLevelSafe({
+        STAMPAIX_ENV: 'development',
+        AUTH_LOG_LEVEL: 'DEBUG',
+      })
+    ).not.toThrow();
+  });
+
+  test('rejects DEBUG when the explicit environment marker is missing', () => {
+    expect(() =>
+      assertProductionAuthLogLevelSafe({ AUTH_LOG_LEVEL: 'DEBUG' })
+    ).toThrow('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');
+  });
+
+  test('rejects DEBUG for unknown and preview environment markers', () => {
+    for (const environment of ['unknown', 'preview']) {
+      expect(() =>
+        assertProductionAuthLogLevelSafe({
+          STAMPAIX_ENV: environment,
+          AUTH_LOG_LEVEL: 'DEBUG',
+        })
+      ).toThrow('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');
+    }
+  });
+
+  test('allows non-DEBUG logging when the marker is missing', () => {
+    expect(() =>
+      assertProductionAuthLogLevelSafe({ AUTH_LOG_LEVEL: 'INFO' })
+    ).not.toThrow();
+  });
+
+  test('does not trust CONVEX_DEPLOYMENT alone to authorize DEBUG', () => {
+    expect(() =>
+      assertProductionAuthLogLevelSafe({
+        CONVEX_DEPLOYMENT: 'dev:stampix',
+        AUTH_LOG_LEVEL: 'DEBUG',
+      })
+    ).toThrow('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');
   });
 });

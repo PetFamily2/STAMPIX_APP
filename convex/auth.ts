@@ -7,6 +7,13 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
+import {
+  encryptProviderCredentialCapture,
+  type OAuthTokenSetLike,
+  PROVIDER_CREDENTIAL_PROFILE_FIELD,
+  readEncryptedProviderCredentialCapture,
+  upsertProviderRevocationCredential,
+} from './providerCredentials';
 
 const AUTH_REDIRECT_APP_PREFIXES = ['stampix://'] as const;
 const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
@@ -379,6 +386,11 @@ async function linkIdentityToUser(
 function isProductionRuntime(
   env: Partial<Record<string, string | undefined>> = process.env
 ) {
+  const stampixEnvironment = env.STAMPAIX_ENV?.trim().toLowerCase();
+  if (stampixEnvironment) {
+    return !['development', 'preview'].includes(stampixEnvironment);
+  }
+
   const explicitEnvValues = [
     env.NODE_ENV,
     env.APP_ENV,
@@ -399,6 +411,18 @@ function isProductionRuntime(
   return (
     env.CONVEX_DEPLOYMENT?.trim().toLowerCase().startsWith('prod:') === true
   );
+}
+
+export function assertProductionAuthLogLevelSafe(
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
+  if (env.AUTH_LOG_LEVEL?.trim().toUpperCase() !== 'DEBUG') {
+    return;
+  }
+
+  if (env.STAMPAIX_ENV?.trim().toLowerCase() !== 'development') {
+    throw new Error('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');
+  }
 }
 
 export function isAllowedAuthAppRedirect(
@@ -521,12 +545,33 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
         existingUser._id,
         buildUserMetadataPatch(existingUser, normalizedIdentityInput)
       );
+      const credentialCapture = readEncryptedProviderCredentialCapture(profile);
+      if (credentialCapture && provider !== 'email') {
+        await upsertProviderRevocationCredential(ctx, {
+          userId: existingUser._id,
+          provider,
+          providerAccountId: providerUserId,
+          capture: credentialCapture,
+        });
+      }
       return existingUser._id;
     }
   }
 
-  return await linkIdentityToUser(ctx, normalizedIdentityInput);
+  const userId = await linkIdentityToUser(ctx, normalizedIdentityInput);
+  const credentialCapture = readEncryptedProviderCredentialCapture(profile);
+  if (credentialCapture && provider !== 'email') {
+    await upsertProviderRevocationCredential(ctx, {
+      userId,
+      provider,
+      providerAccountId: providerUserId,
+      capture: credentialCapture,
+    });
+  }
+  return userId;
 }
+
+assertProductionAuthLogLevelSafe();
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
@@ -548,7 +593,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     Password,
     Google({
       allowDangerousEmailAccountLinking: false,
-      profile(rawProfile) {
+      async profile(rawProfile, tokenSet: OAuthTokenSetLike) {
         const profile = rawProfile as Record<string, unknown>;
         const subject =
           typeof profile.sub === 'string' ? profile.sub : undefined;
@@ -556,6 +601,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (!subject) {
           throw new Error('Google profile is missing subject');
         }
+
+        const providerCredential = await encryptProviderCredentialCapture(
+          'google',
+          subject,
+          tokenSet
+        );
 
         return {
           id: subject,
@@ -582,12 +633,17 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             typeof profile.picture === 'string' ? profile.picture : undefined,
           emailVerified: profile.email_verified === true,
           email_verified: profile.email_verified === true,
+          ...(providerCredential
+            ? {
+                [PROVIDER_CREDENTIAL_PROFILE_FIELD]: providerCredential,
+              }
+            : {}),
         };
       },
     }),
     Apple({
       allowDangerousEmailAccountLinking: false,
-      profile(rawProfile) {
+      async profile(rawProfile, tokenSet: OAuthTokenSetLike) {
         const profile = rawProfile as Record<string, unknown>;
         const subject =
           typeof profile.sub === 'string' ? profile.sub : undefined;
@@ -595,6 +651,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         if (!subject) {
           throw new Error('Apple profile is missing subject');
         }
+
+        const providerCredential = await encryptProviderCredentialCapture(
+          'apple',
+          subject,
+          tokenSet
+        );
 
         const userRecord =
           typeof profile.user === 'object' && profile.user !== null
@@ -640,6 +702,11 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           isPrivateEmail:
             profile.is_private_email === true ||
             profile.is_private_email === 'true',
+          ...(providerCredential
+            ? {
+                [PROVIDER_CREDENTIAL_PROFILE_FIELD]: providerCredential,
+              }
+            : {}),
         };
       },
     }),

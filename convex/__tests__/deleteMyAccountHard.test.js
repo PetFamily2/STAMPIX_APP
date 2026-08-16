@@ -55,6 +55,7 @@ class FakeDb {
   constructor(tables) {
     this.tables = clone(tables);
     this.deleted = [];
+    this.insertCount = 0;
   }
 
   query(table) {
@@ -98,6 +99,16 @@ class FakeDb {
     throw new Error(`Missing doc ${id}`);
   }
 
+  async insert(table, value) {
+    this.insertCount += 1;
+    const id = `${table}_${this.insertCount}`;
+    if (!this.tables[table]) {
+      this.tables[table] = [];
+    }
+    this.tables[table].push({ _id: id, ...clone(value) });
+    return id;
+  }
+
   rows(table) {
     return this.tables[table] ?? [];
   }
@@ -105,8 +116,13 @@ class FakeDb {
 
 function buildCtx(tables, userId = 'u_customer') {
   const db = new FakeDb(tables);
+  const scheduled = [];
   return {
     db,
+    scheduled,
+    scheduler: {
+      runAfter: async (delay, fn, args) => scheduled.push({ delay, fn, args }),
+    },
     auth: {
       async getUserIdentity() {
         return {
@@ -119,6 +135,265 @@ function buildCtx(tables, userId = 'u_customer') {
 }
 
 describe('deleteMyAccountHardImpl', () => {
+  test('prepares independent Apple and Google revocation jobs before deleting provider credentials', async () => {
+    const ctx = buildCtx({
+      users: [{ _id: 'u_customer', email: 'customer@example.com' }],
+      userIdentities: [
+        {
+          _id: 'identity_apple',
+          userId: 'u_customer',
+          provider: 'apple',
+          providerUserId: 'apple_subject',
+        },
+        {
+          _id: 'identity_google',
+          userId: 'u_customer',
+          provider: 'google',
+          providerUserId: 'google_subject',
+        },
+      ],
+      authAccounts: [
+        {
+          _id: 'account_apple',
+          userId: 'u_customer',
+          provider: 'apple',
+          providerAccountId: 'apple_subject',
+        },
+        {
+          _id: 'account_google',
+          userId: 'u_customer',
+          provider: 'google',
+          providerAccountId: 'google_subject',
+        },
+      ],
+      providerRevocationCredentials: [
+        {
+          _id: 'credential_apple',
+          userId: 'u_customer',
+          provider: 'apple',
+          providerAccountId: 'apple_subject',
+          encryptedAccessToken: 'encrypted-apple-access',
+          encryptedRefreshToken: 'encrypted-apple-refresh',
+          credentialVersion: 1,
+        },
+        {
+          _id: 'credential_google',
+          userId: 'u_customer',
+          provider: 'google',
+          providerAccountId: 'google_subject',
+          encryptedAccessToken: 'encrypted-google-access',
+          accessTokenExpiresAt: Date.now() + 60_000,
+          credentialVersion: 1,
+        },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(result.revocationQueuedProviders).toEqual(['apple', 'google']);
+    expect(result.manualFallbackProviders).toEqual([]);
+    expect(result.deleted.providerRevocationCredentials).toBe(2);
+    expect(ctx.db.rows('providerRevocationCredentials')).toEqual([]);
+    expect(ctx.db.rows('providerRevocationJobs')).toHaveLength(2);
+    expect(ctx.db.rows('providerRevocationJobs').map((job) => job.status)).toEqual([
+      'queued',
+      'queued',
+    ]);
+    expect(ctx.scheduled).toHaveLength(2);
+    expect(ctx.db.rows('users')).toEqual([]);
+  });
+
+  test('legacy provider identities without retained tokens remain deletable and become manual receipts', async () => {
+    const ctx = buildCtx({
+      users: [{ _id: 'u_customer', email: 'customer@example.com' }],
+      userIdentities: [
+        {
+          _id: 'identity_apple',
+          userId: 'u_customer',
+          provider: 'apple',
+          providerUserId: 'apple_subject',
+        },
+      ],
+      authAccounts: [
+        {
+          _id: 'account_apple',
+          userId: 'u_customer',
+          provider: 'apple',
+          providerAccountId: 'apple_subject',
+        },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(result.revocationQueuedProviders).toEqual([]);
+    expect(result.manualFallbackProviders).toEqual(['apple']);
+    expect(ctx.db.rows('providerRevocationJobs')).toEqual([
+      expect.objectContaining({
+        provider: 'apple',
+        status: 'manual_required',
+        terminalCode: 'LEGACY_NO_TOKEN',
+      }),
+    ]);
+    expect(ctx.db.rows('providerRevocationJobs')[0]).not.toHaveProperty(
+      'encryptedAccessToken'
+    );
+    expect(ctx.db.rows('providerRevocationJobs')[0]).not.toHaveProperty(
+      'encryptedRefreshToken'
+    );
+    expect(ctx.scheduled).toEqual([]);
+    expect(ctx.db.rows('users')).toEqual([]);
+  });
+
+  test('email/password accounts prepare no provider revocation work', async () => {
+    const ctx = buildCtx({
+      users: [{ _id: 'u_customer', email: 'customer@example.com' }],
+      userIdentities: [
+        {
+          _id: 'identity_email',
+          userId: 'u_customer',
+          provider: 'email',
+          providerUserId: 'customer@example.com',
+        },
+      ],
+      authAccounts: [
+        {
+          _id: 'account_password',
+          userId: 'u_customer',
+          provider: 'password',
+          providerAccountId: 'customer@example.com',
+          secret: 'hashed-password',
+        },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(result.revocationQueuedProviders).toEqual([]);
+    expect(result.manualFallbackProviders).toEqual([]);
+    expect(ctx.db.rows('providerRevocationJobs')).toEqual([]);
+    expect(ctx.scheduled).toEqual([]);
+  });
+
+  for (const provider of ['apple', 'google']) {
+    test(`${provider}-only users prepare exactly one provider job`, async () => {
+      const providerAccountId = `${provider}_subject`;
+      const ctx = buildCtx({
+        users: [{ _id: 'u_customer', email: 'customer@example.com' }],
+        userIdentities: [
+          {
+            _id: `identity_${provider}`,
+            userId: 'u_customer',
+            provider,
+            providerUserId: providerAccountId,
+          },
+        ],
+        providerRevocationCredentials: [
+          {
+            _id: `credential_${provider}`,
+            userId: 'u_customer',
+            provider,
+            providerAccountId,
+            encryptedRefreshToken: `encrypted-${provider}-refresh`,
+            credentialVersion: 1,
+          },
+        ],
+      });
+
+      const result = await deleteMyAccountHardImpl(ctx);
+
+      expect(result.success).toBe(true);
+      expect(result.revocationQueuedProviders).toEqual([provider]);
+      expect(ctx.db.rows('providerRevocationJobs')).toHaveLength(1);
+      expect(ctx.db.rows('providerRevocationJobs')[0]).toMatchObject({
+        provider,
+        providerAccountId,
+        status: 'queued',
+      });
+      expect(ctx.scheduled).toHaveLength(1);
+      expect(JSON.stringify(result)).not.toContain('encrypted-');
+    });
+  }
+
+  test('sole-owner blockers run before provider revocation work is created', async () => {
+    const ctx = buildCtx(
+      {
+        users: [{ _id: 'u_owner', email: 'owner@example.com', isActive: true }],
+        businesses: [{ _id: 'b_owned', ownerUserId: 'u_owner' }],
+        businessStaff: [
+          {
+            _id: 'staff_owner',
+            businessId: 'b_owned',
+            userId: 'u_owner',
+            staffRole: 'owner',
+            status: 'active',
+          },
+        ],
+        userIdentities: [
+          {
+            _id: 'identity_apple',
+            userId: 'u_owner',
+            provider: 'apple',
+            providerUserId: 'apple_subject',
+          },
+        ],
+        providerRevocationCredentials: [
+          {
+            _id: 'credential_apple',
+            userId: 'u_owner',
+            provider: 'apple',
+            providerAccountId: 'apple_subject',
+            encryptedRefreshToken: 'encrypted-refresh',
+            credentialVersion: 1,
+          },
+        ],
+      },
+      'u_owner'
+    );
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: 'SOLE_OWNER_BUSINESS_BLOCKED',
+    });
+    expect(ctx.db.rows('providerRevocationJobs')).toEqual([]);
+    expect(ctx.db.rows('providerRevocationCredentials')).toHaveLength(1);
+    expect(ctx.scheduled).toEqual([]);
+  });
+
+  test('authenticated deletion cannot target another user credential', async () => {
+    const ctx = buildCtx({
+      users: [
+        { _id: 'u_customer', email: 'customer@example.com' },
+        { _id: 'u_other', email: 'other@example.com' },
+      ],
+      providerRevocationCredentials: [
+        {
+          _id: 'credential_other',
+          userId: 'u_other',
+          provider: 'google',
+          providerAccountId: 'other_google_subject',
+          encryptedAccessToken: 'other-encrypted-access',
+          accessTokenExpiresAt: Date.now() + 60_000,
+          credentialVersion: 1,
+        },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('providerRevocationCredentials')).toEqual([
+      expect.objectContaining({ _id: 'credential_other', userId: 'u_other' }),
+    ]);
+    expect(ctx.db.rows('providerRevocationJobs')).toEqual([]);
+    expect(ctx.db.rows('users').map((user) => user._id)).toEqual(['u_other']);
+  });
+
   test('deletes only the authenticated user personal graph', async () => {
     const ctx = buildCtx({
       users: [

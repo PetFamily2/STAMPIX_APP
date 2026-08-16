@@ -4,6 +4,8 @@ import { wipeAllDataHardImpl } from '../users';
 const WIPE_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
+  'providerRevocationJobs',
+  'providerRevocationCredentials',
   'businessDeletionRecipients',
   'businessDeletionAssets',
   'businessDeletionJobs',
@@ -144,6 +146,24 @@ describe('wipeAllDataHardImpl', () => {
     const tables = {
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
       apiClients: [{ _id: 'ac_1', businessId: 'b_1' }],
+      providerRevocationJobs: [
+        {
+          _id: 'prj_1',
+          provider: 'google',
+          status: 'manual_required',
+          attemptCount: 0,
+        },
+      ],
+      providerRevocationCredentials: [
+        {
+          _id: 'prc_1',
+          userId: 'u_admin',
+          provider: 'google',
+          providerAccountId: 'google_subject',
+          encryptedRefreshToken: 'encrypted-refresh-token',
+          credentialVersion: 1,
+        },
+      ],
       businessDeletionRecipients: [
         { _id: 'bdr_1', jobId: 'bdj_1', userId: 'u_admin' },
       ],
@@ -198,6 +218,8 @@ describe('wipeAllDataHardImpl', () => {
     const expectedCounts = {
       apiKeys: 1,
       apiClients: 1,
+      providerRevocationJobs: 1,
+      providerRevocationCredentials: 1,
       businessDeletionRecipients: 1,
       businessDeletionAssets: 1,
       businessDeletionJobs: 1,

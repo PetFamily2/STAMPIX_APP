@@ -4,6 +4,7 @@ import { internal } from './_generated/api';
 
 const crons = cronJobs();
 const internalDeletionApi = (internal as any).businessDeletion;
+const internalProviderCredentialsApi = (internal as any).providerCredentials;
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -45,6 +46,12 @@ crons.daily(
   'permanent deletion audit and receipt retention cleanup daily',
   { hourUTC: 2, minuteUTC: 10 },
   internalDeletionApi.purgePermanentDeletionRetentionInternal
+);
+
+crons.hourly(
+  'provider revocation retry and receipt cleanup hourly',
+  { minuteUTC: 40 },
+  internalProviderCredentialsApi.sweepProviderRevocationJobsInternal
 );
 
 export default crons;

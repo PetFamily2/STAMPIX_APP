@@ -20,6 +20,7 @@ import {
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
+import { prepareProviderRevocationsForUser } from './providerCredentials';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
   v.literal('starter'),
@@ -151,6 +152,8 @@ const DELETE_BATCH_SIZE = 100;
 const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
+  'providerRevocationJobs',
+  'providerRevocationCredentials',
   'businessDeletionRecipients',
   'businessDeletionAssets',
   'businessDeletionJobs',
@@ -230,6 +233,7 @@ type DeleteStats = {
   authVerifiers: number;
   emailOtps: number;
   staffInvites: number;
+  providerRevocationCredentials: number;
 };
 
 type DeleteMyAccountHardErrorCode =
@@ -244,6 +248,8 @@ type DeleteMyAccountHardSuccess = {
   deletedUserId: Id<'users'>;
   deletedBusinessIds: Id<'businesses'>[];
   deleted: DeleteStats;
+  revocationQueuedProviders: Array<'apple' | 'google'>;
+  manualFallbackProviders: Array<'apple' | 'google'>;
 };
 
 type DeleteMyAccountHardError = {
@@ -291,6 +297,7 @@ function emptyDeleteStats(): DeleteStats {
     authVerifiers: 0,
     emailOtps: 0,
     staffInvites: 0,
+    providerRevocationCredentials: 0,
   };
 }
 
@@ -298,6 +305,11 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
   return {
     apiKeys: 0,
     apiClients: 0,
+    providerRevocationJobs: 0,
+    providerRevocationCredentials: 0,
+    businessDeletionRecipients: 0,
+    businessDeletionAssets: 0,
+    businessDeletionJobs: 0,
     supportRequests: 0,
     referralAdminAuditLog: 0,
     businessReferrals: 0,
@@ -1219,6 +1231,12 @@ export async function deleteMyAccountHardImpl(
   await cleanupCompletedDeletionReferencesForUser(ctx, user._id);
 
   const deleted = emptyDeleteStats();
+  const providerRevocation = await prepareProviderRevocationsForUser(
+    ctx,
+    user._id
+  );
+  deleted.providerRevocationCredentials +=
+    providerRevocation.deletedCredentials;
 
   await deleteUserScopedBusinessData(ctx, user._id, deleted);
   deleted.userIdentities += await deleteByIndexInBatches(
@@ -1249,6 +1267,8 @@ export async function deleteMyAccountHardImpl(
     deletedUserId: user._id,
     deletedBusinessIds: [],
     deleted,
+    revocationQueuedProviders: providerRevocation.queuedProviders,
+    manualFallbackProviders: providerRevocation.manualFallbackProviders,
   };
 }
 

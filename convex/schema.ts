@@ -124,6 +124,49 @@ export default defineSchema({
     .index('by_userId', ['userId'])
     .index('by_email', ['email']),
 
+  providerRevocationCredentials: defineTable({
+    userId: v.id('users'),
+    provider: v.union(v.literal('apple'), v.literal('google')),
+    providerAccountId: v.string(),
+    encryptedAccessToken: v.optional(v.string()),
+    encryptedRefreshToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    credentialVersion: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_userId_provider', ['userId', 'provider'])
+    .index('by_provider_providerAccountId', [
+      'provider',
+      'providerAccountId',
+    ]),
+
+  providerRevocationJobs: defineTable({
+    provider: v.union(v.literal('apple'), v.literal('google')),
+    providerAccountId: v.optional(v.string()),
+    encryptedAccessToken: v.optional(v.string()),
+    encryptedRefreshToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    credentialVersion: v.number(),
+    status: v.union(
+      v.literal('queued'),
+      v.literal('running'),
+      v.literal('completed'),
+      v.literal('manual_required')
+    ),
+    attemptCount: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    terminalCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
+  })
+    .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_status_updatedAt', ['status', 'updatedAt'])
+    .index('by_purgeAfter', ['purgeAfter']),
+
   businesses: defineTable({
     ownerUserId: v.id('users'),
     externalId: v.string(),

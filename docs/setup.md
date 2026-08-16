@@ -72,12 +72,19 @@ Convex server variables:
 - `RESEND_FROM_EMAIL`
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - `AUTH_APPLE_ID`, `AUTH_APPLE_SECRET`
+- `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` (base64/base64url encoding of exactly 32 random bytes)
+- `STAMPAIX_ENV` (`development`, `preview`, or `production`; server-only)
 - `CONVEX_SITE_URL`
 - `SCAN_TOKEN_SECRET`
 - `GOOGLE_PLACES_API_KEY`
 - `APP_STORE_URL`
 - `PLAY_STORE_URL`
 - `REVENUECAT_WEBHOOK_SECRET` when the webhook is enabled
+
+Keep `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` server-only. Do not expose it through
+an `EXPO_PUBLIC_` variable. `AUTH_LOG_LEVEL=DEBUG` is allowed only when the
+server-side `STAMPAIX_ENV` is explicitly `development`; missing, preview,
+production, and unknown markers reject DEBUG.
 
 ## 4) Run the app
 Start two terminals.

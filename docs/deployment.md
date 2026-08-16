@@ -289,10 +289,15 @@ Production app identity:
 - Production web/domain assumption: `stampix.app`.
 
 Convex production environment:
+- `STAMPAIX_ENV` must be set to `production` as a server-side Convex variable.
 - `CONVEX_SITE_URL` must be the deployed Convex HTTP site origin, with no path.
 - `SITE_URL` is only a fallback for auth helpers; prefer `CONVEX_SITE_URL`.
 - `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` must come from the production Google OAuth client.
 - `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET` must come from the production Apple Sign In configuration.
+- `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` must be the base64 or base64url encoding
+  of exactly 32 random bytes and must remain server-only.
+- `AUTH_LOG_LEVEL` must not be `DEBUG`; DEBUG fails closed unless
+  `STAMPAIX_ENV` is explicitly `development`.
 
 Google Cloud Console:
 - Configure the OAuth consent screen for production use.
@@ -311,7 +316,12 @@ Apple Developer:
   `<CONVEX_SITE_URL>/api/auth/callback/apple`.
 - Register and verify the callback domain if Apple requires domain verification.
 - Store the Apple client id in `AUTH_APPLE_ID`.
-- Store the generated Apple client secret JWT in `AUTH_APPLE_SECRET`.
+- Store the generated Sign in with Apple client-secret JWT in
+  `AUTH_APPLE_SECRET`. This JWT is not permanent: track its `exp`, rotate it
+  before that expiration, and verify the newly configured value is valid during
+  deployment so authentication token exchange and future revocation jobs keep
+  working. Never commit the Apple private key or a generated production JWT to
+  source control.
 
 Redirect safety:
 - Production allows app redirects such as `stampix://oauth-callback`.
