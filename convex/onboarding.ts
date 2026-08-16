@@ -118,6 +118,13 @@ function asRecord(value: unknown) {
   return value as Record<string, unknown>;
 }
 
+export function getProgramImageStorageIdCandidate(programDraft: unknown) {
+  const candidate = asRecord(programDraft)?.imageStorageId;
+  return typeof candidate === 'string' && candidate.length > 0
+    ? candidate
+    : undefined;
+}
+
 export const getMyBusinessOnboardingDraft = query({
   args: {
     flow: v.optional(BUSINESS_ONBOARDING_FLOW_UNION),
@@ -213,6 +220,14 @@ export const saveMyBusinessOnboardingDraft = mutation({
       currentStepOrder >= previousFarthestOrder
         ? normalizedCurrentStep
         : previousFarthestStep;
+    const nextProgramDraft =
+      asRecord(programDraft) ?? existing?.programDraft;
+    const programImageStorageIdCandidate =
+      getProgramImageStorageIdCandidate(nextProgramDraft);
+    const programImageStorageId = programImageStorageIdCandidate
+      ? (ctx.db.normalizeId('_storage', programImageStorageIdCandidate) ??
+        undefined)
+      : undefined;
 
     const payload = {
       flow,
@@ -222,8 +237,9 @@ export const saveMyBusinessOnboardingDraft = mutation({
       farthestStepOrder: nextFarthestOrder,
       businessId: businessId ?? existing?.businessId,
       programId: programId ?? existing?.programId,
+      programImageStorageId,
       businessDraft: asRecord(businessDraft) ?? existing?.businessDraft,
-      programDraft: asRecord(programDraft) ?? existing?.programDraft,
+      programDraft: nextProgramDraft,
       businessOnboardingDraft:
         asRecord(businessOnboardingDraft) ?? existing?.businessOnboardingDraft,
       pausedAt: nextStatus === 'paused' ? now : undefined,

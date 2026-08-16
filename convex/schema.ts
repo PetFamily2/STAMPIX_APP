@@ -76,7 +76,8 @@ export default defineSchema({
     .index('by_externalId', ['externalId'])
     .index('by_email', ['email'])
     .index('by_isActive', ['isActive'])
-    .index('by_userType', ['userType']),
+    .index('by_userType', ['userType'])
+    .index('by_activeBusinessId', ['activeBusinessId']),
 
   businessOnboardingDrafts: defineTable({
     userId: v.id('users'),
@@ -91,6 +92,7 @@ export default defineSchema({
     farthestStepOrder: v.number(),
     businessId: v.optional(v.id('businesses')),
     programId: v.optional(v.id('loyaltyPrograms')),
+    programImageStorageId: v.optional(v.id('_storage')),
     businessDraft: v.optional(v.any()),
     programDraft: v.optional(v.any()),
     businessOnboardingDraft: v.optional(v.any()),
@@ -101,7 +103,10 @@ export default defineSchema({
   })
     .index('by_userId', ['userId'])
     .index('by_userId_flow', ['userId', 'flow'])
-    .index('by_userId_status', ['userId', 'status']),
+    .index('by_userId_status', ['userId', 'status'])
+    .index('by_businessId', ['businessId'])
+    .index('by_programId', ['programId'])
+    .index('by_programImageStorageId', ['programImageStorageId']),
 
   userIdentities: defineTable({
     userId: v.id('users'),
@@ -412,6 +417,15 @@ export default defineSchema({
     closedByUserId: v.optional(v.id('users')),
     lastClosedAt: v.optional(v.number()),
     lastRestoredAt: v.optional(v.number()),
+    permanentDeletionStatus: v.optional(
+      v.union(
+        v.literal('queued'),
+        v.literal('running'),
+        v.literal('failed')
+      )
+    ),
+    permanentDeletionJobId: v.optional(v.id('businessDeletionJobs')),
+    permanentDeletionRequestedAt: v.optional(v.number()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -421,6 +435,79 @@ export default defineSchema({
     .index('by_businessPublicId', ['businessPublicId'])
     .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive']),
+
+  businessDeletionJobs: defineTable({
+    businessId: v.string(),
+    requestedByUserId: v.id('users'),
+    businessNameSnapshot: v.string(),
+    status: v.union(
+      v.literal('queued'),
+      v.literal('running'),
+      v.literal('failed'),
+      v.literal('completed')
+    ),
+    phase: v.union(
+      v.literal('queued'),
+      v.literal('discover_recipients'),
+      v.literal('schedule_notifications'),
+      v.literal('clear_active_business_references'),
+      v.literal('capture_assets'),
+      v.literal('reconcile_cross_business_referrals'),
+      v.literal('redact_retained_audits'),
+      v.literal('delete_business_data'),
+      v.literal('cleanup_assets'),
+      v.literal('verify'),
+      v.literal('finalize'),
+      v.literal('completed')
+    ),
+    failureCode: v.optional(v.string()),
+    failureDetail: v.optional(v.string()),
+    cursor: v.optional(v.string()),
+    progress: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_requestedByUserId', ['requestedByUserId'])
+    .index('by_status_updatedAt', ['status', 'updatedAt']),
+
+  businessDeletionRecipients: defineTable({
+    jobId: v.id('businessDeletionJobs'),
+    userId: v.id('users'),
+    audience: v.union(v.literal('customer'), v.literal('staff')),
+    pushStatus: v.union(
+      v.literal('pending'),
+      v.literal('scheduled'),
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('skipped')
+    ),
+    scheduledAt: v.optional(v.number()),
+    deliveredAt: v.optional(v.number()),
+    failureDetail: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_jobId', ['jobId'])
+    .index('by_jobId_userId', ['jobId', 'userId'])
+    .index('by_userId', ['userId']),
+
+  businessDeletionAssets: defineTable({
+    jobId: v.id('businessDeletionJobs'),
+    storageId: v.id('_storage'),
+    cleanupStatus: v.union(
+      v.literal('pending'),
+      v.literal('deleted'),
+      v.literal('preserved_shared'),
+      v.literal('failed')
+    ),
+    failureDetail: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_jobId', ['jobId'])
+    .index('by_jobId_storageId', ['jobId', 'storageId']),
 
   businessStaff: defineTable({
     businessId: v.id('businesses'),
@@ -494,6 +581,7 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     invalidatedAt: v.optional(v.number()),
   })
+    .index('by_businessId', ['businessId'])
     .index('by_actor_business', ['actorUserId', 'businessId'])
     .index('by_actor_business_stableId', [
       'actorUserId',
@@ -548,6 +636,7 @@ export default defineSchema({
     issuedAt: v.number(),
     expiresAt: v.number(),
   })
+    .index('by_businessId', ['businessId'])
     .index('by_actor_business', ['actorUserId', 'businessId'])
     .index('by_actor_business_stableId', [
       'actorUserId',
@@ -586,6 +675,7 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_status', ['businessId', 'status'])
+    .index('by_imageStorageId', ['imageStorageId'])
     .index('by_isActive', ['isActive']),
 
   memberships: defineTable({
@@ -817,7 +907,8 @@ export default defineSchema({
   businessReferrals: defineTable({
     businessReferralLinkId: v.id('businessReferralLinks'),
     referrerBusinessId: v.id('businesses'),
-    referredBusinessId: v.id('businesses'),
+    referredBusinessId: v.optional(v.id('businesses')),
+    referredBusinessDeletedAt: v.optional(v.number()),
     createdByUserId: v.optional(v.id('users')),
     status: v.union(
       v.literal('pending_subscription'),
@@ -871,6 +962,8 @@ export default defineSchema({
     afterSnapshot: v.optional(v.any()),
     reasonCode: v.string(),
     reasonNote: v.string(),
+    redactedAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_actorAdminUserId_createdAt', ['actorAdminUserId', 'createdAt'])
@@ -878,6 +971,7 @@ export default defineSchema({
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_customerReferralId', ['customerReferralId'])
     .index('by_referralRewardId', ['referralRewardId'])
+    .index('by_purgeAfter', ['purgeAfter'])
     .index('by_createdAt', ['createdAt']),
 
   events: defineTable({
@@ -1215,6 +1309,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_provider_status', [
+      'businessId',
+      'provider',
+      'status',
+    ])
     .index('by_providerSubscriptionId', ['providerSubscriptionId']),
 
   revenueCatWebhookEvents: defineTable({
@@ -1228,9 +1327,12 @@ export default defineSchema({
     receivedAt: v.number(),
     processedAt: v.optional(v.number()),
     rawEvent: v.any(),
+    redactedAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
   })
     .index('by_eventId', ['eventId'])
-    .index('by_businessId', ['businessId']),
+    .index('by_businessId', ['businessId'])
+    .index('by_purgeAfter', ['purgeAfter']),
 
   messageLog: defineTable({
     businessId: v.id('businesses'),
@@ -1403,6 +1505,7 @@ export default defineSchema({
     .index('by_businessId_dedupeKey', ['businessId', 'dedupeKey']),
 
   aiGenerationCache: defineTable({
+    businessId: v.optional(v.id('businesses')),
     cacheKey: v.string(),
     promptHash: v.string(),
     goal: v.union(
@@ -1423,6 +1526,7 @@ export default defineSchema({
     expiresAt: v.number(),
     lastUsedAt: v.optional(v.number()),
   })
+    .index('by_businessId', ['businessId'])
     .index('by_cacheKey', ['cacheKey'])
     .index('by_expiresAt', ['expiresAt']),
 

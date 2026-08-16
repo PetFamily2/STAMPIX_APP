@@ -2355,14 +2355,21 @@ export const adminSearchReferralRecords = query({
       });
     }
     for (const row of businessReferrals as any[]) {
+      const referredBusinessId = row.referredBusinessId
+        ? String(row.referredBusinessId)
+        : '';
       const haystack =
-        `${String(row._id)} ${String(row.referrerBusinessId)} ${String(row.referredBusinessId)}`.toLowerCase();
+        `${String(row._id)} ${String(row.referrerBusinessId)} ${referredBusinessId}`.toLowerCase();
       if (needle && !haystack.includes(needle)) continue;
       rows.push({
         targetType: 'businessReferral',
         targetId: String(row._id),
         updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
+        payload: {
+          ...row,
+          referredBusinessId: row.referredBusinessId ?? null,
+          referredBusinessDeleted: !row.referredBusinessId,
+        },
       });
     }
 
@@ -2396,7 +2403,15 @@ export const adminGetReferralRecord = query({
     if (targetType === 'referralReward') {
       return await ctx.db.get(id as Id<'referralRewards'>);
     }
-    return await ctx.db.get(id as Id<'businessReferrals'>);
+    const row = await ctx.db.get(id as Id<'businessReferrals'>);
+    if (!row) {
+      return null;
+    }
+    return {
+      ...row,
+      referredBusinessId: row.referredBusinessId ?? null,
+      referredBusinessDeleted: !row.referredBusinessId,
+    };
   },
 });
 
@@ -2787,12 +2802,22 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
     let credited = 0;
     let skipped = 0;
     for (const row of waiting) {
+      if (!row.referredBusinessId) {
+        await ctx.db.patch(row._id, {
+          status: 'skipped',
+          skipReason: 'referred_business_deleted',
+          qualificationDueAt: undefined,
+          updatedAt: now,
+        });
+        skipped += 1;
+        continue;
+      }
       if (!row.qualificationDueAt || Number(row.qualificationDueAt) > now) {
         continue;
       }
       const [referrerBusiness, referredBusiness] = await Promise.all([
         getBusinessDoc(ctx, row.referrerBusinessId as Id<'businesses'>),
-        getBusinessDoc(ctx, row.referredBusinessId as Id<'businesses'>),
+        getBusinessDoc(ctx, row.referredBusinessId),
       ]);
 
       if (
@@ -3023,7 +3048,10 @@ export const getBusinessReferralCreditSummary = query({
         0
       );
     const pendingMonths = rows
-      .filter((row: any) => row.status === 'waiting_30_days')
+      .filter(
+        (row: any) =>
+          row.status === 'waiting_30_days' && Boolean(row.referredBusinessId)
+      )
       .reduce(
         (sum: number, row: any) =>
           sum + Math.max(0, Number(row.creditMonths ?? 0)),
@@ -3031,8 +3059,9 @@ export const getBusinessReferralCreditSummary = query({
       );
     const pendingInvitesCount = rows.filter(
       (row: any) =>
-        row.status === 'pending_subscription' ||
-        row.status === 'waiting_30_days'
+        Boolean(row.referredBusinessId) &&
+        (row.status === 'pending_subscription' ||
+          row.status === 'waiting_30_days')
     ).length;
     const activeReferralsCount = rows.filter(
       (row: any) => row.status === 'credited'

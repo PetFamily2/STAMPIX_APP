@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  adminGetReferralRecord,
+  adminSearchReferralRecords,
+  getBusinessReferralCreditSummary,
   listBusinessReferralCustomers,
   listMyCustomerReferrals,
+  processDueBusinessReferralCreditsInternal,
   processReferralAfterJoin,
   qualifyCustomerReferralAfterStamp,
 } from '../referrals';
@@ -252,6 +256,7 @@ function baseTables() {
       },
     ],
     customerReferrals: [],
+    businessReferrals: [],
     referralRewards: [],
     events: [],
     messageLog: [],
@@ -409,6 +414,154 @@ describe('referral race safety', () => {
     expect(second.reason).toBe('no_pending_referral');
     expect(referral.qualificationEventId).toBe('evt_stamp_first');
     expect(ctx.db.rows('referralRewards')).toHaveLength(1);
+  });
+});
+
+describe('business referral deleted-business compatibility', () => {
+  test('normal due referral still grants credit to the surviving referrer', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.businesses.push({
+      ...tables.businesses[0],
+      _id: 'biz_2',
+      ownerUserId: 'u_referred',
+      externalId: 'biz_ext_2',
+      name: 'Referred Biz',
+    });
+    tables.businessReferrals.push({
+      _id: 'b2b_due_valid',
+      businessReferralLinkId: 'b2b_link_1',
+      referrerBusinessId: 'biz_1',
+      referredBusinessId: 'biz_2',
+      status: 'waiting_30_days',
+      qualificationDueAt: now - 1,
+      creditMonths: 1,
+      createdAt: now - 100,
+      updatedAt: now - 100,
+    });
+    const ctx = buildCtx(tables);
+
+    const result =
+      await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+
+    expect(result).toMatchObject({ credited: 1, skipped: 0 });
+    expect(ctx.db.rows('businessReferrals')[0]).toMatchObject({
+      status: 'credited',
+      creditMonths: 1,
+    });
+    expect(ctx.db.rows('businesses')[0].b2bCreditMonthsEarned).toBe(1);
+  });
+
+  test('waiting referral without referred business is terminally skipped', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.businessReferrals.push({
+      _id: 'b2b_due_deleted',
+      businessReferralLinkId: 'b2b_link_2',
+      referrerBusinessId: 'biz_1',
+      referredBusinessId: undefined,
+      referredBusinessDeletedAt: now - 10,
+      status: 'waiting_30_days',
+      qualificationDueAt: undefined,
+      creditMonths: 1,
+      createdAt: now - 100,
+      updatedAt: now - 100,
+    });
+    const ctx = buildCtx(tables);
+
+    const result =
+      await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+
+    expect(result).toMatchObject({ credited: 0, skipped: 1 });
+    expect(ctx.db.getCalls).not.toContain(undefined);
+    expect(ctx.db.rows('businessReferrals')[0]).toMatchObject({
+      status: 'skipped',
+      skipReason: 'referred_business_deleted',
+      qualificationDueAt: undefined,
+    });
+    expect(ctx.db.rows('businesses')[0].b2bCreditMonthsEarned).toBeUndefined();
+  });
+
+  test('credited redacted row remains counted while pending redacted row is hidden', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.businessReferrals.push(
+      {
+        _id: 'b2b_credited_deleted',
+        businessReferralLinkId: 'b2b_link_3',
+        referrerBusinessId: 'biz_1',
+        referredBusinessId: undefined,
+        referredBusinessDeletedAt: now - 10,
+        status: 'credited',
+        creditMonths: 2,
+        creditAppliedAt: now - 20,
+        createdAt: now - 100,
+        updatedAt: now - 20,
+      },
+      {
+        _id: 'b2b_pending_deleted',
+        businessReferralLinkId: 'b2b_link_4',
+        referrerBusinessId: 'biz_1',
+        referredBusinessId: undefined,
+        referredBusinessDeletedAt: now - 10,
+        status: 'pending_subscription',
+        creditMonths: 0,
+        createdAt: now - 100,
+        updatedAt: now - 10,
+      }
+    );
+    const ctx = buildCtx(tables);
+
+    const summary = await getBusinessReferralCreditSummary._handler(ctx, {
+      businessId: 'biz_1',
+    });
+
+    expect(summary).toMatchObject({
+      creditedMonths: 2,
+      pendingMonths: 0,
+      pendingInvitesCount: 0,
+      activeReferralsCount: 1,
+    });
+  });
+
+  test('admin readers return an explicit deleted marker without fabricating an id', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.users = tables.users.map((user) =>
+      user._id === 'u_owner' ? { ...user, isAdmin: true } : user
+    );
+    tables.businessReferrals.push({
+      _id: 'b2b_admin_deleted',
+      businessReferralLinkId: 'b2b_link_5',
+      referrerBusinessId: 'biz_1',
+      referredBusinessId: undefined,
+      referredBusinessDeletedAt: now - 10,
+      status: 'credited',
+      creditMonths: 1,
+      createdAt: now - 100,
+      updatedAt: now - 10,
+    });
+    const ctx = buildCtx(tables);
+
+    const searchRows = await adminSearchReferralRecords._handler(ctx, {
+      query: '',
+      type: 'businessReferral',
+      limit: 10,
+    });
+    const record = await adminGetReferralRecord._handler(ctx, {
+      targetType: 'businessReferral',
+      targetId: 'b2b_admin_deleted',
+    });
+
+    expect(searchRows[0].payload).toMatchObject({
+      referredBusinessId: null,
+      referredBusinessDeleted: true,
+    });
+    expect(record).toMatchObject({
+      referredBusinessId: null,
+      referredBusinessDeleted: true,
+    });
+    expect(ctx.db.getCalls).not.toContain(undefined);
   });
 });
 

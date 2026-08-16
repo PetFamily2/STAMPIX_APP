@@ -3473,6 +3473,8 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
     });
 
     await ctx.db.insert('aiGenerationCache', {
+      businessId:
+        args.outputType === 'campaign_message' ? undefined : args.businessId,
       cacheKey: args.cacheKey,
       promptHash: args.promptHash,
       goal: args.goal,

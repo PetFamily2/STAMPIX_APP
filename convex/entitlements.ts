@@ -1433,11 +1433,33 @@ export const applyRevenueCatWebhookEvent = internalMutation({
     }
 
     const business = await ctx.db.get(businessId);
-    if (!business || business.isActive !== true) {
+    const now = Date.now();
+    if (!business) {
+      await ctx.db.insert('revenueCatWebhookEvents', {
+        eventId: args.eventId,
+        eventType: args.eventType,
+        appUserId: args.appUserId,
+        businessId,
+        productId: args.productId,
+        entitlementIds: args.entitlementIds,
+        status: 'ignored',
+        receivedAt: now,
+        processedAt: now,
+        rawEvent: args.rawEvent,
+      });
+      return {
+        ok: true,
+        duplicate: false,
+        ignored: true,
+        reason: 'business_not_found',
+        eventId: args.eventId,
+        businessId,
+      };
+    }
+    if (business.isActive !== true) {
       throw new Error('BUSINESS_INACTIVE');
     }
 
-    const now = Date.now();
     const providerStatus = normalizeRevenueCatSubscriptionStatus(
       args.eventType
     );

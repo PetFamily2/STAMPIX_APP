@@ -364,6 +364,33 @@ describe('AI recommendation monthly quota boundary', () => {
     ).toBe(0);
   });
 
+  test('business-specific AI cache writes record deterministic ownership', async () => {
+    const now = Date.now();
+    const ctx = buildCtx(baseTables());
+
+    await finalizeAiRecommendationSuccessInternal._handler(
+      ctx,
+      successArgs(now)
+    );
+
+    expect(ctx.db.rows('aiGenerationCache')).toHaveLength(1);
+    expect(ctx.db.rows('aiGenerationCache')[0].businessId).toBe('business_1');
+  });
+
+  test('shared campaign-message AI cache writes remain unscoped', async () => {
+    const now = Date.now();
+    const ctx = buildCtx(baseTables());
+
+    await finalizeAiRecommendationSuccessInternal._handler(ctx, {
+      ...successArgs(now),
+      outputType: 'campaign_message',
+      cacheKey: 'v1|goal:business_insight|state:ACTIVITY_DROP|sig:drop',
+    });
+
+    expect(ctx.db.rows('aiGenerationCache')).toHaveLength(1);
+    expect(ctx.db.rows('aiGenerationCache')[0].businessId).toBeUndefined();
+  });
+
   test('quota exceeded blocks success ledger with structured limit error', async () => {
     const now = Date.now();
     const tables = baseTables({

@@ -273,12 +273,23 @@ export async function handleRevenueCatWebhookRequest(
     );
     const resultRecord =
       typeof result === 'object' && result !== null
-        ? (result as { duplicate?: unknown })
+        ? (result as {
+            duplicate?: unknown;
+            ignored?: unknown;
+            reason?: unknown;
+          })
         : null;
+    const ignored = resultRecord?.ignored === true;
 
     return jsonResponse(200, {
       ok: true,
       duplicate: resultRecord?.duplicate === true,
+      ...(ignored
+        ? {
+            ignored: true,
+            reason: resultRecord?.reason,
+          }
+        : {}),
       eventId: event.eventId,
       businessId: String(event.businessId),
     });

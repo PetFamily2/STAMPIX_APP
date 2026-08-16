@@ -46,6 +46,9 @@ function createMockCtx(initial = {}) {
   );
 
   const rows = (tableName) => Array.from(state[tableName].values());
+  const validMissingBusinessIds = new Set(
+    initial.validMissingBusinessIds ?? []
+  );
   const ctx = {
     db: {
       get: async (id) => {
@@ -58,7 +61,12 @@ function createMockCtx(initial = {}) {
         return null;
       },
       normalizeId: (tableName, id) => {
-        return state[tableName]?.has(id) ? id : null;
+        if (state[tableName]?.has(id)) {
+          return id;
+        }
+        return tableName === 'businesses' && validMissingBusinessIds.has(id)
+          ? id
+          : null;
       },
       insert: async (tableName, doc) => {
         const id = doc._id ?? `${tableName}_${state[tableName].size + 1}`;
@@ -304,6 +312,34 @@ describe('RevenueCat server-authoritative business subscription state', () => {
       subscriptionStatus: 'active',
       billingPeriod: 'yearly',
     });
+  });
+
+  test('valid late event for a missing business is ignored idempotently', async () => {
+    const ctx = createMockCtx({
+      businesses: [],
+      validMissingBusinessIds: [BUSINESS_ID],
+    });
+    const event = buildRevenueCatEvent({ id: 'evt_deleted_business' });
+
+    const first = await postWebhook(event, ctx);
+    const duplicate = await postWebhook(event, ctx);
+
+    expect(first.response.status).toBe(200);
+    expect(first.body).toMatchObject({
+      ignored: true,
+      reason: 'business_not_found',
+      duplicate: false,
+    });
+    expect(duplicate.response.status).toBe(200);
+    expect(duplicate.body.duplicate).toBe(true);
+    expect(ctx.rows('revenueCatWebhookEvents')).toHaveLength(1);
+    expect(ctx.rows('revenueCatWebhookEvents')[0]).toMatchObject({
+      eventId: 'evt_deleted_business',
+      businessId: BUSINESS_ID,
+      status: 'ignored',
+    });
+    expect(ctx.rows('businesses')).toHaveLength(0);
+    expect(ctx.rows('subscriptions')).toHaveLength(0);
   });
 
   test('cancellation with future expiration preserves paid access as canceled', async () => {
