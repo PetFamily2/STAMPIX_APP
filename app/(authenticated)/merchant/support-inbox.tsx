@@ -1,3 +1,5 @@
-import AdminSupportInboxScreen from '@/screens/AdminSupportInboxScreen';
+import { Redirect } from 'expo-router';
 
-export default AdminSupportInboxScreen;
+export default function LegacyMerchantSupportInboxRoute() {
+  return <Redirect href="/(authenticated)/admin/support-inbox" />;
+}
