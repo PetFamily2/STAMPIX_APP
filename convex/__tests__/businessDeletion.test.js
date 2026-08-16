@@ -69,7 +69,8 @@ class FakeQuery {
     this.direction = direction;
   }
 
-  withIndex(_name, builder) {
+  withIndex(name, builder) {
+    this.db.indexUses.push({ table: this.tableName, index: name });
     const predicates = [...this.predicates];
     const q = {
       eq: (field, value) => {
@@ -153,6 +154,7 @@ class FakeDb {
     this.knownIds._storage = new Set(initial.storageIds ?? []);
     this.counter = 0;
     this.deletionOrder = [];
+    this.indexUses = [];
   }
 
   rows(table) {
@@ -576,6 +578,130 @@ describe('permanent business deletion request', () => {
       deletionEligible: true,
       billing: { status: 'canceled', endAt: 200, renewalActive: false },
     });
+  });
+
+  test('requester sees a root-missing running job from its snapshot without a duplicate or billing data', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    await ctx.db.patch(request.jobId, {
+      status: 'running',
+      phase: 'finalize',
+      updatedAt: Date.now() + 1,
+    });
+    ctx.db.rows('businesses').splice(0);
+    ctx.db.indexUses.length = 0;
+
+    const result = await listMyBusinessesForPermanentDeletion._handler(ctx, {});
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        businessExists: false,
+        businessId: BUSINESS_ID,
+        name: 'Café Central',
+        permanentDeletionJobId: request.jobId,
+        permanentDeletionJobStatus: 'running',
+        permanentDeletionPhase: 'finalize',
+      }),
+    ]);
+    expect(result[0]).not.toHaveProperty('billing');
+    expect(
+      ctx.db.indexUses.filter(({ table }) => table === 'businessDeletionJobs')
+    ).toEqual([
+      {
+        table: 'businessDeletionJobs',
+        index: 'by_requestedByUserId_status',
+      },
+      {
+        table: 'businessDeletionJobs',
+        index: 'by_requestedByUserId_status',
+      },
+      {
+        table: 'businessDeletionJobs',
+        index: 'by_requestedByUserId_status',
+      },
+    ]);
+  });
+
+  test('requester sees and can retry a failed finalization job after its business root is gone', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    await ctx.db.patch(request.jobId, { phase: 'finalize' });
+    await markBusinessDeletionFailedInternal._handler(ctx, {
+      jobId: request.jobId,
+      failureCode: 'FINALIZATION_FAILED',
+      failureDetail: 'injected',
+    });
+    ctx.db.rows('businesses').splice(0);
+
+    const result = await listMyBusinessesForPermanentDeletion._handler(ctx, {});
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        businessExists: false,
+        businessId: BUSINESS_ID,
+        name: 'Café Central',
+        permanentDeletionJobId: request.jobId,
+        permanentDeletionJobStatus: 'failed',
+        permanentDeletionPhase: 'finalize',
+        permanentDeletionFailureCode: 'FINALIZATION_FAILED',
+      }),
+    ]);
+    await expect(
+      retryPermanentBusinessDeletion._handler(ctx, { jobId: request.jobId })
+    ).resolves.toMatchObject({ status: 'running', phase: 'finalize' });
+  });
+
+  test('completed root-missing jobs are not unresolved listing entries', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    await ctx.db.patch(request.jobId, {
+      status: 'completed',
+      phase: 'completed',
+      completedAt: Date.now(),
+    });
+    ctx.db.rows('businesses').splice(0);
+
+    expect(await listMyBusinessesForPermanentDeletion._handler(ctx, {})).toEqual(
+      []
+    );
+  });
+
+  test('another user cannot see a requester synthetic entry after the business root is gone', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    await ctx.db.patch(request.jobId, {
+      status: 'running',
+      phase: 'finalize',
+    });
+    ctx.db.rows('businesses').splice(0);
+    ctx.db.rows('users').push(baseOwner({ _id: 'user_other' }));
+    const unauthorizedCtx = {
+      ...ctx,
+      auth: {
+        getUserIdentity: async () => ({ subject: 'user_other|session' }),
+      },
+    };
+
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(unauthorizedCtx, {})
+    ).toEqual([]);
+  });
+
+  test('an unfinished job with a surviving root uses one normal business entry', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+
+    const result = await listMyBusinessesForPermanentDeletion._handler(ctx, {});
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      businessExists: true,
+      businessId: BUSINESS_ID,
+      name: 'Café Central',
+      permanentDeletionJobId: request.jobId,
+      permanentDeletionJobStatus: 'queued',
+    });
+    expect(result[0]).toHaveProperty('billing');
   });
 
   test('job status is visible only to its original requester', async () => {

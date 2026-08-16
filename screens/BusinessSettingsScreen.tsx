@@ -273,6 +273,17 @@ export default function BusinessSettingsScreen() {
     );
   };
 
+  const handlePermanentBusinessDeletion = () => {
+    if (!activeBusinessId || !canCloseBusiness) {
+      return;
+    }
+    router.push(
+      `/(authenticated)/business-permanent-deletion?businessId=${encodeURIComponent(
+        String(activeBusinessId)
+      )}` as Href
+    );
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
@@ -582,37 +593,67 @@ export default function BusinessSettingsScreen() {
             </TouchableOpacity>
           </View>
         ) : canCloseBusiness ? (
-          <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
-            <Text
-              className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
-            >
-              אזור רגיש
-            </Text>
-            <Text
-              className={`mt-2 text-base font-extrabold text-[#7F1D1D] ${tw.textStart}`}
-            >
-              סגירת העסק ב-StampAix
-            </Text>
-            <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
-              פעילות העסק תופסק והכרטיסיות יוסתרו מהלקוחות. כל המידע,
-              הלקוחות, הניקובים, ההטבות וההיסטוריה יישמרו ויהיה ניתן לשחזר
-              את העסק בהמשך.
-            </Text>
-            <TouchableOpacity
-              onPress={handleCloseBusiness}
-              disabled={isClosingBusiness}
-              accessibilityRole="button"
-              accessibilityLabel="סגירת העסק"
-              className="mt-4 min-h-11 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
-            >
-              {isClosingBusiness ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-center text-sm font-bold text-white">
-                  סגירת העסק
+          <View className="gap-5">
+            <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
+              <Text
+                className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
+              >
+                אזור רגיש
+              </Text>
+              <Text
+                className={`mt-2 text-base font-extrabold text-[#7F1D1D] ${tw.textStart}`}
+              >
+                סגירת העסק ב-StampAix
+              </Text>
+              <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
+                פעילות העסק תופסק והכרטיסיות יוסתרו מהלקוחות. כל המידע,
+                הלקוחות, הניקובים, ההטבות וההיסטוריה יישמרו ויהיה ניתן לשחזר
+                את העסק בהמשך.
+              </Text>
+              <TouchableOpacity
+                onPress={handleCloseBusiness}
+                disabled={isClosingBusiness}
+                accessibilityRole="button"
+                accessibilityLabel="סגירת העסק"
+                className="mt-4 min-h-11 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
+              >
+                {isClosingBusiness ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="text-center text-sm font-bold text-white">
+                    סגירת העסק
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View className="rounded-3xl border-2 border-[#991B1B] bg-[#7F1D1D] p-4">
+              <Text
+                className={`text-[11px] font-bold text-[#FECACA] ${tw.textStart}`}
+              >
+                פעולה בלתי הפיכה
+              </Text>
+              <Text
+                className={`mt-2 text-base font-extrabold text-white ${tw.textStart}`}
+              >
+                מחיקת העסק לצמיתות
+              </Text>
+              <Text className={`mt-2 text-sm text-[#FEE2E2] ${tw.textStart}`}>
+                מחיקה לצמיתות מסירה את העסק ואת נתוני המועדון שלו ולא ניתן
+                לבטל אותה.
+              </Text>
+              <TouchableOpacity
+                onPress={handlePermanentBusinessDeletion}
+                accessibilityRole="button"
+                accessibilityLabel="מחיקת העסק לצמיתות"
+                accessibilityHint="פותח אזהרה ואישור נפרדים לפני מחיקה בלתי הפיכה"
+                className="mt-4 min-h-12 items-center justify-center rounded-2xl border border-white bg-[#450A0A] px-4 py-3"
+              >
+                <Text className="text-center text-sm font-extrabold text-white">
+                  מחיקת העסק לצמיתות
                 </Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : null}
       </ScrollView>

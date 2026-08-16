@@ -159,12 +159,18 @@ export default function AuthenticatedLayout() {
     const inAdmin = currentSegments.includes('admin');
     const inJoin = currentSegments.includes('join');
     const inBusinessRecovery = currentSegments.includes('business-recovery');
+    const inBusinessPermanentDeletion = currentSegments.includes(
+      'business-permanent-deletion'
+    );
     const inCustomerGroup = currentSegments.includes('(customer)');
     const inBusinessGroup = currentSegments.includes('(business)');
     const inStaffGroup = currentSegments.includes('(staff)');
 
     const isFreeRoute =
-      inCard || inMerchant || inAdmin || inJoin || inBusinessRecovery;
+      inCard ||
+      inMerchant ||
+      inAdmin ||
+      (inJoin || inBusinessRecovery || inBusinessPermanentDeletion);
 
     const safeReplace = (href: string) => {
       const key = `${currentKey}=>${href}`;
@@ -345,6 +351,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="join" />
       <Stack.Screen name="accept-invite" />
       <Stack.Screen name="business-recovery" />
+      <Stack.Screen name="business-permanent-deletion" />
       <Stack.Screen name="card/index" />
       <Stack.Screen name="card/[membershipId]" />
     </Stack>

@@ -40,6 +40,13 @@ const TEXT = {
   cancel: 'ביטול',
   restoring: 'משחזרים את העסק...',
   restoreFailed: 'לא הצלחנו לשחזר את העסק. נסו שוב.',
+  permanentDelete: 'מחיקה לצמיתות',
+  permanentDeleteHint:
+    'מחיקה בלתי הפיכה של העסק ושל נתוני מועדון הלקוחות שלו.',
+  deletionSectionTitle: 'עסקים בתהליך מחיקה',
+  deletionInProgress: 'מחיקת העסק מתבצעת ברקע.',
+  deletionFailed: 'מחיקת העסק נכשלה. ניתן להיכנס ולנסות שוב.',
+  showDeletionStatus: 'הצגת מצב המחיקה',
   errorTitle: 'שגיאה',
   newBusiness: 'פתיחת עסק חדש',
   newBusinessSupport:
@@ -65,6 +72,9 @@ export default function BusinessRecoveryScreen() {
   const { appMode, setAppMode } = useAppMode();
   const { businesses, activeBusinessId } = useActiveBusiness();
   const closedBusinesses = useQuery(api.business.listMyClosedBusinesses);
+  const permanentDeletionBusinesses = useQuery(
+    api.businessDeletion.listMyBusinessesForPermanentDeletion
+  );
   const restoreBusinessAccount = useMutation(
     api.business.restoreBusinessAccount
   );
@@ -77,6 +87,11 @@ export default function BusinessRecoveryScreen() {
   const onboardingRoute = getBusinessOnboardingEntryRoute(
     sessionContext?.user.businessOnboardedAt != null
   );
+  const deletingBusinesses =
+    permanentDeletionBusinesses?.filter((business) => {
+      const status = business.permanentDeletionJobStatus;
+      return status === 'queued' || status === 'running' || status === 'failed';
+    }) ?? [];
 
   useEffect(() => {
     if (
@@ -146,6 +161,14 @@ export default function BusinessRecoveryScreen() {
     ]);
   };
 
+  const openPermanentDeletion = (businessId: Id<'businesses'>) => {
+    router.push(
+      `/(authenticated)/business-permanent-deletion?businessId=${encodeURIComponent(
+        String(businessId)
+      )}` as Href
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
@@ -171,7 +194,8 @@ export default function BusinessRecoveryScreen() {
             <ActivityIndicator color="#2F6BFF" />
             <Text style={styles.transitionText}>{TEXT.restoring}</Text>
           </View>
-        ) : closedBusinesses === undefined ? (
+        ) : closedBusinesses === undefined ||
+          permanentDeletionBusinesses === undefined ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color="#2F6BFF" />
           </View>
@@ -234,11 +258,81 @@ export default function BusinessRecoveryScreen() {
                       </Text>
                     )}
                   </Pressable>
+
+                  <View style={styles.permanentDeleteArea}>
+                    <Text style={styles.permanentDeleteHint}>
+                      {TEXT.permanentDeleteHint}
+                    </Text>
+                    <Pressable
+                      onPress={() =>
+                        openPermanentDeletion(business.businessId)
+                      }
+                      disabled={Boolean(restoringBusinessId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${TEXT.permanentDelete}: ${business.name}`}
+                      accessibilityHint={TEXT.permanentDeleteHint}
+                      style={({ pressed }) => [
+                        styles.permanentDeleteButton,
+                        pressed ? styles.pressed : null,
+                        restoringBusinessId ? styles.disabled : null,
+                      ]}
+                    >
+                      <Text style={styles.permanentDeleteButtonText}>
+                        {TEXT.permanentDelete}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               );
             })}
           </View>
         )}
+
+        {deletingBusinesses.length > 0 ? (
+          <View style={styles.deletionSection}>
+            <Text style={styles.deletionSectionTitle}>
+              {TEXT.deletionSectionTitle}
+            </Text>
+            {deletingBusinesses.map((business) => {
+              const failed = business.permanentDeletionJobStatus === 'failed';
+              return (
+                <View
+                  key={`deleting-${String(business.businessId)}`}
+                  style={styles.deletionCard}
+                >
+                  <View style={styles.deletionCardHeader}>
+                    <Ionicons
+                      name={failed ? 'alert-circle-outline' : 'time-outline'}
+                      size={24}
+                      color="#B42318"
+                    />
+                    <View style={styles.cardText}>
+                      <Text style={styles.businessName}>{business.name}</Text>
+                      <Text style={styles.deletionStateText}>
+                        {failed
+                          ? TEXT.deletionFailed
+                          : TEXT.deletionInProgress}
+                      </Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => openPermanentDeletion(business.businessId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${TEXT.showDeletionStatus}: ${business.name}`}
+                    style={({ pressed }) => [
+                      styles.deletionStatusButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.deletionStatusButtonText}>
+                      {TEXT.showDeletionStatus}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
 
         <View style={styles.newBusinessCard}>
           <Text style={styles.newBusinessSupport}>
@@ -380,6 +474,85 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  permanentDeleteArea: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3D3D3',
+    paddingTop: 12,
+    gap: 9,
+  },
+  permanentDeleteHint: {
+    color: '#7F1D1D',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  permanentDeleteButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#B42318',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  permanentDeleteButtonText: {
+    color: '#B42318',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  deletionSection: {
+    gap: 10,
+  },
+  deletionSectionTitle: {
+    color: '#7F1D1D',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  deletionCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F0CACA',
+    backgroundColor: '#FFF7F7',
+    padding: 16,
+    gap: 12,
+  },
+  deletionCardHeader: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 12,
+    ...rtlBaseView,
+  },
+  deletionStateText: {
+    width: '100%',
+    color: '#7F1D1D',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  deletionStatusButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: '#B42318',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  deletionStatusButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   newBusinessCard: {
     borderRadius: 20,

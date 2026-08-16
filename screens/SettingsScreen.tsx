@@ -3,9 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { router, useSegments } from 'expo-router';
+import { router, useLocalSearchParams, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -109,7 +109,8 @@ const TEXT = {
   deleteUnknownError: 'מחיקת החשבון נכשלה נסו שוב',
   soleOwnerDeleteBlockedTitle: 'לא ניתן למחוק את החשבון',
   soleOwnerDeleteBlockedMessage:
-    'לא ניתן למחוק את החשבון כל עוד קיים עסק בבעלותך ללא בעלים חלופי. ההגבלה חלה גם על עסק סגור, משום שנתוני העסק נשמרים לצורך שחזור.',
+    'לא ניתן למחוק את החשבון כל עוד בבעלותך עסק פעיל או סגור. יש לנהל את העסקים שבבעלותך לפני שממשיכים במחיקת החשבון האישי.',
+  manageBusinesses: 'ניהול עסקים',
   deleteSuccessTitle: 'המחיקה הושלמה',
   deleteSuccessPrefix: 'המחיקה הסתיימה סיכום טבלאות:',
   ok: 'אישור',
@@ -254,6 +255,9 @@ function NotificationToggleRow({
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
+  const { resumeAccountDeletion } = useLocalSearchParams<{
+    resumeAccountDeletion?: string | string[];
+  }>();
   const tabBarHeight = useBottomTabBarHeight();
   const sessionContext = useSessionContext();
   const user = sessionContext?.user;
@@ -281,6 +285,7 @@ export default function SettingsScreen() {
   const [staffBusinessBusyId, setStaffBusinessBusyId] = useState<string | null>(
     null
   );
+  const resumeAccountDeletionHandledRef = useRef(false);
 
   const isActionBusy = deleteBusy;
   const notificationBusy = notificationsLoading || notificationsSyncing;
@@ -388,6 +393,29 @@ export default function SettingsScreen() {
     setDeleteModalVisible(true);
   };
 
+  useEffect(() => {
+    const shouldResume = Array.isArray(resumeAccountDeletion)
+      ? resumeAccountDeletion[0] === 'true'
+      : resumeAccountDeletion === 'true';
+    if (!shouldResume || resumeAccountDeletionHandledRef.current) {
+      return;
+    }
+    resumeAccountDeletionHandledRef.current = true;
+    setDeleteStep(1);
+    setDeleteConfirmationText('');
+    setDeleteModalVisible(true);
+  }, [resumeAccountDeletion]);
+
+  const openBusinessDeletionResolution = () => {
+    resumeAccountDeletionHandledRef.current = false;
+    setDeleteModalVisible(false);
+    setDeleteStep(1);
+    setDeleteConfirmationText('');
+    router.push(
+      '/(authenticated)/business-permanent-deletion?returnTo=account-deletion'
+    );
+  };
+
   const clearLocalSessionState = async () => {
     const convexAuthKeys = getConvexAuthSecureStoreKeysForCleanup();
     const cleanupResults = await Promise.allSettled([
@@ -440,7 +468,14 @@ export default function SettingsScreen() {
         if (result.errorCode === 'SOLE_OWNER_BUSINESS_BLOCKED') {
           Alert.alert(
             TEXT.soleOwnerDeleteBlockedTitle,
-            TEXT.soleOwnerDeleteBlockedMessage
+            TEXT.soleOwnerDeleteBlockedMessage,
+            [
+              { text: TEXT.cancel, style: 'cancel' },
+              {
+                text: TEXT.manageBusinesses,
+                onPress: openBusinessDeletionResolution,
+              },
+            ]
           );
           return;
         }

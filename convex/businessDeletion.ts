@@ -176,6 +176,7 @@ export const listMyBusinessesForPermanentDeletion = query({
       }
       const billing = await getRevenueCatBillingState(ctx, business._id);
       result.push({
+        businessExists: true as const,
         businessId: business._id,
         name: business.name,
         isActive: business.isActive,
@@ -187,6 +188,45 @@ export const listMyBusinessesForPermanentDeletion = query({
         permanentDeletionFailureCode: deletionJob?.failureCode ?? null,
         billing,
         deletionEligible: !billing.renewalActive,
+      });
+    }
+
+    const unfinishedJobs: Doc<'businessDeletionJobs'>[] = [];
+    for (const status of ['queued', 'running', 'failed'] as const) {
+      const jobs = await ctx.db
+        .query('businessDeletionJobs')
+        .withIndex('by_requestedByUserId_status', (q: any) =>
+          q.eq('requestedByUserId', user._id).eq('status', status)
+        )
+        .order('desc')
+        .collect();
+      unfinishedJobs.push(...jobs);
+    }
+    unfinishedJobs.sort((left, right) => right.updatedAt - left.updatedAt);
+
+    const syntheticBusinessIds = new Set<string>();
+    for (const job of unfinishedJobs) {
+      if (String(job.requestedByUserId) !== String(user._id)) {
+        continue;
+      }
+      const businessId = ctx.db.normalizeId('businesses', job.businessId);
+      if (!businessId || syntheticBusinessIds.has(String(businessId))) {
+        continue;
+      }
+      const business = await ctx.db.get(businessId);
+      if (business) {
+        continue;
+      }
+      syntheticBusinessIds.add(String(businessId));
+      result.push({
+        businessExists: false as const,
+        businessId,
+        name: job.businessNameSnapshot,
+        permanentDeletionStatus: 'in_progress' as const,
+        permanentDeletionJobId: job._id,
+        permanentDeletionJobStatus: job.status,
+        permanentDeletionPhase: job.phase,
+        permanentDeletionFailureCode: job.failureCode ?? null,
       });
     }
     return result;
