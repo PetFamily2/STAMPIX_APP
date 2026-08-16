@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
   assertCampaignsNotOverLimit,
@@ -1544,6 +1544,15 @@ export const runAutomationSweepInternal = internalMutation({
     let sentCount = 0;
     let skippedCount = 0;
     const overLimitByBusiness = new Map<string, boolean>();
+    const businessById = new Map<string, Doc<'businesses'> | null>();
+
+    const getBusiness = async (businessId: Id<'businesses'>) => {
+      const businessKey = String(businessId);
+      if (!businessById.has(businessKey)) {
+        businessById.set(businessKey, await ctx.db.get(businessId));
+      }
+      return businessById.get(businessKey) ?? null;
+    };
 
     if (shouldRunRecurring) {
       const recurringCampaigns = await ctx.db
@@ -1561,6 +1570,10 @@ export const runAutomationSweepInternal = internalMutation({
 
       for (const campaign of recurringCampaigns) {
         if (!isManagementType(campaign.type)) {
+          continue;
+        }
+        const business = await getBusiness(campaign.businessId);
+        if (!business || business.isActive !== true) {
           continue;
         }
         const businessKey = String(campaign.businessId);
@@ -1612,6 +1625,17 @@ export const runAutomationSweepInternal = internalMutation({
       }
       const sendAt = Number(campaign.schedule?.sendAt ?? 0);
       if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
+        continue;
+      }
+
+      const business = await getBusiness(campaign.businessId);
+      if (!business || business.isActive !== true) {
+        continue;
+      }
+      if (
+        typeof business.lastRestoredAt === 'number' &&
+        sendAt <= business.lastRestoredAt
+      ) {
         continue;
       }
 

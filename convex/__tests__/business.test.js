@@ -2,9 +2,12 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   assertBusinessOnboardingReady,
+  closeBusinessAccount,
   createOrResumeBusinessOnboarding,
   getBusinessesNearby,
   getBusinessSettings,
+  listMyClosedBusinesses,
+  restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
   updateBusinessAddress,
   updateBusinessProfile,
@@ -57,6 +60,10 @@ function createMockCtx({
   users = [buildUser()],
   businesses = [buildBusiness()],
   businessStaff = [buildStaff()],
+  loyaltyPrograms = [],
+  memberships = [],
+  events = [],
+  campaigns = [],
 } = {}) {
   const state = {
     users: new Map(users.map((entry) => [entry._id, { ...entry }])),
@@ -64,6 +71,14 @@ function createMockCtx({
     businessStaff: new Map(
       businessStaff.map((entry) => [entry._id, { ...entry }])
     ),
+    loyaltyPrograms: new Map(
+      loyaltyPrograms.map((entry) => [entry._id, { ...entry }])
+    ),
+    memberships: new Map(
+      memberships.map((entry) => [entry._id, { ...entry }])
+    ),
+    events: new Map(events.map((entry) => [entry._id, { ...entry }])),
+    campaigns: new Map(campaigns.map((entry) => [entry._id, { ...entry }])),
   };
   let businessInsertCount = 0;
   let staffInsertCount = 0;
@@ -74,37 +89,21 @@ function createMockCtx({
         currentUserId ? { subject: `${currentUserId}|session_1` } : null,
     },
     db: {
-      get: async (id) =>
-        state.users.get(id) ??
-        state.businesses.get(id) ??
-        state.businessStaff.get(id) ??
-        null,
+      get: async (id) => {
+        for (const table of Object.values(state)) {
+          if (table.has(id)) {
+            return table.get(id);
+          }
+        }
+        return null;
+      },
       patch: async (id, patch) => {
-        if (state.users.has(id)) {
-          const current = state.users.get(id);
-          state.users.set(id, {
-            ...current,
-            ...patch,
-          });
-          return;
-        }
-
-        if (state.businesses.has(id)) {
-          const current = state.businesses.get(id);
-          state.businesses.set(id, {
-            ...current,
-            ...patch,
-          });
-          return;
-        }
-
-        if (state.businessStaff.has(id)) {
-          const current = state.businessStaff.get(id);
-          state.businessStaff.set(id, {
-            ...current,
-            ...patch,
-          });
-          return;
+        for (const table of Object.values(state)) {
+          if (table.has(id)) {
+            const current = table.get(id);
+            table.set(id, { ...current, ...patch });
+            return;
+          }
         }
 
         throw new Error(`UNKNOWN_PATCH_TARGET:${id}`);
@@ -161,6 +160,245 @@ function createMockCtx({
 
   return { ctx, state };
 }
+
+describe('business closure and restoration lifecycle', () => {
+  const manager = buildStaff({
+    _id: 'staff_manager_1',
+    userId: 'user_manager',
+    staffRole: 'manager',
+  });
+  const staff = buildStaff({
+    _id: 'staff_member_1',
+    userId: 'user_staff',
+    staffRole: 'staff',
+  });
+  const program = {
+    _id: 'program_1',
+    businessId: 'business_1',
+    title: 'Original Program',
+    maxStamps: 8,
+    isActive: true,
+  };
+  const membership = {
+    _id: 'membership_1',
+    businessId: 'business_1',
+    programId: 'program_1',
+    userId: 'customer_1',
+    currentStamps: 6,
+    isActive: true,
+  };
+  const event = {
+    _id: 'event_1',
+    businessId: 'business_1',
+    membershipId: 'membership_1',
+    type: 'STAMP_ADDED',
+    createdAt: 100,
+  };
+  const campaign = {
+    _id: 'campaign_1',
+    businessId: 'business_1',
+    title: 'Original Campaign',
+    automationEnabled: true,
+    isActive: true,
+  };
+
+  test('canonical owner closes the business without changing preserved state', async () => {
+    const { ctx, state } = createMockCtx({
+      users: [
+        buildUser({
+          activeBusinessId: 'business_1',
+          activeMode: 'business',
+        }),
+        buildUser({ _id: 'user_manager' }),
+        buildUser({ _id: 'user_staff' }),
+      ],
+      businessStaff: [buildStaff(), manager, staff],
+      loyaltyPrograms: [program],
+      memberships: [membership],
+      events: [event],
+      campaigns: [campaign],
+    });
+    const preserved = {
+      staff: structuredClone(Array.from(state.businessStaff.values())),
+      programs: structuredClone(Array.from(state.loyaltyPrograms.values())),
+      memberships: structuredClone(Array.from(state.memberships.values())),
+      events: structuredClone(Array.from(state.events.values())),
+      campaigns: structuredClone(Array.from(state.campaigns.values())),
+    };
+
+    const result = await closeBusinessAccount._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    const closed = state.businesses.get('business_1');
+    expect(closed.isActive).toBe(false);
+    expect(closed.closedAt).toBe(result.closedAt);
+    expect(closed.lastClosedAt).toBe(result.closedAt);
+    expect(closed.closedByUserId).toBe('user_owner');
+    expect(closed.updatedAt).toBe(result.closedAt);
+    expect(state.users.get('user_owner').activeBusinessId).toBeUndefined();
+    expect(state.users.get('user_owner').activeMode).toBe('customer');
+    expect(Array.from(state.businessStaff.values())).toEqual(preserved.staff);
+    expect(Array.from(state.loyaltyPrograms.values())).toEqual(
+      preserved.programs
+    );
+    expect(Array.from(state.memberships.values())).toEqual(
+      preserved.memberships
+    );
+    expect(Array.from(state.events.values())).toEqual(preserved.events);
+    expect(Array.from(state.campaigns.values())).toEqual(preserved.campaigns);
+  });
+
+  test.each([
+    ['manager', 'user_manager', manager],
+    ['staff', 'user_staff', staff],
+    [
+      'noncanonical owner row',
+      'user_other_owner',
+      buildStaff({
+        _id: 'staff_other_owner',
+        userId: 'user_other_owner',
+        staffRole: 'owner',
+      }),
+    ],
+    ['unrelated user', 'user_unrelated', null],
+  ])('%s cannot close the business', async (_label, userId, staffRow) => {
+    const { ctx } = createMockCtx({
+      currentUserId: userId,
+      users: [buildUser(), buildUser({ _id: userId })],
+      businessStaff: [buildStaff(), ...(staffRow ? [staffRow] : [])],
+    });
+
+    await expect(
+      closeBusinessAccount._handler(ctx, { businessId: 'business_1' })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+  });
+
+  test('close rejects an already closed business', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [buildBusiness({ isActive: false })],
+    });
+
+    await expect(
+      closeBusinessAccount._handler(ctx, { businessId: 'business_1' })
+    ).rejects.toThrow('BUSINESS_ALREADY_CLOSED');
+  });
+
+  test('only the canonical owner lists the closed business', async () => {
+    const closedBusiness = buildBusiness({
+      isActive: false,
+      logoUrl: 'https://example.test/logo.png',
+      closedAt: 200,
+      lastClosedAt: 200,
+    });
+    const owner = createMockCtx({ businesses: [closedBusiness] });
+    const other = createMockCtx({
+      currentUserId: 'user_other',
+      users: [buildUser({ _id: 'user_other' })],
+      businesses: [closedBusiness],
+      businessStaff: [],
+    });
+
+    expect(await listMyClosedBusinesses._handler(owner.ctx, {})).toEqual([
+      {
+        businessId: 'business_1',
+        name: 'Test Business',
+        logoUrl: 'https://example.test/logo.png',
+        closedAt: 200,
+        lastClosedAt: 200,
+        createdAt: closedBusiness.createdAt,
+      },
+    ]);
+    expect(await listMyClosedBusinesses._handler(other.ctx, {})).toEqual([]);
+  });
+
+  test('canonical owner restores the exact preserved business state', async () => {
+    const closedAt = 200;
+    const { ctx, state } = createMockCtx({
+      businesses: [
+        buildBusiness({
+          isActive: false,
+          closedAt,
+          lastClosedAt: closedAt,
+          closedByUserId: 'user_owner',
+        }),
+      ],
+      businessStaff: [buildStaff(), manager, staff],
+      loyaltyPrograms: [program],
+      memberships: [membership],
+      events: [event],
+      campaigns: [campaign],
+    });
+    const preserved = {
+      staff: structuredClone(Array.from(state.businessStaff.values())),
+      programs: structuredClone(Array.from(state.loyaltyPrograms.values())),
+      memberships: structuredClone(Array.from(state.memberships.values())),
+      events: structuredClone(Array.from(state.events.values())),
+      campaigns: structuredClone(Array.from(state.campaigns.values())),
+    };
+
+    const result = await restoreBusinessAccount._handler(ctx, {
+      businessId: 'business_1',
+    });
+
+    const restored = state.businesses.get('business_1');
+    expect(restored.isActive).toBe(true);
+    expect(restored.closedAt).toBeUndefined();
+    expect(restored.closedByUserId).toBeUndefined();
+    expect(restored.lastClosedAt).toBe(closedAt);
+    expect(restored.lastRestoredAt).toBe(result.lastRestoredAt);
+    expect(Array.from(state.businessStaff.values())).toEqual(preserved.staff);
+    expect(Array.from(state.loyaltyPrograms.values())).toEqual(
+      preserved.programs
+    );
+    expect(Array.from(state.memberships.values())).toEqual(
+      preserved.memberships
+    );
+    expect(Array.from(state.events.values())).toEqual(preserved.events);
+    expect(Array.from(state.campaigns.values())).toEqual(preserved.campaigns);
+  });
+
+  test.each([
+    ['manager', 'user_manager', manager],
+    ['staff', 'user_staff', staff],
+  ])('%s cannot restore the business', async (_label, userId, staffRow) => {
+    const { ctx } = createMockCtx({
+      currentUserId: userId,
+      users: [buildUser(), buildUser({ _id: userId })],
+      businesses: [buildBusiness({ isActive: false })],
+      businessStaff: [buildStaff(), staffRow],
+    });
+
+    await expect(
+      restoreBusinessAccount._handler(ctx, { businessId: 'business_1' })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+  });
+
+  test('restore rejects a business that is not closed', async () => {
+    const { ctx } = createMockCtx();
+
+    await expect(
+      restoreBusinessAccount._handler(ctx, { businessId: 'business_1' })
+    ).rejects.toThrow('BUSINESS_NOT_CLOSED');
+  });
+
+  test('closed business management writes fail with BUSINESS_CLOSED', async () => {
+    const { ctx } = createMockCtx({
+      businesses: [buildBusiness({ isActive: false })],
+    });
+
+    await expect(
+      updateBusinessProfile._handler(ctx, {
+        businessId: 'business_1',
+        name: 'Changed Name',
+        shortDescription: '',
+        businessPhone: '',
+        serviceTypes: [],
+        serviceTags: [],
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+  });
+});
 
 function onboardingCreateArgs(overrides = {}) {
   return {

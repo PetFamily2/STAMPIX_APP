@@ -59,15 +59,27 @@ export async function requireCurrentUser(ctx: any): Promise<Doc<'users'>> {
   return user;
 }
 
+export async function requireActiveBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+): Promise<Doc<'businesses'>> {
+  const business = await ctx.db.get(businessId);
+  if (!business) {
+    throw new Error('BUSINESS_NOT_FOUND');
+  }
+  if (business.isActive !== true) {
+    throw new Error('BUSINESS_CLOSED');
+  }
+
+  return business;
+}
+
 export async function requireBusinessAndProgram(
   ctx: any,
   businessId: Id<'businesses'>,
   programId: Id<'loyaltyPrograms'>
 ) {
-  const business = await ctx.db.get(businessId);
-  if (!business || business.isActive !== true) {
-    throw new Error('BUSINESS_INACTIVE');
-  }
+  const business = await requireActiveBusiness(ctx, businessId);
 
   const program = await ctx.db.get(programId);
   const programLifecycle = resolveProgramLifecycle(program);
@@ -110,6 +122,8 @@ export async function requireActorIsActiveStaffForBusiness(
   if (resolveStaffStatus(membership) !== 'active') {
     throw new Error('NOT_AUTHORIZED');
   }
+
+  await requireActiveBusiness(ctx, businessId);
 
   return {
     actor,

@@ -12,6 +12,7 @@ import {
   requireActorIsActiveStaffForBusiness,
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
+  requireActiveBusiness,
   requireCurrentUser,
 } from './guards';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
@@ -693,6 +694,119 @@ export async function createBusinessForOwner(
   return { businessId, businessPublicId, joinCode };
 }
 
+export const closeBusinessAccount = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const user = await requireCurrentUser(ctx);
+    const business = await ctx.db.get(businessId);
+    if (!business) {
+      throw new Error('BUSINESS_NOT_FOUND');
+    }
+
+    const ownerMembership = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId_userId', (q: any) =>
+        q.eq('businessId', businessId).eq('userId', user._id)
+      )
+      .first();
+    if (
+      String(business.ownerUserId) !== String(user._id) ||
+      !ownerMembership ||
+      ownerMembership.staffRole !== 'owner' ||
+      getBusinessStaffStatus(ownerMembership) !== 'active'
+    ) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+    if (business.isActive !== true) {
+      throw new Error('BUSINESS_ALREADY_CLOSED');
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(businessId, {
+      isActive: false,
+      closedAt: now,
+      lastClosedAt: now,
+      closedByUserId: user._id,
+      updatedAt: now,
+    });
+
+    if (String(user.activeBusinessId ?? '') === String(businessId)) {
+      await ctx.db.patch(user._id, {
+        activeBusinessId: undefined,
+        activeMode: 'customer',
+        updatedAt: now,
+      });
+    }
+
+    return {
+      businessId,
+      isActive: false as const,
+      closedAt: now,
+    };
+  },
+});
+
+export const listMyClosedBusinesses = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    const ownedBusinesses = await ctx.db
+      .query('businesses')
+      .withIndex('by_ownerUserId', (q: any) =>
+        q.eq('ownerUserId', user._id)
+      )
+      .collect();
+
+    return ownedBusinesses
+      .filter((business: Doc<'businesses'>) => business.isActive === false)
+      .map((business: Doc<'businesses'>) => ({
+        businessId: business._id,
+        name: business.name,
+        logoUrl: business.logoUrl ?? null,
+        closedAt: business.closedAt ?? null,
+        lastClosedAt: business.lastClosedAt ?? business.closedAt ?? null,
+        createdAt: business.createdAt,
+      }));
+  },
+});
+
+export const restoreBusinessAccount = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    const user = await requireCurrentUser(ctx);
+    const business = await ctx.db.get(businessId);
+    if (!business) {
+      throw new Error('BUSINESS_NOT_FOUND');
+    }
+    if (String(business.ownerUserId) !== String(user._id)) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+    if (business.isActive !== false) {
+      throw new Error('BUSINESS_NOT_CLOSED');
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(businessId, {
+      isActive: true,
+      closedAt: undefined,
+      closedByUserId: undefined,
+      lastRestoredAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      businessId,
+      isActive: true as const,
+      lastClosedAt: business.lastClosedAt ?? business.closedAt ?? null,
+      lastRestoredAt: now,
+    };
+  },
+});
+
 export const createBusiness = mutation({
   args: {
     name: v.string(),
@@ -919,6 +1033,9 @@ export const createOrResumeBusinessOnboarding = mutation({
     if (existing) {
       if (String(existing.ownerUserId) !== String(user._id)) {
         throw new Error('EXTERNAL_ID_TAKEN');
+      }
+      if (existing.isActive !== true) {
+        throw new Error('BUSINESS_CLOSED');
       }
       if (
         existingByExternalId &&
@@ -3182,6 +3299,7 @@ export const acceptStaffInvite = mutation({
     if (!invite) {
       throw new Error('INVITE_NOT_FOUND');
     }
+    await requireActiveBusiness(ctx, invite.businessId);
     if (invite.status !== 'pending') {
       throw new Error('INVITE_NOT_PENDING');
     }

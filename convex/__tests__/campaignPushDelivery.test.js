@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { sendCampaignNow } from '../campaigns';
+import { runAutomationSweepInternal, sendCampaignNow } from '../campaigns';
 import {
   processReferralAfterJoin,
   qualifyCustomerReferralAfterStamp,
@@ -322,6 +322,60 @@ function baseTables({ campaignChannels = ['in_app', 'push'] } = {}) {
 }
 
 describe('campaign push delivery', () => {
+  test('closed business rejects manual send and is skipped by scheduled execution', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.businesses[0].isActive = false;
+    tables.businesses[0].closedAt = now;
+    tables.campaigns[0].status = 'active';
+    tables.campaigns[0].activationStatus = 'active';
+    tables.campaigns[0].schedule = {
+      mode: 'one_time',
+      sendAt: now - 1_000,
+      nextRunAt: now - 1_000,
+    };
+    const ctx = buildCtx(tables);
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ data: [{ status: 'ok' }] }), {
+        status: 200,
+      });
+    };
+
+    await expect(
+      sendCampaignNow._handler(ctx, {
+        businessId: BUSINESS_ID,
+        campaignId: CAMPAIGN_ID,
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+
+    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    expect(sweep.processedCampaigns).toBe(0);
+    expect(ctx.db.rows('messageLog')).toHaveLength(0);
+    expect(fetchCalls).toBe(0);
+  });
+
+  test('restoration does not automatically send a missed one-time campaign', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.businesses[0].lastRestoredAt = now;
+    tables.campaigns[0].status = 'active';
+    tables.campaigns[0].activationStatus = 'active';
+    tables.campaigns[0].schedule = {
+      mode: 'one_time',
+      sendAt: now - 1_000,
+      nextRunAt: now - 1_000,
+    };
+    const ctx = buildCtx(tables);
+
+    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+
+    expect(sweep.processedCampaigns).toBe(0);
+    expect(ctx.db.rows('messageLog')).toHaveLength(0);
+    expect(tables.campaigns[0].activationStatus).toBe('active');
+  });
+
   test('push-channel campaign creates inbox log and attempts push delivery', async () => {
     const tables = baseTables();
     const ctx = buildCtx(tables);

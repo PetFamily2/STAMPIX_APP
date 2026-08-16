@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import {
   commitRedeem,
   commitStamp,
+  myBusinesses,
   resolveScan,
   undoLastScannerAction,
 } from '../scanner';
+import { joinSelectedPrograms } from '../memberships';
 import { buildScanToken } from '../scanTokens';
 
 process.env.SCAN_TOKEN_SECRET = process.env.SCAN_TOKEN_SECRET || 'test-secret';
@@ -246,6 +248,64 @@ async function createToken() {
 }
 
 describe('scanner flow', () => {
+  test('closed business is absent operationally and rejects joins and scanner writes', async () => {
+    const now = Date.now();
+    const tables = baseTables({
+      businesses: [buildBusiness({ isActive: false, closedAt: now })],
+      scanSessions: [
+        {
+          _id: 'scan_session_stamp_closed',
+          actorUserId: 'staff_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          actionType: 'stamp',
+          status: 'ready',
+          expiresAt: now + 60_000,
+          createdAt: now,
+        },
+        {
+          _id: 'scan_session_redeem_closed',
+          actorUserId: 'staff_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          actionType: 'redeem',
+          status: 'ready',
+          expiresAt: now + 60_000,
+          createdAt: now,
+        },
+      ],
+    });
+    const staffCtx = buildCtx(tables);
+    const customerCtx = buildCtx(tables, 'customer_1');
+
+    expect(await myBusinesses._handler(staffCtx, {})).toEqual([]);
+    await expect(
+      joinSelectedPrograms._handler(customerCtx, {
+        businessId: 'business_1',
+        programIds: ['program_1'],
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+    await expect(
+      resolveScan._handler(staffCtx, {
+        qrData: 'closed-business-token',
+        businessId: 'business_1',
+        programId: 'program_1',
+        scannerRuntimeSessionId: 'runtime_closed',
+        deviceId: 'device_closed',
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+    await expect(
+      commitStamp._handler(staffCtx, {
+        scanSessionId: 'scan_session_stamp_closed',
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+    await expect(
+      commitRedeem._handler(staffCtx, {
+        scanSessionId: 'scan_session_redeem_closed',
+      })
+    ).rejects.toThrow('BUSINESS_CLOSED');
+  });
+
   test('resolve does not consume token, commit consumes and is idempotent on retry', async () => {
     const now = Date.now();
     const tables = baseTables({

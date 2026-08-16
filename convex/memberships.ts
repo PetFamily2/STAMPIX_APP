@@ -7,6 +7,7 @@ import {
 } from './entitlements';
 import {
   getCurrentUserOrNull,
+  requireActiveBusiness,
   requireActorIsStaffForBusiness,
   requireCurrentUser,
 } from './guards';
@@ -538,8 +539,11 @@ export const getCustomerBusiness = query({
     const user = await requireCurrentUser(ctx);
 
     const business = await ctx.db.get(businessId);
-    if (!business || business.isActive !== true) {
+    if (!business) {
       throw new Error('BUSINESS_NOT_FOUND');
+    }
+    if (business.isActive !== true) {
+      throw new Error('BUSINESS_CLOSED');
     }
 
     const [allPrograms, memberships] = await Promise.all([
@@ -736,8 +740,11 @@ export const resolveJoinBusiness = query({
     const resolvedCampaign = parsed.campaign ?? argCampaign;
     const business = await resolveBusinessFromJoinInput(ctx, parsed);
 
-    if (!business || business.isActive !== true) {
+    if (!business) {
       throw new Error('BUSINESS_NOT_FOUND');
+    }
+    if (business.isActive !== true) {
+      throw new Error('BUSINESS_CLOSED');
     }
 
     const [programs, memberships] = await Promise.all([
@@ -807,10 +814,7 @@ export const joinSelectedPrograms = mutation({
       throw new Error('PROGRAM_SELECTION_REQUIRED');
     }
 
-    const business = await ctx.db.get(businessId);
-    if (!business || business.isActive !== true) {
-      throw new Error('BUSINESS_NOT_FOUND');
-    }
+    await requireActiveBusiness(ctx, businessId);
 
     const [selectedPrograms, allBusinessMemberships] = await Promise.all([
       Promise.all(uniqueProgramIds.map((programId) => ctx.db.get(programId))),
@@ -965,8 +969,12 @@ export const joinByBusinessQr = mutation({
 
     const business = await resolveBusinessFromJoinInput(ctx, parsed);
 
-    if (!business || business.isActive !== true)
+    if (!business) {
       throw new Error('BUSINESS_NOT_FOUND');
+    }
+    if (business.isActive !== true) {
+      throw new Error('BUSINESS_CLOSED');
+    }
 
     const programs = await ctx.db
       .query('loyaltyPrograms')
