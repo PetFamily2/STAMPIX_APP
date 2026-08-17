@@ -80,11 +80,17 @@ Convex server variables:
 - `APP_STORE_URL`
 - `PLAY_STORE_URL`
 - `REVENUECAT_WEBHOOK_SECRET` when the webhook is enabled
+- `SUPPORT_EMAIL` for the public account-deletion page support contact (server-only)
 
 Keep `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` server-only. Do not expose it through
 an `EXPO_PUBLIC_` variable. `AUTH_LOG_LEVEL=DEBUG` is allowed only when the
 server-side `STAMPAIX_ENV` is explicitly `development`; missing, preview,
 production, and unknown markers reject DEBUG.
+
+The external Google Play account-deletion resource is served by the Convex HTTP
+site at `/account-deletion`. Set `SUPPORT_EMAIL` separately in every deployed
+Convex environment where a support contact should appear. The value must be a
+valid monitored mailbox and must not use the `EXPO_PUBLIC_` prefix.
 
 ## 4) Run the app
 Start two terminals.

@@ -1,13 +1,18 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
+import type { PaginationResult } from 'convex/server';
 import { v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
   internalQuery,
   mutation,
   query,
 } from './_generated/server';
+import {
+  normalizeAccountDeletionEmail,
+  resetAccountDeletionEmailRateLimit,
+} from './accountDeletionRequests';
 import { computeBusinessProfileCompletion } from './business';
 import {
   cleanupCompletedDeletionReferencesForUser,
@@ -157,6 +162,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'businessDeletionRecipients',
   'businessDeletionAssets',
   'businessDeletionJobs',
+  'accountDeletionRequests',
   'supportRequests',
   'referralAdminAuditLog',
   'businessReferrals',
@@ -310,6 +316,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     businessDeletionRecipients: 0,
     businessDeletionAssets: 0,
     businessDeletionJobs: 0,
+    accountDeletionRequests: 0,
     supportRequests: 0,
     referralAdminAuditLog: 0,
     businessReferrals: 0,
@@ -363,6 +370,26 @@ async function deleteTableInBatches(
   }
 
   return deletedCount;
+}
+
+async function collectAccountDeletionRequestEmails(ctx: any) {
+  const emails = new Set<string>();
+  let cursor: string | null = null;
+
+  while (true) {
+    const page: PaginationResult<Doc<'accountDeletionRequests'>> = await ctx.db
+      .query('accountDeletionRequests')
+      .paginate({ cursor, numItems: DELETE_BATCH_SIZE });
+    for (const request of page.page) {
+      emails.add(normalizeAccountDeletionEmail(request.email));
+    }
+    if (page.isDone) {
+      break;
+    }
+    cursor = page.continueCursor;
+  }
+
+  return emails;
 }
 
 async function deleteByIndexInBatches(
@@ -1280,10 +1307,28 @@ export const deleteMyAccountHard = mutation({
 });
 
 export async function wipeAllDataHardImpl(
-  ctx: any
+  ctx: any,
+  options?: {
+    resetAccountDeletionEmailLimit?: (
+      ctx: any,
+      email: string
+    ) => Promise<void>;
+  }
 ): Promise<WipeAllDataHardResult> {
   const requester = await requireCurrentUser(ctx);
   const counts = emptyWipeAllDataHardCounts();
+  const accountDeletionEmails = await collectAccountDeletionRequestEmails(ctx);
+  const resetAccountDeletionEmailLimit =
+    options?.resetAccountDeletionEmailLimit ??
+    resetAccountDeletionEmailRateLimit;
+
+  for (const email of accountDeletionEmails) {
+    try {
+      await resetAccountDeletionEmailLimit(ctx, email);
+    } catch {
+      throw new Error('ACCOUNT_DELETION_EMAIL_RATE_LIMIT_RESET_FAILED');
+    }
+  }
 
   for (const tableName of WIPE_ALL_TABLE_ORDER) {
     counts[tableName] = await deleteTableInBatches(ctx, tableName);

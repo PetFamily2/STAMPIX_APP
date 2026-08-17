@@ -24,20 +24,28 @@ import { alignItems, flexDirection, selfEnd } from '@/lib/rtl';
 
 const TEXT = {
   title: 'פניות שירות לקוחות',
+  deletionSectionTitle: 'בקשות למחיקת חשבון מהאתר',
+  supportSectionTitle: 'פניות תמיכה מהאפליקציה',
   noAccess: 'המסך זמין לאדמין בלבד.',
+  deletionEmpty: 'אין בקשות למחיקת חשבון.',
   emptyTitle: 'אין פניות חדשות',
   emptySubtitle: 'כשלקוחות ישלחו הודעה ממסך העזרה, היא תופיע כאן.',
   statusNew: 'חדש',
+  statusInReview: 'בבדיקה',
   statusHandled: 'טופל',
+  markInReview: 'סמן כבטיפול',
   markHandled: 'סמן כטופל',
   markNew: 'החזר לחדש',
   email: 'אימייל',
+  reference: 'מספר פנייה',
   phone: 'טלפון',
   sentAt: 'נשלח ב-',
   unknown: 'לא הוגדר',
   errorTitle: 'שגיאה',
   updateFailed: 'לא הצלחנו לעדכן את סטטוס הפנייה.',
 };
+
+const accountDeletionApi = (api as any).accountDeletionRequests;
 
 function formatTimestamp(value: number) {
   return new Intl.DateTimeFormat('he-IL', {
@@ -54,12 +62,21 @@ export default function AdminSupportInboxScreen() {
     api.support.listSupportRequests,
     isAdmin ? {} : 'skip'
   );
+  const deletionRequests = useQuery(
+    accountDeletionApi.list,
+    isAdmin ? {} : 'skip'
+  );
   const setSupportRequestStatus = useMutation(
     api.support.setSupportRequestStatus
+  );
+  const setAccountDeletionRequestStatus = useMutation(
+    accountDeletionApi.setStatus
   );
   const [updatingId, setUpdatingId] = useState<Id<'supportRequests'> | null>(
     null
   );
+  const [updatingDeletionId, setUpdatingDeletionId] =
+    useState<Id<'accountDeletionRequests'> | null>(null);
 
   const handleToggleStatus = async (
     requestId: Id<'supportRequests'>,
@@ -75,6 +92,20 @@ export default function AdminSupportInboxScreen() {
       Alert.alert(TEXT.errorTitle, TEXT.updateFailed);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeletionStatus = async (
+    requestId: Id<'accountDeletionRequests'>,
+    status: 'in_review' | 'handled'
+  ) => {
+    try {
+      setUpdatingDeletionId(requestId);
+      await setAccountDeletionRequestStatus({ requestId, status });
+    } catch {
+      Alert.alert(TEXT.errorTitle, TEXT.updateFailed);
+    } finally {
+      setUpdatingDeletionId(null);
     }
   };
 
@@ -100,90 +131,205 @@ export default function AdminSupportInboxScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>{TEXT.noAccess}</Text>
           </View>
-        ) : requests === undefined ? (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator color="#2F6BFF" />
-          </View>
-        ) : requests.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
-            <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
-          </View>
         ) : (
-          requests.map((request) => {
-            const isUpdating = updatingId === request._id;
-            const isHandled = request.status === 'handled';
-
-            return (
-              <View key={request._id} style={styles.requestCard}>
-                <View style={styles.requestHeader}>
-                  <View style={styles.requestIdentity}>
-                    <Text style={styles.requestName}>
-                      {request.name || TEXT.unknown}
+          <>
+            <Text style={styles.sectionTitle}>{TEXT.deletionSectionTitle}</Text>
+            {deletionRequests === undefined ? (
+              <View style={styles.loadingCard}>
+                <ActivityIndicator color="#2F6BFF" />
+              </View>
+            ) : deletionRequests.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>{TEXT.deletionEmpty}</Text>
+              </View>
+            ) : (
+              deletionRequests.map((request: any) => {
+                const isUpdating = updatingDeletionId === request._id;
+                const statusText =
+                  request.status === 'handled'
+                    ? TEXT.statusHandled
+                    : request.status === 'in_review'
+                      ? TEXT.statusInReview
+                      : TEXT.statusNew;
+                return (
+                  <View key={request._id} style={styles.requestCard}>
+                    <View style={styles.requestHeader}>
+                      <View style={styles.requestIdentity}>
+                        <Text style={[styles.requestName, styles.ltrText]}>
+                          {request.email}
+                        </Text>
+                        <Text style={styles.requestTimestamp}>
+                          {TEXT.sentAt} {formatTimestamp(request.createdAt)}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusChip,
+                          request.status === 'handled'
+                            ? styles.statusChipHandled
+                            : request.status === 'in_review'
+                              ? styles.statusChipInReview
+                              : styles.statusChipNew,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusChipText,
+                            request.status === 'handled'
+                              ? styles.statusChipTextHandled
+                              : request.status === 'in_review'
+                                ? styles.statusChipTextInReview
+                                : styles.statusChipTextNew,
+                          ]}
+                        >
+                          {statusText}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.detailLine}>
+                      {TEXT.reference}:{' '}
+                      <Text style={styles.ltrText}>
+                        {request.requestReference}
+                      </Text>
                     </Text>
-                    <Text style={styles.requestTimestamp}>
-                      {TEXT.sentAt} {formatTimestamp(request.createdAt)}
-                    </Text>
+                    <View style={styles.actionRow}>
+                      {request.status !== 'in_review' ? (
+                        <Pressable
+                          onPress={() =>
+                            handleDeletionStatus(request._id, 'in_review')
+                          }
+                          disabled={isUpdating}
+                          accessibilityRole="button"
+                          accessibilityLabel={TEXT.markInReview}
+                          accessibilityState={{ disabled: isUpdating }}
+                          style={({ pressed }) => [
+                            styles.actionButton,
+                            pressed ? styles.pressed : null,
+                            isUpdating ? styles.actionButtonDisabled : null,
+                          ]}
+                        >
+                          <Text style={styles.actionButtonText}>
+                            {TEXT.markInReview}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {request.status !== 'handled' ? (
+                        <Pressable
+                          onPress={() =>
+                            handleDeletionStatus(request._id, 'handled')
+                          }
+                          disabled={isUpdating}
+                          accessibilityRole="button"
+                          accessibilityLabel={TEXT.markHandled}
+                          accessibilityState={{ disabled: isUpdating }}
+                          style={({ pressed }) => [
+                            styles.actionButton,
+                            pressed ? styles.pressed : null,
+                            isUpdating ? styles.actionButtonDisabled : null,
+                          ]}
+                        >
+                          {isUpdating ? (
+                            <ActivityIndicator color="#111827" />
+                          ) : (
+                            <Text style={styles.actionButtonText}>
+                              {TEXT.markHandled}
+                            </Text>
+                          )}
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
-                  <View
-                    style={[
-                      styles.statusChip,
-                      isHandled
-                        ? styles.statusChipHandled
-                        : styles.statusChipNew,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusChipText,
-                        isHandled
-                          ? styles.statusChipTextHandled
-                          : styles.statusChipTextNew,
+                );
+              })
+            )}
+
+            <Text style={styles.sectionTitle}>{TEXT.supportSectionTitle}</Text>
+            {requests === undefined ? (
+              <View style={styles.loadingCard}>
+                <ActivityIndicator color="#2F6BFF" />
+              </View>
+            ) : requests.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
+                <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
+              </View>
+            ) : (
+              requests.map((request) => {
+                const isUpdating = updatingId === request._id;
+                const isHandled = request.status === 'handled';
+
+                return (
+                  <View key={request._id} style={styles.requestCard}>
+                    <View style={styles.requestHeader}>
+                      <View style={styles.requestIdentity}>
+                        <Text style={styles.requestName}>
+                          {request.name || TEXT.unknown}
+                        </Text>
+                        <Text style={styles.requestTimestamp}>
+                          {TEXT.sentAt} {formatTimestamp(request.createdAt)}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusChip,
+                          isHandled
+                            ? styles.statusChipHandled
+                            : styles.statusChipNew,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusChipText,
+                            isHandled
+                              ? styles.statusChipTextHandled
+                              : styles.statusChipTextNew,
+                          ]}
+                        >
+                          {isHandled ? TEXT.statusHandled : TEXT.statusNew}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.detailList}>
+                      <Text style={styles.detailLine}>
+                        {TEXT.email}: {request.email || TEXT.unknown}
+                      </Text>
+                      <Text style={styles.detailLine}>
+                        {TEXT.phone}: {request.phone || TEXT.unknown}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.messageText}>{request.message}</Text>
+
+                    <Pressable
+                      onPress={() =>
+                        handleToggleStatus(request._id, request.status)
+                      }
+                      disabled={isUpdating}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isHandled ? TEXT.markNew : TEXT.markHandled
+                      }
+                      accessibilityState={{ disabled: isUpdating }}
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        pressed ? styles.pressed : null,
+                        isUpdating ? styles.actionButtonDisabled : null,
                       ]}
                     >
-                      {isHandled ? TEXT.statusHandled : TEXT.statusNew}
-                    </Text>
+                      {isUpdating ? (
+                        <ActivityIndicator color="#111827" />
+                      ) : (
+                        <Text style={styles.actionButtonText}>
+                          {isHandled ? TEXT.markNew : TEXT.markHandled}
+                        </Text>
+                      )}
+                    </Pressable>
                   </View>
-                </View>
-
-                <View style={styles.detailList}>
-                  <Text style={styles.detailLine}>
-                    {TEXT.email}: {request.email || TEXT.unknown}
-                  </Text>
-                  <Text style={styles.detailLine}>
-                    {TEXT.phone}: {request.phone || TEXT.unknown}
-                  </Text>
-                </View>
-
-                <Text style={styles.messageText}>{request.message}</Text>
-
-                <Pressable
-                  onPress={() =>
-                    handleToggleStatus(request._id, request.status)
-                  }
-                  disabled={isUpdating}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isHandled ? TEXT.markNew : TEXT.markHandled
-                  }
-                  accessibilityState={{ disabled: isUpdating }}
-                  style={({ pressed }) => [
-                    styles.actionButton,
-                    pressed ? styles.pressed : null,
-                    isUpdating ? styles.actionButtonDisabled : null,
-                  ]}
-                >
-                  {isUpdating ? (
-                    <ActivityIndicator color="#111827" />
-                  ) : (
-                    <Text style={styles.actionButtonText}>
-                      {isHandled ? TEXT.markNew : TEXT.markHandled}
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
-            );
-          })
+                );
+              })
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -207,6 +353,14 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 24,
     lineHeight: 30,
+    fontWeight: '900',
+    color: '#171717',
+    textAlign: 'right',
+  },
+  sectionTitle: {
+    marginTop: 10,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: '900',
     color: '#171717',
     textAlign: 'right',
@@ -291,6 +445,9 @@ const styles = StyleSheet.create({
   statusChipHandled: {
     backgroundColor: '#ECFDF3',
   },
+  statusChipInReview: {
+    backgroundColor: '#FFF7E6',
+  },
   statusChipText: {
     fontSize: 11,
     fontWeight: '800',
@@ -302,6 +459,9 @@ const styles = StyleSheet.create({
   statusChipTextHandled: {
     color: '#027A48',
   },
+  statusChipTextInReview: {
+    color: '#9A6700',
+  },
   detailList: {
     gap: 4,
   },
@@ -311,6 +471,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4B5563',
     textAlign: 'right',
+  },
+  ltrText: {
+    writingDirection: 'ltr',
   },
   messageText: {
     fontSize: 14,
@@ -330,6 +493,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
+  },
+  actionRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionButtonDisabled: {
     opacity: 0.7,

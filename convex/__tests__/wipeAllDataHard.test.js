@@ -9,6 +9,7 @@ const WIPE_TABLE_ORDER = [
   'businessDeletionRecipients',
   'businessDeletionAssets',
   'businessDeletionJobs',
+  'accountDeletionRequests',
   'supportRequests',
   'messageLog',
   'campaigns',
@@ -86,6 +87,17 @@ class FakeQuery {
 
   async collect() {
     return this.docs();
+  }
+
+  async paginate({ cursor, numItems }) {
+    const docs = this.docs();
+    const start = cursor ? Number(cursor) : 0;
+    const end = Math.min(start + numItems, docs.length);
+    return {
+      page: docs.slice(start, end),
+      isDone: end >= docs.length,
+      continueCursor: String(end),
+    };
   }
 }
 
@@ -173,6 +185,26 @@ describe('wipeAllDataHardImpl', () => {
       businessDeletionJobs: [
         { _id: 'bdj_1', businessId: 'b_1', requestedByUserId: 'u_admin' },
       ],
+      accountDeletionRequests: [
+        {
+          _id: 'adr_1',
+          email: 'delete@example.com',
+          status: 'new',
+          requestReference: 'ADR-0123456789abcdef',
+        },
+        {
+          _id: 'adr_2',
+          email: 'delete@example.com',
+          status: 'handled',
+          requestReference: 'ADR-1123456789abcdef',
+        },
+        {
+          _id: 'adr_3',
+          email: 'other-delete@example.com',
+          status: 'in_review',
+          requestReference: 'ADR-2123456789abcdef',
+        },
+      ],
       supportRequests: [{ _id: 'sr_1', userId: 'u_admin' }],
       messageLog: [{ _id: 'ml_1', businessId: 'b_1' }],
       campaigns: [{ _id: 'camp_1', businessId: 'b_1' }],
@@ -208,7 +240,12 @@ describe('wipeAllDataHardImpl', () => {
     };
 
     const ctx = buildCtx(tables, 'u_admin');
-    const result = await wipeAllDataHardImpl(ctx);
+    const resetEmails = [];
+    const result = await wipeAllDataHardImpl(ctx, {
+      resetAccountDeletionEmailLimit: async (_ctx, email) => {
+        resetEmails.push(email);
+      },
+    });
 
     expect(result.success).toBe(true);
     expect(result.requestedByUserId).toBe('u_admin');
@@ -223,6 +260,7 @@ describe('wipeAllDataHardImpl', () => {
       businessDeletionRecipients: 1,
       businessDeletionAssets: 1,
       businessDeletionJobs: 1,
+      accountDeletionRequests: 3,
       supportRequests: 1,
       messageLog: 1,
       pushTokens: 0,
@@ -256,6 +294,14 @@ describe('wipeAllDataHardImpl', () => {
     };
 
     expect(result.counts).toEqual(expectedCounts);
+    expect(resetEmails.sort()).toEqual([
+      'delete@example.com',
+      'other-delete@example.com',
+    ]);
+    expect(JSON.stringify(result)).not.toContain('delete@example.com');
+    expect(JSON.stringify(result)).not.toContain(
+      'other-delete@example.com'
+    );
 
     for (const tableName of WIPE_TABLE_ORDER) {
       expect(ctx.db.rows(tableName)).toHaveLength(0);
@@ -283,5 +329,45 @@ describe('wipeAllDataHardImpl', () => {
       'FORCED_DELETE_FAILURE'
     );
     expect(ctx.db.rows('campaigns')).toHaveLength(1);
+  });
+
+  test('limiter reset failure prevents a false successful hard wipe', async () => {
+    const email = 'private-delete@example.com';
+    const tables = {
+      accountDeletionRequests: [
+        {
+          _id: 'adr_private',
+          email,
+          status: 'handled',
+          requestReference: 'ADR-3123456789abcdef',
+        },
+      ],
+      users: [
+        {
+          _id: 'u_admin',
+          externalId: 'ext_admin',
+          email: 'admin@example.com',
+        },
+      ],
+    };
+    const ctx = buildCtx(tables, 'u_admin');
+    let caught;
+
+    try {
+      await wipeAllDataHardImpl(ctx, {
+        resetAccountDeletionEmailLimit: async () => {
+          throw new Error(`RESET_FAILED ${email}`);
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught.message).toBe(
+      'ACCOUNT_DELETION_EMAIL_RATE_LIMIT_RESET_FAILED'
+    );
+    expect(caught.message).not.toContain(email);
+    expect(ctx.db.rows('accountDeletionRequests')).toHaveLength(1);
   });
 });

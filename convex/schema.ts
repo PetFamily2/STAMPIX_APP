@@ -1667,6 +1667,24 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_createdAt', ['createdAt']),
 
+  accountDeletionRequests: defineTable({
+    email: v.string(),
+    status: v.union(
+      v.literal('new'),
+      v.literal('in_review'),
+      v.literal('handled')
+    ),
+    source: v.literal('google_play_web'),
+    requestReference: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    handledAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
+  })
+    .index('by_email', ['email'])
+    .index('by_status_createdAt', ['status', 'createdAt'])
+    .index('by_purgeAfter', ['purgeAfter']),
+
   apiClients: defineTable({
     businessId: v.id('businesses'),
     name: v.string(),

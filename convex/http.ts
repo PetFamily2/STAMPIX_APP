@@ -1,6 +1,10 @@
 import { type FunctionReference, httpRouter } from 'convex/server';
 import { api, internal } from './_generated/api';
 import { httpAction } from './_generated/server';
+import {
+  isAccountDeletionRateLimitError,
+  normalizeAccountDeletionEmail,
+} from './accountDeletionRequests';
 import { auth } from './auth';
 import { resolveRevenueCatPlanMapping } from './entitlements';
 
@@ -298,6 +302,315 @@ export async function handleRevenueCatWebhookRequest(
   }
 }
 
+type AccountDeletionHttpCtx = {
+  runMutation: (
+    mutationRef: FunctionReference<
+      'mutation',
+      'internal',
+      Record<string, unknown>,
+      unknown
+    >,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+};
+
+const accountDeletionInternalApi = (internal as any).accountDeletionRequests;
+
+function accountDeletionHeaders(cacheControl: string) {
+  return {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': cacheControl,
+    'Content-Security-Policy':
+      "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  };
+}
+
+function resolveSupportEmail() {
+  const configured = process.env.SUPPORT_EMAIL?.trim();
+  if (!configured) {
+    return null;
+  }
+  try {
+    return normalizeAccountDeletionEmail(configured);
+  } catch {
+    return null;
+  }
+}
+
+function renderAccountDeletionShell(args: {
+  title: string;
+  body: string;
+}) {
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(args.title)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      background: #E9F0FF;
+      color: #17233B;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px;
+      background: #FFFFFF;
+      border-radius: 24px;
+      box-shadow: 0 6px 24px rgba(26, 43, 74, 0.08);
+    }
+    .brand { color: #2F6BFF; font-size: 18px; font-weight: 900; }
+    h1 { margin: 4px 0 12px; font-size: clamp(26px, 5vw, 36px); line-height: 1.25; }
+    h2 { margin: 28px 0 8px; font-size: 20px; }
+    p, li { font-size: 16px; }
+    ul { margin: 8px 0; padding-right: 22px; }
+    .notice {
+      margin: 20px 0;
+      padding: 16px;
+      background: #F6F8FC;
+      border: 1px solid #DCE5FA;
+      border-radius: 14px;
+    }
+    form { margin-top: 24px; }
+    label { display: block; margin-bottom: 6px; font-weight: 800; }
+    input[type="email"] {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 1px solid #AAB7D1;
+      border-radius: 12px;
+      font: inherit;
+      direction: ltr;
+      text-align: left;
+    }
+    input:focus, button:focus, a:focus { outline: 3px solid #9DBAFF; outline-offset: 2px; }
+    .confirmation { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0; }
+    .confirmation input { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 3px; }
+    .confirmation label { margin: 0; }
+    button, .back-link {
+      display: inline-block;
+      min-height: 48px;
+      padding: 12px 22px;
+      border: 0;
+      border-radius: 13px;
+      background: #2F6BFF;
+      color: #FFFFFF;
+      font: inherit;
+      font-weight: 900;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .error { color: #9D1C1C; font-weight: 800; }
+    .reference { direction: ltr; unicode-bidi: isolate; font-weight: 900; }
+    .honeypot { position: absolute; right: -10000px; width: 1px; height: 1px; overflow: hidden; }
+    .support { margin-top: 24px; color: #526078; }
+    .support a { color: #245DDE; }
+    @media (max-width: 540px) {
+      body { padding: 12px; }
+      main { padding: 22px 18px; border-radius: 18px; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    ${args.body}
+  </main>
+</body>
+</html>`;
+}
+
+function renderSupportContact() {
+  const supportEmail = resolveSupportEmail();
+  return supportEmail
+    ? `<p class="support">זקוקים לעזרה? אפשר לפנות אל <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>.</p>`
+    : '';
+}
+
+export function renderAccountDeletionPage(errorMessage?: string) {
+  const error = errorMessage
+    ? `<p class="error" role="alert">${escapeHtml(errorMessage)}</p>`
+    : '';
+  return renderAccountDeletionShell({
+    title: 'מחיקת חשבון StampAix',
+    body: `
+      <div class="brand">StampAix</div>
+      <h1>מחיקת חשבון StampAix</h1>
+      <p>בעמוד זה אפשר לבקש מחיקה לצמיתות של חשבון StampAix ושל המידע האישי המשויך אליו. אין צורך להתקין או לפתוח את האפליקציה כדי לשלוח את הבקשה.</p>
+      <p>אם האפליקציה עדיין זמינה לכם, אפשר גם לבצע מחיקת חשבון ישירות דרך ההגדרות. מחיקת חשבון היא פעולה קבועה ולא ניתן לשחזר את החשבון לאחר השלמתה.</p>
+
+      <div class="notice">
+        <strong>לפני השליחה:</strong>
+        <ul>
+          <li>אם החשבון הוא בעלים של עסק ב-StampAix, ייתכן שיידרש להסדיר את הבעלות על העסק או להשלים מחיקה קבועה של העסק לפני שניתן יהיה למחוק את החשבון האישי.</li>
+          <li>כאשר קיימת התחייבות למינוי פעיל, ייתכן שיהיה צורך לבטל אותו דרך App Store או Google Play לפני מחיקה קבועה של העסק, לפי העניין. שליחת בקשת מחיקת החשבון עדיין אפשרית.</li>
+          <li>מידע מצומצם עשוי להישמר כאשר הדבר נדרש כדין לצורכי אבטחה, מניעת הונאה, חיוב או חובות משפטיות וביקורת.</li>
+        </ul>
+      </div>
+
+      <h2>שליחת בקשת מחיקה</h2>
+      <p>יש להזין רק את כתובת האימייל המשויכת לחשבון. אין לשלוח סיסמה, קוד אימות, מסמך מזהה או פרטי התחברות של Apple או Google.</p>
+      ${error}
+      <form method="post" action="/account-deletion/request">
+        <label for="email">כתובת האימייל המשויכת לחשבון</label>
+        <input id="email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required />
+
+        <div class="honeypot" aria-hidden="true">
+          <label for="website">אתר</label>
+          <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <div class="confirmation">
+          <input id="confirmDeletion" name="confirmDeletion" type="checkbox" value="yes" required />
+          <label for="confirmDeletion">אני מבקש/ת למחוק לצמיתות את חשבון StampAix שלי</label>
+        </div>
+        <button type="submit">שליחת בקשת המחיקה</button>
+      </form>
+      ${renderSupportContact()}
+    `,
+  });
+}
+
+function renderAccountDeletionSuccessPage(requestReference: string) {
+  return renderAccountDeletionShell({
+    title: 'בקשת המחיקה התקבלה',
+    body: `
+      <div class="brand">StampAix</div>
+      <h1>בקשת המחיקה התקבלה</h1>
+      <p>אם קיים חשבון StampAix המשויך לכתובת שסיפקת, הבקשה תיבדק ותטופל. הודעה זו אינה מאשרת אם קיים חשבון.</p>
+      <p>מספר הפנייה: <span class="reference">${escapeHtml(requestReference)}</span></p>
+      <p>צוות התמיכה עשוי ליצור קשר במסגרת תהליך אימות הבעלות המאושר לפני ביצוע פעולה קבועה.</p>
+      ${renderSupportContact()}
+      <a class="back-link" href="/account-deletion">חזרה לעמוד המחיקה</a>
+    `,
+  });
+}
+
+function renderAccountDeletionServerMessage(args: {
+  title: string;
+  message: string;
+}) {
+  return renderAccountDeletionShell({
+    title: args.title,
+    body: `
+      <div class="brand">StampAix</div>
+      <h1>${escapeHtml(args.title)}</h1>
+      <p>${escapeHtml(args.message)}</p>
+      ${renderSupportContact()}
+      <a class="back-link" href="/account-deletion">חזרה לטופס</a>
+    `,
+  });
+}
+
+export function createAccountDeletionRequestReference() {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const opaque = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+  return `ADR-${opaque}`;
+}
+
+export async function handleAccountDeletionPageRequest() {
+  return new Response(renderAccountDeletionPage(), {
+    status: 200,
+    headers: accountDeletionHeaders('public, max-age=300'),
+  });
+}
+
+export async function handleAccountDeletionSubmissionRequest(
+  ctx: AccountDeletionHttpCtx,
+  request: Request
+) {
+  const contentType = request.headers.get('content-type')?.toLowerCase() ?? '';
+  if (!contentType.startsWith('application/x-www-form-urlencoded')) {
+    return new Response(
+      renderAccountDeletionServerMessage({
+        title: 'לא ניתן לשלוח את הבקשה',
+        message: 'סוג הטופס אינו נתמך. יש לחזור לטופס ולנסות שוב.',
+      }),
+      {
+        status: 415,
+        headers: accountDeletionHeaders('no-store'),
+      }
+    );
+  }
+
+  const form = new URLSearchParams(await request.text());
+  const requestReference = createAccountDeletionRequestReference();
+  if ((form.get('website') ?? '').trim()) {
+    return new Response(renderAccountDeletionSuccessPage(requestReference), {
+      status: 200,
+      headers: accountDeletionHeaders('no-store'),
+    });
+  }
+
+  let email: string;
+  try {
+    email = normalizeAccountDeletionEmail(form.get('email') ?? '');
+  } catch {
+    return new Response(renderAccountDeletionPage('כתובת אימייל לא תקינה.'), {
+      status: 400,
+      headers: accountDeletionHeaders('no-store'),
+    });
+  }
+
+  if (form.get('confirmDeletion') !== 'yes') {
+    return new Response(renderAccountDeletionPage('יש לאשר את בקשת המחיקה.'), {
+      status: 400,
+      headers: accountDeletionHeaders('no-store'),
+    });
+  }
+
+  try {
+    await ctx.runMutation(accountDeletionInternalApi.submitExternalRequestInternal, {
+      email,
+      requestReference,
+    });
+  } catch (error) {
+    if (isAccountDeletionRateLimitError(error)) {
+      return new Response(
+        renderAccountDeletionServerMessage({
+          title: 'נשלחו בקשות רבות מדי',
+          message: 'יש להמתין ולנסות שוב מאוחר יותר.',
+        }),
+        {
+          status: 429,
+          headers: accountDeletionHeaders('no-store'),
+        }
+      );
+    }
+
+    return new Response(
+      renderAccountDeletionServerMessage({
+        title: 'לא הצלחנו לשלוח את הבקשה',
+        message: 'אירעה שגיאה זמנית. יש לנסות שוב מאוחר יותר או לפנות לתמיכה.',
+      }),
+      {
+        status: 500,
+        headers: accountDeletionHeaders('no-store'),
+      }
+    );
+  }
+
+  return new Response(renderAccountDeletionSuccessPage(requestReference), {
+    status: 200,
+    headers: accountDeletionHeaders('no-store'),
+  });
+}
+
 // Register Convex auth routes so the client-side auth hooks work.
 auth.addHttpRoutes(http);
 
@@ -307,6 +620,20 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     return await handleRevenueCatWebhookRequest(ctx, request);
   }),
+});
+
+http.route({
+  path: '/account-deletion',
+  method: 'GET',
+  handler: httpAction(async () => await handleAccountDeletionPageRequest()),
+});
+
+http.route({
+  path: '/account-deletion/request',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) =>
+    await handleAccountDeletionSubmissionRequest(ctx, request)
+  ),
 });
 
 // ---------------------------------------------------------------------------

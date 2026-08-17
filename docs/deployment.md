@@ -84,6 +84,7 @@ Convex server values:
 - `REVENUECAT_ENTITLEMENT_IDS_PRO`
 - `REVENUECAT_ENTITLEMENT_IDS_PREMIUM`
 - `GOOGLE_PLACES_API_KEY`
+- `SUPPORT_EMAIL` (required in production; monitored support mailbox shown on the public account-deletion page)
 - `OPENROUTER_API_KEY` and `OPENROUTER_SITE_URL` if AI recommendations are enabled.
 
 RevenueCat remains documented in detail in `docs/REVENUECAT_SETUP.md`.
@@ -145,6 +146,8 @@ bunx convex deploy
 - A dedicated Android notification icon asset is added before store release.
 - Store fallback URLs are configured through `APP_STORE_URL` and `PLAY_STORE_URL` when available.
 - Legal URLs point to published public pages.
+- The production Convex HTTP site serves `/account-deletion`, and `SUPPORT_EMAIL`
+  is configured to a monitored production mailbox.
 - Deep-link domain verification files are hosted for the production domain.
 
 ## EAS local build readiness
@@ -275,6 +278,30 @@ Before store submission:
 - Keep account deletion routed through the existing in-app deletion flow; the
   policy page must not describe a different deletion rule than
   `deleteMyAccountHard`.
+
+### External account-deletion request workflow
+
+The Google Play Account deletion URL is:
+`<CONVEX_SITE_URL>/account-deletion` (or the same path on the attached production
+domain). Confirm this URL is publicly reachable on phone and desktop before store
+submission. Do not enter a temporary deployment hostname in the store listing.
+
+The operator workflow is:
+
+1. The user submits the public account-deletion request without needing the app.
+2. The request appears in the existing admin support inbox.
+3. Support verifies account ownership through the approved support process. Merely
+   receiving a request for an email address is not proof of ownership.
+4. Business-ownership and store-subscription blockers are resolved when applicable.
+   StampAix must not claim to cancel App Store or Google Play subscriptions on the
+   user's behalf.
+5. Support fulfills the request through the existing authenticated StampAix
+   personal-deletion process and its established operational controls.
+6. Support marks the request handled. The request record is then scheduled for
+   automatic deletion after 30 days.
+
+The public form is an intake channel only. It must never be used as authority to
+invoke `deleteMyAccountHard` based only on a submitted email address.
 
 ## OAuth production readiness
 
