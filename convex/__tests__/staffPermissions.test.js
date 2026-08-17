@@ -6,6 +6,12 @@ import {
 } from '../lib/staffPermissions';
 
 describe('staff permissions matrix', () => {
+  test('owner, manager, and staff retain scanner access', () => {
+    expect(getRoleCapabilities('owner').scanner_access).toBe(true);
+    expect(getRoleCapabilities('manager').scanner_access).toBe(true);
+    expect(getRoleCapabilities('staff').scanner_access).toBe(true);
+  });
+
   test('manager has granular capabilities aligned with product rules', () => {
     const manager = getRoleCapabilities('manager');
 
@@ -17,6 +23,7 @@ describe('staff permissions matrix', () => {
     expect(manager.activate_send_campaigns).toBe(true);
     expect(manager.delete_campaigns).toBe(false);
     expect(manager.edit_loyalty_cards).toBe(true);
+    expect(manager.scanner_access).toBe(true);
     expect(manager.view_usage_quota).toBe(true);
     expect(manager.view_billing_state).toBe(false);
     expect(manager.manage_team).toBe(true);
@@ -47,5 +54,6 @@ describe('staff permissions matrix', () => {
     const ownerCapabilities = listAllowedCapabilities('owner');
     expect(ownerCapabilities.length).toBeGreaterThan(10);
     expect(ownerCapabilities.includes('manage_subscription')).toBe(true);
+    expect(ownerCapabilities.includes('scanner_access')).toBe(true);
   });
 });

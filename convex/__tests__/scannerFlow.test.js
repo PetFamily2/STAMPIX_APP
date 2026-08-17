@@ -248,6 +248,68 @@ async function createToken() {
 }
 
 describe('scanner flow', () => {
+  test('resolve, commit, and undo require active scanner access', async () => {
+    const unauthorizedTables = baseTables({ businessStaff: [] });
+    const unauthorizedCtx = buildCtx(unauthorizedTables);
+
+    await expect(
+      resolveScan._handler(unauthorizedCtx, {
+        qrData: await createToken(),
+        businessId: 'business_1',
+        programId: 'program_1',
+        scannerRuntimeSessionId: 'runtime_unauthorized',
+        deviceId: 'device_unauthorized',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+
+    const now = Date.now();
+    const tables = baseTables({
+      memberships: [
+        {
+          _id: 'membership_authorization',
+          userId: 'customer_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          currentStamps: 2,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+    const resolved = await resolveScan._handler(ctx, {
+      qrData: await createToken(),
+      businessId: 'business_1',
+      programId: 'program_1',
+      scannerRuntimeSessionId: 'runtime_authorization',
+      deviceId: 'device_authorization',
+    });
+    const staffLink = ctx.db.rows('businessStaff')[0];
+
+    staffLink.isActive = false;
+    await expect(
+      commitStamp._handler(ctx, { scanSessionId: resolved.scanSessionId })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+
+    staffLink.isActive = true;
+    await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    const targetEvent = ctx.db
+      .rows('events')
+      .find((event) => event.type === 'STAMP_ADDED');
+
+    staffLink.isActive = false;
+    await expect(
+      undoLastScannerAction._handler(ctx, {
+        eventId: targetEvent._id,
+        scannerRuntimeSessionId: 'runtime_authorization',
+        deviceId: 'device_authorization',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+  });
+
   test('closed business is absent operationally and rejects joins and scanner writes', async () => {
     const now = Date.now();
     const tables = baseTables({

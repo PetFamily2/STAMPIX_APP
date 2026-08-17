@@ -2,6 +2,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  Linking,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -10,6 +12,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { flexDirection } from '@/lib/rtl';
+import {
+  resolveCameraPermissionAction,
+  shouldRefreshCameraPermission,
+} from '@/lib/scanner/posFlow';
 
 type QrScannerProps = {
   onScan: (data: string) => Promise<void> | void;
@@ -32,16 +38,27 @@ export default function QrScanner({
   onTapWhileScanned,
   style,
 }: QrScannerProps) {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [internalBusy, setInternalBusy] = useState(false);
   const scanLockRef = useRef(false);
 
   useEffect(() => {
     if (permission === null || permission === undefined) {
-      requestPermission();
+      void requestPermission();
     }
   }, [permission, requestPermission]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (shouldRefreshCameraPermission(nextState)) {
+        void getPermission();
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [getPermission]);
 
   useEffect(() => {
     void resetKey;
@@ -102,15 +119,33 @@ export default function QrScanner({
     }
 
     if (!permission.granted) {
+      const permissionAction = resolveCameraPermissionAction(permission);
+      const opensSettings = permissionAction === 'settings';
       return (
         <View style={styles.permissionFallback}>
           <Text style={styles.permissionTitle}>אין הרשאת מצלמה</Text>
-          <Text style={styles.permissionText}>בקש הרשאה כדי להתחיל לסרוק</Text>
+          <Text style={styles.permissionText}>
+            {opensSettings
+              ? 'יש לאפשר גישה למצלמה בהגדרות המכשיר.'
+              : 'יש לאפשר גישה למצלמה כדי להתחיל לסרוק.'}
+          </Text>
           <Pressable
-            onPress={requestPermission}
+            onPress={() => {
+              if (opensSettings) {
+                void Linking.openSettings();
+                return;
+              }
+              void requestPermission();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              opensSettings ? 'פתיחת הגדרות המכשיר' : 'מתן הרשאת מצלמה'
+            }
             style={styles.permissionButton}
           >
-            <Text style={styles.permissionButtonText}>תן הרשאה</Text>
+            <Text style={styles.permissionButtonText}>
+              {opensSettings ? 'פתיחת הגדרות' : 'מתן הרשאה'}
+            </Text>
           </Pressable>
         </View>
       );

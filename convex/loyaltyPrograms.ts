@@ -258,7 +258,11 @@ export const listScannerPrograms = query({
     if (!businessId) {
       return [];
     }
-    await requireActorIsStaffForBusiness(ctx, businessId);
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'scanner_access'
+    );
 
     const allPrograms = await listBusinessPrograms(ctx, businessId);
     const eligiblePrograms = sortProgramsForScanner(

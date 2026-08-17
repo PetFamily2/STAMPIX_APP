@@ -8,6 +8,7 @@ import {
 import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
+  requireActorHasBusinessCapability,
   requireActorIsStaffForBusiness,
   requireBusinessAndProgram,
   requireCurrentUser,
@@ -905,9 +906,10 @@ async function resolveScanSessionCommit(
     throw new Error('INVALID_SCAN_SESSION');
   }
 
-  const { actor } = await requireActorIsStaffForBusiness(
+  const { actor } = await requireActorHasBusinessCapability(
     ctx,
-    session.businessId
+    session.businessId,
+    'scanner_access'
   );
   if (String(actor._id) !== String(session.actorUserId)) {
     throw new Error('NOT_AUTHORIZED');
@@ -1182,9 +1184,10 @@ export const resolveScan = mutation({
     deviceId: v.string(),
   },
   handler: async (ctx, args) => {
-    const { actor } = await requireActorIsStaffForBusiness(
+    const { actor } = await requireActorHasBusinessCapability(
       ctx,
-      args.businessId
+      args.businessId,
+      'scanner_access'
     );
 
     const { program } = await requireScannerEligibleProgram(
@@ -1340,9 +1343,10 @@ export const undoLastScannerAction = mutation({
       throw new Error('UNDO_BLOCKED_REFERRAL_REWARD');
     }
 
-    const { actor } = await requireActorIsStaffForBusiness(
+    const { actor } = await requireActorHasBusinessCapability(
       ctx,
-      targetEvent.businessId
+      targetEvent.businessId,
+      'scanner_access'
     );
     if (String(actor._id) !== String(targetEvent.actorUserId)) {
       throw new Error('UNDO_PERMISSION_DENIED');

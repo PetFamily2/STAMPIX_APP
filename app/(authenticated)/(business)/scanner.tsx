@@ -8,12 +8,17 @@ import {
 } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
+import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,9 +31,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import AnimatedActionBanner from '@/components/AnimatedActionBanner';
+
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import QrScanner from '@/components/QrScanner';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -47,7 +51,28 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
-import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  ltrIslandText,
+  selfStart,
+} from '@/lib/rtl';
+import {
+  awaitCurrentTransaction,
+  captureTransactionGeneration,
+  classifyPosError,
+  createInitialPosFlowState,
+  invalidateTransactionGeneration,
+  isTransactionGenerationCurrent,
+  type PosErrorPresentation,
+  type PosProgramSnapshot,
+  type PosResolvedSession,
+  type PosTransactionResult,
+  posFlowReducer,
+  resolveNoProgramsRecovery,
+  resolveSameBusinessProgramRefresh,
+  resolveSubscriptionRecovery,
+} from '@/lib/scanner/posFlow';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ScannerProgram = {
@@ -62,35 +87,18 @@ type ScannerProgram = {
   allowPosEnroll: boolean;
 };
 
-type CommitActionMode = 'stamp' | 'redeem';
-
-type ResolveDecision = 'AUTO_STAMP' | 'REDEEM_AVAILABLE' | 'JOIN_AND_STAMP';
-
 type ResolvedScan = {
   scanSessionId: string;
   sessionExpiresAt: number;
   customerUserId: string;
   customerDisplayName: string;
-  resolution: ResolveDecision;
+  resolution: 'AUTO_STAMP' | 'REDEEM_AVAILABLE' | 'JOIN_AND_STAMP';
   membership: {
     membershipId: string;
     currentStamps: number;
     maxStamps: number;
     canRedeemNow: boolean;
   } | null;
-};
-
-type PendingRedeemSession = {
-  scanSessionId: string;
-  customerUserId: string;
-  customerDisplayName: string;
-  membership: ResolvedScan['membership'];
-  sessionExpiresAt: number;
-};
-
-type PendingRetrySession = PendingRedeemSession & {
-  actionMode: CommitActionMode;
-  isFirstStampForCustomer: boolean;
 };
 
 type CommitActionResult = {
@@ -102,22 +110,8 @@ type CommitActionResult = {
   eventType: 'STAMP_ADDED' | 'REWARD_REDEEMED';
   eventCreatedAt: number;
   undoAvailableUntil?: number;
-  referralQualification?: {
-    rewardTriggered: boolean;
-    referralId: string | null;
-    rewardIds: string[];
-    reason: string;
-  } | null;
   referralRewardTriggered?: boolean;
-  qualificationEventId?: string | null;
   undoBlockedReason?: 'REFERRAL_REWARD_TRIGGERED' | null;
-};
-
-type UndoActionState = {
-  eventId: string;
-  availableUntil: number;
-  customerDisplayName: string;
-  actionMode: CommitActionMode;
 };
 
 type UndoActionResult = {
@@ -130,15 +124,6 @@ type UndoActionResult = {
     canRedeemNow: boolean;
     isActive?: boolean;
   } | null;
-};
-
-type ScanResultBanner = {
-  customerUserId?: string;
-  customerDisplayName: string;
-  statusLabel: string;
-  currentStamps: number;
-  maxStamps: number;
-  undoBlockedReason?: 'REFERRAL_REWARD_TRIGGERED' | null;
 };
 
 type ReferralBenefitItem = {
@@ -155,196 +140,12 @@ type ReferralBenefitItem = {
   referrerName: string | null;
 };
 
-const BUSINESS_SUCCESS_BANNER_DURATION_MS = 30000;
-const BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP = 'ניקוב בוצע בהצלחה';
-const BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM = 'מימוש הושלם בהצלחה';
-const SCANNER_HEADER_TITLE = 'סריקת לקוח';
 const SCANNER_DEVICE_ID_STORAGE_KEY = 'scanner:deviceId';
 const FALLBACK_UNDO_WINDOW_MS = 30_000;
-const PROGRAM_DOT_SLOT_WIDTH = 20;
-const PROGRAM_DOT_SLOT_HEIGHT = 12;
-const PROGRAM_DOT_SIZE = 6;
-const PROGRAM_DOT_ACTIVE_WIDTH = 18;
-const CARD_GAP = 12;
-const CARD_SIDE_PEEK_MIN = 44;
-const CARD_SIDE_PEEK_MAX = 56;
-
-const KNOWN_SCAN_ERROR_CODES = [
-  'INVALID_QR',
-  'EXPIRED_TOKEN',
-  'TOKEN_ALREADY_USED',
-  'SELF_STAMP',
-  'RATE_LIMITED',
-  'CUSTOMER_NOT_FOUND',
-  'MEMBERSHIP_NOT_FOUND',
-  'NOT_AUTHORIZED',
-  'PROGRAM_ARCHIVED',
-  'PROGRAM_NOT_SCANNER_ELIGIBLE',
-  'POS_ENROLL_DISABLED',
-  'NOT_ENOUGH_STAMPS',
-  'INVALID_SCAN_SESSION',
-  'SCAN_SESSION_EXPIRED',
-  'SCAN_SESSION_FAILED',
-  'INVALID_SCAN_ACTION',
-  'FEATURE_NOT_AVAILABLE',
-  'PLAN_LIMIT_REACHED',
-  'SUBSCRIPTION_INACTIVE',
-  'UNDO_BLOCKED_REFERRAL_REWARD',
-  'REFERRAL_REWARD_NOT_FOUND',
-  'INVALID_REWARD_TYPE',
-  'REWARD_NOT_AVAILABLE',
-  'REWARD_EXPIRED',
-  'REFERRAL_NOT_FOUND',
-] as const;
-
-const NON_RETRYABLE_COMMIT_CODES = new Set([
-  'POS_ENROLL_DISABLED',
-  'PROGRAM_NOT_SCANNER_ELIGIBLE',
-  'PROGRAM_ARCHIVED',
-  'MEMBERSHIP_NOT_FOUND',
-  'NOT_ENOUGH_STAMPS',
-  'SELF_STAMP',
-  'RATE_LIMITED',
-  'TOKEN_ALREADY_USED',
-  'EXPIRED_TOKEN',
-  'INVALID_SCAN_SESSION',
-  'SCAN_SESSION_EXPIRED',
-  'SCAN_SESSION_FAILED',
-  'INVALID_SCAN_ACTION',
-  'NOT_AUTHORIZED',
-  'CUSTOMER_NOT_FOUND',
-  'INVALID_QR',
-  'FEATURE_NOT_AVAILABLE',
-  'PLAN_LIMIT_REACHED',
-  'SUBSCRIPTION_INACTIVE',
-  'UNDO_BLOCKED_REFERRAL_REWARD',
-  'REFERRAL_REWARD_NOT_FOUND',
-  'INVALID_REWARD_TYPE',
-  'REWARD_NOT_AVAILABLE',
-  'REWARD_EXPIRED',
-  'REFERRAL_NOT_FOUND',
-]);
-
-const getUndoPresentation = (actionMode: CommitActionMode) =>
-  actionMode === 'redeem'
-    ? {
-        badgeLabel: 'מימוש אחרון',
-        title: 'אפשר לבטל עכשיו את המימוש האחרון',
-        description: 'הביטול ישחזר את מצב הכרטיס כפי שהיה לפני המימוש.',
-        confirmationText:
-          'אישור הביטול יחזיר את ההטבה לזמינות, בהתאם למצב הניקובים המעודכן.',
-        buttonLabel: 'בטל מימוש אחרון',
-        busyLabel: 'מבטלים מימוש...',
-        successMessage: 'המימוש בוטל',
-        resultStatusLabel: 'המימוש בוטל',
-        alreadyRevertedLabel: 'המימוש כבר בוטל',
-        errorLabel: 'לא ניתן לבטל את המימוש כרגע.',
-      }
-    : {
-        badgeLabel: 'ניקוב אחרון',
-        title: 'אפשר לבטל עכשיו את הניקוב האחרון',
-        description: 'הביטול ישחזר את מצב הכרטיס כפי שהיה לפני הניקוב.',
-        confirmationText:
-          'אישור הביטול יחזיר את מספר הניקובים למצב הקודם של הלקוח.',
-        buttonLabel: 'בטל ניקוב אחרון',
-        busyLabel: 'מבטלים ניקוב...',
-        successMessage: 'הניקוב בוטל',
-        resultStatusLabel: 'הניקוב בוטל',
-        alreadyRevertedLabel: 'הניקוב כבר בוטל',
-        errorLabel: 'לא ניתן לבטל את הניקוב כרגע.',
-      };
-
-const formatUndoCountdownLabel = (remainingMs: number) => {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-};
-
-const formatBenefitExpiryLabel = (expiresAt: number | null) => {
-  if (!expiresAt) {
-    return 'ללא תוקף';
-  }
-  return new Date(expiresAt).toLocaleDateString('he-IL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
-
-const resolveScanErrorCode = (error: unknown): string => {
-  if (!(error instanceof Error)) {
-    return 'UNKNOWN';
-  }
-  const message = error.message ?? '';
-  const matched = KNOWN_SCAN_ERROR_CODES.find((code) => message.includes(code));
-  return matched ?? message;
-};
-
-const mapScanError = (error: unknown): { message: string; code: string } => {
-  const code = resolveScanErrorCode(error);
-  if (code === 'REFERRAL_REWARD_NOT_FOUND') {
-    return { message: 'הטבת ההפניה לא זמינה יותר.', code };
-  }
-  if (code === 'INVALID_REWARD_TYPE') {
-    return { message: 'אפשר לממש כאן רק הטבת BENEFIT.', code };
-  }
-  if (code === 'REWARD_NOT_AVAILABLE') {
-    return { message: 'ההטבה כבר לא זמינה למימוש.', code };
-  }
-  if (code === 'REWARD_EXPIRED') {
-    return { message: 'תוקף ההטבה פג ולא ניתן לממש אותה.', code };
-  }
-  if (code === 'REFERRAL_NOT_FOUND') {
-    return { message: 'פרטי ההפניה לא נמצאו.', code };
-  }
-  switch (code) {
-    case 'INVALID_QR':
-      return { message: 'קוד QR לא תקין.', code };
-    case 'EXPIRED_TOKEN':
-      return { message: 'פג תוקף ה-QR. בקשו מהלקוח לרענן קוד.', code };
-    case 'TOKEN_ALREADY_USED':
-      return { message: 'QR כבר נסרק. יש לרענן קוד חדש.', code };
-    case 'SELF_STAMP':
-      return { message: 'לא ניתן לנקב לעצמכם.', code };
-    case 'RATE_LIMITED':
-      return { message: 'אפשר לנקב שוב לאותו לקוח רק אחרי 30 שניות.', code };
-    case 'CUSTOMER_NOT_FOUND':
-      return { message: 'הלקוח לא נמצא.', code };
-    case 'MEMBERSHIP_NOT_FOUND':
-      return { message: 'ללקוח אין כרטיס פעיל בתוכנית שנבחרה.', code };
-    case 'NOT_AUTHORIZED':
-      return { message: 'אין הרשאה לפעולה הזו.', code };
-    case 'PROGRAM_ARCHIVED':
-    case 'PROGRAM_NOT_SCANNER_ELIGIBLE':
-      return { message: 'התוכנית שנבחרה אינה זמינה לסריקה.', code };
-    case 'POS_ENROLL_DISABLED':
-      return { message: 'לא ניתן לצרף לקוח חדש לתוכנית הזו מהסורק.', code };
-    case 'NOT_ENOUGH_STAMPS':
-      return { message: 'אין מספיק ניקובים למימוש הטבה.', code };
-    case 'INVALID_SCAN_SESSION':
-    case 'SCAN_SESSION_EXPIRED':
-      return { message: 'הסריקה פגה. יש לסרוק מחדש.', code };
-    case 'SCAN_SESSION_FAILED':
-      return { message: 'הסריקה הקודמת נדחתה. יש לסרוק מחדש.', code };
-    case 'INVALID_SCAN_ACTION':
-      return { message: 'פעולת הסריקה אינה תקינה.', code };
-    case 'UNDO_BLOCKED_REFERRAL_REWARD':
-      return {
-        message: 'לא ניתן לבטל את הניקוב כי הוא כבר הפעיל מתנת הזמנה.',
-        code,
-      };
-    default:
-      return { message: 'אירעה שגיאה בלתי צפויה. נסו שוב.', code };
-  }
-};
-
-function isTechnicalCommitError(code: string) {
-  if (!code || code === 'UNKNOWN') {
-    return true;
-  }
-  return !NON_RETRYABLE_COMMIT_CODES.has(code);
-}
+const COMPLETE_RESET_MS = 30_000;
+const TABLET_BREAKPOINT = 768;
+const STALE_PROGRAM_NOTICE =
+  'התוכנית שנבחרה כבר אינה זמינה. יש לבחור תוכנית אחרת.';
 
 function generateRuntimeSessionId() {
   return `runtime_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -354,10 +155,39 @@ function generateScannerDeviceId() {
   return `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function toProgramSnapshot(program: ScannerProgram): PosProgramSnapshot {
+  return {
+    programId: program.loyaltyProgramId,
+    title: program.title,
+    rewardName: program.rewardName,
+    maxStamps: program.maxStamps,
+    allowPosEnroll: program.allowPosEnroll,
+  };
+}
+
+function formatUndoCountdown(availableUntil: number, now: number) {
+  const totalSeconds = Math.max(0, Math.ceil((availableUntil - now) / 1000));
+  return `00:${String(totalSeconds).padStart(2, '0')}`;
+}
+
+function formatBenefitExpiry(expiresAt: number | null) {
+  if (!expiresAt) {
+    return 'ללא תוקף';
+  }
+  return new Date(expiresAt).toLocaleDateString('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_BREAKPOINT;
   const isStaffRoute = (segments as string[]).includes('(staff)');
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -366,98 +196,76 @@ export default function ScannerScreen() {
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
   const { user } = useUser();
-  const { activeBusinessId, activeBusiness: selectedBusiness } =
-    useActiveBusiness();
+  const {
+    activeBusinessId,
+    activeBusiness: selectedBusiness,
+    isLoading: isBusinessLoading,
+  } = useActiveBusiness();
 
-  useEffect(() => {
-    if (isPreviewMode) {
-      return;
-    }
-    if (isAppModeLoading) {
-      return;
-    }
-    if (appMode !== 'business') {
-      router.navigate('/(authenticated)/(customer)/wallet');
-    }
-  }, [appMode, isAppModeLoading, isPreviewMode, router]);
-
-  const programs =
-    (useQuery(
-      api.loyaltyPrograms.listScannerPrograms,
-      activeBusinessId ? { businessId: activeBusinessId } : 'skip'
-    ) as ScannerProgram[] | undefined) ?? [];
-
-  const scannerResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+  const [flow, dispatch] = useReducer(
+    posFlowReducer,
+    createInitialPosFlowState()
   );
-  const scrollViewRef = useRef<ScrollView | null>(null);
-  const programCarouselRef = useRef<FlatList<ScannerProgram> | null>(null);
-  const shouldAutoAlignProgramCarouselRef = useRef(true);
-  const lastProgramCarouselLayoutKeyRef = useRef('');
-  const { width: windowWidth } = useWindowDimensions();
-  const scannerContentWidth = Math.min(
-    Math.max(windowWidth - 40, 240),
-    isStaffRoute ? 720 : 920
-  );
-  const [programSliderMeasuredWidth, setProgramSliderMeasuredWidth] =
-    useState(0);
-  const programSliderViewportWidth = useMemo(() => {
-    if (programSliderMeasuredWidth > 0) {
-      return programSliderMeasuredWidth;
-    }
-    return Math.max(240, scannerContentWidth);
-  }, [programSliderMeasuredWidth, scannerContentWidth]);
-  const CARD_SIDE_PEEK = useMemo(
-    () =>
-      Math.min(
-        CARD_SIDE_PEEK_MAX,
-        Math.max(
-          CARD_SIDE_PEEK_MIN,
-          Math.round(programSliderViewportWidth * 0.13)
-        )
-      ),
-    [programSliderViewportWidth]
-  );
-  const CARD_WIDTH = useMemo(
-    () =>
-      Math.min(
-        520,
-        Math.max(240, programSliderViewportWidth - CARD_SIDE_PEEK * 2)
-      ),
-    [CARD_SIDE_PEEK, programSliderViewportWidth]
-  );
-  const ITEM_STRIDE = useMemo(() => CARD_WIDTH + CARD_GAP, [CARD_WIDTH]);
-  const SIDE_PADDING = useMemo(
-    () => Math.max(0, (programSliderViewportWidth - CARD_WIDTH) / 2),
-    [CARD_WIDTH, programSliderViewportWidth]
-  );
-
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
-    null
-  );
-  const [isProgramSelectionReady, setIsProgramSelectionReady] = useState(false);
-  const selectedProgram =
-    programs.find(
-      (program) => program.loyaltyProgramId === selectedProgramId
-    ) ?? null;
-  const selectedProgramIndex = useMemo(
-    () =>
-      programs.findIndex(
-        (program) => program.loyaltyProgramId === selectedProgramId
-      ),
-    [programs, selectedProgramId]
-  );
-  const [visibleProgramIndex, setVisibleProgramIndex] = useState(0);
-  const activeProgramDotIndex =
-    programs.length > 0
-      ? Math.min(programs.length - 1, Math.max(0, visibleProgramIndex))
-      : 0;
-  const dotsTrackWidth =
-    programs.length > 0 ? programs.length * PROGRAM_DOT_SLOT_WIDTH : 0;
   const [scannerRuntimeSessionId, setScannerRuntimeSessionId] = useState(() =>
     generateRuntimeSessionId()
   );
   const [scannerDeviceId, setScannerDeviceId] = useState<string | null>(null);
+  const [undoNow, setUndoNow] = useState(() => Date.now());
+  const [isUndoing, setIsUndoing] = useState(false);
+  const [isRedeemingBenefitId, setIsRedeemingBenefitId] = useState<
+    string | null
+  >(null);
+  const [benefitActionMessage, setBenefitActionMessage] = useState<
+    string | null
+  >(null);
+  const completeResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const staleProgramRecoveryRef = useRef(false);
+  const previousStorageKeyRef = useRef<string | null>(null);
+  const businessIdentityInitializedRef = useRef(false);
+  const previousBusinessIdRef = useRef<string | null>(null);
+  const selectedProgramIdRef = useRef<string | null>(null);
+  const transactionGenerationRef = useRef(0);
+  selectedProgramIdRef.current = flow.selectedProgramId;
+
+  const capabilities = selectedBusiness?.capabilities;
+  const canAccessScanner = capabilities?.scanner_access === true;
+  const canManagePrograms = capabilities?.edit_loyalty_cards === true;
+  const canManageSubscription = capabilities?.manage_subscription === true;
+  const programsQuery = useQuery(
+    api.loyaltyPrograms.listScannerPrograms,
+    activeBusinessId && canAccessScanner
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  ) as ScannerProgram[] | undefined;
+  const programs = useMemo(() => programsQuery ?? [], [programsQuery]);
+  const programIds = useMemo(
+    () => programs.map((program) => program.loyaltyProgramId),
+    [programs]
+  );
+  const programIdsSignature = programIds.join('|');
+  const programsLoaded = programsQuery !== undefined;
+  const selectedProgram =
+    programs.find(
+      (program) => program.loyaltyProgramId === flow.selectedProgramId
+    ) ?? null;
+  const storageKey = activeBusinessId
+    ? `scanner:lastProgram:${String(activeBusinessId)}`
+    : null;
+  const referralCustomerId =
+    flow.phase === 'success' ? flow.result?.customerUserId : null;
+  const referralBenefitsQuery = useQuery(
+    api.referrals.listCustomerAvailableReferralBenefits,
+    selectedBusiness?.businessId && referralCustomerId
+      ? {
+          businessId: selectedBusiness.businessId,
+          customerUserId: referralCustomerId as Id<'users'>,
+          limit: 12,
+        }
+      : 'skip'
+  ) as ReferralBenefitItem[] | undefined;
+  const referralBenefits = referralBenefitsQuery ?? [];
 
   const resolveScan = useMutation(api.scanner.resolveScan);
   const commitStamp = useMutation(api.scanner.commitStamp);
@@ -466,60 +274,24 @@ export default function ScannerScreen() {
   const redeemReferralBenefit = useMutation(
     api.referrals.redeemReferralBenefit
   );
-  const [isResolving, setIsResolving] = useState(false);
-  const [isStamping, setIsStamping] = useState(false);
-  const [isUndoing, setIsUndoing] = useState(false);
-  const [scannerResetKey, setScannerResetKey] = useState(0);
-  const [scanError, setScanError] = useState<string | null>(null);
-  const [resultBanner, setResultBanner] = useState<ScanResultBanner | null>(
-    null
-  );
-  const [pendingRedeemSession, setPendingRedeemSession] =
-    useState<PendingRedeemSession | null>(null);
-  const [retrySession, setRetrySession] = useState<PendingRetrySession | null>(
-    null
-  );
-  const [undoState, setUndoState] = useState<UndoActionState | null>(null);
-  const [undoNow, setUndoNow] = useState(() => Date.now());
-  const [businessSuccessBannerKey, setBusinessSuccessBannerKey] = useState(0);
-  const [successBannerMessage, setSuccessBannerMessage] = useState(
-    BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
-  );
-  const [lastScannedCustomer, setLastScannedCustomer] = useState<{
-    userId: string;
-    displayName: string;
-  } | null>(null);
-  const [isRedeemingBenefitId, setIsRedeemingBenefitId] = useState<
-    string | null
-  >(null);
-  const [benefitActionMessage, setBenefitActionMessage] = useState<
-    string | null
-  >(null);
-  const referralBenefits =
-    (useQuery(
-      api.referrals.listCustomerAvailableReferralBenefits,
-      selectedBusiness?.businessId && lastScannedCustomer?.userId
-        ? {
-            businessId: selectedBusiness.businessId as Id<'businesses'>,
-            customerUserId: lastScannedCustomer.userId as Id<'users'>,
-            limit: 12,
-          }
-        : 'skip'
-    ) as ReferralBenefitItem[] | undefined) ?? [];
-
-  const storageKey = activeBusinessId
-    ? `scanner:lastProgram:${String(activeBusinessId)}`
-    : null;
 
   useEffect(() => {
-    let isCancelled = false;
+    if (isPreviewMode || isAppModeLoading) {
+      return;
+    }
+    if (appMode !== 'business') {
+      router.navigate('/(authenticated)/(customer)/wallet');
+    }
+  }, [appMode, isAppModeLoading, isPreviewMode, router]);
 
+  useEffect(() => {
+    let cancelled = false;
     const hydrateDeviceId = async () => {
       try {
         const existing = await AsyncStorage.getItem(
           SCANNER_DEVICE_ID_STORAGE_KEY
         );
-        if (isCancelled) {
+        if (cancelled) {
           return;
         }
         if (existing) {
@@ -528,636 +300,660 @@ export default function ScannerScreen() {
         }
         const generated = generateScannerDeviceId();
         await AsyncStorage.setItem(SCANNER_DEVICE_ID_STORAGE_KEY, generated);
-        if (!isCancelled) {
+        if (!cancelled) {
           setScannerDeviceId(generated);
         }
       } catch {
-        if (!isCancelled) {
+        if (!cancelled) {
           setScannerDeviceId(generateScannerDeviceId());
         }
       }
     };
-
     void hydrateDeviceId();
     return () => {
-      isCancelled = true;
+      cancelled = true;
     };
   }, []);
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    const hydrateSelection = async () => {
-      if (!storageKey || programs.length === 0) {
-        setSelectedProgramId(programs[0]?.loyaltyProgramId ?? null);
-        setIsProgramSelectionReady(true);
+  useLayoutEffect(() => {
+    const businessId = activeBusinessId ? String(activeBusinessId) : null;
+    if (!businessIdentityInitializedRef.current) {
+      if (isBusinessLoading && !businessId) {
         return;
       }
-
-      try {
-        const storedProgramId = await AsyncStorage.getItem(storageKey);
-        if (isCancelled) {
-          return;
-        }
-        const nextProgramId = programs.some(
-          (program) => program.loyaltyProgramId === storedProgramId
-        )
-          ? storedProgramId
-          : (programs[0]?.loyaltyProgramId ?? null);
-        setSelectedProgramId(nextProgramId);
-      } catch {
-        if (!isCancelled) {
-          setSelectedProgramId(programs[0]?.loyaltyProgramId ?? null);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsProgramSelectionReady(true);
-        }
-      }
-    };
-
-    setIsProgramSelectionReady(false);
-    void hydrateSelection();
-    return () => {
-      isCancelled = true;
-    };
-  }, [programs, storageKey]);
-
-  useEffect(() => {
-    const layoutKey = [
-      isProgramSelectionReady ? 'ready' : 'loading',
-      programs.length,
-      CARD_WIDTH,
-      ITEM_STRIDE,
-      SIDE_PADDING,
-    ].join(':');
-    if (lastProgramCarouselLayoutKeyRef.current !== layoutKey) {
-      lastProgramCarouselLayoutKeyRef.current = layoutKey;
-      shouldAutoAlignProgramCarouselRef.current = true;
-    }
-    if (programs.length === 0) {
+      businessIdentityInitializedRef.current = true;
+      previousBusinessIdRef.current = businessId;
       return;
     }
-    if (ITEM_STRIDE <= 0) {
-      return;
-    }
-    if (!isProgramSelectionReady || selectedProgramIndex < 0) {
-      return;
-    }
-    if (!shouldAutoAlignProgramCarouselRef.current) {
+    if (previousBusinessIdRef.current === businessId) {
       return;
     }
 
-    const frame = requestAnimationFrame(() => {
-      programCarouselRef.current?.scrollToOffset({
-        offset: selectedProgramIndex * ITEM_STRIDE,
-        animated: false,
-      });
-      shouldAutoAlignProgramCarouselRef.current = false;
-    });
-
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [
-    isProgramSelectionReady,
-    programs.length,
-    CARD_WIDTH,
-    ITEM_STRIDE,
-    SIDE_PADDING,
-    selectedProgramIndex,
-  ]);
-
-  useEffect(() => {
-    if (selectedProgramIndex >= 0) {
-      setVisibleProgramIndex(selectedProgramIndex);
+    previousBusinessIdRef.current = businessId;
+    invalidateTransactionGeneration(transactionGenerationRef);
+    if (completeResetTimeoutRef.current) {
+      clearTimeout(completeResetTimeoutRef.current);
+      completeResetTimeoutRef.current = null;
     }
-  }, [selectedProgramIndex]);
-
-  const isSelectionLocked =
-    isResolving ||
-    isStamping ||
-    isUndoing ||
-    retrySession !== null ||
-    pendingRedeemSession !== null;
-  const canScan = Boolean(
-    selectedBusiness &&
-      selectedProgram &&
-      scannerDeviceId &&
-      isProgramSelectionReady &&
-      programs.length > 0
-  );
-  const isBusy = isResolving || isStamping || isUndoing;
-  const undoTimeRemainingMs = undoState
-    ? Math.max(0, undoState.availableUntil - undoNow)
-    : 0;
-  const undoActionActive = Boolean(undoState && undoTimeRemainingMs > 0);
-  const undoPresentation = useMemo(() => {
-    if (!undoState) {
-      return null;
-    }
-
-    return {
-      ...getUndoPresentation(undoState.actionMode),
-      countdownLabel: formatUndoCountdownLabel(undoTimeRemainingMs),
-    };
-  }, [undoState, undoTimeRemainingMs]);
-
-  const openUpgrade = useCallback(
-    (
-      featureKey: string,
-      requiredPlan: 'starter' | 'pro' | 'premium' | null,
-      reason: 'feature_locked' | 'limit_reached' | 'subscription_inactive'
-    ) => {
-      if (isStaffRoute) {
-        return;
-      }
-      openSubscriptionComparison(router, { featureKey, requiredPlan, reason });
-    },
-    [isStaffRoute, router]
-  );
-
-  const resetScanner = useCallback(() => {
-    if (scannerResetTimeoutRef.current) {
-      clearTimeout(scannerResetTimeoutRef.current);
-      scannerResetTimeoutRef.current = null;
-    }
-    setScannerResetKey((current) => current + 1);
-    setScanError(null);
-    setResultBanner(null);
-    setPendingRedeemSession(null);
-    setRetrySession(null);
-    setUndoState(null);
-    setLastScannedCustomer(null);
-    setBenefitActionMessage(null);
+    staleProgramRecoveryRef.current = false;
+    setIsUndoing(false);
     setIsRedeemingBenefitId(null);
-  }, []);
+    setBenefitActionMessage(null);
+    dispatch({ type: 'BUSINESS_CHANGED' });
+  }, [activeBusinessId, isBusinessLoading]);
 
-  const queueScannerReset = useCallback((delayMs = 30000) => {
-    if (scannerResetTimeoutRef.current) {
-      clearTimeout(scannerResetTimeoutRef.current);
+  useLayoutEffect(() => {
+    if (!programsLoaded || !storageKey) {
+      return;
     }
-    scannerResetTimeoutRef.current = setTimeout(() => {
-      setScannerResetKey((current) => current + 1);
-      scannerResetTimeoutRef.current = null;
-    }, delayMs);
+    const storageChanged = previousStorageKeyRef.current !== storageKey;
+    if (storageChanged) {
+      previousStorageKeyRef.current = storageKey;
+      staleProgramRecoveryRef.current = false;
+    }
+    if (staleProgramRecoveryRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    const invalidateStalePreset = () => {
+      staleProgramRecoveryRef.current = true;
+      invalidateTransactionGeneration(transactionGenerationRef);
+      if (completeResetTimeoutRef.current) {
+        clearTimeout(completeResetTimeoutRef.current);
+        completeResetTimeoutRef.current = null;
+      }
+      setIsUndoing(false);
+      setIsRedeemingBenefitId(null);
+      setBenefitActionMessage(null);
+      dispatch({
+        type: 'CLEAR_STALE_PROGRAM',
+        notice: STALE_PROGRAM_NOTICE,
+      });
+    };
+    const hydratePreset = async () => {
+      const initialProgramId = storageChanged
+        ? null
+        : selectedProgramIdRef.current;
+      const initialRefreshDecision = resolveSameBusinessProgramRefresh(
+        initialProgramId,
+        programIds
+      );
+      if (!storageChanged && initialRefreshDecision === 'preserve') {
+        return;
+      }
+      if (!storageChanged && initialRefreshDecision === 'stale') {
+        invalidateStalePreset();
+        try {
+          await AsyncStorage.removeItem(storageKey);
+        } catch {
+          // The invalid preset is still ignored in local state.
+        }
+        return;
+      }
+
+      let savedProgramId: string | null = null;
+      try {
+        savedProgramId = await AsyncStorage.getItem(storageKey);
+      } catch {
+        savedProgramId = null;
+      }
+      if (cancelled) {
+        return;
+      }
+      const currentProgramId = storageChanged
+        ? null
+        : selectedProgramIdRef.current;
+      const refreshDecision = resolveSameBusinessProgramRefresh(
+        currentProgramId,
+        programIds
+      );
+      if (!storageChanged && refreshDecision === 'preserve') {
+        return;
+      }
+      if (!storageChanged && refreshDecision === 'stale') {
+        invalidateStalePreset();
+        try {
+          await AsyncStorage.removeItem(storageKey);
+        } catch {
+          // The invalid preset is still ignored in local state.
+        }
+        return;
+      }
+      const savedPresetIsValid = Boolean(
+        savedProgramId && programIds.includes(savedProgramId)
+      );
+      const savedPresetIsStale = Boolean(
+        savedProgramId && !savedPresetIsValid
+      );
+      if (savedPresetIsStale) {
+        invalidateStalePreset();
+        try {
+          await AsyncStorage.removeItem(storageKey);
+        } catch {
+          // The invalid preset is still ignored in local state.
+        }
+        return;
+      }
+      if (!cancelled) {
+        dispatch({
+          type: 'PROGRAMS_READY',
+          programIds,
+          savedProgramId:
+            currentProgramId && programIds.includes(currentProgramId)
+              ? currentProgramId
+              : savedPresetIsValid
+                ? savedProgramId
+                : null,
+        });
+      }
+    };
+    void hydratePreset();
+    return () => {
+      cancelled = true;
+    };
+  }, [programIdsSignature, programsLoaded, storageKey]);
+
+  const clearCompleteResetTimer = useCallback(() => {
+    if (completeResetTimeoutRef.current) {
+      clearTimeout(completeResetTimeoutRef.current);
+      completeResetTimeoutRef.current = null;
+    }
   }, []);
 
-  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+  const resetForNextCustomer = useCallback(() => {
+    invalidateTransactionGeneration(transactionGenerationRef);
+    clearCompleteResetTimer();
+    setIsUndoing(false);
+    setIsRedeemingBenefitId(null);
+    setBenefitActionMessage(null);
+    dispatch({ type: 'NEXT_CUSTOMER' });
+  }, [clearCompleteResetTimer]);
+
+  const queueCompleteReset = useCallback(
+    (delayMs = COMPLETE_RESET_MS) => {
+      clearCompleteResetTimer();
+      completeResetTimeoutRef.current = setTimeout(() => {
+        invalidateTransactionGeneration(transactionGenerationRef);
+        setIsUndoing(false);
+        setIsRedeemingBenefitId(null);
+        setBenefitActionMessage(null);
+        dispatch({ type: 'NEXT_CUSTOMER' });
+        completeResetTimeoutRef.current = null;
+      }, Math.max(0, delayMs));
+    },
+    [clearCompleteResetTimer]
+  );
 
   useFocusEffect(
     useCallback(() => {
       setScannerRuntimeSessionId(generateRuntimeSessionId());
-      resetScanner();
-    }, [resetScanner])
+      resetForNextCustomer();
+    }, [resetForNextCustomer])
   );
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('tabPress', () => {
-      resetScanner();
+      setScannerRuntimeSessionId(generateRuntimeSessionId());
+      resetForNextCustomer();
     });
     return unsubscribe;
-  }, [navigation, resetScanner]);
+  }, [navigation, resetForNextCustomer]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
-      if (scannerResetTimeoutRef.current) {
-        clearTimeout(scannerResetTimeoutRef.current);
-      }
+      invalidateTransactionGeneration(transactionGenerationRef);
+      clearCompleteResetTimer();
     };
-  }, []);
+  }, [clearCompleteResetTimer]);
 
+  const undoAvailableUntil = flow.result?.undo?.availableUntil ?? null;
   useEffect(() => {
-    if (!resultBanner) {
+    if (!undoAvailableUntil) {
       return;
     }
-
-    const timeout = setTimeout(() => {
-      setResultBanner(null);
-    }, BUSINESS_SUCCESS_BANNER_DURATION_MS);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [resultBanner]);
-
-  useEffect(() => {
-    if (!undoState) {
-      return;
-    }
-    const remaining = undoState.availableUntil - Date.now();
-    if (remaining <= 0) {
-      setUndoState(null);
-      return;
-    }
-    const timeout = setTimeout(() => {
-      setUndoState(null);
-    }, remaining);
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [undoState]);
-
-  useEffect(() => {
-    if (!undoState) {
-      return;
-    }
-
     setUndoNow(Date.now());
     const interval = setInterval(() => {
-      setUndoNow(Date.now());
+      const now = Date.now();
+      setUndoNow(now);
+      if (now >= undoAvailableUntil) {
+        dispatch({ type: 'EXPIRE_UNDO' });
+      }
     }, 1000);
-
     return () => {
       clearInterval(interval);
     };
-  }, [undoState]);
+  }, [undoAvailableUntil]);
 
-  const setSelectedProgram = useCallback(
+  const selectProgram = useCallback(
     async (programId: string) => {
       if (!storageKey) {
-        setSelectedProgramId(programId);
         return;
       }
-      setSelectedProgramId(programId);
+      staleProgramRecoveryRef.current = false;
+      invalidateTransactionGeneration(transactionGenerationRef);
+      clearCompleteResetTimer();
+      dispatch({ type: 'SELECT_PROGRAM', programId });
       try {
         await AsyncStorage.setItem(storageKey, programId);
       } catch {
-        // Selection still updates locally even if persistence fails.
+        // The counter preset remains active for this app session.
       }
     },
-    [storageKey]
+    [clearCompleteResetTimer, storageKey]
+  );
+
+  const changeProgram = useCallback(async () => {
+    if (!storageKey) {
+      return;
+    }
+    clearCompleteResetTimer();
+    invalidateTransactionGeneration(transactionGenerationRef);
+    setBenefitActionMessage(null);
+    dispatch({ type: 'CHANGE_PROGRAM' });
+    try {
+      await AsyncStorage.removeItem(storageKey);
+    } catch {
+      // Local state still requires an explicit new selection.
+    }
+  }, [clearCompleteResetTimer, storageKey]);
+
+  const recoverFromStaleProgram = useCallback(
+    async (message: string) => {
+      staleProgramRecoveryRef.current = true;
+      invalidateTransactionGeneration(transactionGenerationRef);
+      clearCompleteResetTimer();
+      setBenefitActionMessage(null);
+      dispatch({ type: 'CLEAR_STALE_PROGRAM', notice: message });
+      if (storageKey) {
+        try {
+          await AsyncStorage.removeItem(storageKey);
+        } catch {
+          // Local state still clears the unavailable preset.
+        }
+      }
+    },
+    [clearCompleteResetTimer, storageKey]
+  );
+
+  const showTerminalError = useCallback(
+    async (error: PosErrorPresentation, generation: number) => {
+      if (
+        !isTransactionGenerationCurrent(
+          transactionGenerationRef,
+          generation
+        )
+      ) {
+        return;
+      }
+      if (error.kind === 'stale_program') {
+        await recoverFromStaleProgram(error.message);
+        return;
+      }
+      dispatch({ type: 'SHOW_TERMINAL_ERROR', error });
+    },
+    [recoverFromStaleProgram]
   );
 
   const applyCommitOutcome = useCallback(
-    (params: {
-      session: PendingRedeemSession;
-      result: CommitActionResult;
-      actionMode: CommitActionMode;
-      isFirstStampForCustomer: boolean;
-    }) => {
-      const isRedeem = params.actionMode === 'redeem';
-      const undoBlockedByReferral =
-        params.result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ||
-        params.result.referralRewardTriggered === true;
+    (
+      session: PosResolvedSession,
+      result: CommitActionResult
+    ): PosTransactionResult => {
       const now = Date.now();
-      const undoAvailableUntil =
-        typeof params.result.undoAvailableUntil === 'number' &&
-        Number.isFinite(params.result.undoAvailableUntil) &&
-        params.result.undoAvailableUntil > now
-          ? params.result.undoAvailableUntil
+      const undoBlocked =
+        result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ||
+        result.referralRewardTriggered === true;
+      const availableUntil =
+        typeof result.undoAvailableUntil === 'number' &&
+        result.undoAvailableUntil > now
+          ? result.undoAvailableUntil
           : now + FALLBACK_UNDO_WINDOW_MS;
-      setPendingRedeemSession(null);
-      setRetrySession(null);
-      setUndoNow(now);
-      if (undoBlockedByReferral) {
-        setUndoState(null);
-      } else {
-        setUndoState({
-          eventId: params.result.eventId,
-          availableUntil: undoAvailableUntil,
-          customerDisplayName: params.session.customerDisplayName,
-          actionMode: params.actionMode,
-        });
-      }
-      setLastScannedCustomer({
-        userId: params.session.customerUserId,
-        displayName: params.session.customerDisplayName,
-      });
-      setBenefitActionMessage(null);
-      setSuccessBannerMessage(
-        isRedeem
-          ? BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM
-          : BUSINESS_SUCCESS_BANNER_MESSAGE_STAMP
-      );
-      setResultBanner({
-        customerUserId: params.session.customerUserId,
-        customerDisplayName: params.session.customerDisplayName,
-        statusLabel: isRedeem
-          ? 'הטבה מומשה בהצלחה'
-          : params.result.canRedeemNow
-            ? 'זכאי למימוש הטבה'
-            : 'בתהליך צבירת ניקובים',
-        currentStamps: params.result.currentStamps,
-        maxStamps: params.result.maxStamps,
-        undoBlockedReason: undoBlockedByReferral
-          ? 'REFERRAL_REWARD_TRIGGERED'
-          : null,
-      });
-      Vibration.vibrate(120);
-      setBusinessSuccessBannerKey((current) => current + 1);
-
-      track(ANALYTICS_EVENTS.stampSuccess, {
-        businessId: selectedBusiness?.businessId ?? null,
-        customerUserId: params.session.customerUserId,
-        action_mode: params.actionMode,
-      });
-
-      if (params.actionMode === 'stamp') {
-        if (user?._id) {
-          void trackActivationOnce(
-            ANALYTICS_EVENTS.firstScanCompleted,
-            user._id,
-            {
-              role: 'business',
-              userId: user._id,
-            }
-          );
-        }
-        if (params.isFirstStampForCustomer) {
-          void trackActivationEvent(
-            ANALYTICS_EVENTS.customerFirstStampReceived,
-            {
-              role: 'client',
-              userId: params.session.customerUserId,
-            }
-          );
-        }
-      }
+      return {
+        customerUserId: session.customerUserId,
+        customerDisplayName: session.customerDisplayName,
+        program: session.program,
+        actionMode: session.actionMode,
+        joinedCustomer: session.joinedCustomer,
+        currentStamps: result.currentStamps,
+        maxStamps: result.maxStamps,
+        canRedeemNow: result.canRedeemNow,
+        undo: undoBlocked
+          ? null
+          : {
+              eventId: result.eventId,
+              availableUntil,
+              actionMode: session.actionMode,
+            },
+        undoBlockedReason: undoBlocked ? 'REFERRAL_REWARD_TRIGGERED' : null,
+      };
     },
-    [selectedBusiness?.businessId, user?._id]
-  );
-
-  const resolveByToken = useCallback(
-    async (token: string, showErrors = true) => {
-      const businessId = selectedBusiness?.businessId;
-      const programId = selectedProgram?.loyaltyProgramId;
-      if (!canScan || !businessId || !programId || !scannerDeviceId) {
-        if (showErrors) {
-          setScanError('יש לבחור תוכנית פעילה לפני סריקה.');
-        }
-        return null;
-      }
-      try {
-        const result = (await resolveScan({
-          qrData: token,
-          businessId,
-          programId: programId as Id<'loyaltyPrograms'>,
-          scannerRuntimeSessionId,
-          deviceId: scannerDeviceId as string,
-        })) as ResolvedScan;
-        if (!result.scanSessionId) {
-          throw new Error('INVALID_SCAN_SESSION');
-        }
-        setScanError(null);
-        return result;
-      } catch (error) {
-        if (showErrors) {
-          setResultBanner(null);
-          const mapped = mapScanError(error);
-          setScanError(`סריקה נכשלה: ${mapped.message}`);
-          track(ANALYTICS_EVENTS.stampFailed, {
-            error_code: mapped.code,
-            context: 'resolveScan',
-          });
-        }
-        return null;
-      }
-    },
-    [
-      canScan,
-      resolveScan,
-      scannerDeviceId,
-      scannerRuntimeSessionId,
-      selectedBusiness,
-      selectedProgram,
-    ]
+    []
   );
 
   const commitFromSession = useCallback(
-    async (params: {
-      session: PendingRedeemSession;
-      actionMode: CommitActionMode;
-      isFirstStampForCustomer: boolean;
-    }) => {
-      if (!selectedBusiness || !selectedProgram) {
-        return 'business' as const;
+    async (session: PosResolvedSession, generation: number) => {
+      if (
+        !isTransactionGenerationCurrent(
+          transactionGenerationRef,
+          generation
+        )
+      ) {
+        return;
       }
-
-      const actionLabel = params.actionMode === 'redeem' ? 'מימוש' : 'ניקוב';
-      setIsStamping(true);
-      setScanError(null);
+      dispatch({ type: 'BEGIN_RESOLVE' });
       try {
-        const commitMutation =
-          params.actionMode === 'stamp' ? commitStamp : commitRedeem;
-        const result = (await commitMutation({
-          scanSessionId: params.session.scanSessionId as Id<'scanSessions'>,
-        })) as CommitActionResult;
-        applyCommitOutcome({
-          session: params.session,
-          result,
-          actionMode: params.actionMode,
-          isFirstStampForCustomer: params.isFirstStampForCustomer,
-        });
-        return 'success' as const;
-      } catch (error) {
-        const entitlementError = getEntitlementError(error);
-        if (entitlementError) {
-          setPendingRedeemSession(null);
-          setRetrySession(null);
-          setScanError(
-            `${actionLabel} נכשל: ${entitlementErrorToHebrewMessage(entitlementError)}`
-          );
-          openUpgrade(
-            entitlementError.featureKey ??
-              entitlementError.limitKey ??
-              'maxCustomers',
-            entitlementError.requiredPlan ?? 'pro',
-            entitlementError.code === 'PLAN_LIMIT_REACHED'
-              ? 'limit_reached'
-              : entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-                ? 'subscription_inactive'
-                : 'feature_locked'
-          );
-          track(ANALYTICS_EVENTS.stampFailed, {
-            error_code: entitlementError.code,
-            context: 'commitAction',
-            action_mode: params.actionMode,
-          });
-          return 'business' as const;
+        const mutation =
+          session.actionMode === 'stamp' ? commitStamp : commitRedeem;
+        const guardedResult = await awaitCurrentTransaction(
+          transactionGenerationRef,
+          generation,
+          async () =>
+            (await mutation({
+              scanSessionId: session.scanSessionId as Id<'scanSessions'>,
+            })) as CommitActionResult
+        );
+        if (guardedResult.status === 'stale') {
+          return;
         }
+        const result = guardedResult.value;
+        const transactionResult = applyCommitOutcome(session, result);
+        dispatch({ type: 'SHOW_SUCCESS', result: transactionResult });
+        Vibration.vibrate(120);
 
-        const mapped = mapScanError(error);
-        const technicalError = isTechnicalCommitError(mapped.code);
-        if (technicalError) {
-          setPendingRedeemSession(null);
-          setRetrySession({
-            ...params.session,
-            actionMode: params.actionMode,
-            isFirstStampForCustomer: params.isFirstStampForCustomer,
-          });
-          setScanError(
-            `${actionLabel} מושהה: ${mapped.message} ניתן לנסות שוב בלי לסרוק מחדש.`
-          );
-        } else {
-          setPendingRedeemSession(null);
-          setRetrySession(null);
-          setScanError(`${actionLabel} נכשל: ${mapped.message}`);
-        }
-        track(ANALYTICS_EVENTS.stampFailed, {
-          error_code: mapped.code,
-          context: 'commitAction',
-          action_mode: params.actionMode,
+        const resetAt = transactionResult.undo?.availableUntil ??
+          Date.now() + COMPLETE_RESET_MS;
+        queueCompleteReset(resetAt - Date.now());
+
+        track(ANALYTICS_EVENTS.stampSuccess, {
+          businessId: selectedBusiness?.businessId ?? null,
+          customerUserId: session.customerUserId,
+          action_mode: session.actionMode,
         });
-        return technicalError ? ('technical' as const) : ('business' as const);
-      } finally {
-        setIsStamping(false);
+        if (session.actionMode === 'stamp') {
+          if (user?._id) {
+            void trackActivationOnce(
+              ANALYTICS_EVENTS.firstScanCompleted,
+              user._id,
+              { role: 'business', userId: user._id }
+            );
+          }
+          if (session.joinedCustomer) {
+            void trackActivationEvent(
+              ANALYTICS_EVENTS.customerFirstStampReceived,
+              { role: 'client', userId: session.customerUserId }
+            );
+          }
+        }
+      } catch (error) {
+        if (
+          !isTransactionGenerationCurrent(
+            transactionGenerationRef,
+            generation
+          )
+        ) {
+          return;
+        }
+        const entitlement = getEntitlementError(error);
+        const presentation = entitlement
+          ? {
+              ...classifyPosError(new Error(entitlement.code), 'commit'),
+              message: entitlementErrorToHebrewMessage(entitlement),
+            }
+          : classifyPosError(error, 'commit');
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code: presentation.code,
+          context: 'commitAction',
+          action_mode: session.actionMode,
+        });
+        if (
+          presentation.retrySameSession &&
+          Date.now() <= session.sessionExpiresAt
+        ) {
+          dispatch({
+            type: 'SHOW_TECHNICAL_RETRY',
+            session,
+            error: presentation,
+          });
+          return;
+        }
+        await showTerminalError(presentation, generation);
       }
     },
     [
       applyCommitOutcome,
       commitRedeem,
       commitStamp,
-      openUpgrade,
-      selectedBusiness,
-      selectedProgram,
+      queueCompleteReset,
+      selectedBusiness?.businessId,
+      showTerminalError,
+      user?._id,
     ]
   );
 
   const handleScan = useCallback(
     async (rawData: string) => {
-      if (isBusy || isSelectionLocked) {
+      if (
+        flow.phase !== 'ready' ||
+        !selectedBusiness ||
+        !selectedProgram ||
+        !scannerDeviceId ||
+        !canAccessScanner
+      ) {
+        return;
+      }
+      const generation = captureTransactionGeneration(
+        transactionGenerationRef
+      );
+      const qrData = rawData.trim();
+      if (!qrData.startsWith('scanToken:')) {
+        await showTerminalError(
+          classifyPosError(new Error('INVALID_QR'), 'resolve'),
+          generation
+        );
         return;
       }
 
-      const data = rawData?.trim();
-      if (!data) {
-        setScanError('סריקה נכשלה: קוד QR חסר.');
-        return;
-      }
-      if (!data.startsWith('scanToken:')) {
-        setScanError('סריקה נכשלה: זה לא QR לקוח תקין.');
-        setResultBanner(null);
-        return;
-      }
-
-      setIsResolving(true);
-      setScanError(null);
-      setPendingRedeemSession(null);
-      setRetrySession(null);
-      setUndoState(null);
-      setLastScannedCustomer(null);
+      dispatch({ type: 'BEGIN_RESOLVE' });
       setBenefitActionMessage(null);
-
-      let shouldQueueReset = true;
       try {
         track(ANALYTICS_EVENTS.qrScannedCustomer, {
-          businessId: selectedBusiness?.businessId,
+          businessId: selectedBusiness.businessId,
         });
-
-        const resolvedScan = await resolveByToken(data);
-        if (!resolvedScan) {
+        const guardedResolved = await awaitCurrentTransaction(
+          transactionGenerationRef,
+          generation,
+          async () =>
+            (await resolveScan({
+              qrData,
+              businessId: selectedBusiness.businessId,
+              programId:
+                selectedProgram.loyaltyProgramId as Id<'loyaltyPrograms'>,
+              scannerRuntimeSessionId,
+              deviceId: scannerDeviceId,
+            })) as ResolvedScan
+        );
+        if (guardedResolved.status === 'stale') {
           return;
         }
-
-        const resolvedSession: PendingRedeemSession = {
-          scanSessionId: resolvedScan.scanSessionId,
-          sessionExpiresAt: resolvedScan.sessionExpiresAt,
-          customerUserId: resolvedScan.customerUserId,
-          customerDisplayName: resolvedScan.customerDisplayName,
-          membership: resolvedScan.membership,
+        const resolved = guardedResolved.value;
+        const session: PosResolvedSession = {
+          scanSessionId: resolved.scanSessionId,
+          sessionExpiresAt: resolved.sessionExpiresAt,
+          customerUserId: resolved.customerUserId,
+          customerDisplayName: resolved.customerDisplayName,
+          membership: resolved.membership,
+          program: toProgramSnapshot(selectedProgram),
+          actionMode:
+            resolved.resolution === 'REDEEM_AVAILABLE' ? 'redeem' : 'stamp',
+          joinedCustomer: resolved.resolution === 'JOIN_AND_STAMP',
         };
-        setLastScannedCustomer({
-          userId: resolvedScan.customerUserId,
-          displayName: resolvedScan.customerDisplayName,
-        });
-
-        if (resolvedScan.resolution === 'REDEEM_AVAILABLE') {
-          setPendingRedeemSession(resolvedSession);
-          setResultBanner(null);
-          shouldQueueReset = false;
+        if (resolved.resolution === 'REDEEM_AVAILABLE') {
+          dispatch({ type: 'SHOW_REDEEM_CONFIRMATION', session });
           return;
         }
-
-        const commitState = await commitFromSession({
-          session: resolvedSession,
-          actionMode: 'stamp',
-          isFirstStampForCustomer: resolvedScan.resolution === 'JOIN_AND_STAMP',
+        await commitFromSession(session, generation);
+      } catch (error) {
+        if (
+          !isTransactionGenerationCurrent(
+            transactionGenerationRef,
+            generation
+          )
+        ) {
+          return;
+        }
+        const presentation = classifyPosError(error, 'resolve');
+        track(ANALYTICS_EVENTS.stampFailed, {
+          error_code: presentation.code,
+          context: 'resolveScan',
         });
-        if (commitState === 'technical') {
-          shouldQueueReset = false;
-        }
-      } finally {
-        setIsResolving(false);
-        if (shouldQueueReset) {
-          queueScannerReset();
-        }
+        await showTerminalError(presentation, generation);
       }
     },
     [
+      canAccessScanner,
       commitFromSession,
-      isBusy,
-      isSelectionLocked,
-      queueScannerReset,
-      resolveByToken,
-      selectedBusiness?.businessId,
+      flow.phase,
+      resolveScan,
+      scannerDeviceId,
+      scannerRuntimeSessionId,
+      selectedBusiness,
+      selectedProgram,
+      showTerminalError,
     ]
   );
 
-  const handleRedeemCommit = useCallback(async () => {
-    if (!pendingRedeemSession || isBusy) {
+  const handleRedeem = useCallback(async () => {
+    if (flow.phase !== 'redeem_confirmation' || !flow.session) {
+      return;
+    }
+    const generation = captureTransactionGeneration(transactionGenerationRef);
+    if (Date.now() > flow.session.sessionExpiresAt) {
+      await showTerminalError(
+        classifyPosError(new Error('SCAN_SESSION_EXPIRED'), 'commit'),
+        generation
+      );
+      return;
+    }
+    await commitFromSession(flow.session, generation);
+  }, [commitFromSession, flow.phase, flow.session, showTerminalError]);
+
+  const handleRetry = useCallback(async () => {
+    if (flow.phase !== 'technical_retry' || !flow.session) {
+      return;
+    }
+    const generation = captureTransactionGeneration(transactionGenerationRef);
+    if (Date.now() > flow.session.sessionExpiresAt) {
+      await showTerminalError(
+        classifyPosError(new Error('SCAN_SESSION_EXPIRED'), 'commit'),
+        generation
+      );
+      return;
+    }
+    await commitFromSession(flow.session, generation);
+  }, [commitFromSession, flow.phase, flow.session, showTerminalError]);
+
+  const handleUndo = useCallback(async () => {
+    const currentResult = flow.result;
+    const undo = currentResult?.undo;
+    if (!currentResult || !undo || !scannerDeviceId || isUndoing) {
+      return;
+    }
+    if (Date.now() > undo.availableUntil) {
+      dispatch({ type: 'EXPIRE_UNDO' });
       return;
     }
 
-    if (Date.now() > pendingRedeemSession.sessionExpiresAt) {
-      setPendingRedeemSession(null);
-      setRetrySession(null);
-      setScanError('פג תוקף הסריקה. יש לסרוק מחדש.');
-      queueScannerReset();
-      return;
+    setIsUndoing(true);
+    const requestGeneration = captureTransactionGeneration(
+      transactionGenerationRef
+    );
+    try {
+      const response = (await undoLastScannerAction({
+        eventId: undo.eventId as Id<'events'>,
+        scannerRuntimeSessionId,
+        deviceId: scannerDeviceId,
+      })) as UndoActionResult;
+      if (requestGeneration !== transactionGenerationRef.current) {
+        return;
+      }
+      const membership = response.membership;
+      const reversedResult: PosTransactionResult = {
+        ...currentResult,
+        joinedCustomer: false,
+        currentStamps: membership?.currentStamps ?? currentResult.currentStamps,
+        maxStamps: membership?.maxStamps ?? currentResult.maxStamps,
+        canRedeemNow: membership?.canRedeemNow ?? false,
+        undo: null,
+        undoBlockedReason: null,
+      };
+      dispatch({ type: 'SHOW_REVERSED', result: reversedResult });
+      Vibration.vibrate(120);
+      queueCompleteReset();
+    } catch (error) {
+      if (requestGeneration !== transactionGenerationRef.current) {
+        return;
+      }
+      await showTerminalError(
+        classifyPosError(error, 'undo'),
+        requestGeneration
+      );
+    } finally {
+      if (requestGeneration === transactionGenerationRef.current) {
+        setIsUndoing(false);
+      }
     }
-
-    const commitState = await commitFromSession({
-      session: pendingRedeemSession,
-      actionMode: 'redeem',
-      isFirstStampForCustomer: false,
-    });
-    if (commitState !== 'technical') {
-      queueScannerReset();
-    }
-  }, [commitFromSession, isBusy, pendingRedeemSession, queueScannerReset]);
+  }, [
+    flow.result,
+    isUndoing,
+    queueCompleteReset,
+    scannerDeviceId,
+    scannerRuntimeSessionId,
+    showTerminalError,
+    undoLastScannerAction,
+  ]);
 
   const handleRedeemReferralBenefit = useCallback(
     async (rewardId: string) => {
       if (
-        isBusy ||
-        isRedeemingBenefitId !== null ||
+        flow.phase !== 'success' ||
         !selectedBusiness?.businessId ||
-        !scannerDeviceId
+        !scannerDeviceId ||
+        isRedeemingBenefitId
       ) {
         return;
       }
-
+      const requestGeneration = captureTransactionGeneration(
+        transactionGenerationRef
+      );
       setIsRedeemingBenefitId(rewardId);
-      setScanError(null);
       setBenefitActionMessage(null);
       try {
         await redeemReferralBenefit({
-          businessId: selectedBusiness.businessId as Id<'businesses'>,
+          businessId: selectedBusiness.businessId,
           rewardId: rewardId as Id<'referralRewards'>,
           scannerRuntimeSessionId,
           deviceId: scannerDeviceId,
         });
+        if (requestGeneration !== transactionGenerationRef.current) {
+          return;
+        }
         setBenefitActionMessage('הטבת ההפניה מומשה בהצלחה.');
-        setSuccessBannerMessage(BUSINESS_SUCCESS_BANNER_MESSAGE_REDEEM);
-        setBusinessSuccessBannerKey((current) => current + 1);
-        setResultBanner((current) =>
-          current
-            ? { ...current, statusLabel: 'הטבת הפניה מומשה בהצלחה' }
-            : current
-        );
-        queueScannerReset(20_000);
-      } catch (error) {
-        const mapped = mapScanError(error);
-        setScanError(`מימוש הטבת הפניה נכשל: ${mapped.message}`);
+        Vibration.vibrate(120);
+      } catch {
+        if (requestGeneration !== transactionGenerationRef.current) {
+          return;
+        }
+        setBenefitActionMessage('לא ניתן לממש את הטבת ההפניה כרגע.');
       } finally {
-        setIsRedeemingBenefitId(null);
+        if (requestGeneration === transactionGenerationRef.current) {
+          setIsRedeemingBenefitId(null);
+        }
       }
     },
     [
-      isBusy,
+      flow.phase,
       isRedeemingBenefitId,
-      queueScannerReset,
       redeemReferralBenefit,
       scannerDeviceId,
       scannerRuntimeSessionId,
@@ -1165,567 +961,536 @@ export default function ScannerScreen() {
     ]
   );
 
-  const handleRetryCommit = useCallback(async () => {
-    if (!retrySession || isBusy) {
+  const openPlanManagement = useCallback(() => {
+    if (!canManageSubscription) {
       return;
     }
-
-    if (Date.now() > retrySession.sessionExpiresAt) {
-      setRetrySession(null);
-      setScanError('פג תוקף הסריקה. יש לסרוק מחדש.');
-      queueScannerReset();
-      return;
-    }
-
-    const commitState = await commitFromSession({
-      session: retrySession,
-      actionMode: retrySession.actionMode,
-      isFirstStampForCustomer: retrySession.isFirstStampForCustomer,
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCustomers',
+      requiredPlan: 'pro',
+      reason: 'limit_reached',
     });
-    if (commitState !== 'technical') {
-      queueScannerReset();
-    }
-  }, [commitFromSession, isBusy, queueScannerReset, retrySession]);
+  }, [canManageSubscription, router]);
 
-  const handleUndoLastAction = useCallback(async () => {
-    if (!undoState?.eventId || !scannerDeviceId || isBusy) {
-      return;
-    }
-    if (Date.now() > undoState.availableUntil) {
-      setUndoState(null);
-      return;
-    }
-
-    const undoCopy = getUndoPresentation(undoState.actionMode);
-    setIsUndoing(true);
-    setScanError(null);
-    try {
-      const response = (await undoLastScannerAction({
-        eventId: undoState.eventId as Id<'events'>,
-        scannerRuntimeSessionId,
-        deviceId: scannerDeviceId,
-      })) as UndoActionResult;
-
-      const membership = response.membership;
-      const undoStatusLabel =
-        response.status === 'already_reverted'
-          ? undoCopy.alreadyRevertedLabel
-          : undoCopy.resultStatusLabel;
-      if (membership) {
-        setResultBanner({
-          customerDisplayName: undoState.customerDisplayName,
-          statusLabel: undoStatusLabel,
-          currentStamps: membership.currentStamps,
-          maxStamps: membership.maxStamps,
-        });
-      } else {
-        setResultBanner(null);
-      }
-      setSuccessBannerMessage(
-        response.status === 'already_reverted'
-          ? undoCopy.alreadyRevertedLabel
-          : undoCopy.successMessage
-      );
-      setBusinessSuccessBannerKey((current) => current + 1);
-      setRetrySession(null);
-      setUndoState(null);
-      queueScannerReset();
-    } catch {
-      setScanError(undoCopy.errorLabel);
-      setUndoState(null);
-    } finally {
-      setIsUndoing(false);
-    }
-  }, [
-    isBusy,
-    queueScannerReset,
-    scannerDeviceId,
-    scannerRuntimeSessionId,
-    undoLastScannerAction,
-    undoState,
-  ]);
-
-  const handleProgramPress = useCallback(
-    (programId: string, index?: number) => {
-      if (isSelectionLocked) {
-        return;
-      }
-      if (
-        typeof index === 'number' &&
-        index >= 0 &&
-        index < programs.length &&
-        index !== selectedProgramIndex
-      ) {
-        setVisibleProgramIndex(index);
-        programCarouselRef.current?.scrollToOffset({
-          offset: index * ITEM_STRIDE,
-          animated: true,
-        });
-        return;
-      }
-      if (programId === selectedProgramId) {
-        return;
-      }
-      void setSelectedProgram(programId);
-      resetScanner();
-    },
-    [
-      isSelectionLocked,
-      ITEM_STRIDE,
-      programs.length,
-      resetScanner,
-      selectedProgramId,
-      selectedProgramIndex,
-      setSelectedProgram,
-    ]
-  );
-
-  const handleProgramSliderMomentumEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (isSelectionLocked || programs.length <= 1) {
-        return;
-      }
-
-      const rawIndex = event.nativeEvent.contentOffset.x / ITEM_STRIDE;
-      const nextIndex = Math.min(
-        programs.length - 1,
-        Math.max(0, Math.round(rawIndex))
-      );
-      setVisibleProgramIndex(nextIndex);
-      const nextProgram = programs[nextIndex];
-      if (!nextProgram || nextProgram.loyaltyProgramId === selectedProgramId) {
-        return;
-      }
-
-      void setSelectedProgram(nextProgram.loyaltyProgramId);
-      resetScanner();
-    },
-    [
-      isSelectionLocked,
-      ITEM_STRIDE,
-      programs,
-      resetScanner,
-      selectedProgramId,
-      setSelectedProgram,
-    ]
-  );
-  const handleProgramDotPress = useCallback(
-    (index: number) => {
-      const targetProgram = programs[index];
-      if (!targetProgram) {
-        return;
-      }
-      handleProgramPress(targetProgram.loyaltyProgramId, index);
-    },
-    [handleProgramPress, programs]
-  );
-  const getProgramItemLayout = useCallback(
-    (_: ArrayLike<ScannerProgram> | null | undefined, index: number) => ({
-      length: ITEM_STRIDE,
-      offset: ITEM_STRIDE * index,
-      index,
-    }),
-    [ITEM_STRIDE]
-  );
-  const handleProgramSliderLayout = useCallback((event: LayoutChangeEvent) => {
-    const measuredWidth = Math.round(event.nativeEvent.layout.width);
-    setProgramSliderMeasuredWidth((current) => {
-      if (Math.abs(current - measuredWidth) <= 1) {
-        return current;
-      }
-      return measuredWidth;
-    });
-  }, []);
-
-  return (
-    <SafeAreaView style={styles.safeArea} edges={[]}>
-      <AnimatedActionBanner
-        eventKey={businessSuccessBannerKey}
-        message={successBannerMessage}
-        topOffset={(insets.top || 0) + 8}
-        durationMs={BUSINESS_SUCCESS_BANNER_DURATION_MS}
-        variant="success"
-      />
-
-      <ScrollView
-        stickyHeaderIndices={[0]}
-        ref={scrollViewRef}
-        style={styles.scrollBackground}
-        contentContainerStyle={[
-          styles.scrollContainer,
-          {
-            paddingBottom: (insets.bottom || 0) + 24,
-          },
-        ]}
-      >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 4}
-          backgroundColor="#E9F0FF"
-        >
-          <View style={styles.header}>
-            <BusinessScreenHeader
-              title={SCANNER_HEADER_TITLE}
-              subtitle={isStaffRoute ? selectedBusiness?.name : undefined}
-              style={styles.scannerHeaderCompact}
-              contentStyle={styles.scannerHeaderContentCompact}
-            />
-          </View>
-        </StickyScrollHeader>
-
-        <View
-          style={[
-            styles.operationalFrame,
-            isStaffRoute ? styles.staffOperationalFrame : null,
-          ]}
-        >
-        <View style={[styles.carouselWrap, { width: scannerContentWidth }]}>
-          {programs.length === 0 ? (
-            <View style={styles.emptyProgramsCard}>
-              <Text style={styles.emptyProgramsTitle}>
-                אין תוכנית פעילה לסריקה
-              </Text>
-              <Text style={styles.emptyProgramsSubtitle}>
-                {isStaffRoute
-                  ? 'יש לפנות למנהל העסק כדי להפעיל כרטיסייה לסריקה.'
-                  : 'כדי להתחיל, הפעילו לפחות תוכנית נאמנות אחת.'}
-              </Text>
-              {!isStaffRoute ? (
-                <Pressable
-                  onPress={() =>
-                    router.push('/(authenticated)/(business)/cards')
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="מעבר לניהול כרטיסיות"
-                  style={({ pressed }) => [
-                    styles.emptyProgramsButton,
-                    pressed ? styles.emptyProgramsButtonPressed : null,
-                  ]}
-                >
-                  <Text style={styles.emptyProgramsButtonText}>
-                    מעבר לניהול כרטיסיות
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (
-            <>
-              <View style={styles.programSelectionHeader}>
-                <Text style={styles.programSelectionLabel}>
-                  כרטיסייה לסריקה
-                </Text>
-                <Text style={styles.programSelectionHint}>
-                  {programs.length > 1
-                    ? 'החליקו כדי לבחור כרטיסייה אחרת'
-                    : selectedProgram?.title}
-                </Text>
-              </View>
-              <View
-                style={styles.programSliderViewport}
-                onLayout={handleProgramSliderLayout}
-              >
-                <FlatList
-                  ref={programCarouselRef}
-                  horizontal={true}
-                  bounces={false}
-                  data={programs}
-                  keyExtractor={(program) => program.loyaltyProgramId}
-                  showsHorizontalScrollIndicator={false}
-                  scrollEnabled={!isSelectionLocked && programs.length > 1}
-                  snapToAlignment="start"
-                  snapToInterval={ITEM_STRIDE}
-                  decelerationRate="fast"
-                  disableIntervalMomentum={true}
-                  inverted={false}
-                  removeClippedSubviews={false}
-                  style={styles.programSlider}
-                  contentContainerStyle={[
-                    styles.programSliderContent,
-                    { paddingHorizontal: SIDE_PADDING },
-                  ]}
-                  ItemSeparatorComponent={() => (
-                    <View style={{ width: CARD_GAP }} />
-                  )}
-                  getItemLayout={getProgramItemLayout}
-                  onMomentumScrollEnd={handleProgramSliderMomentumEnd}
-                  renderItem={({ item, index }) => {
-                    const isActive =
-                      item.loyaltyProgramId ===
-                      selectedProgram?.loyaltyProgramId;
-                    return (
-                      <View
-                        style={[styles.programSlide, { width: CARD_WIDTH }]}
-                      >
-                        <Pressable
-                          onPress={() =>
-                            handleProgramPress(item.loyaltyProgramId, index)
-                          }
-                          disabled={isSelectionLocked}
-                          style={({ pressed }) => [
-                            styles.programSlidePressable,
-                            isActive
-                              ? styles.programSlidePressableActive
-                              : styles.programSlidePressableInactive,
-                            isSelectionLocked ? styles.programCardLocked : null,
-                            pressed ? styles.programCardPressed : null,
-                          ]}
-                        >
-                          <ProgramCustomerCardPreview
-                            businessName={selectedBusiness?.name ?? item.title}
-                            rewardName={item.rewardName}
-                            maxStamps={item.maxStamps}
-                            title={item.title}
-                            programImageUrl={item.imageUrl ?? null}
-                            stampIcon={item.stampIcon}
-                            stampShape={item.stampShape ?? 'circle'}
-                            cardThemeId={item.cardThemeId ?? null}
-                            businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                            variant="compact"
-                            selected={isActive}
-                          />
-                        </Pressable>
-                      </View>
-                    );
-                  }}
-                />
-              </View>
-              <View style={styles.programDotsViewport}>
-                <View
-                  style={[styles.programDotsTrack, { width: dotsTrackWidth }]}
-                >
-                  {programs.map((program, index) => {
-                    const isActive = index === activeProgramDotIndex;
-                    return (
-                      <View
-                        key={`${program.loyaltyProgramId}:dot`}
-                        style={styles.programDotSlot}
-                      >
-                        <Pressable
-                          onPress={() => handleProgramDotPress(index)}
-                          disabled={isSelectionLocked}
-                          hitSlop={6}
-                          style={({ pressed }) => [
-                            styles.programDotButton,
-                            pressed ? styles.programDotButtonPressed : null,
-                            isSelectionLocked
-                              ? styles.programDotButtonDisabled
-                              : null,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Select card ${program.title}`}
-                        >
-                          <View style={styles.programDotInner}>
-                            <View
-                              style={[
-                                styles.programDot,
-                                isActive ? styles.programDotActive : null,
-                              ]}
-                            />
-                          </View>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            </>
-          )}
+  const renderProgramContext = () => {
+    if (!isBusinessLoading && selectedBusiness && !canAccessScanner) {
+      return (
+        <View style={styles.programContextCard}>
+          <Text style={styles.programContextTitle}>אין הרשאה לסריקה</Text>
+          <Text style={styles.programContextMuted}>
+            יש לפנות לבעל העסק או למנהל כדי להסדיר הרשאה.
+          </Text>
         </View>
+      );
+    }
+    if (
+      isBusinessLoading ||
+      (canAccessScanner && programsQuery === undefined)
+    ) {
+      return (
+        <View style={styles.programContextCard}>
+          <ActivityIndicator size="small" color="#2F6BFF" />
+          <Text style={styles.programContextMuted}>טוענים תוכניות...</Text>
+        </View>
+      );
+    }
+    if (programs.length === 0) {
+      const recovery = resolveNoProgramsRecovery(canManagePrograms);
+      return (
+        <View style={styles.programContextCard}>
+          <Text style={styles.programContextTitle}>
+            אין תוכנית פעילה לסריקה
+          </Text>
+          <Text style={styles.programContextMuted}>
+            {recovery === 'manage_programs'
+              ? 'יש להפעיל תוכנית לפני תחילת העבודה בקופה.'
+              : 'יש לפנות לבעל העסק או למנהל כדי להפעיל תוכנית.'}
+          </Text>
+          {recovery === 'manage_programs' ? (
+            <Pressable
+              onPress={() => router.push('/(authenticated)/(business)/cards')}
+              accessibilityRole="button"
+              accessibilityLabel="ניהול תוכניות"
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>ניהול תוכניות</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      );
+    }
+    if (flow.phase === 'needs_program' || !selectedProgram) {
+      return (
+        <View style={styles.programContextCard}>
+          <Text style={styles.programContextTitle}>בחירת תוכנית לקופה</Text>
+          <Text style={styles.programContextMuted}>
+            הבחירה תישמר גם ללקוחות הבאים.
+          </Text>
+          {flow.notice ? (
+            <Text style={styles.programNotice}>{flow.notice}</Text>
+          ) : null}
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            style={styles.programOptionsScroll}
+            contentContainerStyle={styles.programOptions}
+          >
+            {programs.map((program) => (
+              <Pressable
+                key={program.loyaltyProgramId}
+                onPress={() => void selectProgram(program.loyaltyProgramId)}
+                accessibilityRole="button"
+                accessibilityLabel={`בחירת תוכנית ${program.title}`}
+                style={({ pressed }) => [
+                  styles.programOption,
+                  pressed ? styles.buttonPressed : null,
+                ]}
+              >
+                <Text style={styles.programOptionTitle}>{program.title}</Text>
+                <Text style={styles.programOptionReward} numberOfLines={1}>
+                  {program.rewardName}
+                </Text>
+                {!program.allowPosEnroll ? (
+                  <Text style={styles.existingCustomersBadge}>
+                    ללקוחות קיימים בלבד
+                  </Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.programContextCard}>
+        <View style={styles.programContextTopRow}>
+          <View style={styles.programContextText}>
+            <Text style={styles.programEyebrow}>תוכנית פעילה בקופה</Text>
+            <Text style={styles.programContextTitle}>{selectedProgram.title}</Text>
+            <Text style={styles.programContextMuted} numberOfLines={1}>
+              הטבה: {selectedProgram.rewardName}
+            </Text>
+            {!selectedProgram.allowPosEnroll ? (
+              <Text style={styles.existingCustomersBadge}>
+                ללקוחות קיימים בלבד
+              </Text>
+            ) : null}
+          </View>
+          {programs.length > 1 && flow.phase === 'ready' ? (
+            <Pressable
+              onPress={() => void changeProgram()}
+              accessibilityRole="button"
+              accessibilityLabel="החלפת תוכנית"
+              style={styles.changeProgramButton}
+            >
+              <Ionicons name="swap-horizontal" size={18} color="#1D4ED8" />
+              <Text style={styles.changeProgramText}>החלפה</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
 
-        <View style={styles.scannerBox}>
-          <QrScanner
-            onScan={handleScan}
-            resetKey={scannerResetKey}
-            showStatus={false}
-            cameraMinHeight={
-              windowWidth >= 768 ? (isStaffRoute ? 360 : 400) : 240
-            }
-            isBusy={
-              isBusy ||
-              !canScan ||
-              Boolean(retrySession) ||
-              Boolean(pendingRedeemSession)
-            }
-            onTapWhileScanned={resetScanner}
+  const renderResultDetails = (result: PosTransactionResult) => {
+    const actionText =
+      flow.phase === 'reversed'
+        ? result.actionMode === 'redeem'
+          ? 'מימוש ההטבה בוטל'
+          : 'הניקוב האחרון בוטל'
+        : result.joinedCustomer
+          ? 'הלקוח הצטרף וקיבל ניקוב ראשון'
+          : result.actionMode === 'redeem'
+            ? `${result.program.rewardName} מומשה בהצלחה`
+            : 'נוסף ניקוב בהצלחה';
+    return (
+      <>
+        <View style={styles.successIcon}>
+          <Ionicons
+            name={flow.phase === 'reversed' ? 'arrow-undo' : 'checkmark'}
+            size={30}
+            color="#FFFFFF"
           />
         </View>
-
-        {pendingRedeemSession ? (
-          <View style={styles.redeemRow}>
-            <View style={styles.redeemInfoCard}>
-              <Text style={styles.redeemInfoTitle}>הלקוח זכאי למימוש</Text>
-              <Text style={styles.resultCustomerName}>
-                {pendingRedeemSession.customerDisplayName}
-              </Text>
-              {pendingRedeemSession.membership ? (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>ניקובים</Text>
-                  <Text style={styles.resultValue}>
-                    {pendingRedeemSession.membership.currentStamps}/
-                    {pendingRedeemSession.membership.maxStamps}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.redeemActionsRow}>
-              <Pressable
-                onPress={handleRedeemCommit}
-                disabled={isBusy}
-                accessibilityRole="button"
-                accessibilityLabel="ממש הטבה"
-                style={({ pressed }) => [
-                  styles.redeemPrimaryButton,
-                  pressed ? styles.redeemPrimaryButtonPressed : null,
-                  isBusy ? styles.redeemPrimaryButtonDisabled : null,
-                ]}
-              >
-                <Ionicons name="gift-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.redeemPrimaryButtonLabel}>
-                  {isStamping ? 'מממשים...' : 'ממש הטבה'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={resetScanner}
-                accessibilityRole="button"
-                accessibilityLabel="ביטול"
-                style={({ pressed }) => [
-                  styles.redeemCancelButton,
-                  pressed ? styles.redeemCancelButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.redeemCancelButtonLabel}>ביטול</Text>
-              </Pressable>
-            </View>
-          </View>
+        <Text style={styles.resultCustomer}>{result.customerDisplayName}</Text>
+        <Text style={styles.resultProgram}>{result.program.title}</Text>
+        <Text style={styles.resultAction}>{actionText}</Text>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressLabel}>מצב הכרטיס</Text>
+          <Text style={styles.progressValue}>
+            {result.currentStamps}/{result.maxStamps}
+          </Text>
+        </View>
+        {result.canRedeemNow && result.actionMode === 'stamp' ? (
+          <Text style={styles.rewardReadyText}>
+            ההטבה {result.program.rewardName} מוכנה למימוש
+          </Text>
         ) : null}
-
-        {scanError ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.errorText}>{scanError}</Text>
-            {retrySession ? (
-              <Pressable
-                onPress={handleRetryCommit}
-                disabled={isBusy}
-                accessibilityRole="button"
-                accessibilityLabel="ניסיון חוזר של הפעולה"
-                style={({ pressed }) => [
-                  styles.retryButton,
-                  pressed ? styles.retryButtonPressed : null,
-                  isBusy ? styles.retryButtonDisabled : null,
-                ]}
-              >
-                <Text style={styles.retryButtonText}>נסה שוב</Text>
-              </Pressable>
-            ) : null}
-          </View>
+        {result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ? (
+          <Text style={styles.undoBlockedText}>
+            לא ניתן לבטל את הניקוב מפני שהוא כבר הפעיל תגמול הפניה.
+          </Text>
         ) : null}
-
-        {resultBanner ? (
-          <View style={styles.resultBanner}>
-            <Text style={styles.resultCustomerName}>
-              {resultBanner.customerDisplayName}
+        <Pressable
+          onPress={resetForNextCustomer}
+          accessibilityRole="button"
+          accessibilityLabel="הלקוח הבא"
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed ? styles.buttonPressed : null,
+          ]}
+        >
+          <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.primaryButtonText}>הלקוח הבא</Text>
+        </Pressable>
+        {result.undo && undoNow < result.undo.availableUntil ? (
+          <Pressable
+            onPress={() => void handleUndo()}
+            disabled={isUndoing}
+            accessibilityRole="button"
+            accessibilityLabel="ביטול הפעולה האחרונה"
+            style={({ pressed }) => [
+              styles.undoButton,
+              pressed ? styles.buttonPressed : null,
+              isUndoing ? styles.buttonDisabled : null,
+            ]}
+          >
+            <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
+            <Text style={styles.undoButtonText}>
+              {isUndoing ? 'מבטלים...' : 'ביטול פעולה'}
             </Text>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>מעמד</Text>
-              <Text style={styles.resultValue}>{resultBanner.statusLabel}</Text>
-            </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>ניקובים</Text>
-              <Text style={styles.resultValue}>
-                {resultBanner.currentStamps}/{resultBanner.maxStamps}
-              </Text>
-            </View>
-            {resultBanner.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ? (
-              <View style={styles.undoBlockedBadge}>
-                <Text style={styles.undoBlockedBadgeText}>
-                  לא ניתן לבטל את הניקוב כי הוא כבר הפעיל תגמול הפניה.
-                </Text>
-              </View>
-            ) : null}
-            {undoActionActive && undoPresentation ? (
-              <Pressable
-                onPress={handleUndoLastAction}
-                disabled={isBusy || !undoState?.eventId}
-                accessibilityRole="button"
-                accessibilityLabel={undoPresentation.buttonLabel ?? 'בטל פעולה'}
-                style={({ pressed }) => [
-                  styles.undoCompactAction,
-                  pressed ? styles.undoCompactActionPressed : null,
-                  isBusy || !undoState?.eventId
-                    ? styles.undoCompactActionDisabled
-                    : null,
-                ]}
-              >
-                <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
-                <Text style={styles.undoCompactLabel}>
-                  {undoPresentation.buttonLabel ?? 'ביטול'}
-                </Text>
-                <Text style={styles.undoCompactTimer}>
-                  {undoPresentation.countdownLabel}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
+            <Text style={styles.undoTimer}>
+              {formatUndoCountdown(result.undo.availableUntil, undoNow)}
+            </Text>
+          </Pressable>
         ) : null}
+      </>
+    );
+  };
 
-        {lastScannedCustomer &&
-        (referralBenefits.length > 0 || benefitActionMessage) ? (
-          <View style={styles.referralBenefitsCard}>
-            <View style={styles.referralBenefitsHeader}>
-              <Text style={styles.referralBenefitsTitle}>
-                הטבות הפניה למימוש
+  const renderStatusRail = () => {
+    if (!isBusinessLoading && selectedBusiness && !canAccessScanner) {
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="lock-closed-outline" size={34} color="#B42318" />
+          <Text style={styles.statusTitle}>אין הרשאה לסריקה</Text>
+          <Text style={styles.statusBody}>
+            יש לפנות לבעל העסק או למנהל כדי להסדיר הרשאה.
+          </Text>
+        </View>
+      );
+    }
+    if (
+      isBusinessLoading ||
+      (canAccessScanner && programsQuery === undefined) ||
+      !scannerDeviceId
+    ) {
+      return (
+        <View style={styles.statusContent}>
+          <ActivityIndicator size="large" color="#2F6BFF" />
+          <Text style={styles.statusTitle}>מכינים את הסורק...</Text>
+        </View>
+      );
+    }
+    if (programs.length === 0 || flow.phase === 'needs_program') {
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="albums-outline" size={34} color="#2F6BFF" />
+          <Text style={styles.statusTitle}>
+            {programs.length === 0 ? 'אין תוכנית לסריקה' : 'בחרו תוכנית תחילה'}
+          </Text>
+          <Text style={styles.statusBody}>
+            הסורק יופעל מיד לאחר בחירת תוכנית לקופה.
+          </Text>
+        </View>
+      );
+    }
+    if (flow.phase === 'ready') {
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="qr-code-outline" size={34} color="#2F6BFF" />
+          <Text style={styles.statusTitle}>מוכנים לסריקה</Text>
+          <Text style={styles.statusBody}>
+            מקמו את קוד ה-QR של הלקוח בתוך המסגרת.
+          </Text>
+        </View>
+      );
+    }
+    if (flow.phase === 'resolving') {
+      return (
+        <View style={styles.statusContent}>
+          <ActivityIndicator size="large" color="#2F6BFF" />
+          <Text style={styles.statusTitle}>מעבדים את הסריקה...</Text>
+          <Text style={styles.statusBody}>הפעולה תושלם בעוד רגע.</Text>
+        </View>
+      );
+    }
+    if (flow.phase === 'redeem_confirmation' && flow.session) {
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="gift-outline" size={36} color="#15803D" />
+          <Text style={styles.resultCustomer}>
+            {flow.session.customerDisplayName}
+          </Text>
+          <Text style={styles.resultProgram}>{flow.session.program.title}</Text>
+          <Text style={styles.statusTitle}>הטבה מוכנה למימוש</Text>
+          {flow.session.membership ? (
+            <Text style={styles.statusBody}>
+              {flow.session.membership.currentStamps}/
+              {flow.session.membership.maxStamps} ניקובים
+            </Text>
+          ) : null}
+          <Pressable
+            onPress={() => void handleRedeem()}
+            accessibilityRole="button"
+            accessibilityLabel={`מימוש ${flow.session.program.rewardName}`}
+            style={({ pressed }) => [
+              styles.redeemButton,
+              pressed ? styles.buttonPressed : null,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>
+              מימוש {flow.session.program.rewardName}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={resetForNextCustomer}
+            accessibilityRole="button"
+            accessibilityLabel="ביטול ומעבר ללקוח הבא"
+            style={styles.textButton}
+          >
+            <Text style={styles.textButtonLabel}>ביטול והלקוח הבא</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (flow.phase === 'technical_retry' && flow.error) {
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="cloud-offline-outline" size={36} color="#B54708" />
+          <Text style={styles.statusTitle}>הפעולה טרם הושלמה</Text>
+          <Text style={styles.statusBody}>{flow.error.message}</Text>
+          <Pressable
+            onPress={() => void handleRetry()}
+            accessibilityRole="button"
+            accessibilityLabel="נסה שוב"
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed ? styles.buttonPressed : null,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>נסה שוב</Text>
+          </Pressable>
+          <Pressable
+            onPress={resetForNextCustomer}
+            accessibilityRole="button"
+            accessibilityLabel="ביטול ומעבר לסריקה חדשה"
+            style={styles.textButton}
+          >
+            <Text style={styles.textButtonLabel}>ביטול וסריקה חדשה</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (flow.phase === 'terminal_error' && flow.error) {
+      const subscriptionRecovery = resolveSubscriptionRecovery(
+        canManageSubscription
+      );
+      const canOfferProgramChange =
+        flow.error.canChangeProgram && programs.length > 1;
+      return (
+        <View style={styles.statusContent}>
+          <Ionicons name="alert-circle-outline" size={38} color="#B42318" />
+          <Text style={styles.statusTitle}>לא ניתן להשלים את הפעולה</Text>
+          <Text style={styles.statusBody}>{flow.error.message}</Text>
+          {flow.error.kind === 'entitlement' &&
+          subscriptionRecovery === 'contact_owner' ? (
+            <Text style={styles.ownerGuidance}>
+              בעל העסק צריך להסדיר את המסלול לפני צירוף לקוחות חדשים.
+            </Text>
+          ) : null}
+          {flow.error.kind === 'entitlement' &&
+          subscriptionRecovery === 'manage_subscription' ? (
+            <Pressable
+              onPress={openPlanManagement}
+              accessibilityRole="button"
+              accessibilityLabel="בדיקת המסלול"
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>בדיקת המסלול</Text>
+            </Pressable>
+          ) : null}
+          {canOfferProgramChange ? (
+            <Pressable
+              onPress={() => void changeProgram()}
+              accessibilityRole="button"
+              accessibilityLabel="החלפת תוכנית"
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>החלפת תוכנית</Text>
+            </Pressable>
+          ) : null}
+          {flow.error.kind !== 'business_closed' ? (
+            <Pressable
+              onPress={resetForNextCustomer}
+              accessibilityRole="button"
+              accessibilityLabel="סריקה חדשה"
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed ? styles.buttonPressed : null,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {flow.error.kind === 'pos_enroll_disabled'
+                  ? 'הלקוח הבא'
+                  : 'סריקה חדשה'}
               </Text>
-              <Text style={styles.referralBenefitsSubtitle}>
-                {lastScannedCustomer.displayName}
-              </Text>
-            </View>
-            {benefitActionMessage ? (
-              <Text style={styles.referralBenefitsSuccess}>
-                {benefitActionMessage}
-              </Text>
-            ) : null}
-            {referralBenefits.length > 0
-              ? referralBenefits.map((benefit) => {
-                  const isRedeeming = isRedeemingBenefitId === benefit.rewardId;
-                  return (
-                    <View
-                      key={benefit.rewardId}
-                      style={styles.referralBenefitRow}
-                    >
-                      <View style={styles.referralBenefitTextWrap}>
-                        <Text style={styles.referralBenefitName}>
+            </Pressable>
+          ) : null}
+        </View>
+      );
+    }
+    if (
+      (flow.phase === 'success' || flow.phase === 'reversed') &&
+      flow.result
+    ) {
+      return (
+        <View style={styles.statusContent}>
+          {renderResultDetails(flow.result)}
+          {flow.phase === 'success' &&
+          (referralBenefits.length > 0 || benefitActionMessage) ? (
+            <View style={styles.referralSection}>
+              <Pressable
+                onPress={() => dispatch({ type: 'TOGGLE_REFERRALS' })}
+                accessibilityRole="button"
+                accessibilityLabel="הצגת הטבת הפניה זמינה"
+                style={styles.referralDisclosure}
+              >
+                <Ionicons name="ticket-outline" size={18} color="#166534" />
+                <Text style={styles.referralDisclosureText}>
+                  יש הטבת הפניה זמינה
+                </Text>
+                <Ionicons
+                  name={flow.referralExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#166534"
+                />
+              </Pressable>
+              {benefitActionMessage ? (
+                <Text style={styles.referralMessage}>
+                  {benefitActionMessage}
+                </Text>
+              ) : null}
+              {flow.referralExpanded
+                ? referralBenefits.map((benefit) => (
+                    <View key={benefit.rewardId} style={styles.referralRow}>
+                      <View style={styles.referralText}>
+                        <Text style={styles.referralTitle}>
                           {benefit.benefitTitle}
                         </Text>
-                        <Text style={styles.referralBenefitMeta}>
-                          תוקף: {formatBenefitExpiryLabel(benefit.expiresAt)}
+                        <Text style={styles.referralMeta}>
+                          תוקף: {formatBenefitExpiry(benefit.expiresAt)}
                         </Text>
                       </View>
                       <Pressable
                         onPress={() =>
                           void handleRedeemReferralBenefit(benefit.rewardId)
                         }
-                        disabled={isBusy || isRedeemingBenefitId !== null}
+                        disabled={isRedeemingBenefitId !== null}
                         accessibilityRole="button"
                         accessibilityLabel={`מימוש ${benefit.benefitTitle}`}
-                        style={({ pressed }) => [
-                          styles.referralBenefitRedeemButton,
-                          pressed
-                            ? styles.referralBenefitRedeemButtonPressed
-                            : null,
-                          isBusy || isRedeemingBenefitId !== null
-                            ? styles.referralBenefitRedeemButtonDisabled
-                            : null,
-                        ]}
+                        style={styles.referralRedeemButton}
                       >
-                        <Text style={styles.referralBenefitRedeemButtonLabel}>
-                          {isRedeeming ? 'מממש...' : 'ממש'}
+                        <Text style={styles.referralRedeemText}>
+                          {isRedeemingBenefitId === benefit.rewardId
+                            ? 'מממשים...'
+                            : 'מימוש'}
                         </Text>
                       </Pressable>
                     </View>
-                  );
-                })
-              : null}
+                  ))
+                : null}
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const shouldShowCamera = Boolean(
+    selectedProgram &&
+      scannerDeviceId &&
+      canAccessScanner &&
+      (flow.phase === 'ready' ||
+        (isTablet &&
+          flow.phase !== 'setup' &&
+          flow.phase !== 'needs_program'))
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <ScrollView
+        stickyHeaderIndices={[0]}
+        style={styles.scrollBackground}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { paddingBottom: (insets.bottom || 0) + 24 },
+        ]}
+      >
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 4}
+          backgroundColor="#E9F0FF"
+        >
+          <BusinessScreenHeader
+            title="סריקת לקוח"
+            subtitle={isStaffRoute ? selectedBusiness?.name : undefined}
+            style={styles.header}
+            contentStyle={styles.headerContent}
+          />
+        </StickyScrollHeader>
+
+        <View style={styles.contentFrame}>
+          {renderProgramContext()}
+          <View
+            style={[
+              styles.transactionArea,
+              isTablet ? styles.transactionAreaTablet : null,
+            ]}
+          >
+            {shouldShowCamera ? (
+              <View
+                style={[
+                  styles.cameraPane,
+                  isTablet ? styles.cameraPaneTablet : null,
+                ]}
+              >
+                <QrScanner
+                  onScan={handleScan}
+                  resetKey={flow.scannerResetKey}
+                  showStatus={false}
+                  cameraMinHeight={isTablet ? 360 : 260}
+                  isBusy={flow.phase !== 'ready'}
+                />
+                {flow.phase === 'resolving' ? (
+                  <View pointerEvents="none" style={styles.cameraBusyOverlay}>
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                    <Text style={styles.cameraBusyText}>מעבדים...</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            {isTablet || !shouldShowCamera ? (
+              <View
+                style={[
+                  styles.statusRail,
+                  isTablet ? styles.statusRailTablet : null,
+                ]}
+              >
+                {renderStatusRail()}
+              </View>
+            ) : null}
           </View>
-        ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1745,436 +1510,463 @@ const styles = StyleSheet.create({
     maxWidth: 960,
     alignSelf: 'center',
     paddingHorizontal: 20,
-    gap: 8,
-  },
-  operationalFrame: {
-    width: '100%',
-    gap: 8,
-  },
-  staffOperationalFrame: {
-    maxWidth: 720,
-    alignSelf: 'center',
+    gap: 12,
   },
   header: {
-    gap: 2,
-  },
-  scannerHeaderCompact: {
     marginBottom: 0,
   },
-  scannerHeaderContentCompact: {
+  headerContent: {
     minHeight: 42,
     gap: 2,
   },
-  carouselWrap: {
-    gap: 8,
-    paddingTop: 8,
-    paddingBottom: 8,
-    overflow: 'hidden',
+  contentFrame: {
+    width: '100%',
+    gap: 12,
   },
-  programSelectionHeader: {
-    paddingHorizontal: 20,
+  programContextCard: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#C7DBFF',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 8,
+    alignItems: alignItems.start,
+  },
+  programContextTopRow: {
+    width: '100%',
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  programContextText: {
+    flex: 1,
     alignItems: alignItems.start,
     gap: 2,
   },
-  programSelectionLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1A2B4A',
+  programEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  programSelectionHint: {
+  programContextTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#14213D',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  programContextMuted: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  programNotice: {
+    width: '100%',
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    color: '#9A3412',
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  existingCustomersBadge: {
+    alignSelf: selfStart,
+    borderRadius: 999,
+    backgroundColor: '#FFF7ED',
+    color: '#9A3412',
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    overflow: 'hidden',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  changeProgramButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  changeProgramText: {
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  programOptionsScroll: {
+    width: '100%',
+  },
+  programOptions: {
+    flexDirection: flexDirection.row,
+    gap: 10,
+    paddingVertical: 2,
+  },
+  programOption: {
+    width: 190,
+    minHeight: 92,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#F8FAFF',
+    padding: 12,
+    gap: 4,
+    alignItems: alignItems.start,
+  },
+  programOptionTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#14213D',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  programOptionReward: {
+    maxWidth: '100%',
     fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  programSliderViewport: {
+  transactionArea: {
     width: '100%',
-    overflow: 'hidden',
-    direction: 'ltr',
+    minHeight: 260,
   },
-  programSlider: {
-    width: '100%',
-    direction: 'ltr',
-  },
-  programSliderContent: {
-    paddingVertical: 8,
-    direction: 'ltr',
-    flexDirection: flexDirection.row,
-  },
-  programSlide: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  programSlidePressable: {
-    width: '100%',
-    paddingVertical: 0,
-  },
-  programSlidePressableActive: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-  },
-  programSlidePressableInactive: {
-    opacity: 0.7,
-    transform: [{ scale: 0.93 }],
-  },
-  programDotsViewport: {
-    alignSelf: 'stretch',
-    height: 16,
-    marginTop: -2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  programDotsTrack: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-  },
-  programDotSlot: {
-    width: PROGRAM_DOT_SLOT_WIDTH,
-    height: PROGRAM_DOT_SLOT_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  programDotButton: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  programDotButtonPressed: {
-    opacity: 0.75,
-  },
-  programDotButtonDisabled: {
-    opacity: 0.6,
-  },
-  programDotInner: {
-    width: PROGRAM_DOT_ACTIVE_WIDTH,
-    height: PROGRAM_DOT_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  programDot: {
-    width: PROGRAM_DOT_SIZE,
-    height: PROGRAM_DOT_SIZE,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.36)',
-  },
-  programDotActive: {
-    width: PROGRAM_DOT_ACTIVE_WIDTH,
-    backgroundColor: '#000000',
-  },
-  programCardPressed: {
-    opacity: 0.88,
-  },
-  programCardLocked: {
-    opacity: 0.8,
-  },
-  emptyProgramsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#D5E3FF',
-    padding: 14,
-    gap: 6,
-  },
-  emptyProgramsTitle: {
-    color: '#1A2B4A',
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  emptyProgramsSubtitle: {
-    color: '#5B6475',
-    fontWeight: '600',
-    fontSize: 12,
-    textAlign: 'right',
-  },
-  emptyProgramsButton: {
-    marginTop: 4,
-    minHeight: 44,
-    alignSelf: selfStart,
-    backgroundColor: '#2F6BFF',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    justifyContent: 'center',
-  },
-  emptyProgramsButtonPressed: {
-    opacity: 0.9,
-  },
-  emptyProgramsButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  scannerBox: {
-    flex: 1,
-    marginTop: 0,
-    minHeight: 220,
-  },
-  redeemRow: {
-    gap: 10,
-  },
-  redeemInfoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#C7DBFF',
-    padding: 14,
-    gap: 8,
-  },
-  redeemInfoTitle: {
-    color: '#1A2B4A',
-    fontWeight: '900',
-    fontSize: 16,
-    textAlign: 'right',
-  },
-  redeemActionsRow: {
+  transactionAreaTablet: {
     flexDirection: flexDirection.row,
     alignItems: 'stretch',
+    gap: 16,
+  },
+  cameraPane: {
+    width: '100%',
+    minHeight: 260,
+    position: 'relative',
+  },
+  cameraPaneTablet: {
+    flex: 1.55,
+    maxWidth: 560,
+    minHeight: 360,
+  },
+  cameraBusyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 28,
+    backgroundColor: 'rgba(15,23,42,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
-  redeemPrimaryButton: {
+  cameraBusyText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  statusRail: {
+    width: '100%',
+    minHeight: 260,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#C7DBFF',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  statusRailTablet: {
     flex: 1,
+    minWidth: 300,
+    maxWidth: 360,
+    minHeight: 360,
+  },
+  statusContent: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  statusTitle: {
+    width: '100%',
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#14213D',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  statusBody: {
+    width: '100%',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#5B6475',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  resultCustomer: {
+    width: '100%',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#14213D',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  resultProgram: {
+    width: '100%',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  resultAction: {
+    width: '100%',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '900',
+    color: '#166534',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  successIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressRow: {
+    width: '100%',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  progressLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  progressValue: {
+    ...ltrIslandText,
+    color: '#14213D',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  rewardReadyText: {
+    width: '100%',
+    borderRadius: 10,
+    backgroundColor: '#ECFDF3',
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '900',
+    padding: 9,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  undoBlockedText: {
+    width: '100%',
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    color: '#B42318',
+    fontSize: 11,
+    fontWeight: '700',
+    padding: 8,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  primaryButton: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 14,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 16,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  redeemButton: {
+    width: '100%',
     minHeight: 52,
     borderRadius: 14,
     backgroundColor: '#16A34A',
-    flexDirection: flexDirection.row,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 7,
     paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  redeemPrimaryButtonPressed: {
-    opacity: 0.86,
-  },
-  redeemPrimaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  redeemPrimaryButtonLabel: {
+  primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  redeemCancelButton: {
-    minWidth: 96,
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  redeemCancelButtonPressed: {
-    opacity: 0.78,
-  },
-  redeemCancelButtonLabel: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  messageCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E3E9FF',
-    padding: 14,
-    gap: 10,
-  },
-  errorText: {
-    color: '#D92D20',
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  retryButton: {
-    alignSelf: selfStart,
-    minHeight: 44,
-    backgroundColor: '#2F6BFF',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    justifyContent: 'center',
-  },
-  retryButtonPressed: {
-    opacity: 0.9,
-  },
-  retryButtonDisabled: {
-    opacity: 0.6,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  resultBanner: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#C7DBFF',
-    padding: 14,
-    gap: 8,
-  },
-  resultCustomerName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1A2B4A',
-    textAlign: 'right',
     writingDirection: 'rtl',
   },
-  resultRow: {
-    flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  resultLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5B6475',
-  },
-  resultValue: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0B1220',
-    textAlign: 'right',
-  },
-  undoBlockedBadge: {
+  secondaryButton: {
+    minHeight: 44,
+    alignSelf: selfStart,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  undoBlockedBadgeText: {
+  secondaryButtonText: {
+    color: '#1D4ED8',
     fontSize: 12,
-    fontWeight: '700',
-    color: '#B91C1C',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  referralBenefitsCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#DCE6FB',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    gap: 10,
-  },
-  referralBenefitsHeader: {
-    gap: 2,
-    alignItems: alignItems.start,
-  },
-  referralBenefitsTitle: {
-    fontSize: 16,
     fontWeight: '900',
-    color: '#132849',
-    textAlign: 'right',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
-  referralBenefitsSubtitle: {
+  textButton: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textButtonLabel: {
+    color: '#475569',
     fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'right',
+    fontWeight: '800',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
-  referralBenefitsSuccess: {
+  undoButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  undoButtonText: {
+    color: '#1D4ED8',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '900',
+  },
+  undoTimer: {
+    ...ltrIslandText,
+    color: '#1D4ED8',
+    fontSize: 12,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  ownerGuidance: {
+    width: '100%',
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    color: '#9A3412',
+    fontSize: 12,
+    fontWeight: '800',
+    padding: 9,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  referralSection: {
+    width: '100%',
+    gap: 8,
+  },
+  referralDisclosure: {
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  referralDisclosureText: {
+    flex: 1,
     color: '#166534',
+    fontSize: 12,
+    fontWeight: '900',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  referralBenefitRow: {
+  referralMessage: {
+    width: '100%',
+    color: '#166534',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralRow: {
+    width: '100%',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
-    padding: 10,
+    padding: 9,
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
   },
-  referralBenefitTextWrap: {
+  referralText: {
     flex: 1,
     alignItems: alignItems.start,
     gap: 2,
   },
-  referralBenefitName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  referralBenefitMeta: {
+  referralTitle: {
+    color: '#14213D',
     fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '800',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  referralBenefitRedeemButton: {
+  referralMeta: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  referralRedeemButton: {
     minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#16A34A',
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  referralBenefitRedeemButtonPressed: {
-    opacity: 0.85,
-  },
-  referralBenefitRedeemButtonDisabled: {
-    opacity: 0.55,
-  },
-  referralBenefitRedeemButtonLabel: {
-    fontSize: 13,
-    fontWeight: '900',
+  referralRedeemText: {
     color: '#166534',
-  },
-  undoCompactAction: {
-    marginTop: 2,
-    alignSelf: selfStart,
-    minWidth: 132,
-    minHeight: 44,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#BFD3FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 8,
-  },
-  undoCompactActionPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.99 }],
-  },
-  undoCompactActionDisabled: {
-    opacity: 0.65,
-  },
-  undoCompactLabel: {
-    color: '#1D4ED8',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '900',
   },
-  undoCompactTimer: {
-    color: '#1D4ED8',
-    fontSize: 13,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
+  buttonPressed: {
+    opacity: 0.86,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
 });
