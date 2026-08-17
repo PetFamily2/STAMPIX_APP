@@ -1,8 +1,10 @@
+import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
-import { action } from './_generated/server';
+import { action, internalQuery } from './_generated/server';
 import { normalizeGooglePlacesLimiterError } from './googlePlacesRateLimits';
+import { getCurrentUserOrNull } from './guards';
 
 export type GooglePlacesAutocompleteMode = 'default' | 'city' | 'street';
 
@@ -71,6 +73,11 @@ const MAX_STREET_NUMBER_LENGTH = 16;
 const MAX_GEOCODING_RESULTS_TO_INSPECT = 10;
 const MAX_ACCEPTED_GEOCODING_CANDIDATES = 3;
 const RAW_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/;
+const hasLiveUserForPlacesRef = makeFunctionReference<
+  'query',
+  Record<string, never>,
+  boolean
+>('googlePlaces:hasLiveUserForPlaces');
 
 export const GOOGLE_AUTOCOMPLETE_FIELD_MASK = [
   'suggestions.placePrediction.placeId',
@@ -147,8 +154,17 @@ async function requireAuthenticatedIdentity(ctx: any) {
   if (!identity) {
     throw new Error('PLACES_UNAUTHENTICATED');
   }
+  const hasLiveUser = await ctx.runQuery(hasLiveUserForPlacesRef, {});
+  if (!hasLiveUser) {
+    throw new Error('PLACES_UNAUTHENTICATED');
+  }
   return identity;
 }
+
+export const hasLiveUserForPlaces = internalQuery({
+  args: {},
+  handler: async (ctx) => (await getCurrentUserOrNull(ctx)) !== null,
+});
 
 async function consumePlacesRateLimit(
   ctx: any,

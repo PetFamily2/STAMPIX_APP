@@ -5,6 +5,7 @@ import {
   internalAction,
   internalMutation,
 } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 
 export type RevocableProvider = 'apple' | 'google';
 
@@ -28,6 +29,7 @@ type ProviderRevocationJob = {
   _id: Id<'providerRevocationJobs'>;
   provider: RevocableProvider;
   providerAccountId?: string;
+  providerAccountFingerprint?: string;
   encryptedAccessToken?: string;
   encryptedRefreshToken?: string;
   accessTokenExpiresAt?: number;
@@ -51,6 +53,10 @@ type TokenEnvelope = {
 const ENCRYPTION_VERSION = 1 as const;
 const ENCRYPTION_KEY_ENV = 'AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY';
 const TOKEN_AAD_PREFIX = 'stampix-provider-revocation';
+const PROVIDER_FINGERPRINT_KEY_DOMAIN =
+  'stampix-provider-identity-fingerprint:key:v1';
+const PROVIDER_FINGERPRINT_INPUT_DOMAIN =
+  'stampix-provider-identity-fingerprint:input:v1';
 const TOKEN_IV_BYTES = 12;
 const PROVIDER_HTTP_TIMEOUT_MS = 8_000;
 const MAX_REVOCATION_ATTEMPTS = 3;
@@ -58,9 +64,16 @@ const RETRY_DELAYS_MS = [60_000, 15 * 60_000] as const;
 const RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const STALE_RUNNING_MS = 15 * 60 * 1000;
 const SWEEP_BATCH_SIZE = 50;
+const MAX_OIDC_NUMERIC_DATE_SECONDS = 9_999_999_999;
+// Matches oauth4webapi's default tolerance used by the installed Convex Auth flow.
+export const OIDC_ISSUANCE_CLOCK_TOLERANCE_MS = 30_000;
 
 export const PROVIDER_CREDENTIAL_PROFILE_FIELD =
   '__stampixEncryptedProviderCredential';
+export const PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD =
+  '__stampixOAuthIssuedAt';
+export const PROVIDER_REAUTH_RETRY_REQUIRED =
+  'PROVIDER_REAUTH_RETRY_REQUIRED';
 
 type ProviderRevocationRunResult =
   | { status: 'stale' }
@@ -157,6 +170,68 @@ async function importEncryptionKey(
     false,
     [usage]
   );
+}
+
+async function importProviderFingerprintKey(
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
+  const encodedKey = env[ENCRYPTION_KEY_ENV]?.trim();
+  if (!encodedKey) {
+    throw new Error('AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_MISSING');
+  }
+  const keyBytes = base64UrlToBytes(encodedKey);
+  if (keyBytes.byteLength !== 32) {
+    throw new Error('AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_INVALID');
+  }
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    copyBytesToArrayBuffer(keyBytes),
+    'HKDF',
+    false,
+    ['deriveKey']
+  );
+  const encoder = new TextEncoder();
+  return await crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: encoder.encode(PROVIDER_FINGERPRINT_KEY_DOMAIN),
+      info: encoder.encode(`${PROVIDER_FINGERPRINT_KEY_DOMAIN}:hmac`),
+    },
+    keyMaterial,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    false,
+    ['sign']
+  );
+}
+
+export async function createProviderAccountFingerprint(
+  provider: RevocableProvider,
+  providerAccountId: string,
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
+  const key = await importProviderFingerprintKey(env);
+  const input = new TextEncoder().encode(
+    `${PROVIDER_FINGERPRINT_INPUT_DOMAIN}:${provider}:${providerAccountId}`
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, input);
+  return bytesToBase64Url(new Uint8Array(signature));
+}
+
+async function tryCreateProviderAccountFingerprint(
+  provider: RevocableProvider,
+  providerAccountId: string,
+  env: Partial<Record<string, string | undefined>> = process.env
+) {
+  try {
+    return await createProviderAccountFingerprint(
+      provider,
+      providerAccountId,
+      env
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 function tokenAdditionalData(
@@ -320,6 +395,114 @@ export function readEncryptedProviderCredentialCapture(
   };
 }
 
+function isValidProviderIssuedAtMilliseconds(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value > 0 &&
+    value <= MAX_OIDC_NUMERIC_DATE_SECONDS * 1000
+  );
+}
+
+export function readProviderOAuthIssuedAt(
+  profile: Record<string, unknown>
+): number | null {
+  const value = profile[PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD];
+  return isValidProviderIssuedAtMilliseconds(value) ? value : null;
+}
+
+export function resolveOAuthProviderIssuedAt(profile: Record<string, unknown>) {
+  const issuedAtSeconds = profile.iat;
+  const expiresAtSeconds = profile.exp;
+  if (
+    typeof issuedAtSeconds !== 'number' ||
+    !Number.isSafeInteger(issuedAtSeconds) ||
+    issuedAtSeconds <= 0 ||
+    issuedAtSeconds > MAX_OIDC_NUMERIC_DATE_SECONDS ||
+    typeof expiresAtSeconds !== 'number' ||
+    !Number.isSafeInteger(expiresAtSeconds) ||
+    expiresAtSeconds <= issuedAtSeconds ||
+    expiresAtSeconds > MAX_OIDC_NUMERIC_DATE_SECONDS
+  ) {
+    return null;
+  }
+  return issuedAtSeconds * 1000;
+}
+
+function revocationJobBlocksFreshOAuth(
+  job: Pick<ProviderRevocationJob, 'status' | 'completedAt'>,
+  providerIssuedAt: number
+) {
+  if (job.status === 'queued' || job.status === 'running') {
+    return true;
+  }
+  if (job.status === 'manual_required') {
+    return false;
+  }
+  const earliestPlausibleIssuanceAt =
+    providerIssuedAt - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS;
+  return (
+    typeof job.completedAt !== 'number' ||
+    job.completedAt >= earliestPlausibleIssuanceAt
+  );
+}
+
+export async function providerReauthRetryRequired(
+  ctx: Pick<MutationCtx, 'db'>,
+  args: {
+    provider: RevocableProvider;
+    providerAccountId: string;
+    providerIssuedAt: number | null;
+    env?: Partial<Record<string, string | undefined>>;
+  }
+) {
+  const providerIssuedAt = args.providerIssuedAt;
+  if (!isValidProviderIssuedAtMilliseconds(providerIssuedAt)) {
+    return true;
+  }
+  const providerAccountFingerprint =
+    await createProviderAccountFingerprint(
+      args.provider,
+      args.providerAccountId,
+      args.env
+    );
+  const fingerprintMatches = await ctx.db
+    .query('providerRevocationJobs')
+    .withIndex('by_provider_providerAccountFingerprint', (q) =>
+      q
+        .eq('provider', args.provider)
+        .eq('providerAccountFingerprint', providerAccountFingerprint)
+    )
+    .collect();
+
+  if (
+    fingerprintMatches.some((job) =>
+      revocationJobBlocksFreshOAuth(job, providerIssuedAt)
+    )
+  ) {
+    return true;
+  }
+
+  for (const status of ['queued', 'running'] as const) {
+    const activeJobs = await ctx.db
+      .query('providerRevocationJobs')
+      .withIndex('by_status_updatedAt', (q) => q.eq('status', status))
+      .collect();
+    if (
+      activeJobs.some(
+        (job) =>
+          job.provider === args.provider &&
+          job.providerAccountFingerprint === undefined &&
+          job.providerAccountId === args.providerAccountId
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function upsertProviderRevocationCredential(
   ctx: any,
   args: {
@@ -446,6 +629,11 @@ export async function prepareProviderRevocationsForUser(
   let createdJobs = 0;
   for (const [key, candidate] of candidateMap) {
     const credential = credentialsByKey.get(key);
+    const providerAccountFingerprint =
+      await tryCreateProviderAccountFingerprint(
+        candidate.provider,
+        candidate.providerAccountId
+      );
     const hasRefreshToken = Boolean(credential?.encryptedRefreshToken);
     const hasUsableAccessToken = Boolean(
       credential?.encryptedAccessToken &&
@@ -455,6 +643,7 @@ export async function prepareProviderRevocationsForUser(
     if (!hasRefreshToken && !hasUsableAccessToken) {
       await ctx.db.insert('providerRevocationJobs', {
         provider: candidate.provider,
+        providerAccountFingerprint,
         credentialVersion: ENCRYPTION_VERSION,
         status: 'manual_required',
         attemptCount: 0,
@@ -471,6 +660,7 @@ export async function prepareProviderRevocationsForUser(
     const jobId = await ctx.db.insert('providerRevocationJobs', {
       provider: candidate.provider,
       providerAccountId: candidate.providerAccountId,
+      providerAccountFingerprint,
       encryptedAccessToken: credential.encryptedAccessToken,
       encryptedRefreshToken: credential.encryptedRefreshToken,
       accessTokenExpiresAt: credential.accessTokenExpiresAt,
@@ -680,6 +870,7 @@ export async function completeProviderRevocationJobImpl(
     status: 'completed' | 'manual_required';
     terminalCode: string;
     now?: number;
+    env?: Partial<Record<string, string | undefined>>;
   }
 ) {
   const job = await ctx.db.get(args.jobId);
@@ -687,9 +878,19 @@ export async function completeProviderRevocationJobImpl(
     return { status: 'stale' as const };
   }
   const now = args.now ?? Date.now();
+  const providerAccountFingerprint =
+    job.providerAccountFingerprint ??
+    (job.providerAccountId
+      ? await tryCreateProviderAccountFingerprint(
+          job.provider,
+          job.providerAccountId,
+          args.env
+        )
+      : undefined);
   await ctx.db.patch(job._id, {
     status: args.status,
     providerAccountId: undefined,
+    providerAccountFingerprint,
     encryptedAccessToken: undefined,
     encryptedRefreshToken: undefined,
     accessTokenExpiresAt: undefined,

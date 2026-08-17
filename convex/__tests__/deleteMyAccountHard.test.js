@@ -200,6 +200,8 @@ describe('deleteMyAccountHardImpl', () => {
       'queued',
       'queued',
     ]);
+    expect(ctx.db.rows('userIdentities')).toEqual([]);
+    expect(ctx.db.rows('authAccounts')).toEqual([]);
     expect(ctx.scheduled).toHaveLength(2);
     expect(ctx.db.rows('users')).toEqual([]);
   });
@@ -275,6 +277,9 @@ describe('deleteMyAccountHardImpl', () => {
     expect(result.revocationQueuedProviders).toEqual([]);
     expect(result.manualFallbackProviders).toEqual([]);
     expect(ctx.db.rows('providerRevocationJobs')).toEqual([]);
+    expect(ctx.db.rows('userIdentities')).toEqual([]);
+    expect(ctx.db.rows('authAccounts')).toEqual([]);
+    expect(JSON.stringify(ctx.db.tables)).not.toContain('hashed-password');
     expect(ctx.scheduled).toEqual([]);
   });
 

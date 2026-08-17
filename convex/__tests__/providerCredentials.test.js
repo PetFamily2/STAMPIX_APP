@@ -3,8 +3,12 @@ import { describe, expect, test } from 'bun:test';
 import {
   attemptProviderRevocation,
   completeProviderRevocationJobImpl,
+  createProviderAccountFingerprint,
   decryptProviderToken,
   encryptProviderCredentialCapture,
+  OIDC_ISSUANCE_CLOCK_TOLERANCE_MS,
+  providerReauthRetryRequired,
+  resolveOAuthProviderIssuedAt,
   retryProviderRevocationJobImpl,
   sweepProviderRevocationJobsImpl,
   upsertProviderRevocationCredential,
@@ -16,6 +20,8 @@ const TEST_ENV = {
   AUTH_APPLE_ID: 'com.stampix.test',
   AUTH_APPLE_SECRET: 'test-apple-client-secret',
 };
+const PROVIDER_IAT_SECONDS = 1_800_000_000;
+const PROVIDER_ISSUED_AT = PROVIDER_IAT_SECONDS * 1000;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -333,6 +339,222 @@ describe('provider credential capture', () => {
   });
 });
 
+describe('provider reauthorization overlap guard', () => {
+  async function buildFingerprintJob({
+    id,
+    provider = 'google',
+    providerAccountId = 'shared_subject',
+    status,
+    completedAt,
+  }) {
+    return {
+      _id: id,
+      provider,
+      providerAccountFingerprint: await createProviderAccountFingerprint(
+        provider,
+        providerAccountId,
+        TEST_ENV
+      ),
+      credentialVersion: 1,
+      status,
+      attemptCount: 1,
+      createdAt: 1_000,
+      updatedAt: completedAt ?? 1_000,
+      ...(completedAt === undefined ? {} : { completedAt }),
+    };
+  }
+
+  async function requiresRetry(jobs, overrides = {}) {
+    const ctx = buildCtx({ providerRevocationJobs: jobs });
+    return await providerReauthRetryRequired(ctx, {
+      provider: overrides.provider ?? 'google',
+      providerAccountId: overrides.providerAccountId ?? 'shared_subject',
+      providerIssuedAt:
+        overrides.providerIssuedAt === undefined
+          ? PROVIDER_ISSUED_AT
+          : overrides.providerIssuedAt,
+      env: TEST_ENV,
+    });
+  }
+
+  test('validated OIDC iat is the authoritative provider issuance boundary', () => {
+    expect(
+      resolveOAuthProviderIssuedAt({
+        iat: PROVIDER_IAT_SECONDS,
+        exp: PROVIDER_IAT_SECONDS + 3_600,
+      })
+    ).toBe(PROVIDER_ISSUED_AT);
+  });
+
+  test('post-exchange clocks and token-expiry arithmetic are not authoritative fallbacks', () => {
+    expect(
+      resolveOAuthProviderIssuedAt({
+        expires_at: PROVIDER_IAT_SECONDS + 3_600,
+        expires_in: 3_600,
+        exp: PROVIDER_IAT_SECONDS + 3_600,
+      })
+    ).toBeNull();
+    const resolverSource = resolveOAuthProviderIssuedAt.toString();
+    expect(resolverSource).not.toContain('Date.now');
+    expect(resolverSource).not.toContain('expires_at');
+    expect(resolverSource).not.toContain('expires_in');
+  });
+
+  test('missing and malformed provider iat fail closed', async () => {
+    const malformedProfiles = [
+      {},
+      { iat: `${PROVIDER_IAT_SECONDS}`, exp: PROVIDER_IAT_SECONDS + 3_600 },
+      { iat: Number.NaN, exp: PROVIDER_IAT_SECONDS + 3_600 },
+      { iat: -1, exp: PROVIDER_IAT_SECONDS + 3_600 },
+      {
+        iat: PROVIDER_IAT_SECONDS * 1000,
+        exp: PROVIDER_IAT_SECONDS * 1000 + 3_600,
+      },
+      {
+        iat: PROVIDER_IAT_SECONDS + 0.5,
+        exp: PROVIDER_IAT_SECONDS + 3_600,
+      },
+      { iat: PROVIDER_IAT_SECONDS, exp: PROVIDER_IAT_SECONDS },
+    ];
+
+    for (const profile of malformedProfiles) {
+      const providerIssuedAt = resolveOAuthProviderIssuedAt(profile);
+      expect(providerIssuedAt).toBeNull();
+      await expect(
+        requiresRetry([], { providerIssuedAt })
+      ).resolves.toBe(true);
+    }
+  });
+
+  test('completed jobs allow only revocation provably before provider issuance', async () => {
+    const provablyBefore = await buildFingerprintJob({
+      id: 'completed_provably_before',
+      status: 'completed',
+      completedAt:
+        PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS - 1,
+    });
+    const skewAmbiguousBefore = await buildFingerprintJob({
+      id: 'completed_skew_ambiguous',
+      status: 'completed',
+      completedAt:
+        PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS,
+    });
+    const completedEqual = await buildFingerprintJob({
+      id: 'completed_equal',
+      status: 'completed',
+      completedAt: PROVIDER_ISSUED_AT,
+    });
+    const completedAfter = await buildFingerprintJob({
+      id: 'completed_after',
+      status: 'completed',
+      completedAt: PROVIDER_ISSUED_AT + 1,
+    });
+
+    await expect(requiresRetry([provablyBefore])).resolves.toBe(false);
+    await expect(requiresRetry([skewAmbiguousBefore])).resolves.toBe(true);
+    await expect(requiresRetry([completedEqual])).resolves.toBe(true);
+    await expect(requiresRetry([completedAfter])).resolves.toBe(true);
+  });
+
+  test('matching queued and running jobs require a fresh OAuth retry', async () => {
+    for (const status of ['queued', 'running']) {
+      const job = await buildFingerprintJob({
+        id: `${status}_job`,
+        status,
+      });
+      await expect(requiresRetry([job])).resolves.toBe(true);
+    }
+  });
+
+  test('manual-required jobs never block provider reauthorization', async () => {
+    const job = await buildFingerprintJob({
+      id: 'manual_job',
+      status: 'manual_required',
+      completedAt: PROVIDER_ISSUED_AT + 1,
+    });
+
+    await expect(requiresRetry([job])).resolves.toBe(false);
+  });
+
+  test('different providers and different provider subjects do not block', async () => {
+    const appleJob = await buildFingerprintJob({
+      id: 'apple_job',
+      provider: 'apple',
+      status: 'running',
+    });
+    const otherGoogleSubjectJob = await buildFingerprintJob({
+      id: 'other_google_job',
+      providerAccountId: 'other_subject',
+      status: 'queued',
+    });
+
+    await expect(requiresRetry([appleJob])).resolves.toBe(false);
+    await expect(requiresRetry([otherGoogleSubjectJob])).resolves.toBe(false);
+  });
+
+  test('fingerprints are provider-separated keyed values without plaintext subjects', async () => {
+    const subject = 'provider-subject-must-not-appear';
+    const googleFingerprint = await createProviderAccountFingerprint(
+      'google',
+      subject,
+      TEST_ENV
+    );
+    const appleFingerprint = await createProviderAccountFingerprint(
+      'apple',
+      subject,
+      TEST_ENV
+    );
+
+    expect(googleFingerprint).not.toContain(subject);
+    expect(appleFingerprint).not.toContain(subject);
+    expect(googleFingerprint).not.toBe(appleFingerprint);
+  });
+
+  test('legacy active jobs remain matchable and gain a fingerprint before terminal scrubbing', async () => {
+    const legacyJob = {
+      _id: 'legacy_running_job',
+      provider: 'google',
+      providerAccountId: 'legacy_subject',
+      encryptedAccessToken: 'legacy_encrypted_access',
+      credentialVersion: 1,
+      status: 'running',
+      attemptCount: 1,
+      createdAt: 1_000,
+      updatedAt: 1_000,
+    };
+    const ctx = buildCtx({ providerRevocationJobs: [legacyJob] });
+
+    await expect(
+      providerReauthRetryRequired(ctx, {
+        provider: 'google',
+        providerAccountId: 'legacy_subject',
+        providerIssuedAt: PROVIDER_ISSUED_AT,
+        env: TEST_ENV,
+      })
+    ).resolves.toBe(true);
+
+    await completeProviderRevocationJobImpl(ctx, {
+      jobId: legacyJob._id,
+      status: 'completed',
+      terminalCode: 'REVOKED',
+      now: 6_000,
+      env: TEST_ENV,
+    });
+
+    const stored = ctx.db.rows('providerRevocationJobs')[0];
+    expect(stored.providerAccountFingerprint).toBe(
+      await createProviderAccountFingerprint(
+        'google',
+        'legacy_subject',
+        TEST_ENV
+      )
+    );
+    expect(stored.providerAccountFingerprint).not.toContain('legacy_subject');
+    expect(stored.providerAccountId).toBeUndefined();
+    expect(stored.encryptedAccessToken).toBeUndefined();
+  });
+});
+
 describe('provider revocation execution', () => {
   test('Apple prefers refresh token and sends the matching hint', async () => {
     const job = await encryptedJob('apple');
@@ -524,6 +746,37 @@ describe('provider revocation execution', () => {
     expect(completed.encryptedRefreshToken).toBeUndefined();
     expect(completed.providerAccountId).toBeUndefined();
     expect(ctx.db.rows('providerRevocationJobs')[1]).toEqual(googleJob);
+  });
+
+  test('old job completion cannot modify or delete a fresh provider credential row', async () => {
+    const oldJob = await encryptedJob('google');
+    const freshCredential = {
+      _id: 'fresh_google_credential',
+      userId: 'fresh_user',
+      provider: 'google',
+      providerAccountId: oldJob.providerAccountId,
+      encryptedAccessToken: 'fresh_encrypted_access',
+      encryptedRefreshToken: 'fresh_encrypted_refresh',
+      credentialVersion: 1,
+      createdAt: 9_000,
+      updatedAt: 9_000,
+    };
+    const ctx = buildCtx({
+      providerRevocationJobs: [oldJob],
+      providerRevocationCredentials: [freshCredential],
+    });
+
+    await completeProviderRevocationJobImpl(ctx, {
+      jobId: oldJob._id,
+      status: 'completed',
+      terminalCode: 'REVOKED',
+      now: 10_000,
+      env: TEST_ENV,
+    });
+
+    expect(ctx.db.rows('providerRevocationCredentials')).toEqual([
+      freshCredential,
+    ]);
   });
 
   test('transient failures retry with bounded scheduling and terminal attempts purge tokens', async () => {

@@ -145,6 +145,7 @@ export default defineSchema({
   providerRevocationJobs: defineTable({
     provider: v.union(v.literal('apple'), v.literal('google')),
     providerAccountId: v.optional(v.string()),
+    providerAccountFingerprint: v.optional(v.string()),
     encryptedAccessToken: v.optional(v.string()),
     encryptedRefreshToken: v.optional(v.string()),
     accessTokenExpiresAt: v.optional(v.number()),
@@ -163,6 +164,10 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     purgeAfter: v.optional(v.number()),
   })
+    .index('by_provider_providerAccountFingerprint', [
+      'provider',
+      'providerAccountFingerprint',
+    ])
     .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
     .index('by_status_updatedAt', ['status', 'updatedAt'])
     .index('by_purgeAfter', ['purgeAfter']),

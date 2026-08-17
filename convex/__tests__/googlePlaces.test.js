@@ -22,7 +22,9 @@ const originalKey = process.env.GOOGLE_PLACES_API_KEY;
 
 function buildCtx({
   authenticated = true,
+  liveUserExists = true,
   tokenIdentifier = 'https://stampix.test|user_1',
+  runQuery = async () => liveUserExists,
   runMutation = async () => null,
 } = {}) {
   return {
@@ -36,6 +38,7 @@ function buildCtx({
             }
           : null,
     },
+    runQuery,
     runMutation,
   };
 }
@@ -177,6 +180,48 @@ describe('Convex Google Places actions', () => {
 
     expect(message).toBe('PLACES_UNAUTHENTICATED');
     expect(limiterCalls).toBe(0);
+  });
+
+  test('all Places actions reject a deleted user JWT before limits and Google fetch', async () => {
+    let limiterCalls = 0;
+    let fetchCount = 0;
+    globalThis.fetch = async () => {
+      fetchCount += 1;
+      return Response.json({});
+    };
+    const deletedUserCtx = buildCtx({
+      authenticated: true,
+      liveUserExists: false,
+      runMutation: async () => {
+        limiterCalls += 1;
+      },
+    });
+    const calls = [
+      () =>
+        autocomplete._handler(deletedUserCtx, {
+          query: 'coffee',
+          sessionToken: 'session_1',
+        }),
+      () =>
+        placeDetails._handler(deletedUserCtx, {
+          placeId: 'place_1',
+          sessionToken: 'session_1',
+        }),
+      () =>
+        resolveAddress._handler(deletedUserCtx, {
+          city: 'תל אביב-יפו',
+          street: 'דיזנגוף',
+          streetNumber: '100',
+        }),
+    ];
+
+    for (const call of calls) {
+      await expect(getErrorMessage(call)).resolves.toBe(
+        'PLACES_UNAUTHENTICATED'
+      );
+    }
+    expect(limiterCalls).toBe(0);
+    expect(fetchCount).toBe(0);
   });
 
   test('short autocomplete query returns empty without fetch', async () => {

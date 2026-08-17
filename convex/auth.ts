@@ -11,7 +11,12 @@ import {
   encryptProviderCredentialCapture,
   type OAuthTokenSetLike,
   PROVIDER_CREDENTIAL_PROFILE_FIELD,
+  PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD,
+  PROVIDER_REAUTH_RETRY_REQUIRED,
+  providerReauthRetryRequired,
   readEncryptedProviderCredentialCapture,
+  readProviderOAuthIssuedAt,
+  resolveOAuthProviderIssuedAt,
   upsertProviderRevocationCredential,
 } from './providerCredentials';
 
@@ -491,7 +496,7 @@ export function resolveAuthRedirectUrl(
   );
 }
 
-async function createOrUpdateUserHandler(ctx: any, args: any) {
+export async function createOrUpdateUserHandler(ctx: any, args: any) {
   const authUserId = await getAuthUserId(ctx);
   if (!args?.provider) {
     if (!authUserId) {
@@ -515,6 +520,19 @@ async function createOrUpdateUserHandler(ctx: any, args: any) {
   const providerUserId = resolveProviderUserId(provider, profile);
   if (!providerUserId) {
     throw new Error('MISSING_PROVIDER_USER_ID');
+  }
+
+  if (provider !== 'email' && args.type === 'oauth') {
+    const providerIssuedAt = readProviderOAuthIssuedAt(profile);
+    if (
+      await providerReauthRetryRequired(ctx, {
+        provider,
+        providerAccountId: providerUserId,
+        providerIssuedAt,
+      })
+    ) {
+      throw new Error(PROVIDER_REAUTH_RETRY_REQUIRED);
+    }
   }
 
   const email = normalizeEmail(profile.email);
@@ -595,6 +613,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       allowDangerousEmailAccountLinking: false,
       async profile(rawProfile, tokenSet: OAuthTokenSetLike) {
         const profile = rawProfile as Record<string, unknown>;
+        const providerIssuedAt = resolveOAuthProviderIssuedAt(profile);
         const subject =
           typeof profile.sub === 'string' ? profile.sub : undefined;
 
@@ -633,6 +652,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             typeof profile.picture === 'string' ? profile.picture : undefined,
           emailVerified: profile.email_verified === true,
           email_verified: profile.email_verified === true,
+          [PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD]: providerIssuedAt,
           ...(providerCredential
             ? {
                 [PROVIDER_CREDENTIAL_PROFILE_FIELD]: providerCredential,
@@ -645,6 +665,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       allowDangerousEmailAccountLinking: false,
       async profile(rawProfile, tokenSet: OAuthTokenSetLike) {
         const profile = rawProfile as Record<string, unknown>;
+        const providerIssuedAt = resolveOAuthProviderIssuedAt(profile);
         const subject =
           typeof profile.sub === 'string' ? profile.sub : undefined;
 
@@ -702,6 +723,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           isPrivateEmail:
             profile.is_private_email === true ||
             profile.is_private_email === 'true',
+          [PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD]: providerIssuedAt,
           ...(providerCredential
             ? {
                 [PROVIDER_CREDENTIAL_PROFILE_FIELD]: providerCredential,
