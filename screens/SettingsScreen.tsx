@@ -25,15 +25,16 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import { useAppMode } from '@/contexts/AppModeContext';
-import {
-  LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY,
-  NOTIFICATIONS_ENABLED_STORAGE_KEY,
-  usePushNotifications,
-} from '@/contexts/PushNotificationsContext';
-import { useSessionContext } from '@/contexts/UserContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { usePushNotifications } from '@/contexts/PushNotificationsContext';
+import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import {
+  type AccountDeletionFlowResult,
+  runAccountDeletionWithCleanup,
+} from '@/lib/accountDeletionReset';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
@@ -46,10 +47,8 @@ import {
   selfStart,
 } from '@/lib/rtl';
 
-const APP_MODE_STORAGE_KEY = 'stampaix.appMode';
-// Legacy typo key kept for migration only.
-const LEGACY_APP_MODE_STORAGE_KEY = 'stamprix.appMode';
 const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
+const SCANNER_LAST_PROGRAM_STORAGE_PREFIX = 'scanner:lastProgram:';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
@@ -137,6 +136,38 @@ function getScannerRouteForStaffRole(staffRole: 'owner' | 'manager' | 'staff') {
   return staffRole === 'staff'
     ? '/(authenticated)/(staff)/scanner'
     : '/(authenticated)/(business)/scanner';
+}
+
+async function clearBusinessSelectionStorage(
+  businessIds: readonly Id<'businesses'>[]
+) {
+  const cleanupResults = await Promise.allSettled(
+    businessIds.map((businessId) =>
+      AsyncStorage.removeItem(
+        `${SCANNER_LAST_PROGRAM_STORAGE_PREFIX}${String(businessId)}`
+      )
+    )
+  );
+  if (cleanupResults.some((result) => result.status === 'rejected')) {
+    throw new Error('BUSINESS_SELECTION_CLEANUP_FAILED');
+  }
+}
+
+async function clearConvexAuthSecureStore() {
+  const cleanupResults = await Promise.allSettled(
+    getConvexAuthSecureStoreKeysForCleanup().map((key) =>
+      SecureStore.deleteItemAsync(key)
+    )
+  );
+  if (cleanupResults.some((result) => result.status === 'rejected')) {
+    throw new Error('AUTH_STORAGE_CLEANUP_FAILED');
+  }
+}
+
+function reportPostDeletionCleanupWarning(failedStepNames: readonly string[]) {
+  console.warn('[account-deletion] Local cleanup completed with warnings.', {
+    failedStepNames,
+  });
 }
 
 function MenuRow({
@@ -260,16 +291,24 @@ export default function SettingsScreen() {
   }>();
   const tabBarHeight = useBottomTabBarHeight();
   const sessionContext = useSessionContext();
+  const { resetSessionState } = useUser();
   const user = sessionContext?.user;
   const deleteMyAccountHard = useMutation(api.users.deleteMyAccountHard);
   const setActiveMode = useMutation(api.users.setActiveMode);
   const setMyMarketingProfile = useMutation(api.users.setMyMarketingProfile);
-  const { setAppMode } = useAppMode();
-  const { isSwitchingBusiness, setActiveBusinessId } = useActiveBusiness();
+  const { resetAppMode, setAppMode } = useAppMode();
+  const { reset: resetOnboarding } = useOnboarding();
   const {
+    isSwitchingBusiness,
+    resetActiveBusinessState,
+    setActiveBusinessId,
+  } = useActiveBusiness();
+  const {
+    clearDeletedAccountNotificationStorage,
     isEnabled: notificationsEnabled,
     isLoading: notificationsLoading,
     isSyncing: notificationsSyncing,
+    resetNotificationState,
     setNotificationsEnabled,
   } = usePushNotifications();
   const { signOut } = useAuthActions();
@@ -417,42 +456,6 @@ export default function SettingsScreen() {
     });
   };
 
-  const clearLocalSessionState = async () => {
-    const convexAuthKeys = getConvexAuthSecureStoreKeysForCleanup();
-    const cleanupResults = await Promise.allSettled([
-      clearPendingJoin(),
-      AsyncStorage.removeItem(REMEMBERED_EMAIL_STORAGE_KEY),
-      AsyncStorage.removeItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
-      AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
-      ...convexAuthKeys.map((key) => SecureStore.deleteItemAsync(key)),
-      SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY),
-      SecureStore.deleteItemAsync(LEGACY_APP_MODE_STORAGE_KEY),
-    ]);
-
-    const failed = cleanupResults.filter(
-      (result): result is PromiseRejectedResult => result.status === 'rejected'
-    );
-    if (failed.length > 0) {
-      throw new Error(
-        toErrorMessage(failed[0].reason, 'LOCAL_SESSION_CLEANUP_FAILED')
-      );
-    }
-
-    await setAppMode('customer');
-    await SecureStore.deleteItemAsync(APP_MODE_STORAGE_KEY);
-    await SecureStore.deleteItemAsync(LEGACY_APP_MODE_STORAGE_KEY);
-  };
-
-  const cleanupSignedInSession = async () => {
-    try {
-      await signOut();
-    } catch {
-      // Continue with local cleanup even when remote sign-out fails.
-    }
-
-    await clearLocalSessionState();
-  };
-
   const handleDeleteAccount = async () => {
     if (deleteBusy) {
       return;
@@ -462,48 +465,115 @@ export default function SettingsScreen() {
       return;
     }
 
-    try {
-      setDeleteBusy(true);
-      const result = await deleteMyAccountHard({});
-      if (!result.success) {
-        if (result.errorCode === 'SOLE_OWNER_BUSINESS_BLOCKED') {
-          Alert.alert(
-            TEXT.soleOwnerDeleteBlockedTitle,
-            TEXT.soleOwnerDeleteBlockedMessage,
-            [
-              { text: TEXT.cancel, style: 'cancel' },
-              {
-                text: TEXT.manageBusinesses,
-                onPress: openBusinessDeletionResolution,
-              },
-            ]
-          );
-          return;
-        }
-        Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
-        return;
-      }
-      await cleanupSignedInSession();
+    setDeleteBusy(true);
 
-      setDeleteModalVisible(false);
-      setDeleteStep(1);
-      setDeleteConfirmationText('');
-      Alert.alert(
-        TEXT.deleteSuccessTitle,
-        `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(result.deleted)}`,
-        [
+    let deletionFlow: AccountDeletionFlowResult<
+      Awaited<ReturnType<typeof deleteMyAccountHard>>
+    >;
+    try {
+      deletionFlow = await runAccountDeletionWithCleanup({
+        deleteAccount: () => deleteMyAccountHard({}),
+        cleanupSteps: [
           {
-            text: TEXT.ok,
-            onPress: () => router.replace('/(auth)/welcome'),
+            name: 'active-business-state',
+            run: resetActiveBusinessState,
+          },
+          {
+            name: 'onboarding-state',
+            run: resetOnboarding,
+          },
+          {
+            name: 'notification-state',
+            run: resetNotificationState,
+          },
+          {
+            name: 'app-mode',
+            run: resetAppMode,
+          },
+          {
+            name: 'session-state',
+            run: resetSessionState,
+          },
+          {
+            name: 'remembered-email',
+            run: () => AsyncStorage.removeItem(REMEMBERED_EMAIL_STORAGE_KEY),
+          },
+          {
+            name: 'business-selections',
+            run: () =>
+              clearBusinessSelectionStorage(
+                sessionContext?.businesses.map((business) => business.id) ?? []
+              ),
+          },
+          {
+            name: 'notification-preferences',
+            run: clearDeletedAccountNotificationStorage,
+          },
+          {
+            name: 'pending-join',
+            run: clearPendingJoin,
+          },
+          {
+            name: 'sign-out',
+            run: signOut,
+          },
+          {
+            name: 'auth-storage',
+            run: clearConvexAuthSecureStore,
+          },
+          {
+            name: 'welcome-navigation',
+            run: () => router.replace('/(auth)/welcome'),
           },
         ],
-        { cancelable: false }
-      );
+        onCleanupWarning: reportPostDeletionCleanupWarning,
+      });
     } catch {
-      Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
-    } finally {
       setDeleteBusy(false);
+      Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
+      return;
     }
+
+    if (deletionFlow.status === 'server_rejected') {
+      setDeleteBusy(false);
+      if (
+        'errorCode' in deletionFlow.result &&
+        deletionFlow.result.errorCode === 'SOLE_OWNER_BUSINESS_BLOCKED'
+      ) {
+        Alert.alert(
+          TEXT.soleOwnerDeleteBlockedTitle,
+          TEXT.soleOwnerDeleteBlockedMessage,
+          [
+            { text: TEXT.cancel, style: 'cancel' },
+            {
+              text: TEXT.manageBusinesses,
+              onPress: openBusinessDeletionResolution,
+            },
+          ]
+        );
+        return;
+      }
+      Alert.alert(TEXT.deleteFailedTitle, TEXT.deleteUnknownError);
+      return;
+    }
+
+    const deletionResult = deletionFlow.result;
+    if (!deletionResult.success) {
+      return;
+    }
+
+    setDeleteBusy(false);
+    setDeleteModalVisible(false);
+    setDeleteStep(1);
+    setDeleteConfirmationText('');
+    Alert.alert(
+      TEXT.deleteSuccessTitle,
+      `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(
+        deletionResult.deleted
+      )}`,
+      [{ text: TEXT.ok }],
+      { cancelable: false }
+    );
   };
 
   const toggleNotifications = async () => {

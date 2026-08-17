@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useSessionContext } from '@/contexts/UserContext';
 
 export type AppMode = 'customer' | 'business';
 
@@ -15,6 +16,7 @@ type AppModeContextValue = {
   appMode: AppMode;
   setAppMode: (mode: AppMode) => Promise<void>;
   syncAppMode: (mode: AppMode) => Promise<void>;
+  resetAppMode: () => Promise<void>;
   isLoading: boolean;
 };
 
@@ -26,9 +28,12 @@ const AppModeContext = createContext<AppModeContextValue | undefined>(
 );
 
 export function AppModeProvider({ children }: { children: React.ReactNode }) {
+  const sessionContext = useSessionContext();
   const [appMode, setAppModeState] = useState<AppMode>('customer');
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccountStateReset, setIsAccountStateReset] = useState(false);
   const pendingModeRef = useRef<AppMode | null>(null);
+  const resetForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -87,6 +92,10 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
 
   const syncAppMode = useCallback(
     async (mode: AppMode) => {
+      if (isAccountStateReset) {
+        return;
+      }
+
       const pendingMode = pendingModeRef.current;
       if (pendingMode && pendingMode !== mode) {
         return;
@@ -96,17 +105,51 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
       setAppModeState(mode);
       await persistMode(mode);
     },
-    [persistMode]
+    [isAccountStateReset, persistMode]
   );
+
+  const resetAppMode = useCallback(async () => {
+    resetForUserIdRef.current = sessionContext?.user._id
+      ? String(sessionContext.user._id)
+      : null;
+    pendingModeRef.current = null;
+    setAppModeState('customer');
+    setIsAccountStateReset(true);
+
+    const storageCleanup = await Promise.allSettled([
+      SecureStore.deleteItemAsync(STORAGE_KEY),
+      SecureStore.deleteItemAsync(LEGACY_STORAGE_KEY),
+    ]);
+    if (storageCleanup.some((result) => result.status === 'rejected')) {
+      throw new Error('APP_MODE_STORAGE_RESET_FAILED');
+    }
+  }, [sessionContext?.user._id]);
+
+  useEffect(() => {
+    const currentUserId = sessionContext?.user._id
+      ? String(sessionContext.user._id)
+      : null;
+    if (
+      !isAccountStateReset ||
+      !currentUserId ||
+      currentUserId === resetForUserIdRef.current
+    ) {
+      return;
+    }
+
+    resetForUserIdRef.current = null;
+    setIsAccountStateReset(false);
+  }, [isAccountStateReset, sessionContext?.user._id]);
 
   const value = useMemo(
     () => ({
       appMode,
       setAppMode,
       syncAppMode,
+      resetAppMode,
       isLoading,
     }),
-    [appMode, setAppMode, syncAppMode, isLoading]
+    [appMode, isLoading, resetAppMode, setAppMode, syncAppMode]
   );
 
   return (

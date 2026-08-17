@@ -13,6 +13,10 @@ import {
 import { Platform } from 'react-native';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import {
+  createSerializedAsyncOperationQueue,
+  hydrateNotificationPreference,
+} from '@/lib/accountDeletionContextSafety';
 
 export const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stampaix.customerNotificationsEnabled';
@@ -47,6 +51,8 @@ type PushNotificationsContextValue = {
     enabled: boolean
   ) => Promise<NotificationToggleResult>;
   refreshRegistration: () => Promise<NotificationToggleResult>;
+  resetNotificationState: () => void;
+  clearDeletedAccountNotificationStorage: () => Promise<void>;
 };
 
 const PushNotificationsContext = createContext<
@@ -160,31 +166,62 @@ export function PushNotificationsProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [isAccountStateReset, setIsAccountStateReset] = useState(false);
 
   const registeredTokenRef = useRef<string | null>(null);
+  const resetForUserIdRef = useRef<string | null>(null);
+  const notificationStateGenerationRef = useRef(0);
+  const preferenceStorageQueue = useMemo(
+    () => createSerializedAsyncOperationQueue(),
+    []
+  );
 
   useEffect(() => {
     void loadNotificationsModule();
   }, []);
 
-  const persistEnabledFlag = useCallback(async (enabled: boolean) => {
-    await AsyncStorage.setItem(
-      NOTIFICATIONS_ENABLED_STORAGE_KEY,
-      enabled ? '1' : '0'
-    );
-    await AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY);
-  }, []);
+  const persistEnabledFlag = useCallback(
+    (enabled: boolean, generation: number) =>
+      preferenceStorageQueue.enqueue(async () => {
+        if (generation !== notificationStateGenerationRef.current) {
+          return;
+        }
+        await AsyncStorage.setItem(
+          NOTIFICATIONS_ENABLED_STORAGE_KEY,
+          enabled ? '1' : '0'
+        );
+        if (generation !== notificationStateGenerationRef.current) {
+          return;
+        }
+        await AsyncStorage.removeItem(
+          LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
+        );
+      }),
+    [preferenceStorageQueue]
+  );
 
   const disableRegisteredToken = useCallback(async () => {
+    const generation = notificationStateGenerationRef.current;
+    const isCurrentGeneration = () =>
+      generation === notificationStateGenerationRef.current;
     const tokenToDisable = registeredTokenRef.current ?? expoPushToken;
     if (tokenToDisable) {
       try {
         await disablePushToken({ token: tokenToDisable });
+        if (!isCurrentGeneration()) {
+          return;
+        }
       } catch {
+        if (!isCurrentGeneration()) {
+          return;
+        }
         // Fall back to disabling all active tokens.
       }
     }
     await disableAllMyPushTokens({});
+    if (!isCurrentGeneration()) {
+      return;
+    }
     registeredTokenRef.current = null;
     setExpoPushToken(null);
   }, [disableAllMyPushTokens, disablePushToken, expoPushToken]);
@@ -197,9 +234,12 @@ export function PushNotificationsProvider({
       registered: boolean;
       token: string | null;
     }> => {
+      const stateGeneration = notificationStateGenerationRef.current;
+      const isCurrentGeneration = () =>
+        stateGeneration === notificationStateGenerationRef.current;
       const pushPlatform = resolvePushPlatform();
       const Notifications = await loadNotificationsModule();
-      if (!pushPlatform || !Notifications) {
+      if (!isCurrentGeneration() || !pushPlatform || !Notifications) {
         return {
           permissionStatus: 'unavailable',
           registered: false,
@@ -209,6 +249,13 @@ export function PushNotificationsProvider({
 
       try {
         const existingPermissions = await Notifications.getPermissionsAsync();
+        if (!isCurrentGeneration()) {
+          return {
+            permissionStatus: 'unavailable',
+            registered: false,
+            token: null,
+          };
+        }
         let permissionStatus = normalizePermissionStatus(
           existingPermissions.status
         );
@@ -223,6 +270,13 @@ export function PushNotificationsProvider({
 
         if (permissionStatus === 'undetermined' && askPermission) {
           const requested = await Notifications.requestPermissionsAsync();
+          if (!isCurrentGeneration()) {
+            return {
+              permissionStatus: 'unavailable',
+              registered: false,
+              token: null,
+            };
+          }
           permissionStatus = normalizePermissionStatus(requested.status);
         }
 
@@ -244,10 +298,24 @@ export function PushNotificationsProvider({
         }
 
         await ensureAndroidNotificationChannel(Notifications);
+        if (!isCurrentGeneration()) {
+          return {
+            permissionStatus: 'unavailable',
+            registered: false,
+            token: null,
+          };
+        }
 
         const tokenResponse = await Notifications.getExpoPushTokenAsync({
           projectId,
         });
+        if (!isCurrentGeneration()) {
+          return {
+            permissionStatus: 'unavailable',
+            registered: false,
+            token: null,
+          };
+        }
         const nextToken = tokenResponse.data?.trim() ?? '';
 
         if (!nextToken) {
@@ -263,13 +331,35 @@ export function PushNotificationsProvider({
           platform: pushPlatform,
         });
 
+        if (!isCurrentGeneration()) {
+          return {
+            permissionStatus: 'granted',
+            registered: false,
+            token: null,
+          };
+        }
+
         if (
           registeredTokenRef.current &&
           registeredTokenRef.current !== nextToken
         ) {
           try {
             await disablePushToken({ token: registeredTokenRef.current });
+            if (!isCurrentGeneration()) {
+              return {
+                permissionStatus: 'unavailable',
+                registered: false,
+                token: null,
+              };
+            }
           } catch {
+            if (!isCurrentGeneration()) {
+              return {
+                permissionStatus: 'unavailable',
+                registered: false,
+                token: null,
+              };
+            }
             // Keep the current token active even if old-token cleanup fails.
           }
         }
@@ -293,11 +383,54 @@ export function PushNotificationsProvider({
     [disablePushToken, registerPushToken]
   );
 
+  const resetNotificationState = useCallback(() => {
+    notificationStateGenerationRef.current += 1;
+    resetForUserIdRef.current = user ? String(user._id) : null;
+    registeredTokenRef.current = null;
+    setExpoPushToken(null);
+    setIsEnabled(false);
+    setIsLoading(false);
+    setIsSyncing(false);
+    setIsAccountStateReset(true);
+  }, [user]);
+
+  const clearDeletedAccountNotificationStorage = useCallback(
+    () =>
+      preferenceStorageQueue.enqueue(async () => {
+        const cleanupResults = await Promise.allSettled([
+          AsyncStorage.removeItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
+          AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
+        ]);
+        if (cleanupResults.some((result) => result.status === 'rejected')) {
+          throw new Error('NOTIFICATION_PREFERENCE_CLEANUP_FAILED');
+        }
+      }),
+    [preferenceStorageQueue]
+  );
+
+  useEffect(() => {
+    const currentUserId = user ? String(user._id) : null;
+    if (
+      !isAccountStateReset ||
+      !currentUserId ||
+      currentUserId === resetForUserIdRef.current
+    ) {
+      return;
+    }
+
+    resetForUserIdRef.current = null;
+    setIsEnabled(true);
+    setIsAccountStateReset(false);
+  }, [isAccountStateReset, user]);
+
   const refreshRegistration =
     useCallback(async (): Promise<NotificationToggleResult> => {
-      if (!user) {
+      const generation = notificationStateGenerationRef.current;
+      const isCurrentGeneration = () =>
+        generation === notificationStateGenerationRef.current;
+      if (!user || isAccountStateReset) {
         return {
-          enabled: isEnabled,
+          enabled: isAccountStateReset ? false : isEnabled,
           permissionStatus: 'unavailable',
           registered: false,
         };
@@ -307,6 +440,13 @@ export function PushNotificationsProvider({
       try {
         if (!isEnabled) {
           await disableRegisteredToken();
+          if (!isCurrentGeneration()) {
+            return {
+              enabled: false,
+              permissionStatus: 'unavailable',
+              registered: false,
+            };
+          }
           return {
             enabled: false,
             permissionStatus: 'unavailable',
@@ -315,19 +455,44 @@ export function PushNotificationsProvider({
         }
 
         const registration = await registerCurrentDevice(false);
+        if (!isCurrentGeneration()) {
+          return {
+            enabled: false,
+            permissionStatus: 'unavailable',
+            registered: false,
+          };
+        }
         return {
           enabled: isEnabled,
           permissionStatus: registration.permissionStatus,
           registered: registration.registered,
         };
       } finally {
-        setIsSyncing(false);
+        if (isCurrentGeneration()) {
+          setIsSyncing(false);
+        }
       }
-    }, [disableRegisteredToken, isEnabled, registerCurrentDevice, user]);
+    }, [
+      disableRegisteredToken,
+      isAccountStateReset,
+      isEnabled,
+      registerCurrentDevice,
+      user,
+    ]);
 
   const setNotificationsEnabled = useCallback(
     async (enabled: boolean): Promise<NotificationToggleResult> => {
-      await persistEnabledFlag(enabled);
+      const generation = notificationStateGenerationRef.current;
+      const isCurrentGeneration = () =>
+        generation === notificationStateGenerationRef.current;
+      await persistEnabledFlag(enabled, generation);
+      if (!isCurrentGeneration()) {
+        return {
+          enabled: false,
+          permissionStatus: 'unavailable',
+          registered: false,
+        };
+      }
       setIsEnabled(enabled);
 
       if (!user) {
@@ -342,6 +507,13 @@ export function PushNotificationsProvider({
       try {
         if (!enabled) {
           await disableRegisteredToken();
+          if (!isCurrentGeneration()) {
+            return {
+              enabled: false,
+              permissionStatus: 'unavailable',
+              registered: false,
+            };
+          }
           return {
             enabled: false,
             permissionStatus: 'unavailable',
@@ -350,8 +522,22 @@ export function PushNotificationsProvider({
         }
 
         const registration = await registerCurrentDevice(true);
+        if (!isCurrentGeneration()) {
+          return {
+            enabled: false,
+            permissionStatus: 'unavailable',
+            registered: false,
+          };
+        }
         if (!registration.registered) {
-          await persistEnabledFlag(false);
+          await persistEnabledFlag(false, generation);
+          if (!isCurrentGeneration()) {
+            return {
+              enabled: false,
+              permissionStatus: 'unavailable',
+              registered: false,
+            };
+          }
           setIsEnabled(false);
           return {
             enabled: false,
@@ -366,61 +552,51 @@ export function PushNotificationsProvider({
           registered: true,
         };
       } finally {
-        setIsSyncing(false);
+        if (isCurrentGeneration()) {
+          setIsSyncing(false);
+        }
       }
     },
     [disableRegisteredToken, persistEnabledFlag, registerCurrentDevice, user]
   );
 
   useEffect(() => {
-    let isMounted = true;
+    const generation = notificationStateGenerationRef.current;
+    let isHydrationActive = true;
 
-    void (async () => {
-      try {
-        const primary = await AsyncStorage.getItem(
-          NOTIFICATIONS_ENABLED_STORAGE_KEY
-        );
-        const legacy =
-          primary === null
-            ? await AsyncStorage.getItem(
-                LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
-              )
-            : null;
-        const storedValue = primary ?? legacy;
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (storedValue !== null) {
-          setIsEnabled(storedValue === '1');
-        }
-
-        if (legacy !== null) {
-          await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_STORAGE_KEY, legacy);
-          await AsyncStorage.removeItem(
-            LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    })();
+    const hydrationTask = preferenceStorageQueue.enqueue(() =>
+      hydrateNotificationPreference({
+        generation,
+        getCurrentGeneration: () =>
+          isHydrationActive
+            ? notificationStateGenerationRef.current
+            : Number.NaN,
+        readCanonicalPreference: () =>
+          AsyncStorage.getItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
+        readLegacyPreference: () =>
+          AsyncStorage.getItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
+        writeCanonicalPreference: (value) =>
+          AsyncStorage.setItem(NOTIFICATIONS_ENABLED_STORAGE_KEY, value),
+        removeLegacyPreference: () =>
+          AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
+        setEnabled: setIsEnabled,
+        finishLoading: () => setIsLoading(false),
+      })
+    );
+    void hydrationTask.catch(() => undefined);
 
     return () => {
-      isMounted = false;
+      isHydrationActive = false;
     };
-  }, []);
+  }, [preferenceStorageQueue]);
 
   useEffect(() => {
-    if (isLoading || !user) {
+    if (isLoading || !user || isAccountStateReset) {
       return;
     }
 
     void refreshRegistration();
-  }, [isLoading, refreshRegistration, user]);
+  }, [isAccountStateReset, isLoading, refreshRegistration, user]);
 
   const value = useMemo(
     () => ({
@@ -430,13 +606,17 @@ export function PushNotificationsProvider({
       expoPushToken,
       setNotificationsEnabled,
       refreshRegistration,
+      resetNotificationState,
+      clearDeletedAccountNotificationStorage,
     }),
     [
       expoPushToken,
+      clearDeletedAccountNotificationStorage,
       isEnabled,
       isLoading,
       isSyncing,
       refreshRegistration,
+      resetNotificationState,
       setNotificationsEnabled,
     ]
   );

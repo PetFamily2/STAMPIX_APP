@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useSessionContext } from '@/contexts/UserContext';
@@ -31,6 +32,7 @@ type ActiveBusinessContextValue = {
   isLoading: boolean;
   isSwitchingBusiness: boolean;
   setActiveBusinessId: (businessId: Id<'businesses'>) => Promise<void>;
+  resetActiveBusinessState: () => void;
 };
 
 const ActiveBusinessContext = createContext<
@@ -45,11 +47,28 @@ export function ActiveBusinessProvider({
   const sessionContext = useSessionContext();
   const businessesQuery = useQuery(api.scanner.myBusinesses);
   const setActiveBusiness = useMutation(api.users.setActiveBusiness);
-  const businesses = (businessesQuery ?? []) as BusinessForStaff[];
+  const queriedBusinesses = (businessesQuery ?? []) as BusinessForStaff[];
 
   const [localBusinessIdOverride, setLocalBusinessIdOverride] =
     useState<Id<'businesses'> | null>(null);
   const [isSwitchingBusiness, setIsSwitchingBusiness] = useState(false);
+  const [isAccountStateReset, setIsAccountStateReset] = useState(false);
+  const resetForUserIdRef = useRef<Id<'users'> | null>(null);
+  const businesses = isAccountStateReset ? [] : queriedBusinesses;
+
+  useEffect(() => {
+    const currentUserId = sessionContext?.user._id ?? null;
+    if (
+      !isAccountStateReset ||
+      !currentUserId ||
+      currentUserId === resetForUserIdRef.current
+    ) {
+      return;
+    }
+
+    resetForUserIdRef.current = null;
+    setIsAccountStateReset(false);
+  }, [isAccountStateReset, sessionContext?.user._id]);
 
   useEffect(() => {
     if (!localBusinessIdOverride) {
@@ -135,6 +154,13 @@ export function ActiveBusinessProvider({
     ]
   );
 
+  const resetActiveBusinessState = useCallback(() => {
+    resetForUserIdRef.current = sessionContext?.user._id ?? null;
+    setLocalBusinessIdOverride(null);
+    setIsSwitchingBusiness(false);
+    setIsAccountStateReset(true);
+  }, [sessionContext?.user._id]);
+
   const value = useMemo(
     () => ({
       businesses,
@@ -143,6 +169,7 @@ export function ActiveBusinessProvider({
       isLoading: sessionContext === undefined || businessesQuery === undefined,
       isSwitchingBusiness,
       setActiveBusinessId,
+      resetActiveBusinessState,
     }),
     [
       activeBusiness,
@@ -150,6 +177,7 @@ export function ActiveBusinessProvider({
       businesses,
       businessesQuery,
       isSwitchingBusiness,
+      resetActiveBusinessState,
       sessionContext,
       setActiveBusinessId,
     ]
