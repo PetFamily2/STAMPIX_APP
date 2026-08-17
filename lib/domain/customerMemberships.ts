@@ -11,6 +11,7 @@ export type CustomerMembershipView = {
   stampIcon: string;
   stampShape: string;
   cardThemeId: string | null;
+  programLifecycle: 'active' | 'archived';
   currentStamps: number;
   maxStamps: number;
   lastStampAt: number;

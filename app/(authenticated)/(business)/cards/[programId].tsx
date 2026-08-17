@@ -17,7 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -604,22 +604,25 @@ export default function ProgramDetailsScreen() {
             </View>
           ) : (
             <View className="mt-2 bg-[#E9F0FF] pb-3">
-              <ProgramCustomerCardPreview
+              <LoyaltyCard
+                variant="preview"
                 businessName={selectedBusiness?.name ?? 'העסק שלך'}
                 businessLogoUrl={selectedBusiness?.logoUrl ?? null}
                 programImageUrl={previewImageUrl}
-                title={title || details.title}
+                programTitle={title || details.title}
                 rewardName={rewardName || details.rewardName}
                 maxStamps={parsedMaxStamps || details.maxStamps}
-                previewCurrentStamps={Math.min(
-                  3,
-                  Math.max(1, parsedMaxStamps || details.maxStamps)
-                )}
+                progress={{
+                  kind: 'sample',
+                  currentStamps: Math.min(
+                    3,
+                    Math.max(1, parsedMaxStamps || details.maxStamps)
+                  ),
+                }}
+                lifecycle={lifecycle}
                 cardThemeId={cardThemeId}
                 stampShape={stampShape}
                 stampIcon={stampIcon || details.stampIcon}
-                status={lifecycle === 'archived' ? 'archived' : 'default'}
-                variant="hero"
               />
             </View>
           )}

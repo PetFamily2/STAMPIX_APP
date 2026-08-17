@@ -73,6 +73,7 @@ type CustomerMembershipRecord = {
   stampIcon: string;
   stampShape: string;
   cardThemeId: string | null;
+  programLifecycle: 'active' | 'archived';
   currentStamps: number;
   maxStamps: number;
   lastStampAt: number;
@@ -147,7 +148,9 @@ function isLifecycleJoinable(lifecycle: 'draft' | 'active' | 'archived') {
   return lifecycle === 'active';
 }
 
-function isLifecycleOperational(lifecycle: 'draft' | 'active' | 'archived') {
+function isLifecycleOperational(
+  lifecycle: 'draft' | 'active' | 'archived'
+): lifecycle is 'active' | 'archived' {
   return lifecycle === 'active' || lifecycle === 'archived';
 }
 
@@ -241,9 +244,13 @@ export const byCustomer = query({
         if (
           !program ||
           program.isActive !== true ||
-          !isLifecycleOperational(resolveProgramLifecycle(program)) ||
           program.businessId !== business._id
         ) {
+          return null;
+        }
+
+        const programLifecycle = resolveProgramLifecycle(program);
+        if (!isLifecycleOperational(programLifecycle)) {
           return null;
         }
 
@@ -266,10 +273,13 @@ export const byCustomer = query({
           stampIcon: program.stampIcon,
           stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
+          programLifecycle,
           currentStamps: membership.currentStamps,
           maxStamps: program.maxStamps,
           lastStampAt,
-          canRedeem: membership.currentStamps >= program.maxStamps,
+          canRedeem:
+            programLifecycle === 'active' &&
+            membership.currentStamps >= program.maxStamps,
         };
       })
     );
@@ -392,6 +402,7 @@ export const byCustomerBusinesses = query({
         previewMaxStamps: number | null;
         previewCurrentStamps: number | null;
         previewStampShape: string | null;
+        previewProgramLifecycle: 'active' | 'archived';
       }
     >();
 
@@ -406,12 +417,15 @@ export const byCustomerBusinesses = query({
       if (
         !program ||
         program.isActive !== true ||
-        !isLifecycleOperational(resolveProgramLifecycle(program)) ||
         program.businessId !== business._id
       ) {
         continue;
       }
 
+      const programLifecycle = resolveProgramLifecycle(program);
+      if (!isLifecycleOperational(programLifecycle)) {
+        continue;
+      }
       const key = String(business._id);
       const previewProgramImageUrl = await resolveProgramImageUrl(ctx, program);
       const lastActivityAt =
@@ -420,6 +434,7 @@ export const byCustomerBusinesses = query({
         membership.createdAt ??
         Date.now();
       const redeemable =
+        programLifecycle === 'active' &&
         Number(membership.currentStamps ?? 0) >= Number(program.maxStamps ?? 0);
       const existing = businessSummaries.get(key);
       if (!existing) {
@@ -437,6 +452,7 @@ export const byCustomerBusinesses = query({
           previewMaxStamps: Number(program.maxStamps ?? 0),
           previewCurrentStamps: Number(membership.currentStamps ?? 0),
           previewStampShape: program.stampShape ?? 'circle',
+          previewProgramLifecycle: programLifecycle,
         });
         continue;
       }
@@ -454,6 +470,7 @@ export const byCustomerBusinesses = query({
         existing.previewMaxStamps = Number(program.maxStamps ?? 0);
         existing.previewCurrentStamps = Number(membership.currentStamps ?? 0);
         existing.previewStampShape = program.stampShape ?? 'circle';
+        existing.previewProgramLifecycle = programLifecycle;
       }
     }
 
@@ -568,13 +585,14 @@ export const getCustomerBusiness = query({
     const joinedProgramRows = await Promise.all(
       memberships.map(async (membership: any) => {
         const program = programById.get(String(membership.programId));
-        if (
-          !program ||
-          !isLifecycleOperational(resolveProgramLifecycle(program))
-        ) {
+        if (!program) {
           return null;
         }
 
+        const programLifecycle = resolveProgramLifecycle(program);
+        if (!isLifecycleOperational(programLifecycle)) {
+          return null;
+        }
         const maxStamps = Number(program.maxStamps ?? 0);
         const currentStamps = Number(membership.currentStamps ?? 0);
         return {
@@ -586,10 +604,12 @@ export const getCustomerBusiness = query({
           stampIcon: program.stampIcon,
           stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
+          programLifecycle,
           membershipId: membership._id,
           isJoined: true,
           currentStamps,
-          canRedeem: currentStamps >= maxStamps,
+          canRedeem:
+            programLifecycle === 'active' && currentStamps >= maxStamps,
           lastStampAt:
             membership.lastStampAt ??
             membership.updatedAt ??
@@ -624,6 +644,7 @@ export const getCustomerBusiness = query({
         stampIcon: program.stampIcon,
         stampShape: program.stampShape ?? 'circle',
         cardThemeId: program.cardThemeId ?? null,
+        programLifecycle: 'active' as const,
         membershipId: null,
         isJoined: false,
         currentStamps: 0,

@@ -22,7 +22,7 @@ import {
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
@@ -53,11 +53,10 @@ const TEXT = {
   loading: 'טוען',
   cardReadyTitle: 'הכרטיס מלא - מחכה לך מתנה',
   cardReadySubtitle: 'המימוש מתבצע בביקור הבא בעסקה נפרדת',
-  cardPendingTitle: 'ממשיכים לצבור ניקובים',
-  cardPendingPrefix: 'נותרו',
-  cardPendingSuffix: 'ניקובים למתנה',
   redeemButtonReady: 'הצג למימוש',
-  redeemButtonLocked: 'לא זמין עדיין',
+  archivedTitle: 'הכרטיס בארכיון',
+  archivedSubtitle: 'לא ניתן לצבור ניקובים או לממש הטבה בכרטיס הזה',
+  archivedButton: 'הכרטיס אינו זמין',
   shareInviteButton: 'הזמן חבר',
   shareViaWhatsApp: 'שיתוף ב-WhatsApp',
   copyInviteLink: 'העתק קישור',
@@ -306,8 +305,9 @@ export default function CardDetailsScreen() {
 
   const current = Number(membership.currentStamps ?? 0);
   const goal = Math.max(1, Number(membership.maxStamps ?? 0) || 0);
-  const remainingStamps = Math.max(0, goal - current);
-  const isRedeemEligible = Boolean(membership.canRedeem || current >= goal);
+  const isArchived = membership.programLifecycle === 'archived';
+  const isRedeemEligible =
+    !isArchived && Boolean(membership.canRedeem || current >= goal);
 
   const formatActivityMessage = (item: {
     actionType: string;
@@ -398,11 +398,11 @@ export default function CardDetailsScreen() {
         topOffset={(insets.top || 0) + 8}
         durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
-        showFireworks={true}
-        showConfetti={true}
-        placement="center"
-        emphasis="large"
-        fullScreenCelebration={true}
+        showFireworks={false}
+        showConfetti={false}
+        placement="top"
+        emphasis="default"
+        fullScreenCelebration={false}
       />
       <ScrollView
         stickyHeaderIndices={[0]}
@@ -435,91 +435,88 @@ export default function CardDetailsScreen() {
             </View>
           </StickyScrollHeader>
 
-          <View
-            style={[
-              styles.card,
-              isRedeemEligible
-                ? styles.progressCardReady
-                : styles.progressCardPending,
-            ]}
-          >
-            <ProgramCustomerCardPreview
+          <View style={styles.loyaltyCardSection}>
+            <LoyaltyCard
+              variant="full"
               businessName={membership.businessName}
               businessLogoUrl={membership.businessLogoUrl}
               programImageUrl={membership.programImageUrl}
-              title={membership.programTitle}
+              programTitle={membership.programTitle}
               rewardName={membership.rewardName}
               maxStamps={goal}
-              previewCurrentStamps={current}
+              progress={{ kind: 'actual', currentStamps: current }}
+              lifecycle={membership.programLifecycle}
               cardThemeId={membership.cardThemeId}
               stampIcon={membership.stampIcon}
               stampShape={normalizeStampShape(membership.stampShape)}
-              status={isRedeemEligible ? 'redeemable' : 'default'}
-              variant="hero"
-              showAllStamps={true}
             />
 
-            <View
-              style={[
-                styles.redeemPanel,
-                isRedeemEligible
-                  ? styles.redeemPanelReady
-                  : styles.redeemPanelPending,
-              ]}
-            >
-              <Text
+            {isRedeemEligible || isArchived ? (
+              <View
                 style={[
-                  styles.redeemTitle,
+                  styles.redeemPanel,
                   isRedeemEligible
-                    ? styles.redeemTitleReady
-                    : styles.redeemTitlePending,
-                ]}
-              >
-                {isRedeemEligible ? TEXT.cardReadyTitle : TEXT.cardPendingTitle}
-              </Text>
-              <Text
-                style={[
-                  styles.redeemSubtitle,
-                  isRedeemEligible
-                    ? styles.redeemSubtitleReady
-                    : styles.redeemSubtitlePending,
-                ]}
-              >
-                {isRedeemEligible
-                  ? TEXT.cardReadySubtitle
-                  : `${TEXT.cardPendingPrefix} ${remainingStamps} ${TEXT.cardPendingSuffix}`}
-              </Text>
-              <Pressable
-                onPress={() => void refreshScanToken()}
-                disabled={
-                  !isRedeemEligible || isTokenLoading || !membershipIdForToken
-                }
-                style={({ pressed }) => [
-                  styles.redeemButton,
-                  isRedeemEligible
-                    ? styles.redeemButtonReady
-                    : styles.redeemButtonDisabled,
-                  (pressed && isRedeemEligible) || isTokenLoading
-                    ? { opacity: 0.9 }
-                    : null,
+                    ? styles.redeemPanelReady
+                    : styles.redeemPanelPending,
                 ]}
               >
                 <Text
                   style={[
-                    styles.redeemButtonText,
-                    !isRedeemEligible && styles.redeemButtonTextDisabled,
+                    styles.redeemTitle,
+                    isRedeemEligible
+                      ? styles.redeemTitleReady
+                      : styles.redeemTitlePending,
                   ]}
                 >
-                  {isTokenLoading && isRedeemEligible
-                    ? TEXT.loading
-                    : isRedeemEligible
-                      ? TEXT.redeemButtonReady
-                      : TEXT.redeemButtonLocked}
+                  {isArchived
+                    ? TEXT.archivedTitle
+                    : TEXT.cardReadyTitle}
                 </Text>
-              </Pressable>
-
-              <View style={styles.inviteRow}>
+                <Text
+                  style={[
+                    styles.redeemSubtitle,
+                    isRedeemEligible
+                      ? styles.redeemSubtitleReady
+                      : styles.redeemSubtitlePending,
+                  ]}
+                >
+                  {isArchived
+                    ? TEXT.archivedSubtitle
+                    : TEXT.cardReadySubtitle}
+                </Text>
                 <Pressable
+                  onPress={() => void refreshScanToken()}
+                  disabled={
+                    !isRedeemEligible || isTokenLoading || !membershipIdForToken
+                  }
+                  style={({ pressed }) => [
+                    styles.redeemButton,
+                    isRedeemEligible
+                      ? styles.redeemButtonReady
+                      : styles.redeemButtonDisabled,
+                    (pressed && isRedeemEligible) || isTokenLoading
+                      ? { opacity: 0.9 }
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.redeemButtonText,
+                      !isRedeemEligible && styles.redeemButtonTextDisabled,
+                    ]}
+                  >
+                    {isArchived
+                      ? TEXT.archivedButton
+                      : isTokenLoading && isRedeemEligible
+                        ? TEXT.loading
+                        : TEXT.redeemButtonReady}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            <View style={styles.inviteRow}>
+              <Pressable
                   onPress={() => void handleShareInviteViaWhatsApp()}
                   disabled={isShareInviteLoading}
                   style={({ pressed }) => [
@@ -533,8 +530,8 @@ export default function CardDetailsScreen() {
                       ? TEXT.loading
                       : TEXT.shareViaWhatsApp}
                   </Text>
-                </Pressable>
-                <Pressable
+              </Pressable>
+              <Pressable
                   onPress={() => void handleCopyInviteLink()}
                   disabled={isShareInviteLoading}
                   style={({ pressed }) => [
@@ -546,8 +543,7 @@ export default function CardDetailsScreen() {
                   <Text style={styles.inviteSecondaryButtonText}>
                     {TEXT.copyInviteLink}
                   </Text>
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -672,13 +668,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingBottom: 4,
   },
-  progressCardReady: {
-    backgroundColor: 'transparent',
-  },
-  progressCardPending: {
-    backgroundColor: 'transparent',
+  loyaltyCardSection: {
+    width: '100%',
+    alignItems: 'center',
   },
   redeemPanel: {
+    width: '100%',
+    maxWidth: 600,
     marginTop: 14,
     borderRadius: 16,
     borderWidth: 1,
@@ -739,6 +735,8 @@ const styles = StyleSheet.create({
     color: '#5F6D86',
   },
   inviteRow: {
+    width: '100%',
+    maxWidth: 600,
     marginTop: 4,
     flexDirection: flexDirection.row,
     gap: 8,

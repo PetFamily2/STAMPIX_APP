@@ -1,7 +1,7 @@
 import Slider from '@react-native-community/slider';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,7 +20,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
@@ -121,6 +121,7 @@ type SavedBusinessQuery = {
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
   previewStampShape: string | null;
+  previewProgramLifecycle: 'active' | 'archived';
 };
 
 function getMapDelta(radiusKm: number) {
@@ -313,25 +314,16 @@ export default function DiscoveryScreen() {
           {!isSavedBusinessesLoading && savedBusinesses.length > 0 ? (
             <View style={styles.resultsList}>
               {savedBusinesses.map((business) => (
-                <Pressable
+                <View
                   key={String(business.businessId)}
-                  onPress={() =>
-                    router.push({
-                      pathname:
-                        '/(authenticated)/(customer)/business/[businessId]',
-                      params: { businessId: String(business.businessId) },
-                    } as any)
-                  }
-                  style={({ pressed }) => [
-                    styles.businessCard,
-                    pressed ? styles.pressed : null,
-                  ]}
+                  style={styles.businessCard}
                 >
-                  <ProgramCustomerCardPreview
+                  <LoyaltyCard
+                    variant="wallet"
                     businessName={business.businessName}
                     businessLogoUrl={business.businessLogoUrl}
                     programImageUrl={business.previewProgramImageUrl}
-                    title={
+                    programTitle={
                       business.previewProgramTitle ?? business.businessName
                     }
                     rewardName={
@@ -342,19 +334,36 @@ export default function DiscoveryScreen() {
                       1,
                       Number(business.previewMaxStamps ?? 1)
                     )}
-                    previewCurrentStamps={Number(
-                      business.previewCurrentStamps ?? 0
-                    )}
+                    progress={{
+                      kind: 'actual',
+                      currentStamps: Number(
+                        business.previewCurrentStamps ?? 0
+                      ),
+                    }}
+                    lifecycle={business.previewProgramLifecycle}
                     cardThemeId={business.previewCardThemeId}
                     stampShape={normalizeStampShape(business.previewStampShape)}
-                    status={
-                      business.redeemableCount > 0 ? 'redeemable' : 'default'
+                    onPress={() =>
+                      router.push(
+                        `/(authenticated)/(customer)/business/${String(
+                          business.businessId
+                        )}` as Href
+                      )
                     }
-                    variant="compact"
-                    showAllStamps={true}
                   />
 
-                  <View style={styles.savedBusinessMetaRow}>
+                  <Pressable
+                    style={styles.savedBusinessMetaRow}
+                    onPress={() =>
+                      router.push(
+                        `/(authenticated)/(customer)/business/${String(
+                          business.businessId
+                        )}` as Href
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`פתיחת ${business.businessName}`}
+                  >
                     <View style={styles.savedMetaBadge}>
                       <Text style={styles.savedMetaBadgeText}>
                         כרטיסיות: {business.joinedProgramCount}
@@ -365,8 +374,8 @@ export default function DiscoveryScreen() {
                         מוכנות למימוש: {business.redeemableCount}
                       </Text>
                     </View>
-                  </View>
-                </Pressable>
+                  </Pressable>
+                </View>
               ))}
             </View>
           ) : null}

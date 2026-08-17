@@ -21,7 +21,7 @@ import {
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
@@ -76,6 +76,7 @@ type ProgramRow = {
   stampIcon: string;
   stampShape: string;
   cardThemeId: string | null;
+  programLifecycle: 'active' | 'archived';
   membershipId: string | null;
   currentStamps: number;
   canRedeem: boolean;
@@ -413,31 +414,36 @@ export default function CustomerBusinessDetailsScreen() {
                 const key = String(program.programId);
                 const selected = selectedSet.has(key);
                 return (
-                  <Pressable
+                  <View
                     key={key}
-                    onPress={() => toggleProgramSelection(key)}
-                    style={({ pressed }) => [
+                    style={[
                       styles.programCard,
                       selected ? styles.programCardSelected : null,
-                      pressed ? styles.pressed : null,
                     ]}
                   >
-                    <ProgramCustomerCardPreview
+                    <LoyaltyCard
+                      variant="wallet"
                       businessName={business.name}
                       businessLogoUrl={business.logoUrl}
                       programImageUrl={program.programImageUrl}
-                      title={program.title}
+                      programTitle={program.title}
                       rewardName={program.rewardName}
                       maxStamps={program.maxStamps}
-                      previewCurrentStamps={0}
+                      progress={{ kind: 'actual', currentStamps: 0 }}
+                      lifecycle={program.programLifecycle}
+                      membershipStatus="available"
                       cardThemeId={program.cardThemeId}
                       stampIcon={program.stampIcon}
                       stampShape={normalizeStampShape(program.stampShape)}
                       selected={selected}
-                      variant="list"
-                      showAllStamps={true}
+                      onPress={() => toggleProgramSelection(key)}
                     />
-                    <View style={styles.programFooterRow}>
+                    <Pressable
+                      style={styles.programFooterRow}
+                      onPress={() => toggleProgramSelection(key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${selected ? 'ביטול בחירה' : 'בחירת'} ${program.title}`}
+                    >
                       <Text style={styles.programGoal}>
                         {TEXT.goalPrefix} {program.maxStamps} {TEXT.stamps}
                       </Text>
@@ -450,8 +456,8 @@ export default function CustomerBusinessDetailsScreen() {
                           color={selected ? '#2F6BFF' : '#9AA4B8'}
                         />
                       </View>
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -479,36 +485,46 @@ export default function CustomerBusinessDetailsScreen() {
           ) : (
             <View style={styles.programList}>
               {joinedPrograms.map((program) => (
-                <Pressable
+                <View
                   key={String(program.programId)}
-                  style={({ pressed }) => [
-                    styles.programCard,
-                    pressed ? styles.pressed : null,
-                  ]}
-                  onPress={() => {
-                    if (program.membershipId) {
-                      router.push(
-                        `/customer-card/${program.membershipId}` as Href
-                      );
-                    }
-                  }}
+                  style={styles.programCard}
                 >
-                  <ProgramCustomerCardPreview
+                  <LoyaltyCard
+                    variant="wallet"
                     businessName={business.name}
                     businessLogoUrl={business.logoUrl}
                     programImageUrl={program.programImageUrl}
-                    title={program.title}
+                    programTitle={program.title}
                     rewardName={program.rewardName}
                     maxStamps={program.maxStamps}
-                    previewCurrentStamps={program.currentStamps}
+                    progress={{
+                      kind: 'actual',
+                      currentStamps: program.currentStamps,
+                    }}
+                    lifecycle={program.programLifecycle}
                     cardThemeId={program.cardThemeId}
                     stampIcon={program.stampIcon}
                     stampShape={normalizeStampShape(program.stampShape)}
-                    status={program.canRedeem ? 'redeemable' : 'default'}
-                    variant="list"
-                    showAllStamps={true}
+                    onPress={() => {
+                      if (program.membershipId) {
+                        router.push(
+                          `/customer-card/${program.membershipId}` as Href
+                        );
+                      }
+                    }}
                   />
-                  <View style={styles.programFooterRow}>
+                  <Pressable
+                    style={styles.programFooterRow}
+                    onPress={() => {
+                      if (program.membershipId) {
+                        router.push(
+                          `/customer-card/${program.membershipId}` as Href
+                        );
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${TEXT.openCard}: ${program.title}`}
+                  >
                     <View style={styles.joinedDetails}>
                       {program.canRedeem ? (
                         <View style={styles.redeemBadge}>
@@ -522,8 +538,8 @@ export default function CustomerBusinessDetailsScreen() {
                     <Text style={styles.programProgress}>
                       {formatProgress(program.currentStamps, program.maxStamps)}
                     </Text>
-                  </View>
-                </Pressable>
+                  </Pressable>
+                </View>
               ))}
             </View>
           )}

@@ -1,16 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useQuery } from 'convex/react';
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard, {
+  LoyaltyCardSkeleton,
+} from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useSessionContext } from '@/contexts/UserContext';
@@ -55,11 +64,13 @@ type WalletBusiness = {
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
   previewStampShape: string | null;
+  previewProgramLifecycle: 'active' | 'archived';
 };
 
 export default function WalletScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const { width: windowWidth } = useWindowDimensions();
   const { isAuthenticated } = useConvexAuth();
   const sessionContext = useSessionContext();
   const pendingJoinChecked = useRef(false);
@@ -108,6 +119,7 @@ export default function WalletScreen() {
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
+          windowWidth < 360 ? styles.scrollContainerNarrow : null,
           {
             paddingBottom: tabBarHeight + 24,
           },
@@ -177,7 +189,7 @@ export default function WalletScreen() {
 
         {isLoading ? (
           <View style={styles.cardContainer}>
-            <Text style={styles.infoText}>{TEXT.loading}</Text>
+            <LoyaltyCardSkeleton variant="wallet" />
           </View>
         ) : null}
 
@@ -243,24 +255,18 @@ export default function WalletScreen() {
 
                 const aggregateMeta = aggregateMetaItems.join(' · ');
                 return (
-                  <Pressable
+                  <View
                     key={businessId}
                     style={styles.cardContainer}
-                    onPress={() =>
-                      router.push({
-                        pathname:
-                          '/(authenticated)/(customer)/business/[businessId]',
-                        params: { businessId },
-                      } as any)
-                    }
                   >
-                    <ProgramCustomerCardPreview
+                    <LoyaltyCard
+                      variant="wallet"
                       businessName={
                         business.businessName ?? TEXT.businessFallback
                       }
                       businessLogoUrl={business.businessLogoUrl}
                       programImageUrl={business.previewProgramImageUrl}
-                      title={
+                      programTitle={
                         business.previewProgramTitle ?? TEXT.joinedPrograms
                       }
                       rewardName={
@@ -271,18 +277,22 @@ export default function WalletScreen() {
                         1,
                         Number(business.previewMaxStamps ?? 1)
                       )}
-                      previewCurrentStamps={Number(
-                        business.previewCurrentStamps ?? 0
-                      )}
+                      progress={{
+                        kind: 'actual',
+                        currentStamps: Number(
+                          business.previewCurrentStamps ?? 0
+                        ),
+                      }}
+                      lifecycle={business.previewProgramLifecycle}
                       cardThemeId={business.previewCardThemeId}
                       stampShape={normalizeStampShape(
                         business.previewStampShape
                       )}
-                      status={
-                        business.redeemableCount > 0 ? 'redeemable' : 'default'
+                      onPress={() =>
+                        router.push(
+                          `/(authenticated)/(customer)/business/${businessId}` as Href
+                        )
                       }
-                      variant="compact"
-                      showAllStamps={true}
                     />
 
                     {aggregateMeta ? (
@@ -291,11 +301,20 @@ export default function WalletScreen() {
                       </Text>
                     ) : null}
 
-                    <View style={styles.openRow}>
+                    <Pressable
+                      style={styles.openRow}
+                      onPress={() =>
+                        router.push(
+                          `/(authenticated)/(customer)/business/${businessId}` as Href
+                        )
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`${TEXT.openBusiness}: ${business.businessName}`}
+                    >
                       <Text style={styles.openText}>{TEXT.openBusiness}</Text>
                       <Ionicons name="chevron-back" size={14} color="#5B6475" />
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 );
               })
             : null}
@@ -338,6 +357,9 @@ const styles = StyleSheet.create({
   },
   scrollBackground: {
     backgroundColor: '#E9F0FF',
+  },
+  scrollContainerNarrow: {
+    paddingHorizontal: 12,
   },
   headerRow: {
     alignItems: 'stretch',
