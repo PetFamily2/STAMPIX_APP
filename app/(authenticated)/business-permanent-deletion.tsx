@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -124,12 +124,17 @@ function businessRoute(
   businessId: string,
   returnToAccountDeletion: boolean
 ) {
-  const suffix = returnToAccountDeletion
-    ? '&returnTo=account-deletion'
-    : '';
-  return `/(authenticated)/business-permanent-deletion?businessId=${encodeURIComponent(
-    String(businessId)
-  )}${suffix}` as Href;
+  const params: {
+    businessId: string;
+    returnTo?: 'account-deletion';
+  } = { businessId: String(businessId) };
+  if (returnToAccountDeletion) {
+    params.returnTo = 'account-deletion';
+  }
+  return {
+    pathname: '/(authenticated)/business-permanent-deletion',
+    params,
+  } as const;
 }
 
 export default function BusinessPermanentDeletionScreen() {
@@ -283,9 +288,10 @@ export default function BusinessPermanentDeletionScreen() {
 
   const returnAfterCompletion = () => {
     if (returnToAccountDeletion) {
-      router.replace(
-        '/(authenticated)/business-permanent-deletion?returnTo=account-deletion'
-      );
+      router.replace({
+        pathname: '/(authenticated)/business-permanent-deletion',
+        params: { returnTo: 'account-deletion' },
+      });
       return;
     }
     router.replace('/(authenticated)/(customer)/wallet');

@@ -101,7 +101,7 @@ export const backfillBusinessOnboardingDraftImageStorageIds =
           draft.programDraft
         );
         const storageId = candidate
-          ? ctx.db.normalizeId('_storage', candidate)
+          ? ctx.db.system.normalizeId('_storage', candidate)
           : null;
         if (!storageId) {
           skipped += 1;

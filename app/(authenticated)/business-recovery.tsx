@@ -162,11 +162,10 @@ export default function BusinessRecoveryScreen() {
   };
 
   const openPermanentDeletion = (businessId: Id<'businesses'>) => {
-    router.push(
-      `/(authenticated)/business-permanent-deletion?businessId=${encodeURIComponent(
-        String(businessId)
-      )}` as Href
-    );
+    router.push({
+      pathname: '/(authenticated)/business-permanent-deletion',
+      params: { businessId: String(businessId) },
+    });
   };
 
   return (

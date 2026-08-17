@@ -20,7 +20,12 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { alignItems, flexDirection, selfEnd } from '@/lib/rtl';
+import {
+  alignItems,
+  flexDirection,
+  ltrIslandText,
+  selfEnd,
+} from '@/lib/rtl';
 
 const TEXT = {
   title: 'פניות שירות לקוחות',
@@ -473,7 +478,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   ltrText: {
-    writingDirection: 'ltr',
+    ...ltrIslandText,
+    textAlign: 'right',
   },
   messageText: {
     fontSize: 14,

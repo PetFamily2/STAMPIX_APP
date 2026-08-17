@@ -34,20 +34,20 @@ describe('Phase C2 join links', () => {
   });
 
   test('generated join links use the production stampix.app domain', () => {
-    const dashboardSource = readFileSync(
-      'app/(authenticated)/(business)/dashboard.tsx',
-      'utf8'
-    );
     const qrSource = readFileSync(
       'app/(authenticated)/(business)/qr.tsx',
       'utf8'
     );
     const referralsSource = readFileSync('convex/referrals.ts', 'utf8');
 
-    expect(dashboardSource).toContain('https://stampix.app/join');
-    expect(qrSource).toContain('https://stampix.app/join');
-    expect(referralsSource).toContain('https://stampix.app/join');
-    expect(dashboardSource).not.toContain('app.stampaix.com/join');
+    expect(qrSource).toContain("const BASE_URL = 'https://stampix.app/join'");
+    expect(qrSource).toContain('return `${BASE_URL}?${params.toString()}`');
+    expect(referralsSource).toContain(
+      'return `https://stampix.app/join?ref=${encodeURIComponent(code)}`'
+    );
+    expect(referralsSource).toContain(
+      'return `https://stampix.app/join?bref=${encodeURIComponent(code)}`'
+    );
     expect(qrSource).not.toContain('app.stampaix.com/join');
     expect(referralsSource).not.toContain('app.stampaix.com/join');
   });

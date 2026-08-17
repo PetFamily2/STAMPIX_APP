@@ -8,10 +8,12 @@
  * @module
  */
 
+import type * as accountDeletionRequests from "../accountDeletionRequests.js";
 import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as business from "../business.js";
+import type * as businessDeletion from "../businessDeletion.js";
 import type * as campaigns from "../campaigns.js";
 import type * as crons from "../crons.js";
 import type * as customerCards from "../customerCards.js";
@@ -40,6 +42,7 @@ import type * as migrations_auditManualSegmentDependencies from "../migrations/a
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
 import type * as migrations_backfillBusinessSubscriptions from "../migrations/backfillBusinessSubscriptions.js";
 import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/backfillLoyaltyProgramLifecycle.js";
+import type * as migrations_backfillPermanentDeletionReferences from "../migrations/backfillPermanentDeletionReferences.js";
 import type * as migrations_backfillUserSubscriptionPlans from "../migrations/backfillUserSubscriptionPlans.js";
 import type * as migrations_cutoverLegacyRetentionActions from "../migrations/cutoverLegacyRetentionActions.js";
 import type * as migrations_migrateLegacySegmentCustomerStatus from "../migrations/migrateLegacySegmentCustomerStatus.js";
@@ -49,6 +52,7 @@ import type * as migrations_postCutoverValidation from "../migrations/postCutove
 import type * as migrations_removeManualSegments from "../migrations/removeManualSegments.js";
 import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
+import type * as providerCredentials from "../providerCredentials.js";
 import type * as pushNotifications from "../pushNotifications.js";
 import type * as recommendations from "../recommendations.js";
 import type * as referrals from "../referrals.js";
@@ -66,10 +70,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountDeletionRequests: typeof accountDeletionRequests;
   aiRecommendations: typeof aiRecommendations;
   analytics: typeof analytics;
   auth: typeof auth;
   business: typeof business;
+  businessDeletion: typeof businessDeletion;
   campaigns: typeof campaigns;
   crons: typeof crons;
   customerCards: typeof customerCards;
@@ -98,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
   "migrations/backfillBusinessSubscriptions": typeof migrations_backfillBusinessSubscriptions;
   "migrations/backfillLoyaltyProgramLifecycle": typeof migrations_backfillLoyaltyProgramLifecycle;
+  "migrations/backfillPermanentDeletionReferences": typeof migrations_backfillPermanentDeletionReferences;
   "migrations/backfillUserSubscriptionPlans": typeof migrations_backfillUserSubscriptionPlans;
   "migrations/cutoverLegacyRetentionActions": typeof migrations_cutoverLegacyRetentionActions;
   "migrations/migrateLegacySegmentCustomerStatus": typeof migrations_migrateLegacySegmentCustomerStatus;
@@ -107,6 +114,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/removeManualSegments": typeof migrations_removeManualSegments;
   onboarding: typeof onboarding;
   otp: typeof otp;
+  providerCredentials: typeof providerCredentials;
   pushNotifications: typeof pushNotifications;
   recommendations: typeof recommendations;
   referrals: typeof referrals;

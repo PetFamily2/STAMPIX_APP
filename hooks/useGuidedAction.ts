@@ -45,6 +45,7 @@ import {
   shouldResetGuidedStatusRetryAfterSuccess,
   type GuideViewport,
   type GuidedActionRuntimeCoordinator,
+  type GuidedFreshStatusQueryResult,
   type GuidedTargetActivationInput,
   type GuidedTargetServerStatus,
   type RecommendationGuideEntityKind,
@@ -232,10 +233,7 @@ export function useGuidedAction(input: {
   const [queryRetry, setQueryRetry] = useState<{
     requestKey: string;
     state: 'loading' | 'success' | 'error';
-    result?: {
-      state: 'active' | 'completed' | 'invalidated' | 'restricted';
-      reasonCode: string;
-    };
+    result?: GuidedFreshStatusQueryResult;
     error?: Error;
   } | null>(null);
   const [statusRetryState, setStatusRetryState] = useState({

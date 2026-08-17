@@ -264,6 +264,7 @@ describe('dashboard lifecycle KPI helpers', () => {
     const dayStart = now - 60_000;
     const ctx = buildDashboardCtx({
       users: [{ _id: 'staff_1', isActive: true }],
+      businesses: [{ _id: 'business_1', isActive: true }],
       businessStaff: [
         {
           _id: 'staff_link_1',

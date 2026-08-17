@@ -66,6 +66,9 @@ class FakeDb {
     this.validIds = validIds;
     this.counter = 0;
     this.paginateCalls = [];
+    this.system = {
+      normalizeId: (tableName, id) => this.normalizeId(tableName, id),
+    };
   }
 
   rows(tableName) {

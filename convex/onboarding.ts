@@ -225,7 +225,7 @@ export const saveMyBusinessOnboardingDraft = mutation({
     const programImageStorageIdCandidate =
       getProgramImageStorageIdCandidate(nextProgramDraft);
     const programImageStorageId = programImageStorageIdCandidate
-      ? (ctx.db.normalizeId('_storage', programImageStorageIdCandidate) ??
+      ? (ctx.db.system.normalizeId('_storage', programImageStorageIdCandidate) ??
         undefined)
       : undefined;
 

@@ -1,5 +1,5 @@
+import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
-import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import {
   internalAction,
@@ -14,12 +14,66 @@ import {
 } from './guards';
 import { sendExpoPushMessages } from './pushNotifications';
 
-const internalDeletionApi = (internal as any).businessDeletion;
 const DELETE_BATCH_SIZE = 50;
 const SCHEDULED_PUSH_TIMEOUT_MS = 5 * 60 * 1000;
 const COMPLETED_JOB_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type DeletionPhase = Doc<'businessDeletionJobs'>['phase'];
+type BusinessDeletionProcessResult =
+  | { status: 'stale' }
+  | { status: 'processed'; phase: DeletionPhase };
+type BusinessDeletionWorkerResult =
+  | BusinessDeletionProcessResult
+  | { status: 'failed' };
+type PermanentDeletionPushClaim =
+  | { claimed: false }
+  | {
+      claimed: true;
+      businessName: string;
+      tokens: Array<{ tokenId: Id<'pushTokens'>; token: string }>;
+    };
+
+const internalDeletionApi = {
+  runBusinessDeletionWorkerInternal: makeFunctionReference<
+    'action',
+    { jobId: Id<'businessDeletionJobs'> },
+    BusinessDeletionWorkerResult
+  >('businessDeletion:runBusinessDeletionWorkerInternal'),
+  processBusinessDeletionBatchInternal: makeFunctionReference<
+    'mutation',
+    { jobId: Id<'businessDeletionJobs'> },
+    BusinessDeletionProcessResult
+  >('businessDeletion:processBusinessDeletionBatchInternal'),
+  markBusinessDeletionFailedInternal: makeFunctionReference<
+    'mutation',
+    {
+      jobId: Id<'businessDeletionJobs'>;
+      failureCode: string;
+      failureDetail: string;
+    },
+    { status: 'stale' | 'failed' }
+  >('businessDeletion:markBusinessDeletionFailedInternal'),
+  claimPermanentDeletionPushAttemptInternal: makeFunctionReference<
+    'mutation',
+    { recipientId: Id<'businessDeletionRecipients'> },
+    PermanentDeletionPushClaim
+  >('businessDeletion:claimPermanentDeletionPushAttemptInternal'),
+  finalizePermanentDeletionPushAttemptInternal: makeFunctionReference<
+    'mutation',
+    {
+      recipientId: Id<'businessDeletionRecipients'>;
+      status: 'sent' | 'failed';
+      failureDetail?: string;
+      deviceNotRegisteredTokenIds: Array<Id<'pushTokens'>>;
+    },
+    { status: 'stale' | 'sent' | 'failed' }
+  >('businessDeletion:finalizePermanentDeletionPushAttemptInternal'),
+  deliverPermanentDeletionPushInternal: makeFunctionReference<
+    'action',
+    { recipientId: Id<'businessDeletionRecipients'> },
+    { status: 'stale_or_skipped' | 'sent' | 'failed' }
+  >('businessDeletion:deliverPermanentDeletionPushInternal'),
+} as const;
 
 function normalizeConfirmationName(value: string) {
   return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();

@@ -411,9 +411,10 @@ export default function SettingsScreen() {
     setDeleteModalVisible(false);
     setDeleteStep(1);
     setDeleteConfirmationText('');
-    router.push(
-      '/(authenticated)/business-permanent-deletion?returnTo=account-deletion'
-    );
+    router.push({
+      pathname: '/(authenticated)/business-permanent-deletion',
+      params: { returnTo: 'account-deletion' },
+    });
   };
 
   const clearLocalSessionState = async () => {

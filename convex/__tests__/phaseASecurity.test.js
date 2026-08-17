@@ -288,6 +288,12 @@ describe('Phase A client-forgery denials', () => {
 
   test('RevenueCat context cannot grant local premium from customer info', () => {
     const source = readFileSync('contexts/RevenueCatContext.tsx', 'utf8');
+    const mockPurchaseStart = source.indexOf('if (MOCK_PAYMENTS)');
+    const mockPurchaseEnd = source.indexOf('// Expo Go', mockPurchaseStart);
+    const mockPurchaseBranch = source.slice(
+      mockPurchaseStart,
+      mockPurchaseEnd
+    );
 
     expect(source).not.toContain('planFromRevenueCatSubscriber');
     expect(source).not.toContain('setSubscriptionPlan');
@@ -299,7 +305,10 @@ describe('Phase A client-forgery denials', () => {
     expect(source).not.toContain(
       "Alert.alert('הצלחה', 'הרכישות שוחזרו בהצלחה!')"
     );
-    expect(source).toContain('רכישות מדומות לא מעניקות הרשאות');
+    expect(mockPurchaseBranch).toContain(
+      'השדרוג לא זמין כרגע באפליקציה הזו. אפשר להמשיך להשתמש במסלול הנוכחי.'
+    );
+    expect(mockPurchaseBranch).toContain('return false;');
     expect(source).toContain(
       "const subscriptionPlan: SubscriptionPlan = 'starter'"
     );

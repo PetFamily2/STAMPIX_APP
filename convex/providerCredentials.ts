@@ -1,6 +1,6 @@
+import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { internal } from './_generated/api';
 import {
   internalAction,
   internalMutation,
@@ -62,7 +62,37 @@ const SWEEP_BATCH_SIZE = 50;
 export const PROVIDER_CREDENTIAL_PROFILE_FIELD =
   '__stampixEncryptedProviderCredential';
 
-const internalProviderCredentialsApi = (internal as any).providerCredentials;
+type ProviderRevocationRunResult =
+  | { status: 'stale' }
+  | { status: 'completed' | 'manual_required' }
+  | { status: 'queued'; nextAttemptAt: number };
+
+const internalProviderCredentialsApi = {
+  runProviderRevocationInternal: makeFunctionReference<
+    'action',
+    { jobId: Id<'providerRevocationJobs'> },
+    ProviderRevocationRunResult
+  >('providerCredentials:runProviderRevocationInternal'),
+  claimProviderRevocationJobInternal: makeFunctionReference<
+    'mutation',
+    { jobId: Id<'providerRevocationJobs'> },
+    ProviderRevocationJob | null
+  >('providerCredentials:claimProviderRevocationJobInternal'),
+  retryProviderRevocationJobInternal: makeFunctionReference<
+    'mutation',
+    { jobId: Id<'providerRevocationJobs'>; terminalCode: string },
+    ProviderRevocationRunResult
+  >('providerCredentials:retryProviderRevocationJobInternal'),
+  completeProviderRevocationJobInternal: makeFunctionReference<
+    'mutation',
+    {
+      jobId: Id<'providerRevocationJobs'>;
+      status: 'completed' | 'manual_required';
+      terminalCode: string;
+    },
+    { status: 'stale' | 'completed' | 'manual_required' }
+  >('providerCredentials:completeProviderRevocationJobInternal'),
+} as const;
 
 function isRevocableProvider(value: unknown): value is RevocableProvider {
   return value === 'apple' || value === 'google';
@@ -731,10 +761,10 @@ export const retryProviderRevocationJobInternal = internalMutation({
 export const runProviderRevocationInternal = internalAction({
   args: { jobId: v.id('providerRevocationJobs') },
   handler: async (ctx, { jobId }) => {
-    const job = (await ctx.runMutation(
+    const job = await ctx.runMutation(
       internalProviderCredentialsApi.claimProviderRevocationJobInternal,
       { jobId }
-    )) as ProviderRevocationJob | null;
+    );
     if (!job) {
       return { status: 'stale' as const };
     }
