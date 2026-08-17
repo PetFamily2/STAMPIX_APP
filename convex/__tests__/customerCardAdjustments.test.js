@@ -226,6 +226,28 @@ function buildCtx(tables, subject = 'staff_1') {
   };
 }
 
+async function queryCustomerCardReadiness({
+  maxStamps,
+  currentStamps,
+  lifecycle = 'active',
+}) {
+  const tables = buildTables({ staffRole: 'owner' });
+  tables.loyaltyPrograms[0].maxStamps = maxStamps;
+  tables.loyaltyPrograms[0].status = lifecycle;
+  tables.memberships[0].currentStamps = currentStamps;
+
+  const result = await getBusinessCustomerCard._handler(buildCtx(tables), {
+    businessId: 'business_1',
+    customerUserId: 'customer_1',
+    limit: 20,
+  });
+
+  return {
+    program: result.programs[0],
+    redeemableProgramsCount: result.summary.redeemableProgramsCount,
+  };
+}
+
 describe('customer card manual adjustments', () => {
   test('owner can reverse latest event and state is restored', async () => {
     const tables = buildTables({ staffRole: 'owner' });
@@ -374,5 +396,67 @@ describe('customer card manual adjustments', () => {
     expect(deletedActorEvent).toBeTruthy();
     expect(deletedActorEvent.actorName).toBe('משתמש שנמחק');
     expect(result.summary.totalStampsAdded).toBe(2);
+  });
+});
+
+describe('business customer card readiness safety', () => {
+  test('requires an active lifecycle and an authoritative original target', async () => {
+    const scenarios = [
+      {
+        maxStamps: 10,
+        currentStamps: 10,
+        expectedCanRedeem: true,
+        expectedTargetIsValid: true,
+        expectedExposedTarget: 10,
+      },
+      {
+        maxStamps: 0,
+        currentStamps: 5,
+        expectedCanRedeem: false,
+        expectedTargetIsValid: false,
+        expectedExposedTarget: 0,
+      },
+      {
+        maxStamps: -5,
+        currentStamps: 5,
+        expectedCanRedeem: false,
+        expectedTargetIsValid: false,
+        expectedExposedTarget: 0,
+      },
+      {
+        maxStamps: Number.NaN,
+        currentStamps: 5,
+        expectedCanRedeem: false,
+        expectedTargetIsValid: false,
+        expectedExposedTarget: 0,
+      },
+      {
+        maxStamps: 10,
+        currentStamps: 10,
+        lifecycle: 'archived',
+        expectedCanRedeem: false,
+        expectedTargetIsValid: true,
+        expectedExposedTarget: 10,
+      },
+      {
+        maxStamps: 10,
+        currentStamps: 4,
+        expectedCanRedeem: false,
+        expectedTargetIsValid: true,
+        expectedExposedTarget: 10,
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const { program, redeemableProgramsCount } =
+        await queryCustomerCardReadiness(scenario);
+
+      expect(program.canRedeem).toBe(scenario.expectedCanRedeem);
+      expect(program.targetIsValid).toBe(scenario.expectedTargetIsValid);
+      expect(program.maxStamps).toBe(scenario.expectedExposedTarget);
+      expect(redeemableProgramsCount).toBe(
+        scenario.expectedCanRedeem ? 1 : 0
+      );
+    }
   });
 });

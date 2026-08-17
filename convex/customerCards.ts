@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { isValidLoyaltyTarget } from '../lib/loyalty/targetValidity';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import {
@@ -337,12 +338,20 @@ export const getBusinessCustomerCard = query({
         if (!program) {
           return null;
         }
-        const maxStamps = Math.max(1, Number(program.maxStamps ?? 0) || 1);
+        const programLifecycle = resolveProgramLifecycle(program);
+        const originalMaxStamps = Number(program.maxStamps ?? 0);
+        const targetIsValid = isValidLoyaltyTarget(originalMaxStamps);
+        const safeMaxStamps = targetIsValid ? originalMaxStamps : 1;
+        const maxStamps = targetIsValid ? originalMaxStamps : 0;
         const currentStamps = Math.max(
           0,
           Number(membership.currentStamps ?? 0)
         );
-        const rewardProgressRatio = currentStamps / maxStamps;
+        const hasAuthoritativeRewardProgress =
+          programLifecycle === 'active' && targetIsValid;
+        const rewardProgressRatio = hasAuthoritativeRewardProgress
+          ? currentStamps / safeMaxStamps
+          : 0;
         const lastActivityAt =
           membership.lastStampAt ??
           membership.updatedAt ??
@@ -355,9 +364,13 @@ export const getBusinessCustomerCard = query({
           stampIcon: program.stampIcon,
           stampShape: program.stampShape ?? 'circle',
           cardThemeId: program.cardThemeId ?? null,
+          programLifecycle,
+          targetIsValid,
           currentStamps,
           maxStamps,
-          canRedeem: currentStamps >= maxStamps,
+          canRedeem:
+            hasAuthoritativeRewardProgress &&
+            currentStamps >= originalMaxStamps,
           joinedAt: membership.createdAt,
           lastStampAt: membership.lastStampAt ?? null,
           lastActivityAt,

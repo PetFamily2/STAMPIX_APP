@@ -15,9 +15,9 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import type { StampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -154,27 +154,25 @@ function ProgramListSection({
           </View>
         ) : (
           programs.map((program) => (
-            <TouchableOpacity
+            <View
               key={String(program.loyaltyProgramId)}
-              onPress={() => onOpenProgram(program)}
               className="gap-2 border-b border-[#DCE6F7] py-3"
-              accessibilityRole="button"
-              accessibilityLabel={`פתיחת הכרטיסייה ${program.title}`}
+              style={{ width: '100%', maxWidth: 600, alignSelf: 'center' }}
             >
-              <ProgramCustomerCardPreview
+              <LoyaltyCard
+                variant="management"
                 businessName={businessName}
                 businessLogoUrl={businessLogoUrl}
                 programImageUrl={program.imageUrl}
-                title={program.title}
+                programTitle={program.title}
                 rewardName={program.rewardName}
                 maxStamps={program.maxStamps}
+                progress={{ kind: 'none' }}
+                lifecycle={program.lifecycle}
                 stampIcon={program.stampIcon}
                 stampShape={toStampShape(program.stampShape)}
                 cardThemeId={program.cardThemeId}
-                status={
-                  program.lifecycle === 'archived' ? 'archived' : 'default'
-                }
-                variant="compact"
+                onPress={() => onOpenProgram(program)}
               />
 
               <View
@@ -199,7 +197,7 @@ function ProgramListSection({
                   {TEXT.openDetails}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ))
         )
       ) : null}

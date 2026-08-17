@@ -38,7 +38,7 @@ const TEXT = {
   qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
   qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
   refreshCta: 'רענון QR',
-  stampSuccessBanner: '\uD83C\uDF89 קיבלת ניקוב!',
+  stampSuccessBanner: '✅ קיבלת ניקוב!',
 };
 
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
@@ -235,11 +235,11 @@ export default function CustomerShowQrScreen() {
         topOffset={(insets.top || 0) + 8}
         durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
         variant="success"
-        showFireworks={true}
-        showConfetti={true}
-        placement="center"
-        emphasis="large"
-        fullScreenCelebration={true}
+        showFireworks={false}
+        showConfetti={false}
+        placement="top"
+        emphasis="default"
+        fullScreenCelebration={false}
       />
 
       <View
@@ -445,19 +445,19 @@ const styles = StyleSheet.create({
   stampCelebrationBanner: {
     backgroundColor: '#E8FFF4',
     borderColor: '#88D7AB',
-    borderWidth: 2.5,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   stampCelebrationMessage: {
     color: '#0A5C35',
-    fontSize: 24,
-    lineHeight: 34,
-    fontWeight: '900',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '800',
     textAlign: 'center',
   },
   stampCelebrationIcon: {
     color: '#0A8F4E',
-    fontSize: 26,
+    fontSize: 18,
   },
 });

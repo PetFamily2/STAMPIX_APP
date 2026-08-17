@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -10,8 +10,14 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
+import {
+  isReadyLoyaltyMembership,
+  type CustomerMembershipView,
+} from '@/lib/domain/customerMemberships';
 import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
@@ -25,16 +31,6 @@ const TEXT = {
   emptyCta: 'מציאת עסק להצטרפות',
   noMessages: 'אין הודעות חדשות כרגע.',
   messageAction: 'לפרטים',
-};
-
-type CustomerMembershipRecord = {
-  membershipId: string;
-  businessName: string;
-  programTitle: string;
-  rewardName: string;
-  currentStamps: number;
-  maxStamps: number;
-  canRedeem: boolean;
 };
 
 function formatDateTime(value: number) {
@@ -53,9 +49,9 @@ export default function RewardsScreen() {
   const inboxQuery = useQuery(api.campaigns.listInboxForCustomer);
   const membershipsQuery = useQuery(api.memberships.byCustomer);
   const inbox = inboxQuery ?? [];
-  const memberships = (membershipsQuery ?? []) as CustomerMembershipRecord[];
+  const memberships = (membershipsQuery ?? []) as CustomerMembershipView[];
   const redeemableRewards = useMemo(
-    () => memberships.filter((membership) => membership.canRedeem),
+    () => memberships.filter(isReadyLoyaltyMembership),
     [memberships]
   );
   const isLoading = inboxQuery === undefined || membershipsQuery === undefined;
@@ -66,7 +62,7 @@ export default function RewardsScreen() {
     if (!destinationHref) {
       return;
     }
-    router.push(destinationHref as any);
+    router.push(destinationHref as Href);
   };
 
   return (
@@ -141,26 +137,31 @@ export default function RewardsScreen() {
                 </Text>
                 <View style={styles.readyRewardsList}>
                   {redeemableRewards.map((reward) => (
-                    <View
+                    <LoyaltyCard
                       key={reward.membershipId}
-                      style={styles.readyRewardCard}
-                    >
-                      <View style={styles.readyRewardHeader}>
-                        <Text style={styles.readyRewardBadge}>
-                          {reward.businessName}
-                        </Text>
-                        <Text style={styles.readyRewardProgram}>
-                          {reward.programTitle}
-                        </Text>
-                      </View>
-                      <Text style={styles.readyRewardName}>
-                        {reward.rewardName}
-                      </Text>
-                      <Text style={styles.readyRewardHint}>
-                        כרטיסיה מלאה ({reward.currentStamps}/{reward.maxStamps}
-                        ). אפשר לממש בהצגה בקופה.
-                      </Text>
-                    </View>
+                      variant="wallet"
+                      businessName={reward.businessName}
+                      businessLogoUrl={reward.businessLogoUrl}
+                      programImageUrl={reward.programImageUrl}
+                      programTitle={reward.programTitle}
+                      rewardName={reward.rewardName}
+                      maxStamps={reward.maxStamps}
+                      progress={{
+                        kind: 'actual',
+                        currentStamps: reward.currentStamps,
+                      }}
+                      lifecycle={reward.programLifecycle}
+                      cardThemeId={reward.cardThemeId}
+                      stampIcon={reward.stampIcon}
+                      stampShape={normalizeStampShape(reward.stampShape)}
+                      onPress={() =>
+                        router.push({
+                          pathname:
+                            '/(authenticated)/(customer)/customer-card/[membershipId]',
+                          params: { membershipId: reward.membershipId },
+                        })
+                      }
+                    />
                   ))}
                 </View>
               </View>
@@ -328,49 +329,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   readyRewardsList: {
-    gap: 8,
-  },
-  readyRewardCard: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#DCE6F7',
-    paddingVertical: 10,
-    gap: 6,
-  },
-  readyRewardHeader: {
-    flexDirection: flexDirection.row,
+    gap: 12,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  readyRewardBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1D4ED8',
-    backgroundColor: '#EEF3FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: 'hidden',
-    textAlign: 'center',
-  },
-  readyRewardProgram: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-    textAlign: 'right',
-  },
-  readyRewardName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
-    textAlign: 'right',
-  },
-  readyRewardHint: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
-    textAlign: 'right',
   },
   messageCard: {
     borderBottomWidth: 1,

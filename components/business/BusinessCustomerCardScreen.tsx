@@ -18,7 +18,7 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import ProgramCustomerCardPreview from '@/components/business/ProgramCustomerCardPreview';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -219,7 +219,7 @@ export default function BusinessCustomerCardScreen() {
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const isStaffRoute = (segments as string[]).includes('(staff)');
   const { appMode, isLoading: isAppModeLoading } = useAppMode();
-  const { activeBusinessId } = useActiveBusiness();
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const reverseCustomerCardEvent = useMutation(
     api.customerCards.reverseCustomerCardEvent
   );
@@ -608,21 +608,26 @@ export default function BusinessCustomerCardScreen() {
                     key={String(program.membershipId)}
                     style={styles.programWrap}
                   >
-                    <ProgramCustomerCardPreview
-                      businessName={card.customer.name}
+                    <LoyaltyCard
+                      variant="management"
+                      businessName={activeBusiness?.name?.trim() || 'העסק שלך'}
+                      businessLogoUrl={activeBusiness?.logoUrl ?? null}
+                      programTitle={program.programTitle}
                       rewardName={program.rewardName}
-                      maxStamps={program.maxStamps}
-                      previewCurrentStamps={program.currentStamps}
-                      title={program.programTitle}
+                      maxStamps={
+                        program.targetIsValid ? program.maxStamps : 0
+                      }
+                      progress={{
+                        kind: 'actual',
+                        currentStamps: program.currentStamps,
+                      }}
+                      lifecycle={program.programLifecycle}
                       stampIcon={program.stampIcon}
                       stampShape={normalizeStampShape(program.stampShape)}
                       cardThemeId={program.cardThemeId}
-                      variant="compact"
-                      status={program.canRedeem ? 'redeemable' : 'default'}
-                      showAllStamps={false}
                     />
                     <Text style={styles.programMetaText}>
-                      {program.currentStamps}/{program.maxStamps} • עדכון אחרון:{' '}
+                      עדכון אחרון:{' '}
                       {formatDateTime(program.lastActivityAt)}
                     </Text>
                   </View>
@@ -1082,6 +1087,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   programWrap: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     gap: 6,
   },
   programMetaText: {

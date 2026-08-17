@@ -1,3 +1,5 @@
+import { isValidLoyaltyTarget } from '../loyalty/targetValidity';
+
 export type CustomerMembershipView = {
   membershipId: string;
   userId: string;
@@ -17,3 +19,16 @@ export type CustomerMembershipView = {
   lastStampAt: number;
   canRedeem: boolean;
 };
+
+export function isReadyLoyaltyMembership(
+  membership: Pick<
+    CustomerMembershipView,
+    'programLifecycle' | 'maxStamps' | 'canRedeem'
+  >
+) {
+  return (
+    membership.programLifecycle === 'active' &&
+    isValidLoyaltyTarget(membership.maxStamps) &&
+    membership.canRedeem
+  );
+}

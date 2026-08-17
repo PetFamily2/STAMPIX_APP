@@ -1,3 +1,5 @@
+import { isValidLoyaltyTarget } from './targetValidity';
+
 export type LoyaltyCardVariant = 'wallet' | 'full' | 'preview' | 'management';
 
 export type LoyaltyProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -50,10 +52,6 @@ export function sanitizeCurrent(value: number, target: number) {
   return Math.min(target, Math.max(0, toSafeInteger(value, 0)));
 }
 
-function isValidTarget(value: number) {
-  return Number.isFinite(value) && Math.floor(value) >= 1;
-}
-
 export function resolveProgressStrategy(
   variant: LoyaltyCardVariant,
   target: number
@@ -71,7 +69,7 @@ export function resolveLoyaltyCardPresentation({
   maxStamps,
   rewardName,
 }: PresentationInput): LoyaltyCardPresentation {
-  const targetIsValid = isValidTarget(maxStamps);
+  const targetIsValid = isValidLoyaltyTarget(maxStamps);
   const target = sanitizeTarget(maxStamps);
   const hasProgressData = targetIsValid && progress.kind !== 'none';
   const current = sanitizeCurrent(
