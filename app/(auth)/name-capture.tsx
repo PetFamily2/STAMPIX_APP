@@ -1,10 +1,12 @@
+import { useAuthActions } from '@convex-dev/auth/react';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -32,7 +34,19 @@ const TEXT = {
   loading: 'טוענים',
 };
 
-const AUTH_REDIRECT_DELAY_MS = 1800;
+const RECOVERY_TEXT = {
+  bootstrapFailed: 'לא הצלחנו להכין את החשבון. אפשר לנסות שוב.',
+  retry: 'נסו שוב',
+  returnToSignIn: 'חזרה להתחברות',
+  signOutFailed: 'לא הצלחנו לחזור להתחברות. נסו שוב.',
+  saveFailed: 'לא הצלחנו לשמור את השם. הפרטים נשמרו במסך ואפשר לנסות שוב.',
+};
+
+type BootstrapStatus =
+  | 'checking'
+  | 'bootstrapping'
+  | 'awaiting-user'
+  | 'failed';
 
 function splitFullName(fullName?: string | null) {
   if (!fullName) {
@@ -84,6 +98,7 @@ function shouldAutofillFromOAuthProvider(externalId?: string | null) {
 
 export default function NameCaptureScreen() {
   const router = useRouter();
+  const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const user = useQuery(api.users.getCurrentUser);
   const createOrUpdateUser = useMutation(api.auth.createOrUpdateUser);
@@ -92,61 +107,53 @@ export default function NameCaptureScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isBootstrappingUser, setIsBootstrappingUser] = useState(false);
-  const [allowUnauthRedirect, setAllowUnauthRedirect] = useState(false);
+  const [bootstrapStatus, setBootstrapStatus] =
+    useState<BootstrapStatus>('checking');
+  const [bootstrapError, setBootstrapError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const didPrefillRef = useRef(false);
-  const bootstrapAttemptedRef = useRef(false);
   const canAutofillFromOAuth = useMemo(
     () => shouldAutofillFromOAuthProvider(user?.externalId),
     [user?.externalId]
   );
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAllowUnauthRedirect(true);
-    }, AUTH_REDIRECT_DELAY_MS);
+  const bootstrapUser = useCallback(async () => {
+    if (!isAuthenticated || bootstrapStatus === 'bootstrapping') {
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, []);
+    setBootstrapStatus('bootstrapping');
+    setBootstrapError('');
+    try {
+      await createOrUpdateUser({});
+      setBootstrapStatus('awaiting-user');
+    } catch {
+      setBootstrapError(RECOVERY_TEXT.bootstrapFailed);
+      setBootstrapStatus('failed');
+    }
+  }, [bootstrapStatus, createOrUpdateUser, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthLoading || user !== null) {
+    if (isAuthLoading || user === undefined) {
       return;
     }
 
     if (!isAuthenticated) {
-      if (!allowUnauthRedirect) {
-        return;
-      }
       router.replace('/(auth)/sign-up');
       return;
     }
 
-    if (isBootstrappingUser || bootstrapAttemptedRef.current) {
+    if (user !== null || bootstrapStatus !== 'checking') {
       return;
     }
 
-    bootstrapAttemptedRef.current = true;
-    setIsBootstrappingUser(true);
-    const run = async () => {
-      try {
-        await createOrUpdateUser({});
-      } catch {
-        if (allowUnauthRedirect) {
-          router.replace('/(auth)/sign-up');
-        }
-      } finally {
-        setIsBootstrappingUser(false);
-      }
-    };
-
-    void run();
+    void bootstrapUser();
   }, [
-    createOrUpdateUser,
+    bootstrapStatus,
+    bootstrapUser,
     isAuthenticated,
     isAuthLoading,
-    isBootstrappingUser,
-    allowUnauthRedirect,
     router,
     user,
   ]);
@@ -190,27 +197,79 @@ export default function NameCaptureScreen() {
     }
 
     setIsSubmitting(true);
+    setSaveError('');
     try {
       await setMyName({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });
       router.replace('/(auth)/onboarding-client-interests');
+    } catch {
+      setSaveError(RECOVERY_TEXT.saveFailed);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleReturnToSignIn = async () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    setBootstrapError('');
+    try {
+      await signOut();
+      router.replace('/(auth)/welcome');
+    } catch {
+      setBootstrapError(RECOVERY_TEXT.signOutFailed);
+    } finally {
+      setIsSigningOut(false);
     }
   };
 
   if (
     user === undefined ||
     isAuthLoading ||
-    isBootstrappingUser ||
-    (isAuthenticated && user === null)
+    (user === null &&
+      (bootstrapStatus === 'checking' ||
+        bootstrapStatus === 'bootstrapping' ||
+        bootstrapStatus === 'awaiting-user'))
   ) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="small" color="#2563eb" />
         <Text style={styles.loadingText}>{TEXT.loading}</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (user === null && bootstrapStatus === 'failed') {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <Text style={styles.recoveryText}>{bootstrapError}</Text>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isSigningOut}
+          onPress={() => {
+            void bootstrapUser();
+          }}
+          style={styles.recoveryPrimaryButton}
+        >
+          <Text style={styles.recoveryPrimaryText}>{RECOVERY_TEXT.retry}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isSigningOut}
+          onPress={() => {
+            void handleReturnToSignIn();
+          }}
+          style={styles.recoverySecondaryButton}
+        >
+          <Text style={styles.recoverySecondaryText}>
+            {RECOVERY_TEXT.returnToSignIn}
+          </Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -242,7 +301,10 @@ export default function NameCaptureScreen() {
             <Text style={styles.inputLabel}>{TEXT.firstNameLabel}</Text>
             <TextInput
               value={firstName}
-              onChangeText={setFirstName}
+              onChangeText={(value) => {
+                setFirstName(value);
+                setSaveError('');
+              }}
               placeholder={TEXT.firstNamePlaceholder}
               placeholderTextColor="#9CA3AF"
               autoCapitalize="words"
@@ -257,7 +319,10 @@ export default function NameCaptureScreen() {
             <Text style={styles.inputLabel}>{TEXT.lastNameLabel}</Text>
             <TextInput
               value={lastName}
-              onChangeText={setLastName}
+              onChangeText={(value) => {
+                setLastName(value);
+                setSaveError('');
+              }}
               placeholder={TEXT.lastNamePlaceholder}
               placeholderTextColor="#9CA3AF"
               autoCapitalize="words"
@@ -268,6 +333,8 @@ export default function NameCaptureScreen() {
             />
           </View>
         </View>
+
+        {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
         <View style={styles.footer}>
           <ContinueButton
@@ -311,6 +378,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#64748b',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  recoveryText: {
+    maxWidth: 360,
+    paddingHorizontal: 24,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#B91C1C',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 22,
+  },
+  recoveryPrimaryButton: {
+    minWidth: 180,
+    borderRadius: 999,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  recoveryPrimaryText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  recoverySecondaryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  recoverySecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2563EB',
     textAlign: 'center',
     writingDirection: 'rtl',
   },
@@ -359,6 +461,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+  },
+  errorText: {
+    marginTop: 14,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B91C1C',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    lineHeight: 20,
   },
   footer: {
     marginTop: 'auto',

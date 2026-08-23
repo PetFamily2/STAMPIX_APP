@@ -19,12 +19,16 @@ const TEXT = {
   continue: 'כניסה לארנק',
 };
 
+const COMPLETION_ERROR =
+  'לא הצלחנו להשלים את ההצטרפות. אפשר לנסות שוב בלי לאבד את הפרטים.';
+
 export default function OnboardingReturnMotivationScreen() {
   const router = useRouter();
   const completeCustomerOnboarding = useMutation(
     api.users.completeCustomerOnboarding
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completionError, setCompletionError] = useState('');
   const { completeStep, trackContinue, trackEvent } = useOnboardingTracking({
     screen: 'onboarding_client_return_motivation',
     role: 'client',
@@ -35,12 +39,15 @@ export default function OnboardingReturnMotivationScreen() {
       return;
     }
     trackContinue();
-    completeStep();
-    trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
     setIsSubmitting(true);
+    setCompletionError('');
     try {
       await completeCustomerOnboarding({});
+      completeStep();
+      trackEvent(ANALYTICS_EVENTS.onboardingCompleted, { role: 'client' });
       router.replace('/(authenticated)/(customer)/wallet');
+    } catch {
+      setCompletionError(COMPLETION_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -59,6 +66,9 @@ export default function OnboardingReturnMotivationScreen() {
           subtitleStyle={styles.description}
         />
         <Text style={styles.note}>{TEXT.note}</Text>
+        {completionError ? (
+          <Text style={styles.errorText}>{completionError}</Text>
+        ) : null}
 
         <View style={styles.footer}>
           <ContinueButton
@@ -113,6 +123,15 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
     lineHeight: 19,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B91C1C',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    lineHeight: 20,
   },
   footer: {
     marginTop: 'auto',

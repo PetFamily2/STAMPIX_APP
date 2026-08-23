@@ -6,7 +6,8 @@ import { BUSINESS_ROLES, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
 export default function MerchantLayout() {
-  const { user, isLoading, isAuthorized } = useRoleGuard(BUSINESS_ROLES);
+  const { user, isLoading, isAuthorized, isAuthenticated } =
+    useRoleGuard(BUSINESS_ROLES);
   const segments = useSegments();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -16,11 +17,11 @@ export default function MerchantLayout() {
   const segmentStrings = segments as string[];
   const isOnboardingRoute = segmentStrings.includes('onboarding');
 
-  if (isLoading && !isOnboardingRoute) {
+  if (isLoading) {
     return <FullScreenLoading />;
   }
 
-  if (!isPreviewMode && user?.customerOnboardedAt == null) {
+  if (!isPreviewMode && user && user.customerOnboardedAt == null) {
     return <Redirect href="/(auth)/name-capture" />;
   }
 
@@ -37,6 +38,13 @@ export default function MerchantLayout() {
         <View style={styles.rtlRouteGroup}>
           <Slot />
         </View>
+      );
+    }
+    if (!user) {
+      return (
+        <Redirect
+          href={isAuthenticated ? '/(auth)/name-capture' : '/(auth)/sign-up'}
+        />
       );
     }
     return <Redirect href="/(authenticated)/(customer)/wallet" />;

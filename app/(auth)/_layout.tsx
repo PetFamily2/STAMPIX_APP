@@ -1,91 +1,89 @@
 import { useConvexAuth, useQuery } from 'convex/react';
-import {
-  Slot,
-  useLocalSearchParams,
-  usePathname,
-  useRouter,
-  useSegments,
-} from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { Redirect, Slot, useLocalSearchParams, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
+
+import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
+import { useSessionContext, useUser } from '@/contexts/UserContext';
+import {
+  type AuthGroupRouteKind,
+  resolveAuthGroupDisposition,
+  resolvePostAuthRoute,
+} from '@/lib/auth/postAuthRouting';
+import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
 export default function AuthRoutesLayout() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const user = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip'
-  );
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const { user, isLoading: isUserLoading } = useUser();
+  const sessionContext = useSessionContext();
   const segments = useSegments();
-  const { preview, map } = useLocalSearchParams<{
+  const { preview, map, flow } = useLocalSearchParams<{
     preview?: string;
     map?: string;
+    flow?: string;
   }>();
-  const pathname = usePathname();
-  const router = useRouter();
-  const didRedirectToAuthenticatedRef = useRef(false);
-  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const AUTH_REDIRECT_TARGET = '/(authenticated)/(customer)/wallet';
   const segmentStrings = segments as string[];
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const isPaywallRoute = segmentStrings.includes('paywall');
-  const isOnboardingRoute =
-    segmentStrings.some((segment) => segment.startsWith('onboarding-')) ||
-    segmentStrings.includes('name-capture');
   const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
   const isOtpTransitionRoute = segmentStrings.includes('onboarding-client-otp');
-  const isAuthTransitionRoute = isOAuthCallbackRoute || isOtpTransitionRoute;
-  const customerOnboarded = user?.customerOnboardedAt != null;
-  const isAllowedForAuthenticated =
-    isPaywallRoute ||
-    isPreviewMode ||
-    isOnboardingRoute ||
-    isAuthTransitionRoute ||
-    !customerOnboarded;
-  const alreadyInTarget =
-    pathname === AUTH_REDIRECT_TARGET ||
-    pathname.startsWith(`${AUTH_REDIRECT_TARGET}/`);
-  const shouldRedirectToAuthenticated =
+  const isCustomerOnboardingRoute =
+    segmentStrings.includes('name-capture') ||
+    segmentStrings.some((segment) => segment.startsWith('onboarding-client-'));
+  const isBusinessOnboardingRoute = segmentStrings.some((segment) =>
+    segment.startsWith('onboarding-business-')
+  );
+  const shouldLoadDefaultBusinessOnboarding =
     isAuthenticated &&
-    customerOnboarded &&
-    !isAllowedForAuthenticated &&
-    !alreadyInTarget;
+    user?.customerOnboardedAt != null &&
+    user.businessOnboardedAt == null;
+  const defaultBusinessOnboardingDraft = useQuery(
+    api.onboarding.getMyBusinessOnboardingDraft,
+    shouldLoadDefaultBusinessOnboarding ? { flow: 'default' } : 'skip'
+  );
 
-  useEffect(() => {
-    if (
-      isLoading ||
-      user === undefined ||
-      !shouldRedirectToAuthenticated ||
-      isAuthTransitionRoute ||
-      alreadyInTarget ||
-      didRedirectToAuthenticatedRef.current
-    ) {
-      return;
-    }
-    didRedirectToAuthenticatedRef.current = true;
-    redirectTimerRef.current = setTimeout(() => {
-      redirectTimerRef.current = null;
-      router.replace(AUTH_REDIRECT_TARGET);
-    }, 0);
+  const routeKind: AuthGroupRouteKind = isPreviewMode
+    ? 'preview'
+    : isPaywallRoute
+      ? 'paywall'
+      : isOAuthCallbackRoute || isOtpTransitionRoute
+        ? 'transition'
+        : isBusinessOnboardingRoute
+          ? 'businessOnboarding'
+          : isCustomerOnboardingRoute
+            ? 'customerOnboarding'
+            : 'standard';
 
-    return () => {
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-        redirectTimerRef.current = null;
-        didRedirectToAuthenticatedRef.current = false;
-      }
-    };
-  }, [
-    isAuthTransitionRoute,
-    isLoading,
-    user,
-    shouldRedirectToAuthenticated,
-    alreadyInTarget,
-    router,
-  ]);
+  const resolverUser = isUserLoading ? undefined : user;
+  const postAuthResolution = resolvePostAuthRoute({
+    isAuthLoading,
+    isAuthenticated,
+    user: resolverUser,
+    sessionContext,
+    isBusinessOnboardingLoading:
+      shouldLoadDefaultBusinessOnboarding &&
+      defaultBusinessOnboardingDraft === undefined,
+    hasInProgressBusinessOnboarding:
+      defaultBusinessOnboardingDraft?.status === 'in_progress',
+  });
+  const disposition = resolveAuthGroupDisposition({
+    routeKind,
+    postAuthResolution,
+    customerOnboarded: user?.customerOnboardedAt != null,
+    businessOnboarded: user?.businessOnboardedAt != null,
+    isAdditionalBusinessFlow: isAdditionalBusinessFlow(flow),
+  });
+
+  if (disposition.status === 'loading') {
+    return <FullScreenLoading />;
+  }
+
+  if (disposition.status === 'redirect') {
+    return <Redirect href={disposition.href} />;
+  }
 
   return (
     <View style={styles.rtlRouteGroup}>

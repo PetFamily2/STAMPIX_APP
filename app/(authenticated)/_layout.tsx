@@ -24,6 +24,7 @@ import {
   POST_AUTH_ROUTES,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { rtlBaseView, rtlScreenContentStyle } from '@/lib/rtl';
 
 const TEXT = {
@@ -37,15 +38,17 @@ const TEXT = {
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { preview, map, biz, ref, bref, src, camp } = useLocalSearchParams<{
-    preview?: string;
-    map?: string;
-    biz?: string;
-    ref?: string;
-    bref?: string;
-    src?: string;
-    camp?: string;
-  }>();
+  const { preview, map, biz, ref, bref, src, camp, flow } =
+    useLocalSearchParams<{
+      preview?: string;
+      map?: string;
+      biz?: string;
+      ref?: string;
+      bref?: string;
+      src?: string;
+      camp?: string;
+      flow?: string;
+    }>();
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const { appMode, syncAppMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId: resolvedActiveBusinessId } = useActiveBusiness();
@@ -56,6 +59,28 @@ export default function AuthenticatedLayout() {
     api.users.getSessionContext,
     shouldLoadUser ? {} : 'skip'
   );
+  const shouldLoadDefaultBusinessOnboarding =
+    isAuthenticated &&
+    user?.customerOnboardedAt != null &&
+    user.businessOnboardedAt == null;
+  const defaultBusinessOnboardingDraft = useQuery(
+    api.onboarding.getMyBusinessOnboardingDraft,
+    shouldLoadDefaultBusinessOnboarding ? { flow: 'default' } : 'skip'
+  );
+  const isBusinessOnboardingLoading =
+    shouldLoadDefaultBusinessOnboarding &&
+    defaultBusinessOnboardingDraft === undefined;
+  const hasInProgressBusinessOnboarding =
+    defaultBusinessOnboardingDraft?.status === 'in_progress';
+  const routingStatus = resolvePostAuthRoute({
+    isAuthLoading: isLoading,
+    isAuthenticated,
+    user,
+    sessionContext,
+    activeBusinessId: resolvedActiveBusinessId,
+    isBusinessOnboardingLoading,
+    hasInProgressBusinessOnboarding,
+  }).status;
   const router = useRouter();
   const segments = useSegments();
   const segmentStrings = (
@@ -65,6 +90,8 @@ export default function AuthenticatedLayout() {
   const isMerchantOnboardingRoute =
     segmentStrings.includes('merchant') &&
     segmentStrings.includes('onboarding');
+  const isAdditionalMerchantOnboarding =
+    isMerchantOnboardingRoute && isAdditionalBusinessFlow(flow);
 
   const lastRedirectRef = useRef<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -75,6 +102,7 @@ export default function AuthenticatedLayout() {
   const isBootstrapDataReady =
     !isLoading &&
     (isPreviewMode || !isAppModeLoading) &&
+    (isPreviewMode || routingStatus !== 'loading') &&
     (shouldLoadUser
       ? user !== undefined && sessionContext !== undefined
       : true);
@@ -153,6 +181,12 @@ export default function AuthenticatedLayout() {
       Array.isArray(segments) ? segments.filter(Boolean) : []
     ) as string[];
     const currentKey = `/${currentSegments.join('/')}`;
+    if (
+      lastRedirectRef.current &&
+      !lastRedirectRef.current.startsWith(`${currentKey}=>`)
+    ) {
+      lastRedirectRef.current = null;
+    }
 
     const inCard = currentSegments.includes('card');
     const inMerchant = currentSegments.includes('merchant');
@@ -190,6 +224,8 @@ export default function AuthenticatedLayout() {
       user,
       sessionContext,
       activeBusinessId: resolvedActiveBusinessId,
+      isBusinessOnboardingLoading,
+      hasInProgressBusinessOnboarding,
     });
 
     if (resolution.status !== 'route') {
@@ -210,14 +246,18 @@ export default function AuthenticatedLayout() {
     }
 
     if (resolution.href === POST_AUTH_ROUTES.businessDashboard) {
-      if (inCustomerGroup || inStaffGroup) {
+      if (
+        inCustomerGroup ||
+        inStaffGroup ||
+        (inMerchant && !isAdditionalMerchantOnboarding)
+      ) {
         safeReplace(POST_AUTH_ROUTES.businessDashboard);
       }
       return;
     }
 
     if (resolution.href === POST_AUTH_ROUTES.staffScanner) {
-      if (!inStaffGroup) {
+      if (!inStaffGroup && (!inMerchant || !isAdditionalMerchantOnboarding)) {
         safeReplace(POST_AUTH_ROUTES.staffScanner);
       }
       return;
@@ -244,6 +284,9 @@ export default function AuthenticatedLayout() {
     isPreviewMode,
     syncAppMode,
     resolvedActiveBusinessId,
+    isAdditionalMerchantOnboarding,
+    isBusinessOnboardingLoading,
+    hasInProgressBusinessOnboarding,
   ]);
 
   useEffect(() => {
@@ -267,6 +310,7 @@ export default function AuthenticatedLayout() {
     !isMerchantOnboardingRoute &&
     (isLoading ||
       isAppModeLoading ||
+      routingStatus === 'loading' ||
       (shouldLoadUser &&
         (user === undefined || sessionContext === undefined)) ||
       (isAuthenticated && !isLoadingPhaseDone));

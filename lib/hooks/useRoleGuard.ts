@@ -1,3 +1,5 @@
+import { useConvexAuth } from 'convex/react';
+
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import type { AppRole } from '@/lib/domain/roles';
 
@@ -16,8 +18,14 @@ function deriveRoleFromSession(
 }
 
 export function useRoleGuard(allowedRoles: AppRole[]) {
-  const { user, isLoading } = useUser();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const { user, isLoading: isUserLoading } = useUser();
   const sessionContext = useSessionContext();
+  const isLoading =
+    isAuthLoading ||
+    isUserLoading ||
+    sessionContext === undefined ||
+    (user !== null && sessionContext === null);
   const role = deriveRoleFromSession(sessionContext);
 
   const isAuthorized = Boolean(user) && allowedRoles.includes(role);
@@ -27,5 +35,6 @@ export function useRoleGuard(allowedRoles: AppRole[]) {
     role,
     isLoading,
     isAuthorized,
+    isAuthenticated,
   };
 }
