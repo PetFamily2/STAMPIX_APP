@@ -38,6 +38,7 @@ import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
+  backToWallet: 'חזרה לארנק',
   qrCreateFailed: 'לא הצלחנו ליצור QR',
   missingDetails: 'חסרים פרטי כרטיס',
   cardNotFoundTitle: 'לא מצאנו את הכרטיס',
@@ -283,6 +284,18 @@ export default function CardDetailsScreen() {
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <View style={styles.centerMessage}>
           <Text style={styles.centerMessageText}>{TEXT.missingDetails}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            style={({ pressed }) => [
+              styles.centerMessageAction,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.centerMessageActionText}>
+              {TEXT.backToWallet}
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -298,6 +311,18 @@ export default function CardDetailsScreen() {
           <Text style={styles.centerMessageText}>
             {TEXT.cardNotFoundSubtitle}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            style={({ pressed }) => [
+              styles.centerMessageAction,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.centerMessageActionText}>
+              {TEXT.backToWallet}
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -921,5 +946,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#5B6475',
     textAlign: 'right',
+  },
+  centerMessageAction: {
+    width: '100%',
+    maxWidth: 320,
+    marginTop: 8,
+    borderRadius: 12,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerMessageActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

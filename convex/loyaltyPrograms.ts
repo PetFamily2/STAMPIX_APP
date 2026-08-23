@@ -523,7 +523,14 @@ export const getProgramDetailsForManagement = query({
   },
   handler: async (ctx, { businessId, programId }) => {
     await requireActorIsStaffForBusiness(ctx, businessId);
-    const program = await getProgramOrThrow(ctx, businessId, programId);
+    const program = await ctx.db.get(programId);
+    if (
+      !program ||
+      program.businessId !== businessId ||
+      program.isActive !== true
+    ) {
+      return null;
+    }
     const lifecycle = resolveProgramLifecycle(program);
 
     const now = Date.now();

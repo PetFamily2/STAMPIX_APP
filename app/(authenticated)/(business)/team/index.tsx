@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -382,7 +382,7 @@ export default function BusinessTeamManagementScreen() {
     }
   };
 
-  const handleRemove = async (staffId: string) => {
+  const runRemove = async (staffId: string) => {
     if (!activeBusinessId || busyMemberId || busyInviteId) {
       return;
     }
@@ -398,6 +398,28 @@ export default function BusinessTeamManagementScreen() {
     } finally {
       setBusyMemberId(null);
     }
+  };
+
+  const handleRemove = (staffId: string, displayName: string) => {
+    if (!activeBusinessId || busyMemberId || busyInviteId) {
+      return;
+    }
+
+    const memberName = displayName.trim() || 'חבר/ת הצוות';
+    Alert.alert(
+      'הסרת חבר/ת צוות',
+      `הגישה של ${memberName} לעסק תבוטל מייד. כדי להחזיר את הגישה בהמשך יהיה צורך להזמין את חבר/ת הצוות מחדש.`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'הסר',
+          style: 'destructive',
+          onPress: () => {
+            void runRemove(staffId);
+          },
+        },
+      ]
+    );
   };
 
   const activeRows = useMemo(
@@ -654,7 +676,7 @@ export default function BusinessTeamManagementScreen() {
             {renderActionButton(
               'הסר',
               () => {
-                void handleRemove(member.staffId);
+                handleRemove(member.staffId, member.displayName);
               },
               'danger',
               isBusy || Boolean(busyInviteId)

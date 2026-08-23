@@ -37,6 +37,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { safeBack } from '@/lib/navigation';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -64,6 +65,13 @@ type ProgramDetails = {
 };
 
 const TEXT = {
+  archiveConfirmTitle: 'להעביר את הכרטיסיה לארכיון?',
+  archiveConfirmMessage:
+    'הכרטיסיה תועבר לארכיון. לקוחות לא יוכלו עוד לצבור ניקובים או לממש הטבות דרכה, ולא ניתן כרגע לבטל את הפעולה.',
+  unavailableTitle: 'הכרטיסיה אינה זמינה',
+  unavailableMessage:
+    'ייתכן שהכרטיסיה נמחקה, הושבתה או שאינה שייכת לעסק הפעיל.',
+  backToPrograms: 'חזרה לכרטיסיות',
   missingData: 'נתוני כרטיסיה חסרים.',
   saveDoneTitle: 'נשמר',
   saveDoneMessage: 'השינויים נשמרו בהצלחה.',
@@ -72,7 +80,7 @@ const TEXT = {
   publishDoneTitle: 'הכרטיסיה פורסמה',
   publishDoneMessage: 'הכרטיסיה פעילה ללקוחות.',
   archiveDoneTitle: 'הכרטיסיה הועברה לארכיון',
-  archiveDoneMessage: 'הכרטיסיה זמינה רק לצבירה ללקוחות קיימים.',
+  archiveDoneMessage: 'הכרטיסיה אינה זמינה עוד לצבירה או למימוש.',
   deleteConfirmTitle: 'מחיקת כרטיסיה',
   deleteConfirmMessage: 'הכרטיסיה תימחק לצמיתות. להמשיך?',
   deleteDoneTitle: 'הכרטיסיה נמחקה',
@@ -160,7 +168,7 @@ export default function ProgramDetailsScreen() {
     selectedBusinessId && programId
       ? { businessId: selectedBusinessId, programId }
       : 'skip'
-  ) as ProgramDetails | undefined;
+  ) as ProgramDetails | null | undefined;
 
   const updateProgram = useMutation(
     api.loyaltyPrograms.updateProgramForManagement
@@ -240,6 +248,34 @@ export default function ProgramDetailsScreen() {
         <Text className="w-full px-6 text-right text-sm text-[#64748B]">
           {TEXT.missingData}
         </Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (details === null) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="w-full gap-3" style={{ maxWidth: 576 }}>
+            <Text className="w-full text-right text-xl font-black text-[#1A2B4A]">
+              {TEXT.unavailableTitle}
+            </Text>
+            <Text className="w-full text-right text-sm font-semibold leading-6 text-[#64748B]">
+              {TEXT.unavailableMessage}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() =>
+                safeBack('/(authenticated)/(business)/programs')
+              }
+              className="mt-2 w-full rounded-2xl bg-[#2F6BFF] px-4 py-3"
+            >
+              <Text className="text-center text-sm font-bold text-white">
+                {TEXT.backToPrograms}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -463,7 +499,7 @@ export default function ProgramDetailsScreen() {
     }
   };
 
-  const handleArchive = async () => {
+  const runArchive = async () => {
     if (!canManage || lifecycle !== 'active' || isSubmitting) {
       return;
     }
@@ -507,6 +543,23 @@ export default function ProgramDetailsScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleArchive = () => {
+    if (!canManage || lifecycle !== 'active' || isSubmitting) {
+      return;
+    }
+
+    Alert.alert(TEXT.archiveConfirmTitle, TEXT.archiveConfirmMessage, [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'העבר לארכיון',
+        style: 'destructive',
+        onPress: () => {
+          void runArchive();
+        },
+      },
+    ]);
   };
 
   const runDelete = async () => {
@@ -911,9 +964,7 @@ export default function ProgramDetailsScreen() {
               {lifecycle === 'active' ? (
                 <TouchableOpacity
                   disabled={!canManage || isSubmitting || conflictLocked}
-                  onPress={() => {
-                    void handleArchive();
-                  }}
+                  onPress={handleArchive}
                   className={`rounded-2xl px-4 py-3 ${
                     canManage && !isSubmitting && !conflictLocked
                       ? 'bg-[#F59E0B]'

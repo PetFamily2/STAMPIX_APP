@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   createOrResumeBusinessOnboardingProgram,
+  getProgramDetailsForManagement,
   publishProgram,
 } from '../loyaltyPrograms';
 import { completeBusinessOnboarding } from '../users';
@@ -123,6 +124,7 @@ function createMockCtx({
     ),
   };
   const patchLog = [];
+  const getLog = [];
   let programInsertCount = 0;
   let draftInsertCount = 0;
 
@@ -174,6 +176,7 @@ function createMockCtx({
     },
     db: {
       get: async (id) => {
+        getLog.push(id);
         for (const table of Object.values(state)) {
           if (table.has(id)) {
             return table.get(id);
@@ -213,7 +216,7 @@ function createMockCtx({
     },
   };
 
-  return { ctx, state, patchLog };
+  return { ctx, state, patchLog, getLog };
 }
 
 function programArgs(overrides = {}) {
@@ -406,6 +409,117 @@ describe('business onboarding program idempotency', () => {
         programId: result.loyaltyProgramId,
       }
     );
+  });
+});
+
+describe('program management detail recovery', () => {
+  test('authorized active program preserves the management detail shape', async () => {
+    const { ctx } = createMockCtx({
+      loyaltyPrograms: [
+        buildProgram({ status: 'active', publishedAt: 2 }),
+      ],
+    });
+
+    const result = await getProgramDetailsForManagement._handler(ctx, {
+      businessId: 'business_1',
+      programId: 'program_1',
+    });
+
+    expect(result).toEqual({
+      loyaltyProgramId: 'program_1',
+      businessId: 'business_1',
+      title: 'First card',
+      description: null,
+      imageUrl: null,
+      imageStorageId: null,
+      rewardName: 'Free reward',
+      maxStamps: 10,
+      cardTerms: null,
+      rewardConditions: null,
+      stampIcon: 'star',
+      stampShape: 'circle',
+      cardThemeId: 'midnight-luxe',
+      lifecycle: 'active',
+      status: 'active',
+      isArchived: false,
+      isRuleLocked: true,
+      canDelete: true,
+      membershipCount: 0,
+      metrics: {
+        activeMembers: 0,
+        totalMembers: 0,
+        stamps7d: 0,
+        redemptions30d: 0,
+        lastActivityAt: null,
+      },
+      publishedAt: 2,
+      archivedAt: null,
+      updatedAt: 1,
+    });
+  });
+
+  test('missing and inactive programs resolve to null after authorization', async () => {
+    const { ctx } = createMockCtx({
+      loyaltyPrograms: [buildProgram({ isActive: false })],
+    });
+
+    expect(
+      await getProgramDetailsForManagement._handler(ctx, {
+        businessId: 'business_1',
+        programId: 'program_missing',
+      })
+    ).toBeNull();
+    expect(
+      await getProgramDetailsForManagement._handler(ctx, {
+        businessId: 'business_1',
+        programId: 'program_1',
+      })
+    ).toBeNull();
+  });
+
+  test('foreign-business program resolves to null for an authorized business', async () => {
+    const business2 = buildBusiness({
+      _id: 'business_2',
+      externalId: 'business-two',
+    });
+    const { ctx, getLog } = createMockCtx({
+      businesses: [buildBusiness(), business2],
+      businessStaff: [buildOwnerStaff(), buildOwnerStaff('business_2')],
+      loyaltyPrograms: [buildProgram({ status: 'active' })],
+    });
+
+    expect(
+      await getProgramDetailsForManagement._handler(ctx, {
+        businessId: 'business_2',
+        programId: 'program_1',
+      })
+    ).toBeNull();
+    expect(getLog.indexOf('business_2')).toBeLessThan(
+      getLog.indexOf('program_1')
+    );
+  });
+
+  test('unauthorized callers cannot distinguish existing from missing programs', async () => {
+    const { ctx, getLog } = createMockCtx({
+      currentUserId: 'user_intruder',
+      users: [buildUser({ _id: 'user_intruder' })],
+      loyaltyPrograms: [buildProgram({ status: 'active' })],
+    });
+
+    await expect(
+      getProgramDetailsForManagement._handler(ctx, {
+        businessId: 'business_1',
+        programId: 'program_1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    await expect(
+      getProgramDetailsForManagement._handler(ctx, {
+        businessId: 'business_1',
+        programId: 'program_missing',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    expect(getLog).not.toContain('program_1');
+    expect(getLog).not.toContain('program_missing');
   });
 });
 
