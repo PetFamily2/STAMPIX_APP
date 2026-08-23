@@ -61,6 +61,7 @@ function createMockCtx({
   businesses = [buildBusiness()],
   businessStaff = [buildStaff()],
   loyaltyPrograms = [],
+  businessOnboardingDrafts = [],
   memberships = [],
   events = [],
   campaigns = [],
@@ -73,6 +74,9 @@ function createMockCtx({
     ),
     loyaltyPrograms: new Map(
       loyaltyPrograms.map((entry) => [entry._id, { ...entry }])
+    ),
+    businessOnboardingDrafts: new Map(
+      businessOnboardingDrafts.map((entry) => [entry._id, { ...entry }])
     ),
     memberships: new Map(
       memberships.map((entry) => [entry._id, { ...entry }])
@@ -143,7 +147,11 @@ function createMockCtx({
               ? Array.from(state.businesses.values())
               : tableName === 'businessStaff'
                 ? Array.from(state.businessStaff.values())
-                : [];
+                : tableName === 'loyaltyPrograms'
+                  ? Array.from(state.loyaltyPrograms.values())
+                  : tableName === 'businessOnboardingDrafts'
+                    ? Array.from(state.businessOnboardingDrafts.values())
+                    : [];
 
           const filteredRows = rows.filter((row) =>
             filters.every(([field, value]) => row[field] === value)
@@ -151,6 +159,12 @@ function createMockCtx({
 
           return {
             first: async () => filteredRows[0] ?? null,
+            unique: async () => {
+              if (filteredRows.length > 1) {
+                throw new Error('NOT_UNIQUE');
+              }
+              return filteredRows[0] ?? null;
+            },
             collect: async () => filteredRows,
           };
         },
@@ -678,6 +692,8 @@ describe('business profile settings and discovery filters', () => {
     await expect(
       completeBusinessOnboarding._handler(ctx, {
         businessId: 'business_1',
+        programId: 'program_1',
+        flow: 'default',
       })
     ).rejects.toThrow('BUSINESS_PROFILE_INCOMPLETE');
 
@@ -708,15 +724,56 @@ describe('business profile settings and discovery filters', () => {
           },
         }),
       ],
+      loyaltyPrograms: [
+        {
+          _id: 'program_1',
+          businessId: 'business_1',
+          status: 'active',
+          isActive: true,
+          title: 'First card',
+          rewardName: 'Reward',
+          maxStamps: 10,
+          stampIcon: 'star',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ],
+      businessOnboardingDrafts: [
+        {
+          _id: 'draft_1',
+          userId: 'user_owner',
+          flow: 'default',
+          status: 'in_progress',
+          currentStep: 'previewCard',
+          farthestStep: 'previewCard',
+          farthestStepOrder: 5,
+          businessId: 'business_1',
+          programId: 'program_1',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ],
     });
 
     await completeBusinessOnboarding._handler(ctx, {
       businessId: 'business_1',
+      programId: 'program_1',
+      flow: 'default',
     });
 
     const updatedUser = state.users.get('user_owner');
     expect(typeof updatedUser.businessOnboardedAt).toBe('number');
+    expect(updatedUser.activeBusinessId).toBe('business_1');
+    expect(updatedUser.activeMode).toBe('business');
     expect(typeof updatedUser.updatedAt).toBe('number');
+    expect(state.businessOnboardingDrafts.get('draft_1')).toMatchObject({
+      status: 'completed',
+      currentStep: 'previewCard',
+      farthestStep: 'previewCard',
+      farthestStepOrder: 5,
+      businessId: 'business_1',
+      programId: 'program_1',
+    });
   });
 
   test('staff role cannot update business profile', async () => {

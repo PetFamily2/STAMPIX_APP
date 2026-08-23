@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import type { Doc, Id } from './_generated/dataModel';
+import { type MutationCtx, mutation, query } from './_generated/server';
 import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 const BUSINESS_ONBOARDING_FLOW_UNION = v.union(
@@ -28,9 +29,9 @@ const BUSINESS_ONBOARDING_STEP_UNION = v.union(
   v.literal('previewCard')
 );
 
-type BusinessOnboardingFlow = 'default' | 'additional';
-type BusinessOnboardingStatus = 'in_progress' | 'paused' | 'completed';
-type BusinessOnboardingStep =
+export type BusinessOnboardingFlow = 'default' | 'additional';
+export type BusinessOnboardingStatus = 'in_progress' | 'paused' | 'completed';
+export type BusinessOnboardingStep =
   | 'role'
   | 'discovery'
   | 'reason'
@@ -125,6 +126,113 @@ export function getProgramImageStorageIdCandidate(programDraft: unknown) {
     : undefined;
 }
 
+export async function getBusinessOnboardingDraftForUserAndFlow(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  flow: BusinessOnboardingFlow
+): Promise<Doc<'businessOnboardingDrafts'> | null> {
+  return await ctx.db
+    .query('businessOnboardingDrafts')
+    .withIndex('by_userId_flow', (q) =>
+      q.eq('userId', userId).eq('flow', flow)
+    )
+    .unique();
+}
+
+export async function upsertBusinessOnboardingDraft(
+  ctx: MutationCtx,
+  input: {
+    userId: Id<'users'>;
+    flow: BusinessOnboardingFlow;
+    currentStep: BusinessOnboardingStep;
+    status?: BusinessOnboardingStatus;
+    businessId?: Id<'businesses'>;
+    programId?: Id<'loyaltyPrograms'>;
+    businessDraft?: unknown;
+    programDraft?: unknown;
+    businessOnboardingDraft?: unknown;
+  }
+) {
+  const now = Date.now();
+  const nextStatus: BusinessOnboardingStatus = input.status ?? 'in_progress';
+  const normalizedCurrentStep = normalizeStep(input.flow, input.currentStep);
+  const currentStepOrder = resolveStepOrder(
+    input.flow,
+    normalizedCurrentStep
+  );
+  const existing = await getBusinessOnboardingDraftForUserAndFlow(
+    ctx,
+    input.userId,
+    input.flow
+  );
+
+  const hasReusableProgress = existing && existing.status !== 'completed';
+  const previousFarthestStep = hasReusableProgress
+    ? normalizeStep(
+        input.flow,
+        existing.farthestStep as BusinessOnboardingStep
+      )
+    : normalizedCurrentStep;
+  const previousFarthestOrder = hasReusableProgress
+    ? resolveStepOrder(input.flow, previousFarthestStep)
+    : 0;
+  const nextFarthestOrder = Math.max(previousFarthestOrder, currentStepOrder);
+  const nextFarthestStep =
+    currentStepOrder >= previousFarthestOrder
+      ? normalizedCurrentStep
+      : previousFarthestStep;
+  const nextProgramDraft =
+    asRecord(input.programDraft) ?? existing?.programDraft;
+  const programImageStorageIdCandidate =
+    getProgramImageStorageIdCandidate(nextProgramDraft);
+  const programImageStorageId = programImageStorageIdCandidate
+    ? (ctx.db.system.normalizeId('_storage', programImageStorageIdCandidate) ??
+      undefined)
+    : undefined;
+
+  const payload = {
+    flow: input.flow,
+    status: nextStatus,
+    currentStep: normalizedCurrentStep,
+    farthestStep: nextFarthestStep,
+    farthestStepOrder: nextFarthestOrder,
+    businessId: input.businessId ?? existing?.businessId,
+    programId: input.programId ?? existing?.programId,
+    programImageStorageId,
+    businessDraft: asRecord(input.businessDraft) ?? existing?.businessDraft,
+    programDraft: nextProgramDraft,
+    businessOnboardingDraft:
+      asRecord(input.businessOnboardingDraft) ??
+      existing?.businessOnboardingDraft,
+    pausedAt: nextStatus === 'paused' ? now : undefined,
+    completedAt: nextStatus === 'completed' ? now : undefined,
+    updatedAt: now,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    return {
+      draftId: existing._id,
+      status: nextStatus,
+      currentStep: normalizedCurrentStep,
+      farthestStep: nextFarthestStep,
+    };
+  }
+
+  const draftId = await ctx.db.insert('businessOnboardingDrafts', {
+    userId: input.userId,
+    createdAt: now,
+    ...payload,
+  });
+
+  return {
+    draftId,
+    status: nextStatus,
+    currentStep: normalizedCurrentStep,
+    farthestStep: nextFarthestStep,
+  };
+}
+
 export const getMyBusinessOnboardingDraft = query({
   args: {
     flow: v.optional(BUSINESS_ONBOARDING_FLOW_UNION),
@@ -196,78 +304,16 @@ export const saveMyBusinessOnboardingDraft = mutation({
     }
   ) => {
     const user = await requireCurrentUser(ctx);
-    const now = Date.now();
-    const nextStatus: BusinessOnboardingStatus = status ?? 'in_progress';
-    const normalizedCurrentStep = normalizeStep(flow, currentStep);
-    const currentStepOrder = resolveStepOrder(flow, normalizedCurrentStep);
-
-    const existing = await ctx.db
-      .query('businessOnboardingDrafts')
-      .withIndex('by_userId_flow', (q) =>
-        q.eq('userId', user._id).eq('flow', flow)
-      )
-      .unique();
-
-    const hasReusableProgress = existing && existing.status !== 'completed';
-    const previousFarthestStep = hasReusableProgress
-      ? normalizeStep(flow, existing.farthestStep as BusinessOnboardingStep)
-      : normalizedCurrentStep;
-    const previousFarthestOrder = hasReusableProgress
-      ? resolveStepOrder(flow, previousFarthestStep)
-      : 0;
-    const nextFarthestOrder = Math.max(previousFarthestOrder, currentStepOrder);
-    const nextFarthestStep =
-      currentStepOrder >= previousFarthestOrder
-        ? normalizedCurrentStep
-        : previousFarthestStep;
-    const nextProgramDraft =
-      asRecord(programDraft) ?? existing?.programDraft;
-    const programImageStorageIdCandidate =
-      getProgramImageStorageIdCandidate(nextProgramDraft);
-    const programImageStorageId = programImageStorageIdCandidate
-      ? (ctx.db.system.normalizeId('_storage', programImageStorageIdCandidate) ??
-        undefined)
-      : undefined;
-
-    const payload = {
-      flow,
-      status: nextStatus,
-      currentStep: normalizedCurrentStep,
-      farthestStep: nextFarthestStep,
-      farthestStepOrder: nextFarthestOrder,
-      businessId: businessId ?? existing?.businessId,
-      programId: programId ?? existing?.programId,
-      programImageStorageId,
-      businessDraft: asRecord(businessDraft) ?? existing?.businessDraft,
-      programDraft: nextProgramDraft,
-      businessOnboardingDraft:
-        asRecord(businessOnboardingDraft) ?? existing?.businessOnboardingDraft,
-      pausedAt: nextStatus === 'paused' ? now : undefined,
-      completedAt: nextStatus === 'completed' ? now : undefined,
-      updatedAt: now,
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, payload);
-      return {
-        draftId: existing._id,
-        status: nextStatus,
-        currentStep: normalizedCurrentStep,
-        farthestStep: nextFarthestStep,
-      };
-    }
-
-    const draftId = await ctx.db.insert('businessOnboardingDrafts', {
+    return await upsertBusinessOnboardingDraft(ctx, {
       userId: user._id,
-      createdAt: now,
-      ...payload,
+      flow,
+      currentStep,
+      status,
+      businessId,
+      programId,
+      businessDraft,
+      programDraft,
+      businessOnboardingDraft,
     });
-
-    return {
-      draftId,
-      status: nextStatus,
-      currentStep: normalizedCurrentStep,
-      farthestStep: nextFarthestStep,
-    };
   },
 });

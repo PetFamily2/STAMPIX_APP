@@ -32,6 +32,7 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   getBusinessOnboardingProgressStep,
   getBusinessOnboardingTotalSteps,
+  resolveBusinessOnboardingFlow,
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
@@ -67,13 +68,21 @@ const CREATE_PROGRAM_COPY = {
 
 export default function CreateProgramScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
-  const { businessId, programDraft, setProgramDraft, setProgramId } =
-    useOnboarding();
+  const {
+    businessId,
+    programDraft,
+    programId,
+    setProgramDraft,
+    setProgramId,
+  } = useOnboarding();
   const { user } = useUser();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
+  const stepSyncPromiseRef = useRef<Promise<void> | null>(null);
 
-  const createProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
+  const createOrResumeProgram = useMutation(
+    api.loyaltyPrograms.createOrResumeBusinessOnboardingProgram
+  );
   const generateProgramImageUploadUrl = useMutation(
     api.loyaltyPrograms.generateProgramImageUploadUrl
   );
@@ -87,7 +96,12 @@ export default function CreateProgramScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'createProgram', flow }).catch(() => {});
+    const stepSyncPromise = saveStep({ step: 'createProgram', flow }).then(
+      () => undefined,
+      () => undefined
+    );
+    stepSyncPromiseRef.current = stepSyncPromise;
+    void stepSyncPromise;
   }, [flow, saveStep]);
 
   useEffect(() => {
@@ -189,8 +203,11 @@ export default function CreateProgramScreen() {
     setIsSubmitting(true);
 
     try {
-      const { loyaltyProgramId } = await createProgram({
+      await stepSyncPromiseRef.current;
+      const { loyaltyProgramId } = await createOrResumeProgram({
+        flow: resolveBusinessOnboardingFlow(flow),
         businessId,
+        programId: programId ?? undefined,
         title: programDraft.title.trim(),
         rewardName: programDraft.rewardName.trim(),
         maxStamps: maxStampsNumber,
@@ -203,15 +220,6 @@ export default function CreateProgramScreen() {
       });
 
       setProgramId(loyaltyProgramId);
-      try {
-        await saveStep({
-          step: 'createProgram',
-          flow,
-          programId: loyaltyProgramId,
-        });
-      } catch {
-        // Keep onboarding moving even if draft persistence fails.
-      }
       void trackActivationEvent(ANALYTICS_EVENTS.loyaltyCardCreated, {
         role: 'business',
         userId: user?._id,

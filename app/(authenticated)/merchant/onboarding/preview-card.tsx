@@ -1,6 +1,6 @@
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,9 +26,9 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   getBusinessOnboardingProgressStep,
   getBusinessOnboardingTotalSteps,
+  resolveBusinessOnboardingFlow,
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
-import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
@@ -185,24 +185,9 @@ export default function PreviewCardScreen() {
   const saveBusinessOnboardingSnapshot = useMutation(
     api.business.saveBusinessOnboardingSnapshot
   );
-  const assertBusinessOnboardingReady = useMutation(
-    api.business.assertBusinessOnboardingReady
-  );
-  const setActiveBusiness = useMutation(api.users.setActiveBusiness);
-  const setActiveMode = useMutation(api.users.setActiveMode);
   const { setAppMode } = useAppMode();
-  const { saveStep } = useBusinessOnboardingDraftPersistence();
-  const didSyncStepRef = useRef(false);
 
   const [isFinishing, setIsFinishing] = useState(false);
-
-  useEffect(() => {
-    if (didSyncStepRef.current) {
-      return;
-    }
-    didSyncStepRef.current = true;
-    void saveStep({ step: 'previewCard', flow }).catch(() => {});
-  }, [flow, saveStep]);
 
   useEffect(() => {
     if (!businessId) {
@@ -273,8 +258,6 @@ export default function PreviewCardScreen() {
           businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
       });
 
-      await assertBusinessOnboardingReady({ businessId });
-
       const normalizedTitle =
         programDraft.title.trim() || programDraft.rewardName.trim();
       const normalizedReward =
@@ -301,21 +284,14 @@ export default function PreviewCardScreen() {
         programId,
       });
 
-      await completeBusinessOnboarding({ businessId });
-      await setActiveBusiness({ businessId });
-      await setActiveMode({ mode: 'business' });
+      await completeBusinessOnboarding({
+        businessId,
+        programId,
+        flow: resolveBusinessOnboardingFlow(flow),
+      });
       await setAppMode('business');
-      try {
-        await saveStep({
-          step: 'previewCard',
-          flow,
-          status: 'completed',
-        });
-      } catch {
-        // Completion should continue even if draft status update fails.
-      }
       reset();
-      safePush('/(authenticated)/(business)/dashboard');
+      safeDismissTo('/(authenticated)/(business)/dashboard');
     } catch (finishError) {
       const message =
         finishError instanceof Error &&

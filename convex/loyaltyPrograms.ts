@@ -1,13 +1,19 @@
 import { v } from 'convex/values';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
 import {
   requireActorHasBusinessCapability,
+  requireActorIsBusinessOwner,
   requireActorIsStaffForBusiness,
 } from './guards';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import { buildProgramStructureSignature } from './lib/recommendationUtils';
+import {
+  type BusinessOnboardingFlow,
+  getBusinessOnboardingDraftForUserAndFlow,
+  upsertBusinessOnboardingDraft,
+} from './onboarding';
 
 const DEFAULT_THEME_ID = 'midnight-luxe';
 const DEFAULT_STAMP_SHAPE = 'circle';
@@ -19,6 +25,11 @@ const STAMP_SHAPE_SET = new Set([
   'icon',
 ]);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const BUSINESS_ONBOARDING_FLOW_UNION = v.union(
+  v.literal('default'),
+  v.literal('additional')
+);
 
 const CARD_RULES_LOCKED_ERROR_MESSAGE =
   'Card rules cannot be changed after the card is published.';
@@ -127,6 +138,109 @@ function buildStructureSignature(input: {
     cardTerms: input.cardTerms,
     rewardConditions: input.rewardConditions,
   });
+}
+
+type OnboardingProgramInput = {
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  imageStorageId?: Id<'_storage'>;
+  rewardName: string;
+  maxStamps: number;
+  cardTerms?: string;
+  rewardConditions?: string;
+  stampIcon: string;
+  stampShape?: string;
+  cardThemeId?: string;
+};
+
+function normalizeOnboardingProgramInput(input: OnboardingProgramInput) {
+  const rewardName = normalizeReward(input.rewardName);
+  const maxStamps = normalizeMaxStamps(input.maxStamps);
+  const cardTerms = normalizeOptionalText(input.cardTerms);
+  const rewardConditions = normalizeOptionalText(input.rewardConditions);
+
+  return {
+    title: normalizeTitle(input.title),
+    description: normalizeOptionalText(input.description),
+    imageUrl: normalizeOptionalText(input.imageUrl),
+    imageStorageId: input.imageStorageId,
+    rewardName,
+    maxStamps,
+    cardTerms,
+    rewardConditions,
+    stampIcon: normalizeIcon(input.stampIcon),
+    stampShape: normalizeStampShape(input.stampShape),
+    cardThemeId: normalizeThemeId(input.cardThemeId),
+    structureSignature: buildStructureSignature({
+      rewardName,
+      maxStamps,
+      cardTerms: normalizeStructureText(cardTerms),
+      rewardConditions: normalizeStructureText(rewardConditions),
+    }),
+  };
+}
+
+function buildOnboardingProgramUpdatePatch(
+  program: Doc<'loyaltyPrograms'>,
+  input: ReturnType<typeof normalizeOnboardingProgramInput>,
+  now: number
+) {
+  const lifecycle = resolveProgramLifecycle(program);
+  if (program.isActive !== true || lifecycle === 'archived') {
+    throw new Error('PROGRAM_NOT_SUITABLE_FOR_ONBOARDING');
+  }
+
+  const currentCardTerms = normalizeOptionalText(program.cardTerms);
+  const currentRewardConditions = normalizeOptionalText(
+    program.rewardConditions
+  );
+  const lockedFieldsChanged =
+    input.rewardName !== normalizeReward(program.rewardName) ||
+    input.maxStamps !== normalizeMaxStamps(program.maxStamps) ||
+    normalizeStructureText(input.cardTerms) !==
+      normalizeStructureText(currentCardTerms) ||
+    normalizeStructureText(input.rewardConditions) !==
+      normalizeStructureText(currentRewardConditions);
+
+  if (isRuleLocked(lifecycle) && lockedFieldsChanged) {
+    throw new Error(CARD_RULES_LOCKED_ERROR_MESSAGE);
+  }
+
+  return {
+    title: input.title,
+    description: input.description,
+    imageUrl: input.imageUrl,
+    imageStorageId: input.imageStorageId,
+    rewardName: input.rewardName,
+    maxStamps: input.maxStamps,
+    cardTerms: input.cardTerms,
+    rewardConditions: input.rewardConditions,
+    stampIcon: input.stampIcon,
+    stampShape: input.stampShape,
+    cardThemeId: input.cardThemeId,
+    structureSignature: input.structureSignature,
+    lastStructureChangedAt:
+      program.structureSignature === input.structureSignature
+        ? program.lastStructureChangedAt
+        : now,
+    updatedAt: now,
+  };
+}
+
+async function findConflictingOnboardingDraftForProgram(
+  ctx: Parameters<typeof upsertBusinessOnboardingDraft>[0],
+  programId: Id<'loyaltyPrograms'>,
+  expectedDraftId?: Id<'businessOnboardingDrafts'>
+) {
+  const linkedDrafts = await ctx.db
+    .query('businessOnboardingDrafts')
+    .withIndex('by_programId', (q) => q.eq('programId', programId))
+    .collect();
+
+  return linkedDrafts.find(
+    (draft) => !expectedDraftId || draft._id !== expectedDraftId
+  );
 }
 
 async function listBusinessPrograms(ctx: any, businessId: string) {
@@ -602,6 +716,180 @@ export const createLoyaltyProgram = mutation({
   },
 });
 
+export const createOrResumeBusinessOnboardingProgram = mutation({
+  args: {
+    flow: BUSINESS_ONBOARDING_FLOW_UNION,
+    businessId: v.id('businesses'),
+    programId: v.optional(v.id('loyaltyPrograms')),
+    title: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    imageStorageId: v.optional(v.id('_storage')),
+    rewardName: v.string(),
+    maxStamps: v.number(),
+    cardTerms: v.optional(v.string()),
+    rewardConditions: v.optional(v.string()),
+    stampIcon: v.string(),
+    stampShape: v.optional(v.string()),
+    cardThemeId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireActorIsBusinessOwner(ctx, args.businessId);
+    const flow = args.flow as BusinessOnboardingFlow;
+    if (flow === 'additional' && actor.businessOnboardedAt == null) {
+      throw new Error('DEFAULT_BUSINESS_ONBOARDING_REQUIRED');
+    }
+    const business = await ctx.db.get(args.businessId);
+    if (
+      !business ||
+      business.isActive !== true ||
+      String(business.ownerUserId) !== String(actor._id)
+    ) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+
+    const existingDraft = await getBusinessOnboardingDraftForUserAndFlow(
+      ctx,
+      actor._id,
+      flow
+    );
+    if (
+      existingDraft?.businessId &&
+      String(existingDraft.businessId) !== String(args.businessId) &&
+      existingDraft.status !== 'completed'
+    ) {
+      throw new Error('ONBOARDING_DRAFT_BUSINESS_MISMATCH');
+    }
+
+    const normalizedProgram = normalizeOnboardingProgramInput(args);
+    let program: Doc<'loyaltyPrograms'> | null = null;
+
+    if (args.programId) {
+      const explicitProgram = await ctx.db.get(args.programId);
+      if (!explicitProgram) {
+        throw new Error('PROGRAM_NOT_FOUND');
+      }
+      if (String(explicitProgram.businessId) !== String(args.businessId)) {
+        throw new Error('PROGRAM_BUSINESS_MISMATCH');
+      }
+      const explicitProgramLifecycle =
+        resolveProgramLifecycle(explicitProgram);
+      if (
+        explicitProgram.isActive !== true ||
+        explicitProgramLifecycle === 'archived' ||
+        (explicitProgramLifecycle === 'active' &&
+          String(existingDraft?.programId ?? '') !== String(args.programId))
+      ) {
+        throw new Error('PROGRAM_NOT_SUITABLE_FOR_ONBOARDING');
+      }
+
+      if (
+        existingDraft?.programId &&
+        String(existingDraft.programId) !== String(args.programId)
+      ) {
+        const previouslyLinkedProgram = await ctx.db.get(
+          existingDraft.programId
+        );
+        if (
+          previouslyLinkedProgram &&
+          previouslyLinkedProgram.isActive === true &&
+          String(previouslyLinkedProgram.businessId) ===
+            String(args.businessId) &&
+          resolveProgramLifecycle(previouslyLinkedProgram) !== 'archived'
+        ) {
+          throw new Error('ONBOARDING_DRAFT_PROGRAM_MISMATCH');
+        }
+      }
+
+      const conflictingDraft = await findConflictingOnboardingDraftForProgram(
+        ctx,
+        args.programId,
+        existingDraft?._id
+      );
+      if (conflictingDraft) {
+        throw new Error('PROGRAM_ONBOARDING_FLOW_MISMATCH');
+      }
+      program = explicitProgram;
+    } else if (existingDraft?.programId) {
+      const draftProgram = await ctx.db.get(existingDraft.programId);
+      if (
+        draftProgram &&
+        draftProgram.isActive === true &&
+        String(draftProgram.businessId) === String(args.businessId) &&
+        resolveProgramLifecycle(draftProgram) !== 'archived'
+      ) {
+        program = draftProgram;
+      }
+    }
+
+    const now = Date.now();
+    let reused = true;
+    if (program) {
+      await ctx.db.patch(
+        program._id,
+        buildOnboardingProgramUpdatePatch(program, normalizedProgram, now)
+      );
+    } else {
+      reused = false;
+      const existingPrograms = await listBusinessPrograms(
+        ctx,
+        args.businessId
+      );
+      const maxPosSortOrder = existingPrograms.reduce(
+        (highest: number, existingProgram: Doc<'loyaltyPrograms'>) =>
+          typeof existingProgram.posSortOrder === 'number'
+            ? Math.max(highest, existingProgram.posSortOrder)
+            : highest,
+        -1
+      );
+      const loyaltyProgramId = await ctx.db.insert('loyaltyPrograms', {
+        businessId: args.businessId,
+        status: 'draft',
+        publishedAt: undefined,
+        ...normalizedProgram,
+        posSortOrder: maxPosSortOrder + 1,
+        allowPosEnroll: true,
+        lastStructureChangedAt: now,
+        isArchived: false,
+        archivedAt: undefined,
+        archivedByUserId: undefined,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      program = await ctx.db.get(loyaltyProgramId);
+      if (!program) {
+        throw new Error('PROGRAM_CREATE_FAILED');
+      }
+    }
+
+    await upsertBusinessOnboardingDraft(ctx, {
+      userId: actor._id,
+      flow,
+      currentStep: 'previewCard',
+      status: 'in_progress',
+      businessId: args.businessId,
+      programId: program._id,
+      programDraft: {
+        title: normalizedProgram.title,
+        rewardName: normalizedProgram.rewardName,
+        maxStamps: String(normalizedProgram.maxStamps),
+        cardTerms: normalizedProgram.cardTerms ?? '',
+        rewardConditions: normalizedProgram.rewardConditions ?? '',
+        stampIcon: normalizedProgram.stampIcon,
+        stampShape: normalizedProgram.stampShape,
+        cardThemeId: normalizedProgram.cardThemeId,
+        imageStorageId: normalizedProgram.imageStorageId ?? null,
+      },
+    });
+
+    return {
+      loyaltyProgramId: program._id,
+      reused,
+    };
+  },
+});
+
 export const publishProgram = mutation({
   args: {
     businessId: v.id('businesses'),
@@ -615,20 +903,21 @@ export const publishProgram = mutation({
       'edit_loyalty_cards'
     );
     const program = await getProgramOrThrow(ctx, businessId, programId);
-    assertExpectedUpdatedAt({
-      entity: 'program',
-      entityId: String(programId),
-      expectedUpdatedAt,
-      actualUpdatedAt: program.updatedAt,
-    });
     const lifecycle = resolveProgramLifecycle(program);
 
     if (lifecycle === 'archived') {
       throw new Error('PROGRAM_REACTIVATION_FORBIDDEN');
     }
     if (lifecycle === 'active') {
-      throw new Error('PROGRAM_ALREADY_PUBLISHED');
+      return { ok: true, updatedAt: program.updatedAt };
     }
+
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
 
     const allPrograms = await listBusinessPrograms(ctx, businessId);
     const activeCountExcludingCurrent = allPrograms.filter((item: any) => {

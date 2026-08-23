@@ -21,10 +21,16 @@ import {
 import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
+  requireActorIsBusinessOwner,
   requireActiveBusiness,
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
+import { resolveProgramLifecycle } from './loyaltyPrograms';
+import {
+  type BusinessOnboardingFlow,
+  getBusinessOnboardingDraftForUserAndFlow,
+} from './onboarding';
 import { prepareProviderRevocationsForUser } from './providerCredentials';
 
 const SUBSCRIPTION_PLAN_UNION = v.union(
@@ -37,6 +43,11 @@ const SUBSCRIPTION_STATUS_UNION = v.union(
   v.literal('active'),
   v.literal('inactive'),
   v.literal('cancelled')
+);
+
+const BUSINESS_ONBOARDING_FLOW_UNION = v.union(
+  v.literal('default'),
+  v.literal('additional')
 );
 
 type SubscriptionPlanStatus = 'active' | 'inactive' | 'cancelled';
@@ -1003,45 +1014,99 @@ export const completeCustomerOnboarding = mutation({
 
 export const completeBusinessOnboarding = mutation({
   args: {
-    businessId: v.optional(v.id('businesses')),
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+    flow: BUSINESS_ONBOARDING_FLOW_UNION,
   },
-  handler: async (ctx, { businessId }) => {
+  handler: async (ctx, { businessId, programId, flow }) => {
     const user = await requireCurrentUser(ctx);
-    const targetBusinessId = businessId ?? user.activeBusinessId;
-
-    if (targetBusinessId) {
-      const business = await ctx.db.get(targetBusinessId);
-      if (!business || business.isActive !== true) {
-        throw new Error('BUSINESS_INACTIVE');
-      }
-
-      const staffRecord = await ctx.db
-        .query('businessStaff')
-        .withIndex('by_businessId_userId', (q) =>
-          q.eq('businessId', targetBusinessId).eq('userId', user._id)
-        )
-        .first();
-      if (
-        String(business.ownerUserId) !== String(user._id) &&
-        (!staffRecord || getBusinessStaffStatus(staffRecord) !== 'active')
-      ) {
-        throw new Error('NOT_AUTHORIZED');
-      }
-
-      const profileCompletion = computeBusinessProfileCompletion(business);
-      if (!profileCompletion.isComplete) {
-        throw new Error(
-          `BUSINESS_PROFILE_INCOMPLETE:${profileCompletion.missingFields.join(',')}`
-        );
-      }
-    } else if (!user.businessOnboardedAt) {
-      throw new Error('BUSINESS_REQUIRED');
+    const onboardingFlow = flow as BusinessOnboardingFlow;
+    if (onboardingFlow === 'additional' && user.businessOnboardedAt == null) {
+      throw new Error('DEFAULT_BUSINESS_ONBOARDING_REQUIRED');
+    }
+    const owner = await requireActorIsBusinessOwner(ctx, businessId);
+    const business = await ctx.db.get(businessId);
+    if (
+      !business ||
+      business.isActive !== true ||
+      String(owner._id) !== String(user._id) ||
+      String(business.ownerUserId) !== String(user._id)
+    ) {
+      throw new Error('NOT_AUTHORIZED');
     }
 
+    const profileCompletion = computeBusinessProfileCompletion(business);
+    if (!profileCompletion.isComplete) {
+      throw new Error(
+        `BUSINESS_PROFILE_INCOMPLETE:${profileCompletion.missingFields.join(',')}`
+      );
+    }
+
+    const program = await ctx.db.get(programId);
+    if (!program) {
+      throw new Error('PROGRAM_NOT_FOUND');
+    }
+    if (String(program.businessId) !== String(businessId)) {
+      throw new Error('PROGRAM_BUSINESS_MISMATCH');
+    }
+    if (
+      program.isActive !== true ||
+      resolveProgramLifecycle(program) !== 'active'
+    ) {
+      throw new Error('PROGRAM_NOT_PUBLISHED');
+    }
+
+    const draft = await getBusinessOnboardingDraftForUserAndFlow(
+      ctx,
+      user._id,
+      onboardingFlow
+    );
+    if (!draft) {
+      throw new Error('ONBOARDING_DRAFT_NOT_FOUND');
+    }
+    if (
+      !draft.businessId ||
+      String(draft.businessId) !== String(businessId)
+    ) {
+      throw new Error('ONBOARDING_DRAFT_BUSINESS_MISMATCH');
+    }
+    if (!draft.programId || String(draft.programId) !== String(programId)) {
+      throw new Error('ONBOARDING_DRAFT_PROGRAM_MISMATCH');
+    }
+    const programDraftLinks = await ctx.db
+      .query('businessOnboardingDrafts')
+      .withIndex('by_programId', (q) => q.eq('programId', programId))
+      .collect();
+    if (programDraftLinks.some((linkedDraft) => linkedDraft._id !== draft._id)) {
+      throw new Error('PROGRAM_ONBOARDING_FLOW_MISMATCH');
+    }
+
+    const now = Date.now();
     await ctx.db.patch(user._id, {
-      businessOnboardedAt: Date.now(),
-      updatedAt: Date.now(),
+      businessOnboardedAt: user.businessOnboardedAt ?? now,
+      activeBusinessId: businessId,
+      activeMode: 'business',
+      updatedAt: now,
     });
+    await ctx.db.patch(draft._id, {
+      status: 'completed',
+      currentStep: 'previewCard',
+      farthestStep: 'previewCard',
+      farthestStepOrder: onboardingFlow === 'additional' ? 4 : 5,
+      businessId,
+      programId,
+      pausedAt: undefined,
+      completedAt: draft.completedAt ?? now,
+      updatedAt: now,
+    });
+
+    return {
+      userId: user._id,
+      businessId,
+      programId,
+      flow: onboardingFlow,
+      completedAt: draft.completedAt ?? now,
+    };
   },
 });
 
