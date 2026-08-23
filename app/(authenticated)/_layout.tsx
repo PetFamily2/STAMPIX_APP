@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -363,7 +363,7 @@ export default function AuthenticatedLayout() {
           <View style={styles.loadingLogoHalo} />
           <View style={styles.loadingLogoShell}>
             <Image
-              source={STAMPAIX_IMAGE_LOGO}
+              source={BRAND_IMAGE_LOGO}
               style={styles.loadingLogo}
               resizeMode="contain"
               accessibilityLabel="StampAix logo"

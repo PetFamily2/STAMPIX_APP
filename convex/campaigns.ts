@@ -105,11 +105,11 @@ async function attemptCampaignPushDelivery(
       toUserId: userId,
       title: normalizeUnknownText(
         campaign.messageTitle ?? campaign.title,
-        'New STAMPAIX update'
+        'New StampAix update'
       ),
       body: normalizeUnknownText(
         campaign.messageBody,
-        'Open STAMPAIX to view the latest business update.'
+        'Open StampAix to view the latest business update.'
       ),
     });
   } catch {

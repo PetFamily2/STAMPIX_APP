@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   Text,
   TextInput,
@@ -307,7 +308,15 @@ export default function ProgramDetailsScreen() {
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage);
+      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage, [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'פתח הגדרות',
+          onPress: () => {
+            void Linking.openSettings();
+          },
+        },
+      ]);
       return;
     }
 

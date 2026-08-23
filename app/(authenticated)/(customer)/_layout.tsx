@@ -4,7 +4,7 @@ import { Tabs, useSegments } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { justifyContent } from '@/lib/rtl';
 
 const TEXT = {
@@ -205,7 +205,7 @@ export default function CustomerTabsLayout() {
                   >
                     <View style={styles.qrTabBubble}>
                       <Image
-                        source={STAMPAIX_IMAGE_LOGO}
+                        source={BRAND_IMAGE_LOGO}
                         style={styles.qrTabLogo}
                         resizeMode="cover"
                         accessibilityLabel="StampAix logo"

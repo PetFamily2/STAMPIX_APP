@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -87,7 +87,7 @@ export default function WelcomeScreen() {
           <View className="items-center mb-2 -mt-3">
             <View className="items-center justify-center">
               <Image
-                source={STAMPAIX_IMAGE_LOGO}
+                source={BRAND_IMAGE_LOGO}
                 className="w-36 h-36"
                 resizeMode="contain"
                 accessibilityLabel="StampAix logo"

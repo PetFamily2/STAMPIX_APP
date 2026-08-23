@@ -141,7 +141,7 @@ If errors persist (e.g., "Convex query failed", "RevenueCat error"):
 #### Common Fixes
 - **"Module not found"**: Run `bun install`.
 - **"Metro bundler error"**: Run `bun dev --clear`.
-- **Convex connection**: Check `EXPO_PUBLIC_CONVEX_URL` in `.env`.
+- **Convex connection**: Check `EXPO_PUBLIC_CONVEX_URL_DEV` locally or `EXPO_PUBLIC_CONVEX_URL_PROD` for production.
 
 ---
 

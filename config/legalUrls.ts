@@ -9,8 +9,8 @@ function normalizePublicUrl(value: string | undefined, fallbackUrl: string) {
   return normalized;
 }
 
-const DEFAULT_PRIVACY_POLICY_URL = 'https://stampix.app/legal/privacy';
-const DEFAULT_TERMS_OF_SERVICE_URL = 'https://stampix.app/legal/terms';
+const DEFAULT_PRIVACY_POLICY_URL = 'https://stampaix.app/legal/privacy';
+const DEFAULT_TERMS_OF_SERVICE_URL = 'https://stampaix.app/legal/terms';
 
 export const PRIVACY_POLICY_URL = normalizePublicUrl(
   process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL,

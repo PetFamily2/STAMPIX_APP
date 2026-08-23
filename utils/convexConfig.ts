@@ -16,15 +16,20 @@ export function getConvexUrl(): string {
   const prodUrl = process.env.EXPO_PUBLIC_CONVEX_URL_PROD;
   const legacyUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 
-  if (APP_ENV === 'prod' && prodUrl) {
-    return prodUrl;
+  if (APP_ENV === 'prod') {
+    if (prodUrl?.trim()) {
+      return prodUrl;
+    }
+    throw new Error(
+      'Production requires EXPO_PUBLIC_CONVEX_URL_PROD. Legacy and development Convex URLs are not accepted.'
+    );
   }
 
   if (APP_ENV === 'dev' && devUrl) {
     return devUrl;
   }
 
-  // נפילה לכתובת יחידה ישנה לתאימות לאחור
+  // Development may retain the legacy fallback while local environments migrate.
   if (legacyUrl) {
     return legacyUrl;
   }

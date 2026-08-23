@@ -34,7 +34,7 @@ const LEGAL_ROWS: Array<{
   {
     document: 'terms',
     title: 'תנאי שימוש',
-    subtitle: 'כללי השימוש ב-STAMPAIX לעסקים וללקוחות',
+    subtitle: 'כללי השימוש ב-StampAix לעסקים וללקוחות',
     icon: 'document-text-outline',
   },
   {

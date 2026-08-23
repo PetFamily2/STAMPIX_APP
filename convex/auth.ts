@@ -20,7 +20,7 @@ import {
   upsertProviderRevocationCredential,
 } from './providerCredentials';
 
-const AUTH_REDIRECT_APP_PREFIXES = ['stampix://'] as const;
+const AUTH_REDIRECT_APP_PREFIXES = ['stampaix://'] as const;
 const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
   'exp://',
   'exps://',
@@ -56,7 +56,7 @@ async function sendEmailVerificationOtp(email: string, token: string) {
     body: JSON.stringify({
       from,
       to: [email],
-      subject: 'קוד אימות ל-Stampix',
+      subject: 'קוד אימות ל-StampAix',
       html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>הקוד שלך הוא:</p>
 <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:8px 0;">${token}</p>
@@ -391,9 +391,9 @@ async function linkIdentityToUser(
 function isProductionRuntime(
   env: Partial<Record<string, string | undefined>> = process.env
 ) {
-  const stampixEnvironment = env.STAMPAIX_ENV?.trim().toLowerCase();
-  if (stampixEnvironment) {
-    return !['development', 'preview'].includes(stampixEnvironment);
+  const stampaixEnvironment = env.STAMPAIX_ENV?.trim().toLowerCase();
+  if (stampaixEnvironment) {
+    return !['development', 'preview'].includes(stampaixEnvironment);
   }
 
   const explicitEnvValues = [

@@ -44,10 +44,7 @@ export function createSerializedAsyncOperationQueue() {
 export async function hydrateNotificationPreference(options: {
   generation: number;
   getCurrentGeneration: () => number;
-  readCanonicalPreference: () => Promise<string | null>;
-  readLegacyPreference: () => Promise<string | null>;
-  writeCanonicalPreference: (value: string) => Promise<void>;
-  removeLegacyPreference: () => Promise<void>;
+  readPreference: () => Promise<string | null>;
   setEnabled: (enabled: boolean) => void;
   finishLoading: () => void;
 }) {
@@ -55,36 +52,13 @@ export async function hydrateNotificationPreference(options: {
     options.generation === options.getCurrentGeneration();
 
   try {
-    const canonicalPreference = await options.readCanonicalPreference();
+    const storedPreference = await options.readPreference();
     if (!isCurrentGeneration()) {
       return;
     }
 
-    const legacyPreference =
-      canonicalPreference === null
-        ? await options.readLegacyPreference()
-        : null;
-    if (!isCurrentGeneration()) {
-      return;
-    }
-
-    const storedPreference = canonicalPreference ?? legacyPreference;
     if (storedPreference !== null) {
-      if (!isCurrentGeneration()) {
-        return;
-      }
       options.setEnabled(storedPreference === '1');
-    }
-
-    if (legacyPreference !== null) {
-      if (!isCurrentGeneration()) {
-        return;
-      }
-      await options.writeCanonicalPreference(legacyPreference);
-      if (!isCurrentGeneration()) {
-        return;
-      }
-      await options.removeLegacyPreference();
     }
   } finally {
     if (isCurrentGeneration()) {

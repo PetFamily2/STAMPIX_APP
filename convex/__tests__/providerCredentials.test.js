@@ -17,7 +17,7 @@ import {
 const TEST_KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8';
 const TEST_ENV = {
   AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: TEST_KEY,
-  AUTH_APPLE_ID: 'com.stampix.test',
+  AUTH_APPLE_ID: 'com.stampaix.test',
   AUTH_APPLE_SECRET: 'test-apple-client-secret',
 };
 const PROVIDER_IAT_SECONDS = 1_800_000_000;

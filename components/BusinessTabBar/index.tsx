@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { STAMPAIX_IMAGE_LOGO } from '@/config/branding';
+import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { justifyContent } from '@/lib/rtl';
 
 const STANDARD_TAB_ICON_SIZE = 24;
@@ -112,7 +112,7 @@ export function ScannerTabButton({
           <View pointerEvents="none" style={styles.qrTabBubbleDepthInner} />
           <View style={styles.qrTabBubble}>
             <Image
-              source={STAMPAIX_IMAGE_LOGO}
+              source={BRAND_IMAGE_LOGO}
               style={styles.qrTabLogo}
               resizeMode="cover"
               accessibilityLabel="StampAix logo"

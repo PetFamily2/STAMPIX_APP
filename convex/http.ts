@@ -10,10 +10,10 @@ import { resolveRevenueCatPlanMapping } from './entitlements';
 
 const http = httpRouter();
 
-const DEFAULT_APP_STORE_URL = 'https://apps.apple.com/us/search?term=STAMPAIX';
+const DEFAULT_APP_STORE_URL = 'https://apps.apple.com/us/search?term=StampAix';
 const DEFAULT_PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.stampix.stampix';
-const APP_JOIN_URL = 'stampix://join';
+  'https://play.google.com/store/apps/details?id=com.stampaix.app';
+const APP_JOIN_URL = 'stampaix://join';
 
 function resolveStoreUrl(value: string | undefined, fallbackUrl: string) {
   const normalized = value?.trim();
@@ -650,7 +650,7 @@ http.route({
     const src = url.searchParams.get('src') ?? '';
     const camp = url.searchParams.get('camp') ?? '';
 
-    let businessName = 'STAMPAIX';
+    let businessName = 'StampAix';
     let logoUrl = '';
     let joinCode = '';
 
@@ -679,8 +679,8 @@ http.route({
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>הצטרפו ל${escapeHtml(businessName)} ב-STAMPAIX</title>
-  <meta property="og:title" content="הצטרפו ל${escapeHtml(businessName)} ב-STAMPAIX" />
+  <title>הצטרפו ל${escapeHtml(businessName)} ב-StampAix</title>
+  <meta property="og:title" content="הצטרפו ל${escapeHtml(businessName)} ב-StampAix" />
   <meta property="og:description" content="סירקו כדי להצטרף למועדון הנאמנות של ${escapeHtml(businessName)}" />
   ${logoUrl ? `<meta property="og:image" content="${escapeHtml(logoUrl)}" />` : ''}
   <style>
@@ -738,7 +738,7 @@ http.route({
   <div class="card">
     ${logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(businessName)}" />` : ''}
     <h1>${escapeHtml(businessName)}</h1>
-    <p class="sub">הצטרפו למועדון הנאמנות ב-STAMPAIX</p>
+    <p class="sub">הצטרפו למועדון הנאמנות ב-StampAix</p>
     <a class="btn btn-primary" href="${escapeHtml(appDeepLink)}">פתח באפליקציה</a>
     <div class="stores">
       <a href="${escapeHtml(APP_STORE_URL)}" target="_blank" rel="noopener noreferrer">App Store</a>

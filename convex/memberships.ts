@@ -677,7 +677,7 @@ export const getCustomerBusiness = query({
  *
  * Supported formats:
  *   a) "businessExternalId:<value>"              (legacy)
- *   b) "https://stampix.app/join?biz=<id>&..."   (deep link URL)
+ *   b) "https://stampaix.app/join?biz=<id>&..."   (deep link URL)
  *   c) raw businessPublicId / externalId string
  *   d) joinCode (short uppercase alphanumeric)
  *

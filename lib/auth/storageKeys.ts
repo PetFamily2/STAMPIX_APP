@@ -1,6 +1,6 @@
 import { getConvexUrl } from '@/utils/convexConfig';
 
-export const CONVEX_AUTH_STORAGE_NAMESPACE = 'stampix_auth';
+export const CONVEX_AUTH_STORAGE_NAMESPACE = 'stampaix_auth';
 
 const CONVEX_AUTH_STORAGE_BASE_KEYS = [
   '__convexAuthJWT',

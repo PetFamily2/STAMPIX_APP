@@ -68,11 +68,11 @@ Last synced: 2026-02-18
 - Rationale: Keep local/dev usable without live billing setup.
 - Implications: Production requires env keys plus explicit payment flags.
 
-## Decision: Layered environment variables for Convex and RevenueCat
+## Decision: Environment-specific variables with production fail-closed behavior
 - Date: 2025-12-29
-- Decision: Prefer env-specific vars (`*_DEV`, `*_PROD`) with legacy fallback vars.
-- Rationale: Smooth migration and safer multi-environment operation.
-- Implications: `APP_ENV` + `FORCE_PROD_MODE` select active values at runtime.
+- Decision: Production requires `*_PROD`; legacy fallback variables are development-only.
+- Rationale: Prevent a production binary from silently connecting to development services.
+- Implications: `EXPO_PUBLIC_APP_ENV`, `APP_ENV`, and `FORCE_PROD_MODE` select active values at runtime.
 
 ## Decision: Prefer Bun-based tooling
 - Date: 2025-12-29

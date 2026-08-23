@@ -3,6 +3,8 @@ import * as Localization from 'expo-localization';
 import { Platform } from 'react-native';
 import type { AnalyticsEventName, BaseAnalyticsProps } from './events';
 
+declare const __DEV__: boolean;
+
 export type AnalyticsProvider = {
   init?: () => void | Promise<void>;
   track: (
@@ -28,6 +30,11 @@ const ConsoleProvider: AnalyticsProvider = {
       JSON.stringify({ userId, traits }, null, 2)
     );
   },
+};
+
+const NoopProvider: AnalyticsProvider = {
+  track: () => undefined,
+  identify: () => undefined,
 };
 
 const PostHogProvider: AnalyticsProvider = {
@@ -64,6 +71,10 @@ const UnknownProvider: AnalyticsProvider = {
 };
 
 function resolveProvider(): AnalyticsProvider {
+  if (!__DEV__) {
+    return NoopProvider;
+  }
+
   const name =
     process.env.EXPO_PUBLIC_ANALYTICS_PROVIDER?.toLowerCase() ?? 'console';
 

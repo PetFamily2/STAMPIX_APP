@@ -23,7 +23,7 @@ const originalKey = process.env.GOOGLE_PLACES_API_KEY;
 function buildCtx({
   authenticated = true,
   liveUserExists = true,
-  tokenIdentifier = 'https://stampix.test|user_1',
+  tokenIdentifier = 'https://stampaix.test|user_1',
   runQuery = async () => liveUserExists,
   runMutation = async () => null,
 } = {}) {

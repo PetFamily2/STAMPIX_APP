@@ -481,7 +481,7 @@ describe('production auth logging guard', () => {
   test('does not trust CONVEX_DEPLOYMENT alone to authorize DEBUG', () => {
     expect(() =>
       assertProductionAuthLogLevelSafe({
-        CONVEX_DEPLOYMENT: 'dev:stampix',
+        CONVEX_DEPLOYMENT: 'dev:stampaix',
         AUTH_LOG_LEVEL: 'DEBUG',
       })
     ).toThrow('AUTH_LOG_LEVEL_DEBUG_FORBIDDEN_IN_PRODUCTION');

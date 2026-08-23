@@ -38,8 +38,11 @@ Convex:
 - `EXPO_PUBLIC_CONVEX_URL_DEV`
 - `EXPO_PUBLIC_CONVEX_URL_PROD`
 
-Legacy Convex fallback:
+Development-only compatibility fallback:
 - `EXPO_PUBLIC_CONVEX_URL`
+
+Production builds fail closed unless `EXPO_PUBLIC_CONVEX_URL_PROD` is set.
+Legacy and development Convex URLs are not accepted by the production profile.
 
 RevenueCat when billing is enabled:
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
@@ -181,8 +184,8 @@ Also verify:
   `WRITE_EXTERNAL_STORAGE`.
 - Android notification config uses channel `default` and color `#2F6BFF`; a
   dedicated notification icon asset is still missing.
-- Bundle/package/domain values remain `com.stampix.stampix`, `stampix`, and
-  `stampix.app`.
+- Bundle/package/domain values remain `com.stampaix.app`, `stampaix`, and
+  `stampaix.app`.
 - C5.2 cleared the previous Expo prebuild warnings by matching the Android
   status bar and splash colors and enabling Android edge-to-edge.
 
@@ -269,9 +272,9 @@ by App Store Connect and Google Play.
 
 Before store submission:
 - Publish the privacy policy at `EXPO_PUBLIC_PRIVACY_POLICY_URL` or the default
-  `https://stampix.app/legal/privacy`.
+  `https://stampaix.app/legal/privacy`.
 - Publish the terms of service at `EXPO_PUBLIC_TERMS_OF_SERVICE_URL` or the
-  default `https://stampix.app/legal/terms`.
+  default `https://stampaix.app/legal/terms`.
 - Confirm both hosted pages match the in-app behavior for Convex Auth, account
   deletion, camera QR scanning, location/maps, push tokens, purchases,
   referrals, analytics, support requests, and any enabled AI features.
@@ -306,14 +309,14 @@ invoke `deleteMyAccountHard` based only on a submitted email address.
 ## OAuth production readiness
 
 Convex Auth owns the provider callback URLs. The native app starts OAuth and
-returns to the app through `stampix://oauth-callback`, but Google and Apple must
+returns to the app through `stampaix://oauth-callback`, but Google and Apple must
 redirect back to the Convex HTTP site first.
 
 Production app identity:
-- iOS bundle id: `com.stampix.stampix`.
-- Android package: `com.stampix.stampix`.
-- App scheme: `stampix`.
-- Production web/domain assumption: `stampix.app`.
+- iOS bundle id: `com.stampaix.app`.
+- Android package: `com.stampaix.app`.
+- App scheme: `stampaix`.
+- Production web/domain assumption: `stampaix.app`.
 
 Convex production environment:
 - `STAMPAIX_ENV` must be set to `production` as a server-side Convex variable.
@@ -336,7 +339,7 @@ Google Cloud Console:
 - Store the Web client secret in `AUTH_GOOGLE_SECRET`.
 
 Apple Developer:
-- Enable Sign in with Apple for the App ID matching `com.stampix.stampix`.
+- Enable Sign in with Apple for the App ID matching `com.stampaix.app`.
 - Configure a Services ID/client id for the web callback used by Convex Auth.
 - Link the Services ID to the app identifier when required by Apple.
 - Add return URL:
@@ -351,7 +354,7 @@ Apple Developer:
   source control.
 
 Redirect safety:
-- Production allows app redirects such as `stampix://oauth-callback`.
+- Production allows app redirects such as `stampaix://oauth-callback`.
 - Production blocks Expo development redirects: `exp://`, `exps://`, and
   `https://auth.expo.io/`.
 - Expo development redirects are allowed only outside production environments.
@@ -364,8 +367,11 @@ treated as unsupported for production push registration.
 
 Native config:
 - Android default FCM channel id: `default`.
-- Runtime Android channel name: `STAMPAIX`.
+- Runtime Android channel name: `StampAix`.
 - Android notification tint color: `#2F6BFF`.
+- Expo config references `./google-services.json`; obtain the real Firebase
+  Android client file for `com.stampaix.app` before building. Do not substitute
+  the private FCM service-account JSON.
 - No notification icon is configured yet because the repo does not contain a
   dedicated 96x96 all-white transparent Android notification icon asset.
 
@@ -383,6 +389,7 @@ Backend behavior:
 Production credential blockers:
 - APNs key/certificate configured through EAS credentials.
 - FCM V1 credentials configured through EAS credentials.
+- Firebase Android client `google-services.json` present at the configured path.
 - Real iOS and Android device tests using preview/production builds.
 - Large queued fanout/retry infrastructure is not wired in C3.2.
 
@@ -392,15 +399,15 @@ Universal links and Android app links require files hosted by the production
 web domain. Do not place secrets in these files.
 
 iOS:
-- Host `https://stampix.app/.well-known/apple-app-site-association`.
+- Host `https://stampaix.app/.well-known/apple-app-site-association`.
 - Serve it as `application/json`, with no redirect.
-- Include the production app id in the form `<APPLE_TEAM_ID>.com.stampix.stampix`.
+- Include the production app id in the form `<APPLE_TEAM_ID>.com.stampaix.app`.
 - Scope matching to the `/join*` path.
 
 Android:
-- Host `https://stampix.app/.well-known/assetlinks.json`.
+- Host `https://stampaix.app/.well-known/assetlinks.json`.
 - Serve it as `application/json`, with no redirect.
-- Include package `com.stampix.stampix`.
+- Include package `com.stampaix.app`.
 - Include the production Android signing certificate SHA-256 fingerprints.
 - Use relation `delegate_permission/common.handle_all_urls`.
 

@@ -449,12 +449,12 @@ try {
     } catch (error) {
       fail(`Malformed embedded app config: ${error.message}`);
     }
-    if (config?.android?.package !== 'com.stampix.stampix') {
+    if (config?.android?.package !== 'com.stampaix.app') {
       fail(
         `Unexpected Android package in embedded app config: ${config?.android?.package ?? '<missing>'}`
       );
     }
-    if (config?.scheme !== 'stampix') {
+    if (config?.scheme !== 'stampaix') {
       fail(
         `Unexpected app scheme in embedded app config: ${config?.scheme ?? '<missing>'}`
       );

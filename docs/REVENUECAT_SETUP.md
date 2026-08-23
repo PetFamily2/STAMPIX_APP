@@ -57,12 +57,17 @@ EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY="premium_monthly"
 EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY="premium_yearly"
 ```
 
-Fallback (legacy single vars are still supported):
+Development-only compatibility values:
 ```env
 EXPO_PUBLIC_CONVEX_URL="https://your-convex.convex.cloud"
 EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY="appl_..."
 EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY="goog_..."
 ```
+
+Production builds do not use these compatibility values. They require
+`EXPO_PUBLIC_CONVEX_URL_PROD` and the platform-specific RevenueCat `*_PROD`
+key. When real billing is enabled, server-authoritative billing, non-mock mode,
+and all four package mappings must also be configured.
 
 ## 4) Convex backend environment variables
 These values are read only by Convex server code. Do not set them as EAS app

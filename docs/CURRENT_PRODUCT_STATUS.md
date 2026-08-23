@@ -8,7 +8,7 @@ This report is based on the current codebase, especially `app/`, `screens/`,
 
 ## 1. Current Product Overview
 
-STAMPAIX is an Expo React Native loyalty platform for Hebrew/RTL mobile use. The
+StampAix is an Expo React Native loyalty platform for Hebrew/RTL mobile use. The
 app supports customers who collect stamps and rewards, businesses that create
 loyalty programs and campaigns, staff who scan customer QR codes, and admins who
 handle platform-level referral/support operations.
@@ -260,11 +260,13 @@ Convex Auth tables.
   Campaigns whose channel list includes `push` now keep the inbox `messageLog`
   delivery and attempt best-effort Expo push delivery. Referral reward
   notifications keep their existing inbox behavior and are covered for push
-  attempts. Production readiness still depends on APNs/FCM/EAS credential
+  attempts. Expo config now reserves `./google-services.json` for the Firebase
+  Android app registered as `com.stampaix.app`; the real file is still required
+  externally. Production readiness also depends on APNs/FCM/EAS credential
   configuration, a dedicated Android notification icon asset, and real-device
   testing.
 - Store/deep-link landing: `convex/http.ts` serves `/join`, preserves join and
-  referral params, and opens the app through `stampix://join`. App Store URL
+  referral params, and opens the app through `stampaix://join`. App Store URL
   still defaults to an App Store search URL unless a real listing URL is
   configured.
 - Admin support: support backend and admin UI exist, but the route is currently
@@ -376,7 +378,7 @@ Convex Auth tables.
   a final app listing URL must be configured before release.
 - In-app Hebrew fallback documents now exist for privacy policy, terms of
   service, and account deletion. Privacy policy and terms URLs still default to
-  `https://stampix.app/legal/privacy` and `/terms`; those public pages must be
+  `https://stampaix.app/legal/privacy` and `/terms`; those public pages must be
   live and match app behavior before store submission.
 - Sole-owner business transfer/deletion UX must be completed before store
   review if owners need to remove their account while owning a business.
@@ -385,8 +387,8 @@ Convex Auth tables.
 - Apple and Google OAuth production client configuration must match bundle id,
   package name, redirects, and associated domains.
 - Universal links require a valid Apple App Site Association file at
-  `https://stampix.app/.well-known/apple-app-site-association`; Android app
-  links require `https://stampix.app/.well-known/assetlinks.json` with valid
+  `https://stampaix.app/.well-known/apple-app-site-association`; Android app
+  links require `https://stampaix.app/.well-known/assetlinks.json` with valid
   production SHA-256 fingerprints.
 - Push notifications require APNs/FCM setup, a dedicated Android notification
   icon asset, and real-device tests.

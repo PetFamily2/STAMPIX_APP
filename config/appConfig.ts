@@ -3,7 +3,13 @@ import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 declare const __DEV__: boolean;
 
 export const FORCE_PROD_MODE = false;
-export const IS_DEV_MODE = FORCE_PROD_MODE ? false : __DEV__;
+const EXPLICIT_APP_ENV = process.env.EXPO_PUBLIC_APP_ENV?.trim().toLowerCase();
+const IS_NON_PRODUCTION_BUILD =
+  EXPLICIT_APP_ENV === 'development' || EXPLICIT_APP_ENV === 'preview';
+export const IS_DEV_MODE = FORCE_PROD_MODE
+  ? false
+  : IS_NON_PRODUCTION_BUILD ||
+    (EXPLICIT_APP_ENV !== 'production' && __DEV__);
 
 export type AppEnv = 'dev' | 'prod';
 export const APP_ENV: AppEnv = IS_DEV_MODE ? 'dev' : 'prod';
@@ -36,6 +42,19 @@ export const REVENUECAT_PACKAGE_BY_PLAN_PERIOD: Record<
     yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY ?? null,
   },
 };
+
+const REVENUECAT_PACKAGE_IDS = Object.values(
+  REVENUECAT_PACKAGE_BY_PLAN_PERIOD
+).flatMap((packagesByPeriod) => Object.values(packagesByPeriod));
+
+export const PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID =
+  APP_ENV !== 'prod' ||
+  !PAYMENT_SYSTEM_ENABLED ||
+  (!MOCK_PAYMENTS &&
+    process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'true' &&
+    REVENUECAT_PACKAGE_IDS.every(
+      (packageId) => typeof packageId === 'string' && packageId.trim().length > 0
+    ));
 
 export const TERMS_URL = TERMS_OF_SERVICE_URL;
 export const PRIVACY_URL = PRIVACY_POLICY_URL;

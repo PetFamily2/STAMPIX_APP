@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import {
@@ -20,10 +20,24 @@ import {
 
 export const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stampaix.customerNotificationsEnabled';
-export const LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY =
-  'stamprix.customerNotificationsEnabled';
 const ANDROID_NOTIFICATION_CHANNEL_ID = 'default';
-const ANDROID_NOTIFICATION_CHANNEL_NAME = 'STAMPAIX';
+const ANDROID_NOTIFICATION_CHANNEL_NAME = 'StampAix';
+
+function showNotificationSettingsRecovery() {
+  Alert.alert(
+    'נדרשת הרשאה להתראות',
+    'כדי לקבל התראות מ-StampAix, יש לאפשר התראות בהגדרות המכשיר.',
+    [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'פתח הגדרות',
+        onPress: () => {
+          void Linking.openSettings();
+        },
+      },
+    ]
+  );
+}
 
 type NotificationsApi = typeof import('expo-notifications');
 
@@ -189,12 +203,6 @@ export function PushNotificationsProvider({
         await AsyncStorage.setItem(
           NOTIFICATIONS_ENABLED_STORAGE_KEY,
           enabled ? '1' : '0'
-        );
-        if (generation !== notificationStateGenerationRef.current) {
-          return;
-        }
-        await AsyncStorage.removeItem(
-          LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY
         );
       }),
     [preferenceStorageQueue]
@@ -399,7 +407,6 @@ export function PushNotificationsProvider({
       preferenceStorageQueue.enqueue(async () => {
         const cleanupResults = await Promise.allSettled([
           AsyncStorage.removeItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
-          AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
         ]);
         if (cleanupResults.some((result) => result.status === 'rejected')) {
           throw new Error('NOTIFICATION_PREFERENCE_CLEANUP_FAILED');
@@ -530,6 +537,9 @@ export function PushNotificationsProvider({
           };
         }
         if (!registration.registered) {
+          if (registration.permissionStatus === 'denied') {
+            showNotificationSettingsRecovery();
+          }
           await persistEnabledFlag(false, generation);
           if (!isCurrentGeneration()) {
             return {
@@ -571,14 +581,8 @@ export function PushNotificationsProvider({
           isHydrationActive
             ? notificationStateGenerationRef.current
             : Number.NaN,
-        readCanonicalPreference: () =>
+        readPreference: () =>
           AsyncStorage.getItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
-        readLegacyPreference: () =>
-          AsyncStorage.getItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
-        writeCanonicalPreference: (value) =>
-          AsyncStorage.setItem(NOTIFICATIONS_ENABLED_STORAGE_KEY, value),
-        removeLegacyPreference: () =>
-          AsyncStorage.removeItem(LEGACY_NOTIFICATIONS_ENABLED_STORAGE_KEY),
         setEnabled: setIsEnabled,
         finishLoading: () => setIsLoading(false),
       })

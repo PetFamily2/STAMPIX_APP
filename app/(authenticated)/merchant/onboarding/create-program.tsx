@@ -4,6 +4,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -139,6 +141,15 @@ export default function CreateProgramScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setError(TEXT.imagePermissionMessage);
+      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage, [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'פתח הגדרות',
+          onPress: () => {
+            void Linking.openSettings();
+          },
+        },
+      ]);
       return;
     }
 

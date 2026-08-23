@@ -2,7 +2,7 @@
 
 Last synced: 2026-02-18
 
-This folder contains the backend schema and server functions for STAMPAIX.
+This folder contains the backend schema and server functions for StampAix.
 
 ## Main files
 - `schema.ts` - full data model

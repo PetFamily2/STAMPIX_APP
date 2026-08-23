@@ -1,8 +1,8 @@
-# STAMPAIX App
+# StampAix App
 
 Last synced: 2026-02-18
 
-STAMPAIX is an Expo + React Native + Convex mobile app for customer loyalty and business scanner workflows.
+StampAix is an Expo + React Native + Convex mobile app for customer loyalty and business scanner workflows.
 
 ## Stack
 - Expo Router
@@ -40,7 +40,7 @@ Recommended Convex variables:
 - `EXPO_PUBLIC_CONVEX_URL_DEV`
 - `EXPO_PUBLIC_CONVEX_URL_PROD`
 
-Fallback Convex variable:
+Development-only compatibility Convex variable:
 - `EXPO_PUBLIC_CONVEX_URL`
 
 RevenueCat variables:
@@ -48,7 +48,7 @@ RevenueCat variables:
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
 - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`
 - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD`
-- legacy fallbacks:
+- development-only compatibility values:
   - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY`
   - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY`
 

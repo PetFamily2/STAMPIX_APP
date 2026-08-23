@@ -3,6 +3,23 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 import appJson from './app.json';
 
 const baseConfig = appJson.expo as ExpoConfig;
+const PRODUCTION_GOOGLE_SERVICES_FILE = './google-services.json';
+
+function withProductionGoogleServicesFile(config: ExpoConfig): ExpoConfig {
+  const appEnvironment = process.env.EXPO_PUBLIC_APP_ENV?.trim().toLowerCase();
+
+  if (appEnvironment !== 'production') {
+    return config;
+  }
+
+  return {
+    ...config,
+    android: {
+      ...config.android,
+      googleServicesFile: PRODUCTION_GOOGLE_SERVICES_FILE,
+    },
+  };
+}
 
 function withGoogleMapsNativeKeys(config: ExpoConfig): ExpoConfig {
   const googleMapsAndroidApiKey =
@@ -28,5 +45,5 @@ function withGoogleMapsNativeKeys(config: ExpoConfig): ExpoConfig {
 }
 
 export default function defineConfig(_context: ConfigContext): ExpoConfig {
-  return withGoogleMapsNativeKeys(baseConfig);
+  return withGoogleMapsNativeKeys(withProductionGoogleServicesFile(baseConfig));
 }

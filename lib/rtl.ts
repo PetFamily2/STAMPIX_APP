@@ -14,11 +14,11 @@ export const IS_RTL = true;
 export const RTL_ARCHITECTURE_MARKER = rtlArchitecture.marker;
 
 type RtlArchitectureGlobal = typeof globalThis & {
-  __STAMPAIX_RTL_ARCHITECTURE_MARKER__?: string;
+  __APP_RTL_ARCHITECTURE_MARKER__?: string;
 };
 
 export function retainRtlArchitectureMarker() {
-  (globalThis as RtlArchitectureGlobal).__STAMPAIX_RTL_ARCHITECTURE_MARKER__ =
+  (globalThis as RtlArchitectureGlobal).__APP_RTL_ARCHITECTURE_MARKER__ =
     RTL_ARCHITECTURE_MARKER;
 }
 

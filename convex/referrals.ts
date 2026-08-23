@@ -116,11 +116,11 @@ function buildReferralCode(prefix: 'ref' | 'bref' = 'ref') {
 }
 
 function buildCustomerReferralLinkUrl(code: string) {
-  return `https://stampix.app/join?ref=${encodeURIComponent(code)}`;
+  return `https://stampaix.app/join?ref=${encodeURIComponent(code)}`;
 }
 
 function buildBusinessReferralLinkUrl(code: string) {
-  return `https://stampix.app/join?bref=${encodeURIComponent(code)}`;
+  return `https://stampaix.app/join?bref=${encodeURIComponent(code)}`;
 }
 
 function addMonthsUtc(timestamp: number, months: number) {

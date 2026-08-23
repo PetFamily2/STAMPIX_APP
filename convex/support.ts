@@ -25,7 +25,7 @@ function resolveDisplayName(user: Doc<'users'>) {
     return emailPrefix;
   }
 
-  return 'STAMPAIX User';
+  return 'StampAix User';
 }
 
 function normalizeSupportMessage(value: string) {

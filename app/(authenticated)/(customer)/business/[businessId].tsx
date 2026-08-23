@@ -257,7 +257,7 @@ export default function CustomerBusinessDetailsScreen() {
   const canSubmitSelection = selectedCount > 0 && !isJoining;
 
   const buildInviteMessage = (url: string) =>
-    `בואו להצטרף אליי ל-${business.name} ב-STAMPIX. אחרי ניקוב ראשון אפשר לקבל הטבה.\n${url}`;
+    `בואו להצטרף אליי ל-${business.name} ב-StampAix. אחרי ניקוב ראשון אפשר לקבל הטבה.\n${url}`;
 
   const handleShareInviteViaWhatsApp = async () => {
     if (!shareSeedProgram || isShareInviteLoading) {

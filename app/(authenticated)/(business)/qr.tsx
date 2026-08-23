@@ -11,7 +11,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
-const BASE_URL = 'https://stampix.app/join';
+const BASE_URL = 'https://stampaix.app/join';
 
 export default function BusinessJoinQrScreen() {
   const insets = useSafeAreaInsets();

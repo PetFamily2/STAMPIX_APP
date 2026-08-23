@@ -1,11 +1,11 @@
-# STAMPAIX Documentation
+# StampAix Documentation
 
 Last synced: 2026-06-05
 
 This is the canonical documentation hub for the project. Start here, then follow the specific source-of-truth document for the area you are working on.
 
 ## Project summary
-STAMPAIX is an Expo + React Native + Convex mobile app for customer loyalty, QR join flows, scanner workflows, business dashboards, staff workflows, subscriptions, referrals, campaigns, and support surfaces.
+StampAix is an Expo + React Native + Convex mobile app for customer loyalty, QR join flows, scanner workflows, business dashboards, staff workflows, subscriptions, referrals, campaigns, and support surfaces.
 
 Core platform pieces:
 - Expo Router file-based navigation.

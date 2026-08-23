@@ -32,10 +32,13 @@ EXPO_PUBLIC_CONVEX_URL_DEV="https://your-dev.convex.cloud"
 EXPO_PUBLIC_CONVEX_URL_PROD="https://your-prod.convex.cloud"
 ```
 
-Legacy fallback:
+Development-only compatibility fallback:
 ```env
 EXPO_PUBLIC_CONVEX_URL="https://your-convex.convex.cloud"
 ```
+
+Production builds require `EXPO_PUBLIC_CONVEX_URL_PROD` and never use the
+compatibility fallback.
 
 Optional RevenueCat variables:
 ```env
@@ -55,8 +58,8 @@ RevenueCat setup details live in `docs/REVENUECAT_SETUP.md`, which is the source
 
 Optional legal and public integration variables:
 ```env
-EXPO_PUBLIC_PRIVACY_POLICY_URL="https://stampix.app/legal/privacy"
-EXPO_PUBLIC_TERMS_OF_SERVICE_URL="https://stampix.app/legal/terms"
+EXPO_PUBLIC_PRIVACY_POLICY_URL="https://stampaix.app/legal/privacy"
+EXPO_PUBLIC_TERMS_OF_SERVICE_URL="https://stampaix.app/legal/terms"
 ```
 
 Native Google Maps keys are build-time EAS values, not runtime client values:
@@ -139,7 +142,7 @@ High-level route groups:
 ## 7) Troubleshooting
 - Module not found: run `bun install`.
 - Metro cache issue: run `bun dev --clear`.
-- Convex connection issue: verify `EXPO_PUBLIC_CONVEX_URL_DEV`, `EXPO_PUBLIC_CONVEX_URL_PROD`, or fallback `EXPO_PUBLIC_CONVEX_URL`.
+- Convex connection issue: verify `EXPO_PUBLIC_CONVEX_URL_DEV` locally or `EXPO_PUBLIC_CONVEX_URL_PROD` for production. The unsuffixed compatibility variable is development-only.
 - RevenueCat purchase issue: check `docs/REVENUECAT_SETUP.md`.
 - EAS build issue: check `docs/deployment.md`.
 

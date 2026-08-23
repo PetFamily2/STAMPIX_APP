@@ -91,7 +91,7 @@ This is a snapshot and execution log. For current setup, deployment, and billing
   - `/join` now uses env-resolved store URLs:
     - `APP_STORE_URL` (or `EXPO_PUBLIC_APP_STORE_URL` fallback),
     - `PLAY_STORE_URL` (or `EXPO_PUBLIC_PLAY_STORE_URL` fallback).
-  - Default Android fallback now uses correct package id (`com.stampix.stampix`).
+  - Default Android fallback now uses correct package id (`com.stampaix.app`).
 - Gap:
   - final App Store URL must be set after listing approval.
 
@@ -100,8 +100,8 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - Implemented:
   - removed `yourdomain.com` fallbacks.
   - legal URLs now normalize to public defaults:
-    - `https://stampix.app/legal/privacy`
-    - `https://stampix.app/legal/terms`
+    - `https://stampaix.app/legal/privacy`
+    - `https://stampaix.app/legal/terms`
   - sign-up, paywall, customer settings, and business account settings now open
     in-app Hebrew legal fallback screens for terms, privacy, and account
     deletion policy.
@@ -172,7 +172,7 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 
 ### Public app (Expo)
 - `EXPO_PUBLIC_CONVEX_URL_DEV`
-- `EXPO_PUBLIC_CONVEX_URL_PROD` or `EXPO_PUBLIC_CONVEX_URL`
+- `EXPO_PUBLIC_CONVEX_URL_PROD` (required; production has no legacy fallback)
 - `EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED`
 - `EXPO_PUBLIC_MOCK_PAYMENTS`
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`

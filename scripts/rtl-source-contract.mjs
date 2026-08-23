@@ -778,7 +778,7 @@ function hasStrictRetentionAssignment(tokens) {
       'RtlArchitectureGlobal',
       ')',
       '.',
-      '__STAMPAIX_RTL_ARCHITECTURE_MARKER__',
+      '__APP_RTL_ARCHITECTURE_MARKER__',
       '=',
       'RTL_ARCHITECTURE_MARKER',
     ]) && bodyWithoutSemicolon.length === 9

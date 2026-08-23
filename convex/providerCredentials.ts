@@ -52,6 +52,9 @@ type TokenEnvelope = {
 
 const ENCRYPTION_VERSION = 1 as const;
 const ENCRYPTION_KEY_ENV = 'AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY';
+// Compatibility-critical internal protocol/storage identifiers. The historical
+// "stampix" spelling is intentional, is not public branding, and must not be
+// renamed without an explicit data and protocol migration.
 const TOKEN_AAD_PREFIX = 'stampix-provider-revocation';
 const PROVIDER_FINGERPRINT_KEY_DOMAIN =
   'stampix-provider-identity-fingerprint:key:v1';

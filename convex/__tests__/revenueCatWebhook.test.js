@@ -132,7 +132,7 @@ function createWebhookRequest(event, secret = SECRET) {
     headers.set('Authorization', `Bearer ${secret}`);
   }
 
-  return new Request('https://stampix.test/revenuecat/webhook', {
+  return new Request('https://stampaix.test/revenuecat/webhook', {
     method: 'POST',
     headers,
     body: JSON.stringify({ event }),

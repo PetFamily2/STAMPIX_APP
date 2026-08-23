@@ -25,7 +25,7 @@ Google:
 - The Web client id and secret match `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
 
 Apple:
-- Sign in with Apple is enabled for bundle id `com.stampix.stampix`.
+- Sign in with Apple is enabled for bundle id `com.stampaix.app`.
 - The Apple Services ID/client id used by Convex Auth is linked to the app identifier when required.
 - Return URL:
   `<CONVEX_SITE_URL>/api/auth/callback/apple`.
@@ -33,9 +33,9 @@ Apple:
 - The Apple client id and client secret JWT match `AUTH_APPLE_ID` and `AUTH_APPLE_SECRET`.
 
 Native app assumptions:
-- App scheme is `stampix`.
-- OAuth app callback remains `stampix://oauth-callback`.
-- iOS bundle id and Android package are both `com.stampix.stampix`.
+- App scheme is `stampaix`.
+- OAuth app callback remains `stampaix://oauth-callback`.
+- iOS bundle id and Android package are both `com.stampaix.app`.
 
 ## Scenario 1: New Google user
 1. Start at `/(auth)/welcome`.
@@ -82,7 +82,7 @@ Checks:
 4. Verify continue button is disabled until first and last names are non-empty.
 
 ## Scenario 6: Redirect safety
-1. Validate production allows `stampix://oauth-callback`.
+1. Validate production allows `stampaix://oauth-callback`.
 2. Validate production blocks `exp://`, `exps://`, and `https://auth.expo.io/`.
 3. Validate development may allow Expo dev redirects.
 4. Validate relative auth redirects resolve through `CONVEX_SITE_URL`.

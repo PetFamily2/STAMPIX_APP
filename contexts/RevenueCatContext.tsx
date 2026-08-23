@@ -17,7 +17,12 @@ import {
   useState,
 } from 'react';
 import { Alert } from 'react-native';
-import { MOCK_PAYMENTS, PAYMENT_SYSTEM_ENABLED } from '@/config/appConfig';
+import {
+  APP_ENV,
+  MOCK_PAYMENTS,
+  PAYMENT_SYSTEM_ENABLED,
+  PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID,
+} from '@/config/appConfig';
 import { useUser } from '@/contexts/UserContext';
 import type { SubscriptionPlan } from '@/lib/domain/subscriptions';
 import {
@@ -141,6 +146,8 @@ export function RevenueCatProvider({
 
   const isExpoGo = isRunningInExpoGo();
   const isConfigured = isRevenueCatConfigured();
+  const isBillingConfigurationValid =
+    PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID && isConfigured;
   const { user } = useUser();
   const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
     string | null
@@ -158,7 +165,7 @@ export function RevenueCatProvider({
     didInitializationRun.current = true;
 
     async function initialize() {
-      if (!PAYMENT_SYSTEM_ENABLED) {
+      if (!PAYMENT_SYSTEM_ENABLED || !isBillingConfigurationValid) {
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
         setIsInitialized(true);
@@ -172,7 +179,7 @@ export function RevenueCatProvider({
         return;
       }
 
-      if (!isConfigured) {
+      if (!isBillingConfigurationValid) {
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
         setIsInitialized(true);
@@ -187,7 +194,11 @@ export function RevenueCatProvider({
 
         const Purchases = (await import('react-native-purchases')).default;
 
-        Purchases.setLogLevel(Purchases.LOG_LEVEL.VERBOSE);
+        Purchases.setLogLevel(
+          APP_ENV === 'dev'
+            ? Purchases.LOG_LEVEL.VERBOSE
+            : Purchases.LOG_LEVEL.ERROR
+        );
         await Purchases.configure({ apiKey });
 
         const offerings = await Purchases.getOfferings();
@@ -216,10 +227,10 @@ export function RevenueCatProvider({
     }
 
     initialize();
-  }, [isConfigured, isExpoGo]);
+  }, [isBillingConfigurationValid, isExpoGo]);
 
   useEffect(() => {
-    if (!isInitialized || isExpoGo || !isConfigured) {
+    if (!isInitialized || isExpoGo || !isBillingConfigurationValid) {
       return;
     }
 
@@ -258,7 +269,13 @@ export function RevenueCatProvider({
     return () => {
       cancelled = true;
     };
-  }, [isConfigured, isExpoGo, isInitialized, lastIdentifiedUserId, user]);
+  }, [
+    isBillingConfigurationValid,
+    isExpoGo,
+    isInitialized,
+    lastIdentifiedUserId,
+    user,
+  ]);
 
   // ============================================================================
   // רכישת חבילה
@@ -273,7 +290,7 @@ export function RevenueCatProvider({
       const billingGuard = evaluateRevenueCatBillingGuard({
         paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
         serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
-        isRevenueCatConfigured: isConfigured,
+        isRevenueCatConfigured: isBillingConfigurationValid,
         isExpoGo,
         packageId,
         businessAppUserId: overrideAppUserId,
@@ -304,7 +321,7 @@ export function RevenueCatProvider({
       }
 
       // אין מפתחות מוגדרים
-      if (!isConfigured) {
+      if (!isBillingConfigurationValid) {
         Alert.alert(
           BILLING_UNAVAILABLE_TITLE_HE,
           'השדרוג לא זמין כרגע. נסו שוב מאוחר יותר או פנו לתמיכה.'
@@ -345,7 +362,7 @@ export function RevenueCatProvider({
         return false;
       }
     },
-    [isExpoGo, isConfigured]
+    [isBillingConfigurationValid, isExpoGo]
   );
 
   // ============================================================================
@@ -358,7 +375,7 @@ export function RevenueCatProvider({
       const billingGuard = evaluateRevenueCatBillingGuard({
         paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
         serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
-        isRevenueCatConfigured: isConfigured,
+        isRevenueCatConfigured: isBillingConfigurationValid,
         isExpoGo,
         packageId: 'restore',
         businessAppUserId: overrideAppUserId,
@@ -383,7 +400,7 @@ export function RevenueCatProvider({
       }
 
       // אין מפתחות
-      if (!isConfigured) {
+      if (!isBillingConfigurationValid) {
         Alert.alert('שחזור', 'שחזור רכישות לא זמין כרגע. נסו שוב מאוחר יותר.');
         return false;
       }
@@ -401,7 +418,7 @@ export function RevenueCatProvider({
         return false;
       }
     },
-    [isExpoGo, isConfigured]
+    [isBillingConfigurationValid, isExpoGo]
   );
 
   // ============================================================================
@@ -409,7 +426,7 @@ export function RevenueCatProvider({
   // ============================================================================
 
   const refreshPurchaserInfo = useCallback(async () => {
-    if (!isConfigured || isExpoGo || !isInitialized) {
+    if (!isBillingConfigurationValid || isExpoGo || !isInitialized) {
       return;
     }
 
@@ -419,7 +436,7 @@ export function RevenueCatProvider({
     } catch (_error) {
       // שגיאה בשקט - לא צריך להציג למשתמש
     }
-  }, [isConfigured, isExpoGo, isInitialized]);
+  }, [isBillingConfigurationValid, isExpoGo, isInitialized]);
 
   // ============================================================================
   // רינדור
@@ -433,7 +450,7 @@ export function RevenueCatProvider({
       value={{
         isLoading,
         isPremium,
-        isConfigured,
+        isConfigured: isBillingConfigurationValid,
         isExpoGo,
         packages,
         subscriptionPlan,

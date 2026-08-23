@@ -12,8 +12,9 @@ type RevenueCatPlatform = 'ios' | 'android';
  * קבלת מפתח RevenueCat API המתאים לפי פלטפורמה וסביבה
  * סדר עדיפויות:
  * 1. מפתח ספציפי לסביבה (פיתוח/ייצור)
- * 2. נפילה למפתח יחיד ישן
- * 3. מחזיר null אם לא מוגדר מפתח (מאפשר פיתוח ללא מפתחות)
+ * 2. Development-only fallback to the legacy single key
+ * 3. Returns null when no key is configured
+ * Production always requires the platform-specific *_PROD key.
  */
 export function getRevenueCatApiKey(
   platform: RevenueCatPlatform
@@ -23,8 +24,8 @@ export function getRevenueCatApiKey(
     const prodKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD;
     const legacyKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY;
 
-    if (APP_ENV === 'prod' && prodKey) {
-      return prodKey;
+    if (APP_ENV === 'prod') {
+      return prodKey?.trim() || null;
     }
     if (APP_ENV === 'dev' && devKey) {
       return devKey;
@@ -41,8 +42,8 @@ export function getRevenueCatApiKey(
     const prodKey = process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_PROD;
     const legacyKey = process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY;
 
-    if (APP_ENV === 'prod' && prodKey) {
-      return prodKey;
+    if (APP_ENV === 'prod') {
+      return prodKey?.trim() || null;
     }
     if (APP_ENV === 'dev' && devKey) {
       return devKey;
