@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "StampAix",
-    "slug": "stampaix",
+    "slug": "stampix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/StampAix_LOGO_S.png",
@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stampaix.app",
-      "associatedDomains": ["applinks:stampaix.com"],
+      "associatedDomains": [
+        "applinks:stampaix.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "StampAix uses the camera to scan customer and business QR codes.",
@@ -53,7 +55,10 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
