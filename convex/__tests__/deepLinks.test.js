@@ -33,20 +33,20 @@ describe('Phase C2 join links', () => {
     ).toBe('stampaix://join?bref=bref_789');
   });
 
-  test('generated join links use the production stampaix.app domain', () => {
+  test('generated join links use the production stampaix.com domain', () => {
     const qrSource = readFileSync(
       'app/(authenticated)/(business)/qr.tsx',
       'utf8'
     );
     const referralsSource = readFileSync('convex/referrals.ts', 'utf8');
 
-    expect(qrSource).toContain("const BASE_URL = 'https://stampaix.app/join'");
+    expect(qrSource).toContain("const BASE_URL = 'https://stampaix.com/join'");
     expect(qrSource).toContain('return `${BASE_URL}?${params.toString()}`');
     expect(referralsSource).toContain(
-      'return `https://stampaix.app/join?ref=${encodeURIComponent(code)}`'
+      'return `https://stampaix.com/join?ref=${encodeURIComponent(code)}`'
     );
     expect(referralsSource).toContain(
-      'return `https://stampaix.app/join?bref=${encodeURIComponent(code)}`'
+      'return `https://stampaix.com/join?bref=${encodeURIComponent(code)}`'
     );
   });
 });
@@ -55,7 +55,7 @@ describe('Phase C2 OAuth redirect safety', () => {
   test('production keeps app scheme redirects and blocks Expo dev prefixes', () => {
     const productionEnv = {
       CONVEX_DEPLOYMENT: 'prod:stampaix',
-      CONVEX_SITE_URL: 'https://stampaix.app',
+      CONVEX_SITE_URL: 'https://example-deployment.convex.site',
     };
 
     expect(
@@ -93,9 +93,9 @@ describe('Phase C2 OAuth redirect safety', () => {
     expect(
       resolveAuthRedirectUrl('/oauth-callback', {
         NODE_ENV: 'production',
-        CONVEX_SITE_URL: 'https://stampaix.app',
+        CONVEX_SITE_URL: 'https://example-deployment.convex.site',
       })
-    ).toBe('https://stampaix.app/oauth-callback');
+    ).toBe('https://example-deployment.convex.site/oauth-callback');
   });
 
   test('SITE_URL fallback is used only when CONVEX_SITE_URL is missing', () => {

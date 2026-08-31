@@ -28,7 +28,7 @@ import {
 const MODEL_NAME = 'google/gemini-2.5-flash-lite';
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_TITLE = 'StampAix AI Recommendations';
-const DEFAULT_OPENROUTER_REFERER = 'https://stampaix.app';
+const DEFAULT_OPENROUTER_REFERER = 'https://stampaix.com';
 
 const MIN_CUSTOMERS = 20;
 const MIN_ACTIVITY_DAYS = 30;

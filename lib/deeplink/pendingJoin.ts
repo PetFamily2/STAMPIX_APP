@@ -1,7 +1,7 @@
 /**
  * Stores and retrieves pending join parameters across the auth flow.
  *
- * When a user opens a deep link like https://stampaix.app/join?biz=X&src=Y&camp=Z
+ * When a user opens a deep link like https://stampaix.com/join?biz=X&src=Y&camp=Z
  * but is not yet authenticated, we stash the params in AsyncStorage.
  * After sign-in, the app checks for pending params and completes the join.
  */

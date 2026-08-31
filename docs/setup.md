@@ -58,8 +58,8 @@ RevenueCat setup details live in `docs/REVENUECAT_SETUP.md`, which is the source
 
 Optional legal and public integration variables:
 ```env
-EXPO_PUBLIC_PRIVACY_POLICY_URL="https://stampaix.app/legal/privacy"
-EXPO_PUBLIC_TERMS_OF_SERVICE_URL="https://stampaix.app/legal/terms"
+EXPO_PUBLIC_PRIVACY_POLICY_URL="https://stampaix.com/legal/privacy"
+EXPO_PUBLIC_TERMS_OF_SERVICE_URL="https://stampaix.com/legal/terms"
 ```
 
 Native Google Maps keys are build-time EAS values, not runtime client values:

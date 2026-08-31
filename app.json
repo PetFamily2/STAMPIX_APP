@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stampaix.app",
-      "associatedDomains": ["applinks:stampaix.app"],
+      "associatedDomains": ["applinks:stampaix.com"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "StampAix uses the camera to scan customer and business QR codes.",
@@ -49,7 +49,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "stampaix.app",
+              "host": "stampaix.com",
               "pathPrefix": "/join"
             }
           ],

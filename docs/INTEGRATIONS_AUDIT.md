@@ -100,8 +100,8 @@ This is a snapshot and execution log. For current setup, deployment, and billing
 - Implemented:
   - removed `yourdomain.com` fallbacks.
   - legal URLs now normalize to public defaults:
-    - `https://stampaix.app/legal/privacy`
-    - `https://stampaix.app/legal/terms`
+    - `https://stampaix.com/legal/privacy`
+    - `https://stampaix.com/legal/terms`
   - sign-up, paywall, customer settings, and business account settings now open
     in-app Hebrew legal fallback screens for terms, privacy, and account
     deletion policy.

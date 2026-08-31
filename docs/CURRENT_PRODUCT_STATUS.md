@@ -378,7 +378,7 @@ Convex Auth tables.
   a final app listing URL must be configured before release.
 - In-app Hebrew fallback documents now exist for privacy policy, terms of
   service, and account deletion. Privacy policy and terms URLs still default to
-  `https://stampaix.app/legal/privacy` and `/terms`; those public pages must be
+  `https://stampaix.com/legal/privacy` and `/terms`; those public pages must be
   live and match app behavior before store submission.
 - Sole-owner business transfer/deletion UX must be completed before store
   review if owners need to remove their account while owning a business.
@@ -387,8 +387,8 @@ Convex Auth tables.
 - Apple and Google OAuth production client configuration must match bundle id,
   package name, redirects, and associated domains.
 - Universal links require a valid Apple App Site Association file at
-  `https://stampaix.app/.well-known/apple-app-site-association`; Android app
-  links require `https://stampaix.app/.well-known/assetlinks.json` with valid
+  `https://stampaix.com/.well-known/apple-app-site-association`; Android app
+  links require `https://stampaix.com/.well-known/assetlinks.json` with valid
   production SHA-256 fingerprints.
 - Push notifications require APNs/FCM setup, a dedicated Android notification
   icon asset, and real-device tests.

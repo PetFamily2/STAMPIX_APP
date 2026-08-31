@@ -185,7 +185,7 @@ Also verify:
 - Android notification config uses channel `default` and color `#2F6BFF`; a
   dedicated notification icon asset is still missing.
 - Bundle/package/domain values remain `com.stampaix.app`, `stampaix`, and
-  `stampaix.app`.
+  `stampaix.com`.
 - C5.2 cleared the previous Expo prebuild warnings by matching the Android
   status bar and splash colors and enabling Android edge-to-edge.
 
@@ -272,9 +272,9 @@ by App Store Connect and Google Play.
 
 Before store submission:
 - Publish the privacy policy at `EXPO_PUBLIC_PRIVACY_POLICY_URL` or the default
-  `https://stampaix.app/legal/privacy`.
+  `https://stampaix.com/legal/privacy`.
 - Publish the terms of service at `EXPO_PUBLIC_TERMS_OF_SERVICE_URL` or the
-  default `https://stampaix.app/legal/terms`.
+  default `https://stampaix.com/legal/terms`.
 - Confirm both hosted pages match the in-app behavior for Convex Auth, account
   deletion, camera QR scanning, location/maps, push tokens, purchases,
   referrals, analytics, support requests, and any enabled AI features.
@@ -316,7 +316,7 @@ Production app identity:
 - iOS bundle id: `com.stampaix.app`.
 - Android package: `com.stampaix.app`.
 - App scheme: `stampaix`.
-- Production web/domain assumption: `stampaix.app`.
+- Production web/domain assumption: `stampaix.com`.
 
 Convex production environment:
 - `STAMPAIX_ENV` must be set to `production` as a server-side Convex variable.
@@ -399,13 +399,13 @@ Universal links and Android app links require files hosted by the production
 web domain. Do not place secrets in these files.
 
 iOS:
-- Host `https://stampaix.app/.well-known/apple-app-site-association`.
+- Host `https://stampaix.com/.well-known/apple-app-site-association`.
 - Serve it as `application/json`, with no redirect.
 - Include the production app id in the form `<APPLE_TEAM_ID>.com.stampaix.app`.
 - Scope matching to the `/join*` path.
 
 Android:
-- Host `https://stampaix.app/.well-known/assetlinks.json`.
+- Host `https://stampaix.com/.well-known/assetlinks.json`.
 - Serve it as `application/json`, with no redirect.
 - Include package `com.stampaix.app`.
 - Include the production Android signing certificate SHA-256 fingerprints.
