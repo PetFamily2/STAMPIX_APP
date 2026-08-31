@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stampaix.app",
+      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:stampaix.com"
       ],
