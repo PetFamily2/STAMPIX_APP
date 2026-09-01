@@ -3,12 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { router, useLocalSearchParams, useSegments } from 'expo-router';
+import {
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useSegments,
+} from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -38,6 +45,10 @@ import {
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
+import {
+  type NotificationRegistrationFailure,
+  resolveNotificationFailurePresentation,
+} from '@/lib/pushNotificationState';
 import {
   alignItems,
   flexDirection,
@@ -90,6 +101,11 @@ const TEXT = {
   notificationsPermissionTitle: 'הרשאת התראות נדרשת',
   notificationsPermissionMessage:
     'כדי לקבל התראות, אשרו התראות בהגדרות המכשיר.',
+  notificationsPermissionDeniedMessage:
+    'הרשאת ההתראות לא אושרה. אפשר לנסות שוב כשתרצו.',
+  notificationsTechnicalFailure:
+    'לא הצלחנו להפעיל את ההתראות כרגע. נסו שוב מאוחר יותר.',
+  openSettings: 'פתח הגדרות',
   switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
   staffBusinessTitlePrefix: 'מעבר ל',
   staffScannerAction: 'לחץ למעבר',
@@ -124,6 +140,42 @@ function toErrorMessage(error: unknown, fallback: string) {
     return fallback;
   }
   return fallback;
+}
+
+function showNotificationEnableFailure(
+  failure: NotificationRegistrationFailure | null
+) {
+  const presentation = resolveNotificationFailurePresentation(failure);
+  if (!presentation) {
+    return;
+  }
+
+  if (presentation === 'permission-settings-required') {
+    Alert.alert(
+      TEXT.notificationsPermissionTitle,
+      TEXT.notificationsPermissionMessage,
+      [
+        { text: TEXT.cancel, style: 'cancel' },
+        {
+          text: TEXT.openSettings,
+          onPress: () => {
+            void Linking.openSettings();
+          },
+        },
+      ]
+    );
+    return;
+  }
+
+  if (presentation === 'permission-denied') {
+    Alert.alert(
+      TEXT.notificationsPermissionTitle,
+      TEXT.notificationsPermissionDeniedMessage
+    );
+    return;
+  }
+
+  Alert.alert(TEXT.errorTitle, TEXT.notificationsTechnicalFailure);
 }
 
 function formatWipeSummary(counts: Record<string, number>) {
@@ -308,6 +360,7 @@ export default function SettingsScreen() {
     isEnabled: notificationsEnabled,
     isLoading: notificationsLoading,
     isSyncing: notificationsSyncing,
+    refreshRegistration,
     resetNotificationState,
     setNotificationsEnabled,
   } = usePushNotifications();
@@ -325,6 +378,7 @@ export default function SettingsScreen() {
     null
   );
   const resumeAccountDeletionHandledRef = useRef(false);
+  const refreshNotificationRegistrationRef = useRef(refreshRegistration);
 
   const isActionBusy = deleteBusy;
   const notificationBusy = notificationsLoading || notificationsSyncing;
@@ -355,6 +409,36 @@ export default function SettingsScreen() {
   });
   const singleStaffBusiness =
     staffBusinesses.length === 1 ? staffBusinesses[0] : null;
+
+  useEffect(() => {
+    refreshNotificationRegistrationRef.current = refreshRegistration;
+  }, [refreshRegistration]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (notificationsLoading) {
+        return;
+      }
+      const refresh = () => {
+        void refreshNotificationRegistrationRef
+          .current()
+          .catch(() => undefined);
+      };
+      refresh();
+
+      const appStateSubscription = AppState.addEventListener(
+        'change',
+        (nextState) => {
+          if (nextState === 'active') {
+            refresh();
+          }
+        }
+      );
+      return () => {
+        appStateSubscription.remove();
+      };
+    }, [notificationsLoading])
+  );
 
   useEffect(() => {
     setMarketingEnabled(user?.marketingOptIn === true);
@@ -586,10 +670,7 @@ export default function SettingsScreen() {
     try {
       const result = await setNotificationsEnabled(nextValue);
       if (nextValue && !result.registered) {
-        Alert.alert(
-          TEXT.notificationsPermissionTitle,
-          TEXT.notificationsPermissionMessage
-        );
+        showNotificationEnableFailure(result.failure);
       }
     } catch (error) {
       Alert.alert(

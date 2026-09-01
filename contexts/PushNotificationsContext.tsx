@@ -10,57 +10,42 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import {
   createSerializedAsyncOperationQueue,
   hydrateNotificationPreference,
 } from '@/lib/accountDeletionContextSafety';
+import {
+  createNotificationOperationCoordinator,
+  createNotificationRegistrationResult,
+  isNotificationContractEnabled,
+  isNotificationStateForSession,
+  type NotificationPermissionStatus,
+  type NotificationRegistrationResult,
+  type NotificationSessionSnapshot,
+  type NotificationToggleResult,
+  type PushPlatform,
+  resolvePermissionForPushRegistration,
+} from '@/lib/pushNotificationState';
 
 export const NOTIFICATIONS_ENABLED_STORAGE_KEY =
   'stampaix.customerNotificationsEnabled';
 const ANDROID_NOTIFICATION_CHANNEL_ID = 'default';
 const ANDROID_NOTIFICATION_CHANNEL_NAME = 'StampAix';
 
-function showNotificationSettingsRecovery() {
-  Alert.alert(
-    'נדרשת הרשאה להתראות',
-    'כדי לקבל התראות מ-StampAix, יש לאפשר התראות בהגדרות המכשיר.',
-    [
-      { text: 'ביטול', style: 'cancel' },
-      {
-        text: 'פתח הגדרות',
-        onPress: () => {
-          void Linking.openSettings();
-        },
-      },
-    ]
-  );
-}
-
 type NotificationsApi = typeof import('expo-notifications');
 
 let notificationsModulePromise: Promise<NotificationsApi | null> | null = null;
 let notificationHandlerConfigured = false;
-
-type NotificationPermissionStatus =
-  | 'granted'
-  | 'denied'
-  | 'undetermined'
-  | 'unavailable';
-
-type NotificationToggleResult = {
-  enabled: boolean;
-  permissionStatus: NotificationPermissionStatus;
-  registered: boolean;
-};
 
 type PushNotificationsContextValue = {
   isEnabled: boolean;
   isLoading: boolean;
   isSyncing: boolean;
   expoPushToken: string | null;
+  permissionStatus: NotificationPermissionStatus;
   setNotificationsEnabled: (
     enabled: boolean
   ) => Promise<NotificationToggleResult>;
@@ -73,7 +58,7 @@ const PushNotificationsContext = createContext<
   PushNotificationsContextValue | undefined
 >(undefined);
 
-function resolvePushPlatform(): 'ios' | 'android' | null {
+function resolvePushPlatform(): PushPlatform | null {
   if (Platform.OS === 'ios') {
     return 'ios';
   }
@@ -127,21 +112,6 @@ async function ensureAndroidNotificationChannel(Notifications: NotificationsApi)
   );
 }
 
-function normalizePermissionStatus(
-  status: string
-): NotificationPermissionStatus {
-  if (status === 'granted') {
-    return 'granted';
-  }
-  if (status === 'denied') {
-    return 'denied';
-  }
-  if (status === 'undetermined') {
-    return 'undetermined';
-  }
-  return 'unavailable';
-}
-
 function resolveExpoProjectId() {
   const fromEas = Constants.easConfig?.projectId;
   if (typeof fromEas === 'string' && fromEas.trim().length > 0) {
@@ -175,20 +145,47 @@ export function PushNotificationsProvider({
     api.pushNotifications.disableAllMyPushTokens
   );
   const { user } = useUser();
+  const authenticatedUserId = user ? String(user._id) : null;
 
-  const [isEnabled, setIsEnabled] = useState(true);
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [permissionStatus, setPermissionStatus] =
+    useState<NotificationPermissionStatus>('unavailable');
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [
+    notificationStateSessionGeneration,
+    setNotificationStateSessionGeneration,
+  ] = useState<number | null>(null);
   const [isAccountStateReset, setIsAccountStateReset] = useState(false);
 
   const registeredTokenRef = useRef<string | null>(null);
+  const registeredTokenSessionGenerationRef = useRef<number | null>(null);
   const resetForUserIdRef = useRef<string | null>(null);
   const notificationStateGenerationRef = useRef(0);
+  const pendingPushOperationCountRef = useRef(0);
+  const notificationOperations = useMemo(
+    () => createNotificationOperationCoordinator(true),
+    []
+  );
+  const activeSessionSnapshot = useMemo(
+    () => notificationOperations.updateSession(authenticatedUserId),
+    [authenticatedUserId, notificationOperations]
+  );
   const preferenceStorageQueue = useMemo(
     () => createSerializedAsyncOperationQueue(),
     []
   );
+
+  useEffect(() => {
+    registeredTokenRef.current = null;
+    registeredTokenSessionGenerationRef.current = null;
+    setExpoPushToken(null);
+    setIsEnabled(false);
+    setPermissionStatus('unavailable');
+    setIsSyncing(false);
+    setNotificationStateSessionGeneration(activeSessionSnapshot.generation);
+  }, [activeSessionSnapshot.generation]);
 
   useEffect(() => {
     void loadNotificationsModule();
@@ -208,130 +205,113 @@ export function PushNotificationsProvider({
     [preferenceStorageQueue]
   );
 
-  const disableRegisteredToken = useCallback(async () => {
-    const generation = notificationStateGenerationRef.current;
-    const isCurrentGeneration = () =>
-      generation === notificationStateGenerationRef.current;
-    const tokenToDisable = registeredTokenRef.current ?? expoPushToken;
-    if (tokenToDisable) {
-      try {
-        await disablePushToken({ token: tokenToDisable });
-        if (!isCurrentGeneration()) {
-          return;
+  const disableRegisteredToken = useCallback(
+    async (operationSession: NotificationSessionSnapshot) => {
+      const generation = notificationStateGenerationRef.current;
+      const isCurrentGeneration = () =>
+        generation === notificationStateGenerationRef.current &&
+        notificationOperations.isSessionSnapshotCurrent(operationSession);
+      const tokenToDisable =
+        registeredTokenSessionGenerationRef.current ===
+        operationSession.generation
+          ? registeredTokenRef.current
+          : null;
+      if (tokenToDisable) {
+        try {
+          await disablePushToken({ token: tokenToDisable });
+          if (!isCurrentGeneration()) {
+            return;
+          }
+        } catch {
+          if (!isCurrentGeneration()) {
+            return;
+          }
+          // Fall back to disabling all active tokens.
         }
-      } catch {
-        if (!isCurrentGeneration()) {
-          return;
-        }
-        // Fall back to disabling all active tokens.
       }
-    }
-    await disableAllMyPushTokens({});
-    if (!isCurrentGeneration()) {
-      return;
-    }
-    registeredTokenRef.current = null;
-    setExpoPushToken(null);
-  }, [disableAllMyPushTokens, disablePushToken, expoPushToken]);
+      await disableAllMyPushTokens({});
+      if (!isCurrentGeneration()) {
+        return;
+      }
+      registeredTokenRef.current = null;
+      registeredTokenSessionGenerationRef.current = null;
+      setExpoPushToken(null);
+    },
+    [disableAllMyPushTokens, disablePushToken, notificationOperations]
+  );
 
   const registerCurrentDevice = useCallback(
     async (
-      askPermission: boolean
-    ): Promise<{
-      permissionStatus: NotificationPermissionStatus;
-      registered: boolean;
-      token: string | null;
-    }> => {
+      askPermission: boolean,
+      operationSession: NotificationSessionSnapshot
+    ): Promise<NotificationRegistrationResult> => {
       const stateGeneration = notificationStateGenerationRef.current;
       const isCurrentGeneration = () =>
-        stateGeneration === notificationStateGenerationRef.current;
+        stateGeneration === notificationStateGenerationRef.current &&
+        notificationOperations.isSessionSnapshotCurrent(operationSession);
       const pushPlatform = resolvePushPlatform();
       const Notifications = await loadNotificationsModule();
       if (!isCurrentGeneration() || !pushPlatform || !Notifications) {
-        return {
+        return createNotificationRegistrationResult({
           permissionStatus: 'unavailable',
           registered: false,
           token: null,
-        };
+        });
       }
 
+      let currentPermissionStatus: NotificationPermissionStatus = 'unavailable';
       try {
-        const existingPermissions = await Notifications.getPermissionsAsync();
+        currentPermissionStatus = await resolvePermissionForPushRegistration({
+          platform: pushPlatform,
+          askPermission,
+          ensureAndroidChannel: () =>
+            ensureAndroidNotificationChannel(Notifications),
+          getPermissions: () => Notifications.getPermissionsAsync(),
+          requestPermissions: () => Notifications.requestPermissionsAsync(),
+        });
         if (!isCurrentGeneration()) {
-          return {
+          return createNotificationRegistrationResult({
             permissionStatus: 'unavailable',
             registered: false,
             token: null,
-          };
+          });
         }
-        let permissionStatus = normalizePermissionStatus(
-          existingPermissions.status
-        );
 
-        if (permissionStatus === 'denied') {
-          return {
-            permissionStatus,
+        if (currentPermissionStatus !== 'granted') {
+          return createNotificationRegistrationResult({
+            permissionStatus: currentPermissionStatus,
             registered: false,
             token: null,
-          };
-        }
-
-        if (permissionStatus === 'undetermined' && askPermission) {
-          const requested = await Notifications.requestPermissionsAsync();
-          if (!isCurrentGeneration()) {
-            return {
-              permissionStatus: 'unavailable',
-              registered: false,
-              token: null,
-            };
-          }
-          permissionStatus = normalizePermissionStatus(requested.status);
-        }
-
-        if (permissionStatus !== 'granted') {
-          return {
-            permissionStatus,
-            registered: false,
-            token: null,
-          };
+          });
         }
 
         const projectId = resolveExpoProjectId();
         if (!projectId) {
-          return {
-            permissionStatus: 'unavailable',
+          return createNotificationRegistrationResult({
+            permissionStatus: currentPermissionStatus,
             registered: false,
             token: null,
-          };
-        }
-
-        await ensureAndroidNotificationChannel(Notifications);
-        if (!isCurrentGeneration()) {
-          return {
-            permissionStatus: 'unavailable',
-            registered: false,
-            token: null,
-          };
+          });
         }
 
         const tokenResponse = await Notifications.getExpoPushTokenAsync({
           projectId,
         });
         if (!isCurrentGeneration()) {
-          return {
+          return createNotificationRegistrationResult({
             permissionStatus: 'unavailable',
             registered: false,
             token: null,
-          };
+          });
         }
         const nextToken = tokenResponse.data?.trim() ?? '';
 
         if (!nextToken) {
-          return {
-            permissionStatus: 'granted',
+          return createNotificationRegistrationResult({
+            permissionStatus: currentPermissionStatus,
             registered: false,
             token: null,
-          };
+          });
         }
 
         await registerPushToken({
@@ -340,67 +320,100 @@ export function PushNotificationsProvider({
         });
 
         if (!isCurrentGeneration()) {
-          return {
+          return createNotificationRegistrationResult({
             permissionStatus: 'granted',
             registered: false,
             token: null,
-          };
+          });
         }
 
+        const previousRegisteredToken =
+          registeredTokenSessionGenerationRef.current ===
+          operationSession.generation
+            ? registeredTokenRef.current
+            : null;
         if (
-          registeredTokenRef.current &&
-          registeredTokenRef.current !== nextToken
+          previousRegisteredToken &&
+          previousRegisteredToken !== nextToken
         ) {
           try {
-            await disablePushToken({ token: registeredTokenRef.current });
+            await disablePushToken({ token: previousRegisteredToken });
             if (!isCurrentGeneration()) {
-              return {
+              return createNotificationRegistrationResult({
                 permissionStatus: 'unavailable',
                 registered: false,
                 token: null,
-              };
+              });
             }
           } catch {
             if (!isCurrentGeneration()) {
-              return {
+              return createNotificationRegistrationResult({
                 permissionStatus: 'unavailable',
                 registered: false,
                 token: null,
-              };
+              });
             }
             // Keep the current token active even if old-token cleanup fails.
           }
         }
 
         registeredTokenRef.current = nextToken;
-        setExpoPushToken(nextToken);
-
-        return {
-          permissionStatus: 'granted',
+        registeredTokenSessionGenerationRef.current =
+          operationSession.generation;
+        return createNotificationRegistrationResult({
+          permissionStatus: currentPermissionStatus,
           registered: true,
           token: nextToken,
-        };
+        });
       } catch {
-        return {
-          permissionStatus: 'unavailable',
+        return createNotificationRegistrationResult({
+          permissionStatus: currentPermissionStatus,
           registered: false,
           token: null,
-        };
+        });
       }
     },
-    [disablePushToken, registerPushToken]
+    [disablePushToken, notificationOperations, registerPushToken]
+  );
+
+  const applyRegistrationResult = useCallback(
+    (
+      registration: NotificationRegistrationResult,
+      nextPreferenceEnabled: boolean,
+      operationSession: NotificationSessionSnapshot
+    ) => {
+      if (!notificationOperations.isSessionSnapshotCurrent(operationSession)) {
+        return false;
+      }
+      setPermissionStatus(registration.permissionStatus);
+      setExpoPushToken(registration.token);
+      setNotificationStateSessionGeneration(operationSession.generation);
+      const nextEnabled = isNotificationContractEnabled({
+        preferenceEnabled: nextPreferenceEnabled,
+        permissionStatus: registration.permissionStatus,
+        registered: registration.registered,
+        token: registration.token,
+      });
+      setIsEnabled(nextEnabled);
+      return nextEnabled;
+    },
+    [notificationOperations]
   );
 
   const resetNotificationState = useCallback(() => {
     notificationStateGenerationRef.current += 1;
     resetForUserIdRef.current = user ? String(user._id) : null;
     registeredTokenRef.current = null;
+    registeredTokenSessionGenerationRef.current = null;
     setExpoPushToken(null);
+    setNotificationStateSessionGeneration(null);
     setIsEnabled(false);
+    notificationOperations.updatePreference(false);
+    setPermissionStatus('unavailable');
     setIsLoading(false);
     setIsSyncing(false);
     setIsAccountStateReset(true);
-  }, [user]);
+  }, [notificationOperations, user]);
 
   const clearDeletedAccountNotificationStorage = useCallback(
     () =>
@@ -426,63 +439,116 @@ export function PushNotificationsProvider({
     }
 
     resetForUserIdRef.current = null;
-    setIsEnabled(true);
+    notificationOperations.updatePreference(true);
+    setPermissionStatus('unavailable');
+    setIsEnabled(false);
     setIsAccountStateReset(false);
-  }, [isAccountStateReset, user]);
+  }, [isAccountStateReset, notificationOperations, user]);
 
   const refreshRegistration =
     useCallback(async (): Promise<NotificationToggleResult> => {
       const generation = notificationStateGenerationRef.current;
+      const operationSession = activeSessionSnapshot;
       const isCurrentGeneration = () =>
-        generation === notificationStateGenerationRef.current;
+        generation === notificationStateGenerationRef.current &&
+        notificationOperations.isSessionSnapshotCurrent(operationSession);
       if (!user || isAccountStateReset) {
         return {
-          enabled: isAccountStateReset ? false : isEnabled,
+          enabled: false,
           permissionStatus: 'unavailable',
           registered: false,
+          failure: 'technical',
         };
       }
 
+      const preferenceSnapshot =
+        notificationOperations.getPreferenceSnapshot();
+      pendingPushOperationCountRef.current += 1;
       setIsSyncing(true);
       try {
-        if (!isEnabled) {
-          await disableRegisteredToken();
-          if (!isCurrentGeneration()) {
+        return await notificationOperations.enqueueRefresh(
+          operationSession,
+          async (): Promise<NotificationToggleResult> => {
+            if (
+              !isCurrentGeneration() ||
+              !notificationOperations.isPreferenceSnapshotCurrent(
+                preferenceSnapshot
+              )
+            ) {
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+
+            if (!preferenceSnapshot.enabled) {
+              await disableRegisteredToken(operationSession);
+              if (
+                isCurrentGeneration() &&
+                notificationOperations.isPreferenceSnapshotCurrent(
+                  preferenceSnapshot
+                )
+              ) {
+                setPermissionStatus('unavailable');
+                setIsEnabled(false);
+              }
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+
+            const registration = await registerCurrentDevice(
+              false,
+              operationSession
+            );
+            if (
+              !isCurrentGeneration() ||
+              !notificationOperations.isPreferenceSnapshotCurrent(
+                preferenceSnapshot
+              )
+            ) {
+              return {
+                enabled: false,
+                permissionStatus: registration.permissionStatus,
+                registered: false,
+                failure: null,
+              };
+            }
+            const enabled = applyRegistrationResult(
+              registration,
+              preferenceSnapshot.enabled,
+              operationSession
+            );
             return {
-              enabled: false,
-              permissionStatus: 'unavailable',
-              registered: false,
+              enabled,
+              permissionStatus: registration.permissionStatus,
+              registered: registration.registered,
+              failure: registration.failure,
             };
           }
-          return {
-            enabled: false,
-            permissionStatus: 'unavailable',
-            registered: false,
-          };
-        }
-
-        const registration = await registerCurrentDevice(false);
-        if (!isCurrentGeneration()) {
-          return {
-            enabled: false,
-            permissionStatus: 'unavailable',
-            registered: false,
-          };
-        }
-        return {
-          enabled: isEnabled,
-          permissionStatus: registration.permissionStatus,
-          registered: registration.registered,
-        };
+        );
       } finally {
-        if (isCurrentGeneration()) {
-          setIsSyncing(false);
+        pendingPushOperationCountRef.current = Math.max(
+          0,
+          pendingPushOperationCountRef.current - 1
+        );
+        if (pendingPushOperationCountRef.current === 0) {
+          if (isCurrentGeneration()) {
+            setIsSyncing(false);
+          }
         }
       }
     }, [
+      activeSessionSnapshot,
+      applyRegistrationResult,
       disableRegisteredToken,
       isAccountStateReset,
-      isEnabled,
+      notificationOperations,
       registerCurrentDevice,
       user,
     ]);
@@ -490,84 +556,154 @@ export function PushNotificationsProvider({
   const setNotificationsEnabled = useCallback(
     async (enabled: boolean): Promise<NotificationToggleResult> => {
       const generation = notificationStateGenerationRef.current;
+      const operationSession = activeSessionSnapshot;
       const isCurrentGeneration = () =>
-        generation === notificationStateGenerationRef.current;
-      await persistEnabledFlag(enabled, generation);
-      if (!isCurrentGeneration()) {
-        return {
-          enabled: false,
-          permissionStatus: 'unavailable',
-          registered: false,
-        };
-      }
-      setIsEnabled(enabled);
-
-      if (!user) {
-        return {
-          enabled,
-          permissionStatus: 'unavailable',
-          registered: false,
-        };
-      }
-
+        generation === notificationStateGenerationRef.current &&
+        notificationOperations.isSessionSnapshotCurrent(operationSession);
+      const preferenceSnapshot =
+        notificationOperations.updatePreference(enabled);
+      setIsEnabled(false);
+      setNotificationStateSessionGeneration(operationSession.generation);
+      pendingPushOperationCountRef.current += 1;
       setIsSyncing(true);
       try {
-        if (!enabled) {
-          await disableRegisteredToken();
-          if (!isCurrentGeneration()) {
+        return await notificationOperations.enqueue(
+          async (): Promise<NotificationToggleResult> => {
+            if (!isCurrentGeneration()) {
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+            await persistEnabledFlag(enabled, generation);
+            if (!isCurrentGeneration()) {
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+
+            if (!user) {
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: 'technical',
+              };
+            }
+
+            if (!enabled) {
+              if (!isCurrentGeneration()) {
+                return {
+                  enabled: false,
+                  permissionStatus: 'unavailable',
+                  registered: false,
+                  failure: null,
+                };
+              }
+              await disableRegisteredToken(operationSession);
+              if (
+                isCurrentGeneration() &&
+                notificationOperations.isPreferenceSnapshotCurrent(
+                  preferenceSnapshot
+                )
+              ) {
+                setPermissionStatus('unavailable');
+                setExpoPushToken(null);
+                setIsEnabled(false);
+              }
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+
+            if (
+              !isCurrentGeneration() ||
+              !notificationOperations.isPreferenceSnapshotCurrent(
+                preferenceSnapshot
+              )
+            ) {
+              return {
+                enabled: false,
+                permissionStatus: 'unavailable',
+                registered: false,
+                failure: null,
+              };
+            }
+
+            const registration = await registerCurrentDevice(
+              true,
+              operationSession
+            );
+            if (
+              !isCurrentGeneration() ||
+              !notificationOperations.isPreferenceSnapshotCurrent(
+                preferenceSnapshot
+              )
+            ) {
+              return {
+                enabled: false,
+                permissionStatus: registration.permissionStatus,
+                registered: false,
+                failure: null,
+              };
+            }
+            const nextEnabled = applyRegistrationResult(
+              registration,
+              enabled,
+              operationSession
+            );
             return {
-              enabled: false,
-              permissionStatus: 'unavailable',
-              registered: false,
+              enabled: nextEnabled,
+              permissionStatus: registration.permissionStatus,
+              registered: registration.registered,
+              failure: registration.failure,
             };
           }
+        );
+      } catch (error) {
+        if (
+          !isCurrentGeneration() ||
+          !notificationOperations.isPreferenceSnapshotCurrent(
+            preferenceSnapshot
+          )
+        ) {
           return {
             enabled: false,
             permissionStatus: 'unavailable',
             registered: false,
+            failure: null,
           };
         }
-
-        const registration = await registerCurrentDevice(true);
-        if (!isCurrentGeneration()) {
-          return {
-            enabled: false,
-            permissionStatus: 'unavailable',
-            registered: false,
-          };
-        }
-        if (!registration.registered) {
-          if (registration.permissionStatus === 'denied') {
-            showNotificationSettingsRecovery();
-          }
-          await persistEnabledFlag(false, generation);
-          if (!isCurrentGeneration()) {
-            return {
-              enabled: false,
-              permissionStatus: 'unavailable',
-              registered: false,
-            };
-          }
-          setIsEnabled(false);
-          return {
-            enabled: false,
-            permissionStatus: registration.permissionStatus,
-            registered: false,
-          };
-        }
-
-        return {
-          enabled: true,
-          permissionStatus: registration.permissionStatus,
-          registered: true,
-        };
+        throw error;
       } finally {
-        if (isCurrentGeneration()) {
-          setIsSyncing(false);
+        pendingPushOperationCountRef.current = Math.max(
+          0,
+          pendingPushOperationCountRef.current - 1
+        );
+        if (pendingPushOperationCountRef.current === 0) {
+          if (isCurrentGeneration()) {
+            setIsSyncing(false);
+          }
         }
       }
     },
-    [disableRegisteredToken, persistEnabledFlag, registerCurrentDevice, user]
+    [
+      activeSessionSnapshot,
+      applyRegistrationResult,
+      disableRegisteredToken,
+      notificationOperations,
+      persistEnabledFlag,
+      registerCurrentDevice,
+      user,
+    ]
   );
 
   useEffect(() => {
@@ -583,7 +719,12 @@ export function PushNotificationsProvider({
             : Number.NaN,
         readPreference: () =>
           AsyncStorage.getItem(NOTIFICATIONS_ENABLED_STORAGE_KEY),
-        setEnabled: setIsEnabled,
+        setEnabled: (enabled) => {
+          notificationOperations.updatePreference(enabled);
+          if (!enabled) {
+            setIsEnabled(false);
+          }
+        },
         finishLoading: () => setIsLoading(false),
       })
     );
@@ -592,22 +733,32 @@ export function PushNotificationsProvider({
     return () => {
       isHydrationActive = false;
     };
-  }, [preferenceStorageQueue]);
+  }, [notificationOperations, preferenceStorageQueue]);
 
   useEffect(() => {
     if (isLoading || !user || isAccountStateReset) {
       return;
     }
 
-    void refreshRegistration();
+    void refreshRegistration().catch(() => undefined);
   }, [isAccountStateReset, isLoading, refreshRegistration, user]);
+
+  const notificationStateIsForActiveSession = isNotificationStateForSession(
+    notificationStateSessionGeneration,
+    activeSessionSnapshot
+  );
 
   const value = useMemo(
     () => ({
-      isEnabled,
+      isEnabled: notificationStateIsForActiveSession ? isEnabled : false,
       isLoading,
       isSyncing,
-      expoPushToken,
+      expoPushToken: notificationStateIsForActiveSession
+        ? expoPushToken
+        : null,
+      permissionStatus: notificationStateIsForActiveSession
+        ? permissionStatus
+        : 'unavailable',
       setNotificationsEnabled,
       refreshRegistration,
       resetNotificationState,
@@ -619,6 +770,8 @@ export function PushNotificationsProvider({
       isEnabled,
       isLoading,
       isSyncing,
+      notificationStateIsForActiveSession,
+      permissionStatus,
       refreshRegistration,
       resetNotificationState,
       setNotificationsEnabled,
