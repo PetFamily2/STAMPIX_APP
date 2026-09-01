@@ -270,6 +270,15 @@ These screens are intended to keep the app readable when a public page is not
 available from the device. They do not replace the hosted legal pages required
 by App Store Connect and Google Play.
 
+The repository's Convex HTTP application provides unauthenticated public HTML
+handlers at:
+- `/legal/privacy`
+- `/legal/terms`
+
+External production domain routing, DNS, and TLS configuration are still
+required for `https://stampaix.com/legal/privacy` and
+`https://stampaix.com/legal/terms` to resolve to these handlers.
+
 Before store submission:
 - Publish the privacy policy at `EXPO_PUBLIC_PRIVACY_POLICY_URL` or the default
   `https://stampaix.com/legal/privacy`.
