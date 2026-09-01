@@ -4,8 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -47,8 +45,6 @@ const TEXT = {
   submitting: 'שומרים כרטיסיה',
   missingBusiness: 'נדרש עסק פעיל קודם',
   errorFallback: 'שגיאה ביצירת הכרטיסיה',
-  imagePermissionTitle: 'נדרשת הרשאה',
-  imagePermissionMessage: 'צריך הרשאה לגלריה כדי להעלות תמונה.',
   imageUploadFailed: 'העלאת התמונה נכשלה. נסו שוב.',
   uploadImage: 'העלה תמונה',
   uploadingImage: 'מעלה תמונה...',
@@ -135,21 +131,6 @@ export default function CreateProgramScreen() {
 
   const handlePickAndUploadImage = async () => {
     if (!businessId || isUploadingImage || isSubmitting) {
-      return;
-    }
-
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError(TEXT.imagePermissionMessage);
-      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage, [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'פתח הגדרות',
-          onPress: () => {
-            void Linking.openSettings();
-          },
-        },
-      ]);
       return;
     }
 

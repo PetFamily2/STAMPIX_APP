@@ -28,8 +28,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "StampAix uses the camera to scan customer and business QR codes.",
-        "NSLocationWhenInUseUsageDescription": "StampAix uses your location to show nearby participating businesses.",
-        "NSPhotoLibraryUsageDescription": "StampAix lets businesses choose images for loyalty cards and programs."
+        "NSLocationWhenInUseUsageDescription": "StampAix uses your location to show nearby participating businesses."
       }
     },
     "android": {
@@ -42,12 +41,12 @@
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ],
       "package": "com.stampaix.app",
       "intentFilters": [
@@ -81,11 +80,17 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       [
         "expo-camera",
         {
           "cameraPermission": "StampAix uses the camera to scan customer and business QR codes.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
@@ -98,7 +103,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "StampAix lets businesses choose images for loyalty cards and programs."
+          "photosPermission": false,
+          "microphonePermission": false
         }
       ],
       [
