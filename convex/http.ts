@@ -1,4 +1,5 @@
 import { type FunctionReference, httpRouter } from 'convex/server';
+import { LEGAL_DOCUMENTS } from '../lib/legalDocuments';
 import { api, internal } from './_generated/api';
 import { httpAction } from './_generated/server';
 import {
@@ -300,6 +301,134 @@ export async function handleRevenueCatWebhookRequest(
   } catch (error: unknown) {
     return mapRevenueCatWebhookError(error);
   }
+}
+
+type PublicLegalDocumentKey = 'privacy' | 'terms';
+
+function legalDocumentHeaders() {
+  return {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Language': 'he',
+    'Cache-Control': 'public, max-age=300',
+    'Content-Security-Policy':
+      "default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  };
+}
+
+export function renderPublicLegalDocument(
+  documentKey: PublicLegalDocumentKey
+) {
+  const document = LEGAL_DOCUMENTS[documentKey];
+  const sections = document.sections
+    .map(
+      (section) => `
+        <section>
+          <h2>${escapeHtml(section.title)}</h2>
+          ${section.body
+            .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+            .join('\n')}
+        </section>`
+    )
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(document.title)} | StampAix</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      background: #F8F7F4;
+      color: #17233B;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      line-height: 1.7;
+    }
+    main {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px;
+      background: #FFFFFF;
+      border: 1px solid #E5E7EB;
+      border-radius: 24px;
+    }
+    .brand {
+      margin: 0 0 4px;
+      color: #2F6BFF;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    h1 {
+      margin: 0;
+      color: #111827;
+      font-size: clamp(28px, 6vw, 40px);
+      line-height: 1.25;
+    }
+    .subtitle {
+      margin: 10px 0 0;
+      color: #4B5563;
+      font-weight: 700;
+    }
+    .updated {
+      margin: 18px 0 0;
+      padding: 12px 14px;
+      background: #EEF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 14px;
+      color: #1E3A8A;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    section {
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid #E5E7EB;
+      border-radius: 16px;
+    }
+    h2 {
+      margin: 0 0 8px;
+      color: #111827;
+      font-size: 20px;
+      line-height: 1.4;
+    }
+    p { margin: 8px 0 0; }
+    @media (max-width: 540px) {
+      body { padding: 12px; }
+      main { padding: 22px 18px; border-radius: 18px; }
+      section { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="brand">StampAix</p>
+      <h1>${escapeHtml(document.title)}</h1>
+      <p class="subtitle">${escapeHtml(document.subtitle)}</p>
+      <p class="updated">עודכן לאחרונה: ${escapeHtml(document.updatedAt)}</p>
+    </header>
+    ${sections}
+  </main>
+</body>
+</html>`;
+}
+
+export function handlePublicLegalDocumentRequest(
+  documentKey: PublicLegalDocumentKey
+) {
+  return new Response(renderPublicLegalDocument(documentKey), {
+    status: 200,
+    headers: legalDocumentHeaders(),
+  });
 }
 
 type AccountDeletionHttpCtx = {
@@ -620,6 +749,20 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     return await handleRevenueCatWebhookRequest(ctx, request);
   }),
+});
+
+http.route({
+  path: '/legal/privacy',
+  method: 'GET',
+  handler: httpAction(
+    async () => handlePublicLegalDocumentRequest('privacy')
+  ),
+});
+
+http.route({
+  path: '/legal/terms',
+  method: 'GET',
+  handler: httpAction(async () => handlePublicLegalDocumentRequest('terms')),
 });
 
 http.route({
