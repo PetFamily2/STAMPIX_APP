@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "799412895278",
+    "project_id": "stampaix-production-push",
+    "storage_bucket": "stampaix-production-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:799412895278:android:6e362cc79310b5993769bf",
+        "android_client_info": {
+          "package_name": "com.stampaix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDK5xooHjGuVUOqHf4yacJZWASncp6SVEw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
