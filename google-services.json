@@ -1,26 +1,43 @@
 {
   "project_info": {
-    "project_number": "799412895278",
-    "project_id": "stampaix-production-push",
-    "storage_bucket": "stampaix-production-push.firebasestorage.app"
+    "project_number": "708965701780",
+    "project_id": "stampix-487416",
+    "storage_bucket": "stampix-487416.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:799412895278:android:6e362cc79310b5993769bf",
+        "mobilesdk_app_id": "1:708965701780:android:6901981ef923de53e07c81",
         "android_client_info": {
           "package_name": "com.stampaix.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "708965701780-35abqmbd43i1bc1k44jicb3o1o37e5il.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDK5xooHjGuVUOqHf4yacJZWASncp6SVEw"
+          "current_key": "AIzaSyDF5TLEN24uJjCXw65c0hHd2D9FGDDwbBg"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "708965701780-35abqmbd43i1bc1k44jicb3o1o37e5il.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "708965701780-asm5p5e9mafl79sgitodpcu43sdt1spn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.stampix.stampix"
+              }
+            }
+          ]
         }
       }
     }
