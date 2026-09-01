@@ -30,11 +30,12 @@
     "testflight": "bun run eas:build:ios:production:interactive && bun run eas:submit:ios:production",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check": "biome check --write .",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
     "lint:full": "biome check . && bun run type-check",
-    "check:full": "biome check --write . && bun run type-check",
+    "check:full": "bun run check && bun run type-check",
     "check:ultracite": "ultracite"
   },
   "dependencies": {
