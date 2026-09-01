@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   ScrollView,
   Text,
   TextInput,
@@ -86,8 +85,6 @@ const TEXT = {
   deleteConfirmMessage: 'הכרטיסיה תימחק לצמיתות. להמשיך?',
   deleteDoneTitle: 'הכרטיסיה נמחקה',
   deleteDoneMessage: 'הכרטיסיה הוסרה בהצלחה.',
-  imagePermissionTitle: 'נדרשת הרשאה',
-  imagePermissionMessage: 'צריך הרשאה לגלריה כדי להעלות תמונה.',
   imageUploadFailed: 'העלאת התמונה נכשלה. נסו שוב.',
   uploadImage: 'העלה תמונה',
   uploadingImage: 'מעלה תמונה...',
@@ -303,20 +300,6 @@ export default function ProgramDetailsScreen() {
 
   const handlePickAndUploadImage = async () => {
     if (!canEditGeneralFields || !selectedBusinessId) {
-      return;
-    }
-
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(TEXT.imagePermissionTitle, TEXT.imagePermissionMessage, [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'פתח הגדרות',
-          onPress: () => {
-            void Linking.openSettings();
-          },
-        },
-      ]);
       return;
     }
 
