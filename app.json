@@ -17,6 +17,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.stampaix.app",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
+      },
       "associatedDomains": [
         "applinks:stampaix.com"
       ],
