@@ -81,6 +81,8 @@ const ALLOWED_RAW_STYLE_FINDINGS = new Set([
   'components/guidance/GuidedActionOverlay.tsx:layer:raw justifyContent flex-start/end',
   // On a row this is vertical cross-axis top alignment, not RTL direction.
   'screens/SettingsScreen.tsx:notificationToggleInner:raw alignItems flex-start/end',
+  // On a row/row-reverse this is vertical cross-axis top alignment, not RTL direction.
+  'components/customer/RedemptionCelebration.tsx:normalLayoutTablet:raw alignItems flex-start/end',
 ]);
 
 const ALLOWED_LTR_STYLES = new Set([
