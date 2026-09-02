@@ -93,6 +93,10 @@ class FakeQuery {
   async collect() {
     return this.docs();
   }
+
+  async take(limit) {
+    return this.docs().slice(0, limit);
+  }
 }
 
 class FakeDb {
@@ -143,11 +147,28 @@ class FakeDb {
     }
     throw new Error(`PATCH_TARGET_NOT_FOUND:${id}`);
   }
+
+  async delete(id) {
+    for (const tableName of Object.keys(this.tables)) {
+      const rows = this.rows(tableName);
+      const index = rows.findIndex((doc) => doc._id === id);
+      if (index >= 0) {
+        rows.splice(index, 1);
+        return;
+      }
+    }
+    throw new Error(`DELETE_TARGET_NOT_FOUND:${id}`);
+  }
 }
 
 function buildCtx(tables, currentUserId = OWNER_ID) {
+  const scheduled = [];
   return {
     db: new FakeDb(tables),
+    scheduled,
+    scheduler: {
+      runAfter: async (delay, fn, args) => scheduled.push({ delay, fn, args }),
+    },
     auth: {
       getUserIdentity: async () => ({ subject: `${currentUserId}|session` }),
     },
@@ -374,6 +395,31 @@ describe('campaign push delivery', () => {
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
     expect(tables.campaigns[0].activationStatus).toBe('active');
+  });
+
+  test('automated one-time completion coalesces one Smart Manager dirty mark for the business', async () => {
+    const now = Date.now();
+    const tables = baseTables({ campaignChannels: ['in_app'] });
+    tables.campaigns[0].status = 'active';
+    tables.campaigns[0].activationStatus = 'active';
+    tables.campaigns[0].automationEnabled = false;
+    tables.campaigns[0].schedule = {
+      mode: 'one_time',
+      sendAt: now - 1_000,
+      nextRunAt: now - 1_000,
+    };
+    const ctx = buildCtx(tables);
+
+    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+
+    expect(sweep.oneTimeProcessedCampaigns).toBe(1);
+    expect(ctx.db.rows('smartManagerEvaluationStates')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerEvaluationStates')[0]).toMatchObject({
+      businessId: BUSINESS_ID,
+      dirtyDomains: ['campaigns'],
+      dirtyReasons: ['campaign_automation_transition'],
+    });
+    expect(ctx.scheduled).toHaveLength(1);
   });
 
   test('push-channel campaign creates inbox log and attempts push delivery', async () => {

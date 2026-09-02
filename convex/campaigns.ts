@@ -16,6 +16,7 @@ import { classifyCampaignState } from './lib/campaignState';
 import { recordCampaignRun } from './lib/campaignRuns';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import { sendPushNotificationToUser } from './pushNotifications';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
@@ -41,6 +42,20 @@ const ISRAEL_YEAR_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   timeZone: ISRAEL_TIME_ZONE,
   year: 'numeric',
 });
+
+async function markCampaignFactsDirty(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  reason: string,
+  now = Date.now()
+) {
+  await markSmartManagerDirty(ctx, {
+    businessId,
+    domains: ['campaigns'],
+    reasons: [reason],
+    now,
+  });
+}
 
 type ManagementCampaignType = (typeof MANAGEMENT_TYPES)[number];
 type CampaignRules =
@@ -832,6 +847,7 @@ export const createAiCampaign = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await markCampaignFactsDirty(ctx, businessId, 'ai_campaign_created', now);
     const entitlements = await getBusinessEntitlementsForBusinessId(
       ctx,
       businessId
@@ -1066,6 +1082,8 @@ export const createCampaignDraft = mutation({
       updatedAt: now,
     });
 
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_draft_created', now);
+
     return { campaignId };
   },
 });
@@ -1102,6 +1120,8 @@ export const createGeneralCampaignDraft = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_draft_created', now);
 
     return { campaignId };
   },
@@ -1180,6 +1200,13 @@ export const setCampaignAutomationEnabled = mutation({
 
     await ctx.db.patch(campaign._id, patchPayload);
 
+    await markCampaignFactsDirty(
+      ctx,
+      businessId,
+      'campaign_automation_changed',
+      now
+    );
+
     return {
       ok: true,
       automationEnabled: enabled,
@@ -1238,6 +1265,8 @@ export const scheduleCampaignOneTime = mutation({
       updatedAt: now,
     });
 
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_scheduled', now);
+
     return {
       ok: true,
       scheduleMode: 'one_time' as const,
@@ -1290,6 +1319,13 @@ export const clearCampaignOneTimeSchedule = mutation({
       },
       updatedAt: now,
     });
+
+    await markCampaignFactsDirty(
+      ctx,
+      businessId,
+      'campaign_schedule_cleared',
+      now
+    );
 
     return {
       ok: true,
@@ -1347,6 +1383,8 @@ export const archiveManagementCampaign = mutation({
     }
     await ctx.db.patch(campaign._id, patchPayload);
 
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_archived', now);
+
     return {
       ok: true,
       campaignId: campaign._id,
@@ -1385,6 +1423,8 @@ export const restoreManagementCampaign = mutation({
       patchPayload.status = 'paused';
     }
     await ctx.db.patch(campaign._id, patchPayload);
+
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_restored', now);
 
     return {
       ok: true,
@@ -1452,6 +1492,8 @@ export const updateCampaignDraft = mutation({
     }
 
     await ctx.db.patch(campaign._id, patchPayload);
+
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_updated', updatedAt);
 
     return { ok: true, updatedAt };
   },
@@ -1523,6 +1565,7 @@ export const sendCampaignNow = mutation({
       };
     }
     await ctx.db.patch(campaign._id, patchPayload);
+    await markCampaignFactsDirty(ctx, businessId, 'campaign_sent', now);
 
     return {
       sentCount: result.sentCount,
@@ -1545,6 +1588,7 @@ export const runAutomationSweepInternal = internalMutation({
     let skippedCount = 0;
     const overLimitByBusiness = new Map<string, boolean>();
     const businessById = new Map<string, Doc<'businesses'> | null>();
+    const dirtyBusinessIds = new Map<string, Id<'businesses'>>();
 
     const getBusiness = async (businessId: Id<'businesses'>) => {
       const businessKey = String(businessId);
@@ -1597,6 +1641,9 @@ export const runAutomationSweepInternal = internalMutation({
         const result = await sendAutomationForCampaign(ctx, campaign, now);
         sentCount += result.sentCount;
         skippedCount += result.skippedCount;
+        if (result.sentCount > 0) {
+          dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+        }
       }
     }
 
@@ -1675,6 +1722,16 @@ export const runAutomationSweepInternal = internalMutation({
         },
         updatedAt: now,
       });
+      dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+    }
+
+    for (const businessId of dirtyBusinessIds.values()) {
+      await markCampaignFactsDirty(
+        ctx,
+        businessId,
+        'campaign_automation_transition',
+        now
+      );
     }
 
     return {

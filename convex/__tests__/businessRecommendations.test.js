@@ -65,6 +65,10 @@ class FakeQuery {
     return this;
   }
 
+  order() {
+    return this;
+  }
+
   currentRows() {
     return this.rows.filter((row) =>
       this.predicates.every((predicate) => predicate(row))
@@ -427,7 +431,7 @@ describe('getBusinessRecommendations authorization and identity', () => {
       expect(typeof recommendation.guideId).toBe('string');
       expect(recommendation.guideId.length).toBeGreaterThan(0);
       expect(
-        Object.prototype.hasOwnProperty.call(
+        Object.hasOwn(
           EXPECTED_GUIDE_IDS,
           recommendation.stableId
         )

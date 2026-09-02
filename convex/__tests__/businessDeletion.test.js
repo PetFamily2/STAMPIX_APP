@@ -25,6 +25,12 @@ const ALL_TABLES = [
   'businessStaff',
   'recommendationInteractions',
   'recommendationGuideSessions',
+  'smartManagerMigrations',
+  'smartManagerAuditEvents',
+  'smartManagerShadowComparisons',
+  'smartManagerDecisions',
+  'smartManagerFactSnapshots',
+  'smartManagerEvaluationStates',
   'loyaltyPrograms',
   'memberships',
   'referralConfigs',
@@ -1260,6 +1266,14 @@ describe('graph purge, assets, finalization, and retry', () => {
       aiRecommendations: [{ _id: 'recommendation_1', ...direct }],
       recommendationInteractions: [{ _id: 'interaction_1', ...direct }],
       recommendationGuideSessions: [{ _id: 'guide_1', ...direct }],
+      smartManagerMigrations: [
+        { _id: 'migration_global', migrationKey: 'smart_manager_batch_1_v1' },
+      ],
+      smartManagerAuditEvents: [{ _id: 'manager_audit_1', ...direct }],
+      smartManagerShadowComparisons: [{ _id: 'manager_shadow_1', ...direct }],
+      smartManagerDecisions: [{ _id: 'manager_decision_1', ...direct }],
+      smartManagerFactSnapshots: [{ _id: 'manager_facts_1', ...direct }],
+      smartManagerEvaluationStates: [{ _id: 'manager_dirty_1', ...direct }],
       aiGenerationCache: [
         { _id: 'owned_cache', ...direct },
         { _id: 'shared_cache' },
@@ -1294,6 +1308,9 @@ describe('graph purge, assets, finalization, and retry', () => {
     expect(ctx.db.rows('authAccounts')).toHaveLength(1);
     expect(ctx.db.rows('authSessions')).toHaveLength(1);
     expect(ctx.db.rows('supportRequests')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerMigrations')).toEqual([
+      { _id: 'migration_global', migrationKey: 'smart_manager_batch_1_v1' },
+    ]);
     expect(ctx.db.rows('apiClients')).toHaveLength(0);
     expect(ctx.db.rows('apiKeys')).toHaveLength(0);
     expect(ctx.db.rows('memberships')).toHaveLength(0);

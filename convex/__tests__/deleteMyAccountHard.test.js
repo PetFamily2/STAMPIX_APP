@@ -1,17 +1,19 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 
 import { deleteMyAccountHardImpl } from '../users';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 class FakeQuery {
-  constructor(docs) {
+  constructor(docs, meta = {}) {
     this.docs = docs;
+    this.meta = meta;
   }
 
   withIndex(_name, builder) {
     if (!builder) {
-      return new FakeQuery(this.docs);
+      return new FakeQuery(this.docs, this.meta);
     }
     const predicates = [];
     const q = {
@@ -22,12 +24,13 @@ class FakeQuery {
     };
     builder(q);
     return new FakeQuery(
-      this.docs.filter((doc) => predicates.every((predicate) => predicate(doc)))
+      this.docs.filter((doc) => predicates.every((predicate) => predicate(doc))),
+      this.meta
     );
   }
 
   filter() {
-    return new FakeQuery(this.docs);
+    return new FakeQuery(this.docs, this.meta);
   }
 
   order() {
@@ -35,10 +38,12 @@ class FakeQuery {
   }
 
   async collect() {
+    this.meta.onCollect?.(this.meta.tableName);
     return this.docs;
   }
 
   async take(n) {
+    this.meta.onTake?.(this.meta.tableName, n);
     return this.docs.slice(0, n);
   }
 
@@ -56,10 +61,20 @@ class FakeDb {
     this.tables = clone(tables);
     this.deleted = [];
     this.insertCount = 0;
+    this.collectCalls = [];
+    this.takeCalls = [];
   }
 
   query(table) {
-    return new FakeQuery(this.tables[table] ?? []);
+    return new FakeQuery(this.tables[table] ?? [], {
+      tableName: table,
+      onCollect: (tableName) => {
+        this.collectCalls.push(tableName);
+      },
+      onTake: (tableName, n) => {
+        this.takeCalls.push({ tableName, n });
+      },
+    });
   }
 
   async get(id) {
@@ -1262,5 +1277,168 @@ describe('deleteMyAccountHardImpl', () => {
       'm_owner',
     ]);
     expect(ctx.db.deleted).toEqual([]);
+  });
+
+  test('dirties every surviving affected business and removes only actor-owned recommendation state', async () => {
+    const ctx = buildCtx({
+      users: [
+        { _id: 'u_customer', email: 'customer@example.com', isActive: true },
+        { _id: 'u_owner', email: 'owner@example.com', isActive: true },
+      ],
+      businesses: [
+        {
+          _id: 'b_keep',
+          ownerUserId: 'u_owner',
+          isActive: true,
+          name: 'Keep',
+        },
+      ],
+      businessStaff: [
+        {
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_owner',
+          staffRole: 'owner',
+          status: 'active',
+        },
+        {
+          _id: 'staff_customer',
+          businessId: 'b_keep',
+          userId: 'u_customer',
+          staffRole: 'staff',
+          status: 'active',
+        },
+      ],
+      memberships: [
+        {
+          _id: 'membership_customer',
+          businessId: 'b_keep',
+          userId: 'u_customer',
+        },
+      ],
+      events: [
+        {
+          _id: 'event_customer',
+          businessId: 'b_keep',
+          customerUserId: 'u_customer',
+          type: 'STAMP_ADDED',
+          createdAt: Date.now(),
+        },
+      ],
+      recommendationInteractions: [
+        {
+          _id: 'interaction_deleted_actor',
+          actorUserId: 'u_customer',
+          businessId: 'b_keep',
+        },
+        {
+          _id: 'interaction_owner',
+          actorUserId: 'u_owner',
+          businessId: 'b_keep',
+        },
+      ],
+      recommendationGuideSessions: [
+        {
+          _id: 'guide_deleted_actor',
+          actorUserId: 'u_customer',
+          businessId: 'b_keep',
+        },
+        {
+          _id: 'guide_owner',
+          actorUserId: 'u_owner',
+          businessId: 'b_keep',
+        },
+      ],
+      smartManagerFactSnapshots: [
+        { _id: 'snapshot_keep', businessId: 'b_keep', factHash: 'old' },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('recommendationInteractions').map((row) => row._id)).toEqual([
+      'interaction_owner',
+    ]);
+    expect(ctx.db.rows('recommendationGuideSessions').map((row) => row._id)).toEqual([
+      'guide_owner',
+    ]);
+    expect(ctx.db.rows('smartManagerFactSnapshots')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerEvaluationStates')[0]).toMatchObject({
+      businessId: 'b_keep',
+      dirtyDomains: ['events', 'memberships', 'team'],
+      dirtyReasons: ['user_account_deleted'],
+    });
+  });
+
+  test('does not pre-collect a customer event history during account deletion', async () => {
+    const source = readFileSync('convex/users.ts', 'utf8');
+    const impl = source.slice(
+      source.indexOf('export async function deleteMyAccountHardImpl'),
+      source.indexOf('export const deleteMyAccountHard')
+    );
+    expect(impl).not.toContain('.collect()');
+    expect(impl).not.toMatch(/query\('events'\)/);
+    expect(impl).not.toContain('by_customerUserId');
+
+    const events = Array.from({ length: 250 }, (_, index) => ({
+      _id: `event_customer_${index}`,
+      businessId: 'b_keep',
+      customerUserId: 'u_customer',
+      type: 'STAMP_ADDED',
+      createdAt: Date.now() - index,
+    }));
+    const ctx = buildCtx({
+      users: [
+        {
+          _id: 'u_customer',
+          email: 'customer@example.com',
+          isActive: true,
+        },
+        {
+          _id: 'u_owner',
+          email: 'owner@example.com',
+          isActive: true,
+        },
+      ],
+      businesses: [
+        {
+          _id: 'b_keep',
+          ownerUserId: 'u_owner',
+          isActive: true,
+          name: 'Keep',
+        },
+      ],
+      businessStaff: [
+        {
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_owner',
+          staffRole: 'owner',
+          status: 'active',
+        },
+      ],
+      events,
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.collectCalls.filter((table) => table === 'events')).toEqual(
+      []
+    );
+    expect(
+      ctx.db.takeCalls.some(
+        (call) => call.tableName === 'events' && call.n <= 100
+      )
+    ).toBe(true);
+    expect(
+      ctx.db.rows('events').every((row) => row.customerUserId === undefined)
+    ).toBe(true);
+    expect(ctx.db.rows('smartManagerEvaluationStates')[0]).toMatchObject({
+      businessId: 'b_keep',
+      dirtyDomains: ['events'],
+      dirtyReasons: ['user_account_deleted'],
+    });
   });
 });

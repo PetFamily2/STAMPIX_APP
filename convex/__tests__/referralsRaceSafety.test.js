@@ -78,6 +78,10 @@ class FakeQuery {
   async collect() {
     return this.docs();
   }
+
+  async take(limit) {
+    return this.docs().slice(0, limit);
+  }
 }
 
 class FakeDb {
@@ -440,6 +444,10 @@ describe('business referral deleted-business compatibility', () => {
       updatedAt: now - 100,
     });
     const ctx = buildCtx(tables);
+    const scheduled = [];
+    ctx.scheduler = {
+      runAfter: async (delay, fn, args) => scheduled.push({ delay, fn, args }),
+    };
 
     const result =
       await processDueBusinessReferralCreditsInternal._handler(ctx, {});
@@ -450,6 +458,13 @@ describe('business referral deleted-business compatibility', () => {
       creditMonths: 1,
     });
     expect(ctx.db.rows('businesses')[0].b2bCreditMonthsEarned).toBe(1);
+    expect(ctx.db.rows('smartManagerEvaluationStates')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerEvaluationStates')[0]).toMatchObject({
+      businessId: 'biz_1',
+      dirtyDomains: ['entitlements'],
+      dirtyReasons: ['business_referral_credit_applied'],
+    });
+    expect(scheduled).toHaveLength(1);
   });
 
   test('waiting referral without referred business is terminally skipped', async () => {

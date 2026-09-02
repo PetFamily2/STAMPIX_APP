@@ -6,7 +6,10 @@ import {
   buildDashboardLifecycleCountsFromStampEvents,
   getCustomerExpectedCycleDays,
 } from './customerLifecycle';
-import { getBusinessEntitlementsForBusinessId } from './entitlements';
+import {
+  getBusinessEntitlementsForBusinessId,
+  type BusinessEntitlements,
+} from './entitlements';
 import {
   getBusinessStaffStatus,
   requireActorHasBusinessCapability,
@@ -36,6 +39,11 @@ import type {
 } from './lib/staffPermissions';
 import { getRetentionThresholdsForBusiness } from './lib/customerIntelligence';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
+import {
+  getSmartManagerInteractionPolicy,
+  loadActiveSmartManagerPolicy,
+  type SmartManagerPolicyConfig,
+} from './lib/smartManagerPolicy';
 
 const RECOMMENDATION_FACTS_SCHEMA_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -81,53 +89,13 @@ type InteractionState =
 
 type GuideStatusState = 'active' | 'completed' | 'invalidated';
 
-const SETUP_RECOMMENDATIONS = new Set<RecommendationStableId>([
-  'setup.address.resolve',
-  'setup.profile.complete',
-  'program.publish_first',
-  'program.publish_draft',
-  'campaign.create_first',
-  'campaign.publish_draft',
-]);
-const OPERATIONAL_RECOMMENDATIONS = new Set<RecommendationStableId>([
-  'subscription.action_required',
-  'campaign.resume_paused',
-  'campaign.next_scheduled',
-  'team.pending_invitations',
-]);
-const GROWTH_RECOMMENDATIONS = new Set<RecommendationStableId>([
-  'retention.reengage_inactive',
-  'growth.near_reward',
-]);
-
 export function getRecommendationInteractionPolicy(
   stableId: RecommendationStableId,
   action: 'dismiss' | 'snooze',
-  now: number
+  now: number,
+  policy?: SmartManagerPolicyConfig
 ) {
-  if (SETUP_RECOMMENDATIONS.has(stableId)) {
-    return {
-      hiddenUntil: now + (action === 'dismiss' ? 30 : 7) * DAY_MS,
-      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
-    } as const;
-  }
-  if (OPERATIONAL_RECOMMENDATIONS.has(stableId)) {
-    return {
-      hiddenUntil:
-        action === 'dismiss' ? undefined : now + DAY_MS,
-      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
-    } as const;
-  }
-  if (GROWTH_RECOMMENDATIONS.has(stableId)) {
-    return {
-      hiddenUntil: now + (action === 'dismiss' ? 30 : 7) * DAY_MS,
-      reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
-    } as const;
-  }
-  return {
-    hiddenUntil: now + (action === 'dismiss' ? 14 : 7) * DAY_MS,
-    reasonCode: action === 'dismiss' ? 'USER_DISMISSED' : 'USER_SNOOZED',
-  } as const;
+  return getSmartManagerInteractionPolicy(stableId, action, now, policy);
 }
 
 function publicRecommendationError(): never {
@@ -196,6 +164,26 @@ type CampaignFactRow = {
 
 type CampaignRunFactRow = {
   campaignId: Id<'campaigns'>;
+};
+
+export type BusinessRecommendationFactSourceBundle = {
+  business: Doc<'businesses'>;
+  programs: Doc<'loyaltyPrograms'>[] | null;
+  memberships: Doc<'memberships'>[] | null;
+  campaigns: Doc<'campaigns'>[] | null;
+  campaignRuns: Doc<'campaignRuns'>[] | null;
+  events: Doc<'events'>[] | null;
+  staffRows: Doc<'businessStaff'>[] | null;
+  pendingInvites: Doc<'staffInvites'>[] | null;
+  entitlements: {
+    plan: BusinessEntitlements['plan'];
+    subscriptionStatus: BusinessEntitlements['subscriptionStatus'];
+    limits: Pick<BusinessEntitlements['limits'], 'maxCampaigns'>;
+    usage: Pick<
+      BusinessEntitlements['usage'],
+      'activeManagementCampaigns'
+    >;
+  } | null;
 };
 
 export type CampaignLifecycleFactValue = {
@@ -373,12 +361,20 @@ function buildOpaqueFingerprint(parts: Array<string | number>) {
   return `v1_${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
-function buildCustomerSegmentFacts(args: {
+export function isCanonicalRecommendationEventEffective(event: {
+  revertsEventId?: unknown;
+  reversalEventId?: unknown;
+}) {
+  return event.revertsEventId === undefined && event.reversalEventId === undefined;
+}
+
+export function buildCustomerSegmentFacts(args: {
   business: Doc<'businesses'>;
   memberships: Doc<'memberships'>[];
   programs: Doc<'loyaltyPrograms'>[];
   events: Doc<'events'>[];
   now: number;
+  excludeReversedEvents?: boolean;
 }) {
   const activeProgramById = new Map<string, Doc<'loyaltyPrograms'>>();
   for (const program of args.programs) {
@@ -431,6 +427,8 @@ function buildCustomerSegmentFacts(args: {
       customerUserId: Id<'users'>;
     } =>
       event.type === 'STAMP_ADDED' &&
+      (!args.excludeReversedEvents ||
+        isCanonicalRecommendationEventEffective(event)) &&
       event.customerUserId !== undefined &&
       activeCustomerIds.has(String(event.customerUserId)) &&
       Number.isFinite(event.createdAt) &&
@@ -533,11 +531,16 @@ export async function loadBusinessRecommendationFacts(
   ctx: any,
   businessId: Id<'businesses'>,
   authorization: RecommendationActorAuthorization,
-  generatedAt = Date.now()
+  generatedAt = Date.now(),
+  options?: {
+    excludeReversedEvents?: boolean;
+    programsSourceAvailable?: boolean;
+    sourceBundle?: BusinessRecommendationFactSourceBundle;
+  }
 ) {
-  const business = (await ctx.db.get(
-    businessId
-  )) as Doc<'businesses'> | null;
+  const business =
+    options?.sourceBundle?.business ??
+    ((await ctx.db.get(businessId)) as Doc<'businesses'> | null);
   if (!business || business.isActive !== true) {
     throw new Error('BUSINESS_INACTIVE');
   }
@@ -550,7 +553,105 @@ export async function loadBusinessRecommendationFacts(
   const canViewBillingState =
     authorization.capabilities.view_billing_state === true;
 
-  const [
+  const sourceBundle = options?.sourceBundle;
+  const loadedSources: Omit<BusinessRecommendationFactSourceBundle, 'business'> =
+    sourceBundle
+      ? {
+          programs: sourceBundle.programs,
+          memberships: canViewCustomers ? sourceBundle.memberships : null,
+          campaigns: canViewCampaigns ? sourceBundle.campaigns : null,
+          campaignRuns: canViewCampaigns ? sourceBundle.campaignRuns : null,
+          events: canViewCustomers ? sourceBundle.events : null,
+          staffRows: canManageTeam ? sourceBundle.staffRows : null,
+          pendingInvites: canManageTeam ? sourceBundle.pendingInvites : null,
+          entitlements:
+            canViewUsageQuota || canViewBillingState
+              ? sourceBundle.entitlements
+              : null,
+        }
+      : await (async () => {
+          const [
+            programs,
+            memberships,
+            campaigns,
+            campaignRuns,
+            events,
+            staffRows,
+            pendingInvites,
+            entitlements,
+          ] = await Promise.all([
+            options?.programsSourceAvailable === false
+              ? Promise.resolve(null)
+              : ctx.db
+                  .query('loyaltyPrograms')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect(),
+            canViewCustomers
+              ? ctx.db
+                  .query('memberships')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canViewCampaigns
+              ? ctx.db
+                  .query('campaigns')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canViewCampaigns
+              ? ctx.db
+                  .query('campaignRuns')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canViewCustomers
+              ? ctx.db
+                  .query('events')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canManageTeam
+              ? ctx.db
+                  .query('businessStaff')
+                  .withIndex('by_businessId', (q: any) =>
+                    q.eq('businessId', businessId)
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canManageTeam
+              ? ctx.db
+                  .query('staffInvites')
+                  .withIndex('by_businessId_status', (q: any) =>
+                    q.eq('businessId', businessId).eq('status', 'pending')
+                  )
+                  .collect()
+              : Promise.resolve(null),
+            canViewUsageQuota || canViewBillingState
+              ? getBusinessEntitlementsForBusinessId(ctx, businessId)
+              : Promise.resolve(null),
+          ]);
+          return {
+            programs,
+            memberships,
+            campaigns,
+            campaignRuns,
+            events,
+            staffRows,
+            pendingInvites,
+            entitlements,
+          };
+        })();
+  const {
     programs,
     memberships,
     campaigns,
@@ -559,66 +660,10 @@ export async function loadBusinessRecommendationFacts(
     staffRows,
     pendingInvites,
     entitlements,
-  ] = await Promise.all([
-    ctx.db
-      .query('loyaltyPrograms')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .collect(),
-    canViewCustomers
-      ? ctx.db
-          .query('memberships')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect()
-      : Promise.resolve(null),
-    canViewCampaigns
-      ? ctx.db
-          .query('campaigns')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect()
-      : Promise.resolve(null),
-    canViewCampaigns
-      ? ctx.db
-          .query('campaignRuns')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect()
-      : Promise.resolve(null),
-    canViewCustomers
-      ? ctx.db
-          .query('events')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect()
-      : Promise.resolve(null),
-    canManageTeam
-      ? ctx.db
-          .query('businessStaff')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect()
-      : Promise.resolve(null),
-    canManageTeam
-      ? ctx.db
-          .query('staffInvites')
-          .withIndex('by_businessId_status', (q: any) =>
-            q.eq('businessId', businessId).eq('status', 'pending')
-          )
-          .collect()
-      : Promise.resolve(null),
-    canViewUsageQuota || canViewBillingState
-      ? getBusinessEntitlementsForBusinessId(ctx, businessId)
-      : Promise.resolve(null),
-  ]);
+  } = loadedSources;
 
   const profileCompletion = computeBusinessProfileCompletion(business);
-  const programFacts = buildProgramFacts(programs);
+  const programFacts = programs === null ? null : buildProgramFacts(programs);
   const activeMemberships =
     memberships?.filter(
       (membership: Doc<'memberships'>) => membership.isActive === true
@@ -640,13 +685,14 @@ export async function loadBusinessRecommendationFacts(
         })
       : null;
   const segmentFacts =
-    memberships !== null && events !== null
+    programs !== null && memberships !== null && events !== null
       ? buildCustomerSegmentFacts({
           business,
           memberships,
           programs,
           events,
           now: generatedAt,
+          excludeReversedEvents: options?.excludeReversedEvents,
         })
       : null;
 
@@ -705,7 +751,13 @@ export async function loadBusinessRecommendationFacts(
         },
         generatedAt
       ),
-      programs: knownFact(programFacts, generatedAt),
+      programs:
+        programFacts === null
+          ? {
+              state: 'unknown' as const,
+              reasonCode: 'BOUNDED_SOURCE_LIMIT_EXCEEDED',
+            }
+          : knownFact(programFacts, generatedAt),
       customers:
         uniqueActiveCustomerCount === null
           ? restrictedFact('access_customers')
@@ -876,6 +928,8 @@ async function upsertRecommendationInteraction(
       | 'BUSINESS_MISMATCH'
       | 'PERMISSION_CHANGED'
       | 'NO_LONGER_APPLICABLE';
+    policyVersion?: string;
+    policyHash?: string;
     now: number;
   }
 ) {
@@ -893,6 +947,12 @@ async function upsertRecommendationInteraction(
     interactionState: args.interactionState,
     hiddenUntil: args.hiddenUntil,
     reasonCode: args.reasonCode,
+    ...(args.policyVersion !== undefined && args.policyHash !== undefined
+      ? {
+          policyVersion: args.policyVersion,
+          policyHash: args.policyHash,
+        }
+      : {}),
     updatedAt: args.now,
     completedAt:
       args.interactionState === 'completed' ? args.now : undefined,
@@ -942,10 +1002,12 @@ async function persistUserInteraction(
   if (!current) {
     publicRecommendationError();
   }
+  const activePolicy = await loadActiveSmartManagerPolicy(ctx, now);
   const policy = getRecommendationInteractionPolicy(
     args.stableId,
     args.action,
-    now
+    now,
+    activePolicy.config
   );
   await upsertRecommendationInteraction(ctx, {
     businessId: args.businessId,
@@ -956,6 +1018,8 @@ async function persistUserInteraction(
       args.action === 'dismiss' ? 'dismissed' : 'snoozed',
     hiddenUntil: policy.hiddenUntil,
     reasonCode: policy.reasonCode,
+    policyVersion: activePolicy.version,
+    policyHash: activePolicy.policyHash,
     now,
   });
   return {

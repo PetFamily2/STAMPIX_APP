@@ -125,7 +125,7 @@ describe('server-owned recommendation timing policies', () => {
     expect(policy.hiddenUntil).toBe(NOW + days * DAY_MS);
   });
 
-  test('operational dismiss lasts until evidence changes', () => {
+  test('operational dismiss remains evidence-bound with no time expiry', () => {
     expect(
       getRecommendationInteractionPolicy(
         'campaign.resume_paused',

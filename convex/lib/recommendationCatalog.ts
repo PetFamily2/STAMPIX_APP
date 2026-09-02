@@ -216,6 +216,40 @@ export type RecommendationAccessDecision =
     }
   | { state: 'unavailable'; reasonCode: 'FACT_UNAVAILABLE' };
 
+export function getRecommendationRequiredCapabilities(
+  stableId: RecommendationStableId
+): string[] {
+  switch (stableId) {
+    case 'subscription.action_required':
+    case 'subscription.quota_near':
+      return ['manage_subscription'];
+    case 'setup.address.resolve':
+    case 'setup.profile.complete':
+      return ['edit_business_profile'];
+    case 'program.publish_first':
+    case 'program.publish_draft':
+      return ['edit_loyalty_cards'];
+    case 'campaign.create_first':
+      return ['access_campaigns', 'create_campaigns'];
+    case 'campaign.publish_draft':
+      return [
+        'access_campaigns',
+        'edit_campaigns',
+        'activate_send_campaigns',
+      ];
+    case 'campaign.resume_paused':
+      return ['access_campaigns', 'activate_send_campaigns'];
+    case 'campaign.next_scheduled':
+      return ['access_campaigns'];
+    case 'retention.reengage_inactive':
+    case 'growth.near_reward':
+      return ['access_customers'];
+    case 'team.pending_invitations':
+      return ['manage_team'];
+  }
+  return [];
+}
+
 function unavailableFactDecision(
   fact: Fact<unknown>
 ): RecommendationAccessDecision | null {

@@ -9,6 +9,7 @@ import {
 } from './guards';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import { buildProgramStructureSignature } from './lib/recommendationUtils';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import {
   type BusinessOnboardingFlow,
   getBusinessOnboardingDraftForUserAndFlow,
@@ -719,6 +720,13 @@ export const createLoyaltyProgram = mutation({
       updatedAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs'],
+      reasons: ['loyalty_program_created'],
+      now,
+    });
+
     return { loyaltyProgramId };
   },
 });
@@ -890,6 +898,13 @@ export const createOrResumeBusinessOnboardingProgram = mutation({
       },
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId: args.businessId,
+      domains: ['programs'],
+      reasons: ['onboarding_program_saved'],
+      now,
+    });
+
     return {
       loyaltyProgramId: program._id,
       reused,
@@ -947,6 +962,13 @@ export const publishProgram = mutation({
       archivedAt: undefined,
       archivedByUserId: undefined,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs'],
+      reasons: ['loyalty_program_published'],
+      now,
     });
 
     return { ok: true, updatedAt: now };
@@ -1068,6 +1090,13 @@ export const updateProgramForManagement = mutation({
 
     await ctx.db.patch(program._id, patchPayload);
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs'],
+      reasons: ['loyalty_program_updated'],
+      now,
+    });
+
     return { ok: true, updatedAt: now };
   },
 });
@@ -1103,6 +1132,13 @@ export const archiveProgram = mutation({
       archivedAt: now,
       archivedByUserId: actor._id,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs', 'memberships'],
+      reasons: ['loyalty_program_archived'],
+      now,
     });
 
     return { ok: true, updatedAt: now };
@@ -1145,6 +1181,11 @@ export const deleteProgram = mutation({
     }
 
     await ctx.db.delete(program._id);
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs'],
+      reasons: ['loyalty_program_deleted'],
+    });
     return { ok: true };
   },
 });

@@ -11,6 +11,7 @@ import {
   requireActorHasBusinessCapability,
 } from './guards';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 function addMonthsUtc(timestamp: number, months: number) {
   const date = new Date(timestamp);
@@ -43,7 +44,9 @@ export type CanonicalFeatureKey =
   | 'team'
   | 'advancedReports'
   | 'marketingHub'
-  | 'smartAnalytics';
+  | 'smartAnalytics'
+  | 'smartRetentionManager'
+  | 'smartRetentionManagerAiAssist';
 export type LegacyFeatureKey =
   | 'canManageTeam'
   | 'canSeeAdvancedReports'
@@ -149,6 +152,8 @@ const FEATURE_ALIAS_MAP: Record<FeatureKey, CanonicalFeatureKey> = {
   advancedReports: 'advancedReports',
   marketingHub: 'marketingHub',
   smartAnalytics: 'smartAnalytics',
+  smartRetentionManager: 'smartRetentionManager',
+  smartRetentionManagerAiAssist: 'smartRetentionManagerAiAssist',
   canManageTeam: 'team',
   canSeeAdvancedReports: 'advancedReports',
   canUseMarketingHubAI: 'marketingHub',
@@ -194,6 +199,8 @@ const REQUIRED_PLAN_BY_CANONICAL_FEATURE: Record<
   advancedReports: 'pro',
   marketingHub: 'starter',
   smartAnalytics: 'starter',
+  smartRetentionManager: 'starter',
+  smartRetentionManagerAiAssist: 'pro',
 };
 
 export const REQUIRED_PLAN_BY_FEATURE = expandRequiredPlanMap(
@@ -221,6 +228,8 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: false,
       marketingHub: true,
       smartAnalytics: true,
+      smartRetentionManager: true,
+      smartRetentionManagerAiAssist: false,
     },
   },
   pro: {
@@ -243,6 +252,8 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: true,
       marketingHub: true,
       smartAnalytics: true,
+      smartRetentionManager: true,
+      smartRetentionManagerAiAssist: true,
     },
   },
   premium: {
@@ -265,6 +276,8 @@ export const planConfig: Record<BusinessPlan, PlanDefinition> = {
       advancedReports: true,
       marketingHub: true,
       smartAnalytics: true,
+      smartRetentionManager: true,
+      smartRetentionManagerAiAssist: true,
     },
   },
 };
@@ -1536,6 +1549,13 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       plan: nextBusinessPlan,
       status: nextBusinessStatus,
       subscriptionEndAt: nextBusinessEndAt,
+      now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['entitlements', 'team'],
+      reasons: ['subscription_state_changed'],
       now,
     });
 

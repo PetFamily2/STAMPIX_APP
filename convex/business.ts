@@ -29,6 +29,7 @@ import {
   isScanTokenExpired,
   parseScanToken,
 } from './scanTokens';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 type BusinessAddressInput = {
   formattedAddress: string;
@@ -695,6 +696,21 @@ export async function createBusinessForOwner(
   });
 
   await ensureBusinessOwnerStaff(ctx, businessId, input.ownerUserId, now);
+  await markSmartManagerDirty(ctx, {
+    businessId,
+    domains: [
+      'business',
+      'profile',
+      'programs',
+      'memberships',
+      'events',
+      'campaigns',
+      'team',
+      'entitlements',
+    ],
+    reasons: ['business_created'],
+    now,
+  });
   return { businessId, businessPublicId, joinCode };
 }
 
@@ -1143,6 +1159,22 @@ export const restoreBusinessAccount = mutation({
       updatedAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: [
+        'business',
+        'profile',
+        'programs',
+        'memberships',
+        'events',
+        'campaigns',
+        'team',
+        'entitlements',
+      ],
+      reasons: ['business_restored'],
+      now,
+    });
+
     return {
       businessId,
       isActive: true as const,
@@ -1412,6 +1444,13 @@ export const createOrResumeBusinessOnboarding = mutation({
         updatedAt: now,
       });
 
+      await markSmartManagerDirty(ctx, {
+        businessId: existing._id,
+        domains: ['business', 'profile'],
+        reasons: ['business_onboarding_saved'],
+        now,
+      });
+
       return { businessId: existing._id, reused: true };
     }
 
@@ -1442,6 +1481,13 @@ export const createOrResumeBusinessOnboarding = mutation({
         normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
       onboardingSnapshot,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile'],
+      reasons: ['business_onboarding_saved'],
+      now,
     });
 
     const normalizedReferralCode = args.businessReferralCode?.trim();
@@ -1524,6 +1570,13 @@ export const updateBusinessAddress = mutation({
       street: normalizedAddress.street,
       streetNumber: normalizedAddress.streetNumber,
       updatedAt,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile'],
+      reasons: ['business_address_updated'],
+      now: updatedAt,
     });
 
     return { businessId, updatedAt };
@@ -2046,6 +2099,13 @@ export const updateBusinessProfile = mutation({
       updatedAt,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile'],
+      reasons: ['business_profile_updated'],
+      now: updatedAt,
+    });
+
     return {
       businessId,
       name: normalizedName,
@@ -2310,6 +2370,13 @@ export const saveBusinessOnboardingSnapshot = mutation({
 
     await ctx.db.patch(businessId, businessPatchPayload);
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile', 'events'],
+      reasons: ['business_retention_profile_updated'],
+      now,
+    });
+
     return {
       businessId,
       onboardingSnapshot: nextSnapshot,
@@ -2380,6 +2447,13 @@ export const updateCustomerSegmentationConfig = mutation({
     await ctx.db.patch(businessId, {
       customerSegmentationConfig: nextConfig,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['profile', 'events'],
+      reasons: ['customer_segmentation_config_updated'],
+      now,
     });
 
     return {
@@ -3359,11 +3433,13 @@ export const inviteBusinessStaff = mutation({
       )
       .collect();
 
+    let expiredPriorInvite = false;
     for (const invite of existingPendingInvites) {
       const didExpire = await expireInviteIfNeeded(ctx, invite, now);
       if (!didExpire) {
         throw new Error('INVITE_ALREADY_PENDING');
       }
+      expiredPriorInvite = true;
     }
 
     const targetUser = await ctx.db
@@ -3415,6 +3491,16 @@ export const inviteBusinessStaff = mutation({
       eventType: 'invite_created',
       toRole: role,
       createdAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: [
+        'team_invite_created',
+        ...(expiredPriorInvite ? ['team_invite_expired'] : []),
+      ],
+      now,
     });
 
     return {
@@ -3512,11 +3598,13 @@ export const inviteBusinessStaffByScanToken = mutation({
       uniquePendingInvites.set(String(invite._id), invite);
     }
 
+    let expiredPriorInvite = false;
     for (const invite of uniquePendingInvites.values()) {
       const didExpire = await expireInviteIfNeeded(ctx, invite, now);
       if (!didExpire) {
         throw new Error('INVITE_ALREADY_PENDING');
       }
+      expiredPriorInvite = true;
     }
 
     const existingMembership = await ctx.db
@@ -3561,6 +3649,16 @@ export const inviteBusinessStaffByScanToken = mutation({
       eventType: 'invite_created',
       toRole: role,
       createdAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: [
+        'team_invite_created',
+        ...(expiredPriorInvite ? ['team_invite_expired'] : []),
+      ],
+      now,
     });
 
     return {
@@ -3620,6 +3718,13 @@ export const cancelStaffInvite = mutation({
       targetInviteId: inviteId,
       eventType: 'invite_cancelled',
       createdAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_invite_cancelled'],
+      now,
     });
 
     return { inviteId, status: 'cancelled' as const };
@@ -3761,6 +3866,13 @@ export const acceptStaffInvite = mutation({
       });
     }
 
+    await markSmartManagerDirty(ctx, {
+      businessId: invite.businessId,
+      domains: ['team'],
+      reasons: ['team_invite_accepted'],
+      now,
+    });
+
     return {
       staffId,
       businessId: invite.businessId,
@@ -3818,6 +3930,13 @@ export const updateBusinessStaffRole = mutation({
       createdAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_role_changed'],
+      now,
+    });
+
     return { staffId: target._id, staffRole: role };
   },
 });
@@ -3869,6 +3988,13 @@ export const suspendBusinessStaff = mutation({
       fromStatus: 'active',
       toStatus: 'suspended',
       createdAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_member_suspended'],
+      now,
     });
 
     return { staffId: target._id, status: 'suspended' as const };
@@ -3925,6 +4051,13 @@ export const reactivateBusinessStaff = mutation({
       createdAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_member_reactivated'],
+      now,
+    });
+
     return { staffId: target._id, status: 'active' as const };
   },
 });
@@ -3977,6 +4110,13 @@ export const removeBusinessStaff = mutation({
       createdAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_member_removed'],
+      now,
+    });
+
     return { staffId: target._id, status: 'removed' as const };
   },
 });
@@ -4018,6 +4158,13 @@ export const selfRemoveFromBusiness = mutation({
       fromStatus: previousStatus,
       toStatus: 'removed',
       createdAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_member_self_removed'],
+      now,
     });
 
     return { staffId: membership._id, status: 'removed' as const };

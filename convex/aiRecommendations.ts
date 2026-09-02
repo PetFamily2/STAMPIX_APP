@@ -24,6 +24,7 @@ import {
   slugify,
   startOfUtcDay,
 } from './lib/recommendationUtils';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 const MODEL_NAME = 'google/gemini-2.5-flash-lite';
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
@@ -3966,6 +3967,12 @@ export const executeRecommendationPrimaryCta = mutation({
       });
 
       await ctx.db.patch(recommendationId, { consumedAt: now });
+      await markSmartManagerDirty(ctx, {
+        businessId,
+        domains: ['campaigns', 'entitlements'],
+        reasons: ['ai_recommendation_campaign_created'],
+        now,
+      });
       return {
         kind: 'open_draft' as const,
         campaignId,

@@ -6,6 +6,7 @@ const crons = cronJobs();
 const internalDeletionApi = (internal as any).businessDeletion;
 const internalProviderCredentialsApi = (internal as any).providerCredentials;
 const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
+const internalSmartManagerApi = (internal as any).smartManager;
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -59,6 +60,20 @@ crons.hourly(
   'provider revocation retry and receipt cleanup hourly',
   { minuteUTC: 40 },
   internalProviderCredentialsApi.sweepProviderRevocationJobsInternal
+);
+
+crons.daily(
+  'smart manager audit retention cleanup daily',
+  { hourUTC: 2, minuteUTC: 50 },
+  internalSmartManagerApi.purgeExpiredAuditEventsInternal,
+  { limit: 100 }
+);
+
+crons.interval(
+  'smart manager bounded reconciliation every 15 minutes',
+  { minutes: 15 },
+  internalSmartManagerApi.reconcileDueEvaluationsInternal,
+  { cursor: null, limit: 25 }
 );
 
 export default crons;

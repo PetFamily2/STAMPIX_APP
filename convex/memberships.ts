@@ -12,6 +12,7 @@ import {
   requireCurrentUser,
 } from './guards';
 import { processReferralAfterJoin } from './referrals';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 // ---------------------------------------------------------------------------
 // Public resolve queries (no auth required -- used by landing page & join flow)
@@ -953,6 +954,15 @@ export const joinSelectedPrograms = mutation({
       hadAnyBusinessMembershipBeforeJoin,
     });
 
+    if (joinedPrograms.some((item) => item.status !== 'existing')) {
+      await markSmartManagerDirty(ctx, {
+        businessId,
+        domains: ['memberships'],
+        reasons: ['customer_program_membership_joined'],
+        now,
+      });
+    }
+
     return {
       ok: true,
       businessId,
@@ -1028,6 +1038,12 @@ export const joinByBusinessQr = mutation({
     if (existing) {
       if (!existing.isActive) {
         await ctx.db.patch(existing._id, { isActive: true, updatedAt: now });
+        await markSmartManagerDirty(ctx, {
+          businessId: business._id,
+          domains: ['memberships'],
+          reasons: ['customer_membership_reactivated'],
+          now,
+        });
       }
       return {
         ok: true,
@@ -1060,6 +1076,13 @@ export const joinByBusinessQr = mutation({
       isActive: true,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId: business._id,
+      domains: ['memberships'],
+      reasons: ['customer_membership_joined'],
+      now,
     });
 
     return {

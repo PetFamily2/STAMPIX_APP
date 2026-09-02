@@ -26,6 +26,7 @@ import {
   parseScanToken,
   type ScanTokenPayload,
 } from './scanTokens';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
@@ -651,6 +652,13 @@ async function applyStamp(
       createdAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId: params.businessId,
+      domains: ['memberships', 'events'],
+      reasons: ['scanner_stamp_committed'],
+      now,
+    });
+
     return {
       membershipId,
       currentStamps: 1,
@@ -699,6 +707,13 @@ async function applyStamp(
       next: nextStamps,
     },
     createdAt: now,
+  });
+
+  await markSmartManagerDirty(ctx, {
+    businessId: params.businessId,
+    domains: ['memberships', 'events'],
+    reasons: ['scanner_stamp_committed'],
+    now,
   });
 
   return {
@@ -772,6 +787,13 @@ async function applyRedeem(
     membershipStateAfter,
     metadata: { source: params.source, redeemedFrom: membership.currentStamps },
     createdAt: now,
+  });
+
+  await markSmartManagerDirty(ctx, {
+    businessId: params.businessId,
+    domains: ['memberships', 'events'],
+    reasons: ['scanner_reward_redeemed'],
+    now,
   });
 
   return {
@@ -878,6 +900,13 @@ async function createReversalForEvent(
 
   await ctx.db.patch(originalEvent._id, {
     reversalEventId,
+  });
+
+  await markSmartManagerDirty(ctx, {
+    businessId: originalEvent.businessId,
+    domains: ['memberships', 'events'],
+    reasons: ['scanner_event_reversed'],
+    now,
   });
 
   const updatedMembership = await ctx.db.get(membership._id);

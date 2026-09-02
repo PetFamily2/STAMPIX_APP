@@ -11,6 +11,7 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 import { mapCustomerStateToLegacyLifecycleStatus } from './lib/customerIntelligence';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
@@ -696,6 +697,13 @@ export const reverseCustomerCardEvent = mutation({
 
     await ctx.db.patch(targetEvent._id, {
       reversalEventId,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId: targetEvent.businessId,
+      domains: ['memberships', 'events'],
+      reasons: ['manager_event_reversed'],
+      now,
     });
 
     const updatedMembership = await ctx.db.get(membership._id);

@@ -26,6 +26,7 @@ import {
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
   type BusinessOnboardingFlow,
@@ -185,6 +186,13 @@ const WIPE_ALL_TABLE_ORDER = [
   'pushDeliveryLog',
   'pushTokens',
   'messageLog',
+  'smartManagerMigrations',
+  'smartManagerAuditEvents',
+  'smartManagerShadowComparisons',
+  'smartManagerDecisions',
+  'smartManagerFactSnapshots',
+  'smartManagerEvaluationStates',
+  'smartManagerPolicyVersions',
   'campaigns',
   'subscriptions',
   'scanSessions',
@@ -339,6 +347,13 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     pushDeliveryLog: 0,
     pushTokens: 0,
     messageLog: 0,
+    smartManagerMigrations: 0,
+    smartManagerAuditEvents: 0,
+    smartManagerShadowComparisons: 0,
+    smartManagerDecisions: 0,
+    smartManagerFactSnapshots: 0,
+    smartManagerEvaluationStates: 0,
+    smartManagerPolicyVersions: 0,
     campaigns: 0,
     subscriptions: 0,
     scanSessions: 0,
@@ -409,7 +424,8 @@ async function deleteByIndexInBatches(
   indexName: string,
   fieldName: string,
   value: unknown,
-  batchSize = DELETE_BATCH_SIZE
+  batchSize = DELETE_BATCH_SIZE,
+  onDoc?: (doc: any) => void
 ) {
   let deletedCount = 0;
   while (true) {
@@ -423,6 +439,7 @@ async function deleteByIndexInBatches(
     }
 
     for (const doc of docs) {
+      onDoc?.(doc);
       await ctx.db.delete(doc._id);
       deletedCount += 1;
     }
@@ -436,7 +453,8 @@ async function redactUserReferenceByIndexInBatches(
   indexName: string,
   fieldName: string,
   userId: Id<'users'>,
-  batchSize = DELETE_BATCH_SIZE
+  batchSize = DELETE_BATCH_SIZE,
+  onDoc?: (doc: any) => void
 ) {
   let redactedCount = 0;
   while (true) {
@@ -450,6 +468,7 @@ async function redactUserReferenceByIndexInBatches(
     }
 
     for (const doc of docs) {
+      onDoc?.(doc);
       const patch: Record<string, unknown> = { [fieldName]: undefined };
       if ('updatedAt' in doc) {
         patch.updatedAt = Date.now();
@@ -564,8 +583,22 @@ async function assertCanDeleteUserWithoutOrphaningSoleOwnedBusiness(
 async function deleteUserScopedBusinessData(
   ctx: any,
   userId: Id<'users'>,
-  deleted: DeleteStats
+  deleted: DeleteStats,
+  onAffectedBusiness?: (
+    businessId: Id<'businesses'>,
+    domain: 'memberships' | 'events' | 'team'
+  ) => void
 ) {
+  const visitBusiness = (
+    domain: 'memberships' | 'events' | 'team'
+  ) =>
+    onAffectedBusiness
+      ? (doc: { businessId?: Id<'businesses'> }) => {
+          if (doc.businessId) {
+            onAffectedBusiness(doc.businessId, domain);
+          }
+        }
+      : undefined;
   deleted.businessOnboardingDrafts += await deleteByIndexInBatches(
     ctx,
     'businessOnboardingDrafts',
@@ -578,7 +611,9 @@ async function deleteUserScopedBusinessData(
     'memberships',
     'by_userId',
     'userId',
-    userId
+    userId,
+    DELETE_BATCH_SIZE,
+    visitBusiness('memberships')
   );
   deleted.scanTokenEvents += await deleteByIndexInBatches(
     ctx,
@@ -606,7 +641,9 @@ async function deleteUserScopedBusinessData(
     'events',
     'by_customerUserId',
     'customerUserId',
-    userId
+    userId,
+    DELETE_BATCH_SIZE,
+    visitBusiness('events')
   );
   await redactUserReferenceByIndexInBatches(
     ctx,
@@ -648,14 +685,18 @@ async function deleteUserScopedBusinessData(
     'businessStaff',
     'by_userId',
     'userId',
-    userId
+    userId,
+    DELETE_BATCH_SIZE,
+    visitBusiness('team')
   );
   deleted.staffInvites += await deleteByIndexInBatches(
     ctx,
     'staffInvites',
     'by_invitedByUserId',
     'invitedByUserId',
-    userId
+    userId,
+    DELETE_BATCH_SIZE,
+    visitBusiness('team')
   );
   deleted.referralRewards += await deleteByIndexInBatches(
     ctx,
@@ -1313,6 +1354,29 @@ export async function deleteMyAccountHardImpl(
     };
   }
 
+  const affectedBusinesses = new Map<
+    string,
+    {
+      businessId: Id<'businesses'>;
+      domains: Set<'memberships' | 'events' | 'team'>;
+    }
+  >();
+  const addAffectedBusiness = (
+    businessId: Id<'businesses'>,
+    domain: 'memberships' | 'events' | 'team'
+  ) => {
+    const key = String(businessId);
+    const existing = affectedBusinesses.get(key) ?? {
+      businessId,
+      domains: new Set<'memberships' | 'events' | 'team'>(),
+    };
+    existing.domains.add(domain);
+    affectedBusinesses.set(key, existing);
+  };
+  for (const reassignment of ownerReassignments) {
+    addAffectedBusiness(reassignment.businessId, 'team');
+  }
+
   for (const reassignment of ownerReassignments) {
     await ctx.db.patch(reassignment.businessId, {
       ownerUserId: reassignment.nextOwnerUserId,
@@ -1330,7 +1394,21 @@ export async function deleteMyAccountHardImpl(
   deleted.providerRevocationCredentials +=
     providerRevocation.deletedCredentials;
 
-  await deleteUserScopedBusinessData(ctx, user._id, deleted);
+  await deleteUserScopedBusinessData(ctx, user._id, deleted, addAffectedBusiness);
+  await deleteByIndexInBatches(
+    ctx,
+    'recommendationInteractions',
+    'by_actor_business',
+    'actorUserId',
+    user._id
+  );
+  await deleteByIndexInBatches(
+    ctx,
+    'recommendationGuideSessions',
+    'by_actor_business',
+    'actorUserId',
+    user._id
+  );
   deleted.userIdentities += await deleteByIndexInBatches(
     ctx,
     'userIdentities',
@@ -1348,6 +1426,18 @@ export async function deleteMyAccountHardImpl(
       'email',
       String(user.email).toLowerCase()
     );
+  }
+  for (const affected of affectedBusinesses.values()) {
+    const { businessId } = affected;
+    const survivingBusiness = await ctx.db.get(businessId);
+    if (!survivingBusiness || survivingBusiness.isActive !== true) {
+      continue;
+    }
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: [...affected.domains],
+      reasons: ['user_account_deleted'],
+    });
   }
 
   await ctx.db.delete(user._id);

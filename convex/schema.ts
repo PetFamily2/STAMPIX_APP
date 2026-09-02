@@ -1,6 +1,14 @@
 import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import {
+  smartManagerAuditEventDetailValidator,
+  smartManagerCapabilityAvailabilityValidator,
+  smartManagerComparisonSummaryValidator,
+  smartManagerDecisionSummaryValidator,
+  smartManagerFactEnvelopeValidator,
+  smartManagerPolicyConfigValidator,
+} from './lib/smartManagerValidators';
 
 export default defineSchema({
   ...authTables,
@@ -650,6 +658,8 @@ export default defineSchema({
         v.literal('NO_LONGER_APPLICABLE')
       )
     ),
+    policyVersion: v.optional(v.string()),
+    policyHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -717,6 +727,190 @@ export default defineSchema({
       'businessId',
       'stableId',
     ])
+    .index('by_expiresAt', ['expiresAt']),
+
+  smartManagerMigrations: defineTable({
+    migrationKey: v.literal('smart_manager_batch_1_v1'),
+    migrationVersion: v.literal(1),
+    status: v.union(
+      v.literal('running'),
+      v.literal('retryable'),
+      v.literal('completed')
+    ),
+    phase: v.union(
+      v.literal('policy'),
+      v.literal('load_business_page'),
+      v.literal('evaluation_state'),
+      v.literal('fact_snapshot'),
+      v.literal('shadow_comparison'),
+      v.literal('decisions'),
+      v.literal('initialize_business')
+    ),
+    businessCursor: v.union(v.string(), v.null()),
+    pendingBusinessIds: v.array(v.id('businesses')),
+    pendingBusinessIndex: v.number(),
+    pendingPageCursor: v.union(v.string(), v.null()),
+    pendingPageIsDone: v.boolean(),
+    currentBusinessHadEvaluationState: v.boolean(),
+    decisionAfterStableId: v.optional(v.string()),
+    decisionStableId: v.optional(v.string()),
+    pageSize: v.number(),
+    checkpointVersion: v.number(),
+    processedCount: v.number(),
+    initializedCount: v.number(),
+    reconciledCount: v.number(),
+    leaseToken: v.optional(v.string()),
+    leaseExpiresAt: v.optional(v.number()),
+    failureCount: v.number(),
+    lastFailureCode: v.optional(v.string()),
+    lastFailureDetail: v.optional(v.string()),
+    lastFailedAt: v.optional(v.number()),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index('by_migrationKey', ['migrationKey']),
+
+  smartManagerPolicyVersions: defineTable({
+    version: v.string(),
+    schemaVersion: v.number(),
+    policyHash: v.string(),
+    config: smartManagerPolicyConfigValidator,
+    effectiveFrom: v.number(),
+    reason: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_version', ['version'])
+    .index('by_effectiveFrom', ['effectiveFrom'])
+    .index('by_policyHash', ['policyHash']),
+
+  smartManagerFactSnapshots: defineTable({
+    businessId: v.id('businesses'),
+    schemaVersion: v.number(),
+    observedAt: v.number(),
+    sourceGeneration: v.number(),
+    sourceWatermark: v.string(),
+    factHash: v.string(),
+    capabilityAvailability: smartManagerCapabilityAvailabilityValidator,
+    facts: smartManagerFactEnvelopeValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_sourceGeneration', [
+      'businessId',
+      'sourceGeneration',
+    ])
+    .index('by_updatedAt', ['updatedAt']),
+
+  smartManagerEvaluationStates: defineTable({
+    businessId: v.id('businesses'),
+    dirtyAt: v.number(),
+    dirtyDomains: v.array(
+      v.union(
+        v.literal('business'),
+        v.literal('profile'),
+        v.literal('programs'),
+        v.literal('memberships'),
+        v.literal('events'),
+        v.literal('campaigns'),
+        v.literal('team'),
+        v.literal('entitlements')
+      )
+    ),
+    dirtyReasons: v.array(v.string()),
+    generation: v.number(),
+    nextEvaluationAt: v.number(),
+    evaluationScheduledAt: v.optional(v.number()),
+    leaseToken: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
+    leaseExpiresAt: v.optional(v.number()),
+    leasePolicyVersion: v.optional(v.string()),
+    leasePolicyHash: v.optional(v.string()),
+    attemptCount: v.number(),
+    attemptGeneration: v.optional(v.number()),
+    lastFactHash: v.optional(v.string()),
+    lastSuccessfulGeneration: v.optional(v.number()),
+    lastSuccessfulEvaluationAt: v.optional(v.number()),
+    failureCode: v.optional(v.string()),
+    failureDetail: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_nextEvaluationAt', ['nextEvaluationAt'])
+    .index('by_leaseExpiresAt', ['leaseExpiresAt'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  smartManagerDecisions: defineTable({
+    businessId: v.id('businesses'),
+    stableId: v.string(),
+    category: v.union(
+      v.literal('operational'),
+      v.literal('setup'),
+      v.literal('retention'),
+      v.literal('growth'),
+      v.literal('informational')
+    ),
+    priority: v.number(),
+    evidenceFingerprint: v.string(),
+    evidenceObservedAt: v.number(),
+    factHash: v.string(),
+    decisionHash: v.string(),
+    policyVersion: v.string(),
+    policyHash: v.string(),
+    sourceGeneration: v.number(),
+    state: v.union(v.literal('shadow_active'), v.literal('shadow_inactive')),
+    decision: smartManagerDecisionSummaryValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_stableId', ['businessId', 'stableId'])
+    .index('by_businessId_state', ['businessId', 'state'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  smartManagerShadowComparisons: defineTable({
+    businessId: v.id('businesses'),
+    sourceGeneration: v.number(),
+    factHash: v.string(),
+    policyVersion: v.string(),
+    policyHash: v.string(),
+    comparisonHash: v.string(),
+    status: v.union(
+      v.literal('parity'),
+      v.literal('mismatch'),
+      v.literal('bounded_source_unavailable')
+    ),
+    canonicalSummary: smartManagerComparisonSummaryValidator,
+    liveSummary: smartManagerComparisonSummaryValidator,
+    differences: v.array(v.string()),
+    comparedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_status_updatedAt', ['status', 'updatedAt'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  smartManagerAuditEvents: defineTable({
+    businessId: v.id('businesses'),
+    eventType: v.union(
+      v.literal('evaluation_succeeded'),
+      v.literal('evaluation_failed'),
+      v.literal('parity_changed'),
+      v.literal('migration_initialized')
+    ),
+    sourceGeneration: v.number(),
+    factHash: v.optional(v.string()),
+    policyVersion: v.string(),
+    policyHash: v.string(),
+    detail: v.optional(smartManagerAuditEventDetailValidator),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_eventType', ['businessId', 'eventType'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_expiresAt', ['expiresAt']),
 
   loyaltyPrograms: defineTable({

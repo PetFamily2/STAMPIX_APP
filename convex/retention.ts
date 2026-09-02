@@ -15,6 +15,7 @@ import {
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
 } from './guards';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 type RetentionTargetType = 'at_risk' | 'near_reward' | 'vip' | 'new_customers';
 
@@ -236,6 +237,13 @@ export const createAiRetentionSuggestion = mutation({
       isActive: true,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['campaigns', 'entitlements'],
+      reasons: ['ai_retention_suggestion_created'],
+      now,
     });
 
     return {

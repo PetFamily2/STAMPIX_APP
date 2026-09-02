@@ -11,6 +11,7 @@ import {
   requireCurrentUser,
 } from './guards';
 import { sendPushNotificationToUser } from './pushNotifications';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 const CUSTOMER_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const B2B_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -1009,6 +1010,13 @@ export async function qualifyCustomerReferralAfterStamp(
             createdAt: now,
           });
 
+          await markSmartManagerDirty(ctx, {
+            businessId: latestBeforeQualification.businessId,
+            domains: ['memberships', 'events'],
+            reasons: ['referral_stamp_granted'],
+            now,
+          });
+
           targetMembershipId = target.membership._id;
           targetProgramId = target.program._id;
           expiresAt = undefined;
@@ -1242,6 +1250,12 @@ export const saveReferralConfig = mutation({
         updatedAt: now,
         ...payload,
       });
+      await markSmartManagerDirty(ctx, {
+        businessId: args.businessId,
+        domains: ['campaigns', 'entitlements'],
+        reasons: ['referral_config_changed'],
+        now,
+      });
       return await ctx.db.get(id);
     }
 
@@ -1250,6 +1264,12 @@ export const saveReferralConfig = mutation({
       configVersion: existing.configVersion + 1,
       updatedByUserId: actor._id,
       updatedAt: now,
+    });
+    await markSmartManagerDirty(ctx, {
+      businessId: args.businessId,
+      domains: ['campaigns', 'entitlements'],
+      reasons: ['referral_config_changed'],
+      now,
     });
     return await ctx.db.get(existing._id);
   },
@@ -2207,6 +2227,13 @@ export const redeemReferralBenefit = mutation({
       updatedAt: now,
     });
 
+    await markSmartManagerDirty(ctx, {
+      businessId: args.businessId,
+      domains: ['events'],
+      reasons: ['referral_benefit_redeemed'],
+      now,
+    });
+
     await sendReferralNotification(ctx, {
       businessId: args.businessId,
       toUserId: reward.recipientUserId,
@@ -2630,6 +2657,11 @@ export const adminRevokeReferralReward = mutation({
         },
         createdAt: Date.now(),
       });
+      await markSmartManagerDirty(ctx, {
+        businessId: before.businessId,
+        domains: ['memberships', 'events'],
+        reasons: ['referral_stamp_revoked'],
+      });
     }
 
     await ctx.db.patch(before._id, {
@@ -2801,6 +2833,7 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
 
     let credited = 0;
     let skipped = 0;
+    const dirtyBusinessIds = new Map<string, Id<'businesses'>>();
     for (const row of waiting) {
       if (!row.referredBusinessId) {
         await ctx.db.patch(row._id, {
@@ -2880,8 +2913,21 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
           subscriptionEndAt: extendedEndAt,
           updatedAt: now,
         });
+        dirtyBusinessIds.set(
+          String(referrerBusiness._id),
+          referrerBusiness._id
+        );
       }
       credited += 1;
+    }
+
+    for (const businessId of dirtyBusinessIds.values()) {
+      await markSmartManagerDirty(ctx, {
+        businessId,
+        domains: ['entitlements'],
+        reasons: ['business_referral_credit_applied'],
+        now,
+      });
     }
 
     return {

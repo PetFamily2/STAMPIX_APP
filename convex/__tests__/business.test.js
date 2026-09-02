@@ -65,6 +65,7 @@ function createMockCtx({
   memberships = [],
   events = [],
   campaigns = [],
+  smartManagerEvaluationStates = [],
 } = {}) {
   const state = {
     users: new Map(users.map((entry) => [entry._id, { ...entry }])),
@@ -83,9 +84,13 @@ function createMockCtx({
     ),
     events: new Map(events.map((entry) => [entry._id, { ...entry }])),
     campaigns: new Map(campaigns.map((entry) => [entry._id, { ...entry }])),
+    smartManagerEvaluationStates: new Map(
+      smartManagerEvaluationStates.map((entry) => [entry._id, { ...entry }])
+    ),
   };
   let businessInsertCount = 0;
   let staffInsertCount = 0;
+  let smartManagerEvaluationStateInsertCount = 0;
   const scheduled = [];
 
   const ctx = {
@@ -128,7 +133,21 @@ function createMockCtx({
           return id;
         }
 
+        if (tableName === 'smartManagerEvaluationStates') {
+          smartManagerEvaluationStateInsertCount += 1;
+          const id = `smart_manager_evaluation_state_inserted_${smartManagerEvaluationStateInsertCount}`;
+          state.smartManagerEvaluationStates.set(id, { _id: id, ...value });
+          return id;
+        }
+
         throw new Error(`UNKNOWN_INSERT_TABLE:${tableName}`);
+      },
+      delete: async (id) => {
+        if (state.smartManagerEvaluationStates.has(id)) {
+          state.smartManagerEvaluationStates.delete(id);
+          return;
+        }
+        throw new Error(`UNKNOWN_DELETE_TARGET:${id}`);
       },
       query: (tableName) => ({
         withIndex: (_indexName, buildIndex) => {
@@ -151,6 +170,10 @@ function createMockCtx({
                   ? Array.from(state.loyaltyPrograms.values())
                   : tableName === 'businessOnboardingDrafts'
                     ? Array.from(state.businessOnboardingDrafts.values())
+                    : tableName === 'smartManagerEvaluationStates'
+                      ? Array.from(
+                          state.smartManagerEvaluationStates.values()
+                        )
                     : [];
 
           const filteredRows = rows.filter((row) =>
@@ -166,6 +189,7 @@ function createMockCtx({
               return filteredRows[0] ?? null;
             },
             collect: async () => filteredRows,
+            take: async (limit) => filteredRows.slice(0, limit),
           };
         },
       }),
