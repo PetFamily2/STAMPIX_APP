@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import {
   assertAiExecutionQuotaAvailable,
+  countsTowardLegacyDailyAiLimit,
   finalizeAiRecommendationFailureInternal,
   finalizeAiRecommendationQuotaFallbackInternal,
   finalizeAiRecommendationSuccessInternal,
+  toLegacyAiTokenCounts,
 } from '../aiRecommendations';
 import { countAiExecutionsForBusinessInMonth } from '../entitlements';
+import { generateOpenRouterJson } from '../lib/aiJsonGeneration';
 import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
 
 class FakeQuery {
@@ -268,6 +271,46 @@ async function convexErrorData(work) {
 }
 
 describe('AI recommendation monthly quota boundary', () => {
+  test('shared JSON transport preserves the legacy type/title/message contract', async () => {
+    const result = await generateOpenRouterJson({
+      prompt: 'legacy closed prompt',
+      apiKey: 'server-only-test-key',
+      maxOutputTokens: 120,
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    type: 'business_insight',
+                    title: 'Insight',
+                    message: 'Stable activity',
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200 }
+        ),
+      validate: (parsed) =>
+        parsed.type === 'business_insight' &&
+        typeof parsed.title === 'string' &&
+        typeof parsed.message === 'string'
+          ? { ok: true, value: parsed }
+          : { ok: false, code: 'AI_PROVIDER_SCHEMA_INVALID' },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: {
+        type: 'business_insight',
+        title: 'Insight',
+        message: 'Stable activity',
+      },
+    });
+  });
+
   test('starter with zero AI executions cannot run paid AI', async () => {
     const now = Date.now();
     const tables = baseTables({
@@ -447,5 +490,39 @@ describe('AI recommendation monthly quota boundary', () => {
       'AI_REQUEST_FAILED'
     );
     expect(ctx.db.rows('aiUsageLedger')).toHaveLength(100);
+  });
+
+  test('Smart Manager copy generation does not count toward the legacy 2/day guardrail', () => {
+    const now = Date.now();
+    const usageMonth = [
+      buildUsageRow(1, now, { requestType: 'business_insight' }),
+      buildUsageRow(2, now, { requestType: 'smart_manager_copy_generation' }),
+      buildUsageRow(3, now, { requestType: 'smart_manager_copy_generation' }),
+    ];
+    expect(
+      usageMonth.filter((row) => countsTowardLegacyDailyAiLimit(row, now))
+        .length
+    ).toBe(1);
+    expect(
+      usageMonth.filter(
+        (row) =>
+          row.status === 'success' &&
+          row.cacheHit !== true &&
+          row.requestType === 'smart_manager_copy_generation'
+      ).length
+    ).toBe(2);
+  });
+
+  test('legacy adapter preserves historic numeric token shape when provider metadata is absent', () => {
+    expect(toLegacyAiTokenCounts({})).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+    });
+    expect(
+      toLegacyAiTokenCounts({ inputTokens: 12, outputTokens: 8 })
+    ).toEqual({
+      inputTokens: 12,
+      outputTokens: 8,
+    });
   });
 });

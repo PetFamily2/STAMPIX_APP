@@ -5,6 +5,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  type MutationCtx,
 } from './_generated/server';
 import {
   buildBusinessRecommendationCatalog,
@@ -37,6 +38,11 @@ import {
   scheduleSmartManagerEvaluation,
   type SmartManagerDirtyDomain,
 } from './lib/smartManagerDirty';
+import { resolveSmartManagerDecisionAuthority } from './lib/smartManagerAuthority';
+import {
+  evaluatePreparedActionCurrentness,
+  type PreparedActionCurrentnessBlocker,
+} from './lib/smartManagerPreparedActions';
 import {
   type SmartManagerFactEnvelope,
   smartManagerWorkerEvaluationValidator,
@@ -1446,8 +1452,18 @@ async function upsertShadowDecisions(ctx: any, args: any) {
         ...values,
       });
     } else if (
+      existing.category !== values.category ||
+      existing.priority !== values.priority ||
+      existing.evidenceFingerprint !== values.evidenceFingerprint ||
+      existing.evidenceObservedAt !== values.evidenceObservedAt ||
+      existing.factHash !== values.factHash ||
       existing.decisionHash !== decisionHash ||
-      existing.state !== 'shadow_active'
+      existing.policyVersion !== values.policyVersion ||
+      existing.policyHash !== values.policyHash ||
+      existing.sourceGeneration !== values.sourceGeneration ||
+      existing.state !== values.state ||
+      hashSmartManagerValue(existing.decision) !==
+        hashSmartManagerValue(values.decision)
     ) {
       await ctx.db.patch(existing._id, values);
     }
@@ -1459,6 +1475,191 @@ async function upsertShadowDecisions(ctx: any, args: any) {
     cursor: null,
     now: args.now,
   });
+}
+
+type PreparedActionStaleReasonCode =
+  | 'ACTIVE_POLICY_INVALID'
+  | 'BUSINESS_DELETION_IN_PROGRESS'
+  | 'BUSINESS_INACTIVE'
+  | 'BUSINESS_NOT_FOUND'
+  | 'COMPARISON_AMBIGUOUS'
+  | 'COMPARISON_BINDING_MISMATCH'
+  | 'COMPARISON_HASH_MISMATCH'
+  | 'COMPARISON_NOT_FOUND'
+  | 'COMPARISON_NOT_PARITY'
+  | 'DECISION_AMBIGUOUS'
+  | 'DECISION_BINDING_MISMATCH'
+  | 'DECISION_EVIDENCE_MISMATCH'
+  | 'DECISION_HASH_MISMATCH'
+  | 'DECISION_INACTIVE'
+  | 'DECISION_NOT_FOUND'
+  | 'EVALUATION_AMBIGUOUS'
+  | 'EVALUATION_GENERATION_MISMATCH'
+  | 'EVALUATION_NOT_FOUND'
+  | 'EVIDENCE_EXPIRED'
+  | 'EVIDENCE_FINGERPRINT_MISMATCH'
+  | 'FACT_SNAPSHOT_AMBIGUOUS'
+  | 'FACT_SNAPSHOT_BINDING_MISMATCH'
+  | 'FACT_SNAPSHOT_NOT_FOUND'
+  | 'LIFECYCLE_AUDIENCE_INVALID'
+  | 'LIFECYCLE_EVIDENCE_UNAVAILABLE'
+  | 'POLICY_BINDING_MISMATCH'
+  | 'ACTION_AUDIENCE_BINDING_CHANGED'
+  | 'ACTION_AUTHORITY_BINDING_CHANGED'
+  | 'ACTION_AUTHORITY_MODE_CHANGED'
+  | 'ACTION_CONTRACT_INVALID'
+  | 'ACTION_DECISION_BINDING_CHANGED'
+  | 'ACTION_PREPARATION_KEY_CHANGED';
+
+function toPreparedActionStaleReasonCode(
+  blocker: PreparedActionCurrentnessBlocker
+): PreparedActionStaleReasonCode | undefined {
+  switch (blocker) {
+    case 'ACTIVE_POLICY_INVALID':
+    case 'BUSINESS_DELETION_IN_PROGRESS':
+    case 'BUSINESS_INACTIVE':
+    case 'BUSINESS_NOT_FOUND':
+    case 'COMPARISON_AMBIGUOUS':
+    case 'COMPARISON_BINDING_MISMATCH':
+    case 'COMPARISON_HASH_MISMATCH':
+    case 'COMPARISON_NOT_FOUND':
+    case 'COMPARISON_NOT_PARITY':
+    case 'DECISION_AMBIGUOUS':
+    case 'DECISION_BINDING_MISMATCH':
+    case 'DECISION_EVIDENCE_MISMATCH':
+    case 'DECISION_HASH_MISMATCH':
+    case 'DECISION_INACTIVE':
+    case 'DECISION_NOT_FOUND':
+    case 'EVALUATION_AMBIGUOUS':
+    case 'EVALUATION_GENERATION_MISMATCH':
+    case 'EVALUATION_NOT_FOUND':
+    case 'EVIDENCE_EXPIRED':
+    case 'EVIDENCE_FINGERPRINT_MISMATCH':
+    case 'FACT_SNAPSHOT_AMBIGUOUS':
+    case 'FACT_SNAPSHOT_BINDING_MISMATCH':
+    case 'FACT_SNAPSHOT_NOT_FOUND':
+    case 'LIFECYCLE_AUDIENCE_INVALID':
+    case 'LIFECYCLE_EVIDENCE_UNAVAILABLE':
+    case 'POLICY_BINDING_MISMATCH':
+    case 'ACTION_AUDIENCE_BINDING_CHANGED':
+    case 'ACTION_AUTHORITY_BINDING_CHANGED':
+    case 'ACTION_AUTHORITY_MODE_CHANGED':
+    case 'ACTION_CONTRACT_INVALID':
+    case 'ACTION_DECISION_BINDING_CHANGED':
+    case 'ACTION_PREPARATION_KEY_CHANGED':
+      return blocker;
+    case 'ACTION_EXPIRED':
+    case 'ACTION_NOT_REVIEWABLE':
+    case 'REEVALUATION_PENDING':
+      return undefined;
+  }
+}
+
+const PREPARED_ACTION_STALE_REASON_PRIORITY: PreparedActionStaleReasonCode[] = [
+  'ACTION_AUTHORITY_MODE_CHANGED',
+  'ACTION_AUTHORITY_BINDING_CHANGED',
+  'ACTION_DECISION_BINDING_CHANGED',
+  'ACTION_AUDIENCE_BINDING_CHANGED',
+  'ACTION_PREPARATION_KEY_CHANGED',
+  'ACTION_CONTRACT_INVALID',
+];
+
+export async function reconcileCurrentPreparedWinbackAfterEvaluation(
+  ctx: MutationCtx,
+  args: { businessId: Id<'businesses'>; now: number }
+) {
+  const currentActions = (await ctx.db
+    .query('smartManagerPreparedActions')
+    .withIndex('by_businessId_stableId_state', (q) =>
+      q
+        .eq('businessId', args.businessId)
+        .eq('stableId', 'retention.reengage_inactive')
+        .eq('state', 'reviewable')
+    )
+    .take(2)) as Doc<'smartManagerPreparedActions'>[];
+  if (currentActions.length !== 1) {
+    return { status: 'no_current_singleton' as const };
+  }
+
+  const action = currentActions[0];
+  const authority = await resolveSmartManagerDecisionAuthority(ctx, {
+    businessId: args.businessId,
+    now: args.now,
+  });
+  const currentness = evaluatePreparedActionCurrentness({
+    action,
+    authority,
+    now: args.now,
+  });
+  const staleReasons: PreparedActionStaleReasonCode[] = [];
+  for (const blocker of currentness.blockers) {
+    const staleReason = toPreparedActionStaleReasonCode(blocker);
+    if (staleReason) {
+      staleReasons.push(staleReason);
+    }
+  }
+  const staleReason =
+    PREPARED_ACTION_STALE_REASON_PRIORITY.find((blocker) =>
+      staleReasons.includes(blocker)
+    ) ?? staleReasons[0];
+  if (!staleReason) {
+    return { status: 'current' as const };
+  }
+
+  const generationRequestDiscarded =
+    (action.generationState === 'queued' ||
+      action.generationState === 'running') &&
+    Boolean(
+      action.generationRequestToken &&
+        action.generationRequestBindingHash &&
+        action.generationActorUserId &&
+        action.generationRequestKind &&
+        action.generationExpectedCopyId &&
+        action.generationExpectedCopyRevision !== undefined &&
+        action.generationReservedCopyRevision !== undefined
+    );
+  await ctx.db.patch(action._id, {
+    state: 'stale',
+    staleReason,
+    staleAt: args.now,
+    ...(generationRequestDiscarded
+      ? {
+          generationState: 'stale_discarded' as const,
+          generationFailureCode: 'ACTION_STALE' as const,
+          generationCompletedAt: args.now,
+        }
+      : {}),
+    updatedAt: args.now,
+  });
+  await ctx.db.insert('smartManagerAuditEvents', {
+    businessId: action.businessId,
+    eventType: 'prepared_action_stale',
+    sourceGeneration:
+      authority.evaluationState?.lastSuccessfulGeneration ??
+      action.sourceGeneration,
+    factHash: authority.factSnapshot?.factHash ?? action.factHash,
+    policyVersion: authority.policy?.version ?? action.policyVersion,
+    policyHash: authority.policy?.policyHash ?? action.policyHash,
+    preparedActionId: action._id,
+    detail: {
+      actionKind: 'winback_campaign',
+      reasonCode: staleReason,
+      authorityBindingHash: authority.authorityBindingHash ?? undefined,
+      decisionHash: action.decisionHash,
+      evidenceFingerprint: action.evidenceFingerprint,
+      comparisonHash: action.comparisonHash,
+      lifecycleSourceFingerprint: action.lifecycleSourceFingerprint,
+      audienceCount: action.audienceCount,
+      generationRequestDiscarded,
+    },
+    expiresAt: args.now + AUDIT_RETENTION_MS,
+    createdAt: args.now,
+  });
+  return {
+    status: 'staled' as const,
+    reason: staleReason,
+    generationRequestDiscarded,
+  };
 }
 
 export const completeEvaluationInternal = internalMutation({
@@ -1528,62 +1729,56 @@ export const completeEvaluationInternal = internalMutation({
         )
     );
 
-    if (factChanged) {
-      const values = {
-        schemaVersion: Number(evaluation.facts.schemaVersion ?? 1),
-        observedAt: evaluation.observedAt,
-        sourceGeneration: args.generation,
-        sourceWatermark: evaluation.sourceWatermark,
-        factHash: evaluation.factHash,
-        capabilityAvailability: evaluation.capabilityAvailability,
-        facts: evaluation.facts,
-        updatedAt: now,
-      };
-      if (factSnapshot) {
-        await ctx.db.patch(factSnapshot._id, values);
-      } else {
-        await ctx.db.insert('smartManagerFactSnapshots', {
-          businessId: args.businessId,
-          createdAt: now,
-          ...values,
-        });
-      }
-    }
-
-    if (factChanged || comparisonChanged) {
-      await upsertShadowDecisions(ctx, {
+    const factSnapshotValues = {
+      schemaVersion: Number(evaluation.facts.schemaVersion ?? 1),
+      observedAt: evaluation.observedAt,
+      sourceGeneration: args.generation,
+      sourceWatermark: evaluation.sourceWatermark,
+      factHash: evaluation.factHash,
+      capabilityAvailability: evaluation.capabilityAvailability,
+      facts: evaluation.facts,
+      updatedAt: now,
+    };
+    if (factSnapshot) {
+      await ctx.db.patch(factSnapshot._id, factSnapshotValues);
+    } else {
+      await ctx.db.insert('smartManagerFactSnapshots', {
         businessId: args.businessId,
-        canonicalSummary: evaluation.canonicalDecisions,
-        factHash: evaluation.factHash,
-        policy: evaluation.policy,
-        generation: args.generation,
-        now,
+        createdAt: now,
+        ...factSnapshotValues,
       });
     }
 
-    if (comparisonChanged) {
-      const comparisonValues = {
-        sourceGeneration: args.generation,
-        factHash: evaluation.factHash,
-        policyVersion: evaluation.policy.version,
-        policyHash: evaluation.policy.policyHash,
-        comparisonHash: evaluation.comparisonHash,
-        status: evaluation.status,
-        canonicalSummary: evaluation.canonicalSummary,
-        liveSummary: evaluation.liveSummary,
-        differences: evaluation.differences,
-        comparedAt: evaluation.observedAt,
-        updatedAt: now,
-      };
-      if (comparison) {
-        await ctx.db.patch(comparison._id, comparisonValues);
-      } else {
-        await ctx.db.insert('smartManagerShadowComparisons', {
-          businessId: args.businessId,
-          createdAt: now,
-          ...comparisonValues,
-        });
-      }
+    await upsertShadowDecisions(ctx, {
+      businessId: args.businessId,
+      canonicalSummary: evaluation.canonicalDecisions,
+      factHash: evaluation.factHash,
+      policy: evaluation.policy,
+      generation: args.generation,
+      now,
+    });
+
+    const comparisonValues = {
+      sourceGeneration: args.generation,
+      factHash: evaluation.factHash,
+      policyVersion: evaluation.policy.version,
+      policyHash: evaluation.policy.policyHash,
+      comparisonHash: evaluation.comparisonHash,
+      status: evaluation.status,
+      canonicalSummary: evaluation.canonicalSummary,
+      liveSummary: evaluation.liveSummary,
+      differences: evaluation.differences,
+      comparedAt: evaluation.observedAt,
+      updatedAt: now,
+    };
+    if (comparison) {
+      await ctx.db.patch(comparison._id, comparisonValues);
+    } else {
+      await ctx.db.insert('smartManagerShadowComparisons', {
+        businessId: args.businessId,
+        createdAt: now,
+        ...comparisonValues,
+      });
     }
 
     if (factChanged || comparisonChanged) {
@@ -1626,6 +1821,10 @@ export const completeEvaluationInternal = internalMutation({
       failureCode: undefined,
       failureDetail: undefined,
       updatedAt: now,
+    });
+    await reconcileCurrentPreparedWinbackAfterEvaluation(ctx, {
+      businessId: args.businessId,
+      now,
     });
     return {
       status: 'completed' as const,

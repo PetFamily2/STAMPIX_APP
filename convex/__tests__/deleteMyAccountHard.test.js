@@ -1371,6 +1371,119 @@ describe('deleteMyAccountHardImpl', () => {
     });
   });
 
+  test('redacts Smart Manager actors while preserving surviving business action evidence and copy', async () => {
+    const ctx = buildCtx({
+      users: [
+        { _id: 'u_customer', email: 'customer@example.com', isActive: true },
+        { _id: 'u_owner', email: 'owner@example.com', isActive: true },
+      ],
+      businesses: [
+        {
+          _id: 'b_keep',
+          ownerUserId: 'u_owner',
+          isActive: true,
+          name: 'Keep',
+        },
+      ],
+      businessStaff: [
+        {
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_owner',
+          staffRole: 'owner',
+          status: 'active',
+        },
+        {
+          _id: 'staff_deleted',
+          businessId: 'b_keep',
+          userId: 'u_customer',
+          staffRole: 'manager',
+          status: 'active',
+        },
+      ],
+      smartManagerPreparedActions: [
+        {
+          _id: 'prepared_1',
+          businessId: 'b_keep',
+          preparedByUserId: 'u_customer',
+          generationActorUserId: 'u_customer',
+          generationState: 'queued',
+          generationRequestToken: 'request_token',
+          generationRequestBindingHash: 'request_binding',
+          generationRequestKind: 'explicit_regeneration',
+          generationReservedCopyRevision: 2,
+          selectedCopyId: 'copy_1',
+          selectedCopyRevision: 1,
+          decisionHash: 'decision_hash',
+          evidenceFingerprint: 'decision_evidence',
+          factHash: 'fact_hash',
+          state: 'reviewable',
+          updatedAt: 1,
+        },
+      ],
+      smartManagerPreparedActionCopies: [
+        {
+          _id: 'copy_1',
+          preparedActionId: 'prepared_1',
+          businessId: 'b_keep',
+          revision: 1,
+          title: 'immutable title',
+          body: 'immutable body',
+          contentHash: 'immutable_hash',
+        },
+      ],
+      smartManagerAuditEvents: [
+        {
+          _id: 'audit_deleted_actor',
+          businessId: 'b_keep',
+          preparedActionId: 'prepared_1',
+          actorUserId: 'u_customer',
+          eventType: 'prepared_action_created',
+        },
+        {
+          _id: 'audit_owner',
+          businessId: 'b_keep',
+          preparedActionId: 'prepared_1',
+          actorUserId: 'u_owner',
+          eventType: 'prepared_copy_selected',
+        },
+      ],
+    });
+    const copyBefore = clone(ctx.db.rows('smartManagerPreparedActionCopies')[0]);
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('businesses')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerPreparedActions')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerPreparedActions')[0]).toMatchObject({
+      _id: 'prepared_1',
+      preparedByUserId: undefined,
+      generationActorUserId: undefined,
+      generationState: 'stale_discarded',
+      generationFailureCode: 'ACTION_STALE',
+      selectedCopyId: 'copy_1',
+      selectedCopyRevision: 1,
+      decisionHash: 'decision_hash',
+      evidenceFingerprint: 'decision_evidence',
+      factHash: 'fact_hash',
+      state: 'reviewable',
+    });
+    expect(ctx.db.rows('smartManagerPreparedActionCopies')[0]).toEqual(
+      copyBefore
+    );
+    expect(ctx.db.rows('smartManagerAuditEvents')).toEqual([
+      expect.objectContaining({
+        _id: 'audit_deleted_actor',
+        actorUserId: undefined,
+      }),
+      expect.objectContaining({
+        _id: 'audit_owner',
+        actorUserId: 'u_owner',
+      }),
+    ]);
+  });
+
   test('does not pre-collect a customer event history during account deletion', async () => {
     const source = readFileSync('convex/users.ts', 'utf8');
     const impl = source.slice(

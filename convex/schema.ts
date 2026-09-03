@@ -3,11 +3,18 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import {
   smartManagerAuditEventDetailValidator,
+  smartManagerAiFailureCodeValidator,
+  smartManagerAuthorityModeValidator,
   smartManagerCapabilityAvailabilityValidator,
   smartManagerComparisonSummaryValidator,
   smartManagerDecisionSummaryValidator,
   smartManagerFactEnvelopeValidator,
   smartManagerPolicyConfigValidator,
+  smartManagerPreparedActionCopyProvenanceValidator,
+  smartManagerPreparedActionGenerationStateValidator,
+  smartManagerPreparedActionStateValidator,
+  smartManagerPreparedCampaignDraftValidator,
+  smartManagerPreparedChannelStrategyValidator,
 } from './lib/smartManagerValidators';
 
 export default defineSchema({
@@ -898,12 +905,23 @@ export default defineSchema({
       v.literal('evaluation_succeeded'),
       v.literal('evaluation_failed'),
       v.literal('parity_changed'),
-      v.literal('migration_initialized')
+      v.literal('migration_initialized'),
+      v.literal('prepared_action_created'),
+      v.literal('prepared_action_superseded'),
+      v.literal('prepared_action_stale'),
+      v.literal('ai_generation_requested'),
+      v.literal('ai_cache_hit'),
+      v.literal('ai_generation_succeeded'),
+      v.literal('ai_generation_failed'),
+      v.literal('ai_generation_stale_discarded'),
+      v.literal('prepared_copy_selected')
     ),
     sourceGeneration: v.number(),
     factHash: v.optional(v.string()),
     policyVersion: v.string(),
     policyHash: v.string(),
+    actorUserId: v.optional(v.id('users')),
+    preparedActionId: v.optional(v.id('smartManagerPreparedActions')),
     detail: v.optional(smartManagerAuditEventDetailValidator),
     expiresAt: v.number(),
     createdAt: v.number(),
@@ -911,7 +929,104 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_businessId_eventType', ['businessId', 'eventType'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_actorUserId', ['actorUserId'])
     .index('by_expiresAt', ['expiresAt']),
+
+  smartManagerPreparedActions: defineTable({
+    businessId: v.id('businesses'),
+    stableId: v.literal('retention.reengage_inactive'),
+    actionKind: v.literal('winback_campaign'),
+    schemaVersion: v.literal(1),
+    actionContractVersion: v.literal('smart-manager-winback-action-v1'),
+    preparationKey: v.string(),
+    authorityMode: smartManagerAuthorityModeValidator,
+    authorityBindingHash: v.string(),
+    decisionId: v.id('smartManagerDecisions'),
+    decisionHash: v.string(),
+    evidenceFingerprint: v.string(),
+    factHash: v.string(),
+    sourceGeneration: v.number(),
+    policyVersion: v.string(),
+    policyHash: v.string(),
+    comparisonHash: v.string(),
+    audienceDefinitionVersion: v.literal('smart-manager-at-risk-v1'),
+    segment: v.literal('at_risk'),
+    audienceCount: v.number(),
+    lifecycleSourceFingerprint: v.string(),
+    observedAt: v.number(),
+    recipientCeiling: v.number(),
+    materializationState: v.literal('not_materialized'),
+    channelStrategy: smartManagerPreparedChannelStrategyValidator,
+    campaignDraft: smartManagerPreparedCampaignDraftValidator,
+    selectedCopyId: v.optional(v.id('smartManagerPreparedActionCopies')),
+    selectedCopyRevision: v.optional(v.number()),
+    nextCopyRevision: v.number(),
+    copyRevisionLimit: v.literal(10),
+    generationState: smartManagerPreparedActionGenerationStateValidator,
+    generationActorUserId: v.optional(v.id('users')),
+    generationRequestKind: v.optional(
+      v.union(v.literal('initial_prepare'), v.literal('explicit_regeneration'))
+    ),
+    generationRequestToken: v.optional(v.string()),
+    generationRequestBindingHash: v.optional(v.string()),
+    generationExpectedCopyId: v.optional(
+      v.id('smartManagerPreparedActionCopies')
+    ),
+    generationExpectedCopyRevision: v.optional(v.number()),
+    generationReservedCopyRevision: v.optional(v.number()),
+    generationVersion: v.optional(v.string()),
+    generationPromptVersion: v.optional(v.string()),
+    generationPromptHash: v.optional(v.string()),
+    generationInputHash: v.optional(v.string()),
+    generationFailureCode: v.optional(smartManagerAiFailureCodeValidator),
+    generationRequestedAt: v.optional(v.number()),
+    generationCompletedAt: v.optional(v.number()),
+    state: smartManagerPreparedActionStateValidator,
+    staleReason: v.optional(v.string()),
+    staleAt: v.optional(v.number()),
+    supersededAt: v.optional(v.number()),
+    preparedByUserId: v.optional(v.id('users')),
+    expiresAt: v.number(),
+    retentionExpiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId_preparationKey', [
+      'businessId',
+      'preparationKey',
+    ])
+    .index('by_businessId_stableId_state', [
+      'businessId',
+      'stableId',
+      'state',
+    ])
+    .index('by_preparedByUserId', ['preparedByUserId'])
+    .index('by_generationActorUserId', ['generationActorUserId'])
+    .index('by_retentionExpiresAt', ['retentionExpiresAt']),
+
+  smartManagerPreparedActionCopies: defineTable({
+    preparedActionId: v.id('smartManagerPreparedActions'),
+    businessId: v.id('businesses'),
+    revision: v.number(),
+    title: v.string(),
+    body: v.string(),
+    contentHash: v.string(),
+    provenance: smartManagerPreparedActionCopyProvenanceValidator,
+    generationVersion: v.string(),
+    promptVersion: v.optional(v.string()),
+    promptHash: v.optional(v.string()),
+    inputHash: v.optional(v.string()),
+    providerModel: v.optional(v.string()),
+    requestBindingHash: v.optional(v.string()),
+    createdAt: v.number(),
+    retentionExpiresAt: v.number(),
+  })
+    .index('by_preparedActionId_revision', [
+      'preparedActionId',
+      'revision',
+    ])
+    .index('by_businessId', ['businessId'])
+    .index('by_retentionExpiresAt', ['retentionExpiresAt']),
 
   loyaltyPrograms: defineTable({
     businessId: v.id('businesses'),
@@ -1782,7 +1897,8 @@ export default defineSchema({
       v.literal('push_to_reward'),
       v.literal('general_engagement'),
       v.literal('campaign_summary'),
-      v.literal('business_insight')
+      v.literal('business_insight'),
+      v.literal('winback_copy')
     ),
     model: v.string(),
     responseJson: v.object({
@@ -1811,19 +1927,27 @@ export default defineSchema({
       v.literal('campaign_message_rewrite'),
       v.literal('campaign_suggestion'),
       v.literal('insight_explanation'),
-      v.literal('campaign_run_summary')
+      v.literal('campaign_run_summary'),
+      v.literal('smart_manager_copy_generation')
     ),
     model: v.string(),
     cacheHit: v.boolean(),
     status: v.union(v.literal('success'), v.literal('failed')),
-    inputTokens: v.number(),
-    outputTokens: v.number(),
-    costEstimate: v.number(),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    costEstimate: v.optional(v.number()),
     recommendationId: v.optional(v.id('aiRecommendations')),
+    preparedActionId: v.optional(v.id('smartManagerPreparedActions')),
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_monthKey', ['businessId', 'monthKey'])
+    .index('by_businessId_monthKey_status_cacheHit', [
+      'businessId',
+      'monthKey',
+      'status',
+      'cacheHit',
+    ])
     .index('by_createdAt', ['createdAt']),
 
   pushTokens: defineTable({

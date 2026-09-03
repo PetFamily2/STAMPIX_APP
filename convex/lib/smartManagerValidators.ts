@@ -472,6 +472,80 @@ export const smartManagerComparisonSummaryValidator = v.object({
   facts: smartManagerRepresentativeFactSummaryValidator,
 });
 
+export const smartManagerAuthorityModeValidator = v.literal(
+  'shadow_parity_v1'
+);
+
+export const smartManagerPreparedActionStateValidator = v.union(
+  v.literal('reviewable'),
+  v.literal('superseded'),
+  v.literal('stale')
+);
+
+export const smartManagerPreparedActionGenerationStateValidator = v.union(
+  v.literal('not_requested'),
+  v.literal('queued'),
+  v.literal('running'),
+  v.literal('succeeded'),
+  v.literal('failed'),
+  v.literal('stale_discarded')
+);
+
+export const smartManagerPreparedActionChannelValidator = v.union(
+  v.literal('push'),
+  v.literal('in_app')
+);
+
+export const smartManagerPreparedActionCopyProvenanceValidator = v.union(
+  v.literal('deterministic'),
+  v.literal('ai_fresh'),
+  v.literal('ai_cache')
+);
+
+export const smartManagerAiFailureCodeValidator = v.union(
+  v.literal('AI_ASSIST_NOT_AVAILABLE'),
+  v.literal('AI_SUBSCRIPTION_INACTIVE'),
+  v.literal('AI_FRESH_AUDIENCE_BELOW_MINIMUM'),
+  v.literal('AI_MONTHLY_QUOTA_EXHAUSTED'),
+  v.literal('AI_USAGE_EVIDENCE_UNAVAILABLE'),
+  v.literal('AI_RATE_LIMITED'),
+  v.literal('AI_GENERATION_SCHEDULING_FAILED'),
+  v.literal('AI_CACHE_UNAVAILABLE'),
+  v.literal('AI_PROVIDER_NOT_CONFIGURED'),
+  v.literal('AI_PROVIDER_TIMEOUT'),
+  v.literal('AI_PROVIDER_NETWORK_ERROR'),
+  v.literal('AI_PROVIDER_HTTP_ERROR'),
+  v.literal('AI_PROVIDER_EMPTY_RESPONSE'),
+  v.literal('AI_PROVIDER_INVALID_JSON'),
+  v.literal('AI_PROVIDER_SCHEMA_INVALID'),
+  v.literal('AI_PROVIDER_LANGUAGE_INVALID'),
+  v.literal('AI_PROVIDER_CONTENT_INVALID'),
+  v.literal('COPY_REVISION_CONFLICT'),
+  v.literal('ACTION_STALE'),
+  v.literal('ACTION_EXPIRED'),
+  v.literal('REEVALUATION_PENDING')
+);
+
+export const smartManagerPreparedCampaignDraftValidator = v.object({
+  type: v.literal('winback'),
+  family: v.literal('lifecycle'),
+  opportunityType: v.literal('winback'),
+  audienceSource: v.literal('automatic'),
+  internalTitle: v.string(),
+});
+
+export const smartManagerPreparedChannelStrategyValidator = v.object({
+  channelStrategyVersion: v.literal('push-with-in-app-fallback-v1'),
+  preferredChannels: v.array(smartManagerPreparedActionChannelValidator),
+  supportedChannels: v.array(smartManagerPreparedActionChannelValidator),
+  campaignCompatibleChannels: v.array(
+    smartManagerPreparedActionChannelValidator
+  ),
+  primaryIntent: v.literal('push'),
+  fallbackIntent: v.literal('in_app'),
+  reachabilityResolution: v.literal('deferred_to_batch_3'),
+});
+
 export const smartManagerAuditEventDetailValidator = v.union(
   v.object({
     factChanged: v.boolean(),
@@ -495,6 +569,80 @@ export const smartManagerAuditEventDetailValidator = v.union(
   v.object({
     migrationKey: v.literal('smart_manager_batch_1_v1'),
     migrationVersion: v.literal(1),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    preparationKey: v.string(),
+    selectedCopyRevision: v.number(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    reasonCode: v.literal('NEW_CURRENT_PREPARATION'),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    reasonCode: v.union(
+      v.literal('ACTIVE_POLICY_INVALID'),
+      v.literal('BUSINESS_DELETION_IN_PROGRESS'),
+      v.literal('BUSINESS_INACTIVE'),
+      v.literal('BUSINESS_NOT_FOUND'),
+      v.literal('COMPARISON_AMBIGUOUS'),
+      v.literal('COMPARISON_BINDING_MISMATCH'),
+      v.literal('COMPARISON_HASH_MISMATCH'),
+      v.literal('COMPARISON_NOT_FOUND'),
+      v.literal('COMPARISON_NOT_PARITY'),
+      v.literal('DECISION_AMBIGUOUS'),
+      v.literal('DECISION_BINDING_MISMATCH'),
+      v.literal('DECISION_EVIDENCE_MISMATCH'),
+      v.literal('DECISION_HASH_MISMATCH'),
+      v.literal('DECISION_INACTIVE'),
+      v.literal('DECISION_NOT_FOUND'),
+      v.literal('EVALUATION_AMBIGUOUS'),
+      v.literal('EVALUATION_GENERATION_MISMATCH'),
+      v.literal('EVALUATION_NOT_FOUND'),
+      v.literal('EVIDENCE_EXPIRED'),
+      v.literal('EVIDENCE_FINGERPRINT_MISMATCH'),
+      v.literal('FACT_SNAPSHOT_AMBIGUOUS'),
+      v.literal('FACT_SNAPSHOT_BINDING_MISMATCH'),
+      v.literal('FACT_SNAPSHOT_NOT_FOUND'),
+      v.literal('LIFECYCLE_AUDIENCE_INVALID'),
+      v.literal('LIFECYCLE_EVIDENCE_UNAVAILABLE'),
+      v.literal('POLICY_BINDING_MISMATCH'),
+      v.literal('ACTION_AUDIENCE_BINDING_CHANGED'),
+      v.literal('ACTION_AUTHORITY_BINDING_CHANGED'),
+      v.literal('ACTION_AUTHORITY_MODE_CHANGED'),
+      v.literal('ACTION_CONTRACT_INVALID'),
+      v.literal('ACTION_DECISION_BINDING_CHANGED'),
+      v.literal('ACTION_PREPARATION_KEY_CHANGED')
+    ),
+    authorityBindingHash: v.optional(v.string()),
+    decisionHash: v.string(),
+    evidenceFingerprint: v.string(),
+    comparisonHash: v.string(),
+    lifecycleSourceFingerprint: v.string(),
+    audienceCount: v.number(),
+    generationRequestDiscarded: v.boolean(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    requestToken: v.string(),
+    requestBindingHash: v.string(),
+    reservedResultRevision: v.number(),
+    generationVersion: v.string(),
+    promptVersion: v.string(),
+    model: v.optional(v.string()),
+    provenance: v.optional(
+      smartManagerPreparedActionCopyProvenanceValidator
+    ),
+    failureCode: v.optional(smartManagerAiFailureCodeValidator),
+    copyId: v.optional(v.id('smartManagerPreparedActionCopies')),
+    selectedCopyRevision: v.optional(v.number()),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    copyId: v.id('smartManagerPreparedActionCopies'),
+    selectedCopyRevision: v.number(),
+    provenance: smartManagerPreparedActionCopyProvenanceValidator,
   })
 );
 

@@ -24,12 +24,14 @@ import {
   slugify,
   startOfUtcDay,
 } from './lib/recommendationUtils';
+import {
+  generateOpenRouterJson,
+  OPENROUTER_JSON_MODEL,
+  type AiJsonUsageMetadata,
+} from './lib/aiJsonGeneration';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
-const MODEL_NAME = 'google/gemini-2.5-flash-lite';
-const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_TITLE = 'StampAix AI Recommendations';
-const DEFAULT_OPENROUTER_REFERER = 'https://stampaix.com';
+const MODEL_NAME = OPENROUTER_JSON_MODEL;
 
 const MIN_CUSTOMERS = 20;
 const MIN_ACTIVITY_DAYS = 30;
@@ -1583,23 +1585,6 @@ function buildPromptFromTemplate(input: {
   });
 }
 
-function parseJsonFromModelText(raw: string) {
-  const trimmed = raw.trim();
-  const withoutFence = trimmed
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-
-  const firstBrace = withoutFence.indexOf('{');
-  const lastBrace = withoutFence.lastIndexOf('}');
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    const candidate = withoutFence.slice(firstBrace, lastBrace + 1);
-    return JSON.parse(candidate) as Record<string, unknown>;
-  }
-  return JSON.parse(withoutFence) as Record<string, unknown>;
-}
-
 function hasHebrewCharacters(text: string) {
   return /[\u0590-\u05FF]/.test(text);
 }
@@ -1661,6 +1646,28 @@ function estimateCostUsd(inputTokens: number, outputTokens: number) {
   return Number((inputCost + outputCost).toFixed(8));
 }
 
+export function toLegacyAiTokenCounts(usage: AiJsonUsageMetadata) {
+  return {
+    inputTokens: usage.inputTokens ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
+  };
+}
+
+export function countsTowardLegacyDailyAiLimit(row: {
+  status?: string;
+  cacheHit?: boolean;
+  requestType?: string;
+  createdAt?: number;
+}, now: number) {
+  return (
+    row.status === 'success' &&
+    row.cacheHit !== true &&
+    row.requestType !== 'smart_manager_copy_generation' &&
+    typeof row.createdAt === 'number' &&
+    row.createdAt >= startOfUtcDay(now)
+  );
+}
+
 function buildCacheKey(input: {
   businessId: Id<'businesses'>;
   profile: NormalizedBusinessProfile;
@@ -1709,143 +1716,52 @@ function shouldIgnoreCacheForCardChange(input: {
   );
 }
 
-function extractMessageContent(raw: unknown): string {
-  if (typeof raw === 'string') {
-    return raw;
-  }
-  if (Array.isArray(raw)) {
-    const joined = raw
-      .map((part) => {
-        if (typeof part === 'string') return part;
-        if (part && typeof part === 'object' && 'text' in part) {
-          const text = (part as { text?: unknown }).text;
-          return typeof text === 'string' ? text : '';
-        }
-        return '';
-      })
-      .join(' ');
-    return normalizeWhitespace(joined);
-  }
-  return '';
-}
-
 async function callGeminiJson(input: {
   prompt: string;
   expectedType: RecommendationType;
   expectedLanguage: Language;
 }) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false as const,
-      reason: 'MISSING_OPENROUTER_API_KEY',
-      inputTokens: 0,
-      outputTokens: 0,
-      costEstimate: 0,
-    };
-  }
-
-  const response = await fetch(OPENROUTER_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer':
-        process.env.OPENROUTER_SITE_URL ?? DEFAULT_OPENROUTER_REFERER,
-      'X-Title': OPENROUTER_TITLE,
+  const result = await generateOpenRouterJson({
+    prompt: input.prompt,
+    model: MODEL_NAME,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    validate: (parsed) => {
+      const output = sanitizeModelOutput({
+        parsed,
+        expectedType: input.expectedType,
+        expectedLanguage: input.expectedLanguage,
+      });
+      return output
+        ? { ok: true as const, value: output }
+        : {
+            ok: false as const,
+            code: 'AI_PROVIDER_SCHEMA_INVALID' as const,
+          };
     },
-    body: JSON.stringify({
-      model: MODEL_NAME,
-      temperature: 0.2,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      response_format: { type: 'json_object' },
-      messages: [{ role: 'user', content: input.prompt }],
-    }),
   });
-
-  const payload = (await response.json().catch(() => null)) as Record<
-    string,
-    unknown
-  > | null;
-
-  const usage =
-    payload && typeof payload === 'object' && 'usage' in payload
-      ? (payload.usage as Record<string, unknown>)
-      : null;
-  const inputTokens = safeNumber(usage?.prompt_tokens, 0);
-  const outputTokens = safeNumber(usage?.completion_tokens, 0);
-  const costEstimate = estimateCostUsd(inputTokens, outputTokens);
-
-  if (!response.ok || !payload) {
-    return {
-      ok: false as const,
-      reason: response.ok ? 'EMPTY_AI_PAYLOAD' : `AI_HTTP_${response.status}`,
-      inputTokens,
-      outputTokens,
-      costEstimate,
-    };
+  const usage = toLegacyAiTokenCounts(result);
+  const costEstimate = estimateCostUsd(usage.inputTokens, usage.outputTokens);
+  if (result.ok) {
+    return { ...result, ...usage, costEstimate };
   }
-
-  const choices = Array.isArray(payload.choices)
-    ? (payload.choices as Array<Record<string, unknown>>)
-    : [];
-  const firstChoice = choices[0] ?? null;
-  const message =
-    firstChoice &&
-    typeof firstChoice === 'object' &&
-    'message' in firstChoice &&
-    firstChoice.message &&
-    typeof firstChoice.message === 'object'
-      ? (firstChoice.message as Record<string, unknown>)
-      : null;
-
-  const rawContent = extractMessageContent(message?.content);
-  if (!rawContent) {
-    return {
-      ok: false as const,
-      reason: 'EMPTY_AI_CONTENT',
-      inputTokens,
-      outputTokens,
-      costEstimate,
-    };
-  }
-
-  try {
-    const parsed = parseJsonFromModelText(rawContent);
-    const sanitized = sanitizeModelOutput({
-      parsed,
-      expectedType: input.expectedType,
-      expectedLanguage: input.expectedLanguage,
-    });
-    if (!sanitized) {
-      return {
-        ok: false as const,
-        reason: 'INVALID_AI_SCHEMA',
-        inputTokens,
-        outputTokens,
-        costEstimate,
-      };
-    }
-
-    return {
-      ok: true as const,
-      output: sanitized,
-      inputTokens,
-      outputTokens,
-      costEstimate,
-    };
-  } catch (error) {
-    return {
-      ok: false as const,
-      reason:
-        error instanceof Error
-          ? `AI_PARSE_ERROR:${error.message}`
-          : 'AI_PARSE_ERROR',
-      inputTokens,
-      outputTokens,
-      costEstimate,
-    };
-  }
+  const legacyReasonByCode = {
+    AI_PROVIDER_NOT_CONFIGURED: 'MISSING_OPENROUTER_API_KEY',
+    AI_PROVIDER_TIMEOUT: 'AI_REQUEST_TIMEOUT',
+    AI_PROVIDER_NETWORK_ERROR: 'AI_NETWORK_ERROR',
+    AI_PROVIDER_HTTP_ERROR: 'AI_HTTP_ERROR',
+    AI_PROVIDER_EMPTY_RESPONSE: 'EMPTY_AI_CONTENT',
+    AI_PROVIDER_INVALID_JSON: 'AI_PARSE_ERROR',
+    AI_PROVIDER_SCHEMA_INVALID: 'INVALID_AI_SCHEMA',
+    AI_PROVIDER_LANGUAGE_INVALID: 'INVALID_AI_SCHEMA',
+    AI_PROVIDER_CONTENT_INVALID: 'INVALID_AI_SCHEMA',
+  } as const;
+  return {
+    ok: false as const,
+    reason: legacyReasonByCode[result.code],
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    costEstimate,
+  };
 }
 
 function detectSignalQuality(input: {
@@ -2974,11 +2890,8 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
 
     const aiQuotaLimit = entitlements.limits.maxAiExecutionsPerMonth;
     const aiQuotaUsedMonthly = entitlements.usage.aiExecutionsThisMonth;
-    const aiExecutionsToday = usageMonth.filter(
-      (row) =>
-        row.status === 'success' &&
-        row.cacheHit !== true &&
-        row.createdAt >= startOfUtcDay(now)
+    const aiExecutionsToday = usageMonth.filter((row) =>
+      countsTowardLegacyDailyAiLimit(row, now)
     ).length;
     const quotaNearLimit =
       aiQuotaLimit > 0 && aiQuotaUsedMonthly / aiQuotaLimit >= 0.9;
@@ -4047,16 +3960,21 @@ export const getAiRecommendationAnalytics = query({
     ).length;
 
     const aiTokensInput = scopedUsage.reduce(
-      (sum, row) => sum + Math.max(0, row.inputTokens),
+      (sum, row) =>
+        sum + Math.max(0, toLegacyAiTokenCounts(row).inputTokens),
       0
     );
     const aiTokensOutput = scopedUsage.reduce(
-      (sum, row) => sum + Math.max(0, row.outputTokens),
+      (sum, row) =>
+        sum + Math.max(0, toLegacyAiTokenCounts(row).outputTokens),
       0
     );
     const aiCostEstimate = Number(
       scopedUsage
-        .reduce((sum, row) => sum + Math.max(0, row.costEstimate), 0)
+        .reduce(
+          (sum, row) => sum + Math.max(0, row.costEstimate ?? 0),
+          0
+        )
         .toFixed(6)
     );
 

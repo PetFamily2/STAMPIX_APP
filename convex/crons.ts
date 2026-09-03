@@ -7,6 +7,7 @@ const internalDeletionApi = (internal as any).businessDeletion;
 const internalProviderCredentialsApi = (internal as any).providerCredentials;
 const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
 const internalSmartManagerApi = (internal as any).smartManager;
+const internalSmartManagerActionsApi = (internal as any).smartManagerActions;
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -67,6 +68,13 @@ crons.daily(
   { hourUTC: 2, minuteUTC: 50 },
   internalSmartManagerApi.purgeExpiredAuditEventsInternal,
   { limit: 100 }
+);
+
+crons.daily(
+  'smart manager prepared action retention cleanup daily',
+  { hourUTC: 3, minuteUTC: 10 },
+  internalSmartManagerActionsApi.cleanupPreparedActionRetentionInternal,
+  { limit: 100, phase: 'copies', cursor: null }
 );
 
 crons.interval(

@@ -26,6 +26,19 @@ import {
 } from '../smartManager';
 import { markSmartManagerDirty } from '../lib/smartManagerDirty';
 import {
+  resolveSmartManagerDecisionAuthority,
+} from '../lib/smartManagerAuthority';
+import {
+  buildPreparedWinbackPreparationKey,
+  SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
+  SMART_MANAGER_MAX_COPY_REVISION_SLOTS,
+  SMART_MANAGER_PREPARED_ACTION_RETENTION_MS,
+  SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION,
+  SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION,
+  SMART_MANAGER_WINBACK_CAMPAIGN_DRAFT,
+  SMART_MANAGER_WINBACK_CHANNEL_STRATEGY,
+} from '../lib/smartManagerPreparedActions';
+import {
   getSmartManagerInteractionPolicy,
   hashSmartManagerValue,
   SMART_MANAGER_POLICY_V1,
@@ -292,6 +305,124 @@ function buildEvaluation({
     differences: [],
   });
   return evaluation;
+}
+
+function buildAuthorityReadyEvaluation({ generation, observedAt }) {
+  const known = (value) => ({ state: 'known', value, observedAt });
+  const facts = {
+    schemaVersion: 1,
+    businessId: 'business_1',
+    generatedAt: observedAt,
+    facts: {
+      campaignQuota: known({
+        campaignDefinitionUsage: 0,
+        campaignDefinitionLimit: 1,
+        remainingDefinitions: 1,
+        isAtOrAboveLimit: false,
+      }),
+      customerLifecycleSegments: {
+        inactive: known({
+          count: 1,
+          evidenceFingerprint: 'lifecycle_source_v1',
+        }),
+      },
+    },
+  };
+  const decision = {
+    stableId: 'retention.reengage_inactive',
+    category: 'retention',
+    priority: 2,
+    placement: 'primary',
+    title: 'לקוחות שכדאי להזמין שוב',
+    reason: 'לקוח אחד לא ביקר לאחרונה.',
+    ctaLabel: 'לצפייה בלקוחות',
+    action: { type: 'open_customers_segment', segment: 'at_risk' },
+    entityType: null,
+    entityId: null,
+    guideId: 'inactive-review',
+    tone: 'retention',
+    evidenceFingerprint: 'decision_evidence_v1',
+    evidenceObservedAt: observedAt,
+    count: 1,
+    requiredCapabilities: ['access_customers'],
+    access: { state: 'allowed' },
+  };
+  const policy = getSeedSmartManagerPolicy();
+  const factHash = buildCanonicalFactHash(facts);
+  const canonicalSummary = { recommendations: [decision], facts: {} };
+  const liveSummary = structuredClone(canonicalSummary);
+  const comparisonHash = buildSmartManagerComparisonHash({
+    factHash,
+    policyHash: policy.policyHash,
+    status: 'parity',
+    canonicalSummary,
+    liveSummary,
+    differences: [],
+  });
+  return {
+    observedAt,
+    sourceGeneration: generation,
+    sourceWatermark: `generation:${generation}`,
+    factHash,
+    policy,
+    capabilityAvailability: {},
+    facts,
+    canonicalDecisions: [decision],
+    canonicalSummary,
+    liveSummary,
+    status: 'parity',
+    differences: [],
+    comparisonHash,
+  };
+}
+
+function preparedActionFromAuthority(authority, overrides = {}) {
+  const now = authority.lifecycleEvidence.observedAt;
+  return {
+    _id: 'prepared_action_1',
+    businessId: authority.business._id,
+    stableId: 'retention.reengage_inactive',
+    actionKind: 'winback_campaign',
+    schemaVersion: SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION,
+    actionContractVersion: SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION,
+    preparationKey: buildPreparedWinbackPreparationKey({
+      businessId: String(authority.business._id),
+      authorityMode: authority.authorityMode,
+      authorityBindingHash: authority.authorityBindingHash,
+      decisionHash: authority.decision.decisionHash,
+      policyHash: authority.decision.policyHash,
+    }),
+    authorityMode: authority.authorityMode,
+    authorityBindingHash: authority.authorityBindingHash,
+    decisionId: authority.decision._id,
+    decisionHash: authority.decision.decisionHash,
+    evidenceFingerprint: authority.decision.evidenceFingerprint,
+    factHash: authority.decision.factHash,
+    sourceGeneration: authority.decision.sourceGeneration,
+    policyVersion: authority.decision.policyVersion,
+    policyHash: authority.decision.policyHash,
+    comparisonHash: authority.comparison.comparisonHash,
+    audienceDefinitionVersion: SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
+    segment: 'at_risk',
+    audienceCount: authority.lifecycleEvidence.audienceCount,
+    lifecycleSourceFingerprint:
+      authority.lifecycleEvidence.lifecycleSourceFingerprint,
+    observedAt: authority.lifecycleEvidence.observedAt,
+    recipientCeiling: authority.policy.config.recipientCeiling,
+    materializationState: 'not_materialized',
+    channelStrategy: structuredClone(SMART_MANAGER_WINBACK_CHANNEL_STRATEGY),
+    campaignDraft: structuredClone(SMART_MANAGER_WINBACK_CAMPAIGN_DRAFT),
+    nextCopyRevision: 2,
+    copyRevisionLimit: SMART_MANAGER_MAX_COPY_REVISION_SLOTS,
+    generationState: 'not_requested',
+    state: 'reviewable',
+    expiresAt:
+      now + authority.policy.config.actionExpiryHours * 60 * 60 * 1000,
+    retentionExpiresAt: now + SMART_MANAGER_PREPARED_ACTION_RETENTION_MS,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
 }
 
 async function withFixedNow(now, callback) {
@@ -596,7 +727,7 @@ describe('dirty coalescing and lease safety', () => {
     });
   });
 
-  test('avoids canonical writes when current-generation hashes are unchanged', async () => {
+  test('refreshes unchanged canonical bindings without semantic audit noise', async () => {
     const evaluation = buildEvaluation();
     const ctx = buildCtx({
       smartManagerEvaluationStates: [leasedEvaluationState()],
@@ -640,7 +771,205 @@ describe('dirty coalescing and lease safety', () => {
           'smartManagerDecisions',
         ].includes(write.tableName)
       )
-    ).toHaveLength(0);
+    ).toEqual([
+      expect.objectContaining({
+        type: 'patch',
+        tableName: 'smartManagerFactSnapshots',
+      }),
+      expect.objectContaining({
+        type: 'patch',
+        tableName: 'smartManagerShadowComparisons',
+      }),
+    ]);
+  });
+
+  test('refreshes identical semantic artifacts into the next successful generation', async () => {
+    const refreshedAt = NOW + 60 * 60 * 1000;
+    const firstEvaluation = buildAuthorityReadyEvaluation({
+      generation: 1,
+      observedAt: NOW,
+    });
+    const secondEvaluation = buildAuthorityReadyEvaluation({
+      generation: 2,
+      observedAt: refreshedAt,
+    });
+    expect(secondEvaluation.factHash).toBe(firstEvaluation.factHash);
+    expect(secondEvaluation.comparisonHash).toBe(
+      firstEvaluation.comparisonHash
+    );
+
+    const ctx = buildCtx({
+      businesses: [
+        {
+          _id: 'business_1',
+          ownerUserId: 'user_owner',
+          externalId: 'business_external_1',
+          name: 'Business',
+          subscriptionPlan: 'starter',
+          subscriptionStatus: 'active',
+          isActive: true,
+          createdAt: NOW - 10_000,
+          updatedAt: NOW,
+        },
+      ],
+      smartManagerEvaluationStates: [leasedEvaluationState()],
+    });
+    await withFixedNow(NOW, () =>
+      completeEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 1,
+        leaseToken: 'lease_1',
+        evaluation: firstEvaluation,
+      })
+    );
+    const firstDecisionHash =
+      ctx.tables.smartManagerDecisions[0].decisionHash;
+    const auditCountAfterFirstGeneration =
+      ctx.tables.smartManagerAuditEvents.length;
+    const policy = getSeedSmartManagerPolicy();
+    Object.assign(ctx.tables.smartManagerEvaluationStates[0], {
+      dirtyDomains: ['entitlements'],
+      dirtyReasons: ['scheduled_refresh'],
+      generation: 2,
+      nextEvaluationAt: refreshedAt,
+      evaluationScheduledAt: refreshedAt,
+      leaseToken: 'lease_2',
+      leaseGeneration: 2,
+      leaseExpiresAt: refreshedAt + 60_000,
+      leasePolicyVersion: policy.version,
+      leasePolicyHash: policy.policyHash,
+      attemptCount: 0,
+      attemptGeneration: 2,
+    });
+
+    const result = await withFixedNow(refreshedAt, () =>
+      completeEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 2,
+        leaseToken: 'lease_2',
+        evaluation: secondEvaluation,
+      })
+    );
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      factChanged: false,
+      comparisonChanged: false,
+    });
+    expect(ctx.tables.smartManagerAuditEvents).toHaveLength(
+      auditCountAfterFirstGeneration
+    );
+    expect(ctx.tables.smartManagerEvaluationStates[0]).toMatchObject({
+      lastSuccessfulGeneration: 2,
+      lastFactHash: firstEvaluation.factHash,
+    });
+    expect(ctx.tables.smartManagerFactSnapshots[0]).toMatchObject({
+      sourceGeneration: 2,
+      sourceWatermark: 'generation:2',
+      observedAt: refreshedAt,
+      factHash: firstEvaluation.factHash,
+    });
+    expect(ctx.tables.smartManagerDecisions[0]).toMatchObject({
+      stableId: 'retention.reengage_inactive',
+      state: 'shadow_active',
+      sourceGeneration: 2,
+      evidenceObservedAt: refreshedAt,
+      factHash: firstEvaluation.factHash,
+      decisionHash: firstDecisionHash,
+    });
+    expect(ctx.tables.smartManagerShadowComparisons[0]).toMatchObject({
+      sourceGeneration: 2,
+      comparedAt: refreshedAt,
+      comparisonHash: firstEvaluation.comparisonHash,
+    });
+
+    const authority = await resolveSmartManagerDecisionAuthority(ctx, {
+      businessId: 'business_1',
+      expectedEvidenceFingerprint: 'decision_evidence_v1',
+      now: refreshedAt,
+    });
+    expect(authority.currentness).toBe('current');
+    expect(authority.blockers).toEqual([]);
+    expect(authority.comparison?.status).toBe('parity');
+  });
+
+  test('successful evaluation invalidates an older prepared generation without scheduling provider work', async () => {
+    const refreshedAt = NOW + 60 * 60 * 1000;
+    const firstEvaluation = buildAuthorityReadyEvaluation({
+      generation: 1,
+      observedAt: NOW,
+    });
+    const ctx = buildCtx({
+      businesses: [
+        {
+          _id: 'business_1',
+          ownerUserId: 'user_owner',
+          externalId: 'business_external_1',
+          name: 'Business',
+          subscriptionPlan: 'starter',
+          subscriptionStatus: 'active',
+          isActive: true,
+          createdAt: NOW - 10_000,
+          updatedAt: NOW,
+        },
+      ],
+      smartManagerEvaluationStates: [leasedEvaluationState()],
+      smartManagerPreparedActions: [],
+    });
+    await withFixedNow(NOW, () =>
+      completeEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 1,
+        leaseToken: 'lease_1',
+        evaluation: firstEvaluation,
+      })
+    );
+    const authority = await resolveSmartManagerDecisionAuthority(ctx, {
+      businessId: 'business_1',
+      now: NOW,
+    });
+    ctx.tables.smartManagerPreparedActions.push(
+      preparedActionFromAuthority(authority)
+    );
+    const policy = getSeedSmartManagerPolicy();
+    Object.assign(ctx.tables.smartManagerEvaluationStates[0], {
+      dirtyDomains: ['entitlements'],
+      dirtyReasons: ['scheduled_refresh'],
+      generation: 2,
+      nextEvaluationAt: refreshedAt,
+      evaluationScheduledAt: refreshedAt,
+      leaseToken: 'lease_2',
+      leaseGeneration: 2,
+      leaseExpiresAt: refreshedAt + 60_000,
+      leasePolicyVersion: policy.version,
+      leasePolicyHash: policy.policyHash,
+      attemptCount: 0,
+      attemptGeneration: 2,
+    });
+    ctx.scheduled.length = 0;
+
+    await withFixedNow(refreshedAt, () =>
+      completeEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 2,
+        leaseToken: 'lease_2',
+        evaluation: buildAuthorityReadyEvaluation({
+          generation: 2,
+          observedAt: refreshedAt,
+        }),
+      })
+    );
+
+    expect(ctx.tables.smartManagerPreparedActions[0]).toMatchObject({
+      state: 'stale',
+      staleReason: 'ACTION_AUTHORITY_BINDING_CHANGED',
+    });
+    expect(
+      ctx.tables.smartManagerAuditEvents.filter(
+        (event) => event.eventType === 'prepared_action_stale'
+      )
+    ).toHaveLength(1);
+    expect(ctx.scheduled).toEqual([]);
   });
 
   test('persists changed shadow evidence without mutating live interactions', async () => {
@@ -1290,7 +1619,7 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
     }
   });
 
-  test('does not rewrite an unchanged decision for unrelated fact changes', async () => {
+  test('refreshes an unchanged decision binding for a newer generation', async () => {
     const ctx = buildCtx({
       smartManagerEvaluationStates: [leasedEvaluationState()],
     });
@@ -1329,7 +1658,15 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
           write.type === 'patch' &&
           write.tableName === 'smartManagerDecisions'
       )
-    ).toHaveLength(0);
+    ).toHaveLength(1);
+    expect(ctx.tables.smartManagerDecisions[0]).toMatchObject({
+      sourceGeneration: 2,
+      factHash: buildEvaluation({
+        generation: 2,
+        factValue: 2,
+        decisions: [fullDecision()],
+      }).factHash,
+    });
   });
 
   test('deactivates more than one decision page through bounded continuations', async () => {
@@ -1436,7 +1773,7 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
       ),
     };
     expect(keepBefore.state).toBe('shadow_active');
-    expect(keepBefore.sourceGeneration).toBe(0);
+    expect(keepBefore.sourceGeneration).toBe(2);
     ctx.writes.length = 0;
     for (const job of staleContinuations) {
       await withFixedNow(NOW, () =>

@@ -7,6 +7,7 @@ import {
   internalMutation,
   internalQuery,
   mutation,
+  type MutationCtx,
   query,
 } from './_generated/server';
 import {
@@ -187,6 +188,8 @@ const WIPE_ALL_TABLE_ORDER = [
   'pushTokens',
   'messageLog',
   'smartManagerMigrations',
+  'smartManagerPreparedActionCopies',
+  'smartManagerPreparedActions',
   'smartManagerAuditEvents',
   'smartManagerShadowComparisons',
   'smartManagerDecisions',
@@ -348,6 +351,8 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     pushTokens: 0,
     messageLog: 0,
     smartManagerMigrations: 0,
+    smartManagerPreparedActionCopies: 0,
+    smartManagerPreparedActions: 0,
     smartManagerAuditEvents: 0,
     smartManagerShadowComparisons: 0,
     smartManagerDecisions: 0,
@@ -478,6 +483,40 @@ async function redactUserReferenceByIndexInBatches(
     }
   }
   return redactedCount;
+}
+
+async function redactSmartManagerGenerationActorInBatches(
+  ctx: MutationCtx,
+  userId: Id<'users'>
+) {
+  while (true) {
+    const actions = await ctx.db
+      .query('smartManagerPreparedActions')
+      .withIndex('by_generationActorUserId', (q) =>
+        q.eq('generationActorUserId', userId)
+      )
+      .take(DELETE_BATCH_SIZE);
+    if (actions.length === 0) {
+      return;
+    }
+    const now = Date.now();
+    for (const action of actions) {
+      const generationWasActive =
+        action.generationState === 'queued' ||
+        action.generationState === 'running';
+      await ctx.db.patch(action._id, {
+        generationActorUserId: undefined,
+        ...(generationWasActive
+          ? {
+              generationState: 'stale_discarded' as const,
+              generationFailureCode: 'ACTION_STALE' as const,
+              generationCompletedAt: now,
+            }
+          : {}),
+        updatedAt: now,
+      });
+    }
+  }
 }
 
 function isActiveOwnerStaff(staff: any) {
@@ -1395,6 +1434,21 @@ export async function deleteMyAccountHardImpl(
     providerRevocation.deletedCredentials;
 
   await deleteUserScopedBusinessData(ctx, user._id, deleted, addAffectedBusiness);
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'smartManagerPreparedActions',
+    'by_preparedByUserId',
+    'preparedByUserId',
+    user._id
+  );
+  await redactSmartManagerGenerationActorInBatches(ctx, user._id);
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'smartManagerAuditEvents',
+    'by_actorUserId',
+    'actorUserId',
+    user._id
+  );
   await deleteByIndexInBatches(
     ctx,
     'recommendationInteractions',

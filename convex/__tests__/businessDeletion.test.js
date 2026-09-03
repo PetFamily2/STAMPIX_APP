@@ -26,6 +26,8 @@ const ALL_TABLES = [
   'recommendationInteractions',
   'recommendationGuideSessions',
   'smartManagerMigrations',
+  'smartManagerPreparedActionCopies',
+  'smartManagerPreparedActions',
   'smartManagerAuditEvents',
   'smartManagerShadowComparisons',
   'smartManagerDecisions',
@@ -1269,7 +1271,28 @@ describe('graph purge, assets, finalization, and retry', () => {
       smartManagerMigrations: [
         { _id: 'migration_global', migrationKey: 'smart_manager_batch_1_v1' },
       ],
-      smartManagerAuditEvents: [{ _id: 'manager_audit_1', ...direct }],
+      smartManagerPreparedActionCopies: [
+        {
+          _id: 'manager_copy_1',
+          preparedActionId: 'manager_action_1',
+          ...direct,
+        },
+      ],
+      smartManagerPreparedActions: [
+        {
+          _id: 'manager_action_1',
+          stableId: 'retention.reengage_inactive',
+          state: 'reviewable',
+          ...direct,
+        },
+      ],
+      smartManagerAuditEvents: [
+        {
+          _id: 'manager_audit_1',
+          preparedActionId: 'manager_action_1',
+          ...direct,
+        },
+      ],
       smartManagerShadowComparisons: [{ _id: 'manager_shadow_1', ...direct }],
       smartManagerDecisions: [{ _id: 'manager_decision_1', ...direct }],
       smartManagerFactSnapshots: [{ _id: 'manager_facts_1', ...direct }],
@@ -1315,9 +1338,24 @@ describe('graph purge, assets, finalization, and retry', () => {
     expect(ctx.db.rows('apiKeys')).toHaveLength(0);
     expect(ctx.db.rows('memberships')).toHaveLength(0);
     expect(ctx.db.rows('businessStaff')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerPreparedActionCopies')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerPreparedActions')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerAuditEvents')).toHaveLength(0);
+    expect(ctx.db.rows('aiUsageLedger')).toHaveLength(0);
     expect(ctx.db.rows('aiGenerationCache').map((row) => row._id)).toEqual([
       'shared_cache',
     ]);
+    const deletionIndex = (table) =>
+      ctx.db.deletionOrder.findIndex((entry) => entry.table === table);
+    expect(deletionIndex('smartManagerPreparedActionCopies')).toBeLessThan(
+      deletionIndex('smartManagerPreparedActions')
+    );
+    expect(deletionIndex('smartManagerPreparedActions')).toBeLessThan(
+      deletionIndex('smartManagerAuditEvents')
+    );
+    expect(deletionIndex('smartManagerPreparedActions')).toBeLessThan(
+      deletionIndex('aiUsageLedger')
+    );
     expect(ctx.deletedStorage).toEqual(['asset_unique']);
     expect(ctx.db.rows('loyaltyPrograms').map((row) => row._id)).toEqual([
       'program_shared_survivor',

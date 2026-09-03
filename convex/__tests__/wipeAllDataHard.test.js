@@ -13,6 +13,8 @@ const WIPE_TABLE_ORDER = [
   'supportRequests',
   'messageLog',
   'smartManagerMigrations',
+  'smartManagerPreparedActionCopies',
+  'smartManagerPreparedActions',
   'smartManagerAuditEvents',
   'smartManagerShadowComparisons',
   'smartManagerDecisions',
@@ -217,6 +219,12 @@ describe('wipeAllDataHardImpl', () => {
       smartManagerMigrations: [
         { _id: 'smm_1', migrationKey: 'smart_manager_batch_1_v1' },
       ],
+      smartManagerPreparedActionCopies: [
+        { _id: 'smpac_1', preparedActionId: 'smpa_1', businessId: 'b_1' },
+      ],
+      smartManagerPreparedActions: [
+        { _id: 'smpa_1', businessId: 'b_1' },
+      ],
       smartManagerAuditEvents: [{ _id: 'sma_1', businessId: 'b_1' }],
       smartManagerShadowComparisons: [{ _id: 'sms_1', businessId: 'b_1' }],
       smartManagerDecisions: [{ _id: 'smd_1', businessId: 'b_1' }],
@@ -280,6 +288,8 @@ describe('wipeAllDataHardImpl', () => {
       supportRequests: 1,
       messageLog: 1,
       smartManagerMigrations: 1,
+      smartManagerPreparedActionCopies: 1,
+      smartManagerPreparedActions: 1,
       smartManagerAuditEvents: 1,
       smartManagerShadowComparisons: 1,
       smartManagerDecisions: 1,
@@ -334,7 +344,13 @@ describe('wipeAllDataHardImpl', () => {
   test('throws on delete failure and never returns success payload', async () => {
     const tables = {
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
-      campaigns: [{ _id: 'camp_fail', businessId: 'b_1' }],
+      smartManagerPreparedActionCopies: [
+        {
+          _id: 'prepared_copy_fail',
+          preparedActionId: 'prepared_action_1',
+          businessId: 'b_1',
+        },
+      ],
       users: [
         {
           _id: 'u_admin',
@@ -345,13 +361,13 @@ describe('wipeAllDataHardImpl', () => {
     };
 
     const ctx = buildCtx(tables, 'u_admin', {
-      throwOnDeleteId: 'camp_fail',
+      throwOnDeleteId: 'prepared_copy_fail',
     });
 
     await expect(wipeAllDataHardImpl(ctx)).rejects.toThrow(
       'FORCED_DELETE_FAILURE'
     );
-    expect(ctx.db.rows('campaigns')).toHaveLength(1);
+    expect(ctx.db.rows('smartManagerPreparedActionCopies')).toHaveLength(1);
   });
 
   test('limiter reset failure prevents a false successful hard wipe', async () => {

@@ -735,10 +735,25 @@ async function runDeleteSteps(
   nextPhase: DeletionPhase
 ) {
   const stepName = getProgressStep(job, steps[0].name);
-  const stepIndex = Math.max(
+  let stepIndex = Math.max(
     0,
     steps.findIndex((candidate) => candidate.name === stepName)
   );
+  for (let prerequisite = 0; prerequisite < stepIndex; prerequisite += 1) {
+    const step = steps[prerequisite];
+    if (
+      await hasDirectRows(
+        ctx,
+        step.table,
+        step.index,
+        step.field,
+        businessId
+      )
+    ) {
+      stepIndex = prerequisite;
+      break;
+    }
+  }
   const deleted = await deleteDirectBusinessBatch(
     ctx,
     steps[stepIndex],
@@ -1247,6 +1262,18 @@ async function findRemainingPhase(
     [
       'purge_ai',
       [
+        {
+          name: '',
+          table: 'smartManagerPreparedActionCopies',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'smartManagerPreparedActions',
+          index: 'by_businessId_stableId_state',
+          field: 'businessId',
+        },
         { name: '', table: 'aiUsageLedger', index: 'by_businessId', field: 'businessId' },
         {
           name: '',
@@ -1483,6 +1510,18 @@ const MESSAGE_STEPS: DeleteStep[] = [
 ];
 
 const AI_STEPS: DeleteStep[] = [
+  {
+    name: 'manager_action_copies',
+    table: 'smartManagerPreparedActionCopies',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'manager_actions',
+    table: 'smartManagerPreparedActions',
+    index: 'by_businessId_stableId_state',
+    field: 'businessId',
+  },
   { name: 'usage', table: 'aiUsageLedger', index: 'by_businessId', field: 'businessId' },
   {
     name: 'interactions',
