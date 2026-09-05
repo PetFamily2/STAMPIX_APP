@@ -1,4 +1,4 @@
-import { cronJobs } from 'convex/server';
+import { cronJobs, makeFunctionReference } from 'convex/server';
 
 import { internal } from './_generated/api';
 
@@ -8,6 +8,12 @@ const internalProviderCredentialsApi = (internal as any).providerCredentials;
 const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
 const internalSmartManagerApi = (internal as any).smartManager;
 const internalSmartManagerActionsApi = (internal as any).smartManagerActions;
+const internalRedemptionReceiptsApi = (internal as any).redemptionReceipts;
+const smartManagerDeliverySweepRef = makeFunctionReference<
+  'mutation',
+  Record<string, never>,
+  { scheduled: number }
+>('smartManagerDelivery:sweepSmartManagerDeliveriesInternal');
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -25,6 +31,12 @@ crons.daily(
   'scan session retention cleanup daily',
   { hourUTC: 1, minuteUTC: 0 },
   internal.scanner.cleanupExpiredScanSessionsInternal
+);
+
+crons.daily(
+  'redemption celebration receipt cleanup daily',
+  { hourUTC: 1, minuteUTC: 10 },
+  internalRedemptionReceiptsApi.cleanupRedemptionReceiptsInternal
 );
 
 crons.daily(
@@ -82,6 +94,12 @@ crons.interval(
   { minutes: 15 },
   internalSmartManagerApi.reconcileDueEvaluationsInternal,
   { cursor: null, limit: 25 }
+);
+
+crons.interval(
+  'smart manager delivery recovery every 5 minutes',
+  { minutes: 5 },
+  smartManagerDeliverySweepRef
 );
 
 export default crons;

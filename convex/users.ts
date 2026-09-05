@@ -27,7 +27,9 @@ import {
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
+import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { transitionSmartManagerOutcomeState } from './lib/smartManagerOutcomes';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
   type BusinessOnboardingFlow,
@@ -167,6 +169,7 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 }
 
 const DELETE_BATCH_SIZE = 100;
+const SMART_MANAGER_AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
@@ -187,6 +190,11 @@ const WIPE_ALL_TABLE_ORDER = [
   'pushDeliveryLog',
   'pushTokens',
   'messageLog',
+  'redemptionCelebrationReceipts',
+  'smartManagerRecipientOutcomes',
+  'smartManagerOutcomeDirtyMarkers',
+  'smartManagerOutcomeReversalMarkers',
+  'campaignRunRecipients',
   'smartManagerMigrations',
   'smartManagerPreparedActionCopies',
   'smartManagerPreparedActions',
@@ -196,6 +204,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'smartManagerFactSnapshots',
   'smartManagerEvaluationStates',
   'smartManagerPolicyVersions',
+  'campaignRuns',
   'campaigns',
   'subscriptions',
   'scanSessions',
@@ -249,6 +258,11 @@ type DeleteStats = {
   businessReferrals: number;
   referralAdminAuditLog: number;
   messageLog: number;
+  redemptionCelebrationReceipts: number;
+  smartManagerRecipientOutcomes: number;
+  smartManagerOutcomeDirtyMarkers: number;
+  smartManagerOutcomeReversalMarkers: number;
+  campaignRunRecipients: number;
   pushTokens: number;
   pushDeliveryLog: number;
   supportRequests: number;
@@ -313,6 +327,11 @@ function emptyDeleteStats(): DeleteStats {
     businessReferrals: 0,
     referralAdminAuditLog: 0,
     messageLog: 0,
+    redemptionCelebrationReceipts: 0,
+    smartManagerRecipientOutcomes: 0,
+    smartManagerOutcomeDirtyMarkers: 0,
+    smartManagerOutcomeReversalMarkers: 0,
+    campaignRunRecipients: 0,
     pushTokens: 0,
     pushDeliveryLog: 0,
     supportRequests: 0,
@@ -350,6 +369,11 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     pushDeliveryLog: 0,
     pushTokens: 0,
     messageLog: 0,
+    redemptionCelebrationReceipts: 0,
+    smartManagerRecipientOutcomes: 0,
+    smartManagerOutcomeDirtyMarkers: 0,
+    smartManagerOutcomeReversalMarkers: 0,
+    campaignRunRecipients: 0,
     smartManagerMigrations: 0,
     smartManagerPreparedActionCopies: 0,
     smartManagerPreparedActions: 0,
@@ -359,6 +383,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     smartManagerFactSnapshots: 0,
     smartManagerEvaluationStates: 0,
     smartManagerPolicyVersions: 0,
+    campaignRuns: 0,
     campaigns: 0,
     subscriptions: 0,
     scanSessions: 0,
@@ -433,11 +458,12 @@ async function deleteByIndexInBatches(
   onDoc?: (doc: any) => void
 ) {
   let deletedCount = 0;
+  const safeBatchSize = Math.max(1, Math.min(batchSize, DELETE_BATCH_SIZE));
   while (true) {
     const docs = await ctx.db
       .query(tableName)
       .withIndex(indexName, (q: any) => q.eq(fieldName, value))
-      .take(batchSize);
+      .take(safeBatchSize);
 
     if (docs.length === 0) {
       break;
@@ -483,6 +509,139 @@ async function redactUserReferenceByIndexInBatches(
     }
   }
   return redactedCount;
+}
+
+async function deleteSmartManagerExecutionRecipientsForAccount(
+  ctx: MutationCtx,
+  userId: Id<'users'>
+) {
+  let deletedCount = 0;
+  while (true) {
+    const recipients = await ctx.db
+      .query('campaignRunRecipients')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .take(DELETE_BATCH_SIZE);
+    if (recipients.length === 0) {
+      break;
+    }
+    for (const recipient of recipients) {
+      const run = await ctx.db.get(recipient.campaignRunId);
+      if (
+        run?.executionKind === SMART_MANAGER_EXECUTION_KIND &&
+        (run.executionState === 'materializing' ||
+          run.executionState === 'retryable_materialization' ||
+          run.executionState === 'ready_for_delivery' ||
+          run.executionState === 'delivering')
+      ) {
+        const now = Date.now();
+        const nextDeliveryGeneration = (run.deliveryGeneration ?? 0) + 1;
+        await ctx.db.patch(run._id, {
+          executionState: 'invalidated',
+          materializationInvalidationReason: 'RECIPIENT_ACCOUNT_DELETED',
+          materializationInvalidatedAt: now,
+          materializationGeneration: (run.materializationGeneration ?? 0) + 1,
+          materializationCheckpoint:
+            (run.materializationCheckpoint ?? 0) + 1,
+          materializationCursor: undefined,
+          deliveryGeneration: nextDeliveryGeneration,
+          deliveryFailureCode: 'RECIPIENT_ACCOUNT_DELETED',
+          deliveryCompletedAt: now,
+          updatedAt: now,
+        });
+        if (
+          run.executionState === 'delivering' &&
+          run.recipientSetHash &&
+          run.deliveryCounters
+        ) {
+          await ctx.db.insert('smartManagerAuditEvents', {
+            businessId: run.businessId,
+            eventType: 'delivery_invalidated',
+            sourceGeneration: run.sourceGeneration ?? 0,
+            factHash: run.factHash,
+            policyVersion: run.policyVersion ?? 'unknown',
+            policyHash: run.policyHash ?? 'unknown',
+            preparedActionId: run.preparedActionId,
+            campaignRunId: run._id,
+            detail: {
+              actionKind: 'winback_campaign',
+              campaignId: run.campaignId,
+              recipientSetHash: run.recipientSetHash,
+              deliveryGeneration: nextDeliveryGeneration,
+              state: 'invalidated',
+              counters: run.deliveryCounters,
+              failureCode: 'RECIPIENT_ACCOUNT_DELETED',
+            },
+            expiresAt: now + SMART_MANAGER_AUDIT_RETENTION_MS,
+            createdAt: now,
+          });
+        }
+        if (run.preparedActionId) {
+          const action = await ctx.db.get(run.preparedActionId);
+          if (
+            action &&
+            String(action.approvedCampaignRunId ?? '') === String(run._id)
+          ) {
+            await ctx.db.patch(action._id, {
+              materializationState: 'invalidated',
+              updatedAt: now,
+            });
+          }
+        }
+      }
+      await ctx.db.delete(recipient._id);
+      deletedCount += 1;
+    }
+  }
+  return deletedCount;
+}
+
+export async function deleteSmartManagerOutcomesForAccount(
+  ctx: any,
+  userId: Id<'users'>,
+  batchSize = DELETE_BATCH_SIZE
+) {
+  let deletedCount = 0;
+  const safeBatchSize = Math.max(1, Math.min(batchSize, DELETE_BATCH_SIZE));
+  while (true) {
+    const outcomes = await ctx.db
+      .query('smartManagerRecipientOutcomes')
+      .withIndex('by_userId', (q: any) => q.eq('userId', userId))
+      .take(safeBatchSize);
+    if (outcomes.length === 0) {
+      break;
+    }
+    for (const outcome of outcomes) {
+      let shouldBecomeNotEligible = outcome.state === 'awaiting_return';
+      if (
+        outcome.state === 'returned_after_campaign' &&
+        outcome.qualifyingEventId
+      ) {
+        const qualifyingEvent = await ctx.db.get(outcome.qualifyingEventId);
+        shouldBecomeNotEligible = Boolean(qualifyingEvent?.reversalEventId);
+      }
+      if (shouldBecomeNotEligible) {
+        const now = Date.now();
+        await transitionSmartManagerOutcomeState(
+          ctx,
+          outcome,
+          'not_eligible',
+          {
+            qualifyingActivityAt: undefined,
+            qualifyingEventId: undefined,
+            recordedAt: undefined,
+            supersededAt: undefined,
+            supersededByOutcomeId: undefined,
+            terminalAt: now,
+            purgeAfter: undefined,
+            updatedAt: now,
+          }
+        );
+      }
+      await ctx.db.delete(outcome._id);
+      deletedCount += 1;
+    }
+  }
+  return deletedCount;
 }
 
 async function redactSmartManagerGenerationActorInBatches(
@@ -645,6 +804,29 @@ async function deleteUserScopedBusinessData(
     'userId',
     userId
   );
+  deleted.redemptionCelebrationReceipts += await deleteByIndexInBatches(
+    ctx,
+    'redemptionCelebrationReceipts',
+    'by_ownerUserId',
+    'ownerUserId',
+    userId
+  );
+  deleted.smartManagerRecipientOutcomes +=
+    await deleteSmartManagerOutcomesForAccount(ctx, userId);
+  deleted.smartManagerOutcomeDirtyMarkers += await deleteByIndexInBatches(
+    ctx,
+    'smartManagerOutcomeDirtyMarkers',
+    'by_userId',
+    'userId',
+    userId
+  );
+  deleted.smartManagerOutcomeReversalMarkers += await deleteByIndexInBatches(
+    ctx,
+    'smartManagerOutcomeReversalMarkers',
+    'by_userId',
+    'userId',
+    userId
+  );
   deleted.memberships += await deleteByIndexInBatches(
     ctx,
     'memberships',
@@ -698,6 +880,11 @@ async function deleteUserScopedBusinessData(
     'toUserId',
     userId
   );
+  deleted.campaignRunRecipients +=
+    await deleteSmartManagerExecutionRecipientsForAccount(
+      ctx,
+      userId
+    );
   deleted.pushDeliveryLog += await deleteByIndexInBatches(
     ctx,
     'pushDeliveryLog',
@@ -1447,6 +1634,13 @@ export async function deleteMyAccountHardImpl(
     'smartManagerAuditEvents',
     'by_actorUserId',
     'actorUserId',
+    user._id
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'campaignRuns',
+    'by_approvedByUserId',
+    'approvedByUserId',
     user._id
   );
   await deleteByIndexInBatches(

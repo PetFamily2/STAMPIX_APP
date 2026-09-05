@@ -19,10 +19,32 @@ export type ExpoPushMessage = {
 
 export type ExpoPushTicket = {
   status?: string;
+  id?: string;
   details?: { error?: string };
 };
 
-export async function sendExpoPushMessages(messages: ExpoPushMessage[]) {
+export type ExpoPushFailureKind =
+  | 'http_rejected'
+  | 'transport_ambiguous'
+  | 'malformed_response';
+
+export type ExpoPushTransportResult =
+  | { ok: true; tickets: ExpoPushTicket[] }
+  | {
+      ok: false;
+      errorMessage: string;
+      failureKind: 'http_rejected';
+      statusCode: number;
+    }
+  | {
+      ok: false;
+      errorMessage: string;
+      failureKind: 'transport_ambiguous' | 'malformed_response';
+    };
+
+export async function sendExpoPushMessages(
+  messages: ExpoPushMessage[]
+): Promise<ExpoPushTransportResult> {
   if (messages.length === 0) {
     return { ok: true as const, tickets: [] as ExpoPushTicket[] };
   }
@@ -40,18 +62,27 @@ export async function sendExpoPushMessages(messages: ExpoPushMessage[]) {
       data?: ExpoPushTicket[];
     } | null;
 
-    if (!response.ok || !Array.isArray(result?.data)) {
+    if (!response.ok) {
       return {
         ok: false as const,
         errorMessage: `expo_push_http_${response.status}`,
+        failureKind: 'http_rejected' as const,
+        statusCode: response.status,
+      };
+    }
+    if (!Array.isArray(result?.data)) {
+      return {
+        ok: false as const,
+        errorMessage: 'expo_push_malformed_response',
+        failureKind: 'malformed_response' as const,
       };
     }
     return { ok: true as const, tickets: result.data };
-  } catch (error) {
+  } catch {
     return {
       ok: false as const,
-      errorMessage:
-        error instanceof Error ? error.message : 'push_delivery_failed',
+      errorMessage: 'expo_push_transport_ambiguous',
+      failureKind: 'transport_ambiguous' as const,
     };
   }
 }

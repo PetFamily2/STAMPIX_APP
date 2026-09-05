@@ -27,6 +27,14 @@ import {
   type ScanTokenPayload,
 } from './scanTokens';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import {
+  markSmartManagerOutcomeDirty,
+  markSmartManagerOutcomeReversalDirty,
+} from './lib/smartManagerOutcomes';
+import {
+  createRedemptionCelebrationReceipt,
+  revokeRedemptionCelebrationReceipt,
+} from './lib/redemptionReceipts';
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
@@ -658,6 +666,11 @@ async function applyStamp(
       reasons: ['scanner_stamp_committed'],
       now,
     });
+    await markSmartManagerOutcomeDirty(ctx, {
+      businessId: params.businessId,
+      userId: customer._id,
+      activityAt: now,
+    });
 
     return {
       membershipId,
@@ -714,6 +727,11 @@ async function applyStamp(
     domains: ['memberships', 'events'],
     reasons: ['scanner_stamp_committed'],
     now,
+  });
+  await markSmartManagerOutcomeDirty(ctx, {
+    businessId: params.businessId,
+    userId: customer._id,
+    activityAt: now,
   });
 
   return {
@@ -789,11 +807,34 @@ async function applyRedeem(
     createdAt: now,
   });
 
+  const business = await ctx.db.get(params.businessId);
+  if (!business) {
+    throw new Error('BUSINESS_NOT_FOUND');
+  }
+  await createRedemptionCelebrationReceipt(ctx, {
+    ownerUserId: customer._id,
+    businessId: params.businessId,
+    membershipId: membership._id,
+    canonicalRedemptionEventId: eventId,
+    variant: 'standard',
+    businessName: business.name,
+    businessLogoUrl: business.logoUrl,
+    programDisplayName: params.program.title,
+    rewardDisplayName: params.program.rewardName,
+    cardThemeId: params.program.cardThemeId,
+    confirmedAt: now,
+  });
+
   await markSmartManagerDirty(ctx, {
     businessId: params.businessId,
     domains: ['memberships', 'events'],
     reasons: ['scanner_reward_redeemed'],
     now,
+  });
+  await markSmartManagerOutcomeDirty(ctx, {
+    businessId: params.businessId,
+    userId: customer._id,
+    activityAt: now,
   });
 
   return {
@@ -849,6 +890,18 @@ async function createReversalForEvent(
     if (!program) {
       throw new Error('PROGRAM_NOT_FOUND');
     }
+    if (
+      originalEvent.type === 'STAMP_ADDED' ||
+      originalEvent.type === 'REWARD_REDEEMED'
+    ) {
+      await markSmartManagerOutcomeReversalDirty(ctx, {
+        businessId: originalEvent.businessId,
+        userId: membership.userId,
+        originalEventId: originalEvent._id,
+        originalActivityAt: originalEvent.createdAt,
+        reversalAt: existingReversal.createdAt,
+      });
+    }
     return {
       idempotent: true,
       reversalEvent: existingReversal,
@@ -901,6 +954,27 @@ async function createReversalForEvent(
   await ctx.db.patch(originalEvent._id, {
     reversalEventId,
   });
+
+  if (originalEvent.type === 'REWARD_REDEEMED') {
+    await revokeRedemptionCelebrationReceipt(ctx, {
+      canonicalRedemptionEventId: originalEvent._id,
+      revocationEventId: reversalEventId,
+      revokedAt: now,
+    });
+  }
+
+  if (
+    originalEvent.type === 'STAMP_ADDED' ||
+    originalEvent.type === 'REWARD_REDEEMED'
+  ) {
+    await markSmartManagerOutcomeReversalDirty(ctx, {
+      businessId: originalEvent.businessId,
+      userId: membership.userId,
+      originalEventId: originalEvent._id,
+      originalActivityAt: originalEvent.createdAt,
+      reversalAt: now,
+    });
+  }
 
   await markSmartManagerDirty(ctx, {
     businessId: originalEvent.businessId,

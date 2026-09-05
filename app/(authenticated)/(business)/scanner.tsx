@@ -24,7 +24,6 @@ import {
   StyleSheet,
   Text,
   useWindowDimensions,
-  Vibration,
   View,
 } from 'react-native';
 import {
@@ -51,6 +50,10 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
+import {
+  playPunchSuccessFeedback,
+  playSubtleConfirmationHaptic,
+} from '@/lib/feedback';
 import {
   alignItems,
   flexDirection,
@@ -659,7 +662,9 @@ export default function ScannerScreen() {
         const result = guardedResult.value;
         const transactionResult = applyCommitOutcome(session, result);
         dispatch({ type: 'SHOW_SUCCESS', result: transactionResult });
-        Vibration.vibrate(120);
+        if (session.actionMode === 'stamp') {
+          playPunchSuccessFeedback(String(result.eventId));
+        }
 
         const resetAt = transactionResult.undo?.availableUntil ??
           Date.now() + COMPLETE_RESET_MS;
@@ -888,7 +893,7 @@ export default function ScannerScreen() {
         undoBlockedReason: null,
       };
       dispatch({ type: 'SHOW_REVERSED', result: reversedResult });
-      Vibration.vibrate(120);
+      playSubtleConfirmationHaptic();
       queueCompleteReset();
     } catch (error) {
       if (requestGeneration !== transactionGenerationRef.current) {
@@ -939,7 +944,7 @@ export default function ScannerScreen() {
           return;
         }
         setBenefitActionMessage('הטבת ההפניה מומשה בהצלחה.');
-        Vibration.vibrate(120);
+        playSubtleConfirmationHaptic();
       } catch {
         if (requestGeneration !== transactionGenerationRef.current) {
           return;

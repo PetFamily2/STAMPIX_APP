@@ -104,6 +104,14 @@ function campaignHasPushChannel(campaign: { channels?: unknown }) {
   return Array.isArray(campaign.channels) && campaign.channels.includes('push');
 }
 
+function assertCampaignIsNotImmutableSmartManagerExecution(
+  campaign: Pick<Doc<'campaigns'>, 'source'>
+) {
+  if (campaign.source === 'smart_manager') {
+    throw new Error('SMART_MANAGER_APPROVED_CAMPAIGN_IMMUTABLE');
+  }
+}
+
 async function attemptCampaignPushDelivery(
   ctx: unknown,
   campaign: CampaignPushCandidate,
@@ -494,7 +502,7 @@ async function hasPersistedCampaignRun(
     .query('campaignRuns')
     .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
     .first();
-  return run !== null;
+  return Number.isFinite(run?.sentAt);
 }
 
 function buildCampaignDeliveryStats(
@@ -1144,6 +1152,7 @@ export const setCampaignAutomationEnabled = mutation({
       'activate_send_campaigns'
     );
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1233,6 +1242,7 @@ export const scheduleCampaignOneTime = mutation({
     );
     await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1285,6 +1295,7 @@ export const clearCampaignOneTimeSchedule = mutation({
   handler: async (ctx, { businessId, campaignId, expectedUpdatedAt }) => {
     await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1352,6 +1363,7 @@ export const archiveManagementCampaign = mutation({
       businessId,
       campaignId
     );
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1406,6 +1418,7 @@ export const restoreManagementCampaign = mutation({
       businessId,
       campaignId
     );
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     if (campaign.isActive === true) {
       throw new Error('CAMPAIGN_NOT_ARCHIVED');
     }
@@ -1460,6 +1473,7 @@ export const updateCampaignDraft = mutation({
   ) => {
     await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1536,6 +1550,7 @@ export const sendCampaignNow = mutation({
     );
     await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
       entityId: String(campaignId),
@@ -1613,6 +1628,9 @@ export const runAutomationSweepInternal = internalMutation({
         .collect();
 
       for (const campaign of recurringCampaigns) {
+        if (campaign.source === 'smart_manager') {
+          continue;
+        }
         if (!isManagementType(campaign.type)) {
           continue;
         }
@@ -1664,6 +1682,9 @@ export const runAutomationSweepInternal = internalMutation({
       .collect();
 
     for (const campaign of oneTimeCandidates) {
+      if (campaign.source === 'smart_manager') {
+        continue;
+      }
       if (!isManagementType(campaign.type)) {
         continue;
       }

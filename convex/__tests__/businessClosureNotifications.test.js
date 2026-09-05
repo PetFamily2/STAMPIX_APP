@@ -531,7 +531,7 @@ describe('business closure notification fan-out', () => {
       expect.objectContaining({
         toUserId: CUSTOMER_ID,
         status: 'failed',
-        errorMessage: 'expo temporarily unavailable',
+        errorMessage: 'expo_push_transport_ambiguous',
       })
     );
   });

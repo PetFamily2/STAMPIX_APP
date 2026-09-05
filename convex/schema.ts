@@ -8,6 +8,8 @@ import {
   smartManagerCapabilityAvailabilityValidator,
   smartManagerComparisonSummaryValidator,
   smartManagerDecisionSummaryValidator,
+  smartManagerDeliveryCountersValidator,
+  smartManagerDeliveryFailureCodeValidator,
   smartManagerFactEnvelopeValidator,
   smartManagerPolicyConfigValidator,
   smartManagerPreparedActionCopyProvenanceValidator,
@@ -914,7 +916,16 @@ export default defineSchema({
       v.literal('ai_generation_succeeded'),
       v.literal('ai_generation_failed'),
       v.literal('ai_generation_stale_discarded'),
-      v.literal('prepared_copy_selected')
+      v.literal('prepared_copy_selected'),
+      v.literal('action_approved'),
+      v.literal('materialization_started'),
+      v.literal('materialization_finalized'),
+      v.literal('materialization_failed'),
+      v.literal('delivery_started'),
+      v.literal('delivery_completed'),
+      v.literal('delivery_completed_with_failures'),
+      v.literal('delivery_failed'),
+      v.literal('delivery_invalidated')
     ),
     sourceGeneration: v.number(),
     factHash: v.optional(v.string()),
@@ -922,6 +933,7 @@ export default defineSchema({
     policyHash: v.string(),
     actorUserId: v.optional(v.id('users')),
     preparedActionId: v.optional(v.id('smartManagerPreparedActions')),
+    campaignRunId: v.optional(v.id('campaignRuns')),
     detail: v.optional(smartManagerAuditEventDetailValidator),
     expiresAt: v.number(),
     createdAt: v.number(),
@@ -955,7 +967,13 @@ export default defineSchema({
     lifecycleSourceFingerprint: v.string(),
     observedAt: v.number(),
     recipientCeiling: v.number(),
-    materializationState: v.literal('not_materialized'),
+    materializationState: v.union(
+      v.literal('not_materialized'),
+      v.literal('materializing'),
+      v.literal('ready_for_delivery'),
+      v.literal('invalidated'),
+      v.literal('failed')
+    ),
     channelStrategy: smartManagerPreparedChannelStrategyValidator,
     campaignDraft: smartManagerPreparedCampaignDraftValidator,
     selectedCopyId: v.optional(v.id('smartManagerPreparedActionCopies')),
@@ -986,6 +1004,9 @@ export default defineSchema({
     staleAt: v.optional(v.number()),
     supersededAt: v.optional(v.number()),
     preparedByUserId: v.optional(v.id('users')),
+    approvedCampaignRunId: v.optional(v.id('campaignRuns')),
+    approvalKey: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
     expiresAt: v.number(),
     retentionExpiresAt: v.number(),
     createdAt: v.number(),
@@ -1002,6 +1023,7 @@ export default defineSchema({
     ])
     .index('by_preparedByUserId', ['preparedByUserId'])
     .index('by_generationActorUserId', ['generationActorUserId'])
+    .index('by_approvedCampaignRunId', ['approvedCampaignRunId'])
     .index('by_retentionExpiresAt', ['retentionExpiresAt']),
 
   smartManagerPreparedActionCopies: defineTable({
@@ -1595,10 +1617,21 @@ export default defineSchema({
       v.union(
         v.literal('manual'),
         v.literal('recommendation'),
-        v.literal('migration')
+        v.literal('migration'),
+        v.literal('smart_manager')
       )
     ),
     sourceContext: v.optional(v.any()),
+    smartManagerPreparedActionId: v.optional(
+      v.id('smartManagerPreparedActions')
+    ),
+    smartManagerSelectedCopyId: v.optional(
+      v.id('smartManagerPreparedActionCopies')
+    ),
+    smartManagerSelectedCopyRevision: v.optional(v.number()),
+    smartManagerSelectedCopyContentHash: v.optional(v.string()),
+    smartManagerApprovalKey: v.optional(v.string()),
+    smartManagerCampaignRunId: v.optional(v.id('campaignRuns')),
     isActive: v.boolean(),
     archivedAt: v.optional(v.number()),
     archivedByUserId: v.optional(v.id('users')),
@@ -1607,6 +1640,9 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_smartManagerPreparedActionId', [
+      'smartManagerPreparedActionId',
+    ])
     .index('by_activationStatus', ['activationStatus'])
     .index('by_automationEnabled', ['automationEnabled']),
 
@@ -1648,7 +1684,7 @@ export default defineSchema({
       )
     ),
     runReason: v.optional(v.string()),
-    sentAt: v.number(),
+    sentAt: v.optional(v.number()),
     targetedCount: v.number(),
     deliveredCount: v.number(),
     lastDeliveryAt: v.optional(v.number()),
@@ -1662,13 +1698,320 @@ export default defineSchema({
       v.literal('summarized')
     ),
     summaryGeneratedAt: v.optional(v.number()),
+    executionKind: v.optional(v.literal('smart_manager_v1')),
+    executionState: v.optional(
+      v.union(
+        v.literal('materializing'),
+        v.literal('ready_for_delivery'),
+        v.literal('delivering'),
+        v.literal('delivery_completed'),
+        v.literal('delivery_completed_with_failures'),
+        v.literal('retryable_materialization'),
+        v.literal('invalidated'),
+        v.literal('failed')
+      )
+    ),
+    preparedActionId: v.optional(v.id('smartManagerPreparedActions')),
+    selectedCopyId: v.optional(v.id('smartManagerPreparedActionCopies')),
+    selectedCopyRevision: v.optional(v.number()),
+    selectedCopyContentHash: v.optional(v.string()),
+    stableDecisionId: v.optional(v.id('smartManagerDecisions')),
+    authorityMode: v.optional(smartManagerAuthorityModeValidator),
+    authorityBindingHash: v.optional(v.string()),
+    decisionHash: v.optional(v.string()),
+    evidenceFingerprint: v.optional(v.string()),
+    factHash: v.optional(v.string()),
+    policyVersion: v.optional(v.string()),
+    policyHash: v.optional(v.string()),
+    comparisonHash: v.optional(v.string()),
+    sourceGeneration: v.optional(v.number()),
+    audienceDefinitionVersion: v.optional(
+      v.literal('smart-manager-at-risk-v1')
+    ),
+    lifecycleSourceFingerprint: v.optional(v.string()),
+    approvedAudienceObservedCount: v.optional(v.number()),
+    recipientCeiling: v.optional(v.number()),
+    recipientContactCooldownDays: v.optional(v.number()),
+    channelStrategyVersion: v.optional(
+      v.literal('push-with-in-app-fallback-v1')
+    ),
+    approvalKey: v.optional(v.string()),
+    approvedByUserId: v.optional(v.id('users')),
+    approvedAt: v.optional(v.number()),
+    eligibilityReferenceAt: v.optional(v.number()),
+    materializationGeneration: v.optional(v.number()),
+    materializationCheckpoint: v.optional(v.number()),
+    materializationPhase: v.optional(
+      v.union(
+        v.literal('scan_events'),
+        v.literal('finalize_recipients'),
+        v.literal('hash_recipients')
+      )
+    ),
+    materializationCursor: v.optional(v.string()),
+    materializedEligible: v.optional(v.number()),
+    pushEligible: v.optional(v.number()),
+    inAppFallbackEligible: v.optional(v.number()),
+    notContactable: v.optional(v.number()),
+    materializedExcluded: v.optional(v.number()),
+    totalExecutionRecipients: v.optional(v.number()),
+    recipientHashAccumulator: v.optional(v.string()),
+    recipientHashCount: v.optional(v.number()),
+    recipientHashPushCount: v.optional(v.number()),
+    recipientHashInAppCount: v.optional(v.number()),
+    recipientHashNotContactableCount: v.optional(v.number()),
+    recipientSetHash: v.optional(v.string()),
+    materializationFailureCode: v.optional(
+      v.union(
+        v.literal('SOURCE_LIMIT_EXCEEDED'),
+        v.literal('RECIPIENT_LIMIT_EXCEEDED'),
+        v.literal('RECIPIENT_BINDING_INVALID'),
+        v.literal('MATERIALIZATION_INVARIANT_FAILED')
+      )
+    ),
+    materializationInvalidationReason: v.optional(
+      v.literal('RECIPIENT_ACCOUNT_DELETED')
+    ),
+    materializationInvalidatedAt: v.optional(v.number()),
+    materializationFinalizedAt: v.optional(v.number()),
+    deliveryGeneration: v.optional(v.number()),
+    deliveryStartedAt: v.optional(v.number()),
+    deliveryCompletedAt: v.optional(v.number()),
+    deliveryFailureCode: v.optional(smartManagerDeliveryFailureCodeValidator),
+    deliveryCounters: v.optional(smartManagerDeliveryCountersValidator),
+    outcomeCounters: v.optional(
+      v.object({
+        awaitingReturnCount: v.number(),
+        returnedAfterCampaignCount: v.number(),
+        windowExpiredCount: v.number(),
+        supersededCount: v.number(),
+        notEligibleCount: v.number(),
+      })
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_campaignId', ['campaignId'])
+    .index('by_preparedActionId_approvalKey', [
+      'preparedActionId',
+      'approvalKey',
+    ])
+    .index('by_approvedByUserId', ['approvedByUserId'])
     .index('by_businessId_sentAt', ['businessId', 'sentAt'])
-    .index('by_businessId_summaryStatus', ['businessId', 'summaryStatus']),
+    .index('by_businessId_summaryStatus', ['businessId', 'summaryStatus'])
+    .index('by_executionKind_executionState', [
+      'executionKind',
+      'executionState',
+    ]),
+
+  campaignRunRecipients: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    campaignRunId: v.id('campaignRuns'),
+    userId: v.id('users'),
+    recipientKey: v.string(),
+    firstStampAt: v.number(),
+    lastStampAt: v.number(),
+    positiveIntervalCount: v.number(),
+    eligibilityVersion: v.literal('smart-manager-at-risk-recipient-v1'),
+    primaryMembershipId: v.optional(v.id('memberships')),
+    channel: v.optional(
+      v.union(
+        v.literal('push'),
+        v.literal('in_app'),
+        v.literal('not_contactable')
+      )
+    ),
+    pushTokenId: v.optional(v.id('pushTokens')),
+    eligibilityBindingHash: v.optional(v.string()),
+    recipientBindingHash: v.optional(v.string()),
+    executionState: v.union(
+      v.literal('candidate'),
+      v.literal('pending'),
+      v.literal('dispatching'),
+      v.literal('retryable'),
+      v.literal('push_accepted'),
+      v.literal('in_app_available'),
+      v.literal('not_contactable'),
+      v.literal('failed_terminal'),
+      v.literal('invalidated')
+    ),
+    attemptCount: v.optional(v.number()),
+    attemptId: v.optional(v.string()),
+    leaseToken: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
+    leaseExpiresAt: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    lastFailureCode: v.optional(smartManagerDeliveryFailureCodeValidator),
+    provider: v.optional(v.literal('expo')),
+    providerStatus: v.optional(
+      v.union(v.literal('accepted'), v.literal('rejected'), v.literal('ambiguous'))
+    ),
+    providerTicketId: v.optional(v.string()),
+    fallbackToInApp: v.optional(v.boolean()),
+    fallbackReason: v.optional(smartManagerDeliveryFailureCodeValidator),
+    terminalAt: v.optional(v.number()),
+    materializedAt: v.optional(v.number()),
+    eligibilityEvaluatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_campaignRunId_recipientKey', [
+      'campaignRunId',
+      'recipientKey',
+    ])
+    .index('by_campaignRunId_recipientBindingHash', [
+      'campaignRunId',
+      'recipientBindingHash',
+    ])
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_userId', ['businessId', 'userId'])
+    .index('by_userId', ['userId'])
+    .index('by_campaignRunId_executionState', [
+      'campaignRunId',
+      'executionState',
+    ])
+    .index('by_campaignRunId_nextAttemptAt', [
+      'campaignRunId',
+      'nextAttemptAt',
+    ]),
+
+  smartManagerRecipientOutcomes: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    campaignRunId: v.id('campaignRuns'),
+    campaignRunRecipientId: v.id('campaignRunRecipients'),
+    userId: v.id('users'),
+    recipientKey: v.string(),
+    recipientBindingHash: v.string(),
+    outcomeKind: v.literal('returned_after_campaign'),
+    state: v.union(
+      v.literal('awaiting_return'),
+      v.literal('returned_after_campaign'),
+      v.literal('superseded'),
+      v.literal('window_expired'),
+      v.literal('not_eligible')
+    ),
+    contactEvidenceKind: v.union(
+      v.literal('push_accepted'),
+      v.literal('in_app_available')
+    ),
+    contactEvidenceAt: v.number(),
+    attributionTieBreaker: v.string(),
+    outcomeWindowEndsAt: v.number(),
+    qualifyingActivityAt: v.optional(v.number()),
+    qualifyingEventId: v.optional(v.id('events')),
+    attributionPolicyVersion: v.literal('smart-manager-last-touch-v1'),
+    policyVersion: v.string(),
+    policyHash: v.string(),
+    recordedAt: v.optional(v.number()),
+    supersededAt: v.optional(v.number()),
+    supersededByOutcomeId: v.optional(v.id('smartManagerRecipientOutcomes')),
+    terminalAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_campaignRunRecipientId', ['campaignRunRecipientId'])
+    .index('by_campaignRunId_state', ['campaignRunId', 'state'])
+    .index('by_businessId', ['businessId'])
+    .index('by_userId', ['userId'])
+    .index('by_businessId_userId_state_contactEvidenceAt', [
+      'businessId',
+      'userId',
+      'state',
+      'contactEvidenceAt',
+      'attributionTieBreaker',
+    ])
+    .index('by_state_outcomeWindowEndsAt', [
+      'state',
+      'outcomeWindowEndsAt',
+    ])
+    .index('by_qualifyingEventId', ['qualifyingEventId'])
+    .index('by_supersededByOutcomeId', ['supersededByOutcomeId'])
+    .index('by_purgeAfter', ['purgeAfter']),
+
+  smartManagerOutcomeDirtyMarkers: defineTable({
+    businessId: v.id('businesses'),
+    userId: v.id('users'),
+    earliestActivityAt: v.number(),
+    latestActivityAt: v.number(),
+    includeExpiredOutcomes: v.optional(v.boolean()),
+    eventCursor: v.optional(v.string()),
+    generation: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId_userId', ['businessId', 'userId'])
+    .index('by_userId', ['userId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_updatedAt', ['updatedAt']),
+
+  smartManagerOutcomeReversalMarkers: defineTable({
+    businessId: v.id('businesses'),
+    userId: v.id('users'),
+    originalEventId: v.id('events'),
+    originalActivityAt: v.number(),
+    reversalAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_originalEventId', ['originalEventId'])
+    .index('by_userId', ['userId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_createdAt', ['createdAt']),
+
+  redemptionCelebrationReceipts: defineTable({
+    ownerUserId: v.id('users'),
+    businessId: v.id('businesses'),
+    membershipId: v.optional(v.id('memberships')),
+    canonicalRedemptionEventId: v.id('events'),
+    referralRewardId: v.optional(v.id('referralRewards')),
+    receiptToken: v.string(),
+    variant: v.union(v.literal('standard'), v.literal('referral')),
+    status: v.union(
+      v.literal('available'),
+      v.literal('claimed'),
+      v.literal('presented'),
+      v.literal('expired'),
+      v.literal('revoked')
+    ),
+    businessName: v.string(),
+    businessLogoUrl: v.optional(v.string()),
+    programDisplayName: v.optional(v.string()),
+    rewardDisplayName: v.string(),
+    cardThemeId: v.optional(v.string()),
+    confirmedAt: v.number(),
+    autoPresentUntil: v.number(),
+    expiresAt: v.number(),
+    claimToken: v.optional(v.string()),
+    claimExpiresAt: v.optional(v.number()),
+    presentedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    revocationEventId: v.optional(v.id('events')),
+    purgeAfter: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_receiptToken', ['receiptToken'])
+    .index('by_canonicalRedemptionEventId', ['canonicalRedemptionEventId'])
+    .index('by_ownerUserId', ['ownerUserId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_ownerUserId_status_autoPresentUntil_confirmedAt', [
+      'ownerUserId',
+      'status',
+      'autoPresentUntil',
+      'confirmedAt',
+    ])
+    .index('by_ownerUserId_status_claimExpiresAt', [
+      'ownerUserId',
+      'status',
+      'claimExpiresAt',
+    ])
+    .index('by_status_claimExpiresAt', ['status', 'claimExpiresAt'])
+    .index('by_status_expiresAt', ['status', 'expiresAt'])
+    .index('by_purgeAfter', ['purgeAfter']),
 
   subscriptions: defineTable({
     businessId: v.id('businesses'),
@@ -1747,6 +2090,7 @@ export default defineSchema({
     toUserId: v.id('users'),
     channel: v.string(),
     notificationType: v.optional(v.string()),
+    smartManagerSource: v.optional(v.literal('smart_manager_delivery_v1')),
     dedupeKey: v.optional(v.string()),
     status: v.string(),
     deliveryStatus: v.optional(v.string()),
@@ -1759,6 +2103,11 @@ export default defineSchema({
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_campaignId', ['campaignId'])
     .index('by_campaignRunId', ['campaignRunId'])
+    .index('by_campaignRunId_toUserId_dedupeKey', [
+      'campaignRunId',
+      'toUserId',
+      'dedupeKey',
+    ])
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])

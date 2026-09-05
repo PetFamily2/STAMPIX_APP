@@ -46,6 +46,7 @@ const ALL_TABLES = [
   'scanSessions',
   'scanTokenEvents',
   'campaigns',
+  'campaignRunRecipients',
   'campaignRuns',
   'subscriptions',
   'revenueCatWebhookEvents',
@@ -1257,9 +1258,24 @@ describe('graph purge, assets, finalization, and retry', () => {
         },
       ],
       events: [{ _id: 'event_1', ...direct }],
+      redemptionCelebrationReceipts: [
+        { _id: 'receipt_1', ownerUserId: 'customer_1', ...direct },
+      ],
       scanSessions: [{ _id: 'scan_1', ...direct }],
       scanTokenEvents: [{ _id: 'token_event_1', ...direct }],
       campaigns: [{ _id: 'campaign_1', ...direct }],
+      campaignRunRecipients: [
+        { _id: 'run_recipient_1', campaignRunId: 'run_1', ...direct },
+      ],
+      smartManagerRecipientOutcomes: [
+        { _id: 'run_outcome_1', userId: 'customer_1', ...direct },
+      ],
+      smartManagerOutcomeDirtyMarkers: [
+        { _id: 'outcome_dirty_1', userId: 'customer_1', ...direct },
+      ],
+      smartManagerOutcomeReversalMarkers: [
+        { _id: 'outcome_reversal_1', userId: 'customer_1', ...direct },
+      ],
       campaignRuns: [{ _id: 'run_1', ...direct }],
       messageLog: [{ _id: 'message_1', ...direct }],
       pushDeliveryLog: [{ _id: 'push_log_1', ...direct }],
@@ -1341,6 +1357,10 @@ describe('graph purge, assets, finalization, and retry', () => {
     expect(ctx.db.rows('smartManagerPreparedActionCopies')).toHaveLength(0);
     expect(ctx.db.rows('smartManagerPreparedActions')).toHaveLength(0);
     expect(ctx.db.rows('smartManagerAuditEvents')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerRecipientOutcomes')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerOutcomeDirtyMarkers')).toHaveLength(0);
+    expect(ctx.db.rows('smartManagerOutcomeReversalMarkers')).toHaveLength(0);
+    expect(ctx.db.rows('redemptionCelebrationReceipts')).toHaveLength(0);
     expect(ctx.db.rows('aiUsageLedger')).toHaveLength(0);
     expect(ctx.db.rows('aiGenerationCache').map((row) => row._id)).toEqual([
       'shared_cache',

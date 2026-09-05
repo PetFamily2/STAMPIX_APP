@@ -68,6 +68,10 @@ class FakeQuery {
     return this.docs()[0] ?? null;
   }
 
+  async take(limit) {
+    return this.docs().slice(0, limit);
+  }
+
   async collect() {
     return this.docs();
   }

@@ -11,19 +11,25 @@ import {
 
 type UseRedemptionShareOptions = {
   enabled: boolean;
+  authorize?: () => Promise<boolean>;
 };
 
-export function useRedemptionShare({ enabled }: UseRedemptionShareOptions) {
+export function useRedemptionShare({
+  enabled,
+  authorize,
+}: UseRedemptionShareOptions) {
   const artboardRef = useRef<View>(null);
   const enabledRef = useRef(enabled);
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
+  const authorizeRef = useRef(authorize);
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<RedemptionShareError | null>(
     null
   );
 
   enabledRef.current = enabled;
+  authorizeRef.current = authorize;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -52,6 +58,13 @@ export function useRedemptionShare({ enabled }: UseRedemptionShareOptions) {
     setShareError(null);
 
     try {
+      try {
+        if (authorizeRef.current && !(await authorizeRef.current())) {
+          return { status: 'ignored' };
+        }
+      } catch {
+        return { status: 'ignored' };
+      }
       const result = await runRedemptionShare({
         isEnabled: () =>
           enabledRef.current &&

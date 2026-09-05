@@ -12,6 +12,8 @@ import {
 } from './guards';
 import { sendPushNotificationToUser } from './pushNotifications';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { markSmartManagerOutcomeDirty } from './lib/smartManagerOutcomes';
+import { createRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 
 const CUSTOMER_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const B2B_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -2173,6 +2175,16 @@ export const redeemReferralBenefit = mutation({
     if (reward.actualRewardType !== 'BENEFIT') {
       throw new Error('INVALID_REWARD_TYPE');
     }
+    if (reward.status === 'redeemed' && reward.redeemedEventId) {
+      return {
+        ok: true,
+        rewardId: reward._id,
+        status: 'redeemed' as const,
+        redeemedAt: reward.redeemedAt ?? null,
+        redeemedEventId: reward.redeemedEventId,
+        reused: true,
+      };
+    }
     if (reward.status !== 'granted') {
       throw new Error('REWARD_NOT_AVAILABLE');
     }
@@ -2227,12 +2239,39 @@ export const redeemReferralBenefit = mutation({
       updatedAt: now,
     });
 
+    if (redeemedEventId && program) {
+      const business = await ctx.db.get(args.businessId);
+      if (business) {
+        await createRedemptionCelebrationReceipt(ctx, {
+          ownerUserId: reward.recipientUserId,
+          businessId: args.businessId,
+          membershipId: reward.targetMembershipId,
+          canonicalRedemptionEventId: redeemedEventId,
+          referralRewardId: reward._id,
+          variant: 'referral',
+          businessName: business.name,
+          businessLogoUrl: business.logoUrl,
+          programDisplayName: program.title,
+          rewardDisplayName: reward.benefitTitle ?? program.rewardName,
+          cardThemeId: program.cardThemeId,
+          confirmedAt: now,
+        });
+      }
+    }
+
     await markSmartManagerDirty(ctx, {
       businessId: args.businessId,
       domains: ['events'],
       reasons: ['referral_benefit_redeemed'],
       now,
     });
+    if (redeemedEventId) {
+      await markSmartManagerOutcomeDirty(ctx, {
+        businessId: args.businessId,
+        userId: reward.recipientUserId,
+        activityAt: now,
+      });
+    }
 
     await sendReferralNotification(ctx, {
       businessId: args.businessId,

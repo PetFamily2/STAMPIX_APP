@@ -237,7 +237,9 @@ describe('bounded campaign lifecycle facts', () => {
           activationStatus: 'active',
         }),
       ],
-      campaignRuns: [{ campaignId: 'manual_completed' }],
+      campaignRuns: [
+        { campaignId: 'manual_completed', sentAt: NOW - 60_000 },
+      ],
       now: NOW,
     });
 
@@ -246,6 +248,23 @@ describe('bounded campaign lifecycle facts', () => {
     expect(result.inconsistentCount).toBe(1);
     expect(result.meaningfullyActiveCount).toBe(2);
     expect(result.totalNonarchivedCampaigns).toBe(4);
+  });
+
+  test('pre-delivery campaignRun without sentAt does not count as completed', () => {
+    const result = buildCampaignLifecycleFactValue({
+      campaigns: [
+        campaign('pre_delivery', {
+          status: 'active',
+          activationStatus: 'active',
+        }),
+      ],
+      campaignRuns: [{ campaignId: 'pre_delivery' }],
+      now: NOW,
+    });
+
+    expect(result.completedCount).toBe(0);
+    expect(result.meaningfullyActiveCount).toBe(0);
+    expect(result.totalNonarchivedCampaigns).toBe(1);
   });
 
   test('quota placeholders cannot alter lifecycle counts or active meaning', () => {

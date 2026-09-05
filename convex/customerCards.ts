@@ -12,6 +12,8 @@ import {
 } from './guards';
 import { mapCustomerStateToLegacyLifecycleStatus } from './lib/customerIntelligence';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { markSmartManagerOutcomeReversalDirty } from './lib/smartManagerOutcomes';
+import { revokeRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
@@ -647,6 +649,13 @@ export const reverseCustomerCardEvent = mutation({
       targetEvent
     );
     if (existingReversal) {
+      await markSmartManagerOutcomeReversalDirty(ctx, {
+        businessId: targetEvent.businessId,
+        userId: membership.userId,
+        originalEventId: targetEvent._id,
+        originalActivityAt: targetEvent.createdAt,
+        reversalAt: existingReversal.createdAt,
+      });
       return {
         status: 'already_reverted' as const,
         reversalEventId: existingReversal._id,
@@ -697,6 +706,22 @@ export const reverseCustomerCardEvent = mutation({
 
     await ctx.db.patch(targetEvent._id, {
       reversalEventId,
+    });
+
+    if (targetEvent.type === 'REWARD_REDEEMED') {
+      await revokeRedemptionCelebrationReceipt(ctx, {
+        canonicalRedemptionEventId: targetEvent._id,
+        revocationEventId: reversalEventId,
+        revokedAt: now,
+      });
+    }
+
+    await markSmartManagerOutcomeReversalDirty(ctx, {
+      businessId: targetEvent.businessId,
+      userId: membership.userId,
+      originalEventId: targetEvent._id,
+      originalActivityAt: targetEvent.createdAt,
+      reversalAt: now,
     });
 
     await markSmartManagerDirty(ctx, {

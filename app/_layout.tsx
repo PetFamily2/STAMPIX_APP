@@ -16,6 +16,7 @@ import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
 import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
+import { disposeFeedbackAudioPlayers } from '@/lib/feedback';
 import { retainRtlArchitectureMarker } from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
 
@@ -94,6 +95,13 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  React.useEffect(
+    () => () => {
+      disposeFeedbackAudioPlayers();
+    },
+    []
+  );
 
   if (!fontsLoaded) {
     return null;

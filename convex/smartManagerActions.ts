@@ -53,10 +53,12 @@ import {
   OPENROUTER_JSON_MODEL,
 } from './lib/aiJsonGeneration';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
+import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { hashSmartManagerValue } from './lib/smartManagerPolicy';
 import { getRoleCapabilities } from './lib/staffPermissions';
 import { consumeSmartManagerGenerationRateLimits } from './smartManagerRateLimits';
 import { smartManagerAiFailureCodeValidator } from './lib/smartManagerValidators';
+import { buildRunResultSummary } from './smartManagerOutcomes';
 
 const BOUNDED_SINGLETON_LIMIT = 2;
 const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
@@ -1948,6 +1950,37 @@ export const cleanupPreparedActionRetentionInternal = internalMutation({
     let copiesDeleted = 0;
     let retainedParents = 0;
     for (const action of page.page) {
+      let terminalRun: Doc<'campaignRuns'> | null = null;
+      let terminalCampaign: Doc<'campaigns'> | null = null;
+      if (action.approvedCampaignRunId) {
+        const run = await ctx.db.get(action.approvedCampaignRunId);
+        const runIsBoundToAction =
+          run?.executionKind === SMART_MANAGER_EXECUTION_KIND &&
+          String(run.businessId) === String(action.businessId) &&
+          String(run.preparedActionId ?? '') === String(action._id);
+        const runIsTerminal =
+          run?.executionState === 'ready_for_delivery' ||
+          run?.executionState === 'failed' ||
+          run?.executionState === 'invalidated';
+        if (!run || !runIsBoundToAction || !runIsTerminal) {
+          retainedParents += 1;
+          continue;
+        }
+        const campaign = await ctx.db.get(run.campaignId);
+        if (
+          !campaign ||
+          campaign.source !== 'smart_manager' ||
+          String(campaign.businessId) !== String(action.businessId) ||
+          String(campaign.smartManagerCampaignRunId ?? '') !== String(run._id) ||
+          String(campaign.smartManagerPreparedActionId ?? '') !==
+            String(action._id)
+        ) {
+          retainedParents += 1;
+          continue;
+        }
+        terminalRun = run;
+        terminalCampaign = campaign;
+      }
       const children = await ctx.db
         .query('smartManagerPreparedActionCopies')
         .withIndex('by_preparedActionId_revision', (q) =>
@@ -1962,6 +1995,18 @@ export const cleanupPreparedActionRetentionInternal = internalMutation({
       if (!childrenAreBounded || !everyChildRetentionExpired) {
         retainedParents += 1;
         continue;
+      }
+      if (terminalRun && terminalCampaign) {
+        await ctx.db.patch(terminalCampaign._id, {
+          smartManagerPreparedActionId: undefined,
+          smartManagerSelectedCopyId: undefined,
+          updatedAt: cutoff,
+        });
+        await ctx.db.patch(terminalRun._id, {
+          preparedActionId: undefined,
+          selectedCopyId: undefined,
+          updatedAt: cutoff,
+        });
       }
       for (const child of children) {
         await ctx.db.delete(child._id);
@@ -2112,6 +2157,19 @@ async function buildPreparedWinbackReview(
     }
   }
 
+  const approvedRun = action.approvedCampaignRunId
+    ? await ctx.db.get(action.approvedCampaignRunId)
+    : null;
+  const boundApprovedRun =
+    approvedRun &&
+    String(approvedRun.businessId) === String(action.businessId) &&
+    String(approvedRun.preparedActionId ?? '') === String(action._id)
+      ? approvedRun
+      : null;
+  const resultSummary = boundApprovedRun
+    ? await buildRunResultSummary(ctx, boundApprovedRun)
+    : null;
+
   return {
     preparedActionId: action._id,
     detection: {
@@ -2134,7 +2192,8 @@ async function buildPreparedWinbackReview(
       observedCount: action.audienceCount,
       observedAt: action.observedAt,
       lifecycleSourceFingerprint: action.lifecycleSourceFingerprint,
-      recipientMaterialization: 'not_started' as const,
+      recipientMaterialization:
+        boundApprovedRun?.executionState ?? ('not_started' as const),
     },
     message: {
       copyId: selectedCopy._id,
@@ -2168,10 +2227,14 @@ async function buildPreparedWinbackReview(
       },
     },
     execution: {
-      state: 'not_implemented' as const,
-      campaignId: null,
-      recipientsMaterialized: false,
+      state:
+        boundApprovedRun?.executionState ?? ('not_implemented' as const),
+      campaignId: boundApprovedRun?.campaignId ?? null,
+      campaignRunId: boundApprovedRun?._id ?? null,
+      recipientsMaterialized:
+        boundApprovedRun?.executionState === 'ready_for_delivery',
       deliveryStarted: false,
+      results: resultSummary,
     },
   };
 }

@@ -31,6 +31,7 @@ import {
 
 type RedemptionCelebrationProps = {
   source: RedemptionPresentationInput;
+  authorizeShare?: () => Promise<boolean>;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -360,11 +361,13 @@ export function RedemptionCelebrationView({
 
 export default function RedemptionCelebration({
   source,
+  authorizeShare,
   style,
 }: RedemptionCelebrationProps) {
   const presentation = buildRedemptionPresentation(source);
   const { artboardRef, isSharing, shareError, share } = useRedemptionShare({
     enabled: presentation.canShare,
+    authorize: authorizeShare,
   });
 
   return (

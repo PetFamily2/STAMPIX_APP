@@ -47,18 +47,10 @@ import {
   type SmartManagerFactEnvelope,
   smartManagerWorkerEvaluationValidator,
 } from './lib/smartManagerValidators';
+import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 
 const MAX_RECONCILIATION_STATES = 25;
-export const SMART_MANAGER_SOURCE_LIMITS = {
-  programs: 100,
-  memberships: 3_000,
-  events: 5_000,
-  campaigns: 1_000,
-  campaignRuns: 1_500,
-  staff: 100,
-  pendingInvites: 100,
-  referralConfigs: 2,
-} as const;
+export { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 export const SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET = 10_900;
 export const SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE = 60;
 const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;

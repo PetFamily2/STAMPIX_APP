@@ -30,6 +30,11 @@ export function generatePublicId(size = 12): string {
   return generate(DEFAULT_ALPHABET, size);
 }
 
+/** Generate a high-entropy opaque capability identifier with no embedded data. */
+export function generateOpaqueToken(size = 32): string {
+  return generate(DEFAULT_ALPHABET, size);
+}
+
 /**
  * Generate a short join code (default 8 chars, uppercase, no ambiguous chars).
  * Used for manual entry fallback (`joinCode`).

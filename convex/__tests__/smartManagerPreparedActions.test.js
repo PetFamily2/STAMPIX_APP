@@ -292,6 +292,8 @@ function buildFixture({
     smartManagerPreparedActions: [],
     smartManagerPreparedActionCopies: [],
     smartManagerAuditEvents: [],
+    campaigns: [],
+    campaignRuns: [],
     aiGenerationCache: [],
     aiUsageLedger: [],
   };
@@ -454,10 +456,12 @@ describe('Smart Manager prepared win-back actions', () => {
       ...SMART_MANAGER_WINBACK_FALLBACK_COPY,
     });
     expect(review.execution).toEqual({
-      state: 'not_implemented',
       campaignId: null,
-      recipientsMaterialized: false,
+      campaignRunId: null,
       deliveryStarted: false,
+      recipientsMaterialized: false,
+      results: null,
+      state: 'not_implemented',
     });
     const serialized = JSON.stringify(review);
     for (const forbidden of [
@@ -1841,6 +1845,159 @@ describe('Smart Manager prepared win-back actions', () => {
       true
     );
     assertSelectedCopiesResolve();
+  });
+
+  test('active materialization protects its expired prepared action and selected copy', async () => {
+    const fixture = buildFixture();
+    fixture.tables.smartManagerPreparedActions = [
+      {
+        _id: 'action_materializing',
+        businessId: 'business_1',
+        selectedCopyId: 'copy_materializing',
+        approvedCampaignRunId: 'run_materializing',
+        retentionExpiresAt: 0,
+        expiresAt: 0,
+      },
+    ];
+    fixture.tables.smartManagerPreparedActionCopies = [
+      {
+        _id: 'copy_materializing',
+        preparedActionId: 'action_materializing',
+        retentionExpiresAt: 0,
+      },
+    ];
+    fixture.tables.campaigns = [
+      {
+        _id: 'campaign_materializing',
+        businessId: 'business_1',
+        source: 'smart_manager',
+        smartManagerCampaignRunId: 'run_materializing',
+        smartManagerPreparedActionId: 'action_materializing',
+        smartManagerSelectedCopyId: 'copy_materializing',
+      },
+    ];
+    fixture.tables.campaignRuns = [
+      {
+        _id: 'run_materializing',
+        businessId: 'business_1',
+        campaignId: 'campaign_materializing',
+        executionKind: 'smart_manager_v1',
+        executionState: 'materializing',
+        preparedActionId: 'action_materializing',
+        selectedCopyId: 'copy_materializing',
+      },
+    ];
+    const { ctx, state } = buildCtx(fixture, { scheduled: [] });
+
+    await cleanupPreparedActionRetentionInternal._handler(ctx, {
+      phase: 'copies',
+      cursor: null,
+    });
+    const result = await cleanupPreparedActionRetentionInternal._handler(ctx, {
+      phase: 'actions',
+      cursor: null,
+    });
+
+    expect(result).toMatchObject({ actionsDeleted: 0, retainedParents: 1 });
+    expect(state.smartManagerPreparedActions.has('action_materializing')).toBe(
+      true
+    );
+    expect(
+      state.smartManagerPreparedActionCopies.has('copy_materializing')
+    ).toBe(true);
+    expect(state.campaignRuns.get('run_materializing')).toMatchObject({
+      preparedActionId: 'action_materializing',
+      selectedCopyId: 'copy_materializing',
+    });
+  });
+
+  test('terminal execution releases expired preparation records without losing immutable history', async () => {
+    const fixture = buildFixture();
+    fixture.tables.smartManagerPreparedActions = [
+      {
+        _id: 'action_terminal',
+        businessId: 'business_1',
+        selectedCopyId: 'copy_terminal',
+        approvedCampaignRunId: 'run_terminal',
+        retentionExpiresAt: 0,
+        expiresAt: 0,
+      },
+    ];
+    fixture.tables.smartManagerPreparedActionCopies = [
+      {
+        _id: 'copy_terminal',
+        preparedActionId: 'action_terminal',
+        retentionExpiresAt: 0,
+      },
+    ];
+    fixture.tables.campaigns = [
+      {
+        _id: 'campaign_terminal',
+        businessId: 'business_1',
+        source: 'smart_manager',
+        smartManagerCampaignRunId: 'run_terminal',
+        smartManagerPreparedActionId: 'action_terminal',
+        smartManagerSelectedCopyId: 'copy_terminal',
+        smartManagerSelectedCopyRevision: 3,
+        smartManagerSelectedCopyContentHash: 'content_hash_terminal',
+        smartManagerApprovalKey: 'approval_key_terminal',
+        messageTitle: 'Immutable title',
+        messageBody: 'Immutable body',
+      },
+    ];
+    fixture.tables.campaignRuns = [
+      {
+        _id: 'run_terminal',
+        businessId: 'business_1',
+        campaignId: 'campaign_terminal',
+        executionKind: 'smart_manager_v1',
+        executionState: 'ready_for_delivery',
+        preparedActionId: 'action_terminal',
+        selectedCopyId: 'copy_terminal',
+        selectedCopyRevision: 3,
+        selectedCopyContentHash: 'content_hash_terminal',
+        approvalKey: 'approval_key_terminal',
+        recipientSetHash: 'recipient_set_hash_terminal',
+      },
+    ];
+    const { ctx, state, reads } = buildCtx(fixture, { scheduled: [] });
+
+    await cleanupPreparedActionRetentionInternal._handler(ctx, {
+      phase: 'copies',
+      cursor: null,
+    });
+    const result = await cleanupPreparedActionRetentionInternal._handler(ctx, {
+      phase: 'actions',
+      cursor: null,
+    });
+
+    expect(result).toMatchObject({ actionsDeleted: 1, copiesDeleted: 1 });
+    expect(state.smartManagerPreparedActions.has('action_terminal')).toBe(false);
+    expect(state.smartManagerPreparedActionCopies.has('copy_terminal')).toBe(
+      false
+    );
+    expect(state.campaignRuns.get('run_terminal')).toMatchObject({
+      preparedActionId: undefined,
+      selectedCopyId: undefined,
+      selectedCopyRevision: 3,
+      selectedCopyContentHash: 'content_hash_terminal',
+      approvalKey: 'approval_key_terminal',
+      recipientSetHash: 'recipient_set_hash_terminal',
+    });
+    expect(state.campaigns.get('campaign_terminal')).toMatchObject({
+      smartManagerPreparedActionId: undefined,
+      smartManagerSelectedCopyId: undefined,
+      smartManagerSelectedCopyRevision: 3,
+      smartManagerSelectedCopyContentHash: 'content_hash_terminal',
+      smartManagerApprovalKey: 'approval_key_terminal',
+      messageTitle: 'Immutable title',
+      messageBody: 'Immutable body',
+    });
+    expect(
+      reads
+        .filter((read) => read.kind === 'paginate' || read.kind === 'take')
+        .every((read) => read.limit <= 100)
+    ).toBe(true);
   });
 
   test('retention cleanup is bounded, child-first, resumable, and uses retentionExpiresAt', async () => {

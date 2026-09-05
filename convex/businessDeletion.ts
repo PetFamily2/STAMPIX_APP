@@ -1247,6 +1247,7 @@ async function findRemainingPhase(
     [
       'purge_scans_events',
       [
+        { name: '', table: 'redemptionCelebrationReceipts', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'scanTokenEvents', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'scanSessions', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'events', index: 'by_businessId', field: 'businessId' },
@@ -1317,6 +1318,8 @@ async function findRemainingPhase(
           index: 'by_businessId',
           field: 'businessId',
         },
+        { name: '', table: 'smartManagerOutcomeDirtyMarkers', index: 'by_businessId', field: 'businessId' },
+        { name: '', table: 'smartManagerOutcomeReversalMarkers', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'aiRecommendations', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'aiBusinessSnapshots', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'aiGenerationCache', index: 'by_businessId', field: 'businessId' },
@@ -1325,6 +1328,8 @@ async function findRemainingPhase(
     [
       'purge_campaigns',
       [
+        { name: '', table: 'smartManagerRecipientOutcomes', index: 'by_businessId', field: 'businessId' },
+        { name: '', table: 'campaignRunRecipients', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'campaignRuns', index: 'by_businessId', field: 'businessId' },
         { name: '', table: 'campaigns', index: 'by_businessId', field: 'businessId' },
       ],
@@ -1499,6 +1504,7 @@ const CUSTOMER_REFERRAL_STEPS: DeleteStep[] = [
 ];
 
 const SCAN_EVENT_STEPS: DeleteStep[] = [
+  { name: 'redemption_receipts', table: 'redemptionCelebrationReceipts', index: 'by_businessId', field: 'businessId' },
   { name: 'tokens', table: 'scanTokenEvents', index: 'by_businessId', field: 'businessId' },
   { name: 'sessions', table: 'scanSessions', index: 'by_businessId', field: 'businessId' },
   { name: 'events', table: 'events', index: 'by_businessId', field: 'businessId' },
@@ -1566,6 +1572,18 @@ const AI_STEPS: DeleteStep[] = [
     field: 'businessId',
   },
   {
+    name: 'manager_outcome_dirty',
+    table: 'smartManagerOutcomeDirtyMarkers',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'manager_outcome_reversals',
+    table: 'smartManagerOutcomeReversalMarkers',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
     name: 'recommendations',
     table: 'aiRecommendations',
     index: 'by_businessId',
@@ -1576,6 +1594,18 @@ const AI_STEPS: DeleteStep[] = [
 ];
 
 const CAMPAIGN_STEPS: DeleteStep[] = [
+  {
+    name: 'run_outcomes',
+    table: 'smartManagerRecipientOutcomes',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'run_recipients',
+    table: 'campaignRunRecipients',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
   { name: 'runs', table: 'campaignRuns', index: 'by_businessId', field: 'businessId' },
   { name: 'campaigns', table: 'campaigns', index: 'by_businessId', field: 'businessId' },
 ];

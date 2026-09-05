@@ -164,6 +164,7 @@ type CampaignFactRow = {
 
 type CampaignRunFactRow = {
   campaignId: Id<'campaigns'>;
+  sentAt?: number;
 };
 
 export type BusinessRecommendationFactSourceBundle = {
@@ -286,7 +287,12 @@ export function buildCampaignLifecycleFactValue(args: {
   now: number;
 }): CampaignLifecycleFactValue {
   const campaignIdsWithRuns = new Set(
-    args.campaignRuns.map((run) => String(run.campaignId))
+    args.campaignRuns
+      .filter(
+        (run) =>
+          typeof run.sentAt === 'number' && Number.isFinite(run.sentAt)
+      )
+      .map((run) => String(run.campaignId))
   );
   const classified = [...args.campaigns]
     .sort(compareCampaignsByRecency)
@@ -1544,7 +1550,7 @@ async function evaluateRecommendationGuide(
         .first();
       const campaignClassification = classifyCampaignState(campaign, {
         now,
-        hasPersistedCompletionEvidence: Boolean(run),
+        hasPersistedCompletionEvidence: Number.isFinite(run?.sentAt),
       });
       const state = campaignClassification.state;
       const exactScheduledFingerprint =

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { deleteMyAccountHardImpl } from '../users';
+import { materializeApprovedRunInternal } from '../smartManagerExecution';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -565,6 +566,22 @@ describe('deleteMyAccountHardImpl', () => {
         { _id: 'msg_customer', toUserId: 'u_customer' },
         { _id: 'msg_other', toUserId: 'u_other' },
       ],
+      redemptionCelebrationReceipts: [
+        { _id: 'receipt_customer', ownerUserId: 'u_customer' },
+        { _id: 'receipt_other', ownerUserId: 'u_other' },
+      ],
+      smartManagerRecipientOutcomes: [
+        { _id: 'outcome_customer', userId: 'u_customer' },
+        { _id: 'outcome_other', userId: 'u_other' },
+      ],
+      smartManagerOutcomeDirtyMarkers: [
+        { _id: 'outcome_dirty_customer', userId: 'u_customer' },
+        { _id: 'outcome_dirty_other', userId: 'u_other' },
+      ],
+      smartManagerOutcomeReversalMarkers: [
+        { _id: 'outcome_reversal_customer', userId: 'u_customer' },
+        { _id: 'outcome_reversal_other', userId: 'u_other' },
+      ],
       authAccounts: [{ _id: 'acct_customer', userId: 'u_customer' }],
       authSessions: [{ _id: 'sess_customer', userId: 'u_customer' }],
       authRefreshTokens: [
@@ -671,6 +688,18 @@ describe('deleteMyAccountHardImpl', () => {
     expect(ctx.db.rows('messageLog').map((doc) => doc._id)).toEqual([
       'msg_other',
     ]);
+    expect(
+      ctx.db.rows('redemptionCelebrationReceipts').map((doc) => doc._id)
+    ).toEqual(['receipt_other']);
+    expect(
+      ctx.db.rows('smartManagerRecipientOutcomes').map((doc) => doc._id)
+    ).toEqual(['outcome_other']);
+    expect(
+      ctx.db.rows('smartManagerOutcomeDirtyMarkers').map((doc) => doc._id)
+    ).toEqual(['outcome_dirty_other']);
+    expect(
+      ctx.db.rows('smartManagerOutcomeReversalMarkers').map((doc) => doc._id)
+    ).toEqual(['outcome_reversal_other']);
     expect(ctx.db.rows('authAccounts')).toEqual([]);
     expect(ctx.db.rows('authSessions')).toEqual([]);
     expect(ctx.db.rows('authRefreshTokens')).toEqual([]);
@@ -1371,7 +1400,7 @@ describe('deleteMyAccountHardImpl', () => {
     });
   });
 
-  test('redacts Smart Manager actors while preserving surviving business action evidence and copy', async () => {
+  test('invalidates a delivering run before deleting its recipient and makes its lease stale', async () => {
     const ctx = buildCtx({
       users: [
         { _id: 'u_customer', email: 'customer@example.com', isActive: true },
@@ -1417,7 +1446,9 @@ describe('deleteMyAccountHardImpl', () => {
           decisionHash: 'decision_hash',
           evidenceFingerprint: 'decision_evidence',
           factHash: 'fact_hash',
-          state: 'reviewable',
+          state: 'approved',
+          materializationState: 'ready_for_delivery',
+          approvedCampaignRunId: 'run_approved',
           updatedAt: 1,
         },
       ],
@@ -1448,6 +1479,34 @@ describe('deleteMyAccountHardImpl', () => {
           eventType: 'prepared_copy_selected',
         },
       ],
+      campaignRuns: [
+        {
+          _id: 'run_approved',
+          businessId: 'b_keep',
+          executionKind: 'smart_manager_v1',
+          approvedByUserId: 'u_customer',
+          executionState: 'delivering',
+          deliveryGeneration: 3,
+          preparedActionId: 'prepared_1',
+          materializationGeneration: 4,
+          materializationCheckpoint: 9,
+          approvalKey: 'immutable_approval_key',
+          recipientSetHash: 'immutable_recipient_set_hash',
+          totalExecutionRecipients: 1,
+          materializedEligible: 1,
+        },
+      ],
+      campaignRunRecipients: [
+        {
+          _id: 'run_recipient_deleted_user',
+          businessId: 'b_keep',
+          campaignRunId: 'run_approved',
+          userId: 'u_customer',
+          executionState: 'dispatching',
+          leaseGeneration: 2,
+          leaseToken: 'active_delivery_lease',
+        },
+      ],
     });
     const copyBefore = clone(ctx.db.rows('smartManagerPreparedActionCopies')[0]);
 
@@ -1467,11 +1526,29 @@ describe('deleteMyAccountHardImpl', () => {
       decisionHash: 'decision_hash',
       evidenceFingerprint: 'decision_evidence',
       factHash: 'fact_hash',
-      state: 'reviewable',
+      state: 'approved',
+      materializationState: 'invalidated',
     });
     expect(ctx.db.rows('smartManagerPreparedActionCopies')[0]).toEqual(
       copyBefore
     );
+    expect(ctx.db.rows('campaignRuns')).toEqual([
+      expect.objectContaining({
+        _id: 'run_approved',
+        approvedByUserId: undefined,
+        executionState: 'invalidated',
+        deliveryGeneration: 4,
+        deliveryFailureCode: 'RECIPIENT_ACCOUNT_DELETED',
+        materializationInvalidationReason: 'RECIPIENT_ACCOUNT_DELETED',
+        materializationGeneration: 5,
+        materializationCheckpoint: 10,
+        approvalKey: 'immutable_approval_key',
+        recipientSetHash: 'immutable_recipient_set_hash',
+        totalExecutionRecipients: 1,
+        materializedEligible: 1,
+      }),
+    ]);
+    expect(ctx.db.rows('campaignRunRecipients')).toHaveLength(0);
     expect(ctx.db.rows('smartManagerAuditEvents')).toEqual([
       expect.objectContaining({
         _id: 'audit_deleted_actor',
@@ -1480,6 +1557,159 @@ describe('deleteMyAccountHardImpl', () => {
       expect.objectContaining({
         _id: 'audit_owner',
         actorUserId: 'u_owner',
+      }),
+    ]);
+  });
+
+  test('invalidates a materializing run and makes its queued worker stale', async () => {
+    const ctx = buildCtx({
+      users: [
+        { _id: 'u_customer', email: 'customer@example.com', isActive: true },
+        { _id: 'u_owner', email: 'owner@example.com', isActive: true },
+      ],
+      businesses: [
+        {
+          _id: 'b_keep',
+          ownerUserId: 'u_owner',
+          isActive: true,
+          name: 'Keep',
+        },
+      ],
+      businessStaff: [
+        {
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_owner',
+          staffRole: 'owner',
+          status: 'active',
+        },
+        {
+          _id: 'staff_deleted',
+          businessId: 'b_keep',
+          userId: 'u_customer',
+          staffRole: 'staff',
+          status: 'active',
+        },
+      ],
+      smartManagerPreparedActions: [
+        {
+          _id: 'prepared_materializing',
+          businessId: 'b_keep',
+          approvedCampaignRunId: 'run_materializing',
+          materializationState: 'materializing',
+        },
+      ],
+      campaignRuns: [
+        {
+          _id: 'run_materializing',
+          businessId: 'b_keep',
+          executionKind: 'smart_manager_v1',
+          executionState: 'materializing',
+          preparedActionId: 'prepared_materializing',
+          materializationGeneration: 2,
+          materializationCheckpoint: 3,
+        },
+      ],
+      campaignRunRecipients: [
+        {
+          _id: 'recipient_materializing',
+          businessId: 'b_keep',
+          campaignRunId: 'run_materializing',
+          userId: 'u_customer',
+        },
+      ],
+    });
+    const staleWorkerArgs = {
+      campaignRunId: 'run_materializing',
+      materializationGeneration: 2,
+      expectedCheckpoint: 3,
+    };
+
+    const result = await deleteMyAccountHardImpl(ctx);
+    const staleResult = await materializeApprovedRunInternal._handler(
+      ctx,
+      staleWorkerArgs
+    );
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('campaignRunRecipients')).toHaveLength(0);
+    expect(ctx.db.rows('campaignRuns')[0]).toMatchObject({
+      executionState: 'invalidated',
+      materializationInvalidationReason: 'RECIPIENT_ACCOUNT_DELETED',
+      materializationGeneration: 3,
+      materializationCheckpoint: 4,
+    });
+    expect(ctx.db.rows('smartManagerPreparedActions')[0]).toMatchObject({
+      materializationState: 'invalidated',
+    });
+    expect(staleResult).toEqual({ status: 'stale' });
+  });
+
+  test('deleting only a non-recipient approver keeps the run ready and redacts the actor', async () => {
+    const ctx = buildCtx({
+      users: [
+        { _id: 'u_customer', email: 'customer@example.com', isActive: true },
+        { _id: 'u_recipient', email: 'recipient@example.com', isActive: true },
+        { _id: 'u_owner', email: 'owner@example.com', isActive: true },
+      ],
+      businesses: [
+        {
+          _id: 'b_keep',
+          ownerUserId: 'u_owner',
+          isActive: true,
+          name: 'Keep',
+        },
+      ],
+      businessStaff: [
+        {
+          _id: 'staff_owner',
+          businessId: 'b_keep',
+          userId: 'u_owner',
+          staffRole: 'owner',
+          status: 'active',
+        },
+        {
+          _id: 'staff_approver',
+          businessId: 'b_keep',
+          userId: 'u_customer',
+          staffRole: 'manager',
+          status: 'active',
+        },
+      ],
+      campaignRuns: [
+        {
+          _id: 'run_approver_only',
+          businessId: 'b_keep',
+          executionKind: 'smart_manager_v1',
+          executionState: 'ready_for_delivery',
+          approvedByUserId: 'u_customer',
+          recipientSetHash: 'stable_hash',
+          totalExecutionRecipients: 1,
+        },
+      ],
+      campaignRunRecipients: [
+        {
+          _id: 'recipient_other_user',
+          businessId: 'b_keep',
+          campaignRunId: 'run_approver_only',
+          userId: 'u_recipient',
+        },
+      ],
+    });
+
+    const result = await deleteMyAccountHardImpl(ctx);
+
+    expect(result.success).toBe(true);
+    expect(ctx.db.rows('campaignRuns')[0]).toMatchObject({
+      executionState: 'ready_for_delivery',
+      approvedByUserId: undefined,
+      recipientSetHash: 'stable_hash',
+      totalExecutionRecipients: 1,
+    });
+    expect(ctx.db.rows('campaignRunRecipients')).toEqual([
+      expect.objectContaining({
+        _id: 'recipient_other_user',
+        userId: 'u_recipient',
       }),
     ]);
   });

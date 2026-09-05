@@ -5,7 +5,16 @@ import appJson from './app.json';
 const baseConfig = appJson.expo as ExpoConfig;
 const PRODUCTION_GOOGLE_SERVICES_FILE = './google-services.json';
 const NOTIFICATIONS_PLUGIN = 'expo-notifications';
+const AUDIO_PLUGIN = 'expo-audio';
 type ExpoPlugin = NonNullable<ExpoConfig['plugins']>[number];
+const AUDIO_PLAYBACK_ONLY_PLUGIN: ExpoPlugin = [
+  AUDIO_PLUGIN,
+  {
+    microphonePermission: false,
+    recordAudioAndroid: false,
+    enableBackgroundRecording: false,
+  },
+];
 
 function getAppEnvironment(): string | undefined {
   return process.env.EXPO_PUBLIC_APP_ENV?.trim().toLowerCase();
@@ -73,10 +82,24 @@ function withGoogleMapsNativeKeys(config: ExpoConfig): ExpoConfig {
   };
 }
 
+function withUiSoundEffects(config: ExpoConfig): ExpoConfig {
+  const plugins = config.plugins ?? [];
+  const pluginsWithoutAudio = plugins.filter(
+    (plugin) =>
+      (typeof plugin === 'string' ? plugin : plugin[0]) !== AUDIO_PLUGIN
+  );
+  return {
+    ...config,
+    plugins: [...pluginsWithoutAudio, AUDIO_PLAYBACK_ONLY_PLUGIN],
+  };
+}
+
 export default function defineConfig(_context: ConfigContext): ExpoConfig {
-  return withGoogleMapsNativeKeys(
-    withEnvironmentAwareNotifications(
-      withProductionGoogleServicesFile(baseConfig)
+  return withUiSoundEffects(
+    withGoogleMapsNativeKeys(
+      withEnvironmentAwareNotifications(
+        withProductionGoogleServicesFile(baseConfig)
+      )
     )
   );
 }

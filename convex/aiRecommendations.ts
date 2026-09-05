@@ -1966,17 +1966,22 @@ async function refreshReadyCampaignRuns(input: {
 }) {
   const nextRuns: Doc<'campaignRuns'>[] = [];
   for (const run of input.runs) {
+    if (typeof run.sentAt !== 'number' || !Number.isFinite(run.sentAt)) {
+      nextRuns.push(run);
+      continue;
+    }
+    const sentAt = run.sentAt;
     if (
       run.summaryStatus === 'pending' &&
-      (run.summaryReadyAt ?? run.sentAt + 3 * DAY_MS) <= input.now
+      (run.summaryReadyAt ?? sentAt + 3 * DAY_MS) <= input.now
     ) {
       const summaryWindowEnd = Math.min(
-        run.summaryWindowEndsAt ?? run.sentAt + 14 * DAY_MS,
+        run.summaryWindowEndsAt ?? sentAt + 14 * DAY_MS,
         input.now
       );
       const eventsInWindow = input.events.filter(
         (event) =>
-          event.createdAt >= run.sentAt &&
+          event.createdAt >= sentAt &&
           event.createdAt <= summaryWindowEnd &&
           (event.type === 'STAMP_ADDED' || event.type === 'REWARD_REDEEMED')
       );
@@ -2160,7 +2165,10 @@ export function computeCoreMetrics(input: {
   }
 
   const campaigns30d = input.campaignRuns.filter(
-    (run) => run.sentAt >= thirtyDaysAgo
+    (run) =>
+      typeof run.sentAt === 'number' &&
+      Number.isFinite(run.sentAt) &&
+      run.sentAt >= thirtyDaysAgo
   ).length;
   const activityDropPct30d =
     visitsPrev30d > 0 ? (visitsPrev30d - visits30d) / visitsPrev30d : 0;
@@ -2900,9 +2908,12 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
       entitlements.isSubscriptionActive === true &&
       aiQuotaLimit > 0;
 
-    const sortedCampaignRuns = [...campaignRuns].sort(
-      (left, right) => right.sentAt - left.sentAt
-    );
+    const sortedCampaignRuns = campaignRuns
+      .filter(
+        (run): run is Doc<'campaignRuns'> & { sentAt: number } =>
+          typeof run.sentAt === 'number' && Number.isFinite(run.sentAt)
+      )
+      .sort((left, right) => right.sentAt - left.sentAt);
     const lastCampaign = sortedCampaignRuns[0] ?? null;
     const readyCampaignRun =
       sortedCampaignRuns.find((run) => run.summaryStatus === 'ready') ?? null;
@@ -2911,9 +2922,10 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     );
     const hasEverSentCampaign = sortedCampaignRuns.length > 0;
     const hasEverSentWelcomeCampaign = sentWelcomeRuns.length > 0;
-    const hasRecentWelcomeCampaign = sentWelcomeRuns.some(
-      (run) => run.sentAt >= now - WELCOME_CAMPAIGN_LOOKBACK_DAYS * DAY_MS
-    );
+      const hasRecentWelcomeCampaign = sentWelcomeRuns.some(
+        (run) =>
+          run.sentAt >= now - WELCOME_CAMPAIGN_LOOKBACK_DAYS * DAY_MS
+      );
     const latestRecommendation =
       [...aiHistory].sort(
         (left, right) => right.createdAt - left.createdAt

@@ -4,6 +4,7 @@ import { Tabs, useSegments } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import RedemptionCelebrationHost from '@/components/customer/RedemptionCelebrationHost';
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { justifyContent } from '@/lib/rtl';
 
@@ -109,8 +110,9 @@ export default function CustomerTabsLayout() {
     : currentLeafSegment;
 
   return (
-    <Tabs
-      screenOptions={{
+    <>
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
         tabBarStyle: {
@@ -143,7 +145,7 @@ export default function CustomerTabsLayout() {
           marginTop: 2,
         },
       }}
-    >
+      >
       <Tabs.Screen
         name="settings"
         options={{
@@ -293,7 +295,9 @@ export default function CustomerTabsLayout() {
           href: null,
         }}
       />
-    </Tabs>
+      </Tabs>
+      <RedemptionCelebrationHost />
+    </>
   );
 }
 

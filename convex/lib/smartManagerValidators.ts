@@ -478,6 +478,7 @@ export const smartManagerAuthorityModeValidator = v.literal(
 
 export const smartManagerPreparedActionStateValidator = v.union(
   v.literal('reviewable'),
+  v.literal('approved'),
   v.literal('superseded'),
   v.literal('stale')
 );
@@ -525,6 +526,36 @@ export const smartManagerAiFailureCodeValidator = v.union(
   v.literal('ACTION_EXPIRED'),
   v.literal('REEVALUATION_PENDING')
 );
+
+export const smartManagerDeliveryFailureCodeValidator = v.union(
+  v.literal('BUSINESS_NOT_FOUND'),
+  v.literal('BUSINESS_INACTIVE'),
+  v.literal('BUSINESS_DELETION_IN_PROGRESS'),
+  v.literal('SUBSCRIPTION_INACTIVE'),
+  v.literal('SMART_MANAGER_CAPABILITY_UNAVAILABLE'),
+  v.literal('CAMPAIGN_SEND_ENTITLEMENT_UNAVAILABLE'),
+  v.literal('IMMUTABLE_BINDING_INVALID'),
+  v.literal('RECIPIENT_SET_INVALID'),
+  v.literal('RECIPIENT_ACCOUNT_UNAVAILABLE'),
+  v.literal('PUSH_TOKEN_MISSING'),
+  v.literal('PUSH_TOKEN_INVALID'),
+  v.literal('PUSH_PROVIDER_TRANSIENT'),
+  v.literal('PUSH_PROVIDER_REJECTED'),
+  v.literal('PUSH_OUTCOME_AMBIGUOUS'),
+  v.literal('IN_APP_PERSISTENCE_FAILED'),
+  v.literal('RECIPIENT_ACCOUNT_DELETED')
+);
+
+export const smartManagerDeliveryCountersValidator = v.object({
+  totalFinalizedRecipients: v.number(),
+  completedExecutionCount: v.number(),
+  pendingCount: v.number(),
+  notContactableCount: v.number(),
+  pushAcceptedCount: v.number(),
+  inAppAvailableCount: v.number(),
+  fallbackToInAppCount: v.number(),
+  terminalFailureCount: v.number(),
+});
 
 export const smartManagerPreparedCampaignDraftValidator = v.object({
   type: v.literal('winback'),
@@ -643,6 +674,51 @@ export const smartManagerAuditEventDetailValidator = v.union(
     copyId: v.id('smartManagerPreparedActionCopies'),
     selectedCopyRevision: v.number(),
     provenance: smartManagerPreparedActionCopyProvenanceValidator,
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    approvalKey: v.string(),
+    selectedCopyRevision: v.number(),
+    contentHash: v.string(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    approvalKey: v.string(),
+    materializationGeneration: v.number(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    recipientSetHash: v.string(),
+    totalExecutionRecipients: v.number(),
+    pushEligible: v.number(),
+    inAppFallbackEligible: v.number(),
+    notContactable: v.number(),
+    excluded: v.number(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    failureCode: v.union(
+      v.literal('SOURCE_LIMIT_EXCEEDED'),
+      v.literal('RECIPIENT_LIMIT_EXCEEDED'),
+      v.literal('RECIPIENT_BINDING_INVALID'),
+      v.literal('MATERIALIZATION_INVARIANT_FAILED')
+    ),
+    materializationGeneration: v.number(),
+  }),
+  v.object({
+    actionKind: v.literal('winback_campaign'),
+    campaignId: v.id('campaigns'),
+    recipientSetHash: v.string(),
+    deliveryGeneration: v.number(),
+    state: v.union(
+      v.literal('delivering'),
+      v.literal('delivery_completed'),
+      v.literal('delivery_completed_with_failures'),
+      v.literal('invalidated'),
+      v.literal('failed')
+    ),
+    counters: smartManagerDeliveryCountersValidator,
+    failureCode: v.optional(smartManagerDeliveryFailureCodeValidator),
   })
 );
 
