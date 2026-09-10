@@ -12,7 +12,6 @@ import {
   alignItems,
   flexDirection,
   rtlBaseView,
-  selfStart,
   tw,
 } from '@/lib/rtl';
 
@@ -107,10 +106,12 @@ export function RecommendationActionCard({
   reason,
   ctaLabel,
   emphasis,
-  isLoading,
-  isInteractionLoading,
-  onPress,
-  onShowOptions,
+  isOpening,
+  isSnoozing,
+  isDismissing,
+  onOpen,
+  onSnooze,
+  onDismiss,
 }: {
   category: RecommendationCategory;
   tone: RecommendationTone;
@@ -118,13 +119,16 @@ export function RecommendationActionCard({
   reason: string;
   ctaLabel: string;
   emphasis: 'primary' | 'secondary';
-  isLoading: boolean;
-  isInteractionLoading?: boolean;
-  onPress: () => void;
-  onShowOptions?: () => void;
+  isOpening: boolean;
+  isSnoozing: boolean;
+  isDismissing: boolean;
+  onOpen: () => void;
+  onSnooze: () => void;
+  onDismiss: () => void;
 }) {
   const palette = TONE_PALETTE[tone];
   const isPrimary = emphasis === 'primary';
+  const isBusy = isOpening || isSnoozing || isDismissing;
 
   return (
     <View
@@ -138,30 +142,6 @@ export function RecommendationActionCard({
       ]}
     >
       <View style={styles.headingRow}>
-        {onShowOptions ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="אפשרויות להמלצה"
-            accessibilityHint="פתיחת פעולות דחייה והסתרה"
-            disabled={isInteractionLoading}
-            hitSlop={4}
-            onPress={onShowOptions}
-            style={({ pressed }) => [
-              styles.optionsButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            {isInteractionLoading ? (
-              <ActivityIndicator size="small" color={palette.label} />
-            ) : (
-              <Ionicons
-                name="ellipsis-horizontal"
-                size={22}
-                color={palette.label}
-              />
-            )}
-          </Pressable>
-        ) : null}
         <View
           style={[
             styles.iconBubble,
@@ -171,7 +151,7 @@ export function RecommendationActionCard({
         >
           <Ionicons
             name={palette.icon}
-            size={isPrimary ? 22 : 18}
+            size={isPrimary ? 20 : 18}
             color={palette.iconColor}
           />
         </View>
@@ -193,48 +173,83 @@ export function RecommendationActionCard({
         </View>
       </View>
 
-      <Text className={tw.textStart} style={styles.reason}>
+      <Text className={tw.textStart} numberOfLines={2} style={styles.reason}>
         {reason}
       </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={ctaLabel}
-        disabled={isLoading}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.cta,
-          isPrimary ? styles.primaryCta : styles.secondaryCta,
-          pressed && !isLoading ? styles.pressed : null,
-        ]}
-      >
-        {isLoading ? (
-          <ActivityIndicator
-            size="small"
-            color={
-              isPrimary ? '#FFFFFF' : DASHBOARD_TOKENS.colors.brandBlue
-            }
-          />
-        ) : (
-          <>
-            <Text
-              style={[
-                styles.ctaText,
-                isPrimary ? styles.primaryCtaText : styles.secondaryCtaText,
-              ]}
-            >
+      <View style={styles.actionRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={ctaLabel}
+          disabled={isBusy}
+          onPress={onOpen}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.primaryAction,
+            pressed && !isBusy ? styles.pressed : null,
+            isBusy ? styles.disabled : null,
+          ]}
+        >
+          {isOpening ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text numberOfLines={2} style={styles.primaryActionText}>
               {ctaLabel}
             </Text>
-            <Ionicons
-              name="chevron-back"
-              size={17}
-              color={
-                isPrimary ? '#FFFFFF' : DASHBOARD_TOKENS.colors.brandBlue
-              }
+          )}
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="הזכר לי מאוחר יותר"
+          disabled={isBusy}
+          onPress={onSnooze}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.snoozeAction,
+            pressed && !isBusy ? styles.pressed : null,
+            isBusy ? styles.disabled : null,
+          ]}
+        >
+          {isSnoozing ? (
+            <ActivityIndicator
+              size="small"
+              color={DASHBOARD_TOKENS.colors.brandBlue}
             />
-          </>
-        )}
-      </Pressable>
+          ) : (
+            <Text numberOfLines={2} style={styles.snoozeActionText}>
+              הזכר לי מאוחר יותר
+            </Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="הסרת ההמלצה"
+          accessibilityHint="פתיחת בקשת אישור להסרת ההמלצה"
+          disabled={isBusy}
+          hitSlop={2}
+          onPress={onDismiss}
+          style={({ pressed }) => [
+            styles.dismissAction,
+            pressed && !isBusy ? styles.dismissActionPressed : null,
+            isBusy ? styles.disabled : null,
+          ]}
+        >
+          {isDismissing ? (
+            <ActivityIndicator
+              size="small"
+              color={DASHBOARD_TOKENS.colors.textMuted}
+            />
+          ) : (
+            <Ionicons
+              name="trash-outline"
+              size={19}
+              color={DASHBOARD_TOKENS.colors.textMuted}
+            />
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -246,31 +261,21 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   primaryCard: {
-    minHeight: 190,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6,
     ...DASHBOARD_TOKENS.cardShadowSoft,
   },
   secondaryCard: {
-    minHeight: 128,
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    gap: 8,
+    paddingVertical: 8,
+    gap: 5,
   },
   headingRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     ...rtlBaseView,
-  },
-  optionsButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   iconBubble: {
     alignItems: 'center',
@@ -278,9 +283,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   primaryIconBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   secondaryIconBubble: {
     width: 36,
@@ -308,8 +313,8 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   primaryTitle: {
-    fontSize: 18,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '800',
   },
   reason: {
@@ -320,42 +325,64 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  cta: {
-    minHeight: 48,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+  actionRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    alignSelf: selfStart,
     ...rtlBaseView,
   },
-  primaryCta: {
-    minWidth: 150,
-    marginTop: 'auto',
+  actionButton: {
+    minWidth: 0,
+    minHeight: 44,
+    borderRadius: 11,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryAction: {
+    flex: 1.08,
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
   },
-  secondaryCta: {
-    minWidth: 132,
-    marginTop: 'auto',
+  snoozeAction: {
+    flex: 1,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D7E1F2',
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
-  ctaText: {
-    fontSize: 13,
-    lineHeight: 18,
+  primaryActionText: {
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '800',
-    textAlign: 'center',
-  },
-  primaryCtaText: {
     color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
-  secondaryCtaText: {
+  snoozeActionText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
     color: DASHBOARD_TOKENS.colors.brandBlue,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  dismissAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255,255,255,0.58)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  dismissActionPressed: {
+    backgroundColor: '#FEE2E2',
   },
   pressed: {
     opacity: 0.82,
+  },
+  disabled: {
+    opacity: 0.58,
   },
 });

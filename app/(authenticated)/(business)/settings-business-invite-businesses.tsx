@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,16 +17,14 @@ import {
 } from 'react-native';
 import {
   SafeAreaView,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 function BusinessInviteContent({
@@ -177,8 +175,6 @@ function BusinessInviteContent({
 }
 
 export default function BusinessInviteBusinessesScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { width } = useWindowDimensions();
   const {
@@ -193,9 +189,9 @@ export default function BusinessInviteBusinessesScreen() {
         activeBusiness.staffRole
       )
     : null;
-  const canViewBilling = capabilities?.view_billing_state === true;
+  const canInviteBusinesses = capabilities?.invite_businesses === true;
 
-  if (activeBusiness && !canViewBilling) {
+  if (activeBusiness && !canInviteBusinesses) {
     return <Redirect href="/(authenticated)/(business)/settings" />;
   }
 
@@ -211,22 +207,11 @@ export default function BusinessInviteBusinessesScreen() {
           },
         ]}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="הזמנת עסקים"
-            subtitle="הזמינו בעלי עסקים ל-StampAix וקבלו חודשי שימוש חינם"
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  router.push('/(authenticated)/(business)/settings')
-                }
-              />
-            }
-          />
-        </StickyScrollHeader>
+        <BusinessSettingsSubpageHeader
+          title="הזמנת עסקים"
+          subtitle="הזמינו בעלי עסקים ל-StampAix וקבלו חודשי שימוש חינם"
+          fallbackHref={BUSINESS_ROUTES.settings}
+        />
 
         {isLoading || !activeBusinessId ? (
           <View style={styles.loadingCard}>

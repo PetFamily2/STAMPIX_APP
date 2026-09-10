@@ -8,6 +8,7 @@ import {
 } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   useCallback,
   useEffect,
@@ -33,12 +34,15 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import QrScanner from '@/components/QrScanner';
+import PosRedemptionCelebration from '@/components/scanner/PosRedemptionCelebration';
+import RewardReadyCue from '@/components/scanner/RewardReadyCue';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveCardTheme } from '@/constants/cardThemes';
 import { track } from '@/lib/analytics';
 import {
   trackActivationEvent,
@@ -52,6 +56,7 @@ import {
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
   playPunchSuccessFeedback,
+  playRedemptionCelebrationFeedback,
   playSubtleConfirmationHaptic,
 } from '@/lib/feedback';
 import {
@@ -115,6 +120,7 @@ type CommitActionResult = {
   undoAvailableUntil?: number;
   referralRewardTriggered?: boolean;
   undoBlockedReason?: 'REFERRAL_REWARD_TRIGGERED' | null;
+  redemptionContinuationAvailableUntil?: number;
 };
 
 type UndoActionResult = {
@@ -143,12 +149,44 @@ type ReferralBenefitItem = {
   referrerName: string | null;
 };
 
+type PosRedemptionCelebrationState = {
+  eventKey: string;
+  customerName: string;
+  programName: string;
+  rewardName: string;
+  currentStamps: number;
+  maxStamps: number;
+};
+
 const SCANNER_DEVICE_ID_STORAGE_KEY = 'scanner:deviceId';
 const FALLBACK_UNDO_WINDOW_MS = 30_000;
 const COMPLETE_RESET_MS = 30_000;
 const TABLET_BREAKPOINT = 768;
+const PROGRAM_GRID_COLUMNS = 5;
+const PROGRAM_GRID_GAP = 7;
+const TABLET_PROGRAM_GRID_MAX_WIDTH = 560;
+const RECENT_POS_REDEMPTION_LIMIT = 100;
 const STALE_PROGRAM_NOTICE =
   'התוכנית שנבחרה כבר אינה זמינה. יש לבחור תוכנית אחרת.';
+
+type ProgramIconName = keyof typeof Ionicons.glyphMap;
+
+const PROGRAM_ICON_ALIASES: Record<string, ProgramIconName> = {
+  coffee: 'cafe',
+  food: 'restaurant',
+  gift: 'gift',
+  heart: 'heart',
+  pizza: 'pizza',
+  star: 'star',
+};
+
+function resolveProgramIconName(stampIcon: string): ProgramIconName | null {
+  const normalized = stampIcon.trim().toLowerCase();
+  const candidate = PROGRAM_ICON_ALIASES[normalized] ?? normalized;
+  return candidate in Ionicons.glyphMap
+    ? (candidate as ProgramIconName)
+    : null;
+}
 
 function generateRuntimeSessionId() {
   return `runtime_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -191,6 +229,13 @@ export default function ScannerScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_BREAKPOINT;
+  const contentWidth = Math.max(0, Math.min(windowWidth, 960) - 40);
+  const programGridWidth = isTablet
+    ? Math.min(contentWidth, TABLET_PROGRAM_GRID_MAX_WIDTH)
+    : contentWidth;
+  const programTileWidth =
+    (programGridWidth - PROGRAM_GRID_GAP * (PROGRAM_GRID_COLUMNS - 1)) /
+    PROGRAM_GRID_COLUMNS;
   const isStaffRoute = (segments as string[]).includes('(staff)');
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -221,6 +266,8 @@ export default function ScannerScreen() {
   const [benefitActionMessage, setBenefitActionMessage] = useState<
     string | null
   >(null);
+  const [posRedemptionCelebration, setPosRedemptionCelebration] =
+    useState<PosRedemptionCelebrationState | null>(null);
   const completeResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -230,6 +277,7 @@ export default function ScannerScreen() {
   const previousBusinessIdRef = useRef<string | null>(null);
   const selectedProgramIdRef = useRef<string | null>(null);
   const transactionGenerationRef = useRef(0);
+  const celebratedPosRedemptionIdsRef = useRef(new Set<string>());
   selectedProgramIdRef.current = flow.selectedProgramId;
 
   const capabilities = selectedBusiness?.capabilities;
@@ -247,7 +295,6 @@ export default function ScannerScreen() {
     () => programs.map((program) => program.loyaltyProgramId),
     [programs]
   );
-  const programIdsSignature = programIds.join('|');
   const programsLoaded = programsQuery !== undefined;
   const selectedProgram =
     programs.find(
@@ -273,6 +320,9 @@ export default function ScannerScreen() {
   const resolveScan = useMutation(api.scanner.resolveScan);
   const commitStamp = useMutation(api.scanner.commitStamp);
   const commitRedeem = useMutation(api.scanner.commitRedeem);
+  const commitCompletedStampRedeem = useMutation(
+    api.scanner.commitCompletedStampRedeem
+  );
   const undoLastScannerAction = useMutation(api.scanner.undoLastScannerAction);
   const redeemReferralBenefit = useMutation(
     api.referrals.redeemReferralBenefit
@@ -342,6 +392,7 @@ export default function ScannerScreen() {
     setIsUndoing(false);
     setIsRedeemingBenefitId(null);
     setBenefitActionMessage(null);
+    setPosRedemptionCelebration(null);
     dispatch({ type: 'BUSINESS_CHANGED' });
   }, [activeBusinessId, isBusinessLoading]);
 
@@ -455,7 +506,7 @@ export default function ScannerScreen() {
     return () => {
       cancelled = true;
     };
-  }, [programIdsSignature, programsLoaded, storageKey]);
+  }, [programIds, programsLoaded, storageKey]);
 
   const clearCompleteResetTimer = useCallback(() => {
     if (completeResetTimeoutRef.current) {
@@ -464,12 +515,19 @@ export default function ScannerScreen() {
     }
   }, []);
 
+  const handlePosCelebrationComplete = useCallback((eventKey: string) => {
+    setPosRedemptionCelebration((current) =>
+      current?.eventKey === eventKey ? null : current
+    );
+  }, []);
+
   const resetForNextCustomer = useCallback(() => {
     invalidateTransactionGeneration(transactionGenerationRef);
     clearCompleteResetTimer();
     setIsUndoing(false);
     setIsRedeemingBenefitId(null);
     setBenefitActionMessage(null);
+    setPosRedemptionCelebration(null);
     dispatch({ type: 'NEXT_CUSTOMER' });
   }, [clearCompleteResetTimer]);
 
@@ -481,6 +539,7 @@ export default function ScannerScreen() {
         setIsUndoing(false);
         setIsRedeemingBenefitId(null);
         setBenefitActionMessage(null);
+        setPosRedemptionCelebration(null);
         dispatch({ type: 'NEXT_CUSTOMER' });
         completeResetTimeoutRef.current = null;
       }, Math.max(0, delayMs));
@@ -530,7 +589,10 @@ export default function ScannerScreen() {
 
   const selectProgram = useCallback(
     async (programId: string) => {
-      if (!storageKey) {
+      if (
+        !storageKey ||
+        (flow.phase !== 'ready' && flow.phase !== 'needs_program')
+      ) {
         return;
       }
       staleProgramRecoveryRef.current = false;
@@ -543,23 +605,8 @@ export default function ScannerScreen() {
         // The counter preset remains active for this app session.
       }
     },
-    [clearCompleteResetTimer, storageKey]
+    [clearCompleteResetTimer, flow.phase, storageKey]
   );
-
-  const changeProgram = useCallback(async () => {
-    if (!storageKey) {
-      return;
-    }
-    clearCompleteResetTimer();
-    invalidateTransactionGeneration(transactionGenerationRef);
-    setBenefitActionMessage(null);
-    dispatch({ type: 'CHANGE_PROGRAM' });
-    try {
-      await AsyncStorage.removeItem(storageKey);
-    } catch {
-      // Local state still requires an explicit new selection.
-    }
-  }, [clearCompleteResetTimer, storageKey]);
 
   const recoverFromStaleProgram = useCallback(
     async (message: string) => {
@@ -646,29 +693,56 @@ export default function ScannerScreen() {
       }
       dispatch({ type: 'BEGIN_RESOLVE' });
       try {
-        const mutation =
-          session.actionMode === 'stamp' ? commitStamp : commitRedeem;
         const guardedResult = await awaitCurrentTransaction(
           transactionGenerationRef,
           generation,
-          async () =>
-            (await mutation({
+          async () => {
+            const args = {
               scanSessionId: session.scanSessionId as Id<'scanSessions'>,
-            })) as CommitActionResult
+            };
+            if (session.actionMode === 'stamp') {
+              return (await commitStamp(args)) as CommitActionResult;
+            }
+            if (session.commitTarget === 'completed_stamp_redemption') {
+              return (await commitCompletedStampRedeem(
+                args
+              )) as CommitActionResult;
+            }
+            return (await commitRedeem(args)) as CommitActionResult;
+          }
         );
         if (guardedResult.status === 'stale') {
           return;
         }
         const result = guardedResult.value;
         const transactionResult = applyCommitOutcome(session, result);
-        dispatch({ type: 'SHOW_SUCCESS', result: transactionResult });
         if (session.actionMode === 'stamp') {
           playPunchSuccessFeedback(String(result.eventId));
+        } else {
+          const eventKey = String(result.eventId);
+          if (!celebratedPosRedemptionIdsRef.current.has(eventKey)) {
+            celebratedPosRedemptionIdsRef.current.add(eventKey);
+            if (
+              celebratedPosRedemptionIdsRef.current.size >
+              RECENT_POS_REDEMPTION_LIMIT
+            ) {
+              const oldest =
+                celebratedPosRedemptionIdsRef.current.values().next().value;
+              if (oldest) {
+                celebratedPosRedemptionIdsRef.current.delete(oldest);
+              }
+            }
+            playRedemptionCelebrationFeedback(eventKey);
+            setPosRedemptionCelebration({
+              eventKey,
+              customerName: session.customerDisplayName,
+              programName: session.program.title,
+              rewardName: session.program.rewardName,
+              currentStamps: result.currentStamps,
+              maxStamps: result.maxStamps,
+            });
+          }
         }
-
-        const resetAt = transactionResult.undo?.availableUntil ??
-          Date.now() + COMPLETE_RESET_MS;
-        queueCompleteReset(resetAt - Date.now());
 
         track(ANALYTICS_EVENTS.stampSuccess, {
           businessId: selectedBusiness?.businessId ?? null,
@@ -690,6 +764,37 @@ export default function ScannerScreen() {
             );
           }
         }
+
+        if (
+          session.actionMode === 'stamp' &&
+          result.canRedeemNow &&
+          typeof result.redemptionContinuationAvailableUntil === 'number'
+        ) {
+          const redemptionSession: PosResolvedSession = {
+            ...session,
+            sessionExpiresAt: result.redemptionContinuationAvailableUntil,
+            membership: {
+              membershipId: result.membershipId,
+              currentStamps: result.currentStamps,
+              maxStamps: result.maxStamps,
+              canRedeemNow: true,
+            },
+            actionMode: 'redeem',
+            joinedCustomer: false,
+            commitTarget: 'completed_stamp_redemption',
+          };
+          dispatch({
+            type: 'SHOW_REDEEM_CONFIRMATION',
+            session: redemptionSession,
+          });
+          return;
+        }
+
+        dispatch({ type: 'SHOW_SUCCESS', result: transactionResult });
+        const resetAt =
+          transactionResult.undo?.availableUntil ??
+          Date.now() + COMPLETE_RESET_MS;
+        queueCompleteReset(resetAt - Date.now());
       } catch (error) {
         if (
           !isTransactionGenerationCurrent(
@@ -727,6 +832,7 @@ export default function ScannerScreen() {
     },
     [
       applyCommitOutcome,
+      commitCompletedStampRedeem,
       commitRedeem,
       commitStamp,
       queueCompleteReset,
@@ -1024,113 +1130,153 @@ export default function ScannerScreen() {
         </View>
       );
     }
-    if (flow.phase === 'needs_program' || !selectedProgram) {
-      return (
-        <View style={styles.programContextCard}>
-          <Text style={styles.programContextTitle}>בחירת תוכנית לקופה</Text>
-          <Text style={styles.programContextMuted}>
-            הבחירה תישמר גם ללקוחות הבאים.
-          </Text>
-          {flow.notice ? (
-            <Text style={styles.programNotice}>{flow.notice}</Text>
-          ) : null}
-          <ScrollView
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            style={styles.programOptionsScroll}
-            contentContainerStyle={styles.programOptions}
-          >
-            {programs.map((program) => (
+    const selectionEnabled =
+      flow.phase === 'ready' || flow.phase === 'needs_program';
+    return (
+      <View style={styles.programSelector}>
+        <Text style={styles.programSelectorTitle}>בחרו כרטיסייה לסריקה</Text>
+        {flow.notice ? (
+          <Text style={styles.programNotice}>{flow.notice}</Text>
+        ) : null}
+        <View
+          style={[
+            styles.programGrid,
+            { width: programGridWidth, gap: PROGRAM_GRID_GAP },
+          ]}
+        >
+          {programs.map((program) => {
+            const selected =
+              program.loyaltyProgramId === flow.selectedProgramId;
+            const theme = resolveCardTheme(program.cardThemeId ?? undefined);
+            const iconName = resolveProgramIconName(program.stampIcon);
+            return (
               <Pressable
                 key={program.loyaltyProgramId}
                 onPress={() => void selectProgram(program.loyaltyProgramId)}
+                disabled={!selectionEnabled}
                 accessibilityRole="button"
-                accessibilityLabel={`בחירת תוכנית ${program.title}`}
+                accessibilityLabel={`בחירת כרטיסייה ${program.title}`}
+                accessibilityState={{
+                  selected,
+                  disabled: !selectionEnabled,
+                  busy: flow.phase === 'resolving',
+                }}
                 style={({ pressed }) => [
-                  styles.programOption,
-                  pressed ? styles.buttonPressed : null,
+                  styles.programTile,
+                  {
+                    width: programTileWidth,
+                    borderColor: selected ? '#2563EB' : theme.keyline,
+                  },
+                  selected ? styles.programTileSelected : null,
+                  pressed && selectionEnabled ? styles.buttonPressed : null,
                 ]}
               >
-                <Text style={styles.programOptionTitle}>{program.title}</Text>
-                <Text style={styles.programOptionReward} numberOfLines={1}>
-                  {program.rewardName}
-                </Text>
-                {!program.allowPosEnroll ? (
-                  <Text style={styles.existingCustomersBadge}>
-                    ללקוחות קיימים בלבד
+                <LinearGradient
+                  colors={[theme.surface, theme.surfaceAlt]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  pointerEvents="none"
+                  style={styles.programTileSurface}
+                >
+                  {selected ? (
+                    <View
+                      style={[
+                        styles.programSelectedCheck,
+                        { backgroundColor: theme.accent },
+                      ]}
+                    >
+                      <Ionicons
+                        name="checkmark"
+                        size={12}
+                        color={theme.onAccent}
+                      />
+                    </View>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.programIconRing,
+                      {
+                        backgroundColor: theme.accent,
+                        borderColor: selected
+                          ? theme.onSurface
+                          : 'transparent',
+                      },
+                      selected ? styles.programIconRingSelected : null,
+                    ]}
+                  >
+                    {iconName ? (
+                      <Ionicons
+                        name={iconName}
+                        size={22}
+                        color={theme.onAccent}
+                      />
+                    ) : (
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit={true}
+                        minimumFontScale={0.45}
+                        style={[
+                          styles.programIconGlyph,
+                          { color: theme.onAccent },
+                        ]}
+                      >
+                        {program.stampIcon}
+                      </Text>
+                    )}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    maxFontSizeMultiplier={1.35}
+                    style={[
+                      styles.programTileTitle,
+                      { color: theme.titleColor },
+                    ]}
+                  >
+                    {program.title}
                   </Text>
-                ) : null}
+                </LinearGradient>
               </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.programContextCard}>
-        <View style={styles.programContextTopRow}>
-          <View style={styles.programContextText}>
-            <Text style={styles.programEyebrow}>תוכנית פעילה בקופה</Text>
-            <Text style={styles.programContextTitle}>{selectedProgram.title}</Text>
-            <Text style={styles.programContextMuted} numberOfLines={1}>
-              הטבה: {selectedProgram.rewardName}
-            </Text>
-            {!selectedProgram.allowPosEnroll ? (
-              <Text style={styles.existingCustomersBadge}>
-                ללקוחות קיימים בלבד
-              </Text>
-            ) : null}
-          </View>
-          {programs.length > 1 && flow.phase === 'ready' ? (
-            <Pressable
-              onPress={() => void changeProgram()}
-              accessibilityRole="button"
-              accessibilityLabel="החלפת תוכנית"
-              style={styles.changeProgramButton}
-            >
-              <Ionicons name="swap-horizontal" size={18} color="#1D4ED8" />
-              <Text style={styles.changeProgramText}>החלפה</Text>
-            </Pressable>
-          ) : null}
+            );
+          })}
         </View>
       </View>
     );
   };
 
   const renderResultDetails = (result: PosTransactionResult) => {
+    const isReversed = flow.phase === 'reversed';
+    const isRedeem = result.actionMode === 'redeem';
     const actionText =
-      flow.phase === 'reversed'
-        ? result.actionMode === 'redeem'
+      isReversed
+        ? isRedeem
           ? 'מימוש ההטבה בוטל'
           : 'הניקוב האחרון בוטל'
-        : result.joinedCustomer
-          ? 'הלקוח הצטרף וקיבל ניקוב ראשון'
-          : result.actionMode === 'redeem'
-            ? `${result.program.rewardName} מומשה בהצלחה`
-            : 'נוסף ניקוב בהצלחה';
+        : isRedeem
+          ? 'ההטבה מומשה'
+          : 'נוסף ניקוב';
     return (
       <>
-        <View style={styles.successIcon}>
+        <View
+          style={[
+            styles.successIcon,
+            isRedeem && !isReversed ? styles.rewardSuccessIcon : null,
+          ]}
+        >
           <Ionicons
-            name={flow.phase === 'reversed' ? 'arrow-undo' : 'checkmark'}
-            size={30}
+            name={
+              isReversed ? 'arrow-undo' : isRedeem ? 'gift' : 'checkmark'
+            }
+            size={26}
             color="#FFFFFF"
           />
         </View>
         <Text style={styles.resultCustomer}>{result.customerDisplayName}</Text>
         <Text style={styles.resultProgram}>{result.program.title}</Text>
         <Text style={styles.resultAction}>{actionText}</Text>
-        <View style={styles.progressRow}>
-          <Text style={styles.progressLabel}>מצב הכרטיס</Text>
-          <Text style={styles.progressValue}>
-            {result.currentStamps}/{result.maxStamps}
-          </Text>
-        </View>
-        {result.canRedeemNow && result.actionMode === 'stamp' ? (
-          <Text style={styles.rewardReadyText}>
-            ההטבה {result.program.rewardName} מוכנה למימוש
-          </Text>
-        ) : null}
+        <Text style={styles.progressValue}>
+          {result.currentStamps}/{result.maxStamps}
+        </Text>
         {result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ? (
           <Text style={styles.undoBlockedText}>
             לא ניתן לבטל את הניקוב מפני שהוא כבר הפעיל תגמול הפניה.
@@ -1162,10 +1308,12 @@ export default function ScannerScreen() {
           >
             <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
             <Text style={styles.undoButtonText}>
-              {isUndoing ? 'מבטלים...' : 'ביטול פעולה'}
-            </Text>
-            <Text style={styles.undoTimer}>
-              {formatUndoCountdown(result.undo.availableUntil, undoNow)}
+              {isUndoing
+                ? 'מבטלים...'
+                : `ביטול פעולה ${formatUndoCountdown(
+                    result.undo.availableUntil,
+                    undoNow
+                  )}`}
             </Text>
           </Pressable>
         ) : null}
@@ -1211,15 +1359,7 @@ export default function ScannerScreen() {
       );
     }
     if (flow.phase === 'ready') {
-      return (
-        <View style={styles.statusContent}>
-          <Ionicons name="qr-code-outline" size={34} color="#2F6BFF" />
-          <Text style={styles.statusTitle}>מוכנים לסריקה</Text>
-          <Text style={styles.statusBody}>
-            מקמו את קוד ה-QR של הלקוח בתוך המסגרת.
-          </Text>
-        </View>
-      );
+      return null;
     }
     if (flow.phase === 'resolving') {
       return (
@@ -1233,16 +1373,18 @@ export default function ScannerScreen() {
     if (flow.phase === 'redeem_confirmation' && flow.session) {
       return (
         <View style={styles.statusContent}>
-          <Ionicons name="gift-outline" size={36} color="#15803D" />
+          <RewardReadyCue />
           <Text style={styles.resultCustomer}>
             {flow.session.customerDisplayName}
           </Text>
-          <Text style={styles.resultProgram}>{flow.session.program.title}</Text>
+          <Text style={styles.resultProgram} numberOfLines={1}>
+            {flow.session.program.title} · {flow.session.program.rewardName}
+          </Text>
           <Text style={styles.statusTitle}>הטבה מוכנה למימוש</Text>
           {flow.session.membership ? (
-            <Text style={styles.statusBody}>
+            <Text style={styles.progressValue}>
               {flow.session.membership.currentStamps}/
-              {flow.session.membership.maxStamps} ניקובים
+              {flow.session.membership.maxStamps}
             </Text>
           ) : null}
           <Pressable
@@ -1254,17 +1396,15 @@ export default function ScannerScreen() {
               pressed ? styles.buttonPressed : null,
             ]}
           >
-            <Text style={styles.primaryButtonText}>
-              מימוש {flow.session.program.rewardName}
-            </Text>
+            <Text style={styles.primaryButtonText}>מימוש ההטבה</Text>
           </Pressable>
           <Pressable
             onPress={resetForNextCustomer}
             accessibilityRole="button"
-            accessibilityLabel="ביטול ומעבר ללקוח הבא"
+            accessibilityLabel="לא עכשיו ומעבר ללקוח הבא"
             style={styles.textButton}
           >
-            <Text style={styles.textButtonLabel}>ביטול והלקוח הבא</Text>
+            <Text style={styles.textButtonLabel}>לא עכשיו</Text>
           </Pressable>
         </View>
       );
@@ -1327,12 +1467,14 @@ export default function ScannerScreen() {
           ) : null}
           {canOfferProgramChange ? (
             <Pressable
-              onPress={() => void changeProgram()}
+              onPress={resetForNextCustomer}
               accessibilityRole="button"
-              accessibilityLabel="החלפת תוכנית"
+              accessibilityLabel="בחירת כרטיסייה אחרת"
               style={styles.secondaryButton}
             >
-              <Text style={styles.secondaryButtonText}>החלפת תוכנית</Text>
+              <Text style={styles.secondaryButtonText}>
+                בחירת כרטיסייה אחרת
+              </Text>
             </Pressable>
           ) : null}
           {flow.error.kind !== 'business_closed' ? (
@@ -1432,6 +1574,15 @@ export default function ScannerScreen() {
           flow.phase !== 'setup' &&
           flow.phase !== 'needs_program'))
   );
+  const shouldShowStatusRail =
+    !shouldShowCamera ||
+    (isTablet && flow.phase !== 'ready' && flow.phase !== 'resolving');
+  const shouldShowTransactionArea = Boolean(
+    programs.length > 0 &&
+      selectedProgram &&
+      scannerDeviceId &&
+      canAccessScanner
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -1457,13 +1608,14 @@ export default function ScannerScreen() {
 
         <View style={styles.contentFrame}>
           {renderProgramContext()}
-          <View
-            style={[
-              styles.transactionArea,
-              isTablet ? styles.transactionAreaTablet : null,
-            ]}
-          >
-            {shouldShowCamera ? (
+          {shouldShowTransactionArea ? (
+            <View
+              style={[
+                styles.transactionArea,
+                isTablet ? styles.transactionAreaTablet : null,
+              ]}
+            >
+              {shouldShowCamera ? (
               <View
                 style={[
                   styles.cameraPane,
@@ -1484,18 +1636,25 @@ export default function ScannerScreen() {
                   </View>
                 ) : null}
               </View>
-            ) : null}
-            {isTablet || !shouldShowCamera ? (
-              <View
-                style={[
-                  styles.statusRail,
-                  isTablet ? styles.statusRailTablet : null,
-                ]}
-              >
-                {renderStatusRail()}
-              </View>
-            ) : null}
-          </View>
+              ) : null}
+              {shouldShowStatusRail ? (
+                <View
+                  style={[
+                    styles.statusRail,
+                    isTablet ? styles.statusRailTablet : null,
+                  ]}
+                >
+                  {renderStatusRail()}
+                </View>
+              ) : null}
+              {posRedemptionCelebration ? (
+                <PosRedemptionCelebration
+                  {...posRedemptionCelebration}
+                  onComplete={handlePosCelebrationComplete}
+                />
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1526,7 +1685,7 @@ const styles = StyleSheet.create({
   },
   contentFrame: {
     width: '100%',
-    gap: 12,
+    gap: 8,
   },
   programContextCard: {
     width: '100%',
@@ -1538,22 +1697,16 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: alignItems.start,
   },
-  programContextTopRow: {
+  programSelector: {
     width: '100%',
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  programContextText: {
-    flex: 1,
     alignItems: alignItems.start,
-    gap: 2,
+    gap: 7,
   },
-  programEyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+  programSelectorTitle: {
+    width: '100%',
+    color: '#14213D',
+    fontSize: 15,
+    fontWeight: '900',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -1583,73 +1736,78 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  existingCustomersBadge: {
-    alignSelf: selfStart,
-    borderRadius: 999,
-    backgroundColor: '#FFF7ED',
-    color: '#9A3412',
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    overflow: 'hidden',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  changeProgramButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFD3FF',
-    backgroundColor: '#F8FAFF',
-    paddingHorizontal: 12,
+  programGrid: {
     flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+  },
+  programTile: {
+    height: 84,
+    borderRadius: 13,
+    borderWidth: 1,
+    backgroundColor: '#111827',
+  },
+  programTileSelected: {
+    borderWidth: 3,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.24,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  programTileSurface: {
+    flex: 1,
+    width: '100%',
+    borderRadius: 11,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
   },
-  changeProgramText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '900',
+  programSelectedCheck: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
-  programOptionsScroll: {
-    width: '100%',
-  },
-  programOptions: {
-    flexDirection: flexDirection.row,
-    gap: 10,
-    paddingVertical: 2,
-  },
-  programOption: {
-    width: 190,
-    minHeight: 92,
-    borderRadius: 14,
+  programIconRing: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#BFD3FF',
-    backgroundColor: '#F8FAFF',
-    padding: 12,
-    gap: 4,
-    alignItems: alignItems.start,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
   },
-  programOptionTitle: {
-    fontSize: 14,
+  programIconRingSelected: {
+    borderWidth: 3,
+  },
+  programIconGlyph: {
+    width: '100%',
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '900',
-    color: '#14213D',
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: 'center',
   },
-  programOptionReward: {
-    maxWidth: '100%',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: 'right',
+  programTileTitle: {
+    width: '100%',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
   transactionArea: {
     width: '100%',
     minHeight: 260,
+    position: 'relative',
   },
   transactionAreaTablet: {
     flexDirection: flexDirection.row,
@@ -1665,6 +1823,7 @@ const styles = StyleSheet.create({
     flex: 1.55,
     maxWidth: 560,
     minHeight: 360,
+    alignSelf: 'center',
   },
   cameraBusyOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1684,11 +1843,11 @@ const styles = StyleSheet.create({
   statusRail: {
     width: '100%',
     minHeight: 260,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#C7DBFF',
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 14,
   },
   statusRailTablet: {
     flex: 1,
@@ -1701,7 +1860,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   statusTitle: {
     width: '100%',
@@ -1722,7 +1881,7 @@ const styles = StyleSheet.create({
   },
   resultCustomer: {
     width: '100%',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: '#14213D',
     textAlign: 'center',
@@ -1746,44 +1905,22 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   successIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#16A34A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  progressRow: {
-    width: '100%',
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  progressLabel: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '700',
+  rewardSuccessIcon: {
+    backgroundColor: '#15803D',
   },
   progressValue: {
     ...ltrIslandText,
     color: '#14213D',
-    fontSize: 15,
+    fontSize: 24,
     fontWeight: '900',
-  },
-  rewardReadyText: {
-    width: '100%',
-    borderRadius: 10,
-    backgroundColor: '#ECFDF3',
-    color: '#166534',
-    fontSize: 12,
-    fontWeight: '900',
-    padding: 9,
     textAlign: 'center',
-    writingDirection: 'rtl',
   },
   undoBlockedText: {
     width: '100%',
@@ -1871,13 +2008,6 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontSize: 12,
     fontWeight: '900',
-  },
-  undoTimer: {
-    ...ltrIslandText,
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
   },
   ownerGuidance: {
     width: '100%',

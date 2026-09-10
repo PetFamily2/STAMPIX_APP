@@ -3,7 +3,9 @@ import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   Alert,
   Pressable,
   ScrollView,
@@ -24,6 +26,8 @@ import { LifetimeMetricsRow } from '@/components/business-dashboard/LifetimeMetr
 import { QuickShortcutsGrid } from '@/components/business-dashboard/QuickShortcutsGrid';
 import {
   type DashboardRecommendation,
+  getDashboardRecommendationKey,
+  type RecommendationPendingActions,
   SmartRecommendationsPanel,
 } from '@/components/business-dashboard/SmartRecommendationsPanel';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
@@ -35,7 +39,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { DASHBOARD_CUSTOMER_NAV_LABELS } from '@/lib/dashboard/navigationCopy';
+import { getBusinessReferralDashboardCopy } from '@/lib/dashboard/businessReferralCopy';
 import {
   isDashboardResponseForActiveBusiness,
   isRecommendationResponseForActiveBusiness,
@@ -63,8 +67,8 @@ import {
 import {
   alignItems,
   flexDirection,
-  justifyContent,
   rtlBaseView,
+  selfStart,
   tw,
 } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -81,7 +85,6 @@ type BusinessRoute =
   | '/(authenticated)/(business)/programs'
   | '/(authenticated)/(business)/qr'
   | '/(authenticated)/(business)/settings'
-  | '/(authenticated)/(business)/analytics'
   | '/(authenticated)/(business)/settings-business-profile'
   | '/(authenticated)/(business)/settings-business-invite-businesses'
   | '/(authenticated)/(business)/settings-business-subscription'
@@ -133,6 +136,8 @@ class RecommendationQueryErrorBoundary extends Component<
           primary={null}
           secondary={[]}
           onOpen={() => undefined}
+          onSnooze={() => undefined}
+          onDismiss={() => undefined}
           onRetry={() => this.setState({ hasError: false })}
         />
       );
@@ -157,29 +162,64 @@ function DashboardBusinessReferralCard({
     isSwitchingBusiness ? 'skip' : { businessId: activeBusinessId }
   );
   const isLoading = isSwitchingBusiness || summary == null;
-  const creditedMonths = summary?.creditedMonths;
-  const pendingMonths = summary?.pendingMonths;
-  const hasCreditStatus =
-    (creditedMonths != null && creditedMonths > 0) ||
-    (pendingMonths != null && pendingMonths > 0);
+  const copy = getBusinessReferralDashboardCopy(summary);
+  const entranceProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((isReduceMotionEnabled) => {
+        if (!isMounted) {
+          return;
+        }
+        if (isReduceMotionEnabled) {
+          entranceProgress.setValue(1);
+          return;
+        }
+        Animated.timing(entranceProgress, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }).start();
+      })
+      .catch(() => {
+        if (isMounted) {
+          entranceProgress.setValue(1);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      entranceProgress.stopAnimation();
+    };
+  }, [entranceProgress]);
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.businessReferralCard,
         layoutMode === 'tablet' ? styles.businessReferralCardTablet : null,
+        {
+          opacity: entranceProgress,
+          transform: [
+            {
+              translateY: entranceProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [5, 0],
+              }),
+            },
+          ],
+        },
       ]}
     >
-      <View style={styles.businessReferralCopy}>
-        <View style={styles.businessReferralTitleRow}>
-          <Ionicons name="gift-outline" size={20} color="#1D4ED8" />
-          <Text style={styles.businessReferralTitle}>
-            הזמינו עסק וקבלו חודשים מתנה
-          </Text>
+      <View style={styles.businessReferralContent}>
+        <View style={styles.businessReferralIconArea}>
+          <Ionicons name="gift-outline" size={22} color="#1D4ED8" />
+          <View style={styles.businessReferralSparkleBadge}>
+            <Ionicons name="sparkles" size={10} color="#6D28D9" />
+          </View>
         </View>
-        <Text style={styles.businessReferralBody}>
-          שתפו את StampAix עם בעלי עסקים וקבלו חודשי שימוש חינם.
-        </Text>
         {isLoading ? (
           <View style={styles.businessReferralLoading}>
             <ActivityIndicator
@@ -187,21 +227,18 @@ function DashboardBusinessReferralCard({
               color={DASHBOARD_TOKENS.colors.brandBlue}
               accessibilityLabel="טוען סיכום הזמנת עסקים"
             />
+            <Text style={styles.businessReferralLoadingText}>
+              טוענים את מצב ההזמנות
+            </Text>
           </View>
-        ) : hasCreditStatus ? (
-          <View style={styles.businessReferralStatusRow}>
-            {creditedMonths != null && creditedMonths > 0 ? (
-              <Text style={styles.businessReferralStatus}>
-                {creditedMonths} חודשים שהתקבלו
-              </Text>
-            ) : null}
-            {pendingMonths != null && pendingMonths > 0 ? (
-              <Text style={styles.businessReferralStatus}>
-                {pendingMonths} בהמתנה
-              </Text>
-            ) : null}
+        ) : (
+          <View style={styles.businessReferralCopy}>
+            <Text style={styles.businessReferralTitle}>{copy.title}</Text>
+            <Text style={styles.businessReferralBody}>
+              {copy.supportingText}
+            </Text>
           </View>
-        ) : null}
+        )}
       </View>
 
       <Pressable
@@ -211,6 +248,9 @@ function DashboardBusinessReferralCard({
         accessibilityLabel="הזמנת עסק ל-StampAix"
         style={({ pressed }) => [
           styles.businessReferralButton,
+          layoutMode === 'tablet'
+            ? styles.businessReferralButtonTablet
+            : null,
           pressed ? styles.businessReferralButtonPressed : null,
           isSwitchingBusiness
             ? styles.businessReferralButtonDisabled
@@ -219,7 +259,7 @@ function DashboardBusinessReferralCard({
       >
         <Text style={styles.businessReferralButtonText}>הזמנת עסק</Text>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -233,12 +273,10 @@ function DashboardRecommendationsSection({
   layoutMode: DashboardLayoutMode;
 }) {
   const router = useRouter();
-  const [loadingRecommendationId, setLoadingRecommendationId] = useState<
-    string | null
-  >(null);
-  const [interactionLoadingKey, setInteractionLoadingKey] = useState<
-    string | null
-  >(null);
+  const [pendingActions, setPendingActions] =
+    useState<RecommendationPendingActions>({});
+  const inFlightRecommendationKeysRef = useRef(new Set<string>());
+  const dismissConfirmationKeyRef = useRef<string | null>(null);
   const dismissRecommendation = useMutation(
     api.recommendations.dismissBusinessRecommendation
   );
@@ -326,8 +364,33 @@ function DashboardRecommendationsSection({
     recommendationSecondary,
   ]);
 
+  const beginRecommendationAction = (
+    recommendation: DashboardRecommendation,
+    type: 'open' | 'snooze' | 'dismiss'
+  ) => {
+    const key = getDashboardRecommendationKey(recommendation);
+    if (inFlightRecommendationKeysRef.current.has(key)) {
+      return null;
+    }
+    inFlightRecommendationKeysRef.current.add(key);
+    setPendingActions((current) => ({ ...current, [key]: type }));
+    return key;
+  };
+
+  const finishRecommendationAction = (key: string) => {
+    inFlightRecommendationKeysRef.current.delete(key);
+    setPendingActions((current) => {
+      if (!(key in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
   const handleOpen = async (recommendation: DashboardRecommendation) => {
-    if (!activeBusinessId || isSwitchingBusiness || loadingRecommendationId) {
+    if (!activeBusinessId || isSwitchingBusiness) {
       return;
     }
     const openedBusinessId = String(activeBusinessId);
@@ -347,12 +410,16 @@ function DashboardRecommendationsSection({
       Alert.alert('', 'ההמלצה כבר התעדכנה.');
       return;
     }
-    setLoadingRecommendationId(recommendation.stableId);
+    const pendingKey = beginRecommendationAction(recommendation, 'open');
+    if (!pendingKey) {
+      return;
+    }
     try {
       const session = await startRecommendationGuide({
         businessId: openedBusinessId as Id<'businesses'>,
         stableId: recommendation.stableId,
         guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
       });
       const sessionMatches =
         String(session.businessId) === openedBusinessId &&
@@ -375,7 +442,7 @@ function DashboardRecommendationsSection({
       }
       const result = openRecommendationAction({
         businessId: openedBusinessId,
-        action: recommendation.action,
+        action: session.action,
         guideSessionId: session.guideSessionId,
         guideId: session.guideId,
         stableId: session.stableId,
@@ -386,27 +453,48 @@ function DashboardRecommendationsSection({
         navigate: (target) => router.push(target as never),
       });
       if (!result.ok) {
-        throw new Error('INVALID_RECOMMENDATION_NAVIGATION');
+        throw new Error(`INVALID_RECOMMENDATION_NAVIGATION:${result.reason}`);
       }
-    } catch {
-      Alert.alert('', 'ההמלצה כבר התעדכנה. נסו שוב.');
+    } catch (error) {
+      const serializedError =
+        error instanceof Error ? error.message : String(error);
+      if (
+        serializedError.includes('STALE_RECOMMENDATION_GUIDE') ||
+        serializedError.includes('RECOMMENDATION_NOT_ACTIONABLE')
+      ) {
+        Alert.alert('', 'ההמלצה כבר התעדכנה. נסו שוב.');
+      } else {
+        Alert.alert(
+          'לא הצלחנו לפתוח את הפעולה',
+          'ההמלצה נשארה זמינה. נסו שוב.'
+        );
+      }
     } finally {
-      setLoadingRecommendationId(null);
+      finishRecommendationAction(pendingKey);
     }
   };
 
   const performInteraction = async (
     recommendation: DashboardRecommendation,
-    action: 'dismiss' | 'snooze',
-    openedBusinessId: string
+    action: 'dismiss' | 'snooze'
   ) => {
-    const key = `${recommendation.stableId}:${recommendation.evidenceFingerprint}`;
-    setInteractionLoadingKey(key);
+    if (!activeBusinessId || isSwitchingBusiness) {
+      return;
+    }
+    const openedBusinessId = String(activeBusinessId);
+    const pendingKey = beginRecommendationAction(recommendation, action);
+    if (!pendingKey) {
+      return;
+    }
     await executeCurrentRecommendationInteraction({
       request: {
         businessId: openedBusinessId,
         stableId: recommendation.stableId,
         evidenceFingerprint: recommendation.evidenceFingerprint,
+        guideId: recommendation.guideId,
+        ...(recommendation.entityId
+          ? { entityId: recommendation.entityId }
+          : {}),
       },
       getCurrentState: () => latestInteractionStateRef.current,
       mutate: async () => {
@@ -437,38 +525,51 @@ function DashboardRecommendationsSection({
       onError: () => {
         Alert.alert('לא הצלחנו לעדכן', 'ההמלצה נשארה מוצגת. נסו שוב.');
       },
-      onSettled: () => setInteractionLoadingKey(null),
+      onSettled: () => finishRecommendationAction(pendingKey),
     });
   };
 
-  const handleShowOptions = (recommendation: DashboardRecommendation) => {
-    if (!activeBusinessId || isSwitchingBusiness || interactionLoadingKey) {
+  const handleSnooze = (recommendation: DashboardRecommendation) => {
+    void performInteraction(recommendation, 'snooze');
+  };
+
+  const handleDismiss = (recommendation: DashboardRecommendation) => {
+    if (!activeBusinessId || isSwitchingBusiness) {
       return;
     }
-    Alert.alert('אפשרויות להמלצה', undefined, [
-      {
-        text: 'הזכירו לי אחר כך',
-        onPress: () => {
-          void performInteraction(
-            recommendation,
-            'snooze',
-            String(activeBusinessId)
-          );
+    const key = getDashboardRecommendationKey(recommendation);
+    if (
+      inFlightRecommendationKeysRef.current.has(key) ||
+      dismissConfirmationKeyRef.current === key
+    ) {
+      return;
+    }
+    dismissConfirmationKeyRef.current = key;
+    const clearConfirmation = () => {
+      if (dismissConfirmationKeyRef.current === key) {
+        dismissConfirmationKeyRef.current = null;
+      }
+    };
+    Alert.alert(
+      'הסרת ההמלצה',
+      'ההמלצה תוסר מרשימת הפעולות בהתאם למחזור ההמלצות.',
+      [
+        {
+          text: 'ביטול',
+          style: 'cancel',
+          onPress: clearConfirmation,
         },
-      },
-      {
-        text: 'הסתרת ההמלצה',
-        style: 'destructive',
-        onPress: () => {
-          void performInteraction(
-            recommendation,
-            'dismiss',
-            String(activeBusinessId)
-          );
+        {
+          text: 'הסרה',
+          style: 'destructive',
+          onPress: () => {
+            clearConfirmation();
+            void performInteraction(recommendation, 'dismiss');
+          },
         },
-      },
-      { text: 'ביטול', style: 'cancel' },
-    ]);
+      ],
+      { cancelable: true, onDismiss: clearConfirmation }
+    );
   };
 
   return (
@@ -477,10 +578,10 @@ function DashboardRecommendationsSection({
       status={recommendationStatus}
       primary={recommendationPrimary}
       secondary={recommendationSecondary}
-      loadingRecommendationId={loadingRecommendationId}
-      interactionLoadingKey={interactionLoadingKey}
+      pendingActions={pendingActions}
       onOpen={handleOpen}
-      onShowOptions={handleShowOptions}
+      onSnooze={handleSnooze}
+      onDismiss={handleDismiss}
     />
   );
 }
@@ -510,8 +611,8 @@ export default function BusinessDashboardScreen() {
         activeBusiness.staffRole
       )
     : null;
-  const canViewBusinessReferrals =
-    activeBusinessCapabilities?.view_billing_state === true;
+  const canInviteBusinesses =
+    activeBusinessCapabilities?.invite_businesses === true;
   const teamGate = gate('team');
   const [selectedDayStart, setSelectedDayStart] = useState(() => Date.now());
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('today');
@@ -707,7 +808,7 @@ export default function BusinessDashboardScreen() {
                 },
               ]}
             >
-              הפעולה הבאה
+              מומלץ עכשיו
             </Text>
           </View>
           <RecommendationQueryErrorBoundary
@@ -721,6 +822,20 @@ export default function BusinessDashboardScreen() {
             />
           </RecommendationQueryErrorBoundary>
         </View>
+
+        {activeBusinessId && canInviteBusinesses ? (
+          <DashboardBusinessReferralCard
+            key={String(activeBusinessId)}
+            activeBusinessId={activeBusinessId}
+            isSwitchingBusiness={isSwitchingBusiness}
+            layoutMode={layoutMode}
+            onOpen={() =>
+              openRoute(
+                '/(authenticated)/(business)/settings-business-invite-businesses'
+              )
+            }
+          />
+        ) : null}
 
         <View style={styles.section}>
           <Text
@@ -748,31 +863,18 @@ export default function BusinessDashboardScreen() {
 
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
           <View style={styles.section}>
-            <View style={styles.activityHeadingRow}>
-              <Text
-                className={tw.textStart}
-                style={[
-                  styles.sectionTitle,
-                  styles.activitySectionTitle,
-                  {
-                    fontSize: layout.sectionTitleSize,
-                    lineHeight: layout.sectionTitleLineHeight,
-                  },
-                ]}
-              >
-                פעילות אחרונה
-              </Text>
-              <Pressable
-                onPress={() =>
-                  openRoute('/(authenticated)/(business)/analytics')
-                }
-                style={styles.activityActionButton}
-              >
-                <Text className={tw.textStart} style={styles.activityAction}>
-                  {DASHBOARD_CUSTOMER_NAV_LABELS.insights}
-                </Text>
-              </Pressable>
-            </View>
+            <Text
+              className={tw.textStart}
+              style={[
+                styles.sectionTitle,
+                {
+                  fontSize: layout.sectionTitleSize,
+                  lineHeight: layout.sectionTitleLineHeight,
+                },
+              ]}
+            >
+              פעילות אחרונה
+            </Text>
             <CompactActivitySummaryRow
               layoutMode={layoutMode}
               items={recentActivity.map(
@@ -818,7 +920,7 @@ export default function BusinessDashboardScreen() {
               },
               {
                 key: 'join-qr',
-                label: 'קוד הצטרפות',
+                label: 'צרפו לקוחות',
                 icon: 'qr-code-outline',
                 onPress: () => openRoute('/(authenticated)/(business)/qr'),
               },
@@ -840,19 +942,6 @@ export default function BusinessDashboardScreen() {
           />
         </View>
 
-        {activeBusinessId && canViewBusinessReferrals ? (
-          <DashboardBusinessReferralCard
-            key={String(activeBusinessId)}
-            activeBusinessId={activeBusinessId}
-            isSwitchingBusiness={isSwitchingBusiness}
-            layoutMode={layoutMode}
-            onOpen={() =>
-              openRoute(
-                '/(authenticated)/(business)/settings-business-invite-businesses'
-              )
-            }
-          />
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -893,70 +982,76 @@ const styles = StyleSheet.create({
   },
   recommendationsSectionTitle: {
     textAlign: 'right',
-    alignSelf: 'stretch',
     writingDirection: 'rtl',
   },
   recommendationsTitleRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: justifyContent.start,
+    alignSelf: selfStart,
     gap: 6,
     ...rtlBaseView,
   },
-  activityHeadingRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    ...rtlBaseView,
-  },
-  activitySectionTitle: {
-    flex: 1,
-    textAlign: 'right',
-    alignSelf: 'stretch',
-    writingDirection: 'rtl',
-  },
-  activityAction: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: DASHBOARD_TOKENS.colors.brandBlue,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  activityActionButton: {
-    alignSelf: 'center',
-  },
   businessReferralCard: {
-    borderRadius: DASHBOARD_TOKENS.cardRadiusLarge,
+    minHeight: 118,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#CFE0FF',
-    backgroundColor: '#F8FAFF',
-    padding: 14,
-    gap: 12,
-    ...DASHBOARD_TOKENS.cardShadowSoft,
+    borderColor: '#C7D8FF',
+    backgroundColor: '#F3F6FF',
+    padding: 11,
+    gap: 8,
+    shadowColor: '#1E3A8A',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
     ...rtlBaseView,
   },
   businessReferralCardTablet: {
+    minHeight: 84,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  businessReferralContent: {
+    flex: 1,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 10,
+    ...rtlBaseView,
+  },
+  businessReferralIconArea: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    borderRadius: 22,
+    backgroundColor: '#DDE8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  businessReferralSparkleBadge: {
+    position: 'absolute',
+    top: -3,
+    left: -2,
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F3F6FF',
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   businessReferralCopy: {
     flex: 1,
-    gap: 5,
-    ...rtlBaseView,
-  },
-  businessReferralTitleRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 7,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: alignItems.start,
     ...rtlBaseView,
   },
   businessReferralTitle: {
-    flex: 1,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 21,
     fontWeight: '800',
     color: DASHBOARD_TOKENS.colors.textPrimary,
     textAlign: 'right',
@@ -964,44 +1059,42 @@ const styles = StyleSheet.create({
   },
   businessReferralBody: {
     fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '500',
-    color: DASHBOARD_TOKENS.colors.textMuted,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#475569',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   businessReferralLoading: {
-    minHeight: 22,
-    alignItems: alignItems.start,
-    justifyContent: 'center',
-  },
-  businessReferralStatusRow: {
+    flex: 1,
+    minHeight: 44,
     flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     ...rtlBaseView,
   },
-  businessReferralStatus: {
-    borderRadius: 999,
-    backgroundColor: '#E8F0FF',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '800',
-    color: '#1D4ED8',
+  businessReferralLoadingText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: DASHBOARD_TOKENS.colors.textMuted,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   businessReferralButton: {
     minHeight: 44,
-    minWidth: 112,
+    width: '100%',
     borderRadius: 12,
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
     paddingHorizontal: 16,
     paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  businessReferralButtonTablet: {
+    width: 'auto',
+    minWidth: 118,
   },
   businessReferralButtonPressed: {
     opacity: 0.86,

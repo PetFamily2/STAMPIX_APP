@@ -1102,15 +1102,18 @@ function deriveServerRecommendationEntityBinding(
   return { entityId, entityKind };
 }
 
-function publicGuideSessionResult(session: {
-  _id: Id<'recommendationGuideSessions'>;
-  businessId: Id<'businesses'>;
-  stableId: RecommendationStableId;
-  guideId: RecommendationGuideId;
-  evidenceFingerprint: string;
-  entityId?: string;
-  expiresAt: number;
-}) {
+function publicGuideSessionResult(
+  session: {
+    _id: Id<'recommendationGuideSessions'>;
+    businessId: Id<'businesses'>;
+    stableId: RecommendationStableId;
+    guideId: RecommendationGuideId;
+    evidenceFingerprint: string;
+    entityId?: string;
+    expiresAt: number;
+  },
+  action: BusinessRecommendation['action']
+) {
   return {
     guideSessionId: session._id,
     businessId: session.businessId,
@@ -1118,6 +1121,7 @@ function publicGuideSessionResult(session: {
     guideId: session.guideId,
     evidenceFingerprint: session.evidenceFingerprint,
     ...(session.entityId ? { entityId: session.entityId } : {}),
+    action,
     expiresAt: session.expiresAt,
   };
 }
@@ -1127,6 +1131,7 @@ export const startBusinessRecommendationGuide = mutation({
     businessId: v.id('businesses'),
     stableId: recommendationStableIdValidator,
     guideId: recommendationGuideIdValidator,
+    evidenceFingerprint: v.string(),
   },
   handler: async (ctx, args) => {
     const authorization = await requireActorHasBusinessCapability(
@@ -1145,7 +1150,8 @@ export const startBusinessRecommendationGuide = mutation({
     const recommendation = [response.primary, ...response.secondary].find(
       (candidate) =>
         candidate?.stableId === args.stableId &&
-        candidate.guideId === args.guideId
+        candidate.guideId === args.guideId &&
+        candidate.evidenceFingerprint === args.evidenceFingerprint
     );
     if (!recommendation) {
       publicRecommendationError();
@@ -1173,7 +1179,7 @@ export const startBusinessRecommendationGuide = mutation({
           (entityBinding.entityKind ?? undefined)
     );
     if (reusable) {
-      return publicGuideSessionResult(reusable);
+      return publicGuideSessionResult(reusable, recommendation.action);
     }
     const expiresAt = now + GUIDE_SESSION_TTL_MS;
     const guideSessionId = await ctx.db.insert(
@@ -1189,15 +1195,18 @@ export const startBusinessRecommendationGuide = mutation({
         expiresAt,
       }
     );
-    return publicGuideSessionResult({
-      _id: guideSessionId,
-      businessId: args.businessId,
-      stableId: recommendation.stableId,
-      guideId: recommendation.guideId,
-      evidenceFingerprint: recommendation.evidenceFingerprint,
-      ...entityBinding,
-      expiresAt,
-    });
+    return publicGuideSessionResult(
+      {
+        _id: guideSessionId,
+        businessId: args.businessId,
+        stableId: recommendation.stableId,
+        guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
+        ...entityBinding,
+        expiresAt,
+      },
+      recommendation.action
+    );
   },
 });
 

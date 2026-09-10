@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
+import RedemptionCelebrationHost from '@/components/customer/RedemptionCelebrationHost';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -59,6 +60,7 @@ export default function AuthenticatedLayout() {
     api.users.getSessionContext,
     shouldLoadUser ? {} : 'skip'
   );
+  const resolvedAppMode = sessionContext?.activeMode ?? appMode;
   const shouldLoadDefaultBusinessOnboarding =
     isAuthenticated &&
     user?.customerOnboardedAt != null &&
@@ -382,27 +384,37 @@ export default function AuthenticatedLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: rtlScreenContentStyle,
-      }}
-    >
-      <Stack.Screen name="(customer)" />
-      <Stack.Screen name="(business)" />
-      <Stack.Screen name="(staff)" />
-      <Stack.Screen name="admin" />
-      <Stack.Screen name="join" />
-      <Stack.Screen name="accept-invite" />
-      <Stack.Screen name="business-recovery" />
-      <Stack.Screen name="business-permanent-deletion" />
-      <Stack.Screen name="card/index" />
-      <Stack.Screen name="card/[membershipId]" />
-    </Stack>
+    <View style={styles.shell}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: rtlScreenContentStyle,
+        }}
+      >
+        <Stack.Screen name="(customer)" />
+        <Stack.Screen name="(business)" />
+        <Stack.Screen name="(staff)" />
+        <Stack.Screen name="admin" />
+        <Stack.Screen name="join" />
+        <Stack.Screen name="accept-invite" />
+        <Stack.Screen name="business-recovery" />
+        <Stack.Screen name="business-permanent-deletion" />
+        <Stack.Screen name="card/index" />
+        <Stack.Screen name="card/[membershipId]" />
+      </Stack>
+      {!isPreviewMode &&
+      isAuthenticated &&
+      resolvedAppMode === 'customer' ? (
+        <RedemptionCelebrationHost />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+  },
   loadingScreen: {
     flex: 1,
     backgroundColor: '#FDFDFD',

@@ -62,7 +62,7 @@ function verifyCleanGit(projectRoot) {
   if (status.trim()) {
     fail(
       [
-        'Git working tree is dirty. Commit the RTL source changes before EAS build so the APK can be traced and verified.',
+        'Git working tree is dirty. Commit the build inputs before EAS build so the native config and embedded bundle can be traced and verified.',
         status.trim(),
       ].join('\n')
     );
@@ -86,7 +86,7 @@ function verifySource(projectRoot) {
 
   if (packageJson.main !== 'index.js') {
     fail(
-      `package.json main must be index.js before Android RTL build, found ${JSON.stringify(packageJson.main)}`
+      `package.json main must be index.js before EAS RTL build, found ${JSON.stringify(packageJson.main)}`
     );
   }
 

@@ -29,6 +29,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { flexDirection } from '@/lib/rtl';
+import { safeBack } from '@/lib/navigation';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type RewardType = 'STAMP' | 'BENEFIT';
@@ -342,7 +343,7 @@ export default function BusinessReferralSettingsScreen() {
             titleAccessory={
               <BackButton
                 onPress={() =>
-                  router.push('/(authenticated)/(business)/campaigns')
+                  safeBack('/(authenticated)/(business)/campaigns')
                 }
               />
             }

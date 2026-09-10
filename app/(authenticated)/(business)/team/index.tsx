@@ -7,12 +7,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { BarComparisonChart, KpiCard } from '@/components/business-ui';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -26,6 +24,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -837,22 +836,11 @@ export default function BusinessTeamManagementScreen() {
           alignSelf: 'center',
         }}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="ניהול עובדים"
-            subtitle="צפייה בצוות, הרשאות והיסטוריית שינויים"
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  router.replace('/(authenticated)/(business)/dashboard')
-                }
-              />
-            }
-          />
-        </StickyScrollHeader>
+        <BusinessSettingsSubpageHeader
+          title="ניהול עובדים"
+          subtitle="צפייה בצוות, הרשאות והיסטוריית שינויים"
+          fallbackHref={BUSINESS_ROUTES.settings}
+        />
 
         <FeatureGate
           isLocked={teamGate.isLocked}

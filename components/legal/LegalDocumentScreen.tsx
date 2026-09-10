@@ -31,9 +31,16 @@ export function LegalDocumentScreen({
   fallbackHref: string;
 }) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ document?: string | string[] }>();
+  const params = useLocalSearchParams<{ document?: string | string[]; returnTo?: string | string[] }>();
   const activeKey = normalizeDocumentKey(params.document);
   const activeDocument = LEGAL_DOCUMENTS[activeKey];
+  const returnTo = Array.isArray(params.returnTo)
+    ? params.returnTo[0]
+    : params.returnTo;
+  const resolvedFallback =
+    returnTo === 'business-account'
+      ? '/(authenticated)/(business)/settings-business-account'
+      : fallbackHref;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -51,7 +58,7 @@ export function LegalDocumentScreen({
           <StandaloneBackTitleHeader
             title={activeDocument.title}
             subtitle={activeDocument.subtitle}
-            onBackPress={() => safeBack(fallbackHref)}
+            onBackPress={() => safeBack(resolvedFallback)}
             titleStyle={styles.title}
             subtitleStyle={styles.subtitle}
           />

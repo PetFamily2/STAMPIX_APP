@@ -16,11 +16,13 @@ import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { safeDismissTo, safePush } from '@/lib/navigation';
+import { safeBack, safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
+  getAdditionalBusinessOnboardingExitRoute,
   getBusinessOnboardingProgressStep,
   getBusinessOnboardingTotalSteps,
+  isAdditionalBusinessFlow,
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import {
@@ -508,11 +510,13 @@ export default function BusinessBasicsScreen() {
         <StandaloneBackTitleHeader
           title={TEXT.title}
           subtitle={TEXT.subtitle}
-          onBackPress={() =>
-            safeDismissTo(
-              withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.role, flow)
-            )
-          }
+          onBackPress={() => {
+            if (isAdditionalBusinessFlow(flow)) {
+              safeBack(getAdditionalBusinessOnboardingExitRoute());
+              return;
+            }
+            safeDismissTo(BUSINESS_ONBOARDING_ROUTES.role);
+          }}
           leftAccessory={
             <OnboardingProgress
               total={getBusinessOnboardingTotalSteps(flow)}

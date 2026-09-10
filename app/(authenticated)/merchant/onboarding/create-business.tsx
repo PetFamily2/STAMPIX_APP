@@ -35,7 +35,6 @@ import {
   BUSINESS_ONBOARDING_ROUTES,
   getBusinessOnboardingProgressStep,
   getBusinessOnboardingTotalSteps,
-  isAdditionalBusinessFlow,
   withBusinessOnboardingFlow,
 } from '@/lib/onboarding/businessOnboardingFlow';
 import { useBusinessOnboardingDraftPersistence } from '@/lib/onboarding/useBusinessOnboardingDraftPersistence';
@@ -161,7 +160,6 @@ export default function CreateBusinessScreen() {
     flow?: string;
     bref?: string;
   }>();
-  const isAdditionalFlow = isAdditionalBusinessFlow(flow);
   const businessReferralCodeFromParams = useMemo(() => {
     const raw = typeof bref === 'string' ? bref.trim() : '';
     return raw.length > 0 ? raw : '';
@@ -366,9 +364,7 @@ export default function CreateBusinessScreen() {
               onBackPress={() =>
                 safeDismissTo(
                   withBusinessOnboardingFlow(
-                    isAdditionalFlow
-                      ? '/(authenticated)/(business)/settings'
-                      : BUSINESS_ONBOARDING_ROUTES.businessBasics,
+                    BUSINESS_ONBOARDING_ROUTES.businessBasics,
                     flow
                   )
                 )

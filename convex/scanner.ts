@@ -38,6 +38,7 @@ import {
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;
+const REDEMPTION_CONTINUATION_VALID_MS = 30_000;
 const UNDO_WINDOW_MS = 30_000;
 const ALLOW_REDEEM_UNDO = true;
 const SCAN_SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1125,28 +1126,14 @@ async function resolveScanSessionCommit(
       tokenIdentity,
     });
 
-    await ctx.db.patch(session._id, {
-      status: 'committed',
-      failedCode: undefined,
-      result: {
-        ...result,
-        referralQualification,
-        referralRewardTriggered:
-          referralQualification?.rewardTriggered === true,
-        qualificationEventId:
-          referralQualification?.rewardTriggered === true
-            ? result.eventId
-            : null,
-        undoBlockedReason:
-          referralQualification?.rewardTriggered === true
-            ? 'REFERRAL_REWARD_TRIGGERED'
-            : null,
-        undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
-      },
-      committedAt: Date.now(),
-    });
-
-    return {
+    const redemptionContinuationAvailableUntil =
+      args.expectedAction === 'stamp' && result.canRedeemNow === true
+        ? Math.min(
+            session.tokenExpiresAt,
+            result.eventCreatedAt + REDEMPTION_CONTINUATION_VALID_MS
+          )
+        : undefined;
+    const committedResult = {
       ...result,
       referralQualification,
       referralRewardTriggered: referralQualification?.rewardTriggered === true,
@@ -1157,7 +1144,17 @@ async function resolveScanSessionCommit(
           ? 'REFERRAL_REWARD_TRIGGERED'
           : null,
       undoAvailableUntil: result.eventCreatedAt + UNDO_WINDOW_MS,
+      redemptionContinuationAvailableUntil,
     };
+
+    await ctx.db.patch(session._id, {
+      status: 'committed',
+      failedCode: undefined,
+      result: committedResult,
+      committedAt: Date.now(),
+    });
+
+    return committedResult;
   } catch (error) {
     const code = toErrorCode(error);
     if (COMMIT_BUSINESS_ERROR_CODES.has(code)) {
@@ -1411,6 +1408,160 @@ export const commitRedeem = mutation({
       scanSessionId,
       expectedAction: 'redeem',
     });
+  },
+});
+
+export const commitCompletedStampRedeem = mutation({
+  args: {
+    scanSessionId: v.id('scanSessions'),
+  },
+  handler: async (ctx, { scanSessionId }) => {
+    const session = await ctx.db.get(scanSessionId);
+    if (!session) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+
+    const { actor } = await requireActorHasBusinessCapability(
+      ctx,
+      session.businessId,
+      'scanner_access'
+    );
+    if (String(actor._id) !== String(session.actorUserId)) {
+      throw new Error('NOT_AUTHORIZED');
+    }
+    if (session.actionType !== 'stamp') {
+      throw new Error('INVALID_SCAN_ACTION');
+    }
+    if (session.status !== 'committed' || !session.result) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+
+    const stampResult = session.result as Record<string, unknown>;
+    if (stampResult.continuationRedeemResult) {
+      return stampResult.continuationRedeemResult;
+    }
+
+    const continuationAvailableUntil = Number(
+      stampResult.redemptionContinuationAvailableUntil ?? 0
+    );
+    if (
+      stampResult.eventType !== 'STAMP_ADDED' ||
+      stampResult.canRedeemNow !== true ||
+      !Number.isFinite(continuationAvailableUntil) ||
+      Date.now() > continuationAvailableUntil
+    ) {
+      throw new Error('SCAN_SESSION_EXPIRED');
+    }
+
+    const { program } = await requireScannerEligibleProgram(
+      ctx,
+      session.businessId,
+      session.programId
+    );
+    const membershipId = stampResult.membershipId as
+      | Id<'memberships'>
+      | undefined;
+    const stampEventId = stampResult.eventId as Id<'events'> | undefined;
+    if (
+      !membershipId ||
+      !stampEventId ||
+      !session.customerId ||
+      !session.scannerRuntimeSessionId ||
+      !session.deviceId
+    ) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+    const customerId = session.customerId;
+    const scannerRuntimeSessionId = session.scannerRuntimeSessionId;
+    const deviceId = session.deviceId;
+
+    const membership = await ctx.db.get(membershipId);
+    const stampEvent = await ctx.db.get(stampEventId);
+    if (
+      !membership ||
+      membership.isActive !== true ||
+      String(membership.businessId) !== String(session.businessId) ||
+      String(membership.programId) !== String(session.programId) ||
+      String(membership.userId) !== String(customerId)
+    ) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+    if (
+      !stampEvent ||
+      stampEvent.type !== 'STAMP_ADDED' ||
+      stampEvent.source !== 'scanner_commit' ||
+      String(stampEvent.businessId) !== String(session.businessId) ||
+      String(stampEvent.programId) !== String(session.programId) ||
+      String(stampEvent.membershipId) !== String(membershipId) ||
+      String(stampEvent.customerUserId) !== String(customerId) ||
+      String(stampEvent.actorUserId) !== String(actor._id) ||
+      stampEvent.scannerRuntimeSessionId !== scannerRuntimeSessionId ||
+      stampEvent.deviceId !== deviceId
+    ) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+    if (
+      membership.currentStamps < program.maxStamps ||
+      Number(stampResult.currentStamps) !== membership.currentStamps ||
+      Number(stampResult.maxStamps) !== program.maxStamps
+    ) {
+      throw new Error('NOT_ENOUGH_STAMPS');
+    }
+
+    const latestMembershipEvent = await getLatestBalanceEventForMembership(
+      ctx,
+      membership._id
+    );
+    const latestSessionEvent = await getLatestSessionCommitEvent(
+      ctx,
+      scannerRuntimeSessionId
+    );
+    if (
+      !latestMembershipEvent ||
+      String(latestMembershipEvent._id) !== String(stampEvent._id) ||
+      !latestSessionEvent ||
+      String(latestSessionEvent._id) !== String(stampEvent._id)
+    ) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+
+    const hasNewerScan = await hasNewerScanInRuntimeSession(ctx, {
+      scannerRuntimeSessionId,
+      createdAfter: stampEvent.createdAt,
+      actorUserId: actor._id,
+      businessId: session.businessId,
+    });
+    if (hasNewerScan) {
+      throw new Error('INVALID_SCAN_SESSION');
+    }
+
+    const redeemResult = await applyRedeem(ctx, {
+      actorUserId: actor._id,
+      businessId: session.businessId,
+      program,
+      customerUserId: customerId,
+      source: 'scanner_commit',
+      scannerRuntimeSessionId,
+      deviceId,
+    });
+    const continuationRedeemResult = {
+      ...redeemResult,
+      referralQualification: null,
+      referralRewardTriggered: false,
+      qualificationEventId: null,
+      undoBlockedReason: null,
+      undoAvailableUntil: redeemResult.eventCreatedAt + UNDO_WINDOW_MS,
+    };
+
+    await ctx.db.patch(session._id, {
+      result: {
+        ...stampResult,
+        continuationRedeemResult,
+        redemptionContinuationCommittedAt: Date.now(),
+      },
+    });
+
+    return continuationRedeemResult;
   },
 });
 

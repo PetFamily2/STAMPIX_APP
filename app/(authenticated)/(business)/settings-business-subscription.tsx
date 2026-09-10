@@ -13,15 +13,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
@@ -30,6 +25,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import {
   isSubscriptionRecoveryStatus,
   resolveSubscriptionGuideTarget,
@@ -146,7 +142,6 @@ export default function BusinessSettingsSubscriptionScreen() {
   const subscriptionRecoveryTargetRef = useGuidedTargetRef();
   const quotaTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
-  const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -559,17 +554,10 @@ export default function BusinessSettingsSubscriptionScreen() {
           },
         ]}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-          style={styles.stickyHeader}
-        >
-          <BusinessScreenHeader
-            title="מסלול וחיוב"
-            titleNumberOfLines={1}
-            titleAccessory={<BackButton onPress={() => router.back()} />}
-          />
-        </StickyScrollHeader>
+        <BusinessSettingsSubpageHeader
+          title="מסלול וחיוב"
+          fallbackHref={BUSINESS_ROUTES.settings}
+        />
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (

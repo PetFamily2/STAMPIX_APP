@@ -12,10 +12,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import QrScanner from '@/components/QrScanner';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -31,6 +29,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
@@ -213,20 +212,11 @@ export default function AddBusinessStaffScreen() {
           alignSelf: 'center',
         }}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="הוספת עובד"
-            subtitle="סרקו קוד אישי מסוג QR של העובד כדי להזמין אותו"
-            titleAccessory={
-              <BackButton
-                onPress={() => router.replace(BUSINESS_ROUTES.team)}
-              />
-            }
-          />
-        </StickyScrollHeader>
+        <BusinessSettingsSubpageHeader
+          title="הוספת עובד"
+          subtitle="סרקו קוד אישי מסוג QR של העובד כדי להזמין אותו"
+          fallbackHref={BUSINESS_ROUTES.team}
+        />
 
         <FeatureGate
           isLocked={teamGate.isLocked}
@@ -413,7 +403,7 @@ export default function AddBusinessStaffScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.replace(BUSINESS_ROUTES.team)}
+            onPress={() => safeBack(BUSINESS_ROUTES.team)}
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">

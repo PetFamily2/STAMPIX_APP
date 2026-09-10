@@ -284,6 +284,12 @@ export default function BusinessTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="settings-business-account-data"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="settings-business-subscription"
         options={{
           href: null,
@@ -297,6 +303,12 @@ export default function BusinessTabsLayout() {
       />
       <Tabs.Screen
         name="settings-business-invite-businesses"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings-business-profile-complete"
         options={{
           href: null,
         }}

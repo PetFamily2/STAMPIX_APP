@@ -5,9 +5,10 @@ Last synced: 2026-08-17
 ## Purpose
 
 This document describes the production scanner transaction contract. The public
-flow is `resolveScan` followed by exactly one compatible commit. The older
-add/redeem mutations are internal migration-safety endpoints and are not part of
-the scanner UI contract.
+flow is `resolveScan` followed by exactly one compatible primary commit. A stamp
+that completes a card may additionally authorize the narrowly bound redemption
+continuation described below. The older add/redeem mutations are internal
+migration-safety endpoints and are not part of the scanner UI contract.
 
 ## Customer QR
 
@@ -70,6 +71,16 @@ A successful commit returns the resulting membership balance plus transaction
 metadata including `customerDisplayName`, `eventId`, `eventType`,
 `eventCreatedAt`, `undoAvailableUntil`, and referral qualification metadata.
 Redeem results also include `redeemedAt`.
+
+When `commitStamp` authoritatively completes a card, its result also includes a
+short-lived `redemptionContinuationAvailableUntil`. The POS may then call
+`api.scanner.commitCompletedStampRedeem({ scanSessionId })` with that same
+committed stamp session. This continuation does not accept a membership,
+customer, program, business, or balance from the client. The server binds those
+identities to the committed stamp event, rechecks scanner access, current
+eligibility, event/session continuity, and expiry, and records a canonical
+redemption event and receipt. Retrying a completed continuation returns its
+stored redemption result without redeeming twice.
 
 Commit is idempotent: retrying the same committed `scanSessionId` returns the
 stored result without applying the action or consuming the QR again. A technical

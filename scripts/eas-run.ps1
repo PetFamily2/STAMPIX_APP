@@ -40,12 +40,19 @@ function Should-VerifyRtlBuildSource {
     $platform = Get-ArgValue -ArgsList $ArgsList -Name '-p'
   }
 
-  return $platform -eq 'android' -or $platform -eq 'all'
+  return $platform -eq 'android' -or $platform -eq 'ios' -or $platform -eq 'all'
 }
 
 if (Should-VerifyRtlBuildSource -ArgsList $EasArgs) {
   $sourceVerifier = Join-Path $PSScriptRoot 'verify-rtl-build-source.mjs'
   & node $sourceVerifier --require-clean-git
+
+  if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+  }
+
+  $nativeConfigVerifier = Join-Path $PSScriptRoot 'verify-manual-rtl-config.mjs'
+  & node $nativeConfigVerifier
 
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

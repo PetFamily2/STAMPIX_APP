@@ -98,7 +98,8 @@ Use `useRevenueCat` hook from `contexts/RevenueCatContext.tsx`.
 
 #### RTL Checks
 - Use `text-right` or RTL-aware classes.
-- Expo is configured for RTL in `app.json` (`supportsRTL: true`).
+- StampAix uses manual RTL helpers from `lib/rtl.ts`; native Expo RTL must stay disabled.
+- `app.json` must keep `supportsRTL: false` and `forcesRTL: false`; the iOS generated plist contract is verified separately.
 - **Reference**: Check `lib/rtl.ts` for helper functions.
 
 ---

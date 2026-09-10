@@ -27,6 +27,7 @@
     "eas:submit:ios:production": "powershell -ExecutionPolicy Bypass -File scripts/eas-run.ps1 submit --platform ios --profile production --non-interactive",
     "verify:android:rtl-apk": "node scripts/verify-android-rtl-apk.mjs",
     "verify:rtl-build-source": "node scripts/verify-rtl-build-source.mjs",
+    "verify:rtl-native-config": "node scripts/verify-manual-rtl-config.mjs",
     "testflight": "bun run eas:build:ios:production:interactive && bun run eas:submit:ios:production",
     "lint": "biome check .",
     "format": "biome format --write .",

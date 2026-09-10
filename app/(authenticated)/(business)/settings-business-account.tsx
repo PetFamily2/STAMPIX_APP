@@ -1,27 +1,22 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
+
 import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+  BusinessSettingsSubpageHeader,
+  SettingsGroup,
+  SettingsNavRow,
+  SettingsPageShell,
+  SettingsSection,
+  SETTINGS_TOKENS,
+} from '@/components/business-settings';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safePush } from '@/lib/navigation';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -29,33 +24,29 @@ const LEGAL_ROWS: Array<{
   document: LegalDocumentKey;
   title: string;
   subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
 }> = [
   {
     document: 'terms',
     title: 'תנאי שימוש',
     subtitle: 'כללי השימוש ב-StampAix לעסקים וללקוחות',
-    icon: 'document-text-outline',
   },
   {
     document: 'privacy',
     title: 'מדיניות פרטיות',
     subtitle: 'איך נשמר ומנוהל המידע בחשבון',
-    icon: 'shield-checkmark-outline',
   },
   {
     document: 'deletion',
     title: 'מדיניות מחיקת חשבון',
     subtitle: 'מידע בלבד: מה נמחק, מה נשמר ומגבלת בעלים יחיד',
-    icon: 'information-circle-outline',
   },
 ];
 
 export default function BusinessSettingsAccountScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const sessionContext = useSessionContext();
   const { signOut } = useAuthActions();
+  const { activeBusiness } = useActiveBusiness();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const user = sessionContext?.user;
@@ -66,163 +57,186 @@ export default function BusinessSettingsAccountScreen() {
       .join(' ')
       .trim() ||
     'ללא שם';
+  const canLeaveBusiness = activeBusiness
+    ? activeBusiness.staffRole !== 'owner'
+    : false;
+  const canCloseBusiness = activeBusiness?.staffRole === 'owner';
+  const canOpenAccountData = canLeaveBusiness || canCloseBusiness;
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     if (isSigningOut) {
       return;
     }
-
-    try {
-      setIsSigningOut(true);
-      await signOut();
-      router.replace('/(auth)/sign-in');
-    } catch {
-      Alert.alert('שגיאה', 'לא הצלחנו לבצע יציאה. נסו שוב.');
-    } finally {
-      setIsSigningOut(false);
-    }
+    Alert.alert('התנתקות מהמכשיר?', 'תצאו מהחשבון במכשיר זה בלבד.', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'התנתקות',
+        style: 'destructive',
+        onPress: async () => {
+          if (isSigningOut) {
+            return;
+          }
+          try {
+            setIsSigningOut(true);
+            await signOut();
+            router.replace('/(auth)/sign-in');
+          } catch {
+            Alert.alert('שגיאה', 'לא הצלחנו לבצע יציאה. נסו שוב.');
+          } finally {
+            setIsSigningOut(false);
+          }
+        },
+      },
+    ]);
   };
 
   const openLegalDocument = (document: LegalDocumentKey) => {
-    safePush(`/(authenticated)/settings-legal?document=${document}`);
+    safePush(
+      `/(authenticated)/settings-legal?document=${document}&returnTo=business-account`
+    );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-      <ScrollView
-        stickyHeaderIndices={[0]}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: 30,
-          gap: 12,
-          width: '100%',
-          maxWidth: 760,
-          alignSelf: 'center',
+    <SettingsPageShell
+      header={
+        <BusinessSettingsSubpageHeader
+          title="פרטי חשבון"
+          fallbackHref={BUSINESS_ROUTES.settings}
+        />
+      }
+    >
+      <View
+        style={{
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: SETTINGS_TOKENS.border,
+          backgroundColor: SETTINGS_TOKENS.surface,
+          padding: 16,
+          gap: 14,
         }}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="פרטי חשבון"
-            subtitle="נתוני המשתמש המחובר והגדרות התחברות"
-            titleAccessory={<BackButton onPress={() => router.back()} />}
-          />
-        </StickyScrollHeader>
-
-        <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            חשבון משתמש
-          </Text>
-
-          <View
-            className={`${tw.flexRow} mt-4 items-center gap-3 border-b border-[#F1F5F9] pb-4`}
-            style={rtlBaseView}
-          >
-            <UserAvatar
-              avatarUrl={user?.avatarUrl}
-              fullName={userFullName}
-              size={68}
-            />
-            <View className={`flex-1 ${tw.itemsStart} gap-1`}>
-              <Text className="text-right text-[18px] font-black text-[#111827]">
-                {userFullName}
-              </Text>
-              <Text className="text-right text-xs font-semibold text-[#64748B]">
-                {user?.email || 'לא מוגדר'}
-              </Text>
-            </View>
-          </View>
-
-          <View className="mt-4 gap-3">
-            <View className={`${tw.flexRow} items-center justify-between`}>
-              <Text className="text-sm font-bold text-[#1A2B4A]">
-                {userFullName}
-              </Text>
-              <Text className="text-xs text-[#64748B]">שם מלא</Text>
-            </View>
-            <View className={`${tw.flexRow} items-center justify-between`}>
-              <Text className="text-sm font-bold text-[#1A2B4A]">
-                {user?.email || 'לא מוגדר'}
-              </Text>
-              <Text className="text-xs text-[#64748B]">אימייל</Text>
-            </View>
-            <View className={`${tw.flexRow} items-center justify-between`}>
-              <Text className="text-sm font-bold text-[#1A2B4A]">
-                {user?.phone || 'לא מוגדר'}
-              </Text>
-              <Text className="text-xs text-[#64748B]">טלפון</Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="gap-3 rounded-3xl border border-[#E3E9FF] bg-white p-4">
-          <Text
-            className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-          >
-            מסמכים ומדיניות
-          </Text>
-
-          {LEGAL_ROWS.map((row) => (
-            <Pressable
-              key={row.document}
-              onPress={() => openLegalDocument(row.document)}
-              style={({ pressed }) => [
-                {
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: '#E3E9FF',
-                  backgroundColor: '#FFFFFF',
-                  paddingHorizontal: 14,
-                  paddingVertical: 14,
-                  opacity: pressed ? 0.88 : 1,
-                },
-              ]}
-            >
-              <View
-                className={`${tw.flexRow} items-center justify-between gap-3`}
-                style={rtlBaseView}
-              >
-                <View className="h-[38px] w-[38px] items-center justify-center rounded-full border border-[#DCE6FF] bg-[#EEF3FF]">
-                  <Ionicons name={row.icon} size={18} color="#1D4ED8" />
-                </View>
-
-                <View className={`flex-1 ${tw.itemsStart}`}>
-                  <Text className="text-right text-[15px] font-extrabold text-[#111827]">
-                    {row.title}
-                  </Text>
-                  <Text className="mt-1 text-right text-xs font-medium text-[#64748B]">
-                    {row.subtitle}
-                  </Text>
-                </View>
-
-                <Ionicons name="chevron-back" size={18} color="#94A3B8" />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        <TouchableOpacity
-          onPress={() => {
-            void handleSignOut();
+        <View
+          style={{
+            flexDirection: flexDirection.row,
+            alignItems: 'center',
+            gap: 12,
+            ...rtlBaseView,
           }}
-          disabled={isSigningOut}
-          className={`rounded-2xl px-4 py-3 ${
-            isSigningOut ? 'bg-[#FCA5A5]' : 'bg-[#DC2626]'
-          }`}
         >
-          {isSigningOut ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text className="text-center text-sm font-bold text-white">
-              יציאה מהחשבון
+          <UserAvatar
+            avatarUrl={user?.avatarUrl}
+            fullName={userFullName}
+            size={64}
+          />
+          <View style={{ flex: 1, alignItems: alignItems.start, gap: 4 }}>
+            <Text
+              style={{
+                width: '100%',
+                fontSize: 18,
+                lineHeight: 24,
+                fontWeight: '700',
+                color: SETTINGS_TOKENS.textPrimary,
+                textAlign: 'right',
+              }}
+            >
+              {userFullName}
             </Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+            <Text
+              style={{
+                width: '100%',
+                fontSize: 13,
+                color: SETTINGS_TOKENS.textSecondary,
+                textAlign: 'right',
+              }}
+            >
+              {user?.email || 'לא מוגדר'}
+            </Text>
+          </View>
+        </View>
+        <InfoLine label="שם מלא" value={userFullName} />
+        <InfoLine label="אימייל" value={user?.email || 'לא מוגדר'} />
+        <InfoLine label="טלפון" value={user?.phone || 'לא מוגדר'} />
+      </View>
+
+      <SettingsSection title="מסמכים ומדיניות">
+        <SettingsGroup>
+          {LEGAL_ROWS.map((row, index) => (
+            <SettingsNavRow
+              key={row.document}
+              title={row.title}
+              subtitle={row.subtitle}
+              onPress={() => openLegalDocument(row.document)}
+              isLast={index === LEGAL_ROWS.length - 1}
+            />
+          ))}
+        </SettingsGroup>
+      </SettingsSection>
+
+      <SettingsSection title="אפשרויות נוספות">
+        <SettingsGroup>
+          <SettingsNavRow
+            title="התנתקות מהמכשיר"
+            subtitle="יציאה מהחשבון במכשיר זה"
+            disabled={isSigningOut}
+            onPress={handleSignOut}
+            isLast={true}
+            accessibilityHint="יציאה מהחשבון במכשיר זה בלי לשנות את העסק או המנוי"
+          />
+        </SettingsGroup>
+      </SettingsSection>
+
+      {canOpenAccountData ? (
+        <SettingsSection title="אזור מתקדם">
+          <SettingsGroup>
+            <SettingsNavRow
+              title="ניהול חשבון ונתונים"
+              subtitle="פעולות נדירות לעסק ולנתונים"
+              onPress={() => router.push(BUSINESS_ROUTES.accountData as Href)}
+              isLast={true}
+              accessibilityHint="פתיחת אזור נפרד לפעולות הרסניות. אינו יציאה מהמכשיר ואינו ביטול מנוי"
+            />
+          </SettingsGroup>
+        </SettingsSection>
+      ) : null}
+
+      {isSigningOut ? (
+        <ActivityIndicator color={SETTINGS_TOKENS.accent} />
+      ) : null}
+    </SettingsPageShell>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: flexDirection.row,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        ...rtlBaseView,
+      }}
+    >
+      <Text
+        style={{
+          flex: 1,
+          fontSize: 15,
+          fontWeight: '600',
+          color: SETTINGS_TOKENS.textPrimary,
+          textAlign: 'right',
+        }}
+      >
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontSize: 12,
+          color: SETTINGS_TOKENS.textSecondary,
+          textAlign: 'right',
+        }}
+      >
+        {label}
+      </Text>
+    </View>
   );
 }

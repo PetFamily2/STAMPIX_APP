@@ -12,6 +12,7 @@ export type BusinessCapability =
   | 'export_reports'
   | 'view_usage_quota'
   | 'view_billing_state'
+  | 'invite_businesses'
   | 'manage_subscription'
   | 'manage_team'
   | 'edit_loyalty_cards'
@@ -35,6 +36,7 @@ const ROLE_CAPABILITIES: Record<StaffRole, BusinessCapabilityMap> = {
     export_reports: true,
     view_usage_quota: true,
     view_billing_state: true,
+    invite_businesses: true,
     manage_subscription: true,
     manage_team: true,
     edit_loyalty_cards: true,
@@ -55,6 +57,7 @@ const ROLE_CAPABILITIES: Record<StaffRole, BusinessCapabilityMap> = {
     export_reports: true,
     view_usage_quota: true,
     view_billing_state: false,
+    invite_businesses: true,
     manage_subscription: false,
     manage_team: true,
     edit_loyalty_cards: true,
@@ -75,6 +78,7 @@ const ROLE_CAPABILITIES: Record<StaffRole, BusinessCapabilityMap> = {
     export_reports: false,
     view_usage_quota: false,
     view_billing_state: false,
+    invite_businesses: false,
     manage_subscription: false,
     manage_team: false,
     edit_loyalty_cards: false,
@@ -121,6 +125,8 @@ export function resolveBusinessCapabilities(
       capabilities.view_usage_quota ?? fallback.view_usage_quota,
     view_billing_state:
       capabilities.view_billing_state ?? fallback.view_billing_state,
+    invite_businesses:
+      capabilities.invite_businesses ?? fallback.invite_businesses,
     manage_subscription:
       capabilities.manage_subscription ?? fallback.manage_subscription,
     manage_team: capabilities.manage_team ?? fallback.manage_team,

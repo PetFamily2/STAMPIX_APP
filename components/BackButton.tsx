@@ -12,6 +12,7 @@ export function BackButton({ onPress }: BackButtonProps) {
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       accessibilityRole="button"
       accessibilityLabel="חזרה"
+      accessibilityHint="חוזר למסך הקודם"
     >
       <Ionicons name="arrow-forward" size={18} color="#111827" />
     </Pressable>

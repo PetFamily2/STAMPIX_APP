@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
+import { getRecommendationNavigationTarget } from '../../lib/recommendations/navigation';
+
 import {
   acknowledgeBusinessRecommendationGuideStatus,
   dismissBusinessRecommendation,
@@ -329,6 +331,7 @@ async function issueGuideSession(context, recommendation) {
     businessId: 'business_1',
     stableId: recommendation.stableId,
     guideId: recommendation.guideId,
+    evidenceFingerprint: recommendation.evidenceFingerprint,
   });
   return {
     session,
@@ -628,6 +631,56 @@ describe('recommendation interaction handlers', () => {
 });
 
 describe('server-issued recommendation guide sessions', () => {
+  test('profile guidance binds the exact missing field through session navigation', async () => {
+    const ownerCtx = ctx('owner_1', (data) => {
+      data.businesses[0].shortDescription = '';
+    });
+    const response = await getBusinessRecommendations._handler(ownerCtx, {
+      businessId: 'business_1',
+    });
+    const recommendation = visibleRecommendation(
+      response,
+      'setup.profile.complete'
+    );
+    expect(recommendation.action).toEqual({
+      type: 'open_business_profile',
+      fieldId: 'shortDescription',
+    });
+
+    const session = await startBusinessRecommendationGuide._handler(ownerCtx, {
+      businessId: 'business_1',
+      stableId: recommendation.stableId,
+      guideId: recommendation.guideId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
+    });
+    const navigation = getRecommendationNavigationTarget({
+      businessId: String(session.businessId),
+      action: session.action,
+      guideSessionId: String(session.guideSessionId),
+      guideId: session.guideId,
+      stableId: session.stableId,
+      evidenceFingerprint: session.evidenceFingerprint,
+      entityId: session.entityId,
+    });
+
+    expect(navigation).toEqual({
+      ok: true,
+      target: {
+        pathname:
+          '/(authenticated)/(business)/settings-business-profile',
+        params: {
+          businessId: 'business_1',
+          guideSessionId: String(session.guideSessionId),
+          guideId: 'profile-complete',
+          stableId: 'setup.profile.complete',
+          evidenceFingerprint: recommendation.evidenceFingerprint,
+          recommendationBusinessId: 'business_1',
+          fieldId: 'shortDescription',
+        },
+      },
+    });
+  });
+
   test('visible recommendation receives an idempotent server-derived session', async () => {
     const ownerCtx = ctx('owner_1', (data) => {
       data.loyaltyPrograms[0].status = 'draft';
@@ -644,8 +697,8 @@ describe('server-issued recommendation guide sessions', () => {
       businessId: 'business_1',
       stableId: recommendation.stableId,
       guideId: recommendation.guideId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
       actorUserId: 'owner_2',
-      evidenceFingerprint: 'client_fingerprint',
       entityId: 'program_2',
       expiresAt: 1,
     });
@@ -653,12 +706,14 @@ describe('server-issued recommendation guide sessions', () => {
       businessId: 'business_1',
       stableId: recommendation.stableId,
       guideId: recommendation.guideId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
     });
     const afterIssue = Date.now();
 
     expect(first.guideSessionId).toBe(second.guideSessionId);
     expect(Object.keys(first).sort()).toEqual(
       [
+        'action',
         'businessId',
         'entityId',
         'evidenceFingerprint',
@@ -671,6 +726,7 @@ describe('server-issued recommendation guide sessions', () => {
     expect(first.evidenceFingerprint).toBe(
       recommendation.evidenceFingerprint
     );
+    expect(first.action).toEqual(recommendation.action);
     expect(first.entityId).toBe(recommendation.entityId);
     expect(first.expiresAt).toBeGreaterThanOrEqual(
       beforeIssue + 24 * 60 * 60 * 1000
@@ -699,6 +755,15 @@ describe('server-issued recommendation guide sessions', () => {
       response,
       'campaign.create_first'
     );
+    await expect(
+      startBusinessRecommendationGuide._handler(ownerCtx, {
+        businessId: 'business_1',
+        stableId: recommendation.stableId,
+        guideId: recommendation.guideId,
+        evidenceFingerprint: 'rec_v1_stale',
+      })
+    ).rejects.toThrow();
+    expect(ownerCtx.data.recommendationGuideSessions).toHaveLength(0);
     await dismissBusinessRecommendation._handler(ownerCtx, {
       businessId: 'business_1',
       stableId: recommendation.stableId,
@@ -709,6 +774,7 @@ describe('server-issued recommendation guide sessions', () => {
         businessId: 'business_1',
         stableId: recommendation.stableId,
         guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
       })
     ).rejects.toThrow();
     await expect(
@@ -716,6 +782,7 @@ describe('server-issued recommendation guide sessions', () => {
         businessId: 'business_1',
         stableId: recommendation.stableId,
         guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
       })
     ).rejects.toThrow('NOT_AUTHORIZED');
     await expect(
@@ -723,6 +790,7 @@ describe('server-issued recommendation guide sessions', () => {
         businessId: 'business_2',
         stableId: recommendation.stableId,
         guideId: recommendation.guideId,
+        evidenceFingerprint: recommendation.evidenceFingerprint,
       })
     ).rejects.toThrow('NOT_AUTHORIZED');
     await expect(
@@ -730,6 +798,7 @@ describe('server-issued recommendation guide sessions', () => {
         businessId: 'business_1',
         stableId: recommendation.stableId,
         guideId: 'near-reward',
+        evidenceFingerprint: recommendation.evidenceFingerprint,
       })
     ).rejects.toThrow();
   });

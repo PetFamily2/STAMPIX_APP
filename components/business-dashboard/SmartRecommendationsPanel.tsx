@@ -39,25 +39,38 @@ export type DashboardRecommendation = {
   guideId: RecommendationGuideId;
 };
 
+export type RecommendationPendingActions = Readonly<
+  Record<string, 'open' | 'snooze' | 'dismiss' | undefined>
+>;
+
+export function getDashboardRecommendationKey(
+  recommendation: Pick<
+    DashboardRecommendation,
+    'stableId' | 'evidenceFingerprint'
+  >
+) {
+  return `${recommendation.stableId}:${recommendation.evidenceFingerprint}`;
+}
+
 export function SmartRecommendationsPanel({
   layoutMode,
   status,
   primary,
   secondary,
-  loadingRecommendationId,
-  interactionLoadingKey,
+  pendingActions,
   onOpen,
-  onShowOptions,
+  onSnooze,
+  onDismiss,
   onRetry,
 }: {
   layoutMode: DashboardLayoutMode;
   status: 'loading' | 'ready' | 'error';
   primary: DashboardRecommendation | null;
   secondary: DashboardRecommendation[];
-  loadingRecommendationId?: string | null;
-  interactionLoadingKey?: string | null;
+  pendingActions?: RecommendationPendingActions;
   onOpen: (recommendation: DashboardRecommendation) => void;
-  onShowOptions?: (recommendation: DashboardRecommendation) => void;
+  onSnooze: (recommendation: DashboardRecommendation) => void;
+  onDismiss: (recommendation: DashboardRecommendation) => void;
   onRetry?: () => void;
 }) {
   if (status === 'loading') {
@@ -115,6 +128,10 @@ export function SmartRecommendationsPanel({
   }
 
   const isTablet = layoutMode === 'tablet';
+  const primaryKey = primary ? getDashboardRecommendationKey(primary) : null;
+  const primaryPendingAction = primaryKey
+    ? pendingActions?.[primaryKey]
+    : undefined;
   return (
     <View
       style={[
@@ -131,15 +148,12 @@ export function SmartRecommendationsPanel({
             reason={primary.reason}
             ctaLabel={primary.ctaLabel}
             emphasis="primary"
-            isLoading={loadingRecommendationId === primary.stableId}
-            isInteractionLoading={
-              interactionLoadingKey ===
-              `${primary.stableId}:${primary.evidenceFingerprint}`
-            }
-            onPress={() => onOpen(primary)}
-            onShowOptions={
-              onShowOptions ? () => onShowOptions(primary) : undefined
-            }
+            isOpening={primaryPendingAction === 'open'}
+            isSnoozing={primaryPendingAction === 'snooze'}
+            isDismissing={primaryPendingAction === 'dismiss'}
+            onOpen={() => onOpen(primary)}
+            onSnooze={() => onSnooze(primary)}
+            onDismiss={() => onDismiss(primary)}
           />
         </View>
       ) : null}
@@ -151,30 +165,29 @@ export function SmartRecommendationsPanel({
             !primary && isTablet ? styles.secondaryOnlyTablet : null,
           ]}
         >
-          {visibleSecondary.map((recommendation) => (
-            <RecommendationActionCard
-              key={`${recommendation.stableId}:${recommendation.evidenceFingerprint}`}
-              category={recommendation.category}
-              tone={recommendation.tone}
-              title={recommendation.title}
-              reason={recommendation.reason}
-              ctaLabel={recommendation.ctaLabel}
-              emphasis="secondary"
-              isLoading={
-                loadingRecommendationId === recommendation.stableId
-              }
-              isInteractionLoading={
-                interactionLoadingKey ===
-                `${recommendation.stableId}:${recommendation.evidenceFingerprint}`
-              }
-              onPress={() => onOpen(recommendation)}
-              onShowOptions={
-                onShowOptions
-                  ? () => onShowOptions(recommendation)
-                  : undefined
-              }
-            />
-          ))}
+          {visibleSecondary.map((recommendation) => {
+            const recommendationKey =
+              getDashboardRecommendationKey(recommendation);
+            const recommendationPendingAction =
+              pendingActions?.[recommendationKey];
+            return (
+              <RecommendationActionCard
+                key={recommendationKey}
+                category={recommendation.category}
+                tone={recommendation.tone}
+                title={recommendation.title}
+                reason={recommendation.reason}
+                ctaLabel={recommendation.ctaLabel}
+                emphasis="secondary"
+                isOpening={recommendationPendingAction === 'open'}
+                isSnoozing={recommendationPendingAction === 'snooze'}
+                isDismissing={recommendationPendingAction === 'dismiss'}
+                onOpen={() => onOpen(recommendation)}
+                onSnooze={() => onSnooze(recommendation)}
+                onDismiss={() => onDismiss(recommendation)}
+              />
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -214,10 +227,10 @@ const styles = StyleSheet.create({
   loadingState: {
     width: '100%',
     maxWidth: 920,
-    height: 176,
+    height: 132,
     alignSelf: 'center',
     justifyContent: 'center',
-    gap: 13,
+    gap: 10,
     borderWidth: 1,
     borderColor: DASHBOARD_TOKENS.colors.border,
     borderRadius: DASHBOARD_TOKENS.cardRadiusLarge,

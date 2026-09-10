@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,15 +13,12 @@ import {
 } from 'react-native';
 import {
   SafeAreaView,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
@@ -32,6 +28,8 @@ import {
 } from '@/lib/businessAddressSelection';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { safeBack } from '@/lib/navigation';
 import { selfEnd } from '@/lib/rtl';
 
 const TEXT = {
@@ -90,7 +88,6 @@ function toSelectedAddress(
 }
 
 export default function BusinessSettingsAddressScreen() {
-  const insets = useSafeAreaInsets();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -120,21 +117,32 @@ export default function BusinessSettingsAddressScreen() {
   const guideTargetRef = useGuidedTargetRef();
   const guideFocusTargetRef = useRef<(() => void) | null>(null);
 
-  const applyBusinessAddressSnapshot = (settings: typeof businessSettings) => {
-    if (!settings) {
-      return;
-    }
-    const nextSelected = toSelectedAddress(settings);
-    setAddressQuery(settings.formattedAddress?.trim() ?? '');
-    setSelectedAddress(nextSelected);
-    setLoadedAddress(nextSelected);
-    setBaseUpdatedAt(
-      typeof settings.updatedAt === 'number' ? settings.updatedAt : null
-    );
-    setConflictLocked(false);
-  };
+  const applyBusinessAddressSnapshot = useCallback(
+    (settings: typeof businessSettings) => {
+      if (!settings) {
+        return;
+      }
+      const nextSelected = toSelectedAddress(settings);
+      setAddressQuery(settings.formattedAddress?.trim() ?? '');
+      setSelectedAddress(nextSelected);
+      setLoadedAddress(nextSelected);
+      setBaseUpdatedAt(
+        typeof settings.updatedAt === 'number' ? settings.updatedAt : null
+      );
+      setConflictLocked(false);
+    },
+    []
+  );
 
   useEffect(() => {
+    if (activeBusinessId == null) {
+      setBaseUpdatedAt(null);
+      setConflictLocked(false);
+      setSelectedAddress(null);
+      setLoadedAddress(null);
+      setAddressQuery('');
+      return;
+    }
     setBaseUpdatedAt(null);
     setConflictLocked(false);
     setSelectedAddress(null);
@@ -147,7 +155,7 @@ export default function BusinessSettingsAddressScreen() {
       return;
     }
     applyBusinessAddressSnapshot(businessSettings);
-  }, [baseUpdatedAt, businessSettings]);
+  }, [applyBusinessAddressSnapshot, baseUpdatedAt, businessSettings]);
 
   const isDirty = !areBusinessAddressesEqual(loadedAddress, selectedAddress);
   const canSave =
@@ -183,10 +191,7 @@ export default function BusinessSettingsAddressScreen() {
       Alert.alert(TEXT.savedTitle, TEXT.savedMessage, [
         {
           text: 'אישור',
-          onPress: () =>
-            router.replace(
-              '/(authenticated)/(business)/settings-business-profile'
-            ),
+          onPress: () => safeBack(BUSINESS_ROUTES.profile),
         },
       ]);
     } catch (saveError) {
@@ -217,8 +222,14 @@ export default function BusinessSettingsAddressScreen() {
 
   if (!activeBusinessId) {
     return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.emptyText}>{TEXT.noActiveBusiness}</Text>
+      <SafeAreaView style={styles.container} edges={[]}>
+        <BusinessSettingsSubpageHeader
+          title={TEXT.title}
+          fallbackHref={BUSINESS_ROUTES.profile}
+        />
+        <Text style={[styles.emptyText, styles.emptyPad]}>
+          {TEXT.noActiveBusiness}
+        </Text>
       </SafeAreaView>
     );
   }
@@ -232,20 +243,15 @@ export default function BusinessSettingsAddressScreen() {
         <ScrollView
           ref={scrollViewRef}
           stickyHeaderIndices={[0]}
-          contentContainerStyle={[
-            styles.content,
-            { paddingTop: (insets.top || 0) + 12 },
-          ]}
+          contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
         >
-          <StickyScrollHeader topPadding={0} backgroundColor="#E9F0FF">
-            <BusinessScreenHeader
-              title={TEXT.title}
-              subtitle={TEXT.subtitle}
-              titleAccessory={<BackButton onPress={() => router.back()} />}
-            />
-          </StickyScrollHeader>
+          <BusinessSettingsSubpageHeader
+            title={TEXT.title}
+            subtitle={TEXT.subtitle}
+            fallbackHref={BUSINESS_ROUTES.profile}
+          />
 
           {businessSettings === undefined ? (
             <View style={styles.loadingCard}>
@@ -339,7 +345,7 @@ export default function BusinessSettingsAddressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E9F0FF',
+    backgroundColor: '#F5F7FB',
   },
   keyboard: {
     flex: 1,
@@ -352,12 +358,9 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E9F0FF',
-    paddingHorizontal: 24,
+  emptyPad: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   card: {
     borderRadius: 24,

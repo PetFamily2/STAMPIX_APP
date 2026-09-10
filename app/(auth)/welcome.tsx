@@ -1,10 +1,12 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Gift, Store } from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
   BackHandler,
   Image,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -16,7 +18,7 @@ import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
-import { rtlBaseView, rtlCenterText, tw } from '@/lib/rtl';
+import { rtlBaseText, rtlCenterText, tw } from '@/lib/rtl';
 
 const TEXT = {
   titleLine1: 'העסק והלקוחות',
@@ -24,8 +26,11 @@ const TEXT = {
   titleLine2B: 'ב',
   titleLine2C: 'דיגיטל',
   subtitle: 'כל כרטיסי הנאמנות וההטבות במקום אחד',
-  featureCustomerTitle: 'לקוחות צוברים ומממשים הטבות בקלות',
-  featureBusinessTitle: 'עסקים מנהלים מועדון לקוחות פשוט וחכם',
+  featureCustomerLabel: 'ללקוחות',
+  featureCustomerTitle: 'צוברים חותמות, מממשים הטבות ונהנים יותר בכל ביקור',
+  featureBusinessLabel: 'לעסקים',
+  featureBusinessTitle:
+    'מנהלים מועדון לקוחות חכם, מחזירים לקוחות ומחזקים נאמנות',
   getStarted: 'בואו נתחיל',
   emailEntry: 'כניסה או הרשמה באימייל',
   emailEntryHint: 'יש לכם כבר אימייל?',
@@ -118,21 +123,59 @@ export default function WelcomeScreen() {
             </Text>
           </View>
 
-          <View className="mb-auto gap-4">
-            {[TEXT.featureCustomerTitle, TEXT.featureBusinessTitle].map(
-              (item) => (
-                <View
-                  key={item}
-                  className={`${tw.flexRow} items-center gap-3 px-1`}
-                  style={rtlBaseView}
-                >
-                  <View className="w-2 h-2 rounded-full bg-blue-600" />
-                  <Text className="flex-1 text-[15px] font-semibold text-gray-700 text-right leading-6">
-                    {item}
-                  </Text>
+          <View className="mb-auto" style={styles.benefitsShadow}>
+            <View style={styles.benefitsCard}>
+              {[
+                {
+                  key: 'customer',
+                  label: TEXT.featureCustomerLabel,
+                  title: TEXT.featureCustomerTitle,
+                  Icon: Gift,
+                  iconColor: '#2563EB',
+                  iconBackground: '#EAF2FF',
+                },
+                {
+                  key: 'business',
+                  label: TEXT.featureBusinessLabel,
+                  title: TEXT.featureBusinessTitle,
+                  Icon: Store,
+                  iconColor: '#4F46E5',
+                  iconBackground: '#EEF0FF',
+                },
+              ].map((benefit, index) => (
+                <View key={benefit.key}>
+                  {index > 0 && <View style={styles.benefitDivider} />}
+                  <View
+                    className={`${tw.flexRow} items-center gap-3 px-4 py-[15px]`}
+                  >
+                    <View
+                      className="h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: benefit.iconBackground }}
+                    >
+                      <benefit.Icon
+                        color={benefit.iconColor}
+                        size={19}
+                        strokeWidth={2.25}
+                      />
+                    </View>
+                    <View className={`flex-1 ${tw.itemsStart} gap-0.5`}>
+                      <Text
+                        className="w-full text-right text-xs font-bold text-blue-600"
+                        style={rtlBaseText}
+                      >
+                        {benefit.label}
+                      </Text>
+                      <Text
+                        className="w-full text-right text-[15px] font-semibold leading-[22px] text-[#14213D]"
+                        style={rtlBaseText}
+                      >
+                        {benefit.title}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              )
-            )}
+              ))}
+            </View>
           </View>
 
           <View className="mt-8">
@@ -166,3 +209,28 @@ export default function WelcomeScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  benefitsShadow: {
+    width: '100%',
+    borderRadius: 22,
+    backgroundColor: '#F9FBFF',
+    shadowColor: '#163A70',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  benefitsCard: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E3EAF5',
+    borderRadius: 22,
+    backgroundColor: '#F9FBFF',
+  },
+  benefitDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+    backgroundColor: '#DCE5F2',
+  },
+});

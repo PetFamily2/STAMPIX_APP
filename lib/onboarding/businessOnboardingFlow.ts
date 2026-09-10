@@ -121,6 +121,10 @@ export function getBusinessOnboardingEntryRoute(
   return BUSINESS_ONBOARDING_ROUTES.entry;
 }
 
+export function getAdditionalBusinessOnboardingExitRoute() {
+  return '/(authenticated)/(business)/settings';
+}
+
 export function getBusinessOnboardingProgressStep(
   step: keyof typeof BUSINESS_ONBOARDING_PROGRESS,
   flow?: string | string[] | null
@@ -195,10 +199,8 @@ export function resolveBusinessOnboardingDraftIdentifiers<
 
 export function getConsolidatedBusinessOnboardingStep(
   step: BusinessOnboardingStep,
-  flow?: string | string[] | null
+  _flow?: string | string[] | null
 ): BusinessOnboardingStep {
-  const resolvedFlow = resolveBusinessOnboardingFlow(flow);
-
   if (step === 'name') {
     return 'businessBasics';
   }

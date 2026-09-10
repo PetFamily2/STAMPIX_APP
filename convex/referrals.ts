@@ -2044,7 +2044,7 @@ export const getOrCreateBusinessReferralLink = mutation({
     const { actor } = await requireActorHasBusinessCapability(
       ctx,
       businessId,
-      'view_billing_state'
+      'invite_businesses'
     );
     const business = await getBusinessDoc(ctx, businessId);
     if (!isPaidBusinessActive(business)) {
@@ -3118,7 +3118,7 @@ export const getBusinessReferralCreditSummary = query({
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
-      'view_billing_state'
+      'invite_businesses'
     );
     const rows = await ctx.db
       .query('businessReferrals')

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -18,136 +18,30 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  AddBusinessCta,
+  LogoutOptionsSheet,
+  ProfileCompletionCard,
+  SettingsGroup,
+  SettingsNavRow,
+  SettingsSection,
+} from '@/components/business-settings';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
-
-type ProfileCompletionField =
-  | 'name'
-  | 'shortDescription'
-  | 'businessPhone'
-  | 'address'
-  | 'serviceTypes'
-  | 'serviceTags'
-  | 'discoverySource'
-  | 'reason'
-  | 'usageAreas'
-  | 'ownerAgeRange';
-
-const MISSING_FIELD_LABELS: Record<ProfileCompletionField, string> = {
-  name: 'שם העסק',
-  shortDescription: 'תיאור קצר',
-  businessPhone: 'טלפון עסקי',
-  address: 'כתובת העסק',
-  serviceTypes: 'סוגי שירות',
-  serviceTags: 'תגיות שירות',
-  discoverySource: 'מקור הגעה',
-  reason: 'סיבת הצטרפות',
-  usageAreas: 'אזורי פעילות',
-  ownerAgeRange: 'טווח גיל בעלים',
-};
-
-const ADD_BUSINESS_LABEL = 'צור עסק נוסף';
-
-function MenuRow({
-  title,
-  subtitle,
-  icon,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      style={({ pressed }) => [
-        {
-          minHeight: 64,
-          borderBottomWidth: 1,
-          borderColor: '#E3E9FF',
-          paddingHorizontal: 4,
-          paddingVertical: 10,
-          opacity: pressed ? 0.88 : 1,
-        },
-      ]}
-    >
-      <View
-        style={{
-          flexDirection: flexDirection.row,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          ...rtlBaseView,
-        }}
-      >
-        <View
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#EEF3FF',
-          }}
-        >
-          <Ionicons name={icon} size={18} color="#1D4ED8" />
-        </View>
-
-        <View style={{ flex: 1, alignItems: alignItems.start }}>
-          <Text
-            style={{
-              fontSize: 15,
-              fontWeight: '800',
-              color: '#111827',
-              textAlign: 'right',
-              writingDirection: 'rtl',
-            }}
-          >
-            {title}
-          </Text>
-          <Text
-            style={{
-              marginTop: 3,
-              fontSize: 12,
-              fontWeight: '500',
-              color: '#64748B',
-              textAlign: 'right',
-              writingDirection: 'rtl',
-            }}
-          >
-            {subtitle}
-          </Text>
-        </View>
-
-        <Ionicons name="chevron-back" size={18} color="#94A3B8" />
-      </View>
-    </Pressable>
-  );
-}
+import { alignItems, flexDirection, tw } from '@/lib/rtl';
+import { useAuthActions } from '@convex-dev/auth/react';
 
 export default function BusinessSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { setAppMode } = useAppMode();
-  const setActiveMode = useMutation(api.users.setActiveMode);
-  const closeBusinessAccount = useMutation(
-    api.business.closeBusinessAccount
-  );
-  const selfRemoveFromBusiness = useMutation(
-    api.business.selfRemoveFromBusiness
-  );
+  const { signOut } = useAuthActions();
   const sessionContext = useSessionContext();
   const {
     businesses,
@@ -166,12 +60,10 @@ export default function BusinessSettingsScreen() {
   const canEditBusiness =
     activeBusinessCapabilities?.edit_business_profile === true;
   const canManageTeam = activeBusinessCapabilities?.manage_team === true;
-  const canViewBillingState =
-    activeBusinessCapabilities?.view_billing_state === true;
-  const canLeaveBusiness = activeBusiness
-    ? activeBusiness.staffRole !== 'owner'
-    : false;
-  const canCloseBusiness = activeBusiness?.staffRole === 'owner';
+  const canInviteBusinesses =
+    activeBusinessCapabilities?.invite_businesses === true;
+  const canManageSubscription =
+    activeBusinessCapabilities?.manage_subscription === true;
   const addBusinessRoute = getBusinessOnboardingEntryRoute(
     sessionContext?.user.businessOnboardedAt != null
   );
@@ -181,112 +73,57 @@ export default function BusinessSettingsScreen() {
   );
 
   const [isPickerVisible, setIsPickerVisible] = useState(false);
-  const [isClosingBusiness, setIsClosingBusiness] = useState(false);
-  const [isLeavingBusiness, setIsLeavingBusiness] = useState(false);
+  const [isLogoutSheetVisible, setIsLogoutSheetVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const missingFieldLabels = (
-    (businessSettings?.profileCompletion?.missingFields ??
-      []) as ProfileCompletionField[]
-  )
-    .filter(
-      (field): field is ProfileCompletionField => field in MISSING_FIELD_LABELS
-    )
-    .map((field) => MISSING_FIELD_LABELS[field]);
+  const missingFields = parseMissingProfileFields(
+    businessSettings?.profileCompletion?.missingFields
+  );
+  const showCompletionCard =
+    businessSettings?.profileCompletion != null &&
+    businessSettings.profileCompletion.isComplete !== true &&
+    missingFields.length > 0;
 
-  const goToPrivateArea = async () => {
-    await setAppMode('customer');
-    router.replace('/(authenticated)/(customer)/wallet');
-    void setActiveMode({ mode: 'customer' }).catch(async () => {
-      await setAppMode('business');
-      router.replace('/(authenticated)/(business)/settings');
-      Alert.alert('שגיאה', 'לא הצלחנו לעדכן את מצב המשתמש. נסו שוב.');
-    });
+  const openAddBusiness = () => {
+    router.push(addBusinessRoute as Href);
   };
 
-  const handleLeaveBusiness = () => {
-    if (!activeBusinessId || isLeavingBusiness) {
+  const handleLogoutDevice = () => {
+    if (isSigningOut) {
       return;
     }
-
-    Alert.alert(
-      'לעזוב את העסק?',
-      'הגישה שלך למסכי הניהול של העסק הפעיל תוסר, ותועבר לאזור האישי.',
-      [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'עזוב את העסק',
-          style: 'destructive',
-          onPress: async () => {
-            if (!activeBusinessId || isLeavingBusiness) {
-              return;
-            }
-
-            setIsLeavingBusiness(true);
-            try {
-              await selfRemoveFromBusiness({ businessId: activeBusinessId });
-              await goToPrivateArea();
-            } catch {
-              Alert.alert('שגיאה', 'לא הצלחנו לעזוב את העסק. נסו שוב.');
-            } finally {
-              setIsLeavingBusiness(false);
-            }
-          },
+    Alert.alert('התנתקות מהמכשיר?', 'תצאו מהחשבון במכשיר זה בלבד.', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'התנתקות',
+        style: 'destructive',
+        onPress: async () => {
+          if (isSigningOut) {
+            return;
+          }
+          setIsSigningOut(true);
+          try {
+            await signOut();
+            router.replace('/(auth)/sign-in');
+          } catch {
+            Alert.alert('שגיאה', 'לא הצלחנו לבצע יציאה. נסו שוב.');
+          } finally {
+            setIsSigningOut(false);
+            setIsLogoutSheetVisible(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleCloseBusiness = () => {
-    if (!activeBusinessId || !canCloseBusiness || isClosingBusiness) {
-      return;
-    }
-
-    Alert.alert(
-      'סגירת העסק?',
-      'העסק יפסיק לפעול ב-StampAix, העובדים יאבדו גישה תפעולית וכרטיסיות העסק יוסתרו מהלקוחות. כל המידע יישמר ויהיה ניתן לשחזר את העסק בהמשך.',
-      [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'סגור את העסק',
-          style: 'destructive',
-          onPress: async () => {
-            if (!activeBusinessId || isClosingBusiness) {
-              return;
-            }
-
-            setIsClosingBusiness(true);
-            try {
-              await closeBusinessAccount({ businessId: activeBusinessId });
-              await setAppMode('customer');
-              router.replace('/(authenticated)/(customer)/wallet');
-            } catch {
-              Alert.alert(
-                'שגיאה',
-                'לא הצלחנו לסגור את העסק. ודאו שיש לכם הרשאת בעלים ונסו שוב.'
-              );
-            } finally {
-              setIsClosingBusiness(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handlePermanentBusinessDeletion = () => {
-    if (!activeBusinessId || !canCloseBusiness) {
-      return;
-    }
-    router.push(
-      `/(authenticated)/business-permanent-deletion?businessId=${encodeURIComponent(
-        String(activeBusinessId)
-      )}` as Href
-    );
+  const handleCancelSubscription = () => {
+    setIsLogoutSheetVisible(false);
+    router.push(BUSINESS_ROUTES.subscription as Href);
   };
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#F5F7FB]">
         <ActivityIndicator color="#2F6BFF" />
       </SafeAreaView>
     );
@@ -294,7 +131,7 @@ export default function BusinessSettingsScreen() {
 
   if (businesses.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+      <SafeAreaView className="flex-1 bg-[#F5F7FB]" edges={[]}>
         <ScrollView
           stickyHeaderIndices={[0]}
           contentContainerStyle={{
@@ -307,7 +144,7 @@ export default function BusinessSettingsScreen() {
         >
           <StickyScrollHeader
             topPadding={(insets.top || 0) + 12}
-            backgroundColor="#E9F0FF"
+            backgroundColor="#F5F7FB"
           >
             <BusinessScreenHeader title="הגדרות עסק" />
           </StickyScrollHeader>
@@ -335,7 +172,7 @@ export default function BusinessSettingsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className="flex-1 bg-[#F5F7FB]" edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
         contentContainerStyle={{
@@ -349,7 +186,7 @@ export default function BusinessSettingsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor="#F5F7FB"
         >
           <BusinessScreenHeader title="הגדרות עסק" />
         </StickyScrollHeader>
@@ -360,6 +197,13 @@ export default function BusinessSettingsScreen() {
           <Pressable
             onPress={() => setIsPickerVisible(true)}
             disabled={isSwitchingBusiness}
+            accessibilityRole="button"
+            accessibilityLabel={`עסק פעיל, ${activeBusiness?.name ?? 'בחר עסק'}`}
+            accessibilityHint="בחירת עסק פעיל"
+            accessibilityState={{
+              disabled: isSwitchingBusiness,
+              expanded: isPickerVisible,
+            }}
             style={({ pressed }) => [
               {
                 borderRadius: 18,
@@ -434,229 +278,84 @@ export default function BusinessSettingsScreen() {
           </Pressable>
         </View>
 
-        {businessSettings?.profileCompletion &&
-        !businessSettings.profileCompletion.isComplete ? (
-          <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-4">
-            <View className={`${tw.flexRow} items-center gap-2`}>
-              <Ionicons name="alert-circle-outline" size={18} color="#B45309" />
-              <Text className="text-sm font-extrabold text-[#92400E]">
-                השלם פרטים
-              </Text>
-            </View>
-            <Text className={`mt-1 text-xs text-[#78350F] ${tw.textStart}`}>
-              שדות חסרים: {missingFieldLabels.join(' • ') || 'יש להשלים נתונים'}
-            </Text>
-            {canEditBusiness ? (
-              <TouchableOpacity
-                onPress={() =>
-                  router.push(
-                    '/(authenticated)/(business)/settings-business-profile'
-                  )
-                }
-                className="mt-3 rounded-xl border border-[#F59E0B] bg-white px-3 py-2"
-              >
-                <Text className="text-center text-xs font-bold text-[#92400E]">
-                  השלם פרטים
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text className={`mt-2 text-xs text-[#92400E] ${tw.textStart}`}>
-                השלמת נתונים זמינה לבעלים או למנהל בלבד.
-              </Text>
-            )}
-          </View>
+        <AddBusinessCta onPress={openAddBusiness} />
+
+        {showCompletionCard ? (
+          <ProfileCompletionCard
+            missingCount={missingFields.length}
+            canEdit={canEditBusiness}
+            onPress={() =>
+              router.push(BUSINESS_ROUTES.profileComplete as Href)
+            }
+          />
         ) : null}
 
-        <View className="mt-2">
-          <Text
-            className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
-          >
-            פרטי העסק
-          </Text>
-          <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
-            <MenuRow
-              title="פרופיל עסק"
-              subtitle="שם העסק, תיאור, טלפון וסוגי שירות"
-              icon="business-outline"
-              onPress={() =>
-                router.push(
-                  '/(authenticated)/(business)/settings-business-profile'
-                )
-              }
+        <SettingsSection title="העסק">
+          <SettingsGroup>
+            <SettingsNavRow
+              title="פרטי העסק"
+              subtitle="שם, כתובת, שירותים והעדפות"
+              icon="storefront-outline"
+              onPress={() => router.push(BUSINESS_ROUTES.profile as Href)}
+              isLast={!canManageTeam && !canInviteBusinesses}
             />
-            {canEditBusiness ? (
-              <MenuRow
-                title="כתובת העסק"
-                subtitle="כתובת, אזור ופרטי הגעה"
-                icon="location-outline"
-                onPress={() =>
-                  router.push(
-                    '/(authenticated)/(business)/settings-business-address'
-                  )
-                }
+            {canManageTeam ? (
+              <SettingsNavRow
+                title="צוות והרשאות"
+                subtitle="עובדים, הזמנות והרשאות"
+                icon="people-outline"
+                onPress={() => router.push(BUSINESS_ROUTES.team)}
+                isLast={!canInviteBusinesses}
               />
             ) : null}
-            <MenuRow
-              title="קוד QR להצטרפות לקוחות"
-              subtitle="שיתוף קוד ההצטרפות למועדון"
-              icon="qr-code-outline"
-              onPress={() => router.push('/(authenticated)/(business)/qr')}
-            />
-          </View>
-        </View>
+            {canInviteBusinesses ? (
+              <SettingsNavRow
+                title="הזמנת עסקים"
+                subtitle="הזמינו בעלי עסקים וקבלו חודשי שימוש חינם"
+                icon="share-social-outline"
+                onPress={() =>
+                  router.push(BUSINESS_ROUTES.inviteBusinesses as Href)
+                }
+                isLast={true}
+              />
+            ) : null}
+          </SettingsGroup>
+        </SettingsSection>
 
-        {canManageTeam || canEditBusiness || canViewBillingState ? (
-          <View className="mt-2">
-            <Text
-              className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
-            >
-              ניהול העסק
-            </Text>
-            <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
-              {canManageTeam ? (
-                <MenuRow
-                  title="ניהול עובדים"
-                  subtitle="צוות העסק והרשאות"
-                  icon="people-outline"
-                  onPress={() => router.push(BUSINESS_ROUTES.team)}
-                />
-              ) : null}
-              {canViewBillingState ? (
-                <MenuRow
-                  title="הזמנת עסקים"
-                  subtitle="הזמינו בעלי עסקים וקבלו חודשי שימוש חינם"
-                  icon="share-social-outline"
-                  onPress={() =>
-                    router.push(
-                      '/(authenticated)/(business)/settings-business-invite-businesses'
-                    )
-                  }
-                />
-              ) : null}
-              {canViewBillingState ? (
-                <MenuRow
-                  title="מנוי וחבילה"
-                  subtitle="סטטוס מנוי, מגבלות שימוש ושדרוג"
-                  icon="card-outline"
-                  onPress={() =>
-                    router.push(
-                      '/(authenticated)/(business)/settings-business-subscription'
-                    )
-                  }
-                />
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        <View className="mt-2">
-          <Text
-            className={`px-1 text-xs font-extrabold text-[#64748B] ${tw.textStart}`}
-          >
-            חשבון
-          </Text>
-          <View className="mt-2 rounded-2xl border border-[#E3E9FF] bg-white px-4">
-            <MenuRow
+        <SettingsSection title="החשבון">
+          <SettingsGroup>
+            <SettingsNavRow
               title="פרטי חשבון"
-              subtitle="שם משתמש, אימייל, טלפון ויציאה מהחשבון"
+              subtitle="שם, אימייל ומסמכים"
               icon="person-outline"
-              onPress={() =>
-                router.push(
-                  '/(authenticated)/(business)/settings-business-account'
-                )
-              }
+              onPress={() => router.push(BUSINESS_ROUTES.account as Href)}
+              isLast={true}
             />
-          </View>
-        </View>
-        {canLeaveBusiness ? (
-          <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
-            <Text
-              className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
-            >
-              אזור רגיש
-            </Text>
-            <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
-              עזיבה תסיר את הגישה שלך למסכי הניהול של העסק הפעיל.
-            </Text>
-            <TouchableOpacity
-              onPress={handleLeaveBusiness}
-              disabled={isLeavingBusiness}
-              className="mt-4 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
-            >
-              {isLeavingBusiness ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-center text-sm font-bold text-white">
-                  עזוב את העסק
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : canCloseBusiness ? (
-          <View className="gap-5">
-            <View className="rounded-3xl border border-[#FEE2E2] bg-[#FEF2F2] p-4">
-              <Text
-                className={`text-[11px] font-semibold text-[#B91C1C] ${tw.textStart}`}
-              >
-                אזור רגיש
-              </Text>
-              <Text
-                className={`mt-2 text-base font-extrabold text-[#7F1D1D] ${tw.textStart}`}
-              >
-                סגירת העסק ב-StampAix
-              </Text>
-              <Text className={`mt-2 text-sm text-[#7F1D1D] ${tw.textStart}`}>
-                פעילות העסק תופסק והכרטיסיות יוסתרו מהלקוחות. כל המידע,
-                הלקוחות, הניקובים, ההטבות וההיסטוריה יישמרו ויהיה ניתן לשחזר
-                את העסק בהמשך.
-              </Text>
-              <TouchableOpacity
-                onPress={handleCloseBusiness}
-                disabled={isClosingBusiness}
-                accessibilityRole="button"
-                accessibilityLabel="סגירת העסק"
-                className="mt-4 min-h-11 items-center justify-center rounded-2xl border border-[#FCA5A5] bg-[#DC2626] px-4 py-3"
-              >
-                {isClosingBusiness ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text className="text-center text-sm font-bold text-white">
-                    סגירת העסק
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          </SettingsGroup>
+        </SettingsSection>
 
-            <View className="rounded-3xl border-2 border-[#991B1B] bg-[#7F1D1D] p-4">
-              <Text
-                className={`text-[11px] font-bold text-[#FECACA] ${tw.textStart}`}
-              >
-                פעולה בלתי הפיכה
-              </Text>
-              <Text
-                className={`mt-2 text-base font-extrabold text-white ${tw.textStart}`}
-              >
-                מחיקת העסק לצמיתות
-              </Text>
-              <Text className={`mt-2 text-sm text-[#FEE2E2] ${tw.textStart}`}>
-                מחיקה לצמיתות מסירה את העסק ואת נתוני המועדון שלו ולא ניתן
-                לבטל אותה.
-              </Text>
-              <TouchableOpacity
-                onPress={handlePermanentBusinessDeletion}
-                accessibilityRole="button"
-                accessibilityLabel="מחיקת העסק לצמיתות"
-                accessibilityHint="פותח אזהרה ואישור נפרדים לפני מחיקה בלתי הפיכה"
-                className="mt-4 min-h-12 items-center justify-center rounded-2xl border border-white bg-[#450A0A] px-4 py-3"
-              >
-                <Text className="text-center text-sm font-extrabold text-white">
-                  מחיקת העסק לצמיתות
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
+        <SettingsSection title="אפשרויות נוספות">
+          <SettingsGroup>
+            <SettingsNavRow
+              title="התנתקות"
+              subtitle="יציאה מהמכשיר או ניהול המנוי"
+              icon="log-out-outline"
+              onPress={() => setIsLogoutSheetVisible(true)}
+              isLast={true}
+            />
+          </SettingsGroup>
+        </SettingsSection>
       </ScrollView>
+
+      <LogoutOptionsSheet
+        visible={isLogoutSheetVisible}
+        onClose={() => setIsLogoutSheetVisible(false)}
+        onLogoutDevice={handleLogoutDevice}
+        onCancelSubscription={
+          canManageSubscription ? handleCancelSubscription : undefined
+        }
+        showCancelSubscription={canManageSubscription}
+      />
 
       <Modal
         transparent={true}
@@ -721,6 +420,9 @@ export default function BusinessSettingsScreen() {
                         .then(() => setIsPickerVisible(false))
                         .catch(() => {});
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={business.name}
+                    accessibilityState={{ selected: isActive }}
                     style={({ pressed }) => [
                       {
                         borderRadius: 14,
@@ -771,50 +473,6 @@ export default function BusinessSettingsScreen() {
                 );
               })}
             </ScrollView>
-            <Pressable
-              onPress={() => {
-                setIsPickerVisible(false);
-                router.push(addBusinessRoute as Href);
-              }}
-              style={({ pressed }) => [
-                {
-                  marginTop: 2,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: '#A9C7FF',
-                  backgroundColor: '#EEF4FF',
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  opacity: pressed ? 0.86 : 1,
-                  flexDirection: flexDirection.row,
-                  alignItems: 'center',
-                  gap: 10,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 14,
-                  lineHeight: 20,
-                  fontWeight: '800',
-                  color: '#1D4ED8',
-                  textAlign: 'right',
-                }}
-              >
-                {ADD_BUSINESS_LABEL}
-              </Text>
-              <View
-                style={{
-                  width: 24,
-                  height: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="add-circle-outline" size={20} color="#2563EB" />
-              </View>
-            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>

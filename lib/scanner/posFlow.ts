@@ -57,6 +57,7 @@ export type PosResolvedSession = {
   program: PosProgramSnapshot;
   actionMode: PosActionMode;
   joinedCustomer: boolean;
+  commitTarget?: 'resolved_action' | 'completed_stamp_redemption';
 };
 
 export type PosUndoState = {
@@ -289,6 +290,9 @@ export function posFlowReducer(
       };
     }
     case 'SELECT_PROGRAM':
+      if (state.phase !== 'ready' && state.phase !== 'needs_program') {
+        return state;
+      }
       return {
         ...cleanTransactionState(state, 'ready'),
         selectedProgramId: event.programId,

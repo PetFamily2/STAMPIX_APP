@@ -4,6 +4,7 @@ import {
   adminGetReferralRecord,
   adminSearchReferralRecords,
   getBusinessReferralCreditSummary,
+  getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
   listMyCustomerReferrals,
   processDueBusinessReferralCreditsInternal,
@@ -422,6 +423,80 @@ describe('referral race safety', () => {
 });
 
 describe('business referral deleted-business compatibility', () => {
+  test('owner and manager can use referral APIs while staff remains blocked', async () => {
+    const now = Date.now();
+    const tables = baseTables();
+    tables.users.push(
+      {
+        _id: 'u_manager',
+        isActive: true,
+        fullName: 'Manager',
+        email: 'manager@stampaix.test',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        _id: 'u_staff',
+        isActive: true,
+        fullName: 'Staff',
+        email: 'staff@stampaix.test',
+        createdAt: now,
+        updatedAt: now,
+      }
+    );
+    tables.businessStaff.push(
+      {
+        _id: 'staff_manager_1',
+        businessId: 'biz_1',
+        userId: 'u_manager',
+        staffRole: 'manager',
+        status: 'active',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        _id: 'staff_staff_1',
+        businessId: 'biz_1',
+        userId: 'u_staff',
+        staffRole: 'staff',
+        status: 'active',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      }
+    );
+
+    const ownerSummary = await getBusinessReferralCreditSummary._handler(
+      buildCtx(tables, 'u_owner'),
+      { businessId: 'biz_1' }
+    );
+    const managerSummary = await getBusinessReferralCreditSummary._handler(
+      buildCtx(tables, 'u_manager'),
+      { businessId: 'biz_1' }
+    );
+    const managerLink = await getOrCreateBusinessReferralLink._handler(
+      buildCtx(tables, 'u_manager'),
+      { businessId: 'biz_1' }
+    );
+
+    expect(ownerSummary.totalReferrals).toBe(0);
+    expect(managerSummary.totalReferrals).toBe(0);
+    expect(managerLink.url).toContain(managerLink.code);
+    expect(tables.businessReferralLinks).toHaveLength(1);
+
+    await expect(
+      getBusinessReferralCreditSummary._handler(buildCtx(tables, 'u_staff'), {
+        businessId: 'biz_1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    await expect(
+      getOrCreateBusinessReferralLink._handler(buildCtx(tables, 'u_staff'), {
+        businessId: 'biz_1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+  });
+
   test('normal due referral still grants credit to the surviving referrer', async () => {
     const now = Date.now();
     const tables = baseTables();

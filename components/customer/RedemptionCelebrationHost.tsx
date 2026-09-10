@@ -1,16 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
-import { makeFunctionReference } from 'convex/server';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Component,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import RedemptionCelebration from '@/components/customer/RedemptionCelebration';
+import { api } from '@/convex/_generated/api';
+import { track } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { playRedemptionCelebrationFeedback } from '@/lib/feedback';
 import {
+  isRedemptionCelebrationForeground,
   rememberConsumedCelebration,
   shouldClaimRedemptionCelebration,
-  type RedemptionCelebrationAvailability,
 } from '@/lib/redemptionCelebrationDiscovery';
 import type { RedemptionPresentationInput } from '@/lib/redemptionPresentation';
 import { alignItems } from '@/lib/rtl';
@@ -19,6 +28,7 @@ type ClaimedReceipt = {
   receiptToken: string;
   claimToken: string;
   confirmedAt: number;
+  claimExpiresAt: number;
   presentation: RedemptionPresentationInput;
 };
 
@@ -35,60 +45,69 @@ type AuthorizeShareResult = {
   state: 'normal' | 'expired' | 'revoked' | 'unavailable';
 };
 
-const redemptionReceiptsApi = {
-  hasPendingRedemptionCelebration: makeFunctionReference<
-    'query',
-    Record<string, never>,
-    RedemptionCelebrationAvailability
-  >('redemptionReceipts:hasPendingRedemptionCelebration'),
-  claimPendingRedemptionReceipt: makeFunctionReference<
-    'mutation',
-    Record<string, never>,
-    ClaimPendingReceiptResult
-  >('redemptionReceipts:claimPendingRedemptionReceipt'),
-  acknowledgeRedemptionPresentation: makeFunctionReference<
-    'mutation',
-    { receiptToken: string; claimToken: string },
-    AcknowledgePresentationResult
-  >('redemptionReceipts:acknowledgeRedemptionPresentation'),
-  getRedemptionReceiptPresentation: makeFunctionReference<
-    'query',
-    { receiptToken: string },
-    RedemptionPresentationInput
-  >('redemptionReceipts:getRedemptionReceiptPresentation'),
-  authorizeRedemptionReceiptShare: makeFunctionReference<
-    'mutation',
-    { receiptToken: string },
-    AuthorizeShareResult
-  >('redemptionReceipts:authorizeRedemptionReceiptShare'),
-} as const;
+class RedemptionCelebrationHostBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
 
-export default function RedemptionCelebrationHost() {
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+      reason_code: 'host_render_failed',
+      lifecycle_status: 'unavailable',
+      occurred_at: Date.now(),
+    });
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function RedemptionCelebrationHostContent() {
   const claimPendingReceipt = useMutation(
-    redemptionReceiptsApi.claimPendingRedemptionReceipt
+    api.redemptionReceipts.claimPendingRedemptionReceipt
   );
   const acknowledgePresentation = useMutation(
-    redemptionReceiptsApi.acknowledgeRedemptionPresentation
+    api.redemptionReceipts.acknowledgeRedemptionPresentation
   );
   const authorizeShare = useMutation(
-    redemptionReceiptsApi.authorizeRedemptionReceiptShare
+    api.redemptionReceipts.authorizeRedemptionReceiptShare
   );
   const [claimedReceipt, setClaimedReceipt] = useState<ClaimedReceipt | null>(
     null
   );
   const [claimRetryGeneration, setClaimRetryGeneration] = useState(0);
+  const [acknowledgeRetryGeneration, setAcknowledgeRetryGeneration] =
+    useState(0);
+  const [appState, setAppState] = useState(AppState.currentState);
   const claimInFlightRef = useRef(false);
+  const acknowledgeInFlightRef = useRef(false);
   const consumedConfirmedAtRef = useRef<number | null>(null);
   const lastSignalConfirmedAtRef = useRef<number | null>(null);
   const retryUsedForSignalRef = useRef(false);
   const acknowledgedClaimRef = useRef<string | null>(null);
   const openClaimTokenRef = useRef<string | null>(null);
+  const claimedReceiptRef = useRef<ClaimedReceipt | null>(null);
+  const acknowledgeRetryUsedRef = useRef(false);
+  const acknowledgeRetryTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const claimLeaseRecoveryTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const loggedBlockedConfirmedAtRef = useRef<number | null>(null);
+  claimedReceiptRef.current = claimedReceipt;
   const pendingSignal = useQuery(
-    redemptionReceiptsApi.hasPendingRedemptionCelebration,
-    {}
+    api.redemptionReceipts.hasPendingRedemptionCelebration,
+    { refreshGeneration: claimRetryGeneration }
   );
   const livePresentation = useQuery(
-    redemptionReceiptsApi.getRedemptionReceiptPresentation,
+    api.redemptionReceipts.getRedemptionReceiptPresentation,
     claimedReceipt
       ? { receiptToken: claimedReceipt.receiptToken }
       : 'skip'
@@ -107,6 +126,7 @@ export default function RedemptionCelebrationHost() {
     if (!pending) {
       retryUsedForSignalRef.current = false;
       lastSignalConfirmedAtRef.current = null;
+      loggedBlockedConfirmedAtRef.current = null;
       return;
     }
     const signalConfirmedAt = Number(newestConfirmedAt);
@@ -120,9 +140,25 @@ export default function RedemptionCelebrationHost() {
       claimInFlightRef.current ||
       !shouldClaimRedemptionCelebration(
         { pending, newestConfirmedAt },
-        consumedConfirmedAtRef.current
+        consumedConfirmedAtRef.current,
+        appState
       )
     ) {
+      if (
+        pending &&
+        !claimedReceipt &&
+        !claimInFlightRef.current &&
+        !isRedemptionCelebrationForeground(appState) &&
+        Number.isFinite(newestConfirmedAt) &&
+        loggedBlockedConfirmedAtRef.current !== Number(newestConfirmedAt)
+      ) {
+        loggedBlockedConfirmedAtRef.current = Number(newestConfirmedAt);
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: 'claim_blocked_not_foreground',
+          lifecycle_status: 'available',
+          occurred_at: Date.now(),
+        });
+      }
       return;
     }
     claimInFlightRef.current = true;
@@ -130,16 +166,41 @@ export default function RedemptionCelebrationHost() {
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     void claimPendingReceipt({})
       .then((result) => {
-        if (result?.status === 'claimed') {
+        const claimed = result as ClaimPendingReceiptResult;
+        if (claimed?.status === 'claimed') {
           setClaimedReceipt({
-            receiptToken: result.receiptToken,
-            claimToken: result.claimToken,
-            confirmedAt: result.confirmedAt,
-            presentation: result.presentation,
+            receiptToken: claimed.receiptToken,
+            claimToken: claimed.claimToken,
+            confirmedAt: claimed.confirmedAt,
+            claimExpiresAt: claimed.claimExpiresAt,
+            presentation: claimed.presentation,
           });
+          acknowledgeRetryUsedRef.current = false;
+          track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+            reason_code: 'claim_succeeded',
+            lifecycle_status: 'claimed',
+            occurred_at: Date.now(),
+          });
+          return;
+        }
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: 'claim_returned_none',
+          lifecycle_status: 'available',
+          occurred_at: Date.now(),
+        });
+        if (!disposed && !retryUsedForSignalRef.current) {
+          retryUsedForSignalRef.current = true;
+          retryTimeout = setTimeout(() => {
+            setClaimRetryGeneration((generation) => generation + 1);
+          }, 2_000);
         }
       })
       .catch(() => {
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: 'claim_failed',
+          lifecycle_status: 'available',
+          occurred_at: Date.now(),
+        });
         if (!disposed && !retryUsedForSignalRef.current) {
           retryUsedForSignalRef.current = true;
           retryTimeout = setTimeout(() => {
@@ -158,6 +219,7 @@ export default function RedemptionCelebrationHost() {
       }
     };
   }, [
+    appState,
     claimAttemptKey,
     claimPendingReceipt,
     claimedReceipt,
@@ -168,58 +230,195 @@ export default function RedemptionCelebrationHost() {
   useEffect(() => {
     let previousState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (previousState !== 'active' && nextState === 'active') {
+      setAppState(nextState);
+      if (
+        !isRedemptionCelebrationForeground(previousState) &&
+        isRedemptionCelebrationForeground(nextState)
+      ) {
         consumedConfirmedAtRef.current = null;
         lastSignalConfirmedAtRef.current = null;
         retryUsedForSignalRef.current = false;
+        acknowledgeRetryUsedRef.current = false;
+        const currentClaim = claimedReceiptRef.current;
+        if (
+          currentClaim &&
+          currentClaim.claimExpiresAt <= Date.now()
+        ) {
+          openClaimTokenRef.current = null;
+          setClaimedReceipt(null);
+        }
         setClaimRetryGeneration((generation) => generation + 1);
+        setAcknowledgeRetryGeneration((generation) => generation + 1);
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: 'foreground_refresh',
+          lifecycle_status: currentClaim ? 'claimed' : 'available',
+          occurred_at: Date.now(),
+        });
       }
       previousState = nextState;
     });
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      if (acknowledgeRetryTimeoutRef.current) {
+        clearTimeout(acknowledgeRetryTimeoutRef.current);
+      }
+      if (claimLeaseRecoveryTimeoutRef.current) {
+        clearTimeout(claimLeaseRecoveryTimeoutRef.current);
+      }
+    };
   }, []);
 
-  const handleModalShown = useCallback(() => {
+  const handlePresentationVisible = useCallback(() => {
     if (
       !claimedReceipt ||
       presentation?.state !== 'normal' ||
-      acknowledgedClaimRef.current === claimedReceipt.claimToken
+      !isRedemptionCelebrationForeground(appState) ||
+      acknowledgedClaimRef.current === claimedReceipt.claimToken ||
+      acknowledgeInFlightRef.current
     ) {
       return;
     }
-    acknowledgedClaimRef.current = claimedReceipt.claimToken;
+    acknowledgeInFlightRef.current = true;
     openClaimTokenRef.current = claimedReceipt.claimToken;
     void acknowledgePresentation({
       receiptToken: claimedReceipt.receiptToken,
       claimToken: claimedReceipt.claimToken,
     })
       .then((result) => {
+        const acknowledgement = result as AcknowledgePresentationResult;
         if (
-          result?.status === 'presented' &&
+          acknowledgement?.status === 'presented' &&
           openClaimTokenRef.current === claimedReceipt.claimToken
         ) {
+          acknowledgedClaimRef.current = claimedReceipt.claimToken;
           consumedConfirmedAtRef.current = rememberConsumedCelebration(
             consumedConfirmedAtRef.current,
             claimedReceipt.confirmedAt
           );
           playRedemptionCelebrationFeedback(claimedReceipt.claimToken);
         }
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: `acknowledge_${acknowledgement?.status ?? 'unknown'}`,
+          lifecycle_status: acknowledgement?.status ?? 'unknown',
+          occurred_at: Date.now(),
+        });
       })
       .catch(() => {
+        track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+          reason_code: 'acknowledge_failed',
+          lifecycle_status: 'claimed',
+          occurred_at: Date.now(),
+        });
+        if (
+          openClaimTokenRef.current === claimedReceipt.claimToken &&
+          !acknowledgeRetryUsedRef.current
+        ) {
+          acknowledgeRetryUsedRef.current = true;
+          acknowledgeRetryTimeoutRef.current = setTimeout(() => {
+            setAcknowledgeRetryGeneration((generation) => generation + 1);
+            acknowledgeRetryTimeoutRef.current = null;
+          }, 2_000);
+        }
         // An unacknowledged lease becomes claimable again after a crash/failure.
+      })
+      .finally(() => {
+        acknowledgeInFlightRef.current = false;
       });
-  }, [acknowledgePresentation, claimedReceipt, presentation?.state]);
+  }, [
+    acknowledgePresentation,
+    appState,
+    claimedReceipt,
+    presentation?.state,
+  ]);
+
+  useEffect(() => {
+    void acknowledgeRetryGeneration;
+    if (claimedReceipt) {
+      handlePresentationVisible();
+    }
+  }, [
+    acknowledgeRetryGeneration,
+    claimedReceipt,
+    handlePresentationVisible,
+  ]);
 
   const handleClose = useCallback(() => {
     openClaimTokenRef.current = null;
-    if (claimedReceipt) {
+    if (acknowledgeRetryTimeoutRef.current) {
+      clearTimeout(acknowledgeRetryTimeoutRef.current);
+      acknowledgeRetryTimeoutRef.current = null;
+    }
+    const receipt = claimedReceipt;
+    setClaimedReceipt(null);
+    if (!receipt) {
+      return;
+    }
+    if (acknowledgedClaimRef.current === receipt.claimToken) {
       consumedConfirmedAtRef.current = rememberConsumedCelebration(
         consumedConfirmedAtRef.current,
-        claimedReceipt.confirmedAt
+        receipt.confirmedAt
       );
+      return;
     }
-    setClaimedReceipt(null);
-  }, [claimedReceipt]);
+    if (
+      presentation?.state === 'normal' &&
+      !acknowledgeInFlightRef.current
+    ) {
+      acknowledgeInFlightRef.current = true;
+      void acknowledgePresentation({
+        receiptToken: receipt.receiptToken,
+        claimToken: receipt.claimToken,
+      })
+        .then((result) => {
+          const acknowledgement = result as AcknowledgePresentationResult;
+          if (acknowledgement?.status === 'presented') {
+            acknowledgedClaimRef.current = receipt.claimToken;
+            consumedConfirmedAtRef.current = rememberConsumedCelebration(
+              consumedConfirmedAtRef.current,
+              receipt.confirmedAt
+            );
+          }
+          track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+            reason_code: `dismiss_acknowledge_${acknowledgement?.status ?? 'unknown'}`,
+            lifecycle_status: acknowledgement?.status ?? 'unknown',
+            occurred_at: Date.now(),
+          });
+        })
+        .catch(() => {
+          track(ANALYTICS_EVENTS.redemptionCelebrationLifecycle, {
+            reason_code: 'dismiss_acknowledge_failed',
+            lifecycle_status: 'claimed',
+            occurred_at: Date.now(),
+          });
+          const recoveryDelay = Math.max(
+            0,
+            receipt.claimExpiresAt - Date.now() + 100
+          );
+          if (claimLeaseRecoveryTimeoutRef.current) {
+            clearTimeout(claimLeaseRecoveryTimeoutRef.current);
+          }
+          claimLeaseRecoveryTimeoutRef.current = setTimeout(() => {
+            setClaimRetryGeneration((generation) => generation + 1);
+            claimLeaseRecoveryTimeoutRef.current = null;
+          }, recoveryDelay);
+        })
+        .finally(() => {
+          acknowledgeInFlightRef.current = false;
+        });
+      return;
+    }
+    const recoveryDelay = Math.max(
+      0,
+      receipt.claimExpiresAt - Date.now() + 100
+    );
+    if (claimLeaseRecoveryTimeoutRef.current) {
+      clearTimeout(claimLeaseRecoveryTimeoutRef.current);
+    }
+    claimLeaseRecoveryTimeoutRef.current = setTimeout(() => {
+      setClaimRetryGeneration((generation) => generation + 1);
+      claimLeaseRecoveryTimeoutRef.current = null;
+    }, recoveryDelay);
+  }, [acknowledgePresentation, claimedReceipt, presentation?.state]);
 
   const handleAuthorizeShare = useCallback(async () => {
     if (!claimedReceipt || presentation?.state !== 'normal') {
@@ -228,7 +427,7 @@ export default function RedemptionCelebrationHost() {
     try {
       const result = (await authorizeShare({
         receiptToken: claimedReceipt.receiptToken,
-      })) as { allowed?: boolean };
+      })) as AuthorizeShareResult;
       return result.allowed === true;
     } catch {
       return false;
@@ -241,11 +440,11 @@ export default function RedemptionCelebrationHost() {
 
   return (
     <Modal
+      visible={true}
       animationType="fade"
       presentationStyle="fullScreen"
-      visible={true}
-      onShow={handleModalShown}
       onRequestClose={handleClose}
+      statusBarTranslucent={true}
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -268,6 +467,14 @@ export default function RedemptionCelebrationHost() {
         />
       </SafeAreaView>
     </Modal>
+  );
+}
+
+export default function RedemptionCelebrationHost() {
+  return (
+    <RedemptionCelebrationHostBoundary>
+      <RedemptionCelebrationHostContent />
+    </RedemptionCelebrationHostBoundary>
   );
 }
 

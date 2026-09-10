@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  commitCompletedStampRedeem,
   commitRedeem,
   commitStamp,
   myBusinesses,
@@ -697,6 +698,52 @@ describe('scanner flow', () => {
     ).rejects.toThrow('UNDO_SESSION_CONTINUITY_BROKEN');
   });
 
+  test('undo remains blocked after the stamp grants a referral reward', async () => {
+    const now = Date.now();
+    const tables = baseTables({
+      memberships: [
+        {
+          _id: 'membership_1',
+          userId: 'customer_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          currentStamps: 2,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+    const resolved = await resolveScan._handler(ctx, {
+      qrData: await createToken(),
+      businessId: 'business_1',
+      programId: 'program_1',
+      scannerRuntimeSessionId: 'runtime_referral_undo',
+      deviceId: 'device_referral_undo',
+    });
+    const committed = await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    ctx.db.rows('customerReferrals').push({
+      _id: 'referral_completed',
+      businessId: 'business_1',
+      qualificationEventId: committed.eventId,
+      status: 'completed',
+      rewardGrantStatus: 'granted',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      undoLastScannerAction._handler(ctx, {
+        eventId: committed.eventId,
+        scannerRuntimeSessionId: 'runtime_referral_undo',
+        deviceId: 'device_referral_undo',
+      })
+    ).rejects.toThrow('UNDO_BLOCKED_REFERRAL_REWARD');
+  });
+
   test('undo fails when a newer membership balance event exists', async () => {
     const now = Date.now();
     const tables = baseTables({
@@ -795,6 +842,10 @@ describe('scanner flow', () => {
     const redeemEvent = ctx.db
       .rows('events')
       .find((event) => event.type === 'REWARD_REDEEMED');
+    expect(ctx.db.rows('redemptionCelebrationReceipts')).toHaveLength(1);
+    expect(
+      ctx.db.rows('redemptionCelebrationReceipts')[0].ownerUserId
+    ).toBe('customer_1');
     const undo = await undoLastScannerAction._handler(ctx, {
       eventId: redeemEvent._id,
       scannerRuntimeSessionId: 'runtime_1',
@@ -802,5 +853,265 @@ describe('scanner flow', () => {
     });
     expect(undo.status).toBe('reverted');
     expect(undo.membership.currentStamps).toBe(10);
+    expect(ctx.db.rows('redemptionCelebrationReceipts')[0].status).toBe(
+      'revoked'
+    );
+  });
+
+  test('a final stamp authorizes one idempotent redemption without another QR scan', async () => {
+    const now = Date.now();
+    const tables = baseTables({
+      memberships: [
+        {
+          _id: 'membership_1',
+          userId: 'customer_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          currentStamps: 9,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          lastStampAt: now - 60_000,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+    const resolved = await resolveScan._handler(ctx, {
+      qrData: await createToken(),
+      businessId: 'business_1',
+      programId: 'program_1',
+      scannerRuntimeSessionId: 'runtime_final_stamp',
+      deviceId: 'device_final_stamp',
+    });
+
+    const stamped = await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    expect(stamped.currentStamps).toBe(10);
+    expect(stamped.canRedeemNow).toBe(true);
+    expect(stamped.redemptionContinuationAvailableUntil).toBeGreaterThan(now);
+
+    await expect(
+      commitRedeem._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      })
+    ).rejects.toThrow('INVALID_SCAN_ACTION');
+
+    const redeemed = await commitCompletedStampRedeem._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    expect(redeemed.currentStamps).toBe(0);
+    expect(redeemed.eventType).toBe('REWARD_REDEEMED');
+    expect(ctx.db.rows('scanSessions')).toHaveLength(1);
+    expect(ctx.db.rows('scanTokenEvents')).toHaveLength(1);
+    expect(
+      ctx.db
+        .rows('events')
+        .filter((event) => event.type === 'REWARD_REDEEMED')
+    ).toHaveLength(1);
+    expect(ctx.db.rows('redemptionCelebrationReceipts')).toHaveLength(1);
+    expect(
+      ctx.db.rows('redemptionCelebrationReceipts')[0].ownerUserId
+    ).toBe('customer_1');
+
+    const replayed = await commitCompletedStampRedeem._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+    expect(replayed).toEqual(redeemed);
+    expect(
+      ctx.db
+        .rows('events')
+        .filter((event) => event.type === 'REWARD_REDEEMED')
+    ).toHaveLength(1);
+    expect(ctx.db.rows('redemptionCelebrationReceipts')).toHaveLength(1);
+
+    const undo = await undoLastScannerAction._handler(ctx, {
+      eventId: redeemed.eventId,
+      scannerRuntimeSessionId: 'runtime_final_stamp',
+      deviceId: 'device_final_stamp',
+    });
+    expect(undo.status).toBe('reverted');
+    expect(undo.membership.currentStamps).toBe(10);
+    expect(ctx.db.rows('redemptionCelebrationReceipts')[0].status).toBe(
+      'revoked'
+    );
+  });
+
+  test('the completing stamp remains undoable before redemption continuation', async () => {
+    const now = Date.now();
+    const tables = baseTables({
+      memberships: [
+        {
+          _id: 'membership_1',
+          userId: 'customer_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          currentStamps: 9,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          lastStampAt: now - 60_000,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+    const resolved = await resolveScan._handler(ctx, {
+      qrData: await createToken(),
+      businessId: 'business_1',
+      programId: 'program_1',
+      scannerRuntimeSessionId: 'runtime_final_stamp_undo',
+      deviceId: 'device_final_stamp_undo',
+    });
+    const stamped = await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+
+    const undo = await undoLastScannerAction._handler(ctx, {
+      eventId: stamped.eventId,
+      scannerRuntimeSessionId: 'runtime_final_stamp_undo',
+      deviceId: 'device_final_stamp_undo',
+    });
+    expect(undo.status).toBe('reverted');
+    expect(undo.membership.currentStamps).toBe(9);
+
+    await expect(
+      commitCompletedStampRedeem._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      })
+    ).rejects.toThrow('NOT_ENOUGH_STAMPS');
+    expect(
+      ctx.db
+        .rows('events')
+        .filter((event) => event.type === 'REWARD_REDEEMED')
+    ).toHaveLength(0);
+  });
+
+  test('same-scan redemption independently verifies its bound transaction identities', async () => {
+    async function createCompletedStamp() {
+      const now = Date.now();
+      const tables = baseTables({
+        memberships: [
+          {
+            _id: 'membership_1',
+            userId: 'customer_1',
+            businessId: 'business_1',
+            programId: 'program_1',
+            currentStamps: 9,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now,
+            lastStampAt: now - 60_000,
+          },
+        ],
+      });
+      const ctx = buildCtx(tables);
+      const resolved = await resolveScan._handler(ctx, {
+        qrData: await createToken(),
+        businessId: 'business_1',
+        programId: 'program_1',
+        scannerRuntimeSessionId: `runtime_bound_${Math.random()}`,
+        deviceId: 'device_bound',
+      });
+      await commitStamp._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      });
+      return { ctx, scanSessionId: resolved.scanSessionId };
+    }
+
+    const wrongMembership = await createCompletedStamp();
+    wrongMembership.ctx.db.rows('scanSessions')[0].result.membershipId =
+      'membership_other';
+    await expect(
+      commitCompletedStampRedeem._handler(wrongMembership.ctx, {
+        scanSessionId: wrongMembership.scanSessionId,
+      })
+    ).rejects.toThrow('INVALID_SCAN_SESSION');
+
+    const wrongCustomer = await createCompletedStamp();
+    wrongCustomer.ctx.db.rows('scanSessions')[0].customerId = 'customer_other';
+    await expect(
+      commitCompletedStampRedeem._handler(wrongCustomer.ctx, {
+        scanSessionId: wrongCustomer.scanSessionId,
+      })
+    ).rejects.toThrow('INVALID_SCAN_SESSION');
+
+    const wrongProgram = await createCompletedStamp();
+    wrongProgram.ctx.db.rows('loyaltyPrograms').push(
+      buildProgram({ _id: 'program_other' })
+    );
+    wrongProgram.ctx.db.rows('scanSessions')[0].programId = 'program_other';
+    await expect(
+      commitCompletedStampRedeem._handler(wrongProgram.ctx, {
+        scanSessionId: wrongProgram.scanSessionId,
+      })
+    ).rejects.toThrow('INVALID_SCAN_SESSION');
+
+    const crossBusiness = await createCompletedStamp();
+    crossBusiness.ctx.db
+      .rows('businesses')
+      .push(buildBusiness({ _id: 'business_other' }));
+    crossBusiness.ctx.db.rows('businessStaff').push({
+      _id: 'staff_link_other',
+      businessId: 'business_other',
+      userId: 'staff_1',
+      staffRole: 'owner',
+      isActive: true,
+      createdAt: Date.now(),
+    });
+    crossBusiness.ctx.db.rows('scanSessions')[0].businessId = 'business_other';
+    await expect(
+      commitCompletedStampRedeem._handler(crossBusiness.ctx, {
+        scanSessionId: crossBusiness.scanSessionId,
+      })
+    ).rejects.toThrow();
+  });
+
+  test('same-scan redemption expires server-side and never trusts a stale full balance', async () => {
+    const now = Date.now();
+    const tables = baseTables({
+      memberships: [
+        {
+          _id: 'membership_1',
+          userId: 'customer_1',
+          businessId: 'business_1',
+          programId: 'program_1',
+          currentStamps: 9,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          lastStampAt: now - 60_000,
+        },
+      ],
+    });
+    const ctx = buildCtx(tables);
+    const resolved = await resolveScan._handler(ctx, {
+      qrData: await createToken(),
+      businessId: 'business_1',
+      programId: 'program_1',
+      scannerRuntimeSessionId: 'runtime_expired_continuation',
+      deviceId: 'device_expired_continuation',
+    });
+    await commitStamp._handler(ctx, {
+      scanSessionId: resolved.scanSessionId,
+    });
+
+    ctx.db.rows(
+      'scanSessions'
+    )[0].result.redemptionContinuationAvailableUntil = Date.now() - 1;
+    await expect(
+      commitCompletedStampRedeem._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      })
+    ).rejects.toThrow('SCAN_SESSION_EXPIRED');
+
+    ctx.db.rows(
+      'scanSessions'
+    )[0].result.redemptionContinuationAvailableUntil = Date.now() + 30_000;
+    ctx.db.rows('memberships')[0].currentStamps = 8;
+    await expect(
+      commitCompletedStampRedeem._handler(ctx, {
+        scanSessionId: resolved.scanSessionId,
+      })
+    ).rejects.toThrow('NOT_ENOUGH_STAMPS');
   });
 });

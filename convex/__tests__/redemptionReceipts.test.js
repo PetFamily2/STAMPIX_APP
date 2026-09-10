@@ -16,6 +16,7 @@ import {
   acknowledgeRedemptionPresentation,
   authorizeRedemptionReceiptShare,
   claimPendingRedemptionReceipt,
+  getRedemptionReceiptPresentation,
   hasPendingRedemptionCelebration,
 } from '../redemptionReceipts';
 
@@ -319,6 +320,51 @@ function buildBehaviorContext({ ownerUserId = 'customer_1' } = {}) {
 }
 
 describe('redemption receipt executable claim lifecycle', () => {
+  test('standard redemption receipt completes the customer presentation lifecycle', async () => {
+    const ctx = buildBehaviorContext();
+
+    const pending = await hasPendingRedemptionCelebration._handler(ctx, {
+      refreshGeneration: 0,
+    });
+    expect(pending.pending).toBe(true);
+
+    const claim = await claimPendingRedemptionReceipt._handler(ctx, {});
+    expect(claim.status).toBe('claimed');
+    expect(claim.claimExpiresAt).toBeGreaterThan(Date.now());
+    expect(claim.presentation.state).toBe('normal');
+    expect(claim.presentation.rewardDisplayName).toBe('Free Coffee');
+
+    const live = await getRedemptionReceiptPresentation._handler(ctx, {
+      receiptToken: claim.receiptToken,
+    });
+    expect(live.state).toBe('normal');
+    expect(Object.keys(live)).not.toContain('ownerUserId');
+    expect(Object.keys(live)).not.toContain('membershipId');
+
+    const acknowledged = await acknowledgeRedemptionPresentation._handler(
+      ctx,
+      {
+        receiptToken: claim.receiptToken,
+        claimToken: claim.claimToken,
+      }
+    );
+    expect(acknowledged.status).toBe('presented');
+    expect(
+      (
+        await authorizeRedemptionReceiptShare._handler(ctx, {
+          receiptToken: claim.receiptToken,
+        })
+      ).allowed
+    ).toBe(true);
+    expect(
+      (
+        await hasPendingRedemptionCelebration._handler(ctx, {
+          refreshGeneration: 1,
+        })
+      ).pending
+    ).toBe(false);
+  });
+
   test('claim is exclusive and an expired lease is reclaimable', async () => {
     const ctx = buildBehaviorContext();
     const first = await claimPendingRedemptionReceipt._handler(ctx, {});

@@ -79,8 +79,9 @@ async function markReceiptExpired(ctx: any, receipt: any, now: number) {
 }
 
 export const hasPendingRedemptionCelebration = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { refreshGeneration: v.optional(v.number()) },
+  handler: async (ctx, { refreshGeneration }) => {
+    void refreshGeneration;
     const user = await requireCurrentUser(ctx);
     const now = Date.now();
     const db = ctx.db as any;
@@ -189,6 +190,7 @@ export const claimPendingRedemptionReceipt = mutation({
         receiptToken: receipt.receiptToken,
         claimToken,
         confirmedAt: receipt.confirmedAt,
+        claimExpiresAt: now + REDEMPTION_PRESENTATION_CLAIM_LEASE_MS,
         presentation: buildPrivacySafeRedemptionPresentation(receipt, now),
       };
     }

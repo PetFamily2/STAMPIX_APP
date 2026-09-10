@@ -26,6 +26,8 @@ describe('staff permissions matrix', () => {
     expect(manager.scanner_access).toBe(true);
     expect(manager.view_usage_quota).toBe(true);
     expect(manager.view_billing_state).toBe(false);
+    expect(manager.invite_businesses).toBe(true);
+    expect(manager.manage_subscription).toBe(false);
     expect(manager.manage_team).toBe(true);
     expect(manager.export_reports).toBe(true);
   });
@@ -40,6 +42,7 @@ describe('staff permissions matrix', () => {
     expect(staff.edit_campaigns).toBe(false);
     expect(staff.activate_send_campaigns).toBe(false);
     expect(staff.edit_loyalty_cards).toBe(false);
+    expect(staff.invite_businesses).toBe(false);
     expect(staff.manage_team).toBe(false);
     expect(staff.view_settings).toBe(true);
     expect(staff.scanner_access).toBe(true);
@@ -54,6 +57,7 @@ describe('staff permissions matrix', () => {
     const ownerCapabilities = listAllowedCapabilities('owner');
     expect(ownerCapabilities.length).toBeGreaterThan(10);
     expect(ownerCapabilities.includes('manage_subscription')).toBe(true);
+    expect(ownerCapabilities.includes('invite_businesses')).toBe(true);
     expect(ownerCapabilities.includes('scanner_access')).toBe(true);
   });
 });

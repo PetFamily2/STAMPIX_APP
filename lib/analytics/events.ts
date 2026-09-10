@@ -35,6 +35,7 @@ export const ANALYTICS_EVENTS = {
   qrScannedCustomer: 'qr_scanned_customer',
   stampSuccess: 'stamp_success',
   stampFailed: 'stamp_failed',
+  redemptionCelebrationLifecycle: 'redemption_celebration_lifecycle',
   // Landing page
   landingPageViewed: 'landing_page_viewed',
   // Business recommendations

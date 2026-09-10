@@ -18,13 +18,9 @@
       "bundleIdentifier": "com.stampaix.app",
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": [
-          "Default"
-        ]
+        "com.apple.developer.applesignin": ["Default"]
       },
-      "associatedDomains": [
-        "applinks:stampaix.com"
-      ],
+      "associatedDomains": ["applinks:stampaix.com"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "StampAix uses the camera to scan customer and business QR codes.",
@@ -60,10 +56,7 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
@@ -121,7 +114,8 @@
           "supportsRTL": false,
           "forcesRTL": false
         }
-      ]
+      ],
+      "./plugins/withManualRtlContract"
     ],
     "experiments": {
       "typedRoutes": true
