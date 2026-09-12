@@ -1,12 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
   SettingsBooleanChoices,
@@ -22,19 +16,19 @@ import {
   type BusinessServiceType,
   DISCOVERY_SOURCES,
   type DiscoverySourceId,
-  type OwnerAgeRangeId,
+  normalizeText,
   OWNER_AGE_RANGES,
-  type ProfileCompletionField,
+  type OwnerAgeRangeId,
   PROFILE_FIELD_EDITOR_TITLES,
   PROFILE_FIELD_LABELS,
+  type ProfileCompletionField,
   REASONS,
   type ReasonId,
   SERVICE_TAG_LIMIT,
   SERVICE_TYPES,
   SHORT_DESCRIPTION_MAX_LENGTH,
-  type UsageAreaId,
   USAGE_AREAS,
-  normalizeText,
+  type UsageAreaId,
 } from '@/lib/businessSettings/profileFields';
 import {
   canAddServiceTag,
@@ -43,7 +37,7 @@ import {
   validateServiceTagDraft,
   validateShortDescription,
 } from '@/lib/businessSettings/validation';
-import { alignItems, flexDirection, rtlBaseText, rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseText, rtlBaseView } from '@/lib/rtl';
 
 type ProfileFieldFormProps = {
   fields: ProfileCompletionField[];
@@ -140,7 +134,9 @@ export function ProfileFieldForm({
 
             {field === 'serviceTypes' ? (
               <>
-                <Text style={styles.helper}>בחרו לפחות סוג אחד, עד 6 סוגים.</Text>
+                <Text style={styles.helper}>
+                  בחרו לפחות סוג אחד, עד 6 סוגים.
+                </Text>
                 <SettingsChoiceList
                   multiple={true}
                   options={SERVICE_TYPES}
@@ -311,9 +307,7 @@ export function ProfileFieldForm({
             {field === 'joinAnniversaryCampaignRelevant' ? (
               <>
                 <Text style={styles.label}>
-                  {
-                    PROFILE_FIELD_EDITOR_TITLES.joinAnniversaryCampaignRelevant
-                  }
+                  {PROFILE_FIELD_EDITOR_TITLES.joinAnniversaryCampaignRelevant}
                 </Text>
                 <SettingsBooleanChoices
                   value={values.joinAnniversaryCampaignRelevant}
@@ -421,7 +415,7 @@ const styles = StyleSheet.create({
   },
   fieldBlock: {
     gap: 8,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   label: {
     width: '100%',

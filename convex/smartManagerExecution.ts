@@ -8,7 +8,7 @@ import {
 } from './_generated/server';
 import { isCustomerAtRiskForReferenceNow } from './customerLifecycle';
 import {
-  buildBusinessEntitlementsFromBusiness,
+  buildCanonicalBusinessEntitlementsFromBusiness,
   countsTowardCampaignDefinitions,
   countsTowardReferralCampaignQuota,
 } from './entitlements';
@@ -213,7 +213,8 @@ async function loadBoundedCurrentExecutionEntitlements(
   const activeCampaigns =
     campaigns.filter(countsTowardCampaignDefinitions).length +
     (countsTowardReferralCampaignQuota(referralConfigs[0]) ? 1 : 0);
-  const entitlements = buildBusinessEntitlementsFromBusiness(
+  const entitlements = await buildCanonicalBusinessEntitlementsFromBusiness(
+    ctx,
     business,
     Date.now(),
     { activeCampaigns }

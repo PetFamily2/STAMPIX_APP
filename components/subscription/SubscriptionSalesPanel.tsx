@@ -1,9 +1,7 @@
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,10 +13,10 @@ import {
 import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
 import { flexDirection, justifyContent, textAlign } from '@/lib/rtl';
+import { REFERRAL_COPY } from '@/lib/referrals/copy';
 import {
   buildComparisonRows,
   type ComparisonRow,
-  computeAnnualSavings,
   computeEquivalentMonthlyPrice,
   formatPlanPrice,
   type PlanCatalogItem,
@@ -55,77 +53,22 @@ type SubscriptionSalesPanelProps = {
   onPressCta: () => void;
 };
 
-type BillingDiscountBadgeProps = {
-  percent: number;
-  animate: boolean;
-};
-
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 const COMPACT_BREAKPOINT = 392;
 
-function BillingDiscountBadge({ percent, animate }: BillingDiscountBadgeProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!animate) {
-      scale.setValue(1);
-      translateY.setValue(0);
-      return;
-    }
-
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, {
-            toValue: 1.08,
-            duration: 650,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            toValue: -1,
-            duration: 650,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, {
-            toValue: 1,
-            duration: 650,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: 650,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    );
-
-    pulseLoop.start();
-    return () => {
-      pulseLoop.stop();
-    };
-  }, [animate, scale, translateY]);
-
+function YearlyValueBadge({ label }: { label: string }) {
   return (
-    <Animated.View
-      style={[
-        styles.billingOptionDiscountBadge,
-        animate ? styles.billingOptionDiscountBadgeAnimated : null,
-        {
-          transform: [{ scale }, { translateY }],
-        },
-      ]}
-    >
-      <Text style={styles.billingOptionDiscountBadgeText}>{percent}% הנחה</Text>
-    </Animated.View>
+    <View style={styles.billingOptionDiscountBadge}>
+      <Text style={styles.billingOptionDiscountBadgeText}>{label}</Text>
+    </View>
   );
+}
+
+function yearlyValueLabel(pricing: PlanCatalogItem['pricing']): string | null {
+  if (pricing.monthly > 0 && pricing.yearly === pricing.monthly * 10) {
+    return REFERRAL_COPY.yearlySaveMonths;
+  }
+  return null;
 }
 
 export function SubscriptionSalesPanel({
@@ -180,34 +123,20 @@ export function SubscriptionSalesPanel({
   }
 
   const equivalentMonthly =
-    selectedPlanCard.plan !== 'starter'
-      ? computeEquivalentMonthlyPrice(selectedPlanCard.pricing)
-      : null;
-  const annualSavings =
-    selectedPlanCard.plan !== 'starter'
-      ? computeAnnualSavings(selectedPlanCard.pricing)
-      : null;
+    computeEquivalentMonthlyPrice(selectedPlanCard.pricing);
+  const yearlyBadgeLabel = yearlyValueLabel(selectedPlanCard.pricing);
   const isCurrentSelectedPlan = currentPlan === selectedPlanCard.plan;
   const footerSummaryLabel = isCurrentSelectedPlan
     ? 'המסלול הפעיל'
     : 'המסלול שבחרת';
   const monthlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.monthly)}`;
   const yearlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.yearly)}`;
-  const monthlyOptionPrice =
-    selectedPlanCard.plan === 'starter'
-      ? 'חינם'
-      : `${monthlyBillingAmount}/חודש`;
-  const yearlyOptionPrice =
-    selectedPlanCard.plan === 'starter'
-      ? 'חינם'
-      : equivalentMonthly
-        ? `₪${formatPlanPrice(equivalentMonthly)}/חודש`
-        : `${yearlyBillingAmount}/שנה`;
+  const monthlyOptionPrice = `${monthlyBillingAmount}/חודש`;
+  const yearlyOptionPrice = equivalentMonthly
+    ? `₪${formatPlanPrice(equivalentMonthly)}/חודש`
+    : `${yearlyBillingAmount}/שנה`;
 
-  const billingPeriods =
-    selectedPlanCard.plan === 'starter'
-      ? (['monthly'] as const)
-      : (['monthly', 'yearly'] as const);
+  const billingPeriods = ['monthly', 'yearly'] as const;
 
   const selectorSection = (
     <View style={styles.selectorRow}>
@@ -297,20 +226,15 @@ export function SubscriptionSalesPanel({
 
         <View style={styles.billingOptionsRow}>
           {billingPeriods.map((period) => {
-            const isStarterPlan = selectedPlanCard.plan === 'starter';
-            const active = isStarterPlan || billingPeriod === period;
+            const active = billingPeriod === period;
             const isYearly = period === 'yearly';
             const optionPrice = isYearly
               ? yearlyOptionPrice
               : monthlyOptionPrice;
-            const optionLabel = isStarterPlan
-              ? 'ללא חיוב'
-              : BILLING_PERIOD_LABELS[period];
-            const optionSubline = isStarterPlan
-              ? 'ללא חיוב'
-              : isYearly
-                ? `חיוב ${yearlyBillingAmount} לשנה`
-                : `חיוב ${monthlyBillingAmount} לחודש`;
+            const optionLabel = BILLING_PERIOD_LABELS[period];
+            const optionSubline = isYearly
+              ? `חיוב ${yearlyBillingAmount} לשנה`
+              : `חיוב ${monthlyBillingAmount} לחודש`;
 
             return (
               <Pressable
@@ -323,11 +247,8 @@ export function SubscriptionSalesPanel({
                   active ? styles.billingOptionCardActive : null,
                 ]}
               >
-                {isYearly && annualSavings ? (
-                  <BillingDiscountBadge
-                    percent={annualSavings.percent}
-                    animate={annualSavings.percent === 20}
-                  />
+                {isYearly && yearlyBadgeLabel ? (
+                  <YearlyValueBadge label={yearlyBadgeLabel} />
                 ) : null}
 
                 <View style={styles.billingOptionHeader}>
@@ -607,13 +528,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     zIndex: 1,
-  },
-  billingOptionDiscountBadgeAnimated: {
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    elevation: 4,
   },
   billingOptionDiscountBadgeText: {
     color: '#FFFFFF',

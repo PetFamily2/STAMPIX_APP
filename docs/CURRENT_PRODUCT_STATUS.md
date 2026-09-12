@@ -230,11 +230,9 @@ Convex Auth tables.
 
 ### Current Business Plan Table
 
-| Plan | Monthly | Yearly | Cards | Customers | Campaigns | Recurring campaigns | AI/month | Team seats |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | free | free | 1 | 30 | 1 | 0 | 0 | 0 |
-| Pro | ILS 129 | ILS 1238 | 5 | 2000 | 5 | 5 | 100 | 5 |
-| Premium | ILS 249 | ILS 2390 | 10 | 10000 | 10 | 15 | 300 | 20 |
+**Canonical source:** [`docs/BILLING_REFERRAL_PRODUCTION_LOCK.md`](./BILLING_REFERRAL_PRODUCTION_LOCK.md)
+
+The historical free-Starter / 129 / 1238 table is **legacy documentation**. Launch plans are paid Starter/Pro/Premium at 149/1490, 299/2990, 499/4990 ILS with customers 250/3000/10000.
 
 ## 10. Features That Appear Partially Implemented
 

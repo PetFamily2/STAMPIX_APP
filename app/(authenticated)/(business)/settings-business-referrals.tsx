@@ -61,7 +61,7 @@ function normalizeTab(value: string | undefined): ReferralTab {
 
 function getRewardTypeLabel(value: RewardType | string | null | undefined) {
   if (value === 'STAMP') {
-    return 'ניקוב';
+    return 'חותמת';
   }
   if (value === 'BENEFIT') {
     return 'הטבה';
@@ -416,7 +416,7 @@ export default function BusinessReferralSettingsScreen() {
                     rewardType === 'STAMP' ? styles.segmentButtonActive : null,
                   ]}
                 >
-                  <Text style={styles.segmentText}>ניקוב</Text>
+                  <Text style={styles.segmentText}>חותמת</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => canEditConfig && setRewardType('BENEFIT')}

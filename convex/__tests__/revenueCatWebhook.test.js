@@ -34,6 +34,10 @@ function createMockCtx(initial = {}) {
     'businesses',
     'subscriptions',
     'revenueCatWebhookEvents',
+    'businessBillingAccounts',
+    'businessPaidServicePeriods',
+    'businessReferralRelationships',
+    'businessReferralRewards',
     'businessStaff',
     'staffInvites',
     'staffEvents',
@@ -261,7 +265,7 @@ describe('RevenueCat webhook authorization and validation', () => {
     );
     expect(unsupportedEntitlement.response.status).toBe(400);
     expect(unsupportedEntitlement.body.code).toBe(
-      'REVENUECAT_UNSUPPORTED_ENTITLEMENT'
+      'REVENUECAT_MISSING_PRODUCT_ID'
     );
   });
 
@@ -314,7 +318,7 @@ describe('RevenueCat server-authoritative business subscription state', () => {
     });
   });
 
-  test('valid late event for a missing business is ignored idempotently', async () => {
+  test('valid late event for a missing business fails closed', async () => {
     const ctx = createMockCtx({
       businesses: [],
       validMissingBusinessIds: [BUSINESS_ID],
@@ -322,30 +326,9 @@ describe('RevenueCat server-authoritative business subscription state', () => {
     const event = buildRevenueCatEvent({ id: 'evt_deleted_business' });
 
     const first = await postWebhook(event, ctx);
-    const duplicate = await postWebhook(event, ctx);
 
-    expect(first.response.status).toBe(200);
-    expect(first.body).toMatchObject({
-      ignored: true,
-      reason: 'business_not_found',
-      duplicate: false,
-    });
-    expect(duplicate.response.status).toBe(200);
-    expect(duplicate.body.duplicate).toBe(true);
-    expect(ctx.rows('revenueCatWebhookEvents')).toHaveLength(1);
-    expect(ctx.rows('revenueCatWebhookEvents')[0]).toMatchObject({
-      eventId: 'evt_deleted_business',
-      appUserId: 'redacted',
-      rawEvent: { redacted: true },
-      status: 'ignored',
-    });
-    expect(ctx.rows('revenueCatWebhookEvents')[0].businessId).toBeUndefined();
-    expect(typeof ctx.rows('revenueCatWebhookEvents')[0].redactedAt).toBe(
-      'number'
-    );
-    expect(ctx.rows('revenueCatWebhookEvents')[0].purgeAfter).toBeGreaterThan(
-      ctx.rows('revenueCatWebhookEvents')[0].redactedAt
-    );
+    expect(first.response.status).toBe(400);
+    expect(first.body.code).toBe('REVENUECAT_UNKNOWN_PROVIDER_IDENTITY');
     expect(ctx.rows('businesses')).toHaveLength(0);
     expect(ctx.rows('subscriptions')).toHaveLength(0);
   });
@@ -379,12 +362,16 @@ describe('RevenueCat server-authoritative business subscription state', () => {
       billingPeriod: 'monthly',
       subscriptionEndAt: futureExpiration,
     });
+    const billingAccount = ctx.rows('businessBillingAccounts')[0];
     expect(
-      buildBusinessEntitlementsFromBusiness(business, Date.now()).effectivePlan
+      buildBusinessEntitlementsFromBusiness(business, Date.now(), {
+        billingAccount,
+      }).effectivePlan
     ).toBe('pro');
     expect(
-      buildBusinessEntitlementsFromBusiness(business, Date.now())
-        .isSubscriptionActive
+      buildBusinessEntitlementsFromBusiness(business, Date.now(), {
+        billingAccount,
+      }).isSubscriptionActive
     ).toBe(true);
     expect(ctx.rows('subscriptions')[0]).toMatchObject({
       plan: 'pro',
@@ -393,7 +380,7 @@ describe('RevenueCat server-authoritative business subscription state', () => {
     });
   });
 
-  test('expiration and refund downgrade the business plan', async () => {
+  test('expiration and refund remove operational access without falling back to Starter', async () => {
     for (const eventType of ['EXPIRATION', 'REFUND']) {
       const ctx = createMockCtx({
         businesses: [
@@ -415,9 +402,8 @@ describe('RevenueCat server-authoritative business subscription state', () => {
 
       expect(result.response.status).toBe(200);
       expect(ctx.rows('businesses')[0]).toMatchObject({
-        subscriptionPlan: 'starter',
-        subscriptionStatus: 'active',
-        billingPeriod: null,
+        subscriptionPlan: 'pro',
+        subscriptionStatus: 'inactive',
       });
       expect(ctx.rows('subscriptions')[0].status).toBe('inactive');
     }

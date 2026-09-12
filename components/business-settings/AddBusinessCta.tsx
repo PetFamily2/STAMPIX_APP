@@ -3,10 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { MVP_FEATURE_FLAGS } from '@/lib/billing/productionContract';
 
 export const ADD_BUSINESS_CTA_LABEL = 'צרפו עסק נוסף';
 
 export function AddBusinessCta({ onPress }: { onPress: () => void }) {
+  if (!MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled) {
+    return null;
+  }
   return (
     <Pressable
       onPress={onPress}

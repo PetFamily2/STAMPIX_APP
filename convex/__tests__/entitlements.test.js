@@ -56,6 +56,19 @@ function buildCtxWithBusiness(businessDoc) {
         updatedAt: now,
       },
     ],
+    businessBillingAccounts: [
+      {
+        _id: 'billing_1',
+        businessId: businessDoc._id,
+        ownerUserId: businessDoc.ownerUserId,
+        providerAppUserId: 'ba_testidentitytoken1234',
+        plan: businessDoc.subscriptionPlan,
+        lastPlan: businessDoc.subscriptionPlan,
+        status: businessDoc.subscriptionStatus,
+        hasProviderEvidence: true,
+        currentPeriodEndAt: now + 86_400_000,
+      },
+    ],
   };
 
   const buildArrayQuery = (rows) => {
@@ -91,6 +104,9 @@ function buildCtxWithBusiness(businessDoc) {
         }
         if (tableName === 'aiUsageLedger') {
           return buildArrayQuery(state.aiUsageLedger);
+        }
+        if (tableName === 'businessBillingAccounts') {
+          return buildArrayQuery(state.businessBillingAccounts);
         }
         if (tableName === 'users') {
           return buildArrayQuery(state.users);
@@ -192,12 +208,12 @@ describe('business entitlements', () => {
     const customerError = await getConvexErrorData(() =>
       assertEntitlement(ctx, business._id, {
         limitKey: 'maxCustomers',
-        currentValue: 30,
+        currentValue: 250,
       })
     );
     expect(customerError?.code).toBe('PLAN_LIMIT_REACHED');
     expect(customerError?.limitKey).toBe('maxCustomers');
-    expect(customerError?.limitValue).toBe(30);
+    expect(customerError?.limitValue).toBe(250);
 
     const retentionError = await getConvexErrorData(() =>
       assertEntitlement(ctx, business._id, {
@@ -456,7 +472,7 @@ describe('business entitlements', () => {
     }
   });
 
-  test('starter with no referral config is already at 1/1 because default referral is enabled', async () => {
+  test('starter with no referral config does not consume the campaign slot', async () => {
     const business = buildBusiness({
       _id: 'starter_default_referral_campaign_limit',
       subscriptionPlan: 'starter',
@@ -468,19 +484,14 @@ describe('business entitlements', () => {
       ctx,
       business._id
     );
-    expect(usedCampaigns).toBe(1);
+    expect(usedCampaigns).toBe(0);
 
-    const campaignError = await getConvexErrorData(() =>
+    await expect(
       assertEntitlement(ctx, business._id, {
         limitKey: 'maxCampaigns',
         currentValue: usedCampaigns,
       })
-    );
-    expect(campaignError?.code).toBe('PLAN_LIMIT_REACHED');
-    expect(campaignError?.limitKey).toBe('maxCampaigns');
-    expect(campaignError?.limitValue).toBe(1);
-    expect(campaignError?.currentValue).toBe(1);
-    expect(campaignError?.requiredPlan).toBe('pro');
+    ).resolves.toBeDefined();
   });
 
   test('saveReferralConfig enabling disabled referral when starter campaign limit is full returns PLAN_LIMIT_REACHED', async () => {
@@ -521,7 +532,7 @@ describe('business entitlements', () => {
 
   test('required plan mapping is correct for all feature keys', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canManageTeam).toBe('pro');
-    expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('pro');
+    expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('premium');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseMarketingHubAI).toBe('starter');
     expect(REQUIRED_PLAN_BY_FEATURE.canUseSmartAnalytics).toBe('starter');
 

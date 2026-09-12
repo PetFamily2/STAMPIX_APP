@@ -23,7 +23,6 @@ import {
   PAYMENT_SYSTEM_ENABLED,
   PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID,
 } from '@/config/appConfig';
-import { useUser } from '@/contexts/UserContext';
 import type { SubscriptionPlan } from '@/lib/domain/subscriptions';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
@@ -53,6 +52,10 @@ export type PackageInfo = {
 type PurchasePackageOptions = {
   appUserId?: string;
   syncUserSubscription?: boolean;
+  applePromotionalOffer?: {
+    productIdentifier: string;
+    offerIdentifier: string;
+  };
 };
 
 type RestorePurchasesOptions = {
@@ -79,6 +82,7 @@ type RevenueCatContextType = {
   ) => Promise<boolean>;
   restorePurchases: (options?: RestorePurchasesOptions) => Promise<boolean>;
   refreshPurchaserInfo: () => Promise<void>;
+  getManagementUrl: (appUserId?: string) => Promise<string | null>;
 };
 
 // ============================================================================
@@ -86,26 +90,7 @@ type RevenueCatContextType = {
 // ============================================================================
 
 // חבילות ברירת מחדל לתצוגה מקדימה (כשאין מפתחות או ב-Expo Go)
-const PREVIEW_PACKAGES: PackageInfo[] = [
-  {
-    identifier: '$rc_monthly',
-    priceString: '₪9.99/חודש',
-    price: 9.99,
-    currencyCode: 'ILS',
-    title: 'מנוי חודשי',
-    description: 'גישה מלאה לכל התכונות',
-    packageType: 'monthly',
-  },
-  {
-    identifier: '$rc_annual',
-    priceString: '₪69.99/שנה',
-    price: 69.99,
-    currencyCode: 'ILS',
-    title: 'מנוי שנתי',
-    description: 'חסכון של 40% לעומת מנוי חודשי',
-    packageType: 'annual',
-  },
-];
+const PREVIEW_PACKAGES: PackageInfo[] = [];
 
 // ============================================================================
 // פונקציות עזר
@@ -148,10 +133,7 @@ export function RevenueCatProvider({
   const isConfigured = isRevenueCatConfigured();
   const isBillingConfigurationValid =
     PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID && isConfigured;
-  const { user } = useUser();
-  const [lastIdentifiedUserId, setLastIdentifiedUserId] = useState<
-    string | null
-  >(null);
+  const [, setLastIdentifiedUserId] = useState<string | null>(null);
 
   // ============================================================================
   // אתחול
@@ -229,54 +211,6 @@ export function RevenueCatProvider({
     initialize();
   }, [isBillingConfigurationValid, isExpoGo]);
 
-  useEffect(() => {
-    if (!isInitialized || isExpoGo || !isBillingConfigurationValid) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function ensureIdentifier() {
-      try {
-        const targetId = user?.externalId ?? user?._id;
-        const Purchases = (await import('react-native-purchases')).default;
-
-        if (!targetId) {
-          if (lastIdentifiedUserId) {
-            await Purchases.logOut();
-            if (!cancelled) {
-              setLastIdentifiedUserId(null);
-            }
-          }
-          return;
-        }
-
-        if (lastIdentifiedUserId === targetId) {
-          return;
-        }
-
-        await Purchases.logIn(targetId);
-        if (!cancelled) {
-          setLastIdentifiedUserId(targetId);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    void ensureIdentifier();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    isBillingConfigurationValid,
-    isExpoGo,
-    isInitialized,
-    lastIdentifiedUserId,
-    user,
-  ]);
-
   // ============================================================================
   // רכישת חבילה
   // ============================================================================
@@ -342,6 +276,43 @@ export function RevenueCatProvider({
 
         if (!packageToPurchase) {
           throw new Error(`חבילה ${packageId} לא נמצאה`);
+        }
+
+        const appleOffer = options?.applePromotionalOffer;
+        if (appleOffer?.offerIdentifier) {
+          const discounts =
+            (
+              packageToPurchase.product as {
+                discounts?: Array<{ identifier?: string }>;
+              }
+            ).discounts ?? [];
+          const discount = discounts.find(
+            (item) => item.identifier === appleOffer.offerIdentifier
+          );
+          if (!discount) {
+            return false;
+          }
+          const purchasesWithOffers = Purchases as typeof Purchases & {
+            getPromotionalOffer?: (
+              product: unknown,
+              storeDiscount: unknown
+            ) => Promise<unknown>;
+          };
+          if (typeof purchasesWithOffers.getPromotionalOffer !== 'function') {
+            return false;
+          }
+          const promotionalOffer = await purchasesWithOffers.getPromotionalOffer(
+            packageToPurchase.product,
+            discount
+          );
+          if (!promotionalOffer) {
+            return false;
+          }
+          await Purchases.purchasePackage(
+            packageToPurchase,
+            promotionalOffer as never
+          );
+          return true;
         }
 
         await Purchases.purchasePackage(packageToPurchase);
@@ -425,6 +396,26 @@ export function RevenueCatProvider({
   // רענון מידע רוכש
   // ============================================================================
 
+  const getManagementUrl = useCallback(
+    async (appUserId?: string) => {
+      if (!isBillingConfigurationValid || isExpoGo) {
+        return null;
+      }
+      try {
+        const Purchases = (await import('react-native-purchases')).default;
+        const identity = appUserId?.trim();
+        if (identity) {
+          await Purchases.logIn(identity);
+        }
+        const info = await Purchases.getCustomerInfo();
+        return info.managementURL ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [isBillingConfigurationValid, isExpoGo]
+  );
+
   const refreshPurchaserInfo = useCallback(async () => {
     if (!isBillingConfigurationValid || isExpoGo || !isInitialized) {
       return;
@@ -457,6 +448,7 @@ export function RevenueCatProvider({
         purchasePackage,
         restorePurchases,
         refreshPurchaserInfo,
+        getManagementUrl,
       }}
     >
       {children}

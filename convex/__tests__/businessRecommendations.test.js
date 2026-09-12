@@ -12,6 +12,9 @@ import {
   startBusinessRecommendationGuide,
 } from '../recommendations';
 import { getRoleCapabilities } from '../lib/staffPermissions';
+import {
+  seedCanonicalBusinessBillingAccounts,
+} from './helpers/businessBillingFixtures';
 
 const NOW = 1_800_000_000_000;
 const EXPECTED_GUIDE_IDS = {
@@ -133,6 +136,10 @@ function tables() {
       business('business_1', 'owner_1'),
       business('business_2', 'owner_2'),
     ],
+    businessBillingAccounts: seedCanonicalBusinessBillingAccounts(
+      [business('business_1', 'owner_1'), business('business_2', 'owner_2')],
+      { now: NOW }
+    ),
     businessStaff: [
       {
         _id: 'owner_link',
@@ -589,6 +596,7 @@ describe('recommendation interaction handlers', () => {
   test('capability or entitlement loss before mutation rejects old evidence', async () => {
     const capabilityCtx = ctx('owner_1', (data) => {
       data.businesses[0].subscriptionStatus = 'past_due';
+      data.businessBillingAccounts[0].status = 'past_due';
     });
     const subscriptionResponse =
       await getBusinessRecommendations._handler(capabilityCtx, {
@@ -1088,6 +1096,7 @@ describe('recommendation guide status and acknowledgement handlers', () => {
   test('capability and entitlement loss return restricted and cannot be acknowledged', async () => {
     const capabilityCtx = ctx('owner_1', (data) => {
       data.businesses[0].subscriptionStatus = 'past_due';
+      data.businessBillingAccounts[0].status = 'past_due';
     });
     const capabilityResponse =
       await getBusinessRecommendations._handler(capabilityCtx, {

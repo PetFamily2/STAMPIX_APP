@@ -351,6 +351,7 @@ async function assertCampaignCapacity(ctx: any, businessId: Id<'businesses'>) {
   await assertEntitlement(ctx, businessId, {
     limitKey: 'maxCampaigns',
     currentValue: activeCampaigns,
+    reserveSlot: true,
   });
 }
 
@@ -365,6 +366,7 @@ async function assertRecurringCampaignCapacity(
   await assertEntitlement(ctx, businessId, {
     limitKey: 'maxActiveRetentionActions',
     currentValue: activeRecurringCampaigns,
+    reserveSlot: true,
   });
 }
 

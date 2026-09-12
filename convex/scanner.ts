@@ -615,6 +615,7 @@ async function applyStamp(
       await assertEntitlement(ctx, params.businessId, {
         limitKey: 'maxCustomers',
         currentValue: activeCustomersCount,
+        reserveSlot: true,
       });
     }
 

@@ -90,12 +90,15 @@ describe('campaign counting rules for entitlement limits', () => {
     ).resolves.toBe(3);
   });
 
-  test('missing referral config counts as one slot because default referral config is enabled', async () => {
-    expect(countsTowardReferralCampaignQuota(null)).toBe(true);
+  test('missing customer referral config does not consume a campaign slot', async () => {
+    expect(countsTowardReferralCampaignQuota(null)).toBe(false);
+    expect(
+      countsTowardReferralCampaignQuota({ kind: 'b2b', isEnabled: true })
+    ).toBe(false);
 
     await expect(
       countActiveCampaignsForBusiness(buildCountingCtx(), 'business_1')
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
   });
 
   test('disabled referral campaign does not count toward active campaign quota', async () => {

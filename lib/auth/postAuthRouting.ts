@@ -5,6 +5,7 @@ import {
   type ActiveBusinessStaffRole,
 } from '../activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '../onboarding/businessOnboardingFlow';
+import { MVP_FEATURE_FLAGS } from '../billing/productionContract';
 
 export const POST_AUTH_ROUTES = {
   nameCapture: '/(auth)/name-capture',
@@ -176,7 +177,9 @@ export function resolveAuthGroupDisposition({
   if (
     routeKind === 'businessOnboarding' &&
     customerOnboarded &&
-    (isAdditionalBusinessFlow || !businessOnboarded)
+    ((MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled &&
+      isAdditionalBusinessFlow) ||
+      !businessOnboarded)
   ) {
     return { status: 'render' };
   }

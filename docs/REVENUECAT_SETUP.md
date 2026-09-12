@@ -1,6 +1,21 @@
 ﻿# RevenueCat Setup (iOS + Android)
 
-Last synced: 2026-06-20
+**Canonical production billing + referral contract:** [`docs/BILLING_REFERRAL_PRODUCTION_LOCK.md`](./BILLING_REFERRAL_PRODUCTION_LOCK.md)
+
+This file is legacy operational notes. Frozen launch prices, plans, identity, and Referral rules live in the production lock. Do not use the historical free-Starter table below as an authorization source.
+
+Last synced: 2026-06-20 (legacy)
+
+## 1) Dashboard setup (summary)
+1. Create RevenueCat project.
+2. Add iOS app (bundle id from `app.json`).
+3. Add Android app (package name from `app.json`).
+4. Create the six launch products and attach them to `business_access`.
+5. Create offering `business_plans`.
+
+## 2) Current business plans
+
+See `docs/BILLING_REFERRAL_PRODUCTION_LOCK.md`. Starter is a paid RevenueCat product. There is no free Starter.
 
 This is the RevenueCat source of truth for the project. Setup, deployment, and integration docs should link here instead of duplicating billing configuration details.
 
@@ -10,21 +25,14 @@ This guide documents the variables and integration points actually used in code.
 1. Create RevenueCat project.
 2. Add iOS app (bundle id from `app.json`).
 3. Add Android app (package name from `app.json`).
-4. Create paid products for Pro and Premium.
-5. Create paid entitlements for `pro` and `premium`, then attach products.
+4. Create the six launch products and attach them to entitlement `business_access`.
+5. Create offering `business_plans`.
 
 ## 2) Current business plans
-Internal plan keys are `starter`, `pro`, and `premium`. User-facing labels are
-Starter, Pro, and Premium.
 
-| Plan | Monthly | Yearly | Cards | Customers | Campaigns | Recurring campaigns | AI/month | Team seats |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | free | free | 1 | 30 | 1 | 0 | 0 | 0 |
-| Pro | ILS 129 | ILS 1238 | 5 | 2000 | 5 | 5 | 100 | 5 |
-| Premium | ILS 249 | ILS 2390 | 10 | 10000 | 10 | 15 | 300 | 20 |
+Canonical frozen table: `docs/BILLING_REFERRAL_PRODUCTION_LOCK.md`.
 
-Starter is not a RevenueCat product. Pro and Premium are paid RevenueCat-backed
-plans.
+Starter is a paid RevenueCat product. There is no free Starter. Do not use plan-specific entitlements named `starter`/`pro`/`premium` for authorization.
 
 ## 3) Client / EAS build environment variables
 These `EXPO_PUBLIC_*` values are bundled into the Expo app at build time. Set

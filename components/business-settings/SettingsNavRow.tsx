@@ -128,6 +128,7 @@ export function SettingsGroup({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   group: {
+    width: '100%',
     backgroundColor: SETTINGS_TOKENS.surface,
     borderRadius: SETTINGS_TOKENS.radiusLg,
     borderWidth: 1,

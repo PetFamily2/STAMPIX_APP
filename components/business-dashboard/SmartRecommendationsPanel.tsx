@@ -10,17 +10,12 @@ import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
-import type { RecommendationAction } from '@/lib/recommendations/navigation';
 import type {
   RecommendationGuideId,
   RecommendationStableId,
 } from '@/lib/recommendations/guidance';
-import {
-  flexDirection,
-  rtlBaseView,
-  selfStart,
-  tw,
-} from '@/lib/rtl';
+import type { RecommendationAction } from '@/lib/recommendations/navigation';
+import { flexDirection, rtlBaseView, selfStart, tw } from '@/lib/rtl';
 
 export type DashboardRecommendation = {
   stableId: RecommendationStableId;
@@ -73,6 +68,10 @@ export function SmartRecommendationsPanel({
   onDismiss: (recommendation: DashboardRecommendation) => void;
   onRetry?: () => void;
 }) {
+  // Dismiss remains wired at the dashboard boundary but is intentionally not
+  // exposed by this card presentation.
+  void onDismiss;
+
   if (status === 'loading') {
     return (
       <View
@@ -134,10 +133,7 @@ export function SmartRecommendationsPanel({
     : undefined;
   return (
     <View
-      style={[
-        styles.panel,
-        isTablet ? styles.tabletPanel : styles.phonePanel,
-      ]}
+      style={[styles.panel, isTablet ? styles.tabletPanel : styles.phonePanel]}
     >
       {primary ? (
         <View style={styles.primaryColumn}>
@@ -147,13 +143,13 @@ export function SmartRecommendationsPanel({
             title={primary.title}
             reason={primary.reason}
             ctaLabel={primary.ctaLabel}
+            action={primary.action}
             emphasis="primary"
             isOpening={primaryPendingAction === 'open'}
             isSnoozing={primaryPendingAction === 'snooze'}
             isDismissing={primaryPendingAction === 'dismiss'}
             onOpen={() => onOpen(primary)}
             onSnooze={() => onSnooze(primary)}
-            onDismiss={() => onDismiss(primary)}
           />
         </View>
       ) : null}
@@ -178,13 +174,13 @@ export function SmartRecommendationsPanel({
                 title={recommendation.title}
                 reason={recommendation.reason}
                 ctaLabel={recommendation.ctaLabel}
+                action={recommendation.action}
                 emphasis="secondary"
                 isOpening={recommendationPendingAction === 'open'}
                 isSnoozing={recommendationPendingAction === 'snooze'}
                 isDismissing={recommendationPendingAction === 'dismiss'}
                 onOpen={() => onOpen(recommendation)}
                 onSnooze={() => onSnooze(recommendation)}
-                onDismiss={() => onDismiss(recommendation)}
               />
             );
           })}
@@ -199,7 +195,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 920,
     alignSelf: 'center',
-    gap: 12,
+    gap: 8,
     ...rtlBaseView,
   },
   phonePanel: {
@@ -218,7 +214,7 @@ const styles = StyleSheet.create({
     flex: 0.88,
     minWidth: 0,
     maxWidth: 400,
-    gap: 10,
+    gap: 8,
   },
   secondaryOnlyTablet: {
     flex: 1,

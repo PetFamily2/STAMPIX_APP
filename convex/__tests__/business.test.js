@@ -87,10 +87,13 @@ function createMockCtx({
     smartManagerEvaluationStates: new Map(
       smartManagerEvaluationStates.map((entry) => [entry._id, { ...entry }])
     ),
+    businessBillingAccounts: new Map(),
+    businessUsageCounters: new Map(),
   };
   let businessInsertCount = 0;
   let staffInsertCount = 0;
   let smartManagerEvaluationStateInsertCount = 0;
+  let genericInsertCount = 0;
   const scheduled = [];
 
   const ctx = {
@@ -140,7 +143,13 @@ function createMockCtx({
           return id;
         }
 
-        throw new Error(`UNKNOWN_INSERT_TABLE:${tableName}`);
+        if (!state[tableName]) {
+          state[tableName] = new Map();
+        }
+        genericInsertCount += 1;
+        const id = `${tableName}_inserted_${genericInsertCount}`;
+        state[tableName].set(id, { _id: id, ...value });
+        return id;
       },
       delete: async (id) => {
         if (state.smartManagerEvaluationStates.has(id)) {
@@ -161,20 +170,8 @@ function createMockCtx({
 
           buildIndex(q);
 
-          const rows =
-            tableName === 'businesses'
-              ? Array.from(state.businesses.values())
-              : tableName === 'businessStaff'
-                ? Array.from(state.businessStaff.values())
-                : tableName === 'loyaltyPrograms'
-                  ? Array.from(state.loyaltyPrograms.values())
-                  : tableName === 'businessOnboardingDrafts'
-                    ? Array.from(state.businessOnboardingDrafts.values())
-                    : tableName === 'smartManagerEvaluationStates'
-                      ? Array.from(
-                          state.smartManagerEvaluationStates.values()
-                        )
-                    : [];
+          const table = state[tableName];
+          const rows = table ? Array.from(table.values()) : [];
 
           const filteredRows = rows.filter((row) =>
             filters.every(([field, value]) => row[field] === value)

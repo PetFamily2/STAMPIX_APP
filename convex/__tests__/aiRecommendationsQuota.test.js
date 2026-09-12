@@ -233,6 +233,19 @@ function baseTables({ business = buildBusiness(), usageRows = [] } = {}) {
         createdAt: now,
       },
     ],
+    businessBillingAccounts: [
+      {
+        _id: 'billing_1',
+        businessId: business._id,
+        ownerUserId: business.ownerUserId,
+        providerAppUserId: 'ba_quota_identity_token12',
+        plan: business.subscriptionPlan,
+        lastPlan: business.subscriptionPlan,
+        status: business.subscriptionStatus ?? 'active',
+        hasProviderEvidence: true,
+        currentPeriodEndAt: now + 86_400_000,
+      },
+    ],
   };
 }
 

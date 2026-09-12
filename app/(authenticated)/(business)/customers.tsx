@@ -557,7 +557,7 @@ export function CustomersHubContent() {
                 עדיין אין לקוחות
               </Text>
               <Text className={tw.textStart} style={styles.emptyBody}>
-                לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו ניקוב ראשון.
+                לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו חותמת ראשונה.
               </Text>
               <View style={styles.emptyActionsRow}>
                 <Pressable

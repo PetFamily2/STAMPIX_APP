@@ -37,7 +37,9 @@
     "type-check:watch": "tsc --noEmit --watch",
     "lint:full": "biome check . && bun run type-check",
     "check:full": "bun run check && bun run type-check",
-    "check:ultracite": "ultracite"
+    "check:ultracite": "ultracite",
+    "prebuild:preview": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --preview",
+    "prebuild:production": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --production"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",

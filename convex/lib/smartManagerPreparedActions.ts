@@ -1,4 +1,5 @@
 import type { Doc } from '../_generated/dataModel';
+import { getBillingAccountForBusiness } from './billing/accounts';
 import { buildBusinessEntitlementsFromBusiness } from '../entitlements';
 import type {
   SmartManagerAuthorityBlocker,
@@ -215,6 +216,7 @@ export function buildBoundedSmartManagerAccessContext(args: {
   authorization: PreparedWinbackAuthorization;
   authority: SmartManagerDecisionAuthorityResult;
   now: number;
+  billingAccount?: any;
 }): SmartManagerBoundedAccessContext {
   const blockers: SmartManagerAccessBlocker[] = [];
   const quotaFact = args.authority.factSnapshot?.facts?.facts?.campaignQuota;
@@ -262,27 +264,25 @@ export function buildBoundedSmartManagerAccessContext(args: {
     args.now,
     {
       activeManagementCampaigns: campaignUsage ?? 0,
+      billingAccount: args.billingAccount,
     }
   );
-  const paidSubscriptionInactive =
-    entitlements.plan !== 'starter' && !entitlements.isSubscriptionActive;
+  const subscriptionInactive = entitlements.isSubscriptionActive !== true;
   const hasSmartManagerAccess =
-    entitlements.features.smartRetentionManager === true &&
-    !paidSubscriptionInactive;
+    entitlements.features.smartRetentionManager === true;
   if (!hasSmartManagerAccess) {
     blockers.push(
-      paidSubscriptionInactive
+      subscriptionInactive
         ? 'SUBSCRIPTION_INACTIVE'
         : 'SMART_MANAGER_FEATURE_UNAVAILABLE'
     );
   }
   const hasAiAssist =
     hasSmartManagerAccess &&
-    entitlements.features.smartRetentionManagerAiAssist === true &&
-    !paidSubscriptionInactive;
+    entitlements.features.smartRetentionManagerAiAssist === true;
   const aiAssistReason = hasAiAssist
     ? null
-    : paidSubscriptionInactive
+    : subscriptionInactive
       ? ('AI_SUBSCRIPTION_INACTIVE' as const)
       : ('AI_ASSIST_NOT_AVAILABLE' as const);
 
@@ -336,6 +336,26 @@ export function buildBoundedSmartManagerAccessContext(args: {
     hasApprovalCapabilities,
     campaignCapacityAvailable,
   };
+}
+
+export async function loadBoundedSmartManagerAccessContext(args: {
+  ctx: any;
+  business: Doc<'businesses'>;
+  authorization: PreparedWinbackAuthorization;
+  authority: SmartManagerDecisionAuthorityResult;
+  now: number;
+}): Promise<SmartManagerBoundedAccessContext> {
+  const billingAccount = await getBillingAccountForBusiness(
+    args.ctx,
+    args.business._id
+  ).catch(() => null);
+  return buildBoundedSmartManagerAccessContext({
+    business: args.business,
+    authorization: args.authorization,
+    authority: args.authority,
+    now: args.now,
+    billingAccount,
+  });
 }
 
 export type SmartManagerAudienceBucket =

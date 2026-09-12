@@ -891,6 +891,7 @@ export const joinSelectedPrograms = mutation({
       await assertEntitlement(ctx, businessId, {
         limitKey: 'maxCustomers',
         currentValue: activeCustomersCount,
+        reserveSlot: true,
       });
     }
 
@@ -1062,6 +1063,7 @@ export const joinByBusinessQr = mutation({
       await assertEntitlement(ctx, business._id, {
         limitKey: 'maxCustomers',
         currentValue: activeCustomersCount,
+        reserveSlot: true,
       });
     }
 

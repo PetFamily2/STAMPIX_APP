@@ -25,7 +25,7 @@ import {
   buildSmartManagerStructuredInputHash,
   buildSmartManagerWinbackPrompt,
   buildSmartManagerWinbackStructuredInput,
-  buildBoundedSmartManagerAccessContext,
+  loadBoundedSmartManagerAccessContext,
   buildPreparedActionCopyContentHash,
   buildPreparedWinbackDetectionExplanation,
   buildPreparedWinbackPreparationKey,
@@ -637,7 +637,8 @@ async function revalidateGenerationRequest(
       requestMatches: true as const,
     };
   }
-  const access = buildBoundedSmartManagerAccessContext({
+  const access = await loadBoundedSmartManagerAccessContext({
+    ctx,
     business: authority.business,
     authorization,
     authority,
@@ -853,7 +854,8 @@ export const prepareWinbackAction = mutation({
       throwNotPreparable();
     }
 
-    const access = buildBoundedSmartManagerAccessContext({
+    const access = await loadBoundedSmartManagerAccessContext({
+      ctx,
       business: authority.business,
       authorization,
       authority,
@@ -1209,7 +1211,8 @@ export const regeneratePreparedWinbackCopy = mutation({
     if (!authority.business) {
       throw new Error('ACTION_STALE');
     }
-    const access = buildBoundedSmartManagerAccessContext({
+    const access = await loadBoundedSmartManagerAccessContext({
+      ctx,
       business: authority.business,
       authorization,
       authority,
@@ -2055,7 +2058,8 @@ async function buildPreparedWinbackReview(
   if (!authority.business) {
     throw new Error('SMART_MANAGER_PREPARED_ACTION_NOT_FOUND');
   }
-  const access = buildBoundedSmartManagerAccessContext({
+  const access = await loadBoundedSmartManagerAccessContext({
+    ctx,
     business: authority.business,
     authorization,
     authority,

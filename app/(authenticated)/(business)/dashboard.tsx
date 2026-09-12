@@ -711,7 +711,7 @@ export default function BusinessDashboardScreen() {
     },
     {
       key: 'lifetime_stamps',
-      label: 'ניקובים',
+      label: 'חותמות',
       value: formatNumber(lifetimeMetrics?.totalStampsAllTime ?? 0),
       icon: 'stamp-outline-custom' as const,
       tone: 'blue' as const,

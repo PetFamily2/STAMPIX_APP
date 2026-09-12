@@ -571,7 +571,7 @@ export function classifyPosError(
       SELF_STAMP: 'לא ניתן לנקב לעצמכם.',
       CUSTOMER_NOT_FOUND: 'הלקוח לא נמצא.',
       MEMBERSHIP_NOT_FOUND: 'ללקוח אין כרטיס פעיל בתוכנית שנבחרה.',
-      NOT_ENOUGH_STAMPS: 'אין מספיק ניקובים למימוש ההטבה.',
+      NOT_ENOUGH_STAMPS: 'אין מספיק חותמות למימוש ההטבה.',
     };
     return {
       code,

@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
-import { alignItems } from '@/lib/rtl';
 
 export function SettingsSection({
   title,
@@ -24,7 +23,7 @@ export function SettingsSection({
 const styles = StyleSheet.create({
   section: {
     gap: 8,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   title: {
     width: '100%',

@@ -311,7 +311,7 @@ export default function BusinessSettingsScreen() {
             {canInviteBusinesses ? (
               <SettingsNavRow
                 title="הזמנת עסקים"
-                subtitle="הזמינו בעלי עסקים וקבלו חודשי שימוש חינם"
+                subtitle="הזמינו עסקים. צברו חודשי StampAix."
                 icon="share-social-outline"
                 onPress={() =>
                   router.push(BUSINESS_ROUTES.inviteBusinesses as Href)

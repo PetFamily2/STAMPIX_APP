@@ -483,7 +483,7 @@ describe('business referral deleted-business compatibility', () => {
     expect(ownerSummary.totalReferrals).toBe(0);
     expect(managerSummary.totalReferrals).toBe(0);
     expect(managerLink.url).toContain(managerLink.code);
-    expect(tables.businessReferralLinks).toHaveLength(1);
+    expect(tables.businessReferralCodes).toHaveLength(1);
 
     await expect(
       getBusinessReferralCreditSummary._handler(buildCtx(tables, 'u_staff'), {
@@ -607,10 +607,10 @@ describe('business referral deleted-business compatibility', () => {
     });
 
     expect(summary).toMatchObject({
-      creditedMonths: 2,
+      creditedMonths: 0,
       pendingMonths: 0,
       pendingInvitesCount: 0,
-      activeReferralsCount: 1,
+      activeReferralsCount: 0,
     });
   });
 

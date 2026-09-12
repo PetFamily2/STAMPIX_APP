@@ -2,10 +2,10 @@ import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import {
+  persistedSmartManagerCapabilityAvailabilityValidator,
   smartManagerAuditEventDetailValidator,
   smartManagerAiFailureCodeValidator,
   smartManagerAuthorityModeValidator,
-  smartManagerCapabilityAvailabilityValidator,
   smartManagerComparisonSummaryValidator,
   smartManagerDecisionSummaryValidator,
   smartManagerDeliveryCountersValidator,
@@ -799,7 +799,8 @@ export default defineSchema({
     sourceGeneration: v.number(),
     sourceWatermark: v.string(),
     factHash: v.string(),
-    capabilityAvailability: smartManagerCapabilityAvailabilityValidator,
+    capabilityAvailability:
+      persistedSmartManagerCapabilityAvailabilityValidator,
     facts: smartManagerFactEnvelopeValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -2050,7 +2051,14 @@ export default defineSchema({
     businessId: v.optional(v.id('businesses')),
     productId: v.optional(v.string()),
     entitlementIds: v.optional(v.array(v.string())),
-    status: v.union(v.literal('processed'), v.literal('ignored')),
+    status: v.union(
+      v.literal('processed'),
+      v.literal('ignored'),
+      v.literal('ignored_stale'),
+      v.literal('duplicate')
+    ),
+    providerEventAt: v.optional(v.number()),
+    ignoredReason: v.optional(v.string()),
     receivedAt: v.number(),
     processedAt: v.optional(v.number()),
     rawEvent: v.any(),
@@ -2059,6 +2067,7 @@ export default defineSchema({
   })
     .index('by_eventId', ['eventId'])
     .index('by_businessId', ['businessId'])
+    .index('by_providerEventAt', ['providerEventAt'])
     .index('by_purgeAfter', ['purgeAfter']),
 
   messageLog: defineTable({
@@ -2441,4 +2450,239 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_targetUserId', ['targetUserId'])
     .index('by_targetInviteId', ['targetInviteId']),
+
+  businessBillingAccounts: defineTable({
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    providerAppUserId: v.string(),
+    plan: v.optional(
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
+    ),
+    lastPlan: v.optional(
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
+    ),
+    status: v.optional(
+      v.union(
+        v.literal('active'),
+        v.literal('trialing'),
+        v.literal('past_due'),
+        v.literal('canceled'),
+        v.literal('inactive')
+      )
+    ),
+    billingPeriod: v.optional(
+      v.union(v.literal('monthly'), v.literal('yearly'), v.null())
+    ),
+    provider: v.optional(
+      v.union(
+        v.literal('revenuecat'),
+        v.literal('app_store'),
+        v.literal('play_store'),
+        v.literal('unknown')
+      )
+    ),
+    providerProductId: v.optional(v.string()),
+    providerSubscriptionIdentifier: v.optional(v.string()),
+    subscriptionStartAt: v.optional(v.union(v.number(), v.null())),
+    currentPeriodStartAt: v.optional(v.union(v.number(), v.null())),
+    currentPeriodEndAt: v.optional(v.union(v.number(), v.null())),
+    gracePeriodEndAt: v.optional(v.union(v.number(), v.null())),
+    canceledAt: v.optional(v.union(v.number(), v.null())),
+    entitlementRevokedAt: v.optional(v.union(v.number(), v.null())),
+    revokeReason: v.optional(v.string()),
+    providerEnvironment: v.optional(v.string()),
+    lastProviderEventAt: v.optional(v.number()),
+    lastProviderEventId: v.optional(v.string()),
+    hasProviderEvidence: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_providerAppUserId', ['providerAppUserId'])
+    .index('by_ownerUserId', ['ownerUserId']),
+
+  businessUsageCounters: defineTable({
+    businessId: v.id('businesses'),
+    nonArchivedCards: v.number(),
+    activeUniqueCustomers: v.number(),
+    teamSeats: v.number(),
+    activeCampaigns: v.number(),
+    activeRetentionActions: v.number(),
+    aiMonthKey: v.string(),
+    aiExecutionsThisMonth: v.number(),
+    version: v.number(),
+    updatedAt: v.number(),
+  }).index('by_businessId', ['businessId']),
+
+  businessPaidServicePeriods: defineTable({
+    businessId: v.id('businesses'),
+    billingPeriod: v.union(v.literal('monthly'), v.literal('yearly')),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('premium')),
+    periodStartAt: v.number(),
+    periodEndAt: v.optional(v.number()),
+    isPaid: v.boolean(),
+    isReferralReward: v.boolean(),
+    isRefunded: v.boolean(),
+    sourceEventId: v.optional(v.string()),
+    idempotencyKey: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_businessId_idempotencyKey', ['businessId', 'idempotencyKey'])
+    .index('by_sourceEventId', ['sourceEventId']),
+
+  businessReferralCodes: defineTable({
+    code: v.string(),
+    referrerBusinessId: v.id('businesses'),
+    createdByUserId: v.optional(v.id('users')),
+    status: v.union(
+      v.literal('active'),
+      v.literal('revoked'),
+      v.literal('rotated'),
+      v.literal('disabled')
+    ),
+    rotatedFromCodeId: v.optional(v.id('businessReferralCodes')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index('by_code', ['code'])
+    .index('by_referrerBusinessId', ['referrerBusinessId'])
+    .index('by_referrerBusinessId_status', ['referrerBusinessId', 'status']),
+
+  businessReferralRelationships: defineTable({
+    codeId: v.optional(v.id('businessReferralCodes')),
+    legacyLinkId: v.optional(v.id('businessReferralLinks')),
+    referrerBusinessId: v.id('businesses'),
+    referredBusinessId: v.optional(v.id('businesses')),
+    referredOwnerUserId: v.optional(v.id('users')),
+    createdByUserId: v.optional(v.id('users')),
+    status: v.union(
+      v.literal('created'),
+      v.literal('claimed'),
+      v.literal('subscription_started'),
+      v.literal('qualification_pending'),
+      v.literal('qualified'),
+      v.literal('reward_created'),
+      v.literal('skipped'),
+      v.literal('revoked')
+    ),
+    skipReason: v.optional(v.string()),
+    claimedAt: v.optional(v.number()),
+    subscriptionStartedAt: v.optional(v.number()),
+    qualificationDueAt: v.optional(v.number()),
+    qualifiedAt: v.optional(v.number()),
+    paidMonthsConfirmed: v.number(),
+    effectiveBillingPeriod: v.optional(
+      v.union(v.literal('monthly'), v.literal('yearly'))
+    ),
+    firstPaidAt: v.optional(v.number()),
+    anniversaryDueAt: v.optional(v.number()),
+    anniversaryRewardedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_codeId', ['codeId'])
+    .index('by_referredBusinessId', ['referredBusinessId'])
+    .index('by_referrerBusinessId_status', ['referrerBusinessId', 'status'])
+    .index('by_status_qualificationDueAt', ['status', 'qualificationDueAt'])
+    .index('by_status_anniversaryDueAt', ['status', 'anniversaryDueAt'])
+    .index('by_legacyLinkId', ['legacyLinkId']),
+
+  businessReferralRewards: defineTable({
+    relationshipId: v.id('businessReferralRelationships'),
+    referrerBusinessId: v.id('businesses'),
+    referredBusinessId: v.id('businesses'),
+    beneficiaryBusinessId: v.id('businesses'),
+    rewardType: v.union(
+      v.literal('referrer_acquisition'),
+      v.literal('referred_anniversary'),
+      v.literal('legacy_credit'),
+      v.literal('reconciliation_offset')
+    ),
+    rewardMonths: v.number(),
+    reason: v.string(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('earned'),
+      v.literal('scheduled'),
+      v.literal('redeemable'),
+      v.literal('redeeming'),
+      v.literal('redeemed'),
+      v.literal('revoked'),
+      v.literal('failed')
+    ),
+    earnedAt: v.optional(v.number()),
+    eligibleAt: v.optional(v.number()),
+    redeemedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    revokeReason: v.optional(v.string()),
+    sourceProviderEventId: v.optional(v.string()),
+    idempotencyKey: v.string(),
+    providerRedemptionId: v.optional(v.string()),
+    reconciliationOfRewardId: v.optional(v.id('businessReferralRewards')),
+    migrationFlag: v.optional(
+      v.union(v.literal('proven'), v.literal('needs_reconciliation'))
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_idempotencyKey', ['idempotencyKey'])
+    .index('by_relationshipId', ['relationshipId'])
+    .index('by_beneficiaryBusinessId_status', [
+      'beneficiaryBusinessId',
+      'status',
+    ])
+    .index('by_referrerBusinessId', ['referrerBusinessId'])
+    .index('by_referredBusinessId', ['referredBusinessId'])
+    .index('by_sourceProviderEventId', ['sourceProviderEventId'])
+    .index('by_status_eligibleAt', ['status', 'eligibleAt']),
+
+  businessReferralRewardRedemptions: defineTable({
+    rewardId: v.id('businessReferralRewards'),
+    beneficiaryBusinessId: v.id('businesses'),
+    provider: v.union(
+      v.literal('apple'),
+      v.literal('google'),
+      v.literal('revenuecat'),
+      v.literal('unknown')
+    ),
+    monthsRequested: v.number(),
+    monthsConfirmed: v.optional(v.number()),
+    status: v.union(
+      v.literal('prepared'),
+      v.literal('submitted'),
+      v.literal('confirmed'),
+      v.literal('failed'),
+      v.literal('cancelled')
+    ),
+    idempotencyKey: v.string(),
+    providerRequestFingerprint: v.optional(v.string()),
+    providerResult: v.optional(v.any()),
+    newPeriodEndAt: v.optional(v.number()),
+    failureCode: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_rewardId', ['rewardId'])
+    .index('by_idempotencyKey', ['idempotencyKey'])
+    .index('by_beneficiaryBusinessId', ['beneficiaryBusinessId']),
+
+  billingMigrationAudits: defineTable({
+    businessId: v.id('businesses'),
+    ownerUserId: v.optional(v.id('users')),
+    legacyPlan: v.optional(v.string()),
+    legacyStatus: v.optional(v.string()),
+    hasProviderEvidence: v.boolean(),
+    hasSubscriptionRow: v.boolean(),
+    targetAccessStatus: v.union(
+      v.literal('active'),
+      v.literal('inactive'),
+      v.literal('needs_review')
+    ),
+    targetPlan: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index('by_businessId', ['businessId']),
 });

@@ -13,6 +13,7 @@ import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
+import { REFERRAL_COPY } from '@/lib/referrals/copy';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -22,17 +23,13 @@ import {
   SERVER_SYNC_PENDING_MESSAGE_HE,
   SERVER_SYNC_TIMEOUT_MESSAGE_HE,
 } from '@/lib/subscription/billingGuards';
+import { planConfig } from '@/lib/billing/productionContract';
 import { getUpgradeAreaLabel } from '@/lib/subscription/lockedAreaCopy';
 import {
   normalizePlanCatalog,
   type PlanCatalogItem,
 } from '@/lib/subscription/planComparison';
 import { SubscriptionSalesPanel } from './SubscriptionSalesPanel';
-
-const PLAN_LABELS: Record<'pro' | 'premium', string> = {
-  pro: 'Pro',
-  premium: 'Premium',
-};
 
 const SERVER_SYNC_TIMEOUT_MS = 30_000;
 const SERVER_SYNC_POLL_INTERVAL_MS = 2_000;
@@ -46,7 +43,7 @@ type BillingSyncStatus =
 type UpgradeModalProps = {
   visible: boolean;
   businessId: Id<'businesses'> | null;
-  initialPlan?: 'pro' | 'premium';
+  initialPlan?: 'starter' | 'pro' | 'premium';
   initialBillingPeriod?: BillingPeriod;
   reason?:
     | 'feature_locked'
@@ -62,7 +59,7 @@ const PLAN_REASON_COPY: Record<string, string> = {
   feature_locked: 'האזור שבחרתם זמין במסלול מתקדם יותר.',
   limit_reached: 'הגעתם למגבלת השימוש של המסלול הנוכחי.',
   subscription_inactive: 'המנוי של העסק לא פעיל כרגע.',
-  onboarding_plan: 'אפשר להתחיל עם Starter או לבחור מסלול בתשלום כבר עכשיו.',
+  onboarding_plan: 'בחרו Starter, Pro או Premium בתשלום כדי להפעיל את העסק.',
 };
 
 function sleep(ms: number) {
@@ -70,46 +67,15 @@ function sleep(ms: number) {
 }
 
 function buildFallbackPlans(): PlanCatalogItem[] {
-  return normalizePlanCatalog([
-    {
-      plan: 'pro',
-      label: PLAN_LABELS.pro,
-      pricing: { monthly: 129, yearly: 1238, currency: 'ILS' },
-      limits: {
-        maxCards: 5,
-        maxCustomers: 2000,
-        maxActiveRetentionActions: 5,
-        maxCampaigns: 5,
-        maxAiExecutionsPerMonth: 100,
-        maxTeamSeats: 5,
-      },
-      features: {
-        team: true,
-        advancedReports: true,
-        marketingHub: true,
-        smartAnalytics: true,
-      },
-    },
-    {
-      plan: 'premium',
-      label: PLAN_LABELS.premium,
-      pricing: { monthly: 249, yearly: 2390, currency: 'ILS' },
-      limits: {
-        maxCards: 10,
-        maxCustomers: 10000,
-        maxActiveRetentionActions: 15,
-        maxCampaigns: 10,
-        maxAiExecutionsPerMonth: 300,
-        maxTeamSeats: 20,
-      },
-      features: {
-        team: true,
-        advancedReports: true,
-        marketingHub: true,
-        smartAnalytics: true,
-      },
-    },
-  ]).filter((plan) => plan.plan !== 'starter');
+  return normalizePlanCatalog(
+    (['starter', 'pro', 'premium'] as const).map((plan) => ({
+      plan,
+      label: planConfig[plan].displayName,
+      pricing: planConfig[plan].pricing,
+      limits: planConfig[plan].limits,
+      features: planConfig[plan].features,
+    }))
+  );
 }
 
 export function UpgradeModal({
@@ -124,13 +90,17 @@ export function UpgradeModal({
 }: UpgradeModalProps) {
   const insets = useSafeAreaInsets();
   const convex = useConvex();
+  const billingIdentity = useQuery(
+    api.businessBilling.getBusinessBillingIdentity,
+    businessId ? { businessId } : 'skip'
+  );
   const planCatalogQuery = useQuery(api.entitlements.getPlanCatalog, {}) ?? [];
   const { isConfigured, isExpoGo, purchasePackage, restorePurchases } =
     useRevenueCat();
 
-  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'premium'>(
-    initialPlan
-  );
+  const [selectedPlan, setSelectedPlan] = useState<
+    'starter' | 'pro' | 'premium'
+  >(initialPlan);
   const [billingPeriod, setBillingPeriod] =
     useState<BillingPeriod>(initialBillingPeriod);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -138,7 +108,7 @@ export function UpgradeModal({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
     mode: 'purchase' | 'restore';
-    plan: 'pro' | 'premium';
+    plan: 'starter' | 'pro' | 'premium';
     billingPeriod: BillingPeriod;
   } | null>(null);
 
@@ -155,11 +125,7 @@ export function UpgradeModal({
   }, [initialBillingPeriod, initialPlan, visible]);
 
   const paidPlans = useMemo(() => {
-    const normalized = normalizePlanCatalog(planCatalogQuery).filter(
-      (plan): plan is PlanCatalogItem & { plan: 'pro' | 'premium' } =>
-        plan.plan === 'pro' || plan.plan === 'premium'
-    );
-
+    const normalized = normalizePlanCatalog(planCatalogQuery);
     return normalized.length > 0 ? normalized : buildFallbackPlans();
   }, [planCatalogQuery]);
 
@@ -170,7 +136,7 @@ export function UpgradeModal({
   const rcPackageId =
     REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
   const businessAppUserId = buildRevenueCatBusinessAppUserId(
-    businessId ? String(businessId) : null
+    billingIdentity?.providerAppUserId ?? null
   );
   const billingGuard = evaluateRevenueCatBillingGuard({
     paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
@@ -188,7 +154,7 @@ export function UpgradeModal({
   const waitForServerEntitlements = useCallback(
     async (
       mode: 'purchase' | 'restore',
-      plan: 'pro' | 'premium',
+      plan: 'starter' | 'pro' | 'premium',
       period: BillingPeriod
     ) => {
       if (!businessId) {
@@ -262,18 +228,33 @@ export function UpgradeModal({
       return;
     }
 
-    if (!billingGuard.canStart || !rcPackageId || !businessAppUserId) {
-      const guardMessage =
-        billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
-      setSyncMessage(guardMessage);
-      Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      let appUserId = businessAppUserId;
+      if (!appUserId) {
+        const ensured = await convex.mutation(
+          api.businessBilling.ensureMyBusinessBillingIdentity,
+          { businessId }
+        );
+        appUserId = ensured?.providerAppUserId ?? null;
+      }
+      const liveGuard = evaluateRevenueCatBillingGuard({
+        paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
+        serverAuthoritativeBillingEnabled: SERVER_AUTHORITATIVE_BILLING_ENABLED,
+        isRevenueCatConfigured: isConfigured,
+        isExpoGo,
+        packageId: rcPackageId,
+        businessAppUserId: appUserId,
+      });
+      if (!liveGuard.canStart || !rcPackageId || !appUserId) {
+        const guardMessage =
+          liveGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
+        setSyncMessage(guardMessage);
+        Alert.alert(BILLING_UNAVAILABLE_TITLE_HE, guardMessage);
+        return;
+      }
       const purchased = await purchasePackage(rcPackageId, {
-        appUserId: businessAppUserId,
+        appUserId,
         syncUserSubscription: false,
       });
       if (!purchased) {
@@ -361,12 +342,14 @@ export function UpgradeModal({
               plans={paidPlans}
               selectedPlan={selectedPlan}
               billingPeriod={billingPeriod}
-              visiblePlans={['pro', 'premium']}
+              visiblePlans={['starter', 'pro', 'premium']}
               context="upgrade"
               ctaLabel={ctaLabel}
               ctaDisabled={isBusy}
               ctaLoading={isBusy}
-              footerNote={syncMessage ?? undefined}
+              footerNote={
+                syncMessage ?? REFERRAL_COPY.paywallBenefitNote
+              }
               footerNoteTone={syncStatus === 'timeout' ? 'error' : 'default'}
               footerInsetBottom={Math.max(insets.bottom, 6)}
               footerBottomSlot={
@@ -389,9 +372,7 @@ export function UpgradeModal({
                   </Pressable>
                 </View>
               }
-              onSelectPlan={(plan) =>
-                setSelectedPlan(plan === 'premium' ? 'premium' : 'pro')
-              }
+              onSelectPlan={(plan) => setSelectedPlan(plan)}
               onBillingPeriodChange={setBillingPeriod}
               onPressCta={() => {
                 void handleUpgrade();

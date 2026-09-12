@@ -30,9 +30,13 @@ export const BILLING_PERIOD_LABELS: Record<BillingPeriod, string> = {
 };
 
 export const REVENUECAT_PACKAGE_BY_PLAN_PERIOD: Record<
-  Exclude<BusinessPlan, 'starter'>,
+  BusinessPlan,
   Record<BillingPeriod, string | null>
 > = {
+  starter: {
+    monthly: process.env.EXPO_PUBLIC_RC_PACKAGE_STARTER_MONTHLY ?? null,
+    yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_STARTER_YEARLY ?? null,
+  },
   pro: {
     monthly: process.env.EXPO_PUBLIC_RC_PACKAGE_PRO_MONTHLY ?? null,
     yearly: process.env.EXPO_PUBLIC_RC_PACKAGE_PRO_YEARLY ?? null,

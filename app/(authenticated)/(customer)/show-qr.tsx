@@ -32,13 +32,13 @@ import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 const TEXT = {
   title: 'ה-QR שלי',
   subtitle: 'קוד לקוח אישי אחד לכל העסקים',
-  helper: 'הציגו את הקוד בקופה כדי להצטרף לכרטיסייה, לקבל ניקוב או לממש הטבה.',
+  helper: 'הציגו את הקוד בקופה כדי להצטרף לכרטיסייה, לקבל חותמת או לממש הטבה.',
   qrLoading: 'טוען QR',
   qrIdle: 'לחצו על רענון QR להצגת קוד',
   qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
   qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
   refreshCta: 'רענון QR',
-  stampSuccessBanner: '✅ קיבלת ניקוב!',
+  stampSuccessBanner: '✅ קיבלת חותמת!',
 };
 
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;

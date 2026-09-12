@@ -1,4 +1,4 @@
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,13 +14,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContinueButton } from '@/components/ContinueButton';
+import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
+import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
+import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
-import { CARD_THEMES } from '@/constants/cardThemes';
-import {
-  MAX_STAMP_OPTIONS,
-  STAMP_SHAPE_OPTIONS,
-} from '@/constants/stampOptions';
+import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -84,6 +83,13 @@ export default function CreateProgramScreen() {
   const generateProgramImageUploadUrl = useMutation(
     api.loyaltyPrograms.generateProgramImageUploadUrl
   );
+  const themeReservations = (useQuery(
+    api.loyaltyPrograms.listThemeReservationsByBusiness,
+    businessId ? { businessId } : 'skip'
+  ) ?? []) as Array<{ programId: Id<'loyaltyPrograms'>; themeId: string }>;
+  const usedThemeIds = themeReservations
+    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .map((reservation) => reservation.themeId);
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,6 +132,7 @@ export default function CreateProgramScreen() {
     ) &&
     (programDraft.stampShape !== 'icon' ||
       Boolean(programDraft.stampIcon.trim())) &&
+    !usedThemeIds.includes(programDraft.cardThemeId) &&
     !isSubmitting &&
     !isUploadingImage;
 
@@ -221,7 +228,11 @@ export default function CreateProgramScreen() {
         withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
       );
     } catch (submitError: unknown) {
-      setError(toErrorMessage(submitError, TEXT.errorFallback));
+      setError(
+        String(submitError).includes('LOYALTY_THEME_CONFLICT')
+          ? 'הצבע שבחרתם כבר בשימוש. בחרו צבע פנוי; שאר הפרטים נשמרו.'
+          : toErrorMessage(submitError, TEXT.errorFallback)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -258,7 +269,7 @@ export default function CreateProgramScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.field}>
-            <Text style={styles.label}>1. שם הכרטיסיה</Text>
+            <Text style={styles.label}>שם הכרטיסייה</Text>
             <TextInput
               value={programDraft.title}
               onChangeText={(text) =>
@@ -272,7 +283,7 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>2. הטבה</Text>
+            <Text style={styles.label}>הטבה</Text>
             <TextInput
               value={programDraft.rewardName}
               onChangeText={(text) =>
@@ -286,7 +297,7 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>3. כמות לצבירה</Text>
+            <Text style={styles.label}>חותמות עד ההטבה</Text>
             <Text style={styles.helper}>כמה ביקורים לקבלת פרס?</Text>
             <View style={styles.optionsWrap}>
               {MAX_STAMP_OPTIONS.map((option) => {
@@ -316,7 +327,7 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>4. תמונה</Text>
+            <Text style={styles.label}>תמונה</Text>
             <TouchableOpacity
               onPress={() => {
                 void handlePickAndUploadImage();
@@ -337,7 +348,7 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>5. תנאי הכרטיס</Text>
+            <Text style={styles.label}>תנאי הכרטיסייה</Text>
             <TextInput
               value={programDraft.cardTerms}
               onChangeText={(text) =>
@@ -352,7 +363,7 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>6. תנאי מימוש ההטבה</Text>
+            <Text style={styles.label}>תנאי מימוש ההטבה</Text>
             <TextInput
               value={programDraft.rewardConditions}
               onChangeText={(text) =>
@@ -367,69 +378,32 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>7. בחירת צורה לחותמת</Text>
-            <View style={styles.optionsWrap}>
-              {STAMP_SHAPE_OPTIONS.map((option) => {
-                const selected = programDraft.stampShape === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    onPress={() =>
-                      setProgramDraft((prev) => ({
-                        ...prev,
-                        stampShape: option.id,
-                      }))
-                    }
-                    style={[
-                      styles.optionChip,
-                      selected ? styles.optionChipOn : null,
-                    ]}
-                  >
-                    <Text style={styles.optionChipText}>{option.label}</Text>
-                    <Text style={styles.optionChipSub}>
-                      {option.description}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {programDraft.stampShape === 'icon' ? (
-              <TextInput
-                value={programDraft.stampIcon}
-                onChangeText={(text) =>
-                  setProgramDraft((prev) => ({ ...prev, stampIcon: text }))
-                }
-                placeholder="אייקון לחותמת"
-                placeholderTextColor="#9CA3AF"
-                style={styles.input}
-              />
-            ) : null}
+            <Text style={styles.label}>צורת החותמת</Text>
+            <StampShapePicker
+              value={programDraft.stampShape}
+              stampIcon={programDraft.stampIcon}
+              onChange={(stampShape) =>
+                setProgramDraft((prev) => ({ ...prev, stampShape }))
+              }
+            />
+            <Text style={styles.label}>אייקון החותמת</Text>
+            <StampIconPicker
+              value={programDraft.stampIcon}
+              onChange={(stampIcon) =>
+                setProgramDraft((prev) => ({ ...prev, stampIcon }))
+              }
+            />
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>8. בחירת רקע</Text>
-            <View style={styles.optionsWrap}>
-              {CARD_THEMES.map((theme) => {
-                const selected = programDraft.cardThemeId === theme.id;
-                return (
-                  <TouchableOpacity
-                    key={theme.id}
-                    onPress={() =>
-                      setProgramDraft((prev) => ({
-                        ...prev,
-                        cardThemeId: theme.id,
-                      }))
-                    }
-                    style={[
-                      styles.optionChip,
-                      selected ? styles.optionChipOn : null,
-                    ]}
-                  >
-                    <Text style={styles.optionChipText}>{theme.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <Text style={styles.label}>צבע הכרטיסייה</Text>
+            <LoyaltyThemePalette
+              value={programDraft.cardThemeId}
+              disabledThemeIds={usedThemeIds}
+              onChange={(cardThemeId) =>
+                setProgramDraft((prev) => ({ ...prev, cardThemeId }))
+              }
+            />
           </View>
         </ScrollView>
 

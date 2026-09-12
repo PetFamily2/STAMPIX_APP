@@ -2313,7 +2313,8 @@ async function writeUsageLedger(input: {
 export async function assertAiExecutionQuotaAvailable(
   ctx: any,
   businessId: Id<'businesses'>,
-  now = Date.now()
+  now = Date.now(),
+  options?: { reserveSlot?: boolean }
 ) {
   const monthKey = monthKeyFromTimestamp(now);
   const usageRows = await ctx.db
@@ -2329,6 +2330,7 @@ export async function assertAiExecutionQuotaAvailable(
   return assertEntitlement(ctx, businessId, {
     limitKey: 'maxAiExecutionsPerMonth',
     currentValue: aiExecutionsThisMonth,
+    reserveSlot: options?.reserveSlot === true,
   });
 }
 
@@ -3364,7 +3366,9 @@ export const finalizeAiRecommendationSuccessInternal = internalMutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
-    await assertAiExecutionQuotaAvailable(ctx, args.businessId, args.now);
+    await assertAiExecutionQuotaAvailable(ctx, args.businessId, args.now, {
+      reserveSlot: true,
+    });
 
     const snapshotRow = await ctx.db.get(args.snapshotId);
     if (!snapshotRow) {
@@ -3862,6 +3866,7 @@ export const executeRecommendationPrimaryCta = mutation({
       await assertEntitlement(ctx, businessId, {
         limitKey: 'maxCampaigns',
         currentValue: activeCampaigns,
+        reserveSlot: true,
       });
       const snapshot = recommendation.snapshotId
         ? await ctx.db.get(recommendation.snapshotId)

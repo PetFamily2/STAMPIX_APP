@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -31,6 +32,11 @@ import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { alignItems, flexDirection } from '@/lib/rtl';
+import { REFERRAL_COPY, formatReferralCopy } from '@/lib/referrals/copy';
+import {
+  clearPendingReferralCode,
+  readPendingReferralCode,
+} from '@/lib/referrals/pendingCode';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
   buildRevenueCatBusinessAppUserId,
@@ -96,13 +102,18 @@ export default function PaywallScreen() {
   const [serverSyncMessage, setServerSyncMessage] = useState<string | null>(
     null
   );
+  const [inviteCode, setInviteCode] = useState('');
+  const [claimedReferralName, setClaimedReferralName] = useState<string | null>(
+    null
+  );
+
+  const billingIdentity = useQuery(
+    api.businessBilling.getBusinessBillingIdentity,
+    businessId ? { businessId } : 'skip'
+  );
 
   const resolvePackageId = useCallback(
     (plan: PlanId, period: BillingPeriod): string | null => {
-      if (plan === 'starter') {
-        return null;
-      }
-
       return REVENUECAT_PACKAGE_BY_PLAN_PERIOD[plan][period];
     },
     []
@@ -134,16 +145,16 @@ export default function PaywallScreen() {
         isExpoGo,
         packageId,
         businessAppUserId: buildRevenueCatBusinessAppUserId(
-          businessId ? String(businessId) : null
+          billingIdentity?.providerAppUserId ?? null
         ),
       }),
-    [businessId, isConfigured, isExpoGo]
+    [billingIdentity?.providerAppUserId, isConfigured, isExpoGo]
   );
 
   const waitForServerEntitlements = useCallback(
     async (
       mode: 'purchase' | 'restore',
-      plan: 'pro' | 'premium',
+      plan: 'starter' | 'pro' | 'premium',
       period: BillingPeriod
     ) => {
       if (!businessId) {
@@ -183,8 +194,7 @@ export default function PaywallScreen() {
 
   const selectedPackageId = resolvePackageId(selectedPlan, billingPeriod);
   const selectedBillingGuard = buildBillingGuard(selectedPackageId);
-  const isSelectedPaidBillingReady =
-    selectedPlan !== 'starter' && selectedBillingGuard.canStart;
+  const isSelectedPaidBillingReady = selectedBillingGuard.canStart;
   const isNativeRevenueCatUiDisabled =
     !NATIVE_REVENUECAT_UI_ENABLED || !selectedBillingGuard.canStart;
 
@@ -194,8 +204,46 @@ export default function PaywallScreen() {
         selected_plan: selectedPlan,
         billing_period: billingPeriod,
       });
+      void (async () => {
+        const pending = await readPendingReferralCode();
+        if (pending) {
+          setInviteCode(pending);
+        }
+      })();
     }, [billingPeriod, selectedPlan, trackEvent])
   );
+
+  const handleClaimInviteCode = useCallback(async () => {
+    if (!businessId || !inviteCode.trim()) {
+      return;
+    }
+    try {
+      const result = await convex.mutation(
+        api.businessReferralEngine.claimBusinessReferralCode,
+        {
+          code: inviteCode.trim(),
+          referredBusinessId: businessId,
+        }
+      );
+      if (result?.ok) {
+        setClaimedReferralName(result.referrerPublicName ?? 'עסק מזמין');
+        await clearPendingReferralCode();
+        trackEvent(ANALYTICS_EVENTS.referral_claimed, {
+          claimed: 'true',
+        });
+        return;
+      }
+      Alert.alert(
+        REFERRAL_COPY.haveInviteCode,
+        'לא הצלחנו לשמור את קוד ההזמנה. אפשר להמשיך רכישה רגילה בלי ההטבה.'
+      );
+    } catch {
+      Alert.alert(
+        REFERRAL_COPY.haveInviteCode,
+        'לא הצלחנו לשמור את קוד ההזמנה. אפשר להמשיך רכישה רגילה בלי ההטבה.'
+      );
+    }
+  }, [businessId, convex, inviteCode, trackEvent]);
 
   const finishOnboarding = useCallback(() => {
     if (completionRef.current) {
@@ -229,18 +277,10 @@ export default function PaywallScreen() {
   };
 
   const handleContinue = async () => {
-    if (selectedPlan === 'starter') {
-      trackContinue({ plan: 'starter', billing_period: billingPeriod });
-      completeStep();
-      finishOnboarding();
-      safeBack('/(auth)/sign-up');
-      return;
-    }
-
     if (isPreviewMode || !PAYMENT_SYSTEM_ENABLED) {
       Alert.alert(
         'מצב בדיקה',
-        'רכישות לא פעילות כרגע. אפשר להמשיך עם Starter או לעדכן מסלול בדיקה מתוך אזור העסק.'
+        'רכישות לא פעילות כרגע. אפשר להמשיך בהכנת העסק ולרכוש Starter, Pro או Premium לפני הפעלה תפעולית.'
       );
       return;
     }
@@ -260,10 +300,17 @@ export default function PaywallScreen() {
     }
 
     const billingGuard = buildBillingGuard(packageId);
-    const businessAppUserId = buildRevenueCatBusinessAppUserId(
-      businessId ? String(businessId) : null
+    let purchaseIdentity = buildRevenueCatBusinessAppUserId(
+      billingIdentity?.providerAppUserId ?? null
     );
-    if (!billingGuard.canStart || !businessAppUserId) {
+    if (!purchaseIdentity && businessId) {
+      const ensured = await convex.mutation(
+        api.businessBilling.ensureMyBusinessBillingIdentity,
+        { businessId }
+      );
+      purchaseIdentity = ensured?.providerAppUserId ?? null;
+    }
+    if (!billingGuard.canStart || !purchaseIdentity) {
       const guardMessage =
         billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
       setServerSyncMessage(guardMessage);
@@ -285,13 +332,13 @@ export default function PaywallScreen() {
 
     try {
       const success = await purchasePackage(packageId, {
-        appUserId: businessAppUserId,
+        appUserId: purchaseIdentity,
         syncUserSubscription: false,
       });
       if (success) {
         const confirmed = await waitForServerEntitlements(
           'purchase',
-          selectedPlan === 'premium' ? 'premium' : 'pro',
+          selectedPlan,
           billingPeriod
         );
         if (confirmed) {
@@ -359,10 +406,17 @@ export default function PaywallScreen() {
 
     const packageId = resolvePackageId(selectedPlan, billingPeriod);
     const billingGuard = buildBillingGuard(packageId);
-    const businessAppUserId = buildRevenueCatBusinessAppUserId(
-      businessId ? String(businessId) : null
+    let restoreIdentity = buildRevenueCatBusinessAppUserId(
+      billingIdentity?.providerAppUserId ?? null
     );
-    if (!billingGuard.canStart || !businessAppUserId) {
+    if (!restoreIdentity && businessId) {
+      const ensured = await convex.mutation(
+        api.businessBilling.ensureMyBusinessBillingIdentity,
+        { businessId }
+      );
+      restoreIdentity = ensured?.providerAppUserId ?? null;
+    }
+    if (!billingGuard.canStart || !restoreIdentity) {
       const guardMessage =
         billingGuard.message ?? SERVER_SYNC_TIMEOUT_MESSAGE_HE;
       setServerSyncMessage(guardMessage);
@@ -373,13 +427,13 @@ export default function PaywallScreen() {
     setIsRestoring(true);
     try {
       const success = await restorePurchases({
-        appUserId: businessAppUserId,
+        appUserId: restoreIdentity,
         syncUserSubscription: false,
       });
       if (success) {
         const confirmed = await waitForServerEntitlements(
           'restore',
-          selectedPlan === 'premium' ? 'premium' : 'pro',
+          selectedPlan,
           billingPeriod
         );
         if (confirmed) {
@@ -398,7 +452,7 @@ export default function PaywallScreen() {
   };
 
   const footerNote =
-    serverSyncMessage ?? 'אין התחייבות ארוכה. תמיד אפשר לשנות מסלול בהמשך.';
+    serverSyncMessage ?? REFERRAL_COPY.paywallBenefitNote;
 
   if (isLoading) {
     return (
@@ -432,7 +486,7 @@ export default function PaywallScreen() {
         {isExpoGo && !isPreviewMode ? (
           <View style={[styles.banner, styles.infoBanner]}>
             <Text style={[styles.bannerText, styles.infoBannerText]}>
-              רכישות לא זמינות בתצוגה הזו. אפשר להמשיך עם Starter.
+              רכישות לא זמינות בתצוגה הזו. אפשר להכין את העסק ולרכוש מנוי לפני הפעלה תפעולית.
             </Text>
           </View>
         ) : null}
@@ -441,6 +495,40 @@ export default function PaywallScreen() {
           <Text style={styles.title}>
             בחרו את הדרך שבה העסק ישמור על לקוחות
           </Text>
+        </View>
+
+        <View style={styles.inviteBlock}>
+          <Text style={styles.inviteLabel}>{REFERRAL_COPY.haveInviteCode}</Text>
+          {claimedReferralName ? (
+            <Text style={styles.inviteSaved}>
+              {formatReferralCopy(REFERRAL_COPY.referredOnboardingSaved, {
+                businessName: claimedReferralName,
+              })}
+            </Text>
+          ) : null}
+          <Text style={styles.inviteBenefit}>
+            {REFERRAL_COPY.referredOnboardingBenefit}
+          </Text>
+          <TextInput
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            placeholder="קוד הזמנה"
+            placeholderTextColor="#94A3B8"
+            accessibilityLabel={REFERRAL_COPY.haveInviteCode}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.inviteInput}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="שמירת קוד הזמנה"
+            onPress={() => {
+              void handleClaimInviteCode();
+            }}
+            style={styles.inviteButton}
+          >
+            <Text style={styles.inviteButtonText}>שמירת קוד</Text>
+          </Pressable>
         </View>
 
         <View style={styles.utilityLinksRow}>
@@ -485,12 +573,8 @@ export default function PaywallScreen() {
             selectedPlan={selectedPlan}
             billingPeriod={billingPeriod}
             context="paywall"
-            ctaLabel={
-              selectedPlan === 'starter' ? 'המשך עם Starter' : 'המשך לרכישה'
-            }
-            ctaDisabled={
-              selectedPlan === 'starter' ? false : !isSelectedPaidBillingReady
-            }
+            ctaLabel="המשך לרכישה"
+            ctaDisabled={!isSelectedPaidBillingReady}
             ctaLoading={isPurchasing}
             footerNote={footerNote}
             footerNoteTone={serverSyncMessage ? 'error' : 'default'}
@@ -582,6 +666,54 @@ const styles = StyleSheet.create({
   heroBlock: {
     marginTop: 14,
     gap: 8,
+  },
+  inviteBlock: {
+    marginTop: 12,
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    padding: 12,
+  },
+  inviteLabel: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  inviteSaved: {
+    color: '#86EFAC',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  inviteBenefit: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  inviteInput: {
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#1E293B',
+    color: '#F8FAFC',
+    paddingHorizontal: 12,
+    textAlign: 'right',
+  },
+  inviteButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inviteButtonText: {
+    color: '#F8FAFC',
+    fontWeight: '700',
   },
   title: {
     color: '#FFFFFF',

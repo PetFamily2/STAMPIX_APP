@@ -4,7 +4,7 @@ type MembershipCelebrationInput = {
 };
 
 function formatStampLabel(count: number) {
-  return count === 1 ? 'ניקוב' : 'ניקובים';
+  return count === 1 ? 'חותמת' : 'חותמות';
 }
 
 export function buildRewardProgressLine({

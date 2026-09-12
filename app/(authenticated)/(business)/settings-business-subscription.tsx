@@ -169,7 +169,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     gate,
     isLoading,
   } = useEntitlements(activeBusinessId);
-  const { restorePurchases } = useRevenueCat();
+  const { restorePurchases, getManagementUrl } = useRevenueCat();
   const teamGate = gate('team');
   const usageSummary = useQuery(
     api.entitlements.getBusinessUsageSummary,
@@ -184,6 +184,12 @@ export default function BusinessSettingsSubscriptionScreen() {
   const referralCreditSummary = useQuery(
     api.referrals.getBusinessReferralCreditSummary,
     activeBusinessId && capabilities?.view_billing_state === true
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
+  const billingIdentity = useQuery(
+    api.businessBilling.getBusinessBillingIdentity,
+    activeBusinessId && capabilities?.manage_subscription === true
       ? { businessId: activeBusinessId }
       : 'skip'
   );
@@ -350,9 +356,13 @@ export default function BusinessSettingsSubscriptionScreen() {
       return;
     }
     const appUserId = buildRevenueCatBusinessAppUserId(
-      String(activeBusinessId)
+      billingIdentity?.providerAppUserId ?? null
     );
     if (!appUserId) {
+      Alert.alert(
+        'שחזור רכישות',
+        'לא הצלחנו לזהות את חשבון החיוב של העסק. נסו שוב מאוחר יותר.'
+      );
       return;
     }
     setIsRestoringSubscription(true);
@@ -364,7 +374,30 @@ export default function BusinessSettingsSubscriptionScreen() {
     } finally {
       setIsRestoringSubscription(false);
     }
-  }, [activeBusinessId, isRestoringSubscription, restorePurchases]);
+  }, [
+    activeBusinessId,
+    billingIdentity?.providerAppUserId,
+    isRestoringSubscription,
+    restorePurchases,
+  ]);
+
+  const handleManageSubscription = useCallback(async () => {
+    const appUserId = buildRevenueCatBusinessAppUserId(
+      billingIdentity?.providerAppUserId ?? null
+    );
+    const managementUrl = await getManagementUrl(appUserId ?? undefined);
+    if (managementUrl) {
+      const canOpen = await Linking.canOpenURL(managementUrl);
+      if (canOpen) {
+        await Linking.openURL(managementUrl);
+        return;
+      }
+    }
+    Alert.alert(
+      'ניהול המנוי',
+      'ניהול המנוי מתבצע בחנות של Apple או Google. לא הצלחנו לפתוח את מסך הניהול כרגע.'
+    );
+  }, [billingIdentity?.providerAppUserId, getManagementUrl]);
 
   const handleShareBusinessReferral = useCallback(
     async (mode: 'whatsapp' | 'copy') => {
@@ -463,7 +496,14 @@ export default function BusinessSettingsSubscriptionScreen() {
   }
 
   const currentStatusLabel =
-    STATUS_LABELS[entitlements?.subscriptionStatus ?? 'active'] ?? 'פעיל';
+    entitlements?.subscriptionStatus === 'canceled' &&
+    entitlements.isSubscriptionActive
+      ? entitlements.subscriptionEndAt
+        ? `המנוי יבוטל בתאריך ${new Date(
+            entitlements.subscriptionEndAt
+          ).toLocaleDateString('he-IL')}`
+        : 'המנוי יבוטל בסוף התקופה ששולמה'
+      : (STATUS_LABELS[entitlements?.subscriptionStatus ?? 'active'] ?? 'פעיל');
   const showSubscriptionRecoveryAction = isSubscriptionRecoveryStatus(
     entitlements?.subscriptionStatus
   );
@@ -590,6 +630,25 @@ export default function BusinessSettingsSubscriptionScreen() {
           ))}
         </View>
 
+        {capabilities?.manage_subscription === true ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="ניהול המנוי"
+            onPress={() => {
+              void handleManageSubscription();
+            }}
+            style={({ pressed }) => [
+              styles.subscriptionRecoveryButton,
+              pressed ? styles.b2bSecondaryButtonPressed : null,
+              { alignSelf: 'stretch', marginTop: 12 },
+            ]}
+          >
+            <Text style={styles.subscriptionRecoveryButtonText}>
+              ניהול המנוי
+            </Text>
+          </Pressable>
+        ) : null}
+
         {showSubscriptionRecoveryAction ? (
           <View
             ref={
@@ -628,6 +687,21 @@ export default function BusinessSettingsSubscriptionScreen() {
                   שחזור רכישות
                 </Text>
               )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="ניהול המנוי בחנות"
+              onPress={() => {
+                void handleManageSubscription();
+              }}
+              style={({ pressed }) => [
+                styles.subscriptionRecoveryButton,
+                pressed ? styles.b2bSecondaryButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.subscriptionRecoveryButtonText}>
+                ניהול המנוי
+              </Text>
             </Pressable>
           </View>
         ) : null}

@@ -58,7 +58,7 @@ const recommendationActorCapabilitiesValidator = v.object({
   editBusinessProfile: v.boolean(),
 });
 
-const ownerCapabilityMapValidator = v.object({
+const ownerCapabilityMapFields = {
   access_dashboard: v.boolean(),
   access_customers: v.boolean(),
   access_campaigns: v.boolean(),
@@ -78,6 +78,15 @@ const ownerCapabilityMapValidator = v.object({
   edit_business_profile: v.boolean(),
   scanner_access: v.boolean(),
   view_customer_state_tier: v.boolean(),
+};
+
+export const ownerCapabilityMapValidator = v.object(ownerCapabilityMapFields);
+
+// Historical Smart Manager snapshots were written before invite_businesses
+// existed. Persist that hole here only; current runtime maps still require it.
+export const persistedOwnerCapabilityMapValidator = v.object({
+  ...ownerCapabilityMapFields,
+  invite_businesses: v.optional(v.boolean()),
 });
 
 export const smartManagerPolicyConfigValidator = v.object({
@@ -244,15 +253,75 @@ export type SmartManagerFactEnvelope = Infer<
   typeof smartManagerFactEnvelopeValidator
 >;
 
-export const smartManagerCapabilityAvailabilityValidator = v.object({
+const capabilityAvailabilityFields = {
   customerFacts: v.union(v.literal('known'), v.literal('unknown')),
   customerLifecycleFacts: v.union(v.literal('known'), v.literal('unknown')),
   campaignFacts: v.union(v.literal('known'), v.literal('unknown')),
   programFacts: v.union(v.literal('known'), v.literal('unknown')),
   teamFacts: v.union(v.literal('known'), v.literal('unknown')),
   entitlementFacts: v.union(v.literal('known'), v.literal('unknown')),
+};
+
+export const smartManagerCapabilityAvailabilityValidator = v.object({
+  ...capabilityAvailabilityFields,
   ownerCapabilities: ownerCapabilityMapValidator,
 });
+
+export const persistedSmartManagerCapabilityAvailabilityValidator = v.object({
+  ...capabilityAvailabilityFields,
+  ownerCapabilities: persistedOwnerCapabilityMapValidator,
+});
+
+export type CurrentOwnerCapabilityMap = Infer<
+  typeof ownerCapabilityMapValidator
+>;
+export type PersistedOwnerCapabilityMap = Infer<
+  typeof persistedOwnerCapabilityMapValidator
+>;
+export type CurrentSmartManagerCapabilityAvailability = Infer<
+  typeof smartManagerCapabilityAvailabilityValidator
+>;
+export type PersistedSmartManagerCapabilityAvailability = Infer<
+  typeof persistedSmartManagerCapabilityAvailabilityValidator
+>;
+
+export function normalizePersistedOwnerCapabilities(
+  ownerCapabilities: PersistedOwnerCapabilityMap | null | undefined
+): CurrentOwnerCapabilityMap {
+  const source: Partial<PersistedOwnerCapabilityMap> = ownerCapabilities ?? {};
+  return {
+    access_dashboard: source.access_dashboard === true,
+    access_customers: source.access_customers === true,
+    access_campaigns: source.access_campaigns === true,
+    create_campaigns: source.create_campaigns === true,
+    edit_campaigns: source.edit_campaigns === true,
+    activate_send_campaigns: source.activate_send_campaigns === true,
+    delete_campaigns: source.delete_campaigns === true,
+    access_analytics: source.access_analytics === true,
+    export_reports: source.export_reports === true,
+    view_usage_quota: source.view_usage_quota === true,
+    view_billing_state: source.view_billing_state === true,
+    invite_businesses: source.invite_businesses === true,
+    manage_subscription: source.manage_subscription === true,
+    manage_team: source.manage_team === true,
+    edit_loyalty_cards: source.edit_loyalty_cards === true,
+    view_settings: source.view_settings === true,
+    edit_business_profile: source.edit_business_profile === true,
+    scanner_access: source.scanner_access === true,
+    view_customer_state_tier: source.view_customer_state_tier === true,
+  };
+}
+
+export function normalizePersistedCapabilityAvailability(
+  capabilityAvailability: PersistedSmartManagerCapabilityAvailability
+): CurrentSmartManagerCapabilityAvailability {
+  return {
+    ...capabilityAvailability,
+    ownerCapabilities: normalizePersistedOwnerCapabilities(
+      capabilityAvailability.ownerCapabilities
+    ),
+  };
+}
 
 const recommendationAccessValidator = v.union(
   v.object({ state: v.literal('allowed') }),

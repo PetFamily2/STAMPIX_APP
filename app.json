@@ -54,6 +54,11 @@
               "scheme": "https",
               "host": "stampaix.com",
               "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "stampaix.com",
+              "pathPrefix": "/r"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]

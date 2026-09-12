@@ -41,15 +41,10 @@ const PLAN_KEYWORDS: Omit<Record<SubscriptionPlan, RegExp>, 'starter'> = {
 };
 
 export function planFromRevenueCatEntitlements(
-  entitlements?: Record<string, unknown>
+  _entitlements?: Record<string, unknown>
 ): SubscriptionPlan {
-  const activeEntitlements = Object.keys(entitlements ?? {});
-  if (activeEntitlements.some((id) => PLAN_KEYWORDS.premium.test(id))) {
-    return 'premium';
-  }
-  if (activeEntitlements.some((id) => PLAN_KEYWORDS.pro.test(id))) {
-    return 'pro';
-  }
+  // Client RevenueCat entitlements are never an authorization source.
+  // Kept only so leftover callers cannot infer a paid plan from SDK state.
   return 'starter';
 }
 

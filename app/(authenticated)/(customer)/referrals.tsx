@@ -36,7 +36,7 @@ function formatDateTime(value: number | null) {
 
 function mapReferralState(referral: any): string {
   if (referral.status === 'pending') {
-    return 'ממתין לניקוב ראשון';
+    return 'ממתין לחותמת ראשונה';
   }
   if (referral.status === 'completed') {
     return 'הושלם';
@@ -58,7 +58,7 @@ function mapReferralState(referral: any): string {
 
 function mapReferralHint(referral: any): string {
   if (referral.status === 'pending') {
-    return 'מחכים לניקוב הראשון של החבר';
+    return 'מחכים לחותמת הראשונה של החבר';
   }
   if (referral.status === 'completed' || referral.status === 'qualified') {
     return 'ההזמנה הושלמה';

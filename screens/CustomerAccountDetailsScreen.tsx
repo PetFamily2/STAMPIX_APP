@@ -42,7 +42,7 @@ const TEXT = {
   freePlan: 'חינם',
   starterPlan: 'Starter',
   proPlan: 'Pro',
-  premiumPlan: 'Pro Max',
+  premiumPlan: 'Premium',
   missingValue: 'לא הוגדר',
   editPhone: 'עריכת טלפון',
   save: 'שמור',
@@ -62,12 +62,14 @@ const TEXT = {
 
 function resolvePlanLabel(plan?: 'starter' | 'pro' | 'premium') {
   switch (plan) {
+    case 'starter':
+      return TEXT.starterPlan;
     case 'pro':
       return TEXT.proPlan;
     case 'premium':
       return TEXT.premiumPlan;
     default:
-      return TEXT.starterPlan;
+      return TEXT.missingValue;
   }
 }
 

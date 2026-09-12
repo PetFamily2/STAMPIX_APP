@@ -53,11 +53,11 @@ const TEXT = {
   joinSuccess: 'ההצטרפות בוצעה בהצלחה',
   joinFailed: 'לא הצלחנו להשלים את ההצטרפות. נסו שוב.',
   goalPrefix: 'יעד',
-  stamps: 'ניקובים',
+  stamps: 'חותמות',
   redeemReady: 'מוכנה למימוש',
   openCard: 'פתח כרטיסיה',
   shareInviteTitle: 'הזמן חברים',
-  shareInviteSubtitle: 'שתף את הקישור וכשהחבר יבצע ניקוב ראשון תקבלו מתנה',
+  shareInviteSubtitle: 'שתף את הקישור וכשהחבר יקבל חותמת ראשונה תקבלו מתנה',
   shareViaWhatsApp: 'שיתוף ב-WhatsApp',
   copyInviteLink: 'העתק קישור',
   shareInviteError: 'לא הצלחנו ליצור קישור הזמנה',
@@ -257,7 +257,7 @@ export default function CustomerBusinessDetailsScreen() {
   const canSubmitSelection = selectedCount > 0 && !isJoining;
 
   const buildInviteMessage = (url: string) =>
-    `בואו להצטרף אליי ל-${business.name} ב-StampAix. אחרי ניקוב ראשון אפשר לקבל הטבה.\n${url}`;
+    `בואו להצטרף אליי ל-${business.name} ב-StampAix. אחרי החותמת הראשונה אפשר לקבל הטבה.\n${url}`;
 
   const handleShareInviteViaWhatsApp = async () => {
     if (!shareSeedProgram || isShareInviteLoading) {

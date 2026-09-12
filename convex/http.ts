@@ -8,6 +8,7 @@ import {
 } from './accountDeletionRequests';
 import { auth } from './auth';
 import { resolveRevenueCatPlanMapping } from './entitlements';
+import { isUsableProviderAppUserId } from './lib/billing/identity';
 
 const http = httpRouter();
 
@@ -169,15 +170,15 @@ function normalizeEntitlementIds(event: Record<string, unknown>) {
   return [...entitlementIds];
 }
 
-function parseRevenueCatBusinessId(appUserId: string): string {
+function parseRevenueCatBusinessId(appUserId: string): string | undefined {
   const prefix = 'business:';
   if (!appUserId.startsWith(prefix)) {
-    throw new Error('REVENUECAT_INVALID_APP_USER_ID');
+    return undefined;
   }
 
   const businessId = appUserId.slice(prefix.length).trim();
   if (!businessId || businessId.includes(':')) {
-    throw new Error('REVENUECAT_INVALID_APP_USER_ID');
+    return undefined;
   }
 
   return businessId;
@@ -194,7 +195,9 @@ function extractRevenueCatEventPayload(payload: unknown) {
       ? (root.event as Record<string, unknown>)
       : root;
   const eventId = getString(rawEvent.id ?? rawEvent.event_id);
-  const eventType = getString(rawEvent.type ?? rawEvent.event_type);
+  const eventType = (
+    getString(rawEvent.type ?? rawEvent.event_type) ?? ''
+  ).toUpperCase();
   const appUserId = getString(rawEvent.app_user_id);
 
   if (!eventId) {
@@ -206,24 +209,44 @@ function extractRevenueCatEventPayload(payload: unknown) {
   if (!appUserId) {
     throw new Error('REVENUECAT_MISSING_APP_USER_ID');
   }
+  if (!isUsableProviderAppUserId(appUserId)) {
+    throw new Error('REVENUECAT_INVALID_APP_USER_ID');
+  }
 
   const productId = getString(
     rawEvent.product_id ??
       rawEvent.product_identifier ??
       rawEvent.productIdentifier
   );
+  const newProductId = getString(rawEvent.new_product_id);
   const entitlementIds = normalizeEntitlementIds(rawEvent);
-  resolveRevenueCatPlanMapping({
-    productId,
-    entitlementIds,
-  });
+  const SAFE_IRRELEVANT = new Set([
+    'TRANSFER',
+    'SUBSCRIBER_ALIAS',
+    'TEST',
+    'EXPERIMENT_ENROLLMENT',
+    'TEMPORARY_ENTITLEMENT_GRANT',
+    'INVOICE_ISSUANCE',
+  ]);
+  if (!SAFE_IRRELEVANT.has(eventType)) {
+    resolveRevenueCatPlanMapping({
+      productId,
+      newProductId,
+      entitlementIds,
+      requireEntitlement:
+        eventType !== 'EXPIRATION' &&
+        eventType !== 'REFUND' &&
+        eventType !== 'CANCELLATION',
+    });
+  }
 
   return {
     eventId,
-    eventType: eventType.toUpperCase(),
+    eventType,
     appUserId,
     businessId: parseRevenueCatBusinessId(appUserId),
     productId,
+    newProductId,
     entitlementIds,
     purchasedAt: getTimestampMs(
       rawEvent.purchased_at_ms ??
@@ -234,6 +257,8 @@ function extractRevenueCatEventPayload(payload: unknown) {
       rawEvent.expiration_at_ms === null
         ? null
         : getTimestampMs(rawEvent.expiration_at_ms),
+    gracePeriodEndAt: getTimestampMs(rawEvent.grace_period_expiration_at_ms),
+    providerEventAt: getTimestampMs(rawEvent.event_timestamp_ms),
     providerSubscriptionId: getString(
       rawEvent.original_transaction_id ??
         rawEvent.transaction_id ??
@@ -740,6 +765,37 @@ export async function handleAccountDeletionSubmissionRequest(
   });
 }
 
+export async function handlePublicReferralLookupRequest(
+  ctx: {
+    runQuery: (
+      queryRef: FunctionReference<'query', 'public', { code: string }, unknown>,
+      args: { code: string }
+    ) => Promise<unknown>;
+  },
+  request: Request
+) {
+  const url = new URL(request.url);
+  const rawCode = url.searchParams.get('code') ?? '';
+  const code = rawCode.trim();
+  if (code.length === 0 || code.length > 24 || /[^A-Za-z0-9_-]/.test(code)) {
+    return jsonResponse(200, {
+      ok: true,
+      status: 'invalid',
+      businessPublicName: null,
+      benefitCopy:
+        'הצטרפו דרך עסק וקבלו חודש StampAix במתנה לאחר 12 חודשי מנוי בתשלום',
+    });
+  }
+  const result = await ctx.runQuery(
+    api.businessReferralEngine.resolvePublicBusinessReferralCode,
+    { code }
+  );
+  return jsonResponse(200, {
+    ok: true,
+    ...(typeof result === 'object' && result !== null ? result : {}),
+  });
+}
+
 // Register Convex auth routes so the client-side auth hooks work.
 auth.addHttpRoutes(http);
 
@@ -748,6 +804,14 @@ http.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     return await handleRevenueCatWebhookRequest(ctx, request);
+  }),
+});
+
+http.route({
+  path: '/referral/public',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    return await handlePublicReferralLookupRequest(ctx, request);
   }),
 });
 

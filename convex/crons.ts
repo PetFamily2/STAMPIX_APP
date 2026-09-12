@@ -52,8 +52,15 @@ crons.daily(
 );
 
 crons.hourly(
-  'business referral credit sweep hourly',
-  { minuteUTC: 15 },
+  'business referral qualification reconcile hourly',
+  { minuteUTC: 20 },
+  internal.businessReferralEngine.evaluateDueReferralsInternal,
+  {}
+);
+
+crons.daily(
+  'legacy business referral credit sweep daily',
+  { hourUTC: 1, minuteUTC: 25 },
   internal.referrals.processDueBusinessReferralCreditsInternal
 );
 

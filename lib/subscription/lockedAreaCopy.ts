@@ -84,17 +84,12 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     upgradeAreaLabel: 'תובנות לקוחות',
   },
   advancedReports: {
-    sectionTitle: 'דוחות מתקדמים',
-    lockedTitle: 'דוחות מתקדמים \u2014 בקרוב',
-    lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `השוואת תקופות ומגמות עומק ייפתחו במסלול ${requiredPlanLabel}. כרגע אין מסך דוחות פעיל באפליקציה.`
-        : 'השוואת תקופות ומגמות עומק יגיעו בקרוב למסלול Pro. כרגע אין מסך דוחות פעיל באפליקציה.',
-    benefits: [
-      'השוואת תקופות ומגמות ביצועים \u2014 בקרוב',
-      'זמין במסלול Pro ומעלה; השק באפליקציה בהמשך',
-    ],
-    upgradeAreaLabel: 'דוחות מתקדמים',
+    sectionTitle: 'מודיעין עסקי',
+    lockedTitle: 'היכולת הזו אינה חלק ממסלולי השיגור',
+    lockedSubtitle: () =>
+      'השוואת המסלולים מציגה רק יכולות שקיימות בשיגור. מודיעין עסקי בסיסי זמין במסלולים הפעילים.',
+    benefits: ['מודיעין עסקי בסיסי זמין במסלול Starter ומעלה'],
+    upgradeAreaLabel: 'מודיעין עסקי',
   },
   maxCards: {
     sectionTitle: 'מגבלת כרטיסים',

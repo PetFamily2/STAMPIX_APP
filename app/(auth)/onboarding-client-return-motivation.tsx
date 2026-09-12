@@ -14,7 +14,7 @@ import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 const TEXT = {
   title: 'הארנק שלך מוכן',
   description:
-    'אפשר להתחיל לצבור ניקובים, לשמור הטבות ולגלות עסקים בסביבה כשזה רלוונטי.',
+    'אפשר להתחיל לצבור חותמות, לשמור הטבות ולגלות עסקים בסביבה כשזה רלוונטי.',
   note: 'מיקום והרשאות נבקש רק כשצריך.',
   continue: 'כניסה לארנק',
 };

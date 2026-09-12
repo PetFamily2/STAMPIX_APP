@@ -148,7 +148,7 @@ describe('strict v1 staff management rules', () => {
     expect(used).toBe(3);
   });
 
-  test('downgrade/inactive enforcement suspends manager+staff and cancels pending invites', async () => {
+  test('downgrade/inactive enforcement preserves team records and pending invites', async () => {
     const state = createDbState({
       businessStaff: [
         {
@@ -206,20 +206,18 @@ describe('strict v1 staff management rules', () => {
     const staff = state.businessStaff.find((row) => row._id === 'bs_staff');
     const owner = state.businessStaff.find((row) => row._id === 'bs_owner');
 
-    expect(manager?.status).toBe('suspended');
-    expect(manager?.isActive).toBe(false);
-    expect(staff?.status).toBe('suspended');
-    expect(staff?.isActive).toBe(false);
+    expect(manager?.status).toBe('active');
+    expect(manager?.isActive).toBe(true);
+    expect(staff?.status).toBe('active');
+    expect(staff?.isActive).toBe(true);
     expect(owner?.status).toBe('active');
     expect(owner?.isActive).toBe(true);
 
     expect(
-      state.staffInvites.every((invite) => invite.status === 'cancelled')
+      state.staffInvites.every((invite) => invite.status === 'pending')
     ).toBe(true);
 
-    const eventTypes = state.staffEvents.map((event) => event.eventType);
-    expect(eventTypes).toContain('auto_disabled_by_plan');
-    expect(eventTypes).toContain('auto_invites_cancelled_by_plan');
+    expect(state.staffEvents).toHaveLength(0);
   });
 
   test('reinvite-after-removed patch resets status and joinedAt and clears removed fields', () => {

@@ -239,6 +239,7 @@ export default function BusinessTabsLayout() {
         name="cards"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

@@ -173,6 +173,33 @@ async function attemptGoogleHttp400(body) {
 }
 
 describe('provider credential capture', () => {
+  test('requires a non-empty, valid 32-byte encryption key', async () => {
+    const captureWithEnv = (env) =>
+      encryptProviderCredentialCapture(
+        'google',
+        'google_subject',
+        { access_token: 'raw-google-access' },
+        { env }
+      );
+
+    await expect(captureWithEnv({})).rejects.toThrow(
+      'AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_MISSING'
+    );
+    await expect(
+      captureWithEnv({ AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: '   ' })
+    ).rejects.toThrow('AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_MISSING');
+    await expect(
+      captureWithEnv({ AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: 'not-base64url!' })
+    ).rejects.toThrow('AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_INVALID');
+    await expect(
+      captureWithEnv({ AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: 'AA' })
+    ).rejects.toThrow('AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY_INVALID');
+
+    await expect(captureWithEnv(TEST_ENV)).resolves.toMatchObject({
+      credentialVersion: 1,
+    });
+  });
+
   test('encrypts Apple access and refresh tokens without retaining the ID token', async () => {
     const capture = await encryptProviderCredentialCapture(
       'apple',

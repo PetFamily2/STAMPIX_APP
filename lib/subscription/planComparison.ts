@@ -1,4 +1,5 @@
 import type { BillingPeriod } from '@/config/appConfig';
+import { planConfig } from '@/lib/billing/productionContract';
 
 export type PlanId = 'starter' | 'pro' | 'premium';
 export type LimitKey =
@@ -50,11 +51,11 @@ export type ComparisonRow = {
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
-  maxCards: 'כרטיסי ניקוב',
-  maxCustomers: 'לקוחות (רשימה בכל המסלולים)',
+  maxCards: 'כרטיסיות נאמנות',
+  maxCustomers: 'לקוחות',
   maxActiveRetentionActions: 'פעולות שימור אוטומטיות',
-  maxCampaigns: 'קמפיינים פעילים (ידניים + הזמנות)',
-  maxAiExecutionsPerMonth: 'פעולות AI חודשיות (מ-Pro)',
+  maxCampaigns: 'קמפיינים פעילים',
+  maxAiExecutionsPerMonth: 'פעולות AI חודשיות',
   maxTeamSeats: 'ניהול צוות',
 };
 
@@ -69,22 +70,21 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
 
 const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
   team: 'ניהול צוות',
-  advancedReports: 'דוחות מתקדמים (בקרוב)',
-  marketingHub: 'מרכז קמפיינים (ידני)',
-  smartAnalytics: 'תובנות לקוחות',
+  advancedReports: 'דוחות מתקדמים',
+  marketingHub: 'מרכז קמפיינים',
+  smartAnalytics: 'מודיעין עסקי בסיסי',
 };
 
 const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
   team: 'צוות',
-  advancedReports: 'דוחות (בקרוב)',
-  marketingHub: 'קמפיינים ידניים',
-  smartAnalytics: 'תובנות',
+  advancedReports: 'דוחות מתקדמים',
+  marketingHub: 'קמפיינים',
+  smartAnalytics: 'מודיעין עסקי',
 };
 
 export const PLAN_COMPARISON_CLARITY_NOTES = [
-  'רשימת לקוחות וניהול בסיסי — בכל המסלולים.',
-  'מרכז הקמפיינים: המכסה כוללת קמפיינים ידניים ופעילות הזמנת חברים פעילה; AI מתקדם מ-Pro (0 / 100 / 300 בחודש).',
-  'דוחות מתקדמים — ייפתחו בקרוב במסלול Pro; אין מסך דוחות פעיל כרגע.',
+  'השוואה זו מציגה רק יכולות שקיימות בשיגור.',
+  'Starter, Pro ו-Premium הם מסלולי מנוי בתשלום.',
 ] as const;
 
 function isPlanId(value: unknown): value is PlanId {
@@ -106,33 +106,21 @@ function normalizeBoolean(value: unknown, fallbackValue: boolean): boolean {
 }
 
 function getDefaultPlanById(planId: PlanId): PlanCatalogItem {
-  const labels: Record<PlanId, string> = {
-    starter: 'Starter',
-    pro: 'Pro',
-    premium: 'Premium',
-  };
-
+  const config = planConfig[planId];
   return {
     plan: planId,
-    label: labels[planId],
+    label: config.displayName,
     pricing: {
-      monthly: 0,
-      yearly: 0,
-      currency: 'ILS',
+      monthly: config.pricing.monthly,
+      yearly: config.pricing.yearly,
+      currency: config.pricing.currency,
     },
-    limits: {
-      maxCards: 0,
-      maxCustomers: 0,
-      maxActiveRetentionActions: 0,
-      maxCampaigns: 0,
-      maxAiExecutionsPerMonth: 0,
-      maxTeamSeats: 0,
-    },
+    limits: { ...config.limits },
     features: {
-      team: false,
-      advancedReports: false,
-      marketingHub: false,
-      smartAnalytics: false,
+      team: config.features.team,
+      advancedReports: config.features.advancedReports,
+      marketingHub: config.features.marketingHub,
+      smartAnalytics: config.features.smartAnalytics,
     },
   };
 }
@@ -328,7 +316,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
   }));
 
   const booleanFeatureRows: ComparisonRow[] = (
-    ['smartAnalytics', 'marketingHub'] as FeatureKey[]
+    ['smartAnalytics', 'marketingHub', 'team'] as FeatureKey[]
   ).map((featureKey) => ({
     id: `feature:${featureKey}`,
     label: FEATURE_ROW_LABELS[featureKey],
@@ -349,18 +337,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
     },
   }));
 
-  const advancedReportsRow: ComparisonRow = {
-    id: 'feature:advancedReports',
-    label: FEATURE_ROW_LABELS.advancedReports,
-    compactLabel: FEATURE_ROW_COMPACT_LABELS.advancedReports,
-    cells: {
-      starter: { type: 'text', value: '—' },
-      pro: { type: 'text', value: 'בקרוב' },
-      premium: { type: 'text', value: 'בקרוב' },
-    },
-  };
-
-  return [...limitRows, ...booleanFeatureRows, advancedReportsRow];
+  return [...limitRows, ...booleanFeatureRows];
 }
 
 export function getPlanPriceForPeriod(

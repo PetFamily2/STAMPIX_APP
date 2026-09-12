@@ -30,6 +30,7 @@ import {
   SMART_MANAGER_POLICY_V1_VERSION,
 } from '../lib/smartManagerPolicy';
 import { buildCustomerSegmentFacts } from '../recommendations';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const NOW = Date.now();
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -386,6 +387,14 @@ function makeFixture({ role = 'owner', marketingOptIn = true, push = false } = {
       customer,
     ],
     businesses: [business],
+    businessBillingAccounts: [
+      buildCanonicalBusinessBillingAccount({
+        businessId: business._id,
+        ownerUserId: business.ownerUserId,
+        plan: business.subscriptionPlan,
+        now: NOW,
+      }),
+    ],
     businessStaff: [
       {
         _id: `staff_${actorId}`,
@@ -701,6 +710,7 @@ describe('Smart Manager Pass A approval', () => {
   test('10 inactive paid subscription creates no run', async () => {
     const fixture = makeCtx();
     fixture.db.tables.businesses.get('business_1').subscriptionStatus = 'inactive';
+    fixture.db.tables.businessBillingAccounts.get('billing_1').status = 'inactive';
     await expect(approve(fixture)).rejects.toThrow(
       'SMART_MANAGER_APPROVAL_NOT_ELIGIBLE'
     );

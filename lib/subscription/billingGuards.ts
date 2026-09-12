@@ -21,13 +21,13 @@ export const BILLING_MISSING_PACKAGE_MESSAGE_HE =
 export const BILLING_INVALID_BUSINESS_IDENTITY_MESSAGE_HE =
   'לא הצלחנו לזהות את העסק לשדרוג. נסו שוב אחרי יצירת העסק.';
 
-export const SERVER_SYNC_PENDING_MESSAGE_HE = 'מאמתים את השדרוג...';
+export const SERVER_SYNC_PENDING_MESSAGE_HE = 'מאמתים את המנוי';
 
 export const SERVER_SYNC_TIMEOUT_MESSAGE_HE =
   'השדרוג עדיין בתהליך אימות. נסו בדיקה חוזרת או שחזור רכישות.';
 
 type BillingPeriod = 'monthly' | 'yearly';
-type PaidBusinessPlan = 'pro' | 'premium';
+type PaidBusinessPlan = 'starter' | 'pro' | 'premium';
 
 export type RevenueCatBillingGuardCode =
   | 'payment_disabled'
@@ -55,22 +55,23 @@ export type RevenueCatBillingGuardResult =
     };
 
 export function buildRevenueCatBusinessAppUserId(
-  businessId: string | null | undefined
+  providerAppUserId: string | null | undefined
 ) {
-  const normalizedBusinessId = businessId?.trim();
-  return normalizedBusinessId ? `business:${normalizedBusinessId}` : null;
+  const normalized = providerAppUserId?.trim();
+  return normalized && normalized.length > 0 ? normalized : null;
 }
 
 export function isValidRevenueCatBusinessAppUserId(value: unknown) {
   if (typeof value !== 'string') {
     return false;
   }
-
   const normalized = value.trim();
+  if (normalized.startsWith('ba_') && normalized.length > 10) {
+    return true;
+  }
   if (!normalized.startsWith('business:')) {
     return false;
   }
-
   const businessId = normalized.slice('business:'.length);
   return businessId.length > 0 && !businessId.includes(':');
 }
@@ -154,9 +155,11 @@ export function isServerConfirmedPaidEntitlement(
     billingPeriod?: unknown;
     isSubscriptionActive?: unknown;
   };
-  const paidPlans: PaidBusinessPlan[] = ['pro', 'premium'];
+  const paidPlans: PaidBusinessPlan[] = ['starter', 'pro', 'premium'];
   const actualPlan =
-    snapshot.effectivePlan === 'pro' || snapshot.effectivePlan === 'premium'
+    snapshot.effectivePlan === 'starter' ||
+    snapshot.effectivePlan === 'pro' ||
+    snapshot.effectivePlan === 'premium'
       ? snapshot.effectivePlan
       : snapshot.plan;
 

@@ -93,6 +93,7 @@ export function SettingsBooleanChoices({
 
 const styles = StyleSheet.create({
   list: {
+    width: '100%',
     gap: 8,
   },
   option: {

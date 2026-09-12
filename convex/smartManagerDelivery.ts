@@ -7,7 +7,7 @@ import {
   type MutationCtx,
 } from './_generated/server';
 import {
-  buildBusinessEntitlementsFromBusiness,
+  buildCanonicalBusinessEntitlementsFromBusiness,
   countsTowardCampaignDefinitions,
   countsTowardReferralCampaignQuota,
 } from './entitlements';
@@ -266,9 +266,14 @@ async function currentExecutionAuthorityFailure(
   const activeCampaigns =
     campaigns.filter(countsTowardCampaignDefinitions).length +
     (countsTowardReferralCampaignQuota(referralConfigs[0]) ? 1 : 0);
-  const entitlements = buildBusinessEntitlementsFromBusiness(business, now, {
-    activeCampaigns,
-  });
+  const entitlements = await buildCanonicalBusinessEntitlementsFromBusiness(
+    ctx,
+    business,
+    now,
+    {
+      activeCampaigns,
+    }
+  );
   if (entitlements.isSubscriptionActive !== true) {
     return 'SUBSCRIPTION_INACTIVE';
   }

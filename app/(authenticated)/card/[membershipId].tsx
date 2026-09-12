@@ -47,7 +47,7 @@ const TEXT = {
   personalQr: 'קוד QR לקוח',
   personalQrSubtitle: 'הראו את הקוד בקופה. העסק בוחר את התוכנית לפעולה.',
   personalQrRedeemSubtitle:
-    'הקוד הזה כללי ללקוח. בביזנס בוחרים את התוכנית לניקוב או למימוש.',
+    'הקוד הזה כללי ללקוח. בביזנס בוחרים את הכרטיסייה להוספת חותמת או למימוש.',
   qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
   qrLoading: 'טוען QR',
   refreshCta: 'רענון QR',
@@ -56,14 +56,14 @@ const TEXT = {
   cardReadySubtitle: 'המימוש מתבצע בביקור הבא בעסקה נפרדת',
   redeemButtonReady: 'הצג למימוש',
   archivedTitle: 'הכרטיס בארכיון',
-  archivedSubtitle: 'לא ניתן לצבור ניקובים או לממש הטבה בכרטיס הזה',
+  archivedSubtitle: 'לא ניתן לצבור חותמות או לממש הטבה בכרטיסייה הזאת',
   archivedButton: 'הכרטיס אינו זמין',
   shareInviteButton: 'הזמן חבר',
   shareViaWhatsApp: 'שיתוף ב-WhatsApp',
   copyInviteLink: 'העתק קישור',
   shareInviteError: 'לא הצלחנו ליצור קישור הזמנה',
   inviteLinkCopied: 'קישור ההזמנה מוכן לשיתוף',
-  stampSuccessBanner: '✅ קיבלת ניקוב!',
+  stampSuccessBanner: '✅ קיבלת חותמת!',
 };
 const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 const CUSTOMER_ACTIVITY_TITLE = 'פעילות בכרטיס';
@@ -340,7 +340,7 @@ export default function CardDetailsScreen() {
     programName: string;
   }) => {
     if (item.actionType === 'stamp_reverted') {
-      return `בוצע תיקון בכרטיס שלך בעסק ${item.businessName} - ניקוב בוטל`;
+      return `בוצע תיקון בכרטיסייה שלך בעסק ${item.businessName} - חותמת בוטלה`;
     }
     if (item.actionType === 'reward_redeem_reverted') {
       return `בוצע תיקון בכרטיס שלך בעסק ${item.businessName} - מימוש בוטל`;
@@ -348,11 +348,11 @@ export default function CardDetailsScreen() {
     if (item.actionType === 'reward_redeemed') {
       return `מומשה הטבה בכרטיס ${item.programName}`;
     }
-    return `נוסף ניקוב בכרטיס ${item.programName}`;
+    return `נוספה חותמת בכרטיסייה ${item.programName}`;
   };
 
   const buildInviteMessage = (url: string) =>
-    `הצטרפו אליי ל-${membership.businessName} ב-StampAix וקבלו הטבת היכרות אחרי הניקוב הראשון.\n${url}`;
+    `הצטרפו אליי ל-${membership.businessName} ב-StampAix וקבלו הטבת היכרות אחרי החותמת הראשונה.\n${url}`;
 
   const handleShareInviteViaWhatsApp = async () => {
     if (isShareInviteLoading) {

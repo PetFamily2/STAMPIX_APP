@@ -5,6 +5,7 @@ node_modules/
 
 # Expo
 .expo/
+.expo-export-check/
 dist/
 web-build/
 expo-env.d.ts
@@ -23,8 +24,7 @@ expo-env.d.ts
 .tools/
 .tmp/
 .tmp-node22*
-_tmp/log-*.txt
-_tmp/ios-build-*.txt
+_tmp/
 
 # debug
 npm-debug.*

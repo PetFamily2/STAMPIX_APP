@@ -47,6 +47,19 @@ export const ANALYTICS_EVENTS = {
   recommendationDismissed: 'recommendation_dismissed',
   recommendationSnoozed: 'recommendation_snoozed',
   recommendationInvalidated: 'recommendation_invalidated',
+  referral_hub_viewed: 'referral_hub_viewed',
+  referral_share_opened: 'referral_share_opened',
+  referral_shared: 'referral_shared',
+  referral_link_opened: 'referral_link_opened',
+  referral_claimed: 'referral_claimed',
+  referral_onboarding_started: 'referral_onboarding_started',
+  referral_subscription_started: 'referral_subscription_started',
+  referral_qualification_completed: 'referral_qualification_completed',
+  referral_reward_earned: 'referral_reward_earned',
+  referral_reward_redeem_started: 'referral_reward_redeem_started',
+  referral_reward_redeemed: 'referral_reward_redeemed',
+  referred_business_anniversary_reward_earned:
+    'referred_business_anniversary_reward_earned',
 } as const;
 
 export type AnalyticsEventName =

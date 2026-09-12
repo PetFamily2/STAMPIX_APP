@@ -484,7 +484,7 @@ export default function BusinessCustomerCardScreen() {
                   </Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>ניקובים</Text>
+                  <Text style={styles.statLabel}>חותמות</Text>
                   <Text style={styles.statValue}>
                     {card.summary.totalStampsAdded}
                   </Text>

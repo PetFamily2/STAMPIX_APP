@@ -122,6 +122,8 @@ function createMockCtx({
     businessOnboardingDrafts: new Map(
       businessOnboardingDrafts.map((row) => [row._id, { ...row }])
     ),
+    businessBillingAccounts: new Map(),
+    businessUsageCounters: new Map(),
   };
   const patchLog = [];
   const getLog = [];
@@ -207,7 +209,12 @@ function createMockCtx({
           state.businessOnboardingDrafts.set(id, { _id: id, ...value });
           return id;
         }
-        throw new Error(`UNKNOWN_INSERT_TABLE:${tableName}`);
+        if (!state[tableName]) {
+          state[tableName] = new Map();
+        }
+        const id = `${tableName}_${state[tableName].size + 1}`;
+        state[tableName].set(id, { _id: id, ...value });
+        return id;
       },
       query: createQuery,
       system: {
@@ -562,7 +569,7 @@ describe('onboarding publish retry', () => {
         businessId: 'business_1',
         programId: 'program_1',
       })
-    ).rejects.toThrow('PROGRAM_REACTIVATION_FORBIDDEN');
+    ).rejects.toThrow('PROGRAM_PUBLISH_REQUIRES_DRAFT');
     await expect(
       publishProgram._handler(ctx, {
         businessId: 'business_2',

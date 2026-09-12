@@ -1,10 +1,9 @@
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,13 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContinueButton } from '@/components/ContinueButton';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolveCardTheme } from '@/constants/cardThemes';
+import { CARD_THEMES } from '@/constants/cardThemes';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -36,7 +37,7 @@ const TEXT = {
   subtitle: 'בחרו את העיצוב שמרגיש הכי מדויק למותג שלכם.',
   progressLabel: 'התקדמות לדוגמה',
   feelLabel: 'אופי הכרטיס',
-  themeSectionTitle: '5 עיצובים לבחירה',
+  themeSectionTitle: '10 צבעים לבחירה',
   themeSectionSubtitle: 'לחצו על סגנון כדי לראות את הכרטיס מתחלף מיד.',
   continue: 'סיום ופתיחת סורק',
   submitting: 'משלימים הגדרות',
@@ -51,13 +52,6 @@ const TEXT = {
   selected: 'נבחר',
 };
 
-type CardTheme = {
-  id: string;
-  name: string;
-  vibe: string;
-  selectorHint: string;
-};
-
 const PREVIEW_COPY = {
   title: 'בדיקה אחרונה לפני פרסום',
   subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה.',
@@ -66,103 +60,7 @@ const PREVIEW_COPY = {
   continue: 'פרסום וכניסה לניהול',
 };
 
-const CARD_THEMES: CardTheme[] = [
-  {
-    id: 'midnight-luxe',
-    name: 'יוקרתי כהה',
-    vibe: 'עמוק, אלגנטי ובולט',
-    selectorHint: 'לעסק שרוצה תחושה יוקרתית ומוקפדת',
-  },
-  {
-    id: 'sunset-pop',
-    name: 'שקיעה חמימה',
-    vibe: 'חם, מזמין וחברתי',
-    selectorHint: 'לעסק פעיל עם הרבה תנועה ואנרגיה',
-  },
-  {
-    id: 'forest-club',
-    name: 'ירוק טבעי',
-    vibe: 'רענן, רגוע וטבעי',
-    selectorHint: 'מתאים לעסקי אוכל, בריאות וטיפוח',
-  },
-  {
-    id: 'champagne-blush',
-    name: 'בוטיק עדין',
-    vibe: 'אלגנטי, רך ובוטיקי',
-    selectorHint: 'לעסק שרוצה מראה נקי ועדין',
-  },
-  {
-    id: 'electric-wave',
-    name: 'גל מודרני',
-    vibe: 'נועז, צעיר ומודרני',
-    selectorHint: 'לעסק שרוצה להרגיש קליל ודינמי',
-  },
-];
-
 const PREVIEW_FILLED_STAMPS = 3;
-
-function ThemeOption({
-  theme,
-  selected,
-  onPress,
-}: {
-  theme: CardTheme;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const sharedTheme = resolveCardTheme(theme.id);
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.themeOption,
-        { backgroundColor: sharedTheme.isLight ? '#FFFBF7' : '#F8FAFC' },
-        selected
-          ? { borderColor: sharedTheme.accent }
-          : styles.themeOptionIdle,
-        pressed ? styles.themeOptionPressed : null,
-      ]}
-    >
-      <View
-        style={[
-          styles.themeSwatch,
-          { backgroundColor: sharedTheme.surface },
-        ]}
-      >
-        <View
-          style={[
-            styles.themeSwatchLine,
-            { backgroundColor: sharedTheme.accent },
-          ]}
-        />
-      </View>
-
-      <View style={styles.themeTextBlock}>
-        <View style={styles.themeTitleRow}>
-          {selected ? (
-            <View
-              style={[
-                styles.selectedBadge,
-                { backgroundColor: sharedTheme.accent },
-              ]}
-            >
-              <Text style={styles.selectedBadgeText}>{TEXT.selected}</Text>
-            </View>
-          ) : null}
-          <Text style={[styles.themeName, { color: '#0F172A' }]}>
-            {theme.name}
-          </Text>
-        </View>
-        <Text style={[styles.themeVibe, { color: '#475569' }]}>
-          {theme.vibe}
-        </Text>
-        <Text style={[styles.themeHint, { color: '#64748B' }]}>
-          {theme.selectorHint}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
 
 export default function PreviewCardScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
@@ -186,6 +84,13 @@ export default function PreviewCardScreen() {
     api.business.saveBusinessOnboardingSnapshot
   );
   const { setAppMode } = useAppMode();
+  const themeReservations = (useQuery(
+    api.loyaltyPrograms.listThemeReservationsByBusiness,
+    businessId ? { businessId } : 'skip'
+  ) ?? []) as Array<{ programId: Id<'loyaltyPrograms'>; themeId: string }>;
+  const usedThemeIds = themeReservations
+    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .map((reservation) => reservation.themeId);
 
   const [isFinishing, setIsFinishing] = useState(false);
 
@@ -300,7 +205,9 @@ export default function PreviewCardScreen() {
           : finishError instanceof Error &&
               finishError.message.includes('BUSINESS_NOT_AVAILABLE')
             ? TEXT.activeBusinessError
-            : TEXT.errorMessage;
+            : String(finishError).includes('LOYALTY_THEME_CONFLICT')
+              ? 'הצבע שבחרתם נתפס בינתיים. חזרו לבחור צבע פנוי.'
+              : TEXT.errorMessage;
       Alert.alert(TEXT.errorTitle, message);
     } finally {
       setIsFinishing(false);
@@ -374,16 +281,11 @@ export default function PreviewCardScreen() {
               {TEXT.themeSectionSubtitle}
             </Text>
 
-            <View style={styles.themeOptions}>
-              {CARD_THEMES.map((theme) => (
-                <ThemeOption
-                  key={theme.id}
-                  theme={theme}
-                  selected={theme.id === selectedTheme.id}
-                  onPress={() => handleThemeSelect(theme.id)}
-                />
-              ))}
-            </View>
+            <LoyaltyThemePalette
+              value={programDraft.cardThemeId}
+              disabledThemeIds={usedThemeIds}
+              onChange={handleThemeSelect}
+            />
           </View>
 
           <View style={styles.summaryCard}>
@@ -493,76 +395,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '500',
     color: '#6B7280',
-    textAlign: 'right',
-  },
-  themeOptions: {
-    gap: 12,
-  },
-  themeOption: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 12,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 12,
-  },
-  themeOptionIdle: {
-    borderColor: '#E5E7EB',
-  },
-  themeOptionPressed: {
-    opacity: 0.92,
-  },
-  themeSwatch: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  themeSwatchLine: {
-    width: 34,
-    height: 8,
-    borderRadius: 999,
-    transform: [{ rotate: '-34deg' }],
-  },
-  themeTextBlock: {
-    flex: 1,
-    alignItems: alignItems.start,
-    gap: 4,
-  },
-  themeTitleRow: {
-    width: '100%',
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  selectedBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  selectedBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  themeName: {
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'right',
-  },
-  themeVibe: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  themeHint: {
-    fontSize: 11,
-    lineHeight: 17,
-    fontWeight: '500',
     textAlign: 'right',
   },
   summaryCard: {

@@ -239,6 +239,19 @@ function baseTables(overrides = {}) {
     aiUsageLedger: [],
     scanTokenEvents: [],
     scanSessions: [],
+    businessBillingAccounts: [
+      {
+        _id: 'billing_1',
+        businessId: 'business_1',
+        ownerUserId: 'owner_1',
+        providerAppUserId: 'ba_testidentitytoken1234',
+        plan: 'starter',
+        lastPlan: 'starter',
+        status: 'active',
+        hasProviderEvidence: true,
+        currentPeriodEndAt: now + 86_400_000,
+      },
+    ],
     ...overrides,
   };
 }
@@ -509,7 +522,7 @@ describe('scanner flow', () => {
 
   test('entitlement failure is terminal business failure and does not consume token', async () => {
     const now = Date.now();
-    const membershipsAtLimit = Array.from({ length: 30 }, (_, index) => ({
+    const membershipsAtLimit = Array.from({ length: 250 }, (_, index) => ({
       _id: `membership_limit_${index + 1}`,
       userId: `customer_limit_${index + 1}`,
       businessId: 'business_1',

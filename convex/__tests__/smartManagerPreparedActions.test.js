@@ -27,6 +27,7 @@ import {
 } from '../lib/smartManagerPreparedActions';
 import { OPENROUTER_JSON_MODEL } from '../lib/aiJsonGeneration';
 import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 import {
   hashSmartManagerValue,
   SMART_MANAGER_POLICY_SCHEMA_VERSION,
@@ -207,6 +208,14 @@ function buildFixture({
         updatedAt: OBSERVED_AT,
       },
     ],
+    businessBillingAccounts: [
+      buildCanonicalBusinessBillingAccount({
+        businessId: 'business_1',
+        ownerUserId: 'user_owner',
+        plan: subscriptionPlan,
+        now: OBSERVED_AT,
+      }),
+    ],
     businessStaff: [
       {
         _id: `staff_${currentUserId}`,
@@ -298,6 +307,19 @@ function buildFixture({
     aiUsageLedger: [],
   };
   return { currentUserId, tables };
+}
+
+function markFixtureSubscriptionInactive(state) {
+  const business = state.businesses.get('business_1');
+  state.businesses.set('business_1', {
+    ...business,
+    subscriptionStatus: 'inactive',
+  });
+  const billing = state.businessBillingAccounts.get('billing_1');
+  state.businessBillingAccounts.set('billing_1', {
+    ...billing,
+    status: 'inactive',
+  });
 }
 
 function buildCtx(fixture, options = {}) {
@@ -744,6 +766,18 @@ describe('Smart Manager prepared win-back actions', () => {
     ).toBe(1);
   });
 
+  test('unpaid starter cannot prepare winback without provider-backed billing', async () => {
+    const fixture = buildFixture();
+    fixture.tables.businessBillingAccounts = [];
+    const { ctx } = buildCtx(fixture);
+    await expect(
+      prepareWinbackAction._handler(ctx, {
+        businessId: 'business_1',
+        expectedEvidenceFingerprint: 'decision_evidence_v1',
+      })
+    ).rejects.toThrow('SMART_MANAGER_WINBACK_NOT_PREPARABLE');
+  });
+
   test('AI entitlement, inactive paid subscription, and small fresh audiences never invalidate fallback', async () => {
     const starter = buildCtx(buildFixture());
     const starterPrepared = await prepareWinbackAction._handler(starter.ctx, {
@@ -772,11 +806,7 @@ describe('Smart Manager prepared win-back actions', () => {
         expectedEvidenceFingerprint: 'decision_evidence_v1',
       }
     );
-    const business = inactive.state.businesses.get('business_1');
-    inactive.state.businesses.set('business_1', {
-      ...business,
-      subscriptionStatus: 'inactive',
-    });
+    markFixtureSubscriptionInactive(inactive.state);
     await expect(
       regeneratePreparedWinbackCopy._handler(inactive.ctx, {
         preparedActionId: inactivePrepared.preparedActionId,
@@ -1093,11 +1123,7 @@ describe('Smart Manager prepared win-back actions', () => {
           dirtyDomains: ['events'],
         });
       } else if (drift === 'subscription') {
-        const business = state.businesses.get('business_1');
-        state.businesses.set('business_1', {
-          ...business,
-          subscriptionStatus: 'inactive',
-        });
+        markFixtureSubscriptionInactive(state);
       } else {
         state.smartManagerPreparedActions.set(reserved._id, {
           ...reserved,

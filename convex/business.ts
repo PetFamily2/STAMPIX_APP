@@ -3,6 +3,8 @@ import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
+import { ensureBusinessBillingAccount } from './lib/billing/accounts';
+import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
 import {
   getBusinessStaffStatus,
   isBusinessPermanentDeletionInProgress,
@@ -49,6 +51,7 @@ export interface BusinessCreationInput {
   colors?: unknown;
   address: BusinessAddressInput;
   now?: number;
+  allowAdditional?: boolean;
 }
 
 export type BusinessCustomerSegmentationConfig = {
@@ -656,11 +659,39 @@ function normalizeBusinessRetentionProfile(profile: unknown, now: number) {
   };
 }
 
+export async function countOwnedBusinesses(ctx: any, ownerUserId: Id<'users'>) {
+  const rows = await ctx.db
+    .query('businesses')
+    .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', ownerUserId))
+    .collect();
+  return rows.filter((row: any) => row.isActive !== false).length;
+}
+
+export async function assertMvpAdditionalBusinessCreationAllowed(
+  ctx: any,
+  ownerUserId: Id<'users'>,
+  options?: { allowAdditional?: boolean }
+) {
+  if (options?.allowAdditional === true) {
+    return;
+  }
+  if (MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled) {
+    return;
+  }
+  const existingCount = await countOwnedBusinesses(ctx, ownerUserId);
+  if (existingCount > 0) {
+    throw new Error('ADDITIONAL_BUSINESS_CREATION_DISABLED');
+  }
+}
+
 export async function createBusinessForOwner(
   ctx: any,
   input: BusinessCreationInput
 ) {
   const now = input.now ?? Date.now();
+  await assertMvpAdditionalBusinessCreationAllowed(ctx, input.ownerUserId, {
+    allowAdditional: input.allowAdditional === true,
+  });
   const normalizedAddress = normalizeBusinessAddressInput(input.address);
 
   const businessPublicId = await generateUniquePublicId(ctx);
@@ -675,8 +706,8 @@ export async function createBusinessForOwner(
     logoUrl: input.logoUrl,
     colors: input.colors,
     subscriptionPlan: 'starter',
-    subscriptionStatus: 'active',
-    subscriptionStartAt: now,
+    subscriptionStatus: 'inactive',
+    subscriptionStartAt: null,
     subscriptionEndAt: null,
     billingPeriod: null,
     customerSegmentationConfig: {
@@ -696,6 +727,11 @@ export async function createBusinessForOwner(
   });
 
   await ensureBusinessOwnerStaff(ctx, businessId, input.ownerUserId, now);
+  await ensureBusinessBillingAccount(ctx, {
+    businessId,
+    ownerUserId: input.ownerUserId,
+    now,
+  });
   await markSmartManagerDirty(ctx, {
     businessId,
     domains: [
@@ -2870,6 +2906,7 @@ async function requireAvailableTeamSeat(
   const entitlements = await assertEntitlement(ctx, businessId, {
     limitKey: 'maxTeamSeats',
     currentValue: usage.usedSeats,
+    reserveSlot: true,
   });
   return { usage, maxSeats: entitlements.limits.maxTeamSeats };
 }

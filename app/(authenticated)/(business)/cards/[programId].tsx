@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,14 +19,20 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
+import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
+import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { CARD_THEMES } from '@/constants/cardThemes';
+import {
+  DEFAULT_CARD_THEME_ID,
+  resolveCanonicalCardThemeId,
+} from '@/constants/cardThemes';
+import { DEFAULT_STAMP_ICON_ID } from '@/constants/stampIcons';
 import {
   DEFAULT_STAMP_SHAPE,
   MAX_STAMP_OPTIONS,
-  STAMP_SHAPE_OPTIONS,
   type StampShape,
 } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
@@ -37,8 +44,14 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { DEFAULT_LOYALTY_CARD_TERMS } from '@/lib/loyalty/cardTerms';
+import {
+  isLoyaltyThemeConflict,
+  LOYALTY_THEME_CONFLICT_COPY,
+  loyaltyWriteErrorToHebrewMessage,
+} from '@/lib/loyalty/programErrors';
 import { safeBack } from '@/lib/navigation';
-import { tw } from '@/lib/rtl';
+import { rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
@@ -67,7 +80,7 @@ type ProgramDetails = {
 const TEXT = {
   archiveConfirmTitle: 'להעביר את הכרטיסיה לארכיון?',
   archiveConfirmMessage:
-    'הכרטיסיה תועבר לארכיון. לקוחות לא יוכלו עוד לצבור ניקובים או לממש הטבות דרכה, ולא ניתן כרגע לבטל את הפעולה.',
+    'הכרטיסייה תועבר לארכיון. לקוחות לא יוכלו עוד לצבור חותמות או לממש הטבות דרכה. אפשר להפעיל אותה מחדש מאוחר יותר אם יש מקום במסלול והצבע פנוי.',
   unavailableTitle: 'הכרטיסיה אינה זמינה',
   unavailableMessage:
     'ייתכן שהכרטיסיה נמחקה, הושבתה או שאינה שייכת לעסק הפעיל.',
@@ -101,6 +114,12 @@ const TEXT = {
   save: 'שמור שינויים',
   publish: 'פרסם כרטיסיה',
   archive: 'העבר לארכיון',
+  reactivate: 'הפעל מחדש',
+  reactivateConfirmTitle: 'להפעיל מחדש את הכרטיסייה?',
+  reactivateConfirmMessage:
+    'הכרטיסייה תחזור לפעילות עם אותם נתונים ואותו צבע. ההפעלה תתבצע רק אם יש מקום במסלול והצבע עדיין פנוי.',
+  reactivateDoneTitle: 'הכרטיסייה פעילה מחדש',
+  reactivateDoneMessage: 'הכרטיסייה חזרה לפעילות עם אותם נתונים.',
   delete: 'מחק כרטיסיה',
 };
 
@@ -122,6 +141,7 @@ export default function ProgramDetailsScreen() {
   const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{
     programId?: string;
     businessId?: string;
@@ -167,12 +187,20 @@ export default function ProgramDetailsScreen() {
       ? { businessId: selectedBusinessId, programId }
       : 'skip'
   ) as ProgramDetails | null | undefined;
+  const themeReservations = (useQuery(
+    api.loyaltyPrograms.listThemeReservationsByBusiness,
+    selectedBusinessId ? { businessId: selectedBusinessId } : 'skip'
+  ) ?? []) as Array<{
+    programId: Id<'loyaltyPrograms'>;
+    themeId: string;
+  }>;
 
   const updateProgram = useMutation(
     api.loyaltyPrograms.updateProgramForManagement
   );
   const publishProgram = useMutation(api.loyaltyPrograms.publishProgram);
   const archiveProgram = useMutation(api.loyaltyPrograms.archiveProgram);
+  const unarchiveProgram = useMutation(api.loyaltyPrograms.unarchiveProgram);
   const deleteProgram = useMutation(api.loyaltyPrograms.deleteProgram);
   const generateProgramImageUploadUrl = useMutation(
     api.loyaltyPrograms.generateProgramImageUploadUrl
@@ -183,9 +211,9 @@ export default function ProgramDetailsScreen() {
   const [maxStamps, setMaxStamps] = useState('10');
   const [cardTerms, setCardTerms] = useState('');
   const [rewardConditions, setRewardConditions] = useState('');
-  const [stampIcon, setStampIcon] = useState('star');
+  const [stampIcon, setStampIcon] = useState(DEFAULT_STAMP_ICON_ID);
   const [stampShape, setStampShape] = useState<StampShape>(DEFAULT_STAMP_SHAPE);
-  const [cardThemeId, setCardThemeId] = useState(CARD_THEMES[0].id);
+  const [cardThemeId, setCardThemeId] = useState(DEFAULT_CARD_THEME_ID);
   const [imageStorageId, setImageStorageId] = useState<Id<'_storage'> | null>(
     null
   );
@@ -194,6 +222,40 @@ export default function ProgramDetailsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
+  const formSignature = JSON.stringify({
+    title: title.trim(),
+    rewardName: rewardName.trim(),
+    maxStamps,
+    cardTerms: cardTerms.trim(),
+    rewardConditions: rewardConditions.trim(),
+    stampIcon,
+    stampShape,
+    cardThemeId,
+    imageStorageId: imageStorageId ? String(imageStorageId) : null,
+  });
+  const isDirty = savedSignature !== null && formSignature !== savedSignature;
+  const usedThemeIds = themeReservations
+    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .map((reservation) => reservation.themeId);
+
+  usePreventRemove(isDirty && !isSubmitting, ({ data }) => {
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
 
   const applyProgramSnapshot = (snapshot: ProgramDetails | undefined) => {
     if (!snapshot) {
@@ -204,19 +266,35 @@ export default function ProgramDetailsScreen() {
     setMaxStamps(String(snapshot.maxStamps));
     setCardTerms(snapshot.cardTerms ?? '');
     setRewardConditions(snapshot.rewardConditions ?? '');
-    setStampIcon(snapshot.stampIcon || 'star');
+    setStampIcon(snapshot.stampIcon || DEFAULT_STAMP_ICON_ID);
     setStampShape(toStampShape(snapshot.stampShape));
-    setCardThemeId(snapshot.cardThemeId);
+    setCardThemeId(resolveCanonicalCardThemeId(snapshot.cardThemeId));
     setImageStorageId(snapshot.imageStorageId ?? null);
     setUploadedImageUri(null);
     setBaseUpdatedAt(snapshot.updatedAt);
     setConflictLocked(false);
+    setSavedSignature(
+      JSON.stringify({
+        title: snapshot.title.trim(),
+        rewardName: snapshot.rewardName.trim(),
+        maxStamps: String(snapshot.maxStamps),
+        cardTerms: (snapshot.cardTerms ?? '').trim(),
+        rewardConditions: (snapshot.rewardConditions ?? '').trim(),
+        stampIcon: snapshot.stampIcon || DEFAULT_STAMP_ICON_ID,
+        stampShape: toStampShape(snapshot.stampShape),
+        cardThemeId: resolveCanonicalCardThemeId(snapshot.cardThemeId),
+        imageStorageId: snapshot.imageStorageId
+          ? String(snapshot.imageStorageId)
+          : null,
+      })
+    );
   };
 
   useEffect(() => {
     const screenKey = `${selectedBusinessId ?? 'none'}:${programId ?? 'none'}`;
     setBaseUpdatedAt(null);
     setConflictLocked(false);
+    setSavedSignature(null);
     if (screenKey === 'none:none') {
       setUploadedImageUri(null);
     }
@@ -231,13 +309,28 @@ export default function ProgramDetailsScreen() {
     setMaxStamps(String(details.maxStamps));
     setCardTerms(details.cardTerms ?? '');
     setRewardConditions(details.rewardConditions ?? '');
-    setStampIcon(details.stampIcon || 'star');
+    setStampIcon(details.stampIcon || DEFAULT_STAMP_ICON_ID);
     setStampShape(toStampShape(details.stampShape));
-    setCardThemeId(details.cardThemeId);
+    setCardThemeId(resolveCanonicalCardThemeId(details.cardThemeId));
     setImageStorageId(details.imageStorageId ?? null);
     setUploadedImageUri(null);
     setBaseUpdatedAt(details.updatedAt);
     setConflictLocked(false);
+    setSavedSignature(
+      JSON.stringify({
+        title: details.title.trim(),
+        rewardName: details.rewardName.trim(),
+        maxStamps: String(details.maxStamps),
+        cardTerms: (details.cardTerms ?? '').trim(),
+        rewardConditions: (details.rewardConditions ?? '').trim(),
+        stampIcon: details.stampIcon || DEFAULT_STAMP_ICON_ID,
+        stampShape: toStampShape(details.stampShape),
+        cardThemeId: resolveCanonicalCardThemeId(details.cardThemeId),
+        imageStorageId: details.imageStorageId
+          ? String(details.imageStorageId)
+          : null,
+      })
+    );
   }, [baseUpdatedAt, details]);
 
   if (!programId || !selectedBusinessId) {
@@ -279,9 +372,11 @@ export default function ProgramDetailsScreen() {
   }
 
   const lifecycle = details?.lifecycle ?? 'draft';
+  const isArchived = lifecycle === 'archived';
   const isRuleLocked = lifecycle !== 'draft';
   const parsedMaxStamps = Number(maxStamps);
-  const canEditGeneralFields = canManage && !isSubmitting && !isUploadingImage;
+  const canEditGeneralFields =
+    canManage && !isSubmitting && !isUploadingImage && !isArchived;
   const canEditRuleFields =
     canManage && !isSubmitting && !isUploadingImage && !isRuleLocked;
   const canSave =
@@ -294,7 +389,8 @@ export default function ProgramDetailsScreen() {
       parsedMaxStamps as (typeof MAX_STAMP_OPTIONS)[number]
     ) &&
     (stampShape !== 'icon' || stampIcon.trim().length > 0) &&
-    !conflictLocked;
+    !conflictLocked &&
+    isDirty;
 
   const previewImageUrl = uploadedImageUri ?? details?.imageUrl ?? null;
 
@@ -385,6 +481,7 @@ export default function ProgramDetailsScreen() {
         setBaseUpdatedAt(result.updatedAt);
       }
       setConflictLocked(false);
+      setSavedSignature(formSignature);
       Alert.alert(TEXT.saveDoneTitle, TEXT.saveDoneMessage);
     } catch (error) {
       const conflict = getEditConflictError(error);
@@ -409,7 +506,17 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
+      if (isLoyaltyThemeConflict(error)) {
+        Alert.alert(
+          LOYALTY_THEME_CONFLICT_COPY.edit.title,
+          LOYALTY_THEME_CONFLICT_COPY.edit.message
+        );
+        return;
+      }
+      Alert.alert(
+        TEXT.errorTitle,
+        loyaltyWriteErrorToHebrewMessage(error)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -485,7 +592,10 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
+      Alert.alert(
+        TEXT.errorTitle,
+        loyaltyWriteErrorToHebrewMessage(error)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -531,7 +641,10 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
+      Alert.alert(
+        TEXT.errorTitle,
+        loyaltyWriteErrorToHebrewMessage(error)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -549,6 +662,94 @@ export default function ProgramDetailsScreen() {
         style: 'destructive',
         onPress: () => {
           void runArchive();
+        },
+      },
+    ]);
+  };
+
+  const runReactivate = async () => {
+    if (!canManage || lifecycle !== 'archived' || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await unarchiveProgram({
+        businessId: selectedBusinessId,
+        programId,
+        expectedUpdatedAt: baseUpdatedAt ?? undefined,
+      });
+      if (typeof result?.updatedAt === 'number') {
+        setBaseUpdatedAt(result.updatedAt);
+      }
+      setConflictLocked(false);
+      Alert.alert(TEXT.reactivateDoneTitle, TEXT.reactivateDoneMessage);
+    } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        Alert.alert(
+          'הנתונים השתנו',
+          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני הפעלה מחדש.',
+          [
+            {
+              text: 'טען גרסה עדכנית',
+              onPress: () => {
+                applyProgramSnapshot(details);
+              },
+            },
+            {
+              text: 'השאר טיוטה מקומית',
+              onPress: () => {
+                setConflictLocked(true);
+              },
+            },
+          ]
+        );
+        return;
+      }
+      if (isLoyaltyThemeConflict(error)) {
+        Alert.alert(
+          LOYALTY_THEME_CONFLICT_COPY.reactivate.title,
+          LOYALTY_THEME_CONFLICT_COPY.reactivate.message
+        );
+        return;
+      }
+      const entitlementError = getEntitlementError(error);
+      if (entitlementError) {
+        Alert.alert(
+          'מגבלת מסלול',
+          entitlementErrorToHebrewMessage(entitlementError)
+        );
+        openCardsUpgrade(
+          entitlementError.requiredPlan ?? 'pro',
+          entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+            ? 'subscription_inactive'
+            : entitlementError.code === 'PLAN_LIMIT_REACHED'
+              ? 'limit_reached'
+              : 'feature_locked'
+        );
+        return;
+      }
+      Alert.alert(
+        TEXT.errorTitle,
+        loyaltyWriteErrorToHebrewMessage(error)
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReactivate = () => {
+    if (!canManage || lifecycle !== 'archived' || isSubmitting) {
+      return;
+    }
+
+    Alert.alert(TEXT.reactivateConfirmTitle, TEXT.reactivateConfirmMessage, [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: TEXT.reactivate,
+        onPress: () => {
+          void runReactivate();
         },
       },
     ]);
@@ -599,7 +800,10 @@ export default function ProgramDetailsScreen() {
         );
         return;
       }
-      Alert.alert(TEXT.errorTitle, TEXT.saveFailed);
+      Alert.alert(
+        TEXT.errorTitle,
+        loyaltyWriteErrorToHebrewMessage(error)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -638,8 +842,14 @@ export default function ProgramDetailsScreen() {
             backgroundColor="#E9F0FF"
           >
             <BusinessScreenHeader
-              title="פרטי כרטיסיה"
-              titleAccessory={<BackButton onPress={() => router.back()} />}
+              title="עריכת כרטיסייה"
+              titleAccessory={
+                <BackButton
+                  onPress={() =>
+                    safeBack('/(authenticated)/(business)/programs')
+                  }
+                />
+              }
             />
           </StickyScrollHeader>
 
@@ -650,7 +860,7 @@ export default function ProgramDetailsScreen() {
           ) : (
             <View className="mt-2 bg-[#E9F0FF] pb-3">
               <LoyaltyCard
-                variant="preview"
+                variant={isPreviewExpanded ? 'preview' : 'management'}
                 businessName={selectedBusiness?.name ?? 'העסק שלך'}
                 businessLogoUrl={selectedBusiness?.logoUrl ?? null}
                 programImageUrl={previewImageUrl}
@@ -669,6 +879,17 @@ export default function ProgramDetailsScreen() {
                 stampShape={stampShape}
                 stampIcon={stampIcon || details.stampIcon}
               />
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => setIsPreviewExpanded((current) => !current)}
+                className="mt-2 min-h-[44px] items-center justify-center rounded-xl border border-[#B8C8E8] bg-white px-3"
+              >
+                <Text className="text-sm font-bold text-[#1D4ED8]">
+                  {isPreviewExpanded
+                    ? 'סגור תצוגת לקוח'
+                    : 'תצוגת לקוח'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -676,11 +897,14 @@ export default function ProgramDetailsScreen() {
         {details !== undefined ? (
           <View className="mt-2 gap-3">
             <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-4">
+              <Text className={`text-lg font-black text-[#0F172A] ${tw.textStart}`}>
+                תוכן הכרטיסייה
+              </Text>
               <View className="gap-2">
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  1. {TEXT.sectionTitle}
+                  {TEXT.sectionTitle}
                 </Text>
                 <TextInput
                   value={title}
@@ -696,7 +920,7 @@ export default function ProgramDetailsScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  2. {TEXT.sectionReward}
+                  {TEXT.sectionReward}
                 </Text>
                 <TextInput
                   value={rewardName}
@@ -716,7 +940,7 @@ export default function ProgramDetailsScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  3. {TEXT.sectionMaxStamps}
+                  {TEXT.sectionMaxStamps}
                 </Text>
                 <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
                   {TEXT.sectionMaxStampsHint}
@@ -746,10 +970,13 @@ export default function ProgramDetailsScreen() {
               </View>
 
               <View className="gap-2">
+                <Text className={`mb-2 text-lg font-black text-[#0F172A] ${tw.textStart}`}>
+                  עיצוב
+                </Text>
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  4. תמונה
+                  תמונה
                 </Text>
                 <TouchableOpacity
                   disabled={!canEditGeneralFields || isUploadingImage}
@@ -783,21 +1010,23 @@ export default function ProgramDetailsScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  5. {TEXT.sectionCardTerms}
+                  {TEXT.sectionStampShape}
                 </Text>
-                <TextInput
-                  value={cardTerms}
-                  onChangeText={setCardTerms}
-                  editable={canEditRuleFields}
-                  placeholder="תנאי הכרטיס"
-                  placeholderTextColor="#94A3B8"
-                  multiline={true}
-                  textAlignVertical="top"
-                  className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                    canEditRuleFields
-                      ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                      : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                  }`}
+                <StampShapePicker
+                  value={stampShape}
+                  stampIcon={stampIcon}
+                  onChange={setStampShape}
+                  disabled={!canEditGeneralFields}
+                />
+                <Text
+                  className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  {TEXT.iconInput}
+                </Text>
+                <StampIconPicker
+                  value={stampIcon}
+                  onChange={setStampIcon}
+                  disabled={!canEditGeneralFields}
                 />
               </View>
 
@@ -805,94 +1034,80 @@ export default function ProgramDetailsScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                 >
-                  6. {TEXT.sectionRewardTerms}
+                  {TEXT.sectionTheme}
                 </Text>
-                <TextInput
-                  value={rewardConditions}
-                  onChangeText={setRewardConditions}
-                  editable={canEditRuleFields}
-                  placeholder="תנאי מימוש ההטבה"
-                  placeholderTextColor="#94A3B8"
-                  multiline={true}
-                  textAlignVertical="top"
-                  className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                    canEditRuleFields
-                      ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                      : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                  }`}
+                <LoyaltyThemePalette
+                  value={cardThemeId}
+                  onChange={setCardThemeId}
+                  disabledThemeIds={usedThemeIds}
+                  disabled={!canEditGeneralFields}
                 />
               </View>
 
-              <View className="gap-2">
-                <Text
-                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                >
-                  7. {TEXT.sectionStampShape}
-                </Text>
-                <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                  {STAMP_SHAPE_OPTIONS.map((option) => {
-                    const selected = stampShape === option.id;
-                    return (
-                      <TouchableOpacity
-                        key={option.id}
-                        disabled={!canEditGeneralFields}
-                        onPress={() => setStampShape(option.id)}
-                        className={`rounded-xl border px-3 py-2 ${
-                          selected
-                            ? 'border-[#2F6BFF] bg-[#EAF1FF]'
-                            : 'border-[#DCE6F7] bg-[#F8FAFF]'
-                        }`}
-                      >
-                        <Text className="text-xs font-bold text-[#1A2B4A]">
-                          {option.label}
-                        </Text>
-                        <Text className="text-[10px] text-[#64748B]">
-                          {option.description}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isAdvancedOpen }}
+                onPress={() => setIsAdvancedOpen((current) => !current)}
+                className={`min-h-[52px] ${tw.flexRow} items-center justify-between rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-3`}
+                style={rtlBaseView}
+              >
+                <View>
+                  <Text className={`text-base font-black text-[#0F172A] ${tw.textStart}`}>
+                    הגדרות מתקדמות
+                  </Text>
+                  <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                    {cardTerms || rewardConditions ? 'הוגדרו תנאים' : 'לא הוגדר'}
+                  </Text>
                 </View>
-                {stampShape === 'icon' ? (
-                  <TextInput
-                    value={stampIcon}
-                    onChangeText={setStampIcon}
-                    editable={canEditGeneralFields}
-                    placeholder={TEXT.iconInput}
-                    placeholderTextColor="#94A3B8"
-                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-                  />
-                ) : null}
-              </View>
+                <Text className="text-lg font-black text-[#1D4ED8]">
+                  {isAdvancedOpen ? '−' : '+'}
+                </Text>
+              </TouchableOpacity>
 
-              <View className="gap-2">
-                <Text
-                  className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                >
-                  8. {TEXT.sectionTheme}
-                </Text>
-                <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                  {CARD_THEMES.map((theme) => {
-                    const selected = cardThemeId === theme.id;
-                    return (
-                      <TouchableOpacity
-                        key={theme.id}
-                        disabled={!canEditGeneralFields}
-                        onPress={() => setCardThemeId(theme.id)}
-                        className={`rounded-xl border px-3 py-2 ${
-                          selected
-                            ? 'border-[#2F6BFF] bg-[#EAF1FF]'
-                            : 'border-[#DCE6F7] bg-[#F8FAFF]'
-                        }`}
-                      >
-                        <Text className="text-xs font-bold text-[#1A2B4A]">
-                          {theme.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+              {isAdvancedOpen ? (
+                <View className="gap-4">
+                  <View className="gap-2">
+                    <Text className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+                      {TEXT.sectionCardTerms}
+                    </Text>
+                    <TextInput
+                      accessibilityLabel={TEXT.sectionCardTerms}
+                      value={cardTerms}
+                      onChangeText={setCardTerms}
+                      editable={canEditRuleFields}
+                      placeholder={DEFAULT_LOYALTY_CARD_TERMS}
+                      placeholderTextColor="#94A3B8"
+                      multiline={true}
+                      textAlignVertical="top"
+                      className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                        canEditRuleFields
+                          ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
+                          : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                      }`}
+                    />
+                  </View>
+                  <View className="gap-2">
+                    <Text className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+                      {TEXT.sectionRewardTerms}
+                    </Text>
+                    <TextInput
+                      accessibilityLabel={TEXT.sectionRewardTerms}
+                      value={rewardConditions}
+                      onChangeText={setRewardConditions}
+                      editable={canEditRuleFields}
+                      placeholder="תנאי מימוש ההטבה"
+                      placeholderTextColor="#94A3B8"
+                      multiline={true}
+                      textAlignVertical="top"
+                      className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                        canEditRuleFields
+                          ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
+                          : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                      }`}
+                    />
+                  </View>
                 </View>
-              </View>
+              ) : null}
             </View>
 
             <View className="gap-3">
@@ -915,23 +1130,36 @@ export default function ProgramDetailsScreen() {
                 </View>
               ) : null}
 
-              <TouchableOpacity
-                disabled={!canSave}
-                onPress={() => {
-                  void handleSave();
-                }}
-                className={`rounded-2xl px-4 py-3 ${
-                  canSave ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+              <Text
+                accessibilityLiveRegion="polite"
+                className={`text-xs font-bold ${tw.textStart} ${
+                  isDirty ? 'text-[#B45309]' : 'text-[#15803C]'
                 }`}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text className="text-center text-sm font-bold text-white">
-                    {TEXT.save}
-                  </Text>
-                )}
-              </TouchableOpacity>
+                {isDirty
+                  ? 'יש שינויים שלא נשמרו'
+                  : 'כל השינויים נשמרו'}
+              </Text>
+
+              {!isArchived ? (
+                <TouchableOpacity
+                  disabled={!canSave}
+                  onPress={() => {
+                    void handleSave();
+                  }}
+                  className={`rounded-2xl px-4 py-3 ${
+                    canSave ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-center text-sm font-bold text-white">
+                      {TEXT.save}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
 
               {lifecycle === 'draft' ? (
                 <View ref={guideTargetRef} collapsable={false}>
@@ -940,13 +1168,13 @@ export default function ProgramDetailsScreen() {
                     onPress={() => {
                       void handlePublish();
                     }}
-                    className={`rounded-2xl px-4 py-3 ${
+                    className={`rounded-2xl border px-4 py-3 ${
                       canManage && !isSubmitting && !conflictLocked
-                        ? 'bg-[#16A34A]'
-                        : 'bg-[#CBD5E1]'
+                        ? 'border-[#2563EB] bg-white'
+                        : 'border-[#CBD5E1] bg-[#F1F5F9]'
                     }`}
                   >
-                    <Text className="text-center text-sm font-bold text-white">
+                    <Text className="text-center text-sm font-bold text-[#1D4ED8]">
                       {TEXT.publish}
                     </Text>
                   </TouchableOpacity>
@@ -954,19 +1182,45 @@ export default function ProgramDetailsScreen() {
               ) : null}
 
               {lifecycle === 'active' ? (
-                <TouchableOpacity
-                  disabled={!canManage || isSubmitting || conflictLocked}
-                  onPress={handleArchive}
-                  className={`rounded-2xl px-4 py-3 ${
-                    canManage && !isSubmitting && !conflictLocked
-                      ? 'bg-[#F59E0B]'
-                      : 'bg-[#CBD5E1]'
-                  }`}
-                >
-                  <Text className="text-center text-sm font-bold text-white">
-                    {TEXT.archive}
+                <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
+                  <Text className={`text-sm font-black text-[#334155] ${tw.textStart}`}>
+                    אפשרויות נוספות
                   </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canManage || isSubmitting || conflictLocked}
+                    onPress={handleArchive}
+                    className="min-h-[48px] items-center justify-center rounded-2xl border border-[#FCA5A5] bg-white px-4 py-3"
+                  >
+                    <Text className="text-center text-sm font-bold text-[#B91C1C]">
+                      {TEXT.archive}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {lifecycle === 'archived' ? (
+                <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
+                  <Text className={`text-sm font-black text-[#334155] ${tw.textStart}`}>
+                    כרטיסייה בארכיון
+                  </Text>
+                  <TouchableOpacity
+                    disabled={!canManage || isSubmitting || conflictLocked}
+                    onPress={handleReactivate}
+                    className={`min-h-[48px] items-center justify-center rounded-2xl px-4 py-3 ${
+                      canManage && !isSubmitting && !conflictLocked
+                        ? 'bg-[#2F6BFF]'
+                        : 'bg-[#CBD5E1]'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text className="text-center text-sm font-bold text-white">
+                        {TEXT.reactivate}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               ) : null}
 
               {details.canDelete ? (

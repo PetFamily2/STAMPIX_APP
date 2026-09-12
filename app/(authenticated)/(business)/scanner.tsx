@@ -8,7 +8,6 @@ import {
 } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   useCallback,
   useEffect,
@@ -42,7 +41,7 @@ import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { resolveCardTheme } from '@/constants/cardThemes';
+import { LoyaltyProgramTile } from '@/components/loyalty/LoyaltyProgramTile';
 import { track } from '@/lib/analytics';
 import {
   trackActivationEvent,
@@ -168,25 +167,6 @@ const TABLET_PROGRAM_GRID_MAX_WIDTH = 560;
 const RECENT_POS_REDEMPTION_LIMIT = 100;
 const STALE_PROGRAM_NOTICE =
   'התוכנית שנבחרה כבר אינה זמינה. יש לבחור תוכנית אחרת.';
-
-type ProgramIconName = keyof typeof Ionicons.glyphMap;
-
-const PROGRAM_ICON_ALIASES: Record<string, ProgramIconName> = {
-  coffee: 'cafe',
-  food: 'restaurant',
-  gift: 'gift',
-  heart: 'heart',
-  pizza: 'pizza',
-  star: 'star',
-};
-
-function resolveProgramIconName(stampIcon: string): ProgramIconName | null {
-  const normalized = stampIcon.trim().toLowerCase();
-  const candidate = PROGRAM_ICON_ALIASES[normalized] ?? normalized;
-  return candidate in Ionicons.glyphMap
-    ? (candidate as ProgramIconName)
-    : null;
-}
 
 function generateRuntimeSessionId() {
   return `runtime_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -1147,96 +1127,18 @@ export default function ScannerScreen() {
           {programs.map((program) => {
             const selected =
               program.loyaltyProgramId === flow.selectedProgramId;
-            const theme = resolveCardTheme(program.cardThemeId ?? undefined);
-            const iconName = resolveProgramIconName(program.stampIcon);
             return (
-              <Pressable
+              <LoyaltyProgramTile
                 key={program.loyaltyProgramId}
-                onPress={() => void selectProgram(program.loyaltyProgramId)}
+                title={program.title}
+                cardThemeId={program.cardThemeId}
+                stampIcon={program.stampIcon}
+                selected={selected}
                 disabled={!selectionEnabled}
-                accessibilityRole="button"
-                accessibilityLabel={`בחירת כרטיסייה ${program.title}`}
-                accessibilityState={{
-                  selected,
-                  disabled: !selectionEnabled,
-                  busy: flow.phase === 'resolving',
-                }}
-                style={({ pressed }) => [
-                  styles.programTile,
-                  {
-                    width: programTileWidth,
-                    borderColor: selected ? '#2563EB' : theme.keyline,
-                  },
-                  selected ? styles.programTileSelected : null,
-                  pressed && selectionEnabled ? styles.buttonPressed : null,
-                ]}
-              >
-                <LinearGradient
-                  colors={[theme.surface, theme.surfaceAlt]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  pointerEvents="none"
-                  style={styles.programTileSurface}
-                >
-                  {selected ? (
-                    <View
-                      style={[
-                        styles.programSelectedCheck,
-                        { backgroundColor: theme.accent },
-                      ]}
-                    >
-                      <Ionicons
-                        name="checkmark"
-                        size={12}
-                        color={theme.onAccent}
-                      />
-                    </View>
-                  ) : null}
-                  <View
-                    style={[
-                      styles.programIconRing,
-                      {
-                        backgroundColor: theme.accent,
-                        borderColor: selected
-                          ? theme.onSurface
-                          : 'transparent',
-                      },
-                      selected ? styles.programIconRingSelected : null,
-                    ]}
-                  >
-                    {iconName ? (
-                      <Ionicons
-                        name={iconName}
-                        size={22}
-                        color={theme.onAccent}
-                      />
-                    ) : (
-                      <Text
-                        numberOfLines={1}
-                        adjustsFontSizeToFit={true}
-                        minimumFontScale={0.45}
-                        style={[
-                          styles.programIconGlyph,
-                          { color: theme.onAccent },
-                        ]}
-                      >
-                        {program.stampIcon}
-                      </Text>
-                    )}
-                  </View>
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    maxFontSizeMultiplier={1.35}
-                    style={[
-                      styles.programTileTitle,
-                      { color: theme.titleColor },
-                    ]}
-                  >
-                    {program.title}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+                busy={flow.phase === 'resolving'}
+                width={programTileWidth}
+                onPress={() => void selectProgram(program.loyaltyProgramId)}
+              />
             );
           })}
         </View>
@@ -1251,10 +1153,10 @@ export default function ScannerScreen() {
       isReversed
         ? isRedeem
           ? 'מימוש ההטבה בוטל'
-          : 'הניקוב האחרון בוטל'
+          : 'החותמת האחרונה בוטלה'
         : isRedeem
           ? 'ההטבה מומשה'
-          : 'נוסף ניקוב';
+          : 'נוספה חותמת';
     return (
       <>
         <View
@@ -1279,7 +1181,7 @@ export default function ScannerScreen() {
         </Text>
         {result.undoBlockedReason === 'REFERRAL_REWARD_TRIGGERED' ? (
           <Text style={styles.undoBlockedText}>
-            לא ניתן לבטל את הניקוב מפני שהוא כבר הפעיל תגמול הפניה.
+            לא ניתן לבטל את החותמת מפני שהיא כבר הפעילה תגמול הפניה.
           </Text>
         ) : null}
         <Pressable
@@ -1739,70 +1641,6 @@ const styles = StyleSheet.create({
   programGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-  },
-  programTile: {
-    height: 84,
-    borderRadius: 13,
-    borderWidth: 1,
-    backgroundColor: '#111827',
-  },
-  programTileSelected: {
-    borderWidth: 3,
-    shadowColor: '#1D4ED8',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.24,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  programTileSurface: {
-    flex: 1,
-    width: '100%',
-    borderRadius: 11,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingHorizontal: 4,
-    paddingVertical: 7,
-  },
-  programSelectedCheck: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  programIconRing: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  programIconRingSelected: {
-    borderWidth: 3,
-  },
-  programIconGlyph: {
-    width: '100%',
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  programTileTitle: {
-    width: '100%',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-    writingDirection: 'rtl',
   },
   transactionArea: {
     width: '100%',

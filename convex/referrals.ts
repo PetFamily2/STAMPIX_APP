@@ -14,6 +14,12 @@ import { sendPushNotificationToUser } from './pushNotifications';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { markSmartManagerOutcomeDirty } from './lib/smartManagerOutcomes';
 import { createRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
+import { runRegisteredHandler } from './lib/runRegisteredHandler';
+import {
+  claimReferralCodeForBusiness,
+  getBusinessReferralHub,
+  getOrCreateBusinessReferralCode,
+} from './businessReferralEngine';
 
 const CUSTOMER_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const B2B_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -148,10 +154,6 @@ function normalizeSourceStatus(status: string | undefined) {
 
 function isPaidBusinessActive(business: Doc<'businesses'> | null) {
   if (!business || business.isActive !== true) {
-    return false;
-  }
-  const plan = business.subscriptionPlan ?? 'starter';
-  if (plan === 'starter') {
     return false;
   }
   return normalizeSourceStatus(business.subscriptionStatus);
@@ -1226,6 +1228,7 @@ export const saveReferralConfig = mutation({
       await assertEntitlement(ctx, args.businessId, {
         limitKey: 'maxCampaigns',
         currentValue: activeCampaigns + 1,
+        reserveSlot: true,
       });
     }
 
@@ -2041,70 +2044,16 @@ export const getOrCreateBusinessReferralLink = mutation({
     businessId: v.id('businesses'),
   },
   handler: async (ctx, { businessId }) => {
-    const { actor } = await requireActorHasBusinessCapability(
+    const created = await runRegisteredHandler<{ code: string; url: string }>(
+      getOrCreateBusinessReferralCode,
       ctx,
+      {
       businessId,
-      'invite_businesses'
-    );
-    const business = await getBusinessDoc(ctx, businessId);
-    if (!isPaidBusinessActive(business)) {
-      throw new Error('PAID_PLAN_REQUIRED');
-    }
-
-    const now = Date.now();
-    const active = await ctx.db
-      .query('businessReferralLinks')
-      .withIndex('by_referrerBusinessId_status', (q: any) =>
-        q.eq('referrerBusinessId', businessId).eq('status', 'active')
-      )
-      .collect();
-    const reusable = active.find((row: any) => Number(row.expiresAt) > now);
-    if (reusable) {
-      return {
-        businessReferralLinkId: reusable._id,
-        code: reusable.code,
-        status: reusable.status,
-        expiresAt: reusable.expiresAt,
-        url: buildBusinessReferralLinkUrl(reusable.code),
-        reused: true,
-      };
-    }
-
-    let code = '';
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      code = buildReferralCode('bref');
-      const exists = await findBusinessReferralLinkByCode(ctx, code);
-      if (!exists) {
-        break;
-      }
-      code = '';
-    }
-    if (!code) {
-      throw new Error('REFERRAL_CODE_GENERATION_FAILED');
-    }
-
-    const id = await ctx.db.insert('businessReferralLinks', {
-      code,
-      referrerBusinessId: businessId,
-      createdByUserId: actor._id,
-      status: 'active',
-      expiresAt: now + B2B_REFERRAL_LINK_TTL_MS,
-      openCount: 0,
-      lastOpenedAt: undefined,
-      createdAt: now,
-      updatedAt: now,
     });
-    const created = await ctx.db.get(id);
-    if (!created) {
-      throw new Error('B2B_REFERRAL_LINK_CREATE_FAILED');
-    }
     return {
-      businessReferralLinkId: created._id,
       code: created.code,
-      status: created.status,
-      expiresAt: created.expiresAt,
-      url: buildBusinessReferralLinkUrl(created.code),
-      reused: false,
+      url: created.url,
+      reused: true,
     };
   },
 });
@@ -2940,16 +2889,9 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
       });
 
       if (referrerBusiness) {
-        const baseEndAt =
-          typeof referrerBusiness.subscriptionEndAt === 'number' &&
-          Number(referrerBusiness.subscriptionEndAt) > now
-            ? Number(referrerBusiness.subscriptionEndAt)
-            : now;
-        const extendedEndAt = addMonthsUtc(baseEndAt, grantMonths);
         await ctx.db.patch(referrerBusiness._id, {
           b2bCreditMonthsEarned:
             Number(referrerBusiness.b2bCreditMonthsEarned ?? 0) + grantMonths,
-          subscriptionEndAt: extendedEndAt,
           updatedAt: now,
         });
         dirtyBusinessIds.set(
@@ -3057,10 +2999,23 @@ export const linkBusinessReferralToNewBusiness = internalMutation({
     referralCode: v.string(),
   },
   handler: async (ctx, args) => {
-    const normalizedCode = args.referralCode.trim().toUpperCase();
-    if (!normalizedCode) {
+    const trimmed = args.referralCode.trim();
+    if (!trimmed) {
       return { ok: true, skipped: 'empty_code' };
     }
+    const canonical = await claimReferralCodeForBusiness(ctx, {
+      code: trimmed,
+      referredBusinessId: args.newBusinessId,
+      actorUserId: args.createdByUserId,
+    });
+    if (canonical.ok) {
+      return { ok: true, linked: true, canonical: true };
+    }
+    if (canonical.reason !== 'invalid_code') {
+      return { ok: true, skipped: canonical.reason };
+    }
+
+    const normalizedCode = trimmed.toUpperCase();
     const link = await findBusinessReferralLinkByCode(ctx, normalizedCode);
     if (!link) {
       return { ok: true, skipped: 'code_not_found' };
@@ -3115,49 +3070,18 @@ export const getBusinessReferralCreditSummary = query({
     businessId: v.id('businesses'),
   },
   handler: async (ctx, { businessId }) => {
-    await requireActorHasBusinessCapability(
+    const hub = await runRegisteredHandler<any>(
+      getBusinessReferralHub,
       ctx,
-      businessId,
-      'invite_businesses'
+      { businessId }
     );
-    const rows = await ctx.db
-      .query('businessReferrals')
-      .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>
-        q.eq('referrerBusinessId', businessId)
-      )
-      .collect();
-    const creditedMonths = rows
-      .filter((row: any) => row.status === 'credited')
-      .reduce(
-        (sum: number, row: any) => sum + Number(row.creditMonths ?? 0),
-        0
-      );
-    const pendingMonths = rows
-      .filter(
-        (row: any) =>
-          row.status === 'waiting_30_days' && Boolean(row.referredBusinessId)
-      )
-      .reduce(
-        (sum: number, row: any) =>
-          sum + Math.max(0, Number(row.creditMonths ?? 0)),
-        0
-      );
-    const pendingInvitesCount = rows.filter(
-      (row: any) =>
-        Boolean(row.referredBusinessId) &&
-        (row.status === 'pending_subscription' ||
-          row.status === 'waiting_30_days')
-    ).length;
-    const activeReferralsCount = rows.filter(
-      (row: any) => row.status === 'credited'
-    ).length;
     return {
-      creditedMonths,
-      pendingMonths,
-      pendingInvitesCount,
-      activeReferralsCount,
-      remainingCapMonths: Math.max(0, B2B_REWARD_CAP_MONTHS - creditedMonths),
-      totalReferrals: rows.length,
+      creditedMonths: hub.metrics.monthsEarned,
+      pendingMonths: hub.metrics.monthsPending,
+      pendingInvitesCount: hub.metrics.joined,
+      activeReferralsCount: hub.metrics.matured,
+      remainingCapMonths: hub.remainingCap,
+      totalReferrals: hub.metrics.invited,
     };
   },
 });

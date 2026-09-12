@@ -195,6 +195,14 @@ Preview build checklist:
 - Android artifact: APK.
 - iOS artifact: physical-device internal build, not simulator.
 - Channel: `preview`.
+- A future comprehensive Pre-Build Gate must resolve the Convex deployment from
+  the selected app environment and explicitly verify
+  `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` on that deployment before starting a
+  Development or Preview native build. The verifier must fail unless the value
+  is non-empty Base64URL text that decodes to exactly 32 bytes, emit only
+  presence/format/length status (never the value), and use an explicit
+  deployment selector rather than the CLI default. A DEV/Preview check must not
+  query or modify Production.
 - Android RTL source guard, before starting a preview build:
   ```bash
   bun run verify:rtl-build-source

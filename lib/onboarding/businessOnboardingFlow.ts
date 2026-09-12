@@ -1,3 +1,5 @@
+import { MVP_FEATURE_FLAGS } from '@/lib/billing/productionContract';
+
 export const BUSINESS_ONBOARDING_ROUTES = {
   entry: '/(authenticated)/merchant/onboarding',
   role: '/(auth)/onboarding-business-role',
@@ -111,7 +113,10 @@ export function getBusinessOnboardingRouteForStep(
 export function getBusinessOnboardingEntryRoute(
   hasCompletedBusinessOnboarding: boolean
 ): string {
-  if (hasCompletedBusinessOnboarding) {
+  if (
+    hasCompletedBusinessOnboarding &&
+    MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled
+  ) {
     return withBusinessOnboardingFlow(
       BUSINESS_ONBOARDING_ROUTES.entry,
       BUSINESS_ONBOARDING_FLOW.additional

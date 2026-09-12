@@ -20,6 +20,7 @@ import {
 } from '../lib/smartManagerDelivery';
 import { buildPreparedActionCopyContentHash } from '../lib/smartManagerPreparedActions';
 import { sendExpoPushMessages } from '../pushNotifications';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const originalFetch = globalThis.fetch;
 
@@ -293,6 +294,13 @@ function makeFixture(channels = ['in_app']) {
         isActive: true,
       },
     ],
+    businessBillingAccounts: [
+      buildCanonicalBusinessBillingAccount({
+        businessId: run.businessId,
+        ownerUserId: 'owner_1',
+        plan: 'pro',
+      }),
+    ],
     campaigns: [campaign],
     referralConfigs: [],
     smartManagerPreparedActions: [action],
@@ -426,7 +434,34 @@ describe('Smart Manager delivery start and authority', () => {
       subscriptionPlan: 'pro',
       subscriptionStatus: 'inactive',
     });
+    await fixture.db.patch('billing_1', {
+      status: 'inactive',
+    });
     expect(await start(fixture)).toMatchObject({ failureCode: 'SUBSCRIPTION_INACTIVE' });
+  });
+
+  test('canceled subscription with future period end remains operational for delivery', async () => {
+    const fixture = makeFixture();
+    await fixture.db.patch('billing_1', {
+      status: 'canceled',
+      canceledAt: Date.now(),
+      currentPeriodEndAt: Date.now() + 86_400_000,
+      hasProviderEvidence: true,
+    });
+    expect((await start(fixture)).status).toBe('started');
+  });
+
+  test('expired canceled subscription invalidates before delivery', async () => {
+    const fixture = makeFixture();
+    await fixture.db.patch('billing_1', {
+      status: 'canceled',
+      canceledAt: Date.now() - 86_400_000,
+      currentPeriodEndAt: Date.now() - 1_000,
+      hasProviderEvidence: true,
+    });
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'SUBSCRIPTION_INACTIVE',
+    });
   });
 
   test('8 deleted original approver does not block business execution', async () => {
@@ -1055,6 +1090,9 @@ describe('Smart Manager post-call authority races', () => {
     await fixture.db.patch('business_1', {
       subscriptionPlan: 'pro',
       subscriptionStatus: 'inactive',
+    });
+    await fixture.db.patch('billing_1', {
+      status: 'inactive',
     });
     fixture.scheduled.length = 0;
 

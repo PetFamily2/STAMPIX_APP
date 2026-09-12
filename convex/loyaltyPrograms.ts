@@ -1,7 +1,16 @@
 import { v } from 'convex/values';
+import {
+  DEFAULT_CARD_THEME_ID,
+  resolveReservableCardThemeId,
+} from '../constants/cardThemes';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
-import { assertEntitlement } from './entitlements';
+import { mutation, query, type MutationCtx } from './_generated/server';
+import {
+  assertEntitlement,
+  getBusinessEntitlementsForBusinessId,
+  throwPlanLimitReached,
+} from './entitlements';
+import { releaseUsageSlot, reserveUsageSlot } from './lib/billing/usageCounters';
 import {
   requireActorHasBusinessCapability,
   requireActorIsBusinessOwner,
@@ -16,7 +25,7 @@ import {
   upsertBusinessOnboardingDraft,
 } from './onboarding';
 
-const DEFAULT_THEME_ID = 'midnight-luxe';
+const DEFAULT_THEME_ID = DEFAULT_CARD_THEME_ID;
 const DEFAULT_STAMP_SHAPE = 'circle';
 const STAMP_SHAPE_SET = new Set([
   'circle',
@@ -75,8 +84,15 @@ function normalizeMaxStamps(value: number) {
 }
 
 function normalizeThemeId(value: string | undefined) {
-  const normalized = value?.trim();
-  return normalized && normalized.length > 0 ? normalized : DEFAULT_THEME_ID;
+  const normalized = resolveReservableCardThemeId(value);
+  if (!normalized) {
+    throw new Error('LOYALTY_THEME_INVALID');
+  }
+  return normalized;
+}
+
+function resolveProgramVisualThemeId(value: string | null | undefined) {
+  return resolveReservableCardThemeId(value) ?? DEFAULT_THEME_ID;
 }
 
 function normalizeStampShape(value: string | undefined) {
@@ -94,6 +110,90 @@ function normalizeOptionalText(value: string | undefined) {
 
 function normalizeStructureText(value: string | undefined) {
   return normalizeOptionalText(value) ?? '';
+}
+
+export function countsTowardMaxCards(program: any): boolean {
+  return resolveProgramLifecycle(program) !== 'archived';
+}
+
+export function countNonArchivedPrograms(programs: any[]): number {
+  return programs.filter(countsTowardMaxCards).length;
+}
+
+async function assertCardSlotAvailable(
+  ctx: any,
+  businessId: Id<'businesses'>,
+  existingPrograms: any[],
+  options?: { requireOperational?: boolean; excludeProgramId?: string }
+) {
+  const currentValue = existingPrograms.filter((program) => {
+    if (
+      options?.excludeProgramId &&
+      String(program._id) === options.excludeProgramId
+    ) {
+      return false;
+    }
+    return countsTowardMaxCards(program);
+  }).length;
+  if (options?.requireOperational !== false) {
+    await assertEntitlement(ctx, businessId, {
+      limitKey: 'maxCards',
+      currentValue,
+      reserveSlot: true,
+    });
+    return;
+  }
+  const entitlements = await getBusinessEntitlementsForBusinessId(
+    ctx,
+    businessId
+  );
+  if (currentValue >= entitlements.limits.maxCards) {
+    throwPlanLimitReached({
+      businessId: String(businessId),
+      plan: entitlements.plan,
+      status: entitlements.subscriptionStatus,
+      limitKey: 'maxCards',
+      limitValue: entitlements.limits.maxCards,
+      currentValue,
+    });
+  }
+  const reserved = await reserveUsageSlot(ctx, {
+    businessId,
+    limitKey: 'maxCards',
+    limitValue: entitlements.limits.maxCards,
+    currentObserved: currentValue,
+  });
+  if (!reserved.reserved) {
+    throwPlanLimitReached({
+      businessId: String(businessId),
+      plan: entitlements.plan,
+      status: entitlements.subscriptionStatus,
+      limitKey: 'maxCards',
+      limitValue: entitlements.limits.maxCards,
+      currentValue: reserved.current,
+    });
+  }
+}
+
+async function assertCanReactivateArchivedProgram(
+  ctx: MutationCtx,
+  businessId: Id<'businesses'>,
+  program: Doc<'loyaltyPrograms'>,
+  existingPrograms: any[]
+) {
+  const themeId = normalizeThemeId(program.cardThemeId);
+  const programId = String(program._id);
+  await assertThemeAvailable(ctx, businessId, themeId, programId);
+  await assertCardSlotAvailable(ctx, businessId, existingPrograms, {
+    requireOperational: true,
+    excludeProgramId: programId,
+  });
+  try {
+    await assertThemeAvailable(ctx, businessId, themeId, programId);
+  } catch (error) {
+    await releaseUsageSlot(ctx, { businessId, limitKey: 'maxCards' });
+    throw error;
+  }
 }
 
 export function resolveProgramLifecycle(program: any): ProgramLifecycle {
@@ -250,6 +350,54 @@ async function listBusinessPrograms(ctx: any, businessId: string) {
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
+}
+
+async function assertThemeAvailable(
+  ctx: MutationCtx,
+  businessId: string,
+  themeId: string,
+  currentProgramId?: string
+) {
+  const programs = await listBusinessPrograms(ctx, businessId);
+  const conflict = hasLoyaltyThemeConflict(
+    programs,
+    businessId,
+    themeId,
+    currentProgramId
+  );
+  if (conflict) {
+    throw new Error('LOYALTY_THEME_CONFLICT');
+  }
+}
+
+export function hasLoyaltyThemeConflict(
+  programs: Array<{
+    _id: string;
+    businessId: string;
+    isActive?: boolean;
+    status?: string;
+    isArchived?: boolean;
+    cardThemeId?: string;
+  }>,
+  businessId: string,
+  themeId: string,
+  currentProgramId?: string
+) {
+  return programs.some((program) => {
+    if (String(program.businessId) !== String(businessId)) {
+      return false;
+    }
+    if (program.isActive !== true) {
+      return false;
+    }
+    if (String(program._id) === String(currentProgramId ?? '')) {
+      return false;
+    }
+    if (resolveProgramLifecycle(program) === 'archived') {
+      return false;
+    }
+    return resolveProgramVisualThemeId(program.cardThemeId) === themeId;
+  });
 }
 
 async function resolveProgramImageUrl(ctx: any, program: any) {
@@ -517,6 +665,28 @@ export const listManagementByBusiness = query({
   },
 });
 
+export const listThemeReservationsByBusiness = query({
+  args: { businessId: v.optional(v.id('businesses')) },
+  handler: async (ctx, { businessId }) => {
+    if (!businessId) {
+      return [];
+    }
+    await requireActorIsStaffForBusiness(ctx, businessId);
+    const programs = (await listBusinessPrograms(
+      ctx,
+      businessId
+    )) as Doc<'loyaltyPrograms'>[];
+    return programs
+      .filter((program) => resolveProgramLifecycle(program) !== 'archived')
+      .map((program) => ({
+        programId: program._id,
+        lifecycle: resolveProgramLifecycle(program),
+        themeId:
+          resolveReservableCardThemeId(program.cardThemeId) ?? DEFAULT_THEME_ID,
+      }));
+  },
+});
+
 export const getProgramDetailsForManagement = query({
   args: {
     businessId: v.id('businesses'),
@@ -674,7 +844,11 @@ export const createLoyaltyProgram = mutation({
     const normalizedIcon = normalizeIcon(stampIcon);
     const normalizedStampShape = normalizeStampShape(stampShape);
     const normalizedThemeId = normalizeThemeId(cardThemeId);
+    await assertThemeAvailable(ctx, businessId, normalizedThemeId);
     const existingPrograms = await listBusinessPrograms(ctx, businessId);
+    await assertCardSlotAvailable(ctx, businessId, existingPrograms, {
+      requireOperational: true,
+    });
     const maxPosSortOrder = existingPrograms.reduce(
       (highest: number, program: any) => {
         if (typeof program.posSortOrder !== 'number') {
@@ -839,6 +1013,18 @@ export const createOrResumeBusinessOnboardingProgram = mutation({
 
     const now = Date.now();
     let reused = true;
+    const programKeepsCurrentTheme =
+      program &&
+      resolveProgramVisualThemeId(program.cardThemeId) ===
+        normalizedProgram.cardThemeId;
+    if (!programKeepsCurrentTheme) {
+      await assertThemeAvailable(
+        ctx,
+        args.businessId,
+        normalizedProgram.cardThemeId,
+        program ? String(program._id) : undefined
+      );
+    }
     if (program) {
       await ctx.db.patch(
         program._id,
@@ -850,6 +1036,9 @@ export const createOrResumeBusinessOnboardingProgram = mutation({
         ctx,
         args.businessId
       );
+      await assertCardSlotAvailable(ctx, args.businessId, existingPrograms, {
+        requireOperational: false,
+      });
       const maxPosSortOrder = existingPrograms.reduce(
         (highest: number, existingProgram: Doc<'loyaltyPrograms'>) =>
           typeof existingProgram.posSortOrder === 'number'
@@ -928,7 +1117,7 @@ export const publishProgram = mutation({
     const lifecycle = resolveProgramLifecycle(program);
 
     if (lifecycle === 'archived') {
-      throw new Error('PROGRAM_REACTIVATION_FORBIDDEN');
+      throw new Error('PROGRAM_PUBLISH_REQUIRES_DRAFT');
     }
     if (lifecycle === 'active') {
       return { ok: true, updatedAt: program.updatedAt };
@@ -942,17 +1131,43 @@ export const publishProgram = mutation({
     });
 
     const allPrograms = await listBusinessPrograms(ctx, businessId);
-    const activeCountExcludingCurrent = allPrograms.filter((item: any) => {
+    const nonArchivedExcludingCurrent = allPrograms.filter((item: any) => {
       if (String(item._id) === String(program._id)) {
         return false;
       }
-      return resolveProgramLifecycle(item) === 'active';
+      return countsTowardMaxCards(item);
     }).length;
 
-    await assertEntitlement(ctx, businessId, {
-      limitKey: 'maxCards',
-      currentValue: activeCountExcludingCurrent,
-    });
+    const entitlements = await getBusinessEntitlementsForBusinessId(
+      ctx,
+      businessId
+    );
+    if (entitlements.isSubscriptionActive) {
+      await assertEntitlement(ctx, businessId, {
+        limitKey: 'maxCards',
+        currentValue: nonArchivedExcludingCurrent,
+      });
+    } else if (nonArchivedExcludingCurrent > 0) {
+      await assertEntitlement(ctx, businessId, {
+        limitKey: 'maxCards',
+        currentValue: nonArchivedExcludingCurrent,
+      });
+    } else if (nonArchivedExcludingCurrent >= entitlements.limits.maxCards) {
+      throwPlanLimitReached({
+        businessId: String(businessId),
+        plan: entitlements.plan,
+        status: entitlements.subscriptionStatus,
+        limitKey: 'maxCards',
+        limitValue: entitlements.limits.maxCards,
+        currentValue: nonArchivedExcludingCurrent,
+      });
+    }
+    await assertThemeAvailable(
+      ctx,
+      businessId,
+      normalizeThemeId(program.cardThemeId),
+      String(program._id)
+    );
 
     const now = Date.now();
     await ctx.db.patch(program._id, {
@@ -1024,6 +1239,9 @@ export const updateProgramForManagement = mutation({
       actualUpdatedAt: program.updatedAt,
     });
     const lifecycle = resolveProgramLifecycle(program);
+    if (lifecycle === 'archived') {
+      throw new Error('PROGRAM_ARCHIVED_READONLY');
+    }
     const ruleLocked = isRuleLocked(lifecycle);
 
     const normalizedTitle = normalizeTitle(title);
@@ -1055,6 +1273,16 @@ export const updateProgramForManagement = mutation({
 
     if (ruleLocked && lockedFieldsChanged) {
       throw new Error(CARD_RULES_LOCKED_ERROR_MESSAGE);
+    }
+
+    const currentThemeId = resolveProgramVisualThemeId(program.cardThemeId);
+    if (normalizedThemeId !== currentThemeId) {
+      await assertThemeAvailable(
+        ctx,
+        businessId,
+        normalizedThemeId,
+        String(program._id)
+      );
     }
 
     const now = Date.now();
@@ -1133,6 +1361,7 @@ export const archiveProgram = mutation({
       archivedByUserId: actor._id,
       updatedAt: now,
     });
+    await releaseUsageSlot(ctx, { businessId, limitKey: 'maxCards', now });
 
     await markSmartManagerDirty(ctx, {
       businessId,
@@ -1149,9 +1378,46 @@ export const unarchiveProgram = mutation({
   args: {
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
+    expectedUpdatedAt: v.optional(v.number()),
   },
-  handler: async () => {
-    throw new Error('PROGRAM_REACTIVATION_FORBIDDEN');
+  handler: async (ctx, { businessId, programId, expectedUpdatedAt }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_loyalty_cards'
+    );
+    const program = await getProgramOrThrow(ctx, businessId, programId);
+    if (resolveProgramLifecycle(program) !== 'archived') {
+      return { ok: true, updatedAt: program.updatedAt };
+    }
+    assertExpectedUpdatedAt({
+      entity: 'program',
+      entityId: String(programId),
+      expectedUpdatedAt,
+      actualUpdatedAt: program.updatedAt,
+    });
+    const allPrograms = await listBusinessPrograms(ctx, businessId);
+    await assertCanReactivateArchivedProgram(
+      ctx,
+      businessId,
+      program,
+      allPrograms
+    );
+    const now = Date.now();
+    await ctx.db.patch(program._id, {
+      status: 'active',
+      isArchived: false,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
+      updatedAt: now,
+    });
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['programs', 'memberships'],
+      reasons: ['loyalty_program_reactivated'],
+      now,
+    });
+    return { ok: true, updatedAt: now };
   },
 });
 
@@ -1180,7 +1446,11 @@ export const deleteProgram = mutation({
       throw new Error('PROGRAM_DELETE_FORBIDDEN_HAS_MEMBERSHIPS');
     }
 
+    const countedTowardMaxCards = countsTowardMaxCards(program);
     await ctx.db.delete(program._id);
+    if (countedTowardMaxCards) {
+      await releaseUsageSlot(ctx, { businessId, limitKey: 'maxCards' });
+    }
     await markSmartManagerDirty(ctx, {
       businessId,
       domains: ['programs'],

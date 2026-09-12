@@ -46,6 +46,7 @@ import {
 } from '../lib/smartManagerPolicy';
 import { getRecommendationAccessDecision } from '../lib/recommendationCatalog';
 import { REQUIRED_PLAN_BY_FEATURE, planConfig } from '../entitlements';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const NOW = 1_800_000_000_000;
 
@@ -1302,6 +1303,14 @@ function evaluationSourceSeed(overrides = {}) {
         updatedAt: NOW - 1,
       },
     ],
+    businessBillingAccounts: [
+      buildCanonicalBusinessBillingAccount({
+        businessId: 'business_1',
+        ownerUserId: 'owner_1',
+        plan: 'starter',
+        now: NOW,
+      }),
+    ],
     smartManagerEvaluationStates: [
       {
         _id: 'state_1',
@@ -1415,6 +1424,89 @@ describe('Pass B bounded and incremental evaluation', () => {
     expect(
       [...expandSmartManagerRefreshDomains(['entitlements'], true)].sort()
     ).toEqual(['campaigns', 'entitlements']);
+  });
+
+  test('legacy snapshots missing invite_businesses stay readable and new snapshots write it', async () => {
+    const ctx = buildCtx(
+      evaluationSourceSeed({
+        smartManagerEvaluationStates: [
+          leasedEvaluationState({
+            dirtyDomains: [
+              'business',
+              'profile',
+              'programs',
+              'memberships',
+              'events',
+              'campaigns',
+              'team',
+              'entitlements',
+            ],
+            dirtyReasons: ['test'],
+          }),
+        ],
+      })
+    );
+    const first = await withFixedNow(NOW, () =>
+      loadEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 1,
+      })
+    );
+    expect(
+      Object.hasOwn(
+        first.capabilityAvailability.ownerCapabilities,
+        'invite_businesses'
+      )
+    ).toBe(true);
+    expect(
+      first.capabilityAvailability.ownerCapabilities.invite_businesses
+    ).toBe(true);
+
+    await withFixedNow(NOW, () =>
+      completeEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 1,
+        leaseToken: 'lease_1',
+        evaluation: first,
+      })
+    );
+    expect(
+      ctx.tables.smartManagerFactSnapshots[0].capabilityAvailability
+        .ownerCapabilities.invite_businesses
+    ).toBe(true);
+
+    const { invite_businesses: _omitted, ...legacyOwnerCapabilities } =
+      first.capabilityAvailability.ownerCapabilities;
+    expect(legacyOwnerCapabilities.invite_businesses).toBeUndefined();
+    ctx.tables.smartManagerFactSnapshots[0].capabilityAvailability = {
+      ...first.capabilityAvailability,
+      ownerCapabilities: legacyOwnerCapabilities,
+    };
+    Object.assign(ctx.tables.smartManagerEvaluationStates[0], {
+      generation: 2,
+      dirtyDomains: ['team'],
+      dirtyReasons: ['team_change'],
+      leaseToken: 'lease_2',
+      leaseGeneration: 2,
+      leaseExpiresAt: NOW + 120_000,
+    });
+
+    const second = await withFixedNow(NOW + 1, () =>
+      loadEvaluationInternal._handler(ctx, {
+        businessId: 'business_1',
+        generation: 2,
+      })
+    );
+    expect(second.facts.facts.campaigns).toEqual(first.facts.facts.campaigns);
+    expect(
+      Object.hasOwn(
+        second.capabilityAvailability.ownerCapabilities,
+        'invite_businesses'
+      )
+    ).toBe(true);
+    expect(
+      second.capabilityAvailability.ownerCapabilities.invite_businesses
+    ).toBe(true);
   });
 
   test('turns oversized sources into explicit unknown facts', async () => {

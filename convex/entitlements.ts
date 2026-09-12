@@ -6,26 +6,34 @@ import {
   mutation,
   query,
 } from './_generated/server';
+import { requireActorHasBusinessCapability } from './guards';
+import { reserveUsageSlot } from './lib/billing/usageCounters';
 import {
-  getBusinessStaffStatus,
-  requireActorHasBusinessCapability,
-} from './guards';
+  ensureBusinessBillingAccount,
+  getBillingAccountByProviderAppUserId,
+  getBillingAccountForBusiness,
+} from './lib/billing/accounts';
+import {
+  resolveCanonicalBillingState,
+} from './lib/billing/lifecycle';
+import {
+  type BillingPeriod as ContractBillingPeriod,
+  type BusinessPlan as ContractBusinessPlan,
+  PLAN_ORDER as CONTRACT_PLAN_ORDER,
+  PLAN_RANK as CONTRACT_PLAN_RANK,
+  planConfig as CONTRACT_PLAN_CONFIG,
+  REQUIRED_PLAN_BY_CANONICAL_FEATURE as CONTRACT_REQUIRED_PLAN_BY_FEATURE,
+} from './lib/billing/productionContract';
+import { resolveRevenueCatPlanMapping as resolveMappedRevenueCatProduct } from './lib/billing/productMap';
+import {
+  isLegacyBusinessScopedAppUserId,
+  parseLegacyBusinessIdFromAppUserId,
+} from './lib/billing/identity';
+import { evaluateReferralProgressFromBillingEvent } from './lib/referrals/billingHook';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
-function addMonthsUtc(timestamp: number, months: number) {
-  const date = new Date(timestamp);
-  const day = date.getUTCDate();
-  date.setUTCDate(1);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  const lastDay = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
-  ).getUTCDate();
-  date.setUTCDate(Math.min(day, lastDay));
-  return date.getTime();
-}
-
-export type BusinessPlan = 'starter' | 'pro' | 'premium';
+export type BusinessPlan = ContractBusinessPlan;
 export type LegacyBusinessPlan = 'starter' | 'pro' | 'unlimited' | 'free';
 export type BusinessSubscriptionStatus =
   | 'active'
@@ -33,10 +41,10 @@ export type BusinessSubscriptionStatus =
   | 'past_due'
   | 'canceled'
   | 'inactive';
-export type BillingPeriod = 'monthly' | 'yearly';
+export type BillingPeriod = ContractBillingPeriod;
 
 export type RevenueCatPlanMapping = {
-  plan: Exclude<BusinessPlan, 'starter'>;
+  plan: BusinessPlan;
   period: BillingPeriod;
 };
 
@@ -137,15 +145,12 @@ export type EntitlementRequirement = {
   featureKey?: FeatureKey;
   limitKey?: LimitKey;
   currentValue?: number;
+  reserveSlot?: boolean;
 };
 
-export const PLAN_ORDER: BusinessPlan[] = ['starter', 'pro', 'premium'];
+export const PLAN_ORDER: BusinessPlan[] = CONTRACT_PLAN_ORDER;
 
-export const PLAN_RANK: Record<BusinessPlan, number> = {
-  starter: 0,
-  pro: 1,
-  premium: 2,
-};
+export const PLAN_RANK: Record<BusinessPlan, number> = CONTRACT_PLAN_RANK;
 
 const FEATURE_ALIAS_MAP: Record<FeatureKey, CanonicalFeatureKey> = {
   team: 'team',
@@ -194,14 +199,7 @@ function expandRequiredPlanMap(
 const REQUIRED_PLAN_BY_CANONICAL_FEATURE: Record<
   CanonicalFeatureKey,
   BusinessPlan
-> = {
-  team: 'pro',
-  advancedReports: 'pro',
-  marketingHub: 'starter',
-  smartAnalytics: 'starter',
-  smartRetentionManager: 'starter',
-  smartRetentionManagerAiAssist: 'pro',
-};
+> = CONTRACT_REQUIRED_PLAN_BY_FEATURE;
 
 export const REQUIRED_PLAN_BY_FEATURE = expandRequiredPlanMap(
   REQUIRED_PLAN_BY_CANONICAL_FEATURE
@@ -209,76 +207,22 @@ export const REQUIRED_PLAN_BY_FEATURE = expandRequiredPlanMap(
 
 export const planConfig: Record<BusinessPlan, PlanDefinition> = {
   starter: {
-    displayName: 'Starter',
-    pricing: {
-      monthly: 0,
-      yearly: 0,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: 1,
-      maxCustomers: 30,
-      maxActiveRetentionActions: 0,
-      maxCampaigns: 1,
-      maxAiExecutionsPerMonth: 0,
-      maxTeamSeats: 0,
-    },
-    features: {
-      team: false,
-      advancedReports: false,
-      marketingHub: true,
-      smartAnalytics: true,
-      smartRetentionManager: true,
-      smartRetentionManagerAiAssist: false,
-    },
+    displayName: CONTRACT_PLAN_CONFIG.starter.displayName,
+    pricing: CONTRACT_PLAN_CONFIG.starter.pricing,
+    limits: CONTRACT_PLAN_CONFIG.starter.limits,
+    features: CONTRACT_PLAN_CONFIG.starter.features,
   },
   pro: {
-    displayName: 'Pro',
-    pricing: {
-      monthly: 129,
-      yearly: 1238,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: 5,
-      maxCustomers: 2000,
-      maxActiveRetentionActions: 5,
-      maxCampaigns: 5,
-      maxAiExecutionsPerMonth: 100,
-      maxTeamSeats: 5,
-    },
-    features: {
-      team: true,
-      advancedReports: true,
-      marketingHub: true,
-      smartAnalytics: true,
-      smartRetentionManager: true,
-      smartRetentionManagerAiAssist: true,
-    },
+    displayName: CONTRACT_PLAN_CONFIG.pro.displayName,
+    pricing: CONTRACT_PLAN_CONFIG.pro.pricing,
+    limits: CONTRACT_PLAN_CONFIG.pro.limits,
+    features: CONTRACT_PLAN_CONFIG.pro.features,
   },
   premium: {
-    displayName: 'Premium',
-    pricing: {
-      monthly: 249,
-      yearly: 2390,
-      currency: 'ILS',
-    },
-    limits: {
-      maxCards: 10,
-      maxCustomers: 10000,
-      maxActiveRetentionActions: 15,
-      maxCampaigns: 10,
-      maxAiExecutionsPerMonth: 300,
-      maxTeamSeats: 20,
-    },
-    features: {
-      team: true,
-      advancedReports: true,
-      marketingHub: true,
-      smartAnalytics: true,
-      smartRetentionManager: true,
-      smartRetentionManagerAiAssist: true,
-    },
+    displayName: CONTRACT_PLAN_CONFIG.premium.displayName,
+    pricing: CONTRACT_PLAN_CONFIG.premium.pricing,
+    limits: CONTRACT_PLAN_CONFIG.premium.limits,
+    features: CONTRACT_PLAN_CONFIG.premium.features,
   },
 };
 
@@ -295,23 +239,6 @@ const ACTIVE_PAID_STATUSES: BusinessSubscriptionStatus[] = [
   'trialing',
 ];
 
-const DEFAULT_REVENUECAT_PRODUCT_MAP: Record<string, RevenueCatPlanMapping> = {
-  pro_monthly: { plan: 'pro', period: 'monthly' },
-  pro_yearly: { plan: 'pro', period: 'yearly' },
-  pro_annual: { plan: 'pro', period: 'yearly' },
-  premium_monthly: { plan: 'premium', period: 'monthly' },
-  premium_yearly: { plan: 'premium', period: 'yearly' },
-  premium_annual: { plan: 'premium', period: 'yearly' },
-};
-
-const DEFAULT_REVENUECAT_ENTITLEMENT_MAP: Record<
-  string,
-  Exclude<BusinessPlan, 'starter'>
-> = {
-  pro: 'pro',
-  premium: 'premium',
-};
-
 const REVENUECAT_ACTIVATION_EVENT_TYPES = new Set([
   'INITIAL_PURCHASE',
   'NON_RENEWING_PURCHASE',
@@ -319,121 +246,43 @@ const REVENUECAT_ACTIVATION_EVENT_TYPES = new Set([
   'PRODUCT_CHANGE',
   'UNCANCELLATION',
   'TRIAL_STARTED',
+  'SUBSCRIPTION_EXTENDED',
+  'REFUND_REVERSED',
 ]);
 
-const REVENUECAT_DOWNGRADE_EVENT_TYPES = new Set(['EXPIRATION', 'REFUND']);
+const REVENUECAT_REVOKE_EVENT_TYPES = new Set(['EXPIRATION', 'REFUND']);
 
 const REVENUECAT_PAST_DUE_EVENT_TYPES = new Set(['BILLING_ISSUE']);
 const REVENUECAT_CANCELLATION_EVENT_TYPES = new Set(['CANCELLATION']);
+const REVENUECAT_SAFE_IRRELEVANT_EVENT_TYPES = new Set([
+  'TRANSFER',
+  'SUBSCRIBER_ALIAS',
+  'TEST',
+  'EXPERIMENT_ENROLLMENT',
+  'TEMPORARY_ENTITLEMENT_GRANT',
+  'INVOICE_ISSUANCE',
+]);
 
 function throwEntitlementError(payload: EntitlementErrorPayload): never {
   throw new ConvexError(payload);
 }
 
-function splitEnvList(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function addProductAliases(
-  map: Map<string, RevenueCatPlanMapping>,
-  envName: string,
-  mapping: RevenueCatPlanMapping
-) {
-  for (const productId of splitEnvList(process.env[envName])) {
-    map.set(productId, mapping);
-  }
-}
-
-function addEntitlementAliases(
-  map: Map<string, Exclude<BusinessPlan, 'starter'>>,
-  envName: string,
-  plan: Exclude<BusinessPlan, 'starter'>
-) {
-  for (const entitlementId of splitEnvList(process.env[envName])) {
-    map.set(entitlementId, plan);
-  }
-}
-
-function buildRevenueCatProductMap() {
-  const map = new Map<string, RevenueCatPlanMapping>(
-    Object.entries(DEFAULT_REVENUECAT_PRODUCT_MAP)
-  );
-
-  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PRO_MONTHLY', {
-    plan: 'pro',
-    period: 'monthly',
-  });
-  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PRO_YEARLY', {
-    plan: 'pro',
-    period: 'yearly',
-  });
-  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PREMIUM_MONTHLY', {
-    plan: 'premium',
-    period: 'monthly',
-  });
-  addProductAliases(map, 'REVENUECAT_PRODUCT_IDS_PREMIUM_YEARLY', {
-    plan: 'premium',
-    period: 'yearly',
-  });
-
-  return map;
-}
-
-function buildRevenueCatEntitlementMap() {
-  const map = new Map<string, Exclude<BusinessPlan, 'starter'>>(
-    Object.entries(DEFAULT_REVENUECAT_ENTITLEMENT_MAP)
-  );
-
-  addEntitlementAliases(map, 'REVENUECAT_ENTITLEMENT_IDS_PRO', 'pro');
-  addEntitlementAliases(map, 'REVENUECAT_ENTITLEMENT_IDS_PREMIUM', 'premium');
-
-  return map;
-}
-
 export function resolveRevenueCatPlanMapping(args: {
   productId?: string;
+  newProductId?: string;
   entitlementIds?: string[];
+  requireEntitlement?: boolean;
 }): RevenueCatPlanMapping {
-  const productMap = buildRevenueCatProductMap();
-  const entitlementMap = buildRevenueCatEntitlementMap();
-
-  const entitlementPlans: Exclude<BusinessPlan, 'starter'>[] = [];
-  for (const entitlementId of args.entitlementIds ?? []) {
-    const entitlementPlan = entitlementMap.get(entitlementId);
-    if (!entitlementPlan) {
-      throw new Error('REVENUECAT_UNSUPPORTED_ENTITLEMENT');
-    }
-    entitlementPlans.push(entitlementPlan);
-  }
-
-  if (!args.productId) {
-    throw new Error('REVENUECAT_MISSING_PRODUCT_ID');
-  }
-
-  const productMapping = productMap.get(args.productId);
-  if (!productMapping) {
-    throw new Error('REVENUECAT_UNSUPPORTED_PRODUCT');
-  }
-
-  const mappings: RevenueCatPlanMapping[] = [
-    productMapping,
-    ...entitlementPlans.map((entitlementPlan) => ({
-      plan: entitlementPlan,
-      period: productMapping.period,
-    })),
-  ];
-
-  const [first] = mappings;
-  for (const mapping of mappings.slice(1)) {
-    if (mapping.plan !== first.plan) {
-      throw new Error('REVENUECAT_PLAN_IDENTIFIER_CONFLICT');
-    }
-  }
-
-  return first;
+  const mapped = resolveMappedRevenueCatProduct({
+    productId: args.productId,
+    newProductId: args.newProductId,
+    entitlementIds: args.entitlementIds,
+    requireEntitlement: args.requireEntitlement,
+  });
+  return {
+    plan: mapped.plan,
+    period: mapped.period,
+  };
 }
 
 function normalizeRevenueCatSubscriptionStatus(
@@ -458,21 +307,27 @@ function normalizeRevenueCatSubscriptionStatus(
   return 'active';
 }
 
-function shouldDowngradeBusinessForRevenueCatEvent(eventType: string) {
-  return REVENUECAT_DOWNGRADE_EVENT_TYPES.has(eventType);
+function shouldRevokeAccessForRevenueCatEvent(eventType: string) {
+  return REVENUECAT_REVOKE_EVENT_TYPES.has(eventType);
 }
 
 function assertSupportedRevenueCatEventType(eventType: string) {
   if (
     REVENUECAT_ACTIVATION_EVENT_TYPES.has(eventType) ||
-    REVENUECAT_DOWNGRADE_EVENT_TYPES.has(eventType) ||
+    REVENUECAT_REVOKE_EVENT_TYPES.has(eventType) ||
     REVENUECAT_PAST_DUE_EVENT_TYPES.has(eventType) ||
-    REVENUECAT_CANCELLATION_EVENT_TYPES.has(eventType)
+    REVENUECAT_CANCELLATION_EVENT_TYPES.has(eventType) ||
+    REVENUECAT_SAFE_IRRELEVANT_EVENT_TYPES.has(eventType) ||
+    eventType === 'SUBSCRIPTION_PAUSED'
   ) {
     return;
   }
 
   throw new Error('REVENUECAT_UNSUPPORTED_EVENT_TYPE');
+}
+
+function isSafeIrrelevantRevenueCatEvent(eventType: string) {
+  return REVENUECAT_SAFE_IRRELEVANT_EVENT_TYPES.has(eventType);
 }
 
 type RevenueCatBusinessIdNormalizer = {
@@ -514,7 +369,7 @@ function normalizeBillingPeriod(value: unknown): BillingPeriod | null {
 
 function normalizeSubscriptionStatus(
   value: unknown,
-  plan: BusinessPlan
+  _plan: BusinessPlan
 ): BusinessSubscriptionStatus {
   if (
     value === 'active' ||
@@ -525,7 +380,7 @@ function normalizeSubscriptionStatus(
   ) {
     return value;
   }
-  return plan === 'starter' ? 'active' : 'inactive';
+  return 'inactive';
 }
 
 function normalizeFeatureKey(featureKey: FeatureKey): CanonicalFeatureKey {
@@ -533,39 +388,77 @@ function normalizeFeatureKey(featureKey: FeatureKey): CanonicalFeatureKey {
 }
 
 function isPaidPlanSubscriptionActive(
-  plan: BusinessPlan,
+  _plan: BusinessPlan,
   status: BusinessSubscriptionStatus,
   endAt: number | null,
-  now = Date.now()
+  now = Date.now(),
+  options?: {
+    hasProviderEvidence?: boolean;
+    gracePeriodEndAt?: number | null;
+    entitlementRevokedAt?: number | null;
+  }
 ): boolean {
-  if (plan === 'starter') {
-    return true;
-  }
-  if (status === 'canceled') {
-    return typeof endAt === 'number' && endAt > now;
-  }
-  return ACTIVE_PAID_STATUSES.includes(status);
+  const canonical = resolveCanonicalBillingState({
+    plan: _plan,
+    status,
+    currentPeriodEndAt: endAt,
+    gracePeriodEndAt: options?.gracePeriodEndAt ?? null,
+    hasProviderEvidence: options?.hasProviderEvidence === true,
+    entitlementRevokedAt: options?.entitlementRevokedAt ?? null,
+    now,
+  });
+  return canonical.operationalAccess;
 }
 
 function resolveBusinessSubscriptionState(
   business: Doc<'businesses'>,
-  _now = Date.now()
+  _now = Date.now(),
+  billingAccount?: any
 ): BusinessSubscriptionState {
+  if (billingAccount) {
+    const canonical = resolveCanonicalBillingState({
+      plan: billingAccount.plan ?? billingAccount.lastPlan,
+      lastPlan: billingAccount.lastPlan,
+      status: billingAccount.status,
+      billingPeriod: billingAccount.billingPeriod,
+      subscriptionStartAt: billingAccount.subscriptionStartAt,
+      currentPeriodStartAt: billingAccount.currentPeriodStartAt,
+      currentPeriodEndAt: billingAccount.currentPeriodEndAt,
+      gracePeriodEndAt: billingAccount.gracePeriodEndAt,
+      canceledAt: billingAccount.canceledAt,
+      hasProviderEvidence: billingAccount.hasProviderEvidence === true,
+      entitlementRevokedAt: billingAccount.entitlementRevokedAt,
+      now: _now,
+    });
+    return {
+      plan: canonical.plan ?? 'starter',
+      status: canonical.status,
+      startAt: canonical.subscriptionStartAt,
+      endAt: canonical.currentPeriodEndAt,
+      billingPeriod: canonical.billingPeriod,
+      isSubscriptionActive: canonical.operationalAccess,
+    };
+  }
+
   const plan = normalizeBusinessPlan(business.subscriptionPlan);
   const status = normalizeSubscriptionStatus(business.subscriptionStatus, plan);
-
-  return {
+  const canonical = resolveCanonicalBillingState({
     plan,
     status,
+    billingPeriod: business.billingPeriod,
+    subscriptionStartAt: business.subscriptionStartAt,
+    currentPeriodEndAt: business.subscriptionEndAt,
+    hasProviderEvidence: false,
+    now: _now,
+  });
+
+  return {
+    plan: canonical.plan ?? plan,
+    status: canonical.status,
     startAt: business.subscriptionStartAt ?? null,
     endAt: business.subscriptionEndAt ?? null,
-    billingPeriod: normalizeBillingPeriod(business.billingPeriod),
-    isSubscriptionActive: isPaidPlanSubscriptionActive(
-      plan,
-      status,
-      business.subscriptionEndAt ?? null,
-      _now
-    ),
+    billingPeriod: canonical.billingPeriod,
+    isSubscriptionActive: canonical.operationalAccess,
   };
 }
 
@@ -637,14 +530,25 @@ export function buildBusinessEntitlementsFromBusiness(
     activeCampaigns?: number;
     activeManagementCampaigns?: number;
     aiExecutionsThisMonth?: number;
+    billingAccount?: any;
+    hasProviderEvidence?: boolean;
   }
 ): BusinessEntitlements {
-  const state = resolveBusinessSubscriptionState(business, now);
-  const effectivePlan =
-    state.isSubscriptionActive || state.plan === 'starter'
-      ? state.plan
-      : 'starter';
-  const config = planConfig[effectivePlan];
+  const state = resolveBusinessSubscriptionState(
+    business,
+    now,
+    options?.billingAccount
+  );
+  const lastPlan = state.plan;
+  const config = planConfig[lastPlan];
+  const inactiveFeatures = expandFeatureConfig({
+    team: false,
+    advancedReports: false,
+    marketingHub: false,
+    smartAnalytics: false,
+    smartRetentionManager: false,
+    smartRetentionManagerAiAssist: false,
+  });
   const activeRetentionActions = Number.isFinite(
     options?.activeRetentionActions
   )
@@ -676,15 +580,17 @@ export function buildBusinessEntitlementsFromBusiness(
 
   return {
     businessId: business._id,
-    plan: state.plan,
-    effectivePlan,
+    plan: lastPlan,
+    effectivePlan: lastPlan,
     subscriptionStatus: state.status,
     subscriptionStartAt: state.startAt,
     subscriptionEndAt: state.endAt,
     billingPeriod: state.billingPeriod,
     isSubscriptionActive: state.isSubscriptionActive,
     limits: config.limits,
-    features: expandFeatureConfig(config.features),
+    features: state.isSubscriptionActive
+      ? expandFeatureConfig(config.features)
+      : inactiveFeatures,
     pricing: config.pricing,
     usage: {
       activeRetentionActions,
@@ -702,12 +608,51 @@ export function buildBusinessEntitlementsFromBusiness(
   };
 }
 
+export async function loadCanonicalBillingAccountForBusiness(
+  ctx: any,
+  businessId: Id<'businesses'>
+) {
+  return await getBillingAccountForBusiness(ctx, businessId).catch(() => null);
+}
+
+export async function buildCanonicalBusinessEntitlementsFromBusiness(
+  ctx: any,
+  business: Doc<'businesses'>,
+  now = Date.now(),
+  options?: {
+    activeRetentionActions?: number;
+    activeCampaigns?: number;
+    activeManagementCampaigns?: number;
+    aiExecutionsThisMonth?: number;
+  }
+): Promise<BusinessEntitlements> {
+  const billingAccount = await loadCanonicalBillingAccountForBusiness(
+    ctx,
+    business._id
+  );
+  return buildBusinessEntitlementsFromBusiness(business, now, {
+    ...options,
+    billingAccount,
+  });
+}
+
 function assertEntitlementFromSnapshot(
   entitlements: BusinessEntitlements,
   requirement: EntitlementRequirement
 ) {
-  const isPaidPlanInactive =
-    !entitlements.isSubscriptionActive && entitlements.plan !== 'starter';
+  const isPaidPlanInactive = entitlements.isSubscriptionActive !== true;
+
+  if (isPaidPlanInactive) {
+    throwEntitlementError({
+      code: 'SUBSCRIPTION_INACTIVE',
+      businessId: String(entitlements.businessId),
+      requiredPlan: entitlements.plan,
+      planKey: entitlements.plan,
+      subscriptionStatus: entitlements.subscriptionStatus,
+      featureKey: requirement.featureKey,
+      limitKey: requirement.limitKey,
+    });
+  }
 
   if (requirement.featureKey) {
     const canonicalFeatureKey = normalizeFeatureKey(requirement.featureKey);
@@ -783,16 +728,19 @@ export async function getBusinessEntitlementsForBusinessId(
     activeRetentionActions,
     activeCampaigns,
     aiExecutionsThisMonth,
+    billingAccount,
   ] = await Promise.all([
     getBusinessOrThrow(ctx, businessId),
     countActiveRetentionActionsForBusiness(ctx, businessId),
     countActiveCampaignsForBusiness(ctx, businessId),
     countAiExecutionsForBusinessInMonth(ctx, businessId, monthKey),
+    getBillingAccountForBusiness(ctx, businessId).catch(() => null),
   ]);
   return buildBusinessEntitlementsFromBusiness(business, Date.now(), {
     activeRetentionActions,
     activeCampaigns,
     aiExecutionsThisMonth,
+    billingAccount,
   });
 }
 
@@ -805,7 +753,7 @@ export async function hasFeature(
     ctx,
     businessId
   );
-  if (!entitlements.isSubscriptionActive && entitlements.plan !== 'starter') {
+  if (!entitlements.isSubscriptionActive) {
     return false;
   }
   const canonicalFeatureKey = normalizeFeatureKey(featureKey);
@@ -847,7 +795,52 @@ export async function assertEntitlement(
     businessId
   );
   assertEntitlementFromSnapshot(entitlements, requirement);
+  if (requirement.reserveSlot === true && requirement.limitKey) {
+    const reserved = await reserveUsageSlot(ctx, {
+      businessId,
+      limitKey: requirement.limitKey,
+      limitValue: entitlements.limits[requirement.limitKey],
+      currentObserved: requirement.currentValue,
+    });
+    if (!reserved.reserved) {
+      throwEntitlementError({
+        code: 'PLAN_LIMIT_REACHED',
+        businessId: String(entitlements.businessId),
+        requiredPlan:
+          REQUIRED_PLAN_BY_LIMIT_FROM_CURRENT_PLAN[entitlements.plan][
+            requirement.limitKey
+          ] ?? undefined,
+        limitKey: requirement.limitKey,
+        limitValue: entitlements.limits[requirement.limitKey],
+        currentValue: reserved.current,
+        planKey: entitlements.plan,
+        subscriptionStatus: entitlements.subscriptionStatus,
+      });
+    }
+  }
   return entitlements;
+}
+
+export function throwPlanLimitReached(args: {
+  businessId: string;
+  plan: BusinessPlan;
+  status: BusinessSubscriptionStatus;
+  limitKey: LimitKey;
+  limitValue: number;
+  currentValue: number;
+}): never {
+  throwEntitlementError({
+    code: 'PLAN_LIMIT_REACHED',
+    businessId: args.businessId,
+    requiredPlan:
+      REQUIRED_PLAN_BY_LIMIT_FROM_CURRENT_PLAN[args.plan][args.limitKey] ??
+      undefined,
+    limitKey: args.limitKey,
+    limitValue: args.limitValue,
+    currentValue: args.currentValue,
+    planKey: args.plan,
+    subscriptionStatus: args.status,
+  });
 }
 
 export async function countActiveCustomersForBusiness(
@@ -912,8 +905,13 @@ export function countsTowardCampaignDefinitions(campaign: any) {
 }
 
 export function countsTowardReferralCampaignQuota(referralConfig: any) {
+  // Customer friend-invite campaigns still occupy a campaign slot.
+  // B2B business referrals are a separate domain and never counted here.
   if (!referralConfig) {
-    return true;
+    return false;
+  }
+  if (referralConfig.kind === 'b2b' || referralConfig.channel === 'b2b') {
+    return false;
   }
   return referralConfig.isEnabled === true;
 }
@@ -1115,17 +1113,18 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
     activeRetentionActions,
     activeCampaigns,
     aiExecutionsThisMonth,
+    billingAccount,
   ] = await Promise.all([
     getBusinessOrThrow(ctx, businessId),
     ctx.db
       .query('loyaltyPrograms')
       .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .filter((q: any) => q.eq(q.field('isActive'), true))
       .collect(),
     countActiveCustomersForBusiness(ctx, businessId),
     countActiveRetentionActionsForBusiness(ctx, businessId),
     countActiveCampaignsForBusiness(ctx, businessId),
     countAiExecutionsForBusinessInMonth(ctx, businessId, monthKey),
+    getBillingAccountForBusiness(ctx, businessId).catch(() => null),
   ]);
 
   const entitlements = buildBusinessEntitlementsFromBusiness(
@@ -1135,16 +1134,14 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
       activeRetentionActions,
       activeCampaigns,
       aiExecutionsThisMonth,
+      billingAccount,
     }
   );
   const cardsUsed = programs.filter((program: any) => {
-    if (program.status === 'active') {
-      return true;
-    }
-    if (program.status === 'draft' || program.status === 'archived') {
+    if (program.status === 'archived' || program.isArchived === true) {
       return false;
     }
-    return program.isArchived !== true;
+    return true;
   }).length;
   return {
     cardsUsed,
@@ -1254,8 +1251,8 @@ async function writePlanTeamEvent(
 }
 
 export async function enforceTeamAccessForPlanState(
-  ctx: any,
-  args: {
+  _ctx: any,
+  _args: {
     businessId: Id<'businesses'>;
     plan: BusinessPlan;
     status: BusinessSubscriptionStatus;
@@ -1263,75 +1260,9 @@ export async function enforceTeamAccessForPlanState(
     now: number;
   }
 ) {
-  if (
-    !isTeamDisabledByPlanOrStatus(
-      args.plan,
-      args.status,
-      args.subscriptionEndAt,
-      args.now
-    )
-  ) {
-    return;
-  }
-
-  const reasonCode =
-    args.plan === 'starter'
-      ? 'team_disabled_on_starter'
-      : 'team_disabled_on_inactive_subscription';
-
-  const staffRows = await ctx.db
-    .query('businessStaff')
-    .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
-    .collect();
-
-  for (const staff of staffRows) {
-    const staffRole = staff.staffRole as StaffRole;
-    const currentStatus = getBusinessStaffStatus(staff);
-    if (staffRole === 'owner' || currentStatus !== 'active') {
-      continue;
-    }
-
-    await ctx.db.patch(staff._id, {
-      status: 'suspended',
-      isActive: false,
-      statusChangedAt: args.now,
-      statusChangedByUserId: undefined,
-      updatedAt: args.now,
-    });
-
-    await writePlanTeamEvent(ctx, {
-      businessId: args.businessId,
-      targetUserId: staff.userId,
-      eventType: 'auto_disabled_by_plan',
-      fromStatus: 'active',
-      toStatus: 'suspended',
-      reasonCode,
-      now: args.now,
-    });
-  }
-
-  const pendingInvites = await ctx.db
-    .query('staffInvites')
-    .withIndex('by_businessId_status', (q: any) =>
-      q.eq('businessId', args.businessId).eq('status', 'pending')
-    )
-    .collect();
-
-  for (const invite of pendingInvites) {
-    await ctx.db.patch(invite._id, {
-      status: 'cancelled',
-      cancelledAt: args.now,
-      cancelledByUserId: undefined,
-    });
-
-    await writePlanTeamEvent(ctx, {
-      businessId: args.businessId,
-      targetInviteId: invite._id,
-      eventType: 'auto_invites_cancelled_by_plan',
-      reasonCode,
-      now: args.now,
-    });
-  }
+  // Launch policy: billing must not destroy or suspend team membership records.
+  // Team feature/seat gates are entitlement-derived at invite and access time.
+  return;
 }
 
 async function findRevenueCatSubscriptionRow(
@@ -1376,7 +1307,7 @@ async function upsertRevenueCatSubscriptionRow(
   ctx: any,
   args: {
     businessId: Id<'businesses'>;
-    plan: Exclude<BusinessPlan, 'starter'>;
+    plan: BusinessPlan;
     status: BusinessSubscriptionStatus;
     period: BillingPeriod;
     startAt: number;
@@ -1417,33 +1348,24 @@ export const applyRevenueCatWebhookEvent = internalMutation({
     eventId: v.string(),
     eventType: v.string(),
     appUserId: v.string(),
-    businessId: v.string(),
+    businessId: v.optional(v.string()),
     productId: v.optional(v.string()),
+    newProductId: v.optional(v.string()),
     entitlementIds: v.optional(v.array(v.string())),
-    plan: v.optional(v.union(v.literal('pro'), v.literal('premium'))),
+    plan: v.optional(
+      v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
+    ),
     period: v.optional(v.union(v.literal('monthly'), v.literal('yearly'))),
     purchasedAt: v.optional(v.number()),
     expirationAt: v.optional(v.union(v.number(), v.null())),
+    gracePeriodEndAt: v.optional(v.union(v.number(), v.null())),
+    providerEventAt: v.optional(v.number()),
     providerSubscriptionId: v.optional(v.string()),
     rawEvent: v.any(),
   },
   handler: async (ctx, args) => {
     assertSupportedRevenueCatEventType(args.eventType);
-    const mapping = resolveRevenueCatPlanMapping({
-      productId: args.productId,
-      entitlementIds: args.entitlementIds,
-    });
-    if (args.plan !== undefined && args.plan !== mapping.plan) {
-      throw new Error('REVENUECAT_PLAN_IDENTIFIER_CONFLICT');
-    }
-    if (args.period !== undefined && args.period !== mapping.period) {
-      throw new Error('REVENUECAT_PERIOD_IDENTIFIER_CONFLICT');
-    }
-    const businessId = normalizeRevenueCatBusinessIdOrThrow(
-      ctx,
-      args.businessId
-    );
-
+    const now = Date.now();
     const existingEvent = await ctx.db
       .query('revenueCatWebhookEvents')
       .withIndex('by_eventId', (q: any) => q.eq('eventId', args.eventId))
@@ -1453,63 +1375,119 @@ export const applyRevenueCatWebhookEvent = internalMutation({
         ok: true,
         duplicate: true,
         eventId: args.eventId,
-        businessId,
+        businessId: existingEvent.businessId,
       };
     }
 
-    const business = await ctx.db.get(businessId);
-    const now = Date.now();
-    if (!business) {
+    if (isSafeIrrelevantRevenueCatEvent(args.eventType)) {
       await ctx.db.insert('revenueCatWebhookEvents', {
         eventId: args.eventId,
         eventType: args.eventType,
-        appUserId: 'redacted',
-        productId: args.productId,
-        entitlementIds: args.entitlementIds,
+        appUserId: args.appUserId,
         status: 'ignored',
+        ignoredReason: 'safe_irrelevant',
+        providerEventAt: args.providerEventAt,
         receivedAt: now,
         processedAt: now,
-        rawEvent: { redacted: true },
-        redactedAt: now,
-        purgeAfter: addMonthsUtc(now, 12),
+        rawEvent: args.rawEvent,
+      });
+      return { ok: true, duplicate: false, ignored: true, reason: 'safe_irrelevant' };
+    }
+
+    const isRevokeEvent = shouldRevokeAccessForRevenueCatEvent(args.eventType);
+    const mapping = resolveRevenueCatPlanMapping({
+      productId: args.productId,
+      newProductId: args.newProductId,
+      entitlementIds: args.entitlementIds,
+      requireEntitlement: !isRevokeEvent && args.eventType !== 'EXPIRATION',
+    });
+    if (args.plan !== undefined && args.plan !== mapping.plan) {
+      throw new Error('REVENUECAT_PLAN_IDENTIFIER_CONFLICT');
+    }
+    if (args.period !== undefined && args.period !== mapping.period) {
+      throw new Error('REVENUECAT_PERIOD_IDENTIFIER_CONFLICT');
+    }
+
+    const billingAccountByIdentity =
+      await getBillingAccountByProviderAppUserId(ctx, args.appUserId);
+    let businessId: Id<'businesses'> | null =
+      billingAccountByIdentity?.businessId ?? null;
+    if (!businessId && args.businessId) {
+      businessId = normalizeRevenueCatBusinessIdOrThrow(ctx, args.businessId);
+    }
+    if (
+      !businessId &&
+      isLegacyBusinessScopedAppUserId(args.appUserId)
+    ) {
+      const legacyId = parseLegacyBusinessIdFromAppUserId(args.appUserId);
+      if (legacyId) {
+        businessId = normalizeRevenueCatBusinessIdOrThrow(ctx, legacyId);
+      }
+    }
+    if (!businessId) {
+      throw new Error('REVENUECAT_UNKNOWN_PROVIDER_IDENTITY');
+    }
+
+    const business = await ctx.db.get(businessId);
+    if (!business) {
+      throw new Error('REVENUECAT_UNKNOWN_PROVIDER_IDENTITY');
+    }
+
+    const billingAccount = await ensureBusinessBillingAccount(ctx, {
+      businessId,
+      ownerUserId: business.ownerUserId,
+      preferredProviderAppUserId: args.appUserId,
+      now,
+    });
+
+    const incomingEventAt = args.providerEventAt ?? now;
+    const lastEventAt = Number(billingAccount.lastProviderEventAt ?? 0);
+    if (lastEventAt > 0 && incomingEventAt < lastEventAt) {
+      await ctx.db.insert('revenueCatWebhookEvents', {
+        eventId: args.eventId,
+        eventType: args.eventType,
+        appUserId: args.appUserId,
+        businessId,
+        productId: args.productId,
+        entitlementIds: args.entitlementIds,
+        status: 'ignored_stale',
+        ignoredReason: 'older_than_last_provider_event',
+        providerEventAt: incomingEventAt,
+        receivedAt: now,
+        processedAt: now,
+        rawEvent: args.rawEvent,
       });
       return {
         ok: true,
         duplicate: false,
         ignored: true,
-        reason: 'business_not_found',
+        reason: 'stale_event',
         eventId: args.eventId,
         businessId,
       };
-    }
-    if (business.isActive !== true) {
-      throw new Error('BUSINESS_INACTIVE');
     }
 
     const providerStatus = normalizeRevenueCatSubscriptionStatus(
       args.eventType
     );
-    const shouldDowngrade = shouldDowngradeBusinessForRevenueCatEvent(
-      args.eventType
-    );
+    const shouldRevoke = shouldRevokeAccessForRevenueCatEvent(args.eventType);
     const startAt = args.purchasedAt ?? business.subscriptionStartAt ?? now;
     const endAt =
       args.expirationAt === undefined
         ? (business.subscriptionEndAt ?? null)
         : args.expirationAt;
-    const nextBusinessPlan: BusinessPlan = shouldDowngrade
-      ? 'starter'
-      : mapping.plan;
-    const nextBusinessStatus: BusinessSubscriptionStatus = shouldDowngrade
-      ? 'active'
+    const nextPlan = mapping.plan;
+    const nextStatus: BusinessSubscriptionStatus = shouldRevoke
+      ? 'inactive'
       : providerStatus;
-    const nextBusinessPeriod: BillingPeriod | null = shouldDowngrade
-      ? null
-      : mapping.period;
-    const nextBusinessStartAt = shouldDowngrade
-      ? (business.subscriptionStartAt ?? startAt)
-      : startAt;
-    const nextBusinessEndAt = shouldDowngrade ? (endAt ?? now) : endAt;
+    const nextPeriod = mapping.period;
+    const nextEndAt = shouldRevoke ? (endAt ?? now) : endAt;
+    const revokedAt =
+      shouldRevoke && (args.eventType === 'REFUND' || args.eventType === 'EXPIRATION')
+        ? now
+        : undefined;
+    const gracePeriodEndAt =
+      args.eventType === 'BILLING_ISSUE' ? (args.gracePeriodEndAt ?? null) : null;
 
     await ctx.db.insert('revenueCatWebhookEvents', {
       eventId: args.eventId,
@@ -1519,6 +1497,7 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       productId: args.productId,
       entitlementIds: args.entitlementIds,
       status: 'processed',
+      providerEventAt: incomingEventAt,
       receivedAt: now,
       processedAt: now,
       rawEvent: args.rawEvent,
@@ -1526,29 +1505,67 @@ export const applyRevenueCatWebhookEvent = internalMutation({
 
     await upsertRevenueCatSubscriptionRow(ctx, {
       businessId,
-      plan: mapping.plan,
-      status: providerStatus,
-      period: mapping.period,
+      plan: nextPlan,
+      status: nextStatus,
+      period: nextPeriod,
       startAt,
-      endAt,
+      endAt: nextEndAt,
       providerSubscriptionId: args.providerSubscriptionId,
       now,
     });
 
+    await ctx.db.patch(billingAccount._id, {
+      plan: nextPlan,
+      lastPlan: nextPlan,
+      status: nextStatus,
+      billingPeriod: nextPeriod,
+      provider: 'revenuecat',
+      providerProductId: args.newProductId ?? args.productId,
+      providerSubscriptionIdentifier: args.providerSubscriptionId,
+      subscriptionStartAt: startAt,
+      currentPeriodStartAt: startAt,
+      currentPeriodEndAt: nextEndAt,
+      gracePeriodEndAt,
+      canceledAt:
+        args.eventType === 'CANCELLATION'
+          ? now
+          : args.eventType === 'UNCANCELLATION'
+            ? null
+            : billingAccount.canceledAt,
+      entitlementRevokedAt: revokedAt,
+      revokeReason: shouldRevoke ? args.eventType.toLowerCase() : undefined,
+      lastProviderEventAt: incomingEventAt,
+      lastProviderEventId: args.eventId,
+      hasProviderEvidence: true,
+      updatedAt: now,
+    });
+
     await ctx.db.patch(businessId, {
-      subscriptionPlan: nextBusinessPlan,
-      subscriptionStatus: nextBusinessStatus,
-      subscriptionStartAt: nextBusinessStartAt,
-      subscriptionEndAt: nextBusinessEndAt,
-      billingPeriod: nextBusinessPeriod,
+      subscriptionPlan: nextPlan,
+      subscriptionStatus: nextStatus,
+      subscriptionStartAt: startAt,
+      subscriptionEndAt: nextEndAt,
+      billingPeriod: nextPeriod,
       updatedAt: now,
     });
 
     await enforceTeamAccessForPlanState(ctx, {
       businessId,
-      plan: nextBusinessPlan,
-      status: nextBusinessStatus,
-      subscriptionEndAt: nextBusinessEndAt,
+      plan: nextPlan,
+      status: nextStatus,
+      subscriptionEndAt: nextEndAt,
+      now,
+    });
+
+    await evaluateReferralProgressFromBillingEvent(ctx, {
+      businessId,
+      eventType: args.eventType,
+      eventId: args.eventId,
+      providerEventAt: incomingEventAt,
+      plan: nextPlan,
+      period: nextPeriod,
+      expirationAt: nextEndAt,
+      isRevoked: shouldRevoke,
       now,
     });
 
@@ -1564,8 +1581,8 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       duplicate: false,
       eventId: args.eventId,
       businessId,
-      plan: nextBusinessPlan,
-      status: nextBusinessStatus,
+      plan: nextPlan,
+      status: nextStatus,
     };
   },
 });

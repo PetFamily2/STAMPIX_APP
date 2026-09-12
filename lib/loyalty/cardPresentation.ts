@@ -52,6 +52,10 @@ export function sanitizeCurrent(value: number, target: number) {
   return Math.min(target, Math.max(0, toSafeInteger(value, 0)));
 }
 
+export function buildStampProgressLabel(current: number, target: number) {
+  return `${current} מתוך ${target} חותמות`;
+}
+
 export function resolveProgressStrategy(
   variant: LoyaltyCardVariant,
   target: number
@@ -131,7 +135,7 @@ function resolveStatusText({
   hasProgressData: boolean;
 }) {
   if (state === 'archived') {
-    return 'הכרטיס בארכיון ואינו זמין לצבירה או למימוש';
+    return 'הכרטיסייה בארכיון; הכרטיס אינו זמין לצבירה או למימוש';
   }
   if (state === 'available') {
     return 'מצטרפים ומתחילים לצבור';
@@ -140,7 +144,7 @@ function resolveStatusText({
     return 'נתוני ההתקדמות אינם זמינים כרגע';
   }
   if (!hasProgressData) {
-    return `יעד הכרטיס · ${target} ניקובים`;
+    return `יעד הכרטיסייה · ${target} חותמות`;
   }
   if (state === 'rewardReady') {
     return 'ההטבה מוכנה למימוש';
@@ -149,9 +153,9 @@ function resolveStatusText({
     return `כמעט שם · נשארו ${remaining}`;
   }
   if (state === 'partial') {
-    return `עוד ${remaining} ניקובים ל־${rewardName.trim()}`;
+    return `עוד ${remaining} חותמות ל־${rewardName.trim()}`;
   }
-  return `המסע מתחיל כאן · עוד ${remaining} ניקובים`;
+  return `המסע מתחיל כאן · עוד ${remaining} חותמות`;
 }
 
 export function buildLoyaltyCardAccessibilityLabel({
@@ -168,13 +172,13 @@ export function buildLoyaltyCardAccessibilityLabel({
   const progressText = !presentation.targetIsValid
     ? 'נתוני ההתקדמות אינם זמינים כרגע'
     : presentation.hasProgressData
-      ? `${presentation.current} מתוך ${presentation.target} ניקובים`
-      : `יעד של ${presentation.target} ניקובים, ללא נתוני התקדמות`;
-  const sampleText = presentation.isSample ? 'תצוגה לדוגמה. ' : '';
+      ? `${presentation.current} מתוך ${presentation.target} חותמות`
+      : `יעד של ${presentation.target} חותמות, ללא נתוני התקדמות`;
   const statusText =
     presentation.statusText === progressText
       ? ''
       : `. ${presentation.statusText}`;
+  const sampleText = presentation.isSample ? 'תצוגה לדוגמה. ' : '';
   return `${sampleText}${businessName}. ${programTitle}. ${rewardName}. ${progressText}${statusText}`;
 }
 

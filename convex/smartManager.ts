@@ -8,48 +8,50 @@ import {
   type MutationCtx,
 } from './_generated/server';
 import {
-  buildBusinessRecommendationCatalog,
-  getRecommendationAccessDecision,
-  getRecommendationRequiredCapabilities,
-  type BusinessRecommendation,
-  type RecommendationCatalogInput,
-} from './lib/recommendationCatalog';
-import {
-  buildBusinessEntitlementsFromBusiness,
+  buildCanonicalBusinessEntitlementsFromBusiness,
   countsTowardCampaignDefinitions,
   countsTowardReferralCampaignQuota,
 } from './entitlements';
-import { getRoleCapabilities } from './lib/staffPermissions';
+import {
+  type BusinessRecommendation,
+  buildBusinessRecommendationCatalog,
+  getRecommendationAccessDecision,
+  getRecommendationRequiredCapabilities,
+  type RecommendationCatalogInput,
+} from './lib/recommendationCatalog';
+import { resolveSmartManagerDecisionAuthority } from './lib/smartManagerAuthority';
+import {
+  markSmartManagerDirty,
+  type SmartManagerDirtyDomain,
+  scheduleSmartManagerEvaluation,
+} from './lib/smartManagerDirty';
 import {
   hashSmartManagerValue,
+  loadActiveSmartManagerPolicy,
   SMART_MANAGER_POLICY_SCHEMA_VERSION,
   SMART_MANAGER_POLICY_V1,
   SMART_MANAGER_POLICY_V1_HASH,
   SMART_MANAGER_POLICY_V1_VERSION,
-  loadActiveSmartManagerPolicy,
   type SmartManagerPolicyConfig,
 } from './lib/smartManagerPolicy';
-import {
-  loadBusinessRecommendationFacts,
-  type BusinessRecommendationFactSourceBundle,
-} from './recommendations';
-import {
-  markSmartManagerDirty,
-  scheduleSmartManagerEvaluation,
-  type SmartManagerDirtyDomain,
-} from './lib/smartManagerDirty';
-import { resolveSmartManagerDecisionAuthority } from './lib/smartManagerAuthority';
 import {
   evaluatePreparedActionCurrentness,
   type PreparedActionCurrentnessBlocker,
 } from './lib/smartManagerPreparedActions';
+import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 import {
+  normalizePersistedCapabilityAvailability,
   type SmartManagerFactEnvelope,
   smartManagerWorkerEvaluationValidator,
 } from './lib/smartManagerValidators';
-import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
+import { getRoleCapabilities } from './lib/staffPermissions';
+import {
+  type BusinessRecommendationFactSourceBundle,
+  loadBusinessRecommendationFacts,
+} from './recommendations';
 
 const MAX_RECONCILIATION_STATES = 25;
+
 export { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 export const SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET = 10_900;
 export const SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE = 60;
@@ -838,11 +840,18 @@ async function loadSmartManagerSourceBundle(
     campaigns.rows !== null &&
     referralConfigs.rows !== null;
   const fullEntitlements = entitlementSourcesKnown
-    ? buildBusinessEntitlementsFromBusiness(args.business, args.observedAt, {
-        activeCampaigns:
-          campaigns.rows!.filter(countsTowardCampaignDefinitions).length +
-          (countsTowardReferralCampaignQuota(referralConfigs.rows![0]) ? 1 : 0),
-      })
+    ? await buildCanonicalBusinessEntitlementsFromBusiness(
+        ctx,
+        args.business,
+        args.observedAt,
+        {
+          activeCampaigns:
+            campaigns.rows!.filter(countsTowardCampaignDefinitions).length +
+            (countsTowardReferralCampaignQuota(referralConfigs.rows![0])
+              ? 1
+              : 0),
+        }
+      )
     : null;
   const entitlements = fullEntitlements
     ? {
@@ -1088,6 +1097,12 @@ export const loadEvaluationInternal = internalQuery({
     const priorFacts = hasCompatiblePriorSnapshot
       ? priorSnapshot.facts.facts
       : null;
+    const priorCapabilityAvailability =
+      hasCompatiblePriorSnapshot && priorSnapshot
+        ? normalizePersistedCapabilityAvailability(
+            priorSnapshot.capabilityAvailability
+          )
+        : null;
     const reasonFor = (source: keyof typeof boundedSources.sources) =>
       boundedSources.sources[source].reasonCode;
     const lifecycleReason =
@@ -1189,28 +1204,29 @@ export const loadEvaluationInternal = internalQuery({
     const availability = {
       customerFacts: refreshDomains.has('memberships')
         ? customerSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.customerFacts,
+        : priorCapabilityAvailability!.customerFacts,
       customerLifecycleFacts: refreshDomains.has('events')
         ? customerLifecycleSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.customerLifecycleFacts,
+        : priorCapabilityAvailability!.customerLifecycleFacts,
       campaignFacts: refreshDomains.has('campaigns')
         ? campaignSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.campaignFacts,
+        : priorCapabilityAvailability!.campaignFacts,
       programFacts: refreshDomains.has('programs')
         ? programSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.programFacts,
+        : priorCapabilityAvailability!.programFacts,
       teamFacts: refreshDomains.has('team')
         ? teamSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.teamFacts,
+        : priorCapabilityAvailability!.teamFacts,
       entitlementFacts: refreshDomains.has('entitlements')
         ? entitlementSourceAvailable ? 'known' as const : 'unknown' as const
-        : priorSnapshot.capabilityAvailability.entitlementFacts,
+        : priorCapabilityAvailability!.entitlementFacts,
     };
     const hasUnknownSource = Object.values(availability).some(
       (value) => value === 'unknown'
     );
     const persistedOwnerCapabilities = {
       ...ownerCapabilities,
+      invite_businesses: ownerCapabilities.invite_businesses === true,
       access_customers:
         ownerCapabilities.access_customers &&
         availability.customerFacts === 'known',

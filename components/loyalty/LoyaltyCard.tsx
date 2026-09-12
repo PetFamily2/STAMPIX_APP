@@ -6,7 +6,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  type ViewStyle,
 } from 'react-native';
 
 import { resolveCardTheme } from '@/constants/cardThemes';
@@ -26,6 +25,7 @@ import {
   rtlAutoText,
   selfStart,
 } from '@/lib/rtl';
+import { StampProgress } from './StampProgress';
 
 export type LoyaltyCardProps = {
   variant: LoyaltyCardVariant;
@@ -44,133 +44,6 @@ export type LoyaltyCardProps = {
   selected?: boolean;
   onPress?: () => void;
 };
-
-function getStampShapeStyle(shape: StampShape): ViewStyle {
-  if (shape === 'square') {
-    return { borderRadius: 4 };
-  }
-  if (shape === 'roundedSquare') {
-    return { borderRadius: 8 };
-  }
-  if (shape === 'hexagon') {
-    return { borderRadius: 5, transform: [{ rotate: '45deg' }] };
-  }
-  return { borderRadius: 999 };
-}
-
-function ProgressMarks({
-  current,
-  target,
-  variant,
-  stampIcon,
-  stampShape,
-  accent,
-  onAccent,
-  emptyBorder,
-}: {
-  current: number;
-  target: number;
-  variant: LoyaltyCardVariant;
-  stampIcon?: string;
-  stampShape: StampShape;
-  accent: string;
-  onAccent: string;
-  emptyBorder: string;
-}) {
-  const isExpanded = variant === 'full' || variant === 'preview';
-  const shouldSplit = isExpanded && target > 8;
-  const marks = Array.from({ length: target }, (_, index) => index + 1);
-  const splitAt = shouldSplit ? Math.ceil(target / 2) : target;
-  const rows = shouldSplit
-    ? [marks.slice(0, splitAt), marks.slice(splitAt)]
-    : [marks];
-  const iconGlyphs = Array.from(stampIcon?.trim() ?? '');
-  const configuredIcon =
-    stampShape === 'icon' && iconGlyphs.length > 0 && iconGlyphs.length <= 2
-      ? iconGlyphs[0]
-      : null;
-
-  return (
-    <View
-      style={styles.marksGroup}
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
-    >
-      {rows.map((row, rowIndex) => (
-        <View key={`progress-row-${rowIndex + 1}`} style={styles.marksRow}>
-          {row.map((mark) => {
-            const complete = mark <= current;
-            return (
-              <View
-                key={`progress-mark-${mark}`}
-                style={[
-                  styles.mark,
-                  isExpanded ? styles.markExpanded : null,
-                  getStampShapeStyle(stampShape),
-                  {
-                    backgroundColor: complete ? accent : 'transparent',
-                    borderColor: complete ? accent : emptyBorder,
-                  },
-                ]}
-              >
-                {complete ? (
-                  <Text
-                    style={[
-                      styles.markText,
-                      isExpanded ? styles.markTextExpanded : null,
-                      stampShape === 'hexagon' ? styles.markTextHexagon : null,
-                      { color: onAccent },
-                    ]}
-                  >
-                    {configuredIcon || '✓'}
-                  </Text>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function ProgressRail({
-  current,
-  target,
-  variant,
-  accent,
-  trackColor,
-}: {
-  current: number;
-  target: number;
-  variant: LoyaltyCardVariant;
-  accent: string;
-  trackColor: string;
-}) {
-  const percentage = `${Math.round((current / target) * 100)}%` as `${number}%`;
-  const isExpanded = variant === 'full' || variant === 'preview';
-  return (
-    <View
-      style={[
-        styles.rail,
-        isExpanded ? styles.railExpanded : null,
-        { backgroundColor: trackColor },
-      ]}
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
-    >
-      <View
-        style={[
-          styles.railFill,
-          { width: percentage, backgroundColor: accent },
-        ]}
-      />
-      <View style={[styles.railNotch, styles.railNotchQuarter]} />
-      <View style={[styles.railNotch, styles.railNotchHalf]} />
-      <View style={[styles.railNotch, styles.railNotchThreeQuarter]} />
-    </View>
-  );
-}
 
 export default function LoyaltyCard({
   variant,
@@ -402,7 +275,7 @@ export default function LoyaltyCard({
                     { color: theme.onSurfaceMuted },
                   ]}
                 >
-                  ניקובים
+                  חותמות
                 </Text>
               </>
             ) : (
@@ -423,46 +296,28 @@ export default function LoyaltyCard({
                     { color: theme.onSurfaceMuted },
                   ]}
                 >
-                  יעד ניקובים
+                  יעד חותמות
                 </Text>
               </>
             )}
           </View>
 
-          {presentation.strategy === 'discrete' ? (
-            <ProgressMarks
-              current={presentation.current}
-              target={presentation.target}
-              variant={variant}
-              stampIcon={stampIcon}
-              stampShape={stampShape}
-              accent={theme.accent}
-              onAccent={theme.onAccent}
-              emptyBorder={theme.onSurfaceMuted}
-            />
-          ) : (
-            <ProgressRail
-              current={presentation.current}
-              target={presentation.target}
-              variant={variant}
-              accent={theme.accent}
-              trackColor={
-                theme.isLight
-                  ? 'rgba(67,20,7,0.14)'
-                  : 'rgba(255,255,255,0.16)'
-              }
-            />
-          )}
+          <StampProgress
+            current={presentation.current}
+            target={presentation.target}
+            stampIcon={stampIcon}
+            stampShape={stampShape}
+            earnedColor={theme.stampEarned}
+            earnedIconColor={theme.onAccent}
+            emptyColor={theme.stampEmpty}
+            compact={!isExpanded}
+            showCount={false}
+          />
         </View>
       ) : null}
 
       <View style={styles.footerRow}>
         <View style={styles.statusCopy}>
-          {presentation.isSample ? (
-            <Text style={[styles.sampleLabel, { color: theme.onSurface }]}>
-              תצוגה לדוגמה
-            </Text>
-          ) : null}
           <Text
             style={[styles.statusText, { color: theme.onSurfaceMuted }]}
             numberOfLines={isExpanded ? undefined : 2}
@@ -679,55 +534,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
   },
-  marksGroup: { gap: 8 },
-  marksRow: { flexDirection: flexDirection.row, alignItems: 'center', gap: 6 },
-  mark: {
-    width: 20,
-    height: 20,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markExpanded: { width: 24, height: 24 },
-  markText: {
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  markTextExpanded: { fontSize: 13, lineHeight: 15 },
-  markTextHexagon: { transform: [{ rotate: '-45deg' }] },
-  rail: { height: 8, borderRadius: 999, overflow: 'hidden' },
-  railExpanded: { height: 10 },
-  railFill: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 999,
-  },
-  railNotch: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.34)',
-  },
-  railNotchQuarter: { right: '25%' },
-  railNotchHalf: { right: '50%' },
-  railNotchThreeQuarter: { right: '75%' },
   footerRow: {
     flexDirection: flexDirection.row,
     alignItems: alignItems.start,
     gap: 12,
   },
   statusCopy: { flex: 1, alignItems: alignItems.start, gap: 2 },
-  sampleLabel: {
-    ...rtlAutoText,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
   statusText: {
     ...rtlAutoText,
     width: '100%',
