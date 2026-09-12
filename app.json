@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/StampAix_LOGO_S.png",
     "scheme": "stampaix",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/StampAix_LOGO_S.png",
@@ -16,10 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.stampaix.app",
-      "usesAppleSignIn": true,
-      "entitlements": {
-        "com.apple.developer.applesignin": ["Default"]
-      },
       "associatedDomains": ["applinks:stampaix.com"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -79,6 +75,7 @@
       "expo-router",
       "expo-font",
       "expo-asset",
+      "expo-system-ui",
       [
         "expo-secure-store",
         {
