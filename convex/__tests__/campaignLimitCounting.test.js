@@ -101,6 +101,17 @@ describe('campaign counting rules for entitlement limits', () => {
     ).resolves.toBe(0);
   });
 
+  test('enabled B2B referral activity never consumes a campaign slot', async () => {
+    await expect(
+      countActiveCampaignsForBusiness(
+        buildCountingCtx({
+          referralConfig: { kind: 'b2b', isEnabled: true },
+        }),
+        'business_1'
+      )
+    ).resolves.toBe(0);
+  });
+
   test('disabled referral campaign does not count toward active campaign quota', async () => {
     const campaigns = [
       { _id: 'campaign_1', isActive: true, activationStatus: 'active' },

@@ -6,15 +6,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CampaignCustomerPreview } from '@/components/campaigns/CampaignCustomerPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
@@ -22,8 +22,10 @@ import {
   EditorPreviewSurface,
   EditorPrimaryActions,
   EditorSection,
+  EditorStickyFooter,
   ManagementPageHeader,
 } from '@/components/management';
+import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -342,6 +344,8 @@ export default function CampaignDraftEditorScreen() {
     selectedBusinessCapabilities?.activate_send_campaigns === true;
   const canArchiveCampaign =
     selectedBusinessCapabilities?.delete_campaigns === true;
+  const canManageSubscription =
+    selectedBusinessCapabilities?.manage_subscription === true;
   const {
     entitlements,
     limitStatus,
@@ -415,6 +419,16 @@ export default function CampaignDraftEditorScreen() {
     'save' | 'publish' | null
   >(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [planLimitNotice, setPlanLimitNotice] = useState<{
+    blockedAction: string;
+    reason: string;
+    featureKey: 'maxCampaigns' | 'maxActiveRetentionActions';
+    requiredPlan: 'starter' | 'pro' | 'premium' | null;
+    navigationReason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive';
+  } | null>(null);
 
   const formSignature = buildCampaignEditorSignature({
     messageTitle,
@@ -567,12 +581,16 @@ export default function CampaignDraftEditorScreen() {
       | 'starter'
       | 'pro'
       | 'premium'
-      | null = requiredPlanForCampaigns
+      | null = requiredPlanForCampaigns,
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
   ) => {
     openSubscriptionComparison(router, {
       featureKey: 'maxCampaigns',
       requiredPlan,
-      reason: 'limit_reached',
+      reason,
     });
   };
 
@@ -581,12 +599,35 @@ export default function CampaignDraftEditorScreen() {
       | 'starter'
       | 'pro'
       | 'premium'
-      | null = requiredPlanForRecurring
+      | null = requiredPlanForRecurring,
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
   ) => {
     openSubscriptionComparison(router, {
       featureKey: 'maxActiveRetentionActions',
       requiredPlan,
-      reason: 'limit_reached',
+      reason,
+    });
+  };
+
+  const showPlanLimit = (
+    blockedAction: string,
+    reason: string,
+    featureKey: 'maxCampaigns' | 'maxActiveRetentionActions',
+    requiredPlan: 'starter' | 'pro' | 'premium' | null,
+    navigationReason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
+  ) => {
+    setPlanLimitNotice({
+      blockedAction,
+      reason,
+      featureKey,
+      requiredPlan,
+      navigationReason,
     });
   };
 
@@ -595,31 +636,69 @@ export default function CampaignDraftEditorScreen() {
     if (!entitlementError) {
       return false;
     }
-    Alert.alert(
-      'מגבלת מסלול',
-      entitlementErrorToHebrewMessage(entitlementError)
-    );
-    if (
-      entitlementError.limitKey === 'maxCampaigns' ||
+    const isRecurring =
+      entitlementError.limitKey === 'maxActiveRetentionActions';
+    showPlanLimit(
+      isRecurring ? 'הפעלת אוטומציה נחסמה' : 'פעולת הקמפיין נחסמה',
+      entitlementErrorToHebrewMessage(entitlementError),
+      isRecurring ? 'maxActiveRetentionActions' : 'maxCampaigns',
+      entitlementError.requiredPlan ??
+        (isRecurring ? requiredPlanForRecurring : requiredPlanForCampaigns),
       entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-    ) {
-      openCampaignsUpgrade(
-        entitlementError.requiredPlan ?? requiredPlanForCampaigns
-      );
-    } else if (entitlementError.limitKey === 'maxActiveRetentionActions') {
-      openRecurringUpgrade(
-        entitlementError.requiredPlan ?? requiredPlanForRecurring
-      );
-    }
+        ? 'subscription_inactive'
+        : entitlementError.code === 'PLAN_LIMIT_REACHED'
+          ? 'limit_reached'
+          : 'feature_locked'
+    );
     return true;
   };
+
+  const planLimitModal = (
+    <PlanLimitModal
+      visible={planLimitNotice !== null}
+      blockedAction={planLimitNotice?.blockedAction ?? ''}
+      reason={planLimitNotice?.reason ?? ''}
+      currentPlan={entitlements?.plan ?? null}
+      limitSummary={
+        planLimitNotice?.featureKey === 'maxActiveRetentionActions'
+          ? `בשימוש ${recurringLimit.currentValue} מתוך ${recurringLimit.limitValue} אוטומציות פעילות`
+          : `בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`
+      }
+      canManageSubscription={canManageSubscription}
+      onManageSubscription={
+        planLimitNotice
+          ? () => {
+              const notice = planLimitNotice;
+              setPlanLimitNotice(null);
+              if (notice.featureKey === 'maxActiveRetentionActions') {
+                openRecurringUpgrade(
+                  notice.requiredPlan,
+                  notice.navigationReason
+                );
+                return;
+              }
+              openCampaignsUpgrade(
+                notice.requiredPlan,
+                notice.navigationReason
+              );
+            }
+          : undefined
+      }
+      onDismiss={() => setPlanLimitNotice(null)}
+    />
+  );
 
   const handleCreateFromTemplate = async (type: CampaignType) => {
     if (!selectedBusinessId || !canCreateCampaigns || isCreatingDraft) {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
-      openCampaignsUpgrade();
+      showPlanLimit(
+        'יצירת קמפיין חדש נחסמה',
+        'הגעתם למכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
+        'maxCampaigns',
+        requiredPlanForCampaigns
+      );
       return;
     }
     setIsCreatingDraft(type);
@@ -644,7 +723,12 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
-      openCampaignsUpgrade();
+      showPlanLimit(
+        'יצירת קמפיין חדש נחסמה',
+        'הגעתם למכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
+        'maxCampaigns',
+        requiredPlanForCampaigns
+      );
       return;
     }
     setIsCreatingDraft('custom');
@@ -744,7 +828,14 @@ export default function CampaignDraftEditorScreen() {
                 </Text>
               ) : null}
               <TouchableOpacity
-                onPress={() => openCampaignsUpgrade()}
+                onPress={() =>
+                  showPlanLimit(
+                    'יצירת קמפיין חדש נחסמה',
+                    'יש חריגה ממכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
+                    'maxCampaigns',
+                    requiredPlanForCampaigns
+                  )
+                }
                 className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
               >
                 <Text className="text-xs font-black text-white">
@@ -804,9 +895,7 @@ export default function CampaignDraftEditorScreen() {
                   const meta = campaignMeta(template.type);
                   const isBusy = isCreatingDraft === template.type;
                   const disabled =
-                    !canCreateCampaigns ||
-                    isCreatingDraft != null ||
-                    (!isEntitlementsLoading && campaignLimit.isAtLimit);
+                    !canCreateCampaigns || isCreatingDraft != null;
                   return (
                     <TouchableOpacity
                       key={template.type}
@@ -864,18 +953,12 @@ export default function CampaignDraftEditorScreen() {
                 ניצור טיוטה פתוחה לעריכה מלאה של טקסט, קהל יעד ושיוך לתוכנית.
               </Text>
               <TouchableOpacity
-                disabled={
-                  !canCreateCampaigns ||
-                  isCreatingDraft != null ||
-                  (!isEntitlementsLoading && campaignLimit.isAtLimit)
-                }
+                disabled={!canCreateCampaigns || isCreatingDraft != null}
                 onPress={() => {
                   void handleCreateCustomCampaign();
                 }}
                 className={`mt-4 rounded-2xl px-4 py-3 ${
-                  !canCreateCampaigns ||
-                  isCreatingDraft != null ||
-                  (!isEntitlementsLoading && campaignLimit.isAtLimit)
+                  !canCreateCampaigns || isCreatingDraft != null
                     ? 'bg-[#CBD5E1]'
                     : 'bg-[#2F6BFF]'
                 }`}
@@ -891,6 +974,7 @@ export default function CampaignDraftEditorScreen() {
             </View>
           )}
         </ScrollView>
+        {planLimitModal}
       </SafeAreaView>
     );
   }
@@ -964,6 +1048,11 @@ export default function CampaignDraftEditorScreen() {
       ? scheduledForAt
       : getScheduledTimestamp(1, 10);
   const isOneTimeMode = deliveryMode === 'one_time';
+  const activeTimingMode = automationEnabled
+    ? 'automation'
+    : isOneTimeMode
+      ? 'one_time'
+      : 'send_now';
   const oneTimeScheduleDisplay = formatDateTime(resolvedScheduledForAt);
 
   const buildRulesPayload = (): EditableCampaignRules | null => {
@@ -1059,9 +1148,11 @@ export default function CampaignDraftEditorScreen() {
       !isEntitlementsLoading &&
       campaignLimit.isOverLimit
     ) {
-      Alert.alert(
-        'חריגה מהמכסה',
-        'לא ניתן להפעיל אוטומציה לקמפיין כשכבר קיימת חריגה ממכסת הקמפיינים.'
+      showPlanLimit(
+        'הפעלת אוטומציה נחסמה',
+        'לא ניתן להפעיל אוטומציה כשקיימת חריגה ממכסת הקמפיינים.',
+        'maxCampaigns',
+        requiredPlanForCampaigns
       );
       return;
     }
@@ -1070,11 +1161,12 @@ export default function CampaignDraftEditorScreen() {
       !isEntitlementsLoading &&
       recurringLimit.isAtLimit
     ) {
-      Alert.alert(
-        'מגבלת מסלול',
-        'הפעלת הודעה חוזרת חסומה במסלול הנוכחי. ניתן לשלוח עכשיו ידנית או לשדרג מסלול.'
+      showPlanLimit(
+        'הפעלת אוטומציה נחסמה',
+        'המסלול הנוכחי אינו מאפשר להפעיל הודעה חוזרת נוספת. עדיין אפשר לשלוח ידנית עכשיו.',
+        'maxActiveRetentionActions',
+        requiredPlanForRecurring
       );
-      openRecurringUpgrade();
       return;
     }
     setIsTogglingAutomation(true);
@@ -1188,11 +1280,12 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
-      Alert.alert(
-        'חריגה מהמכסה',
-        'לא ניתן לשלוח קמפיין כאשר קיימת חריגה ממכסת הקמפיינים הפעילים.'
+      showPlanLimit(
+        'שליחת הקמפיין נחסמה',
+        'לא ניתן לשלוח קמפיין כאשר קיימת חריגה ממכסת הקמפיינים הפעילים.',
+        'maxCampaigns',
+        requiredPlanForCampaigns
       );
-      openCampaignsUpgrade();
       return;
     }
     if (!validateContent()) {
@@ -1308,11 +1401,12 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
-      Alert.alert(
-        'חריגה מהמכסה',
-        'לא ניתן להפעיל קמפיין חדש כאשר קיימת חריגה ממכסת הקמפיינים.'
+      showPlanLimit(
+        'תזמון הקמפיין נחסם',
+        'לא ניתן להפעיל קמפיין חדש כאשר קיימת חריגה ממכסת הקמפיינים.',
+        'maxCampaigns',
+        requiredPlanForCampaigns
       );
-      openCampaignsUpgrade();
       return;
     }
     if (!validateContent()) {
@@ -1470,513 +1564,571 @@ export default function CampaignDraftEditorScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
-      <ScrollView
-        ref={guideScrollRef}
-        stickyHeaderIndices={[0]}
+      <KeyboardAvoidingView
         className="flex-1"
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: 28,
-          width: '100%',
-          maxWidth: 960,
-          alignSelf: 'center',
-        }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ManagementPageHeader
-          title="עריכת קמפיין"
-          fallbackHref="/(authenticated)/(business)/campaigns"
-          onBackPress={goBackToCampaignList}
-        />
+        <ScrollView
+          ref={guideScrollRef}
+          stickyHeaderIndices={[0]}
+          keyboardShouldPersistTaps="handled"
+          className="flex-1"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 220,
+            width: '100%',
+            maxWidth: 960,
+            alignSelf: 'center',
+          }}
+        >
+          <ManagementPageHeader
+            title="עריכת קמפיין"
+            fallbackHref="/(authenticated)/(business)/campaigns"
+            onBackPress={goBackToCampaignList}
+          />
 
-        {!canEditContent ? (
-          <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
-            <Text className="text-right text-sm font-semibold text-red-700">
-              רק בעלים או מנהל יכולים לערוך ולשלוח קמפיינים.
-            </Text>
-          </View>
-        ) : null}
-
-        {isRulesLocked ? (
-          <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-            <Text className="text-right text-sm font-semibold text-blue-700">
-              קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
-            </Text>
-          </View>
-        ) : null}
-        {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
-          <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
-            <Text className="text-right text-sm font-semibold text-red-700">
-              העסק כרגע בחריגה ממכסת קמפיינים. שליחה או הפעלה של קמפיין חסומות
-              עד לחזרה למכסה.
-            </Text>
-            <TouchableOpacity
-              onPress={() => openCampaignsUpgrade()}
-              className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
-            >
-              <Text className="text-xs font-black text-white">שדרוג מסלול</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        <View className="mt-4">
-          <EditorPreviewSurface>
-            <CampaignCustomerPreview
-              businessName={selectedBusiness?.name ?? 'העסק שלך'}
-              title={messageTitle}
-              body={messageBody}
-            />
-          </EditorPreviewSurface>
-        </View>
-
-        <View className="mt-4 gap-4">
-          <EditorSection
-            title="תוכן הקמפיין"
-            subtitle="הכותרת וההודעה שהלקוחות יראו."
-          >
-          <View className={`${tw.flexRow} items-center gap-3`}>
-            <View
-              className={`h-12 w-12 items-center justify-center rounded-2xl ${campaignIdentity.accentBgClass}`}
-            >
-              <Ionicons
-                name={campaignIdentity.icon}
-                size={22}
-                color="#1A2B4A"
-              />
-            </View>
-            <View className={`flex-1 ${tw.itemsStart}`}>
-              <Text
-                className={`mt-1 text-lg font-black ${campaignIdentity.accentClass} ${tw.textStart}`}
-              >
-                {campaignIdentity.title}
-              </Text>
-              <Text
-                className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                numberOfLines={2}
-              >
-                {campaignIdentity.subtitle}
+          {!canEditContent ? (
+            <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
+              <Text className="text-right text-sm font-semibold text-red-700">
+                רק בעלים או מנהל יכולים לערוך ולשלוח קמפיינים.
               </Text>
             </View>
-          </View>
+          ) : null}
 
-          <View className={`${tw.flexRow} mt-4 flex-wrap gap-2`}>
-            <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
-              <Text className="text-xs font-bold text-[#1D4ED8]">
-                קהל יעד: {audience.title}
+          {isRulesLocked ? (
+            <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <Text className="text-right text-sm font-semibold text-blue-700">
+                קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
               </Text>
             </View>
-            <View className="rounded-full bg-[#F1F5F9] px-3 py-1">
-              <Text className="text-xs font-bold text-[#475569]">
-                שיוך: {selectedProgramLabel}
+          ) : null}
+          {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
+            <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
+              <Text className="text-right text-sm font-semibold text-red-700">
+                העסק כרגע בחריגה ממכסת קמפיינים. שליחה או הפעלה של קמפיין חסומות
+                עד לחזרה למכסה.
               </Text>
-            </View>
-            <View
-              className={`rounded-full px-3 py-1 ${
-                automationEnabled ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold ${
-                  automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
-                }`}
-              >
-                אוטומציה: {automationEnabled ? 'פעילה' : 'כבויה'}
-              </Text>
-            </View>
-          </View>
-
-          <View className="mt-2 gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              תוכן ההודעה
-            </Text>
-            <TextInput
-              value={messageTitle}
-              onChangeText={setMessageTitle}
-              editable={canEditContent}
-              placeholder="כותרת ההודעה"
-              placeholderTextColor="#94A3B8"
-              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-            <TextInput
-              value={messageBody}
-              onChangeText={setMessageBody}
-              editable={canEditContent}
-              multiline={true}
-              textAlignVertical="top"
-              placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
-              placeholderTextColor="#94A3B8"
-              className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-          </View>
-          </EditorSection>
-
-          <EditorSection
-            title="קהל יעד"
-            subtitle="הקהל מחושב מהנתונים האמיתיים של העסק."
-          >
-            <View className="gap-3">
-              <Text
-                className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-              >
-                {audience.title}
-              </Text>
-              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                {audience.subtitle}
-              </Text>
-
-              {audience.daysLabel ? (
-                <TextInput
-                  value={daysInput}
-                  onChangeText={setDaysInput}
-                  editable={canEditRules}
-                  keyboardType="number-pad"
-                  placeholder={audience.daysLabel}
-                  placeholderTextColor="#94A3B8"
-                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-                />
-              ) : null}
-
-              <Text
-                className={`mt-2 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-              >
-                שיוך לתוכנית נאמנות
-              </Text>
-              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
-              </Text>
-              <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                <TouchableOpacity
-                  disabled={!canEditRules}
-                  onPress={() => setSelectedProgramId('all')}
-                  className={`rounded-full px-3 py-2 ${
-                    selectedProgramId === 'all'
-                      ? 'bg-[#DBEAFE]'
-                      : 'border border-[#E2E8F0] bg-white'
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-bold ${
-                      selectedProgramId === 'all'
-                        ? 'text-[#1D4ED8]'
-                        : 'text-[#475569]'
-                    }`}
-                  >
-                    כל העסק
-                  </Text>
-                </TouchableOpacity>
-                {activePrograms.map((program) => {
-                  const programId = String(program.loyaltyProgramId);
-                  const isSelected = selectedProgramId === programId;
-                  return (
-                    <TouchableOpacity
-                      key={programId}
-                      disabled={!canEditRules}
-                      onPress={() => setSelectedProgramId(programId)}
-                      className={`rounded-full px-3 py-2 ${
-                        isSelected
-                          ? 'bg-[#DBEAFE]'
-                          : 'border border-[#E2E8F0] bg-white'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? 'text-[#1D4ED8]' : 'text-[#475569]'
-                        }`}
-                      >
-                        {program.title}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text className={`text-xs font-semibold text-[#475569] ${tw.textStart}`}>
-                קהל זכאי עכשיו: {stats.eligibleAudienceNow}
-              </Text>
-            </View>
-          </EditorSection>
-
-          <EditorSection
-            title="ערוצים"
-            subtitle="מוצגים רק ערוצי שליחה הנתמכים כעת."
-          >
-            <View
-              className={`${tw.flexRow} items-center gap-3 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-3`}
-            >
-              <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                <Ionicons
-                  name="phone-portrait-outline"
-                  size={19}
-                  color="#1D4ED8"
-                />
-              </View>
-              <View className="flex-1 items-stretch">
-                <Text
-                  className={`text-sm font-bold text-[#1E3A8A] ${tw.textStart}`}
-                >
-                  הודעה באפליקציה
-                </Text>
-                <Text
-                  className={`mt-0.5 text-xs text-[#475569] ${tw.textStart}`}
-                >
-                  זהו ערוץ השליחה הנתמך בקמפיין הזה.
-                </Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={21} color="#2563EB" />
-            </View>
-          </EditorSection>
-
-          <EditorSection
-            title="תזמון"
-            subtitle="שליחה עכשיו או תזמון חד-פעמי."
-          >
-
-          <View className="gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              אופן שליחה חד-פעמית
-            </Text>
-            <View className={`${tw.flexRow} gap-2`}>
               <TouchableOpacity
-                disabled={!canEditContent}
-                onPress={() => {
-                  setDeliveryMode('send_now');
-                  setScheduledForAt(null);
-                }}
-                className={`rounded-full px-3 py-2 ${
-                  !isOneTimeMode
-                    ? 'bg-[#DBEAFE]'
-                    : 'border border-[#E2E8F0] bg-white'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    !isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
-                  }`}
-                >
-                  שליחה עכשיו
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                disabled={!canEditContent}
-                onPress={() => setOneTimePreset(1, 10)}
-                className={`rounded-full px-3 py-2 ${
-                  isOneTimeMode
-                    ? 'bg-[#DBEAFE]'
-                    : 'border border-[#E2E8F0] bg-white'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    isOneTimeMode ? 'text-[#1D4ED8]' : 'text-[#475569]'
-                  }`}
-                >
-                  תזמון חד-פעמי
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {isOneTimeMode ? (
-              <View
-                ref={
-                  campaignGuideTarget === 'schedule-summary'
-                    ? campaignScheduleReviewTargetRef
-                    : undefined
+                onPress={() =>
+                  showPlanLimit(
+                    'פעולת הקמפיין נחסמה',
+                    'יש חריגה ממכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
+                    'maxCampaigns',
+                    requiredPlanForCampaigns
+                  )
                 }
-                collapsable={false}
-                className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
+                className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
               >
-                <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
-                  זמן שליחה נבחר: {oneTimeScheduleDisplay}
-                </Text>
-                <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                  <TouchableOpacity
-                    disabled={!canEditContent}
-                    onPress={() => setOneTimePreset(1, 10)}
-                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
-                  >
-                    <Text className="text-xs font-bold text-[#334155]">
-                      מחר 10:00
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={!canEditContent}
-                    onPress={() => setOneTimePreset(1, 18)}
-                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
-                  >
-                    <Text className="text-xs font-bold text-[#334155]">
-                      מחר 18:00
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={!canEditContent}
-                    onPress={() => setOneTimePreset(3, 10)}
-                    className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
-                  >
-                    <Text className="text-xs font-bold text-[#334155]">
-                      +3 ימים 10:00
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                שליחה ידנית עכשיו: הקמפיין נשמר ונשלח רק לאחר אישור.
-              </Text>
-            )}
-            <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
-              Starter יכול לשלוח עכשיו ולתזמן שליחה חד-פעמית. אוטומציה מחזורית
-              חסומה ב-Starter.
-            </Text>
-          </View>
-          </EditorSection>
-
-          <EditorSection
-            title="הגדרות מתקדמות"
-            subtitle="אוטומציה מחזורית נשארת סגורה כברירת מחדל."
-          >
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showAdvancedSettings }}
-              onPress={() => setShowAdvancedSettings((value) => !value)}
-              className={`${tw.flexRow} min-h-[44px] items-center justify-between rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-3 py-2`}
-            >
-              <Text
-                className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-              >
-                אוטומציה מחזורית
-              </Text>
-              <Ionicons
-                name={showAdvancedSettings ? 'chevron-up' : 'chevron-down'}
-                size={19}
-                color="#64748B"
-              />
-            </TouchableOpacity>
-
-            {showAdvancedSettings ? (
-              <View className="gap-3">
-
-          <View className="gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              הפעלה אוטומטית
-            </Text>
-            <Text
-              className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-            >
-              שליחה יומית ב-09:00 (ישראל)
-            </Text>
-            <View
-              ref={
-                campaignGuideTarget === 'resume-action'
-                  ? campaignResumeTargetRef
-                  : undefined
-              }
-              collapsable={false}
-              className={`${tw.flexRow} items-center justify-between gap-3`}
-            >
-              <Text className={`flex-1 text-xs text-[#64748B] ${tw.textStart}`}>
-                {automationEnabled
-                  ? 'הקמפיין ירוץ אוטומטית בכל יום.'
-                  : 'הקמפיין לא ירוץ אוטומטית עד להפעלה.'}
-              </Text>
-              <TouchableOpacity
-                disabled={
-                  !canActivateSendCampaigns ||
-                  isTogglingAutomation ||
-                  (!automationEnabled &&
-                    !isEntitlementsLoading &&
-                    (campaignLimit.isOverLimit || recurringLimit.isAtLimit))
-                }
-                onPress={() => {
-                  void handleToggleAutomation();
-                }}
-                className={`rounded-full px-3 py-1 ${
-                  automationEnabled ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
-                }`}
-              >
-                {isTogglingAutomation ? (
-                  <ActivityIndicator color="#1E293B" size="small" />
-                ) : (
-                  <Text
-                    className={`text-xs font-bold ${
-                      automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
-                    }`}
-                  >
-                    {automationEnabled ? 'פעיל' : 'כבוי'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-              </View>
-            ) : (
-              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                אפשר לפתוח כדי להגדיר שליחה אוטומטית נתמכת.
-              </Text>
-            )}
-          </EditorSection>
-
-          <EditorSection
-            title="ביצועים"
-            subtitle="נתוני אמת מצטברים של הקמפיין."
-          >
-            <View className="gap-2">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              נתונים ותוצאות
-            </Text>
-            <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
-              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                קהל זכאי עכשיו: {stats.eligibleAudienceNow}
-              </Text>
-              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                הגיע לייחודיים: {stats.reachedUniqueAllTime}
-              </Text>
-              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                סה"כ הודעות: {stats.reachedMessagesAllTime}
-              </Text>
-              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                נשלח לאחרונה:{' '}
-                {typeof stats.lastSentAt === 'number'
-                  ? formatDateTime(stats.lastSentAt)
-                  : 'טרם נשלח'}
-              </Text>
-              {campaignType === 'birthday' &&
-              typeof stats.missingBirthdayCount === 'number' ? (
-                <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                  חסר יום הולדת: {stats.missingBirthdayCount}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          </EditorSection>
-
-        </View>
-
-        <View className="mt-6 gap-3">
-          {conflictLocked ? (
-            <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
-              <Text className="text-right text-xs text-[#92400E]">
-                נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה
-                העדכנית.
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  applyCampaignSnapshot(campaignDraft);
-                }}
-                className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
-              >
-                <Text className="text-xs font-bold text-white">
-                  טען גרסה עדכנית
+                <Text className="text-xs font-black text-white">
+                  שדרוג מסלול
                 </Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
+          <View className="mt-4">
+            <EditorPreviewSurface>
+              <CampaignCustomerPreview
+                businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                title={messageTitle}
+                body={messageBody}
+              />
+            </EditorPreviewSurface>
+          </View>
+
+          <View className="mt-4 gap-4">
+            <EditorSection
+              title="תוכן הקמפיין"
+              subtitle="הכותרת וההודעה שהלקוחות יראו."
+            >
+              <View className={`${tw.flexRow} items-center gap-3`}>
+                <View
+                  className={`h-12 w-12 items-center justify-center rounded-2xl ${campaignIdentity.accentBgClass}`}
+                >
+                  <Ionicons
+                    name={campaignIdentity.icon}
+                    size={22}
+                    color="#1A2B4A"
+                  />
+                </View>
+                <View className={`flex-1 ${tw.itemsStart}`}>
+                  <Text
+                    className={`mt-1 text-lg font-black ${campaignIdentity.accentClass} ${tw.textStart}`}
+                  >
+                    {campaignIdentity.title}
+                  </Text>
+                  <Text
+                    className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
+                    numberOfLines={2}
+                  >
+                    {campaignIdentity.subtitle}
+                  </Text>
+                </View>
+              </View>
+
+              <View className={`${tw.flexRow} mt-4 flex-wrap gap-2`}>
+                <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
+                  <Text className="text-xs font-bold text-[#1D4ED8]">
+                    קהל יעד: {audience.title}
+                  </Text>
+                </View>
+                <View className="rounded-full bg-[#F1F5F9] px-3 py-1">
+                  <Text className="text-xs font-bold text-[#475569]">
+                    שיוך: {selectedProgramLabel}
+                  </Text>
+                </View>
+                <View
+                  className={`rounded-full px-3 py-1 ${
+                    automationEnabled ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      automationEnabled ? 'text-[#166534]' : 'text-[#475569]'
+                    }`}
+                  >
+                    אוטומציה: {automationEnabled ? 'פעילה' : 'כבויה'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="mt-2 gap-3">
+                <Text
+                  className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  תוכן ההודעה
+                </Text>
+                <TextInput
+                  value={messageTitle}
+                  onChangeText={setMessageTitle}
+                  editable={canEditContent}
+                  placeholder="כותרת ההודעה"
+                  placeholderTextColor="#94A3B8"
+                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                />
+                <TextInput
+                  value={messageBody}
+                  onChangeText={setMessageBody}
+                  editable={canEditContent}
+                  multiline={true}
+                  textAlignVertical="top"
+                  placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
+                  placeholderTextColor="#94A3B8"
+                  className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                />
+              </View>
+            </EditorSection>
+
+            <EditorSection
+              title="קהל יעד"
+              subtitle="הקהל מחושב מהנתונים האמיתיים של העסק."
+            >
+              <View className="gap-3">
+                <Text
+                  className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                >
+                  {audience.title}
+                </Text>
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  {audience.subtitle}
+                </Text>
+
+                {audience.daysLabel ? (
+                  <TextInput
+                    value={daysInput}
+                    onChangeText={setDaysInput}
+                    editable={canEditRules}
+                    keyboardType="number-pad"
+                    placeholder={audience.daysLabel}
+                    placeholderTextColor="#94A3B8"
+                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                  />
+                ) : null}
+
+                <Text
+                  className={`mt-2 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  שיוך לתוכנית נאמנות
+                </Text>
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  <TouchableOpacity
+                    disabled={!canEditRules}
+                    onPress={() => setSelectedProgramId('all')}
+                    className={`rounded-full px-3 py-2 ${
+                      selectedProgramId === 'all'
+                        ? 'bg-[#DBEAFE]'
+                        : 'border border-[#E2E8F0] bg-white'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        selectedProgramId === 'all'
+                          ? 'text-[#1D4ED8]'
+                          : 'text-[#475569]'
+                      }`}
+                    >
+                      כל העסק
+                    </Text>
+                  </TouchableOpacity>
+                  {activePrograms.map((program) => {
+                    const programId = String(program.loyaltyProgramId);
+                    const isSelected = selectedProgramId === programId;
+                    return (
+                      <TouchableOpacity
+                        key={programId}
+                        disabled={!canEditRules}
+                        onPress={() => setSelectedProgramId(programId)}
+                        className={`rounded-full px-3 py-2 ${
+                          isSelected
+                            ? 'bg-[#DBEAFE]'
+                            : 'border border-[#E2E8F0] bg-white'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-bold ${
+                            isSelected ? 'text-[#1D4ED8]' : 'text-[#475569]'
+                          }`}
+                        >
+                          {program.title}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text
+                  className={`text-xs font-semibold text-[#475569] ${tw.textStart}`}
+                >
+                  קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                </Text>
+              </View>
+            </EditorSection>
+
+            <EditorSection
+              title="ערוצים"
+              subtitle="מוצגים רק ערוצי שליחה הנתמכים כעת."
+            >
+              <View
+                className={`${tw.flexRow} items-center gap-3 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-3`}
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
+                  <Ionicons
+                    name="phone-portrait-outline"
+                    size={19}
+                    color="#1D4ED8"
+                  />
+                </View>
+                <View className="flex-1 items-stretch">
+                  <Text
+                    className={`text-sm font-bold text-[#1E3A8A] ${tw.textStart}`}
+                  >
+                    הודעה באפליקציה
+                  </Text>
+                  <Text
+                    className={`mt-0.5 text-xs text-[#475569] ${tw.textStart}`}
+                  >
+                    זהו ערוץ השליחה הנתמך בקמפיין הזה.
+                  </Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={21} color="#2563EB" />
+              </View>
+            </EditorSection>
+
+            <EditorSection
+              title="תזמון"
+              subtitle="בחרו מצב פעיל אחד: עכשיו, תזמון חד-פעמי או אוטומציה."
+            >
+              <View className="gap-3">
+                <Text
+                  className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  אופן שליחה חד-פעמית
+                </Text>
+                <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                  <TouchableOpacity
+                    disabled={!canEditContent || automationEnabled}
+                    onPress={() => {
+                      setDeliveryMode('send_now');
+                      setScheduledForAt(null);
+                    }}
+                    className={`rounded-full px-3 py-2 ${
+                      activeTimingMode === 'send_now'
+                        ? 'bg-[#DBEAFE]'
+                        : 'border border-[#E2E8F0] bg-white'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        activeTimingMode === 'send_now'
+                          ? 'text-[#1D4ED8]'
+                          : 'text-[#475569]'
+                      }`}
+                    >
+                      שליחה עכשיו
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canEditContent || automationEnabled}
+                    onPress={() => setOneTimePreset(1, 10)}
+                    className={`rounded-full px-3 py-2 ${
+                      activeTimingMode === 'one_time'
+                        ? 'bg-[#DBEAFE]'
+                        : 'border border-[#E2E8F0] bg-white'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        activeTimingMode === 'one_time'
+                          ? 'text-[#1D4ED8]'
+                          : 'text-[#475569]'
+                      }`}
+                    >
+                      תזמון חד-פעמי
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={!canActivateSendCampaigns}
+                    onPress={() => setShowAdvancedSettings(true)}
+                    className={`rounded-full px-3 py-2 ${
+                      activeTimingMode === 'automation'
+                        ? 'bg-[#DBEAFE]'
+                        : 'border border-[#E2E8F0] bg-white'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        activeTimingMode === 'automation'
+                          ? 'text-[#1D4ED8]'
+                          : 'text-[#475569]'
+                      }`}
+                    >
+                      אוטומציה
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {automationEnabled ? (
+                  <Text className={`text-xs text-[#166534] ${tw.textStart}`}>
+                    אוטומציה פעילה. כדי לעבור לשליחה ידנית או חד-פעמית, כבו אותה
+                    בהגדרות המתקדמות.
+                  </Text>
+                ) : null}
+                {isOneTimeMode ? (
+                  <View
+                    ref={
+                      campaignGuideTarget === 'schedule-summary'
+                        ? campaignScheduleReviewTargetRef
+                        : undefined
+                    }
+                    collapsable={false}
+                    className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
+                  >
+                    <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
+                      זמן שליחה נבחר: {oneTimeScheduleDisplay}
+                    </Text>
+                    <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                      <TouchableOpacity
+                        disabled={!canEditContent}
+                        onPress={() => setOneTimePreset(1, 10)}
+                        className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                      >
+                        <Text className="text-xs font-bold text-[#334155]">
+                          מחר 10:00
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        disabled={!canEditContent}
+                        onPress={() => setOneTimePreset(1, 18)}
+                        className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                      >
+                        <Text className="text-xs font-bold text-[#334155]">
+                          מחר 18:00
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        disabled={!canEditContent}
+                        onPress={() => setOneTimePreset(3, 10)}
+                        className="rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5"
+                      >
+                        <Text className="text-xs font-bold text-[#334155]">
+                          +3 ימים 10:00
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                    שליחה ידנית עכשיו: הקמפיין נשמר ונשלח רק לאחר אישור.
+                  </Text>
+                )}
+                <Text className={`text-[11px] text-[#64748B] ${tw.textStart}`}>
+                  Starter יכול לשלוח עכשיו ולתזמן שליחה חד-פעמית. אוטומציה
+                  מחזורית חסומה ב-Starter.
+                </Text>
+              </View>
+            </EditorSection>
+
+            <EditorSection
+              title="הגדרות מתקדמות"
+              subtitle="אוטומציה מחזורית נשארת סגורה כברירת מחדל."
+            >
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showAdvancedSettings }}
+                onPress={() => setShowAdvancedSettings((value) => !value)}
+                className={`${tw.flexRow} min-h-[44px] items-center justify-between rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-3 py-2`}
+              >
+                <Text
+                  className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                >
+                  אוטומציה מחזורית
+                </Text>
+                <Ionicons
+                  name={showAdvancedSettings ? 'chevron-up' : 'chevron-down'}
+                  size={19}
+                  color="#64748B"
+                />
+              </TouchableOpacity>
+
+              {showAdvancedSettings ? (
+                <View className="gap-3">
+                  <View className="gap-3">
+                    <Text
+                      className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      הפעלה אוטומטית
+                    </Text>
+                    <Text
+                      className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                    >
+                      שליחה יומית ב-09:00 (ישראל)
+                    </Text>
+                    <View
+                      ref={
+                        campaignGuideTarget === 'resume-action'
+                          ? campaignResumeTargetRef
+                          : undefined
+                      }
+                      collapsable={false}
+                      className={`${tw.flexRow} items-center justify-between gap-3`}
+                    >
+                      <Text
+                        className={`flex-1 text-xs text-[#64748B] ${tw.textStart}`}
+                      >
+                        {automationEnabled
+                          ? 'הקמפיין ירוץ אוטומטית בכל יום.'
+                          : 'הקמפיין לא ירוץ אוטומטית עד להפעלה.'}
+                      </Text>
+                      <TouchableOpacity
+                        disabled={
+                          !canActivateSendCampaigns ||
+                          isTogglingAutomation ||
+                          (!automationEnabled &&
+                            !isEntitlementsLoading &&
+                            (campaignLimit.isOverLimit ||
+                              recurringLimit.isAtLimit))
+                        }
+                        onPress={() => {
+                          void handleToggleAutomation();
+                        }}
+                        className={`rounded-full px-3 py-1 ${
+                          automationEnabled ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
+                        }`}
+                      >
+                        {isTogglingAutomation ? (
+                          <ActivityIndicator color="#1E293B" size="small" />
+                        ) : (
+                          <Text
+                            className={`text-xs font-bold ${
+                              automationEnabled
+                                ? 'text-[#166534]'
+                                : 'text-[#475569]'
+                            }`}
+                          >
+                            {automationEnabled ? 'פעיל' : 'כבוי'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                  אפשר לפתוח כדי להגדיר שליחה אוטומטית נתמכת.
+                </Text>
+              )}
+            </EditorSection>
+
+            <EditorSection
+              title="ביצועים"
+              subtitle="נתוני אמת מצטברים של הקמפיין."
+            >
+              <View className="gap-2">
+                <Text
+                  className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+                >
+                  נתונים ותוצאות
+                </Text>
+                <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
+                  <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                    קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                  </Text>
+                  <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                    הגיע לייחודיים: {stats.reachedUniqueAllTime}
+                  </Text>
+                  <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                    סה"כ הודעות: {stats.reachedMessagesAllTime}
+                  </Text>
+                  <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                    נשלח לאחרונה:{' '}
+                    {typeof stats.lastSentAt === 'number'
+                      ? formatDateTime(stats.lastSentAt)
+                      : 'טרם נשלח'}
+                  </Text>
+                  {campaignType === 'birthday' &&
+                  typeof stats.missingBirthdayCount === 'number' ? (
+                    <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                      חסר יום הולדת: {stats.missingBirthdayCount}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </EditorSection>
+          </View>
+
+          <View className="mt-6 gap-3">
+            {conflictLocked ? (
+              <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
+                <Text className="text-right text-xs text-[#92400E]">
+                  נמצאה גרסה חדשה של הקמפיין. השמירה נעולה עד לטעינת הגרסה
+                  העדכנית.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    applyCampaignSnapshot(campaignDraft);
+                  }}
+                  className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
+                >
+                  <Text className="text-xs font-bold text-white">
+                    טען גרסה עדכנית
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            <Text
+              accessibilityLiveRegion="polite"
+              className={`text-xs font-semibold ${
+                isDirty ? 'text-[#B45309]' : 'text-[#15803D]'
+              } ${tw.textStart}`}
+            >
+              {isDirty ? 'יש שינויים שטרם נשמרו' : 'כל השינויים נשמרו'}
+            </Text>
+          </View>
+        </ScrollView>
+        <EditorStickyFooter>
           <View
             ref={
               campaignGuideTarget === 'publish-action'
@@ -1985,14 +2137,6 @@ export default function CampaignDraftEditorScreen() {
             }
             collapsable={false}
           >
-            <Text
-              accessibilityLiveRegion="polite"
-              className={`mb-2 text-xs font-semibold ${
-                isDirty ? 'text-[#B45309]' : 'text-[#15803D]'
-              } ${tw.textStart}`}
-            >
-              {isDirty ? 'יש שינויים שטרם נשמרו' : 'כל השינויים נשמרו'}
-            </Text>
             <EditorPrimaryActions
               primaryLabel={
                 isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'
@@ -2032,8 +2176,8 @@ export default function CampaignDraftEditorScreen() {
               onLifecyclePress={handleMoveToArchive}
             />
           </View>
-        </View>
-      </ScrollView>
+        </EditorStickyFooter>
+      </KeyboardAvoidingView>
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}
         routeKey="campaign-detail"
@@ -2055,6 +2199,7 @@ export default function CampaignDraftEditorScreen() {
           });
         }}
       />
+      {planLimitModal}
     </SafeAreaView>
   );
 }

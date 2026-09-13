@@ -23,6 +23,7 @@ import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { ManagementUsageSummary } from '@/components/management';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -91,6 +92,8 @@ export function CampaignsHubContent() {
   const canCreateCampaigns = businessCapabilities?.create_campaigns === true;
   const canEditCampaigns = businessCapabilities?.edit_campaigns === true;
   const canViewCampaigns = businessCapabilities?.access_campaigns === true;
+  const canManageSubscription =
+    businessCapabilities?.manage_subscription === true;
   const {
     entitlements,
     limitStatus,
@@ -123,6 +126,15 @@ export function CampaignsHubContent() {
   const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
   const [isInactiveExpanded, setIsInactiveExpanded] = useState(false);
   const [isArchivedExpanded, setIsArchivedExpanded] = useState(false);
+  const [planLimitNotice, setPlanLimitNotice] = useState<{
+    blockedAction: string;
+    reason: string;
+    requiredPlan: 'starter' | 'pro' | 'premium' | null;
+    navigationReason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive';
+  } | null>(null);
 
   const activeCampaigns = useMemo(
     () =>
@@ -161,8 +173,8 @@ export function CampaignsHubContent() {
       ?.maxCampaigns ?? 'pro';
   const campaignLimitReachedCopy = referralConsumesCampaignSlot
     ? activeCampaigns.length === 0
-      ? 'המכסה מלאה על ידי פעילות ההפניות. אפשר לנהל אותה או לשדרג מסלול.'
-      : 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין, לנהל את פעילות ההפניות או לשדרג מסלול.'
+      ? 'המכסה מלאה על ידי הפניית הלקוחות הפעילה. אפשר לנהל אותה או לשדרג מסלול.'
+      : 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין, לנהל את הפניית הלקוחות או לשדרג מסלול.'
     : 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג מסלול כדי לפתוח מקום נוסף.';
   const canCreateCampaign =
     Boolean(activeBusinessId) &&
@@ -198,12 +210,37 @@ export function CampaignsHubContent() {
       | 'starter'
       | 'pro'
       | 'premium'
-      | null = requiredPlanForCampaigns
+      | null = requiredPlanForCampaigns,
+    reason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
   ) => {
     openSubscriptionComparison(router, {
       featureKey: 'maxCampaigns',
       requiredPlan,
-      reason: 'limit_reached',
+      reason,
+    });
+  };
+
+  const showCampaignPlanLimit = (
+    blockedAction: string,
+    reason = campaignLimitReachedCopy,
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForCampaigns,
+    navigationReason:
+      | 'feature_locked'
+      | 'limit_reached'
+      | 'subscription_inactive' = 'limit_reached'
+  ) => {
+    setPlanLimitNotice({
+      blockedAction,
+      reason,
+      requiredPlan,
+      navigationReason,
     });
   };
 
@@ -220,12 +257,15 @@ export function CampaignsHubContent() {
     } catch (error) {
       const entitlementError = getEntitlementError(error);
       if (entitlementError) {
-        Alert.alert(
-          'מגבלת מסלול',
-          entitlementErrorToHebrewMessage(entitlementError)
-        );
-        openCampaignsUpgrade(
-          entitlementError.requiredPlan ?? requiredPlanForCampaigns
+        showCampaignPlanLimit(
+          'שחזור הקמפיין נחסם',
+          entitlementErrorToHebrewMessage(entitlementError),
+          entitlementError.requiredPlan ?? requiredPlanForCampaigns,
+          entitlementError.code === 'SUBSCRIPTION_INACTIVE'
+            ? 'subscription_inactive'
+            : entitlementError.code === 'PLAN_LIMIT_REACHED'
+              ? 'limit_reached'
+              : 'feature_locked'
         );
         return;
       }
@@ -240,7 +280,7 @@ export function CampaignsHubContent() {
       return;
     }
     if (campaignLimit.isAtLimit) {
-      openCampaignsUpgrade();
+      showCampaignPlanLimit('יצירת קמפיין חדש נחסמה');
       return;
     }
     router.push({
@@ -297,7 +337,13 @@ export function CampaignsHubContent() {
 
         <View ref={guideTargetRef} collapsable={false}>
           <TouchableOpacity
-            disabled={!canCreateCampaign}
+            disabled={
+              !activeBusinessId ||
+              !canViewCampaigns ||
+              !canCreateCampaigns ||
+              isEntitlementsLoading ||
+              isReferralConfigLoading
+            }
             onPress={handleCreateCampaign}
             className={`mt-4 ${tw.selfStart} min-h-[46px] min-w-[148px] rounded-2xl px-4 py-3 ${
               canCreateCampaign
@@ -340,7 +386,11 @@ export function CampaignsHubContent() {
               atLimitText={campaignLimitReachedCopy}
               overLimitText="הקמפיינים הקיימים נשמרו. יצירה או הפעלה נוספת חסומה עד לארכוב קמפיין או לשדרוג המסלול."
               actionLabel={campaignLimit.isAtLimit ? 'שדרוג' : undefined}
-              onActionPress={campaignLimit.isAtLimit ? openCampaignsUpgrade : undefined}
+              onActionPress={
+                campaignLimit.isAtLimit
+                  ? () => showCampaignPlanLimit('יצירת קמפיין חדש נחסמה')
+                  : undefined
+              }
             />
             <View className="rounded-2xl border border-[#D7E2F4] bg-white px-3 py-2.5">
               <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
@@ -348,9 +398,6 @@ export function CampaignsHubContent() {
                 {customerReferralQuotaCount > 0
                   ? ' + הפניית לקוחות אחת (C2C)'
                   : ''}
-              </Text>
-              <Text className={`mt-1 text-[11px] text-[#64748B] ${tw.textStart}`}>
-                הזמנת עסקים ל-StampAix (B2B) מנוהלת בנפרד ואינה נספרת במכסה הזו.
               </Text>
               {referralConsumesCampaignSlot ? (
                 <TouchableOpacity
@@ -505,6 +552,27 @@ export function CampaignsHubContent() {
         activeBusinessId={activeBusinessId}
         routeKey="campaigns"
         targetRef={guideTargetRef}
+      />
+      <PlanLimitModal
+        visible={planLimitNotice !== null}
+        blockedAction={planLimitNotice?.blockedAction ?? ''}
+        reason={planLimitNotice?.reason ?? ''}
+        currentPlan={entitlements?.plan ?? null}
+        limitSummary={`בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`}
+        canManageSubscription={canManageSubscription}
+        onManageSubscription={
+          planLimitNotice
+            ? () => {
+                const requiredPlan = planLimitNotice.requiredPlan;
+                setPlanLimitNotice(null);
+                openCampaignsUpgrade(
+                  requiredPlan,
+                  planLimitNotice.navigationReason
+                );
+              }
+            : undefined
+        }
+        onDismiss={() => setPlanLimitNotice(null)}
       />
     </SafeAreaView>
   );

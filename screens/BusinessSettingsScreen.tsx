@@ -1,3 +1,4 @@
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
@@ -16,7 +17,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   AddBusinessCta,
@@ -36,7 +36,6 @@ import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { flexDirection, tw } from '@/lib/rtl';
-import { useAuthActions } from '@convex-dev/auth/react';
 
 export default function BusinessSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -60,8 +59,6 @@ export default function BusinessSettingsScreen() {
   const canEditBusiness =
     activeBusinessCapabilities?.edit_business_profile === true;
   const canManageTeam = activeBusinessCapabilities?.manage_team === true;
-  const canInviteBusinesses =
-    activeBusinessCapabilities?.invite_businesses === true;
   const canManageSubscription =
     activeBusinessCapabilities?.manage_subscription === true;
   const addBusinessRoute = getBusinessOnboardingEntryRoute(
@@ -285,9 +282,7 @@ export default function BusinessSettingsScreen() {
           <ProfileCompletionCard
             missingCount={missingFields.length}
             canEdit={canEditBusiness}
-            onPress={() =>
-              router.push(BUSINESS_ROUTES.profileComplete as Href)
-            }
+            onPress={() => router.push(BUSINESS_ROUTES.profileComplete as Href)}
           />
         ) : null}
 
@@ -298,7 +293,7 @@ export default function BusinessSettingsScreen() {
               subtitle="שם, כתובת, שירותים והעדפות"
               icon="storefront-outline"
               onPress={() => router.push(BUSINESS_ROUTES.profile as Href)}
-              isLast={!canManageTeam && !canInviteBusinesses}
+              isLast={!canManageTeam}
             />
             {canManageTeam ? (
               <SettingsNavRow
@@ -306,17 +301,6 @@ export default function BusinessSettingsScreen() {
                 subtitle="עובדים, הזמנות והרשאות"
                 icon="people-outline"
                 onPress={() => router.push(BUSINESS_ROUTES.team)}
-                isLast={!canInviteBusinesses}
-              />
-            ) : null}
-            {canInviteBusinesses ? (
-              <SettingsNavRow
-                title="הזמנת עסקים"
-                subtitle="הזמינו עסקים. צברו חודשי StampAix."
-                icon="share-social-outline"
-                onPress={() =>
-                  router.push(BUSINESS_ROUTES.inviteBusinesses as Href)
-                }
                 isLast={true}
               />
             ) : null}
@@ -330,8 +314,20 @@ export default function BusinessSettingsScreen() {
               subtitle="שם, אימייל ומסמכים"
               icon="person-outline"
               onPress={() => router.push(BUSINESS_ROUTES.account as Href)}
-              isLast={true}
+              isLast={!canManageSubscription}
             />
+            {canManageSubscription ? (
+              <SettingsNavRow
+                title="מנוי וחיוב"
+                subtitle="מסלול, שימוש, שדרוג וניהול רכישות"
+                icon="card-outline"
+                onPress={() =>
+                  router.push(BUSINESS_ROUTES.subscription as Href)
+                }
+                isLast={true}
+                accessibilityHint="פתיחת ניהול המנוי של העסק"
+              />
+            ) : null}
           </SettingsGroup>
         </SettingsSection>
 

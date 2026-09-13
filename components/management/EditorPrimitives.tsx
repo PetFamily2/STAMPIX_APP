@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
@@ -22,7 +23,9 @@ export function EditorSection({
     <View style={styles.section}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
       {children}
     </View>
@@ -136,6 +139,22 @@ export function EditorPrimaryActions({
           )}
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+export function EditorStickyFooter({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      testID="editor-sticky-footer"
+      style={[
+        styles.stickyFooter,
+        { paddingBottom: Math.max(insets.bottom, 12) },
+      ]}
+    >
+      <View style={styles.stickyFooterContent}>{children}</View>
     </View>
   );
 }
@@ -263,5 +282,18 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.84,
+  },
+  stickyFooter: {
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: '#D7E2F4',
+    backgroundColor: 'rgba(233,240,255,0.98)',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  stickyFooterContent: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
   },
 });

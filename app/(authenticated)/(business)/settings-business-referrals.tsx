@@ -1,3 +1,4 @@
+import type { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
+import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -23,7 +26,6 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -97,32 +99,26 @@ function getRewardStatusLabel(value: string | null | undefined) {
 }
 
 function EmptyReferralActionState({
+  icon,
   title,
   body,
   action,
   onPress,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   body: string;
   action: string;
   onPress: () => void;
 }) {
   return (
-    <View style={styles.emptyActionCard}>
-      <Text style={styles.emptyActionTitle}>{title}</Text>
-      <Text style={styles.emptyText}>{body}</Text>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.emptyActionButton,
-          pressed ? styles.pressed : null,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={action}
-      >
-        <Text style={styles.emptyActionButtonText}>{action}</Text>
-      </Pressable>
-    </View>
+    <ReferralEmptyState
+      icon={icon}
+      title={title}
+      body={body}
+      actionLabel={action}
+      onActionPress={onPress}
+    />
   );
 }
 
@@ -144,6 +140,7 @@ export default function BusinessReferralSettingsScreen() {
   const canViewDashboard = capabilities?.access_dashboard === true;
   const canViewCustomers = capabilities?.access_customers === true;
   const canViewUsageQuota = capabilities?.view_usage_quota === true;
+  const canManageSubscription = capabilities?.manage_subscription === true;
   const { entitlements } = useEntitlements(
     activeBusinessId && canViewUsageQuota ? activeBusinessId : null
   );
@@ -188,6 +185,10 @@ export default function BusinessReferralSettingsScreen() {
     useState<RewardRecipients>('both');
   const [monthlyLimit, setMonthlyLimit] = useState<MonthlyLimit>(10);
   const [isSaving, setIsSaving] = useState(false);
+  const [planLimitNotice, setPlanLimitNotice] = useState<{
+    reason: string;
+    requiredPlan: 'starter' | 'pro' | 'premium' | null;
+  } | null>(null);
 
   useEffect(() => {
     setActiveTab(normalizeTab(params.tab));
@@ -287,22 +288,13 @@ export default function BusinessReferralSettingsScreen() {
         entitlementError?.code === 'PLAN_LIMIT_REACHED' &&
         entitlementError.limitKey === 'maxCampaigns'
       ) {
-        Alert.alert(
-          'מכסת קמפיינים מלאה',
-          `${entitlementErrorToHebrewMessage(
+        setPlanLimitNotice({
+          reason: `${entitlementErrorToHebrewMessage(
             entitlementError
-          )}\n\nפעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת הקמפיינים. אפשר לכבות אותה, לארכב קמפיין קיים, או לשדרג מסלול כדי להפעיל הזמנות.`,
-          [
-            { text: 'סגור', style: 'cancel' },
-            {
-              text: 'שדרוג',
-              onPress: () =>
-                openCampaignsUpgrade(
-                  entitlementError.requiredPlan ?? requiredPlanForCampaigns
-                ),
-            },
-          ]
-        );
+          )} הפניית לקוחות פעילה תופסת מקום אחד במכסה. אפשר לכבות אותה, לארכב קמפיין קיים או לנהל את המסלול.`,
+          requiredPlan:
+            entitlementError.requiredPlan ?? requiredPlanForCampaigns,
+        });
         return;
       }
       Alert.alert('שגיאה', 'שמירת ההגדרות נכשלה');
@@ -330,7 +322,7 @@ export default function BusinessReferralSettingsScreen() {
         <BusinessSettingsSubpageHeader
           title="חבר מביא חבר"
           subtitle="הגדרות, פעילות וביצועים"
-          fallbackHref={BUSINESS_ROUTES.settings}
+          fallbackHref="/(authenticated)/(business)/campaigns"
         />
 
         <View style={styles.tabRow}>
@@ -556,6 +548,7 @@ export default function BusinessReferralSettingsScreen() {
               <Text style={styles.sectionTitle}>לקוחות שהופנו</Text>
               {customersQuery.length === 0 ? (
                 <EmptyReferralActionState
+                  icon="people-outline"
                   title="עדיין אין לקוחות שהופנו"
                   body="אחרי שתשתפו הזמנה ולקוחות יצטרפו דרכה, הם יופיעו כאן."
                   action="להגדרות ושיתוף"
@@ -592,6 +585,7 @@ export default function BusinessReferralSettingsScreen() {
               <Text style={styles.sectionTitle}>תגמולי הפניה שהונפקו</Text>
               {rewardsQuery.length === 0 ? (
                 <EmptyReferralActionState
+                  icon="gift-outline"
                   title="אין תגמולים להצגה"
                   body="תגמולים שיונפקו בעקבות הזמנות חברים יוצגו כאן."
                   action="להגדרות ושיתוף"
@@ -628,6 +622,7 @@ export default function BusinessReferralSettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>ביצועים</Text>
               <EmptyReferralActionState
+                icon="stats-chart-outline"
                 title="עדיין אין נתוני ביצועים להפניות"
                 body="אחרי שתשתפו הזמנה ותתחיל פעילות, נתוני הביצועים יתעדכנו כאן."
                 action="להגדרות ושיתוף"
@@ -710,6 +705,23 @@ export default function BusinessReferralSettingsScreen() {
           )
         ) : null}
       </ScrollView>
+      <PlanLimitModal
+        visible={planLimitNotice !== null}
+        blockedAction="הפעלת הפניית לקוחות נחסמה"
+        reason={planLimitNotice?.reason ?? ''}
+        currentPlan={entitlements?.plan ?? null}
+        canManageSubscription={canManageSubscription}
+        onManageSubscription={
+          planLimitNotice
+            ? () => {
+                const requiredPlan = planLimitNotice.requiredPlan;
+                setPlanLimitNotice(null);
+                openCampaignsUpgrade(requiredPlan);
+              }
+            : undefined
+        }
+        onDismiss={() => setPlanLimitNotice(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -886,33 +898,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     textAlign: 'right',
-  },
-  emptyActionCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    gap: 8,
-  },
-  emptyActionTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#0F172A',
-    textAlign: 'right',
-  },
-  emptyActionButton: {
-    alignSelf: 'flex-end',
-    borderRadius: 999,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  emptyActionButtonText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
   },
   listRow: {
     borderRadius: 12,

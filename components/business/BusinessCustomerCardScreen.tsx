@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -25,6 +25,13 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import {
+  CUSTOMER_ACTIVITY_FILTERS,
+  type CustomerActivityFilter,
+  type CustomerActivityType,
+  groupCustomerActivityByDay,
+} from '@/lib/customers/activityHistory';
+import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
   alignItems,
@@ -47,6 +54,18 @@ type TimelineItemType =
   | 'REWARD_REDEEMED'
   | 'STAMP_REVERTED'
   | 'REWARD_REDEEM_REVERTED';
+
+type TimelineItem = {
+  id: string;
+  type: TimelineItemType;
+  detail: string;
+  programTitle?: string | null;
+  actorName?: string | null;
+  reasonCode?: string | null;
+  isReversed?: boolean;
+  isReversible?: boolean;
+  createdAt: number;
+};
 
 type ReferralBenefitItem = {
   rewardId: string;
@@ -82,7 +101,7 @@ const REASON_OPTIONS: Array<{ code: ReasonCode; label: string }> = [
 const LEGACY_STATUS_TO_STATE: Record<string, string> = {
   NEW_CUSTOMER: 'חדש',
   ACTIVE: 'פעיל',
-  NEEDS_WINBACK: 'צריך וינבאק',
+  NEEDS_WINBACK: 'מומלץ ליצור קשר',
   CLOSE_TO_REWARD: 'קרוב להטבה',
   VIP: 'VIP',
 };
@@ -100,8 +119,8 @@ void STATUS_COLORS;
 const STATE_LABELS: Record<CustomerState, string> = {
   NEW: 'חדש',
   ACTIVE: 'פעיל',
-  NEEDS_NURTURE: 'צריך חיזוק',
-  NEEDS_WINBACK: 'צריך וינבאק',
+  NEEDS_NURTURE: 'כדאי לחזק קשר',
+  NEEDS_WINBACK: 'מומלץ ליצור קשר',
   CLOSE_TO_REWARD: 'קרוב להטבה',
 };
 
@@ -157,6 +176,13 @@ function formatDateTime(timestamp: number) {
   });
 }
 
+function formatTime(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString('he-IL', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function formatShortDate(timestamp: number) {
   return new Date(timestamp).toLocaleDateString('he-IL', {
     day: '2-digit',
@@ -188,7 +214,20 @@ function getTimelineIcon(type: TimelineItemType) {
   return 'enter-outline';
 }
 
-function getReasonLabel(reasonCode: string | null) {
+function getTimelineAccent(type: TimelineItemType) {
+  if (type === 'JOINED_PROGRAM') {
+    return { color: '#7C3AED', backgroundColor: '#F3E8FF' };
+  }
+  if (type === 'STAMP_ADDED') {
+    return { color: '#2563EB', backgroundColor: '#DBEAFE' };
+  }
+  if (type === 'REWARD_REDEEMED') {
+    return { color: '#15803D', backgroundColor: '#DCFCE7' };
+  }
+  return { color: '#B91C1C', backgroundColor: '#FEE2E2' };
+}
+
+function getReasonLabel(reasonCode: string | null | undefined) {
   if (!reasonCode) {
     return null;
   }
@@ -236,6 +275,8 @@ export default function BusinessCustomerCardScreen() {
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isRedeemingReferralRewardId, setIsRedeemingReferralRewardId] =
     useState<string | null>(null);
+  const [activityFilter, setActivityFilter] =
+    useState<CustomerActivityFilter>('all');
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -278,14 +319,11 @@ export default function BusinessCustomerCardScreen() {
     ) as ReferralBenefitItem[] | undefined) ?? [];
 
   const goBack = () => {
-    if (isStaffRoute) {
-      router.back();
-      return;
-    }
-    router.replace({
-      pathname: '/(authenticated)/(business)/customers',
-      params: { tab: 'customers' },
-    });
+    safeBack(
+      isStaffRoute
+        ? '/(authenticated)/(staff)/customers'
+        : '/(authenticated)/(business)/customers'
+    );
   };
 
   const closeAdjustmentDialog = () => {
@@ -359,6 +397,17 @@ export default function BusinessCustomerCardScreen() {
 
   const summaryState = card ? resolveSummaryState(card.summary) : 'ACTIVE';
   const summaryTier = card ? resolveSummaryTier(card.summary) : 'REGULAR';
+  const activityGroups = useMemo(
+    () =>
+      groupCustomerActivityByDay(
+        ((card?.timeline ?? []) as TimelineItem[]).map((item) => ({
+          ...item,
+          type: item.type as CustomerActivityType,
+        })),
+        activityFilter
+      ),
+    [activityFilter, card?.timeline]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -548,9 +597,7 @@ export default function BusinessCustomerCardScreen() {
               ) : null}
 
               <View style={styles.referralBenefitsList}>
-                <Text style={styles.referralBenefitsTitle}>
-                  הטבות זמינות
-                </Text>
+                <Text style={styles.referralBenefitsTitle}>הטבות זמינות</Text>
                 {referralBenefits.length === 0 ? (
                   <Text style={styles.referralEmptyText}>
                     אין כרגע הטבות הפניה פעילות למימוש.
@@ -610,13 +657,12 @@ export default function BusinessCustomerCardScreen() {
                   >
                     <LoyaltyCard
                       variant="management"
+                      compactManagement={card.programs.length > 3}
                       businessName={activeBusiness?.name?.trim() || 'העסק שלך'}
                       businessLogoUrl={activeBusiness?.logoUrl ?? null}
                       programTitle={program.programTitle}
                       rewardName={program.rewardName}
-                      maxStamps={
-                        program.targetIsValid ? program.maxStamps : 0
-                      }
+                      maxStamps={program.targetIsValid ? program.maxStamps : 0}
                       progress={{
                         kind: 'actual',
                         currentStamps: program.currentStamps,
@@ -627,8 +673,7 @@ export default function BusinessCustomerCardScreen() {
                       cardThemeId={program.cardThemeId}
                     />
                     <Text style={styles.programMetaText}>
-                      עדכון אחרון:{' '}
-                      {formatDateTime(program.lastActivityAt)}
+                      עדכון אחרון: {formatDateTime(program.lastActivityAt)}
                     </Text>
                   </View>
                 ))}
@@ -637,69 +682,116 @@ export default function BusinessCustomerCardScreen() {
 
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>היסטוריית פעילות</Text>
+              <View style={styles.activityFilters}>
+                {CUSTOMER_ACTIVITY_FILTERS.map((filter) => {
+                  const selected = activityFilter === filter.id;
+                  return (
+                    <Pressable
+                      key={filter.id}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`סינון פעילות: ${filter.label}`}
+                      onPress={() => setActivityFilter(filter.id)}
+                      style={({ pressed }) => [
+                        styles.activityFilter,
+                        selected ? styles.activityFilterSelected : null,
+                        pressed ? styles.activityFilterPressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.activityFilterText,
+                          selected ? styles.activityFilterTextSelected : null,
+                        ]}
+                      >
+                        {filter.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <View style={styles.timelineList}>
-                {card.timeline.length === 0 ? (
+                {activityGroups.length === 0 ? (
                   <Text style={styles.emptyTimelineText}>
-                    עדיין אין פעילות ללקוח הזה.
+                    {card.timeline.length === 0
+                      ? 'עדיין אין פעילות ללקוח הזה.'
+                      : 'אין פעולות מהסוג שנבחר.'}
                   </Text>
                 ) : (
-                  card.timeline.map((item) => {
-                    const reasonLabel = getReasonLabel(item.reasonCode);
-                    const subtitleParts = [
-                      item.programTitle ?? 'ללא תוכנית',
-                      item.actorName ? `על ידי ${item.actorName}` : null,
-                      reasonLabel ? `סיבה: ${reasonLabel}` : null,
-                    ].filter(Boolean);
+                  activityGroups.map((group) => (
+                    <View key={group.title} style={styles.timelineDayGroup}>
+                      <Text style={styles.timelineDayTitle}>{group.title}</Text>
+                      {group.data.map((item) => {
+                        const reasonLabel = getReasonLabel(item.reasonCode);
+                        const accent = getTimelineAccent(
+                          item.type as TimelineItemType
+                        );
+                        const subtitleParts = [
+                          item.programTitle ?? 'ללא תוכנית',
+                          item.actorName ? `על ידי ${item.actorName}` : null,
+                          reasonLabel ? `סיבה: ${reasonLabel}` : null,
+                        ].filter(Boolean);
 
-                    return (
-                      <View key={item.id} style={styles.timelineItem}>
-                        <View style={styles.timelineIconWrap}>
-                          <Ionicons
-                            name={getTimelineIcon(item.type)}
-                            size={16}
-                            color="#2F6BFF"
-                          />
-                        </View>
-                        <View style={styles.timelineTextWrap}>
-                          <View style={styles.timelineTitleRow}>
-                            <Text style={styles.timelineTitle}>
-                              {item.detail}
-                            </Text>
-                            {item.isReversed ? (
-                              <View style={styles.reversedBadge}>
-                                <Text style={styles.reversedBadgeText}>
-                                  בוטל
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <Text style={styles.timelineSubtitle}>
-                            {subtitleParts.join(' • ')}
-                          </Text>
-                          {item.isReversible ? (
-                            <Pressable
-                              onPress={() =>
-                                openAdjustmentDialog(item.id, item.detail)
-                              }
-                              accessibilityRole="button"
-                              accessibilityLabel={`ביצוע תיקון עבור ${item.detail}`}
-                              style={({ pressed }) => [
-                                styles.adjustmentButton,
-                                pressed ? styles.adjustmentButtonPressed : null,
+                        return (
+                          <View key={item.id} style={styles.timelineItem}>
+                            <View
+                              style={[
+                                styles.timelineIconWrap,
+                                { backgroundColor: accent.backgroundColor },
                               ]}
                             >
-                              <Text style={styles.adjustmentButtonText}>
-                                בצע תיקון
+                              <Ionicons
+                                name={getTimelineIcon(
+                                  item.type as TimelineItemType
+                                )}
+                                size={16}
+                                color={accent.color}
+                              />
+                            </View>
+                            <View style={styles.timelineTextWrap}>
+                              <View style={styles.timelineTitleRow}>
+                                <Text style={styles.timelineTitle}>
+                                  {item.detail}
+                                </Text>
+                                {item.isReversed ? (
+                                  <View style={styles.reversedBadge}>
+                                    <Text style={styles.reversedBadgeText}>
+                                      בוטל
+                                    </Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                              <Text style={styles.timelineSubtitle}>
+                                {subtitleParts.join(' • ')}
                               </Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                        <Text style={styles.timelineDate}>
-                          {formatDateTime(item.createdAt)}
-                        </Text>
-                      </View>
-                    );
-                  })
+                              {item.isReversible ? (
+                                <Pressable
+                                  onPress={() =>
+                                    openAdjustmentDialog(item.id, item.detail)
+                                  }
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`ביצוע תיקון עבור ${item.detail}`}
+                                  style={({ pressed }) => [
+                                    styles.adjustmentButton,
+                                    pressed
+                                      ? styles.adjustmentButtonPressed
+                                      : null,
+                                  ]}
+                                >
+                                  <Text style={styles.adjustmentButtonText}>
+                                    תיקון
+                                  </Text>
+                                </Pressable>
+                              ) : null}
+                            </View>
+                            <Text style={styles.timelineDate}>
+                              {formatTime(item.createdAt)}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))
                 )}
               </View>
             </View>
@@ -1101,6 +1193,51 @@ const styles = StyleSheet.create({
   timelineList: {
     gap: 10,
   },
+  activityFilters: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  activityFilter: {
+    minHeight: 40,
+    minWidth: 58,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+  },
+  activityFilterSelected: {
+    borderColor: '#93B4FF',
+    backgroundColor: '#EAF1FF',
+  },
+  activityFilterPressed: {
+    opacity: 0.86,
+  },
+  activityFilterText: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  activityFilterTextSelected: {
+    color: '#1D4ED8',
+  },
+  timelineDayGroup: {
+    gap: 8,
+  },
+  timelineDayTitle: {
+    color: '#334155',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '900',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   emptyTimelineText: {
     fontSize: 13,
     fontWeight: '600',
@@ -1168,8 +1305,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#C7DBFF',
-    backgroundColor: '#EEF4FF',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     alignSelf: selfStart,
     justifyContent: 'center',
   },
@@ -1177,7 +1314,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   adjustmentButtonText: {
-    color: '#1E3A8A',
+    color: '#475569',
     fontWeight: '800',
     fontSize: 12,
   },

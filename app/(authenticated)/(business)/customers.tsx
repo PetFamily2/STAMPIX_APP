@@ -28,6 +28,10 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import {
+  formatCustomerCount,
+  formatCustomerResultCount,
+} from '@/lib/customers/countCopy';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
@@ -35,12 +39,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
-import {
-  flexDirection,
-  rtlBaseView,
-  selfStart,
-  tw,
-} from '@/lib/rtl';
+import { flexDirection, rtlBaseView, selfStart, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -534,9 +533,12 @@ export function CustomersHubContent() {
         >
           <View style={styles.listHeader}>
             <Text style={styles.listHeaderText}>
-              {effectiveFilter
-                ? `${formatNumber(filteredCustomers.length)} לקוחות מתוך ${formatNumber(customerList.length)}`
-                : `${formatNumber(customerList.length)} לקוחות`}
+              {effectiveFilter || search.trim().length > 0
+                ? formatCustomerResultCount(
+                    filteredCustomers.length,
+                    customerList.length
+                  )
+                : formatCustomerCount(customerList.length)}
             </Text>
           </View>
 

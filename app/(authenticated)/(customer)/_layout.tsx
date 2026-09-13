@@ -110,7 +110,7 @@ export default function CustomerTabsLayout() {
 
   return (
     <Tabs
-        screenOptions={{
+      screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
         tabBarStyle: {
@@ -143,7 +143,7 @@ export default function CustomerTabsLayout() {
           marginTop: 2,
         },
       }}
-      >
+    >
       <Tabs.Screen
         name="settings"
         options={{
@@ -267,6 +267,7 @@ export default function CustomerTabsLayout() {
         name="account-details"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

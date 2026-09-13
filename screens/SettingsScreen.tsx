@@ -112,7 +112,8 @@ const TEXT = {
   staffBusinessesTitle: 'העסקים שבהם אני עובד',
   logoutFailed: 'לא הצלחנו לבצע יציאה נסו שוב',
   deleteModalTitle: 'מחיקת חשבון',
-  deleteModalWarning: 'הפעולה תמחק לצמיתות את החשבון ואת כל הנתונים',
+  deleteModalWarning:
+    'הפעולה תמחק לצמיתות את החשבון האישי, הכרטיסיות, ההעדפות והמידע המשויך אליו. מידע שחובה לשמור לפי דין, לצורכי חיוב, אבטחה או מניעת הונאה עשוי להישמר באופן מצומצם. אם החשבון הוא הבעלים היחיד של עסק פעיל או סגור, יהיה צורך להסדיר תחילה את הבעלות. אי אפשר לבטל את המחיקה לאחר השלמתה.',
   deleteModalConfirmHint: 'להמשך, הקלידו DELETE',
   deleteModalBusy: 'מוחקים נתונים',
   cancel: 'ביטול',
@@ -127,7 +128,8 @@ const TEXT = {
     'לא ניתן למחוק את החשבון כל עוד בבעלותך עסק פעיל או סגור. יש לנהל את העסקים שבבעלותך לפני שממשיכים במחיקת החשבון האישי.',
   manageBusinesses: 'ניהול עסקים',
   deleteSuccessTitle: 'המחיקה הושלמה',
-  deleteSuccessPrefix: 'המחיקה הסתיימה סיכום טבלאות:',
+  deleteSuccessMessage:
+    'החשבון והנתונים שניתן למחוק הוסרו. מידע שחובה לשמור לפי דין עשוי להישמר בהתאם למדיניות הפרטיות.',
   ok: 'אישור',
   errorTitle: 'שגיאה',
 };
@@ -178,12 +180,6 @@ function showNotificationEnableFailure(
   Alert.alert(TEXT.errorTitle, TEXT.notificationsTechnicalFailure);
 }
 
-function formatWipeSummary(counts: Record<string, number>) {
-  return Object.entries(counts)
-    .map(([tableName, count]) => `${tableName}: ${count}`)
-    .join('\n');
-}
-
 function getScannerRouteForStaffRole(staffRole: 'owner' | 'manager' | 'staff') {
   return staffRole === 'staff'
     ? '/(authenticated)/(staff)/scanner'
@@ -217,9 +213,7 @@ async function clearConvexAuthSecureStore() {
 }
 
 function reportPostDeletionCleanupWarning(failedStepNames: readonly string[]) {
-  console.warn('[account-deletion] Local cleanup completed with warnings.', {
-    failedStepNames,
-  });
+  void failedStepNames;
 }
 
 function MenuRow({
@@ -350,11 +344,8 @@ export default function SettingsScreen() {
   const setMyMarketingProfile = useMutation(api.users.setMyMarketingProfile);
   const { resetAppMode, setAppMode } = useAppMode();
   const { reset: resetOnboarding } = useOnboarding();
-  const {
-    isSwitchingBusiness,
-    resetActiveBusinessState,
-    setActiveBusinessId,
-  } = useActiveBusiness();
+  const { isSwitchingBusiness, resetActiveBusinessState, setActiveBusinessId } =
+    useActiveBusiness();
   const {
     clearDeletedAccountNotificationStorage,
     isEnabled: notificationsEnabled,
@@ -652,9 +643,7 @@ export default function SettingsScreen() {
     setDeleteConfirmationText('');
     Alert.alert(
       TEXT.deleteSuccessTitle,
-      `${TEXT.deleteSuccessPrefix}\n${formatWipeSummary(
-        deletionResult.deleted
-      )}`,
+      TEXT.deleteSuccessMessage,
       [{ text: TEXT.ok }],
       { cancelable: false }
     );

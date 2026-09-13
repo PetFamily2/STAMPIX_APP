@@ -8,7 +8,6 @@ import {
   TAB_BAR_CONTENT_HEIGHT,
 } from '@/components/BusinessTabBar';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { api } from '@/convex/_generated/api';
 import {
   getActiveMembershipByBusinessId,
@@ -16,6 +15,7 @@ import {
   resolveActiveBusinessShell,
 } from '@/lib/activeBusinessShell';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 
 const TEXT = {
   dashboard: 'בית',
@@ -275,6 +275,7 @@ export default function BusinessTabsLayout() {
         name="customer/[customerUserId]"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

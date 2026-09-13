@@ -50,20 +50,21 @@ export function LogoutOptionsSheet({
             accessibilityHint="יציאה מהחשבון במכשיר זה בלבד"
             style={({ pressed }) => [
               styles.option,
+              styles.optionPrimary,
               pressed ? styles.optionPressed : null,
             ]}
           >
             <View style={styles.optionRow}>
-              <View style={styles.iconShell}>
-                <Ionicons
-                  name="log-out-outline"
-                  size={18}
-                  color={SETTINGS_TOKENS.textPrimary}
-                />
+              <View style={[styles.iconShell, styles.iconShellPrimary]}>
+                <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
               </View>
               <View style={styles.optionCopy}>
-                <Text style={styles.optionTitle}>התנתקות מהמכשיר</Text>
-                <Text style={styles.optionSubtitle}>
+                <Text style={[styles.optionTitle, styles.optionTitlePrimary]}>
+                  התנתקות מהמכשיר
+                </Text>
+                <Text
+                  style={[styles.optionSubtitle, styles.optionSubtitlePrimary]}
+                >
                   יציאה מהחשבון במכשיר זה בלי לשנות את העסק או המנוי
                 </Text>
               </View>
@@ -166,6 +167,10 @@ const styles = StyleSheet.create({
   optionPressed: {
     opacity: 0.88,
   },
+  optionPrimary: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#2F6BFF',
+  },
   optionRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -179,6 +184,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  iconShellPrimary: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   optionCopy: {
     flex: 1,
@@ -201,6 +209,12 @@ const styles = StyleSheet.create({
     color: SETTINGS_TOKENS.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
+  },
+  optionTitlePrimary: {
+    color: '#FFFFFF',
+  },
+  optionSubtitlePrimary: {
+    color: '#E8EFFF',
   },
   cancel: {
     minHeight: SETTINGS_TOKENS.touchTarget,

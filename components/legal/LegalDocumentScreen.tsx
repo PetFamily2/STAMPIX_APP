@@ -1,5 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
@@ -31,7 +38,10 @@ export function LegalDocumentScreen({
   fallbackHref: string;
 }) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ document?: string | string[]; returnTo?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    document?: string | string[];
+    returnTo?: string | string[];
+  }>();
   const activeKey = normalizeDocumentKey(params.document);
   const activeDocument = LEGAL_DOCUMENTS[activeKey];
   const returnTo = Array.isArray(params.returnTo)
@@ -94,8 +104,7 @@ export function LegalDocumentScreen({
             עודכן לאחרונה: {activeDocument.updatedAt}
           </Text>
           <Text style={styles.updatedText}>
-            המסמך מוצג בתוך האפליקציה כגרסת fallback עד לפרסום כתובות ציבוריות
-            חיות.
+            אפשר לקרוא את המסמך כאן באפליקציה או לפתוח את הגרסה באתר.
           </Text>
         </View>
 
@@ -119,20 +128,30 @@ export function LegalDocumentScreen({
         </View>
 
         <View style={styles.externalCard}>
-          <Text style={styles.externalTitle}>
-            קישורים ציבוריים נדרשים לפרסום
-          </Text>
-          <Text style={styles.paragraph}>
-            חנויות האפליקציות דורשות קישורים ציבוריים חיים למדיניות פרטיות
-            ולתנאי שימוש. אין להסתמך על מסך fallback פנימי במקום עמודים ציבוריים
-            לפני הגשה לחנויות.
-          </Text>
-          <Text selectable={true} style={styles.urlText}>
-            Privacy: {PRIVACY_POLICY_URL}
-          </Text>
-          <Text selectable={true} style={styles.urlText}>
-            Terms: {TERMS_OF_SERVICE_URL}
-          </Text>
+          <Text style={styles.externalTitle}>מסמכים באתר StampAix</Text>
+          <Text style={styles.paragraph}>לפתיחת הגרסה העדכנית בדפדפן:</Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="מדיניות הפרטיות באתר"
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed ? styles.linkButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.linkButtonText}>מדיניות הפרטיות באתר</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="תנאי השימוש באתר"
+            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed ? styles.linkButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.linkButtonText}>תנאי השימוש באתר</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -272,13 +291,26 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  urlText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 19,
+  linkButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
-    textAlign: 'left',
-    writingDirection: 'ltr',
+    paddingHorizontal: 14,
+  },
+  linkButtonPressed: {
+    opacity: 0.86,
+  },
+  linkButtonText: {
+    color: '#1D4ED8',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 20,
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
 });

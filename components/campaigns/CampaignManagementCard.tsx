@@ -85,7 +85,9 @@ export function CampaignManagementCard({
         pressed ? styles.pressed : null,
       ]}
     >
-      <View style={[styles.iconCanvas, { backgroundColor: meta.iconBackground }]}>
+      <View
+        style={[styles.iconCanvas, { backgroundColor: meta.iconBackground }]}
+      >
         <Ionicons name={meta.icon} size={20} color={meta.iconColor} />
       </View>
 
@@ -151,8 +153,10 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   cardArchived: {
+    minHeight: 72,
     backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
+    paddingVertical: 8,
   },
   iconCanvas: {
     width: 42,

@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -15,26 +14,35 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 import {
   SafeAreaView,
+  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
 import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
+import { ReferralShareCreative } from '@/components/referrals/ReferralShareCreative';
+import { RewardEarnedCelebration } from '@/components/referrals/RewardEarnedCelebration';
 import { REVENUECAT_PACKAGE_BY_PLAN_PERIOD } from '@/config/appConfig';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { isBillingPeriod, isBusinessPlan } from '@/lib/billing/productionContract';
+import {
+  isBillingPeriod,
+  isBusinessPlan,
+} from '@/lib/billing/productionContract';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
-import { REFERRAL_COPY, earnedRewardLabel, qualificationProgressLabel, referralStatusLabel } from '@/lib/referrals/copy';
-import { ReferralShareCreative } from '@/components/referrals/ReferralShareCreative';
-import { RewardEarnedCelebration } from '@/components/referrals/RewardEarnedCelebration';
+import {
+  earnedRewardLabel,
+  qualificationProgressLabel,
+  REFERRAL_COPY,
+  referralStatusLabel,
+} from '@/lib/referrals/copy';
 import { buildReferralShareCreative } from '@/lib/referrals/shareCreative';
 import { shareReferralInvite } from '@/lib/referrals/shareInvite';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 function BusinessInviteContent({
   businessId,
@@ -159,7 +167,10 @@ function BusinessInviteContent({
         months?: number;
       };
       if (prepared?.canRedeem !== true) {
-        Alert.alert('מימוש ההטבה', prepared?.message ?? 'ההטבה עדיין לא זמינה למימוש.');
+        Alert.alert(
+          'מימוש ההטבה',
+          prepared?.message ?? 'ההטבה עדיין לא זמינה למימוש.'
+        );
         return;
       }
       if (store === 'google' && prepared.applied) {
@@ -295,7 +306,9 @@ function BusinessInviteContent({
               : null,
           ]}
         >
-          <Text style={styles.primaryButtonText}>{REFERRAL_COPY.inviteCta}</Text>
+          <Text style={styles.primaryButtonText}>
+            {REFERRAL_COPY.inviteCta}
+          </Text>
         </Pressable>
         <Pressable
           onPress={() => void handleShare('whatsapp')}
@@ -358,6 +371,12 @@ function BusinessInviteContent({
             )
           )}
         </View>
+      ) : !isSummaryLoading ? (
+        <ReferralEmptyState
+          icon="people-outline"
+          title="עדיין אין הזמנות שהושלמו"
+          body="לאחר שעסק יצטרף דרך הקישור שלכם, ההתקדמות תופיע כאן."
+        />
       ) : null}
       {hub?.rewards?.length ? (
         <View style={styles.summaryCard}>
@@ -390,20 +409,22 @@ function BusinessInviteContent({
             )
           )}
         </View>
+      ) : !isSummaryLoading ? (
+        <ReferralEmptyState
+          icon="gift-outline"
+          title="עדיין אין הטבות עסקיות"
+          body="הטבות שנצברו בעקבות הזמנת עסקים יוצגו כאן."
+        />
       ) : null}
     </>
   );
 }
 
 export default function BusinessInviteBusinessesScreen() {
-  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const {
-    activeBusiness,
-    activeBusinessId,
-    isLoading,
-    isSwitchingBusiness,
-  } = useActiveBusiness();
+  const { activeBusiness, activeBusinessId, isLoading, isSwitchingBusiness } =
+    useActiveBusiness();
   const capabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -413,7 +434,7 @@ export default function BusinessInviteBusinessesScreen() {
   const canInviteBusinesses = capabilities?.invite_businesses === true;
 
   if (activeBusiness && !canInviteBusinesses) {
-    return <Redirect href="/(authenticated)/(business)/settings" />;
+    return <Redirect href="/(authenticated)/(business)/dashboard" />;
   }
 
   return (
@@ -424,14 +445,14 @@ export default function BusinessInviteBusinessesScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: tabBarHeight + 24,
+            paddingBottom: Math.max(insets.bottom, 12) + 24,
           },
         ]}
       >
         <BusinessSettingsSubpageHeader
           title="הזמנת עסקים"
           subtitle={REFERRAL_COPY.hubHeading}
-          fallbackHref={BUSINESS_ROUTES.settings}
+          fallbackHref="/(authenticated)/(business)/dashboard"
         />
 
         {isLoading || !activeBusinessId ? (

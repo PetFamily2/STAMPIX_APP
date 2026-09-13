@@ -1,6 +1,5 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery } from 'convex/react';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,12 +7,14 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
@@ -142,8 +143,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   const subscriptionRecoveryTargetRef = useGuidedTargetRef();
   const quotaTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
-  const tabBarHeight = useBottomTabBarHeight();
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     recommendedPlan?: string | string[];
     upgradeReason?: string | string[];
@@ -181,20 +181,11 @@ export default function BusinessSettingsSubscriptionScreen() {
       ? { businessId: activeBusinessId }
       : 'skip'
   ) as { usedSeats: number; maxSeats: number } | null | undefined;
-  const referralCreditSummary = useQuery(
-    api.referrals.getBusinessReferralCreditSummary,
-    activeBusinessId && capabilities?.view_billing_state === true
-      ? { businessId: activeBusinessId }
-      : 'skip'
-  );
   const billingIdentity = useQuery(
     api.businessBilling.getBusinessBillingIdentity,
     activeBusinessId && capabilities?.manage_subscription === true
       ? { businessId: activeBusinessId }
       : 'skip'
-  );
-  const createBusinessReferralLink = useMutation(
-    api.referrals.getOrCreateBusinessReferralLink
   );
 
   const recommendedPlanParam = parsePlanParam(params.recommendedPlan);
@@ -323,7 +314,6 @@ export default function BusinessSettingsSubscriptionScreen() {
     useState<PlanId>('pro');
   const [comparisonBillingPeriod, setComparisonBillingPeriod] =
     useState<BillingPeriod>('monthly');
-  const [isB2bShareLoading, setIsB2bShareLoading] = useState(false);
   const [isRestoringSubscription, setIsRestoringSubscription] = useState(false);
 
   const openUpgrade = useCallback(
@@ -399,48 +389,6 @@ export default function BusinessSettingsSubscriptionScreen() {
     );
   }, [billingIdentity?.providerAppUserId, getManagementUrl]);
 
-  const handleShareBusinessReferral = useCallback(
-    async (mode: 'whatsapp' | 'copy') => {
-      if (!activeBusinessId || isB2bShareLoading) {
-        return;
-      }
-      try {
-        setIsB2bShareLoading(true);
-        const link = await createBusinessReferralLink({
-          businessId: activeBusinessId,
-        });
-        const message = `הזמינו בעלי עסקים ל-StampAix וקבלו חודשי מנוי מתנה.\n${link.url}`;
-
-        if (mode === 'whatsapp') {
-          const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-          const canOpen = await Linking.canOpenURL(whatsappUrl);
-          if (canOpen) {
-            await Linking.openURL(whatsappUrl);
-          } else {
-            await Share.share({ message });
-          }
-        } else {
-          const maybeNavigator = globalThis as {
-            navigator?: {
-              clipboard?: { writeText?: (value: string) => Promise<void> };
-            };
-          };
-          if (maybeNavigator.navigator?.clipboard?.writeText) {
-            await maybeNavigator.navigator.clipboard.writeText(link.url);
-          } else {
-            await Share.share({ message: link.url });
-          }
-          Alert.alert('', 'קישור ההזמנה לעסק הוכן לשיתוף');
-        }
-      } catch {
-        Alert.alert('שגיאה', 'לא הצלחנו ליצור קישור הפניה עסקי כרגע.');
-      } finally {
-        setIsB2bShareLoading(false);
-      }
-    },
-    [activeBusinessId, createBusinessReferralLink, isB2bShareLoading]
-  );
-
   useEffect(() => {
     if (recommendedPlanParam) {
       setComparisonSelectedPlan(recommendedPlanParam);
@@ -483,7 +431,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     recommendedPlanParam,
   ]);
 
-  if (activeBusiness && capabilities?.view_billing_state !== true) {
+  if (activeBusiness && capabilities?.manage_subscription !== true) {
     return <Redirect href="/(authenticated)/(business)/settings" />;
   }
 
@@ -590,7 +538,7 @@ export default function BusinessSettingsSubscriptionScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: tabBarHeight + 24,
+            paddingBottom: Math.max(insets.bottom, 12) + 24,
           },
         ]}
       >
@@ -639,7 +587,7 @@ export default function BusinessSettingsSubscriptionScreen() {
             }}
             style={({ pressed }) => [
               styles.subscriptionRecoveryButton,
-              pressed ? styles.b2bSecondaryButtonPressed : null,
+              pressed ? styles.secondaryButtonPressed : null,
               { alignSelf: 'stretch', marginTop: 12 },
             ]}
           >
@@ -676,8 +624,8 @@ export default function BusinessSettingsSubscriptionScreen() {
               }}
               style={({ pressed }) => [
                 styles.subscriptionRecoveryButton,
-                pressed ? styles.b2bSecondaryButtonPressed : null,
-                isRestoringSubscription ? styles.b2bButtonDisabled : null,
+                pressed ? styles.secondaryButtonPressed : null,
+                isRestoringSubscription ? styles.buttonDisabled : null,
               ]}
             >
               {isRestoringSubscription ? (
@@ -696,7 +644,7 @@ export default function BusinessSettingsSubscriptionScreen() {
               }}
               style={({ pressed }) => [
                 styles.subscriptionRecoveryButton,
-                pressed ? styles.b2bSecondaryButtonPressed : null,
+                pressed ? styles.secondaryButtonPressed : null,
               ]}
             >
               <Text style={styles.subscriptionRecoveryButtonText}>
@@ -714,72 +662,6 @@ export default function BusinessSettingsSubscriptionScreen() {
             </Text>
           </View>
         ) : null}
-
-        <View style={styles.b2bReferralCard}>
-          <Text style={styles.b2bReferralTitle}>הפניית עסקים (B2B)</Text>
-          <Text style={styles.b2bReferralSubtitle}>
-            זיכויי חודשים מנוהלים בנפרד ממסלול המנוי ומופיעים כאן לצורך מעקב.
-          </Text>
-          <View style={styles.b2bReferralStatsRow}>
-            <View style={styles.b2bReferralStat}>
-              <Text style={styles.b2bReferralStatValue}>
-                {referralCreditSummary?.creditedMonths ?? 0}
-              </Text>
-              <Text style={styles.b2bReferralStatLabel}>חודשים שזוכו</Text>
-            </View>
-            <View style={styles.b2bReferralStat}>
-              <Text style={styles.b2bReferralStatValue}>
-                {referralCreditSummary?.pendingMonths ?? 0}
-              </Text>
-              <Text style={styles.b2bReferralStatLabel}>ממתינים ל-30 יום</Text>
-            </View>
-            <View style={styles.b2bReferralStat}>
-              <Text style={styles.b2bReferralStatValue}>
-                {referralCreditSummary?.remainingCapMonths ?? 24}
-              </Text>
-              <Text style={styles.b2bReferralStatLabel}>יתרה עד תקרה</Text>
-            </View>
-          </View>
-          <View style={styles.b2bReferralActionsRow}>
-            <Pressable
-              onPress={() => void handleShareBusinessReferral('whatsapp')}
-              disabled={isB2bShareLoading}
-              style={({ pressed }) => [
-                styles.b2bPrimaryButton,
-                pressed ? styles.b2bPrimaryButtonPressed : null,
-                isB2bShareLoading ? styles.b2bButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.b2bPrimaryButtonText}>
-                {isB2bShareLoading ? 'טוען...' : 'שיתוף ב-WhatsApp'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void handleShareBusinessReferral('copy')}
-              disabled={isB2bShareLoading}
-              style={({ pressed }) => [
-                styles.b2bSecondaryButton,
-                pressed ? styles.b2bSecondaryButtonPressed : null,
-                isB2bShareLoading ? styles.b2bButtonDisabled : null,
-              ]}
-            >
-              <Text style={styles.b2bSecondaryButtonText}>העתקת קישור</Text>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                router.push(
-                  '/(authenticated)/(business)/settings-business-referrals'
-                )
-              }
-              style={({ pressed }) => [
-                styles.b2bSecondaryButton,
-                pressed ? styles.b2bSecondaryButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.b2bSecondaryButtonText}>ניהול הפניות</Text>
-            </Pressable>
-          </View>
-        </View>
 
         <View style={styles.panelWrap}>
           <SubscriptionSalesPanel
@@ -989,98 +871,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: TEXT_START,
   },
-  b2bReferralCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#DCE6FB',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    gap: 10,
-  },
-  b2bReferralTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1E3A8A',
-    textAlign: TEXT_START,
-  },
-  b2bReferralSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    textAlign: TEXT_START,
-    lineHeight: 18,
-  },
-  b2bReferralStatsRow: {
-    flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  b2bReferralStat: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DCE6FB',
-    backgroundColor: '#F8FAFF',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    alignItems: alignItems.start,
-    gap: 2,
-  },
-  b2bReferralStatValue: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F294B',
-    textAlign: TEXT_END,
-  },
-  b2bReferralStatLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
-    textAlign: TEXT_END,
-  },
-  b2bReferralActionsRow: {
-    flexDirection: flexDirection.row,
-    gap: 8,
-  },
-  b2bPrimaryButton: {
-    flex: 1.4,
-    borderRadius: 10,
-    backgroundColor: '#1D4ED8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  b2bPrimaryButtonPressed: {
-    opacity: 0.86,
-  },
-  b2bPrimaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  b2bSecondaryButton: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  b2bSecondaryButtonPressed: {
+  secondaryButtonPressed: {
     opacity: 0.85,
   },
-  b2bSecondaryButtonText: {
-    color: '#1E40AF',
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  b2bButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.6,
   },
   panelWrap: {
