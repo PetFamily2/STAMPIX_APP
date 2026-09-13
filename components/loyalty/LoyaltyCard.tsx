@@ -42,6 +42,7 @@ export type LoyaltyCardProps = {
   stampIcon?: string;
   stampShape?: StampShape;
   selected?: boolean;
+  compactManagement?: boolean;
   onPress?: () => void;
 };
 
@@ -60,6 +61,7 @@ export default function LoyaltyCard({
   stampIcon,
   stampShape = 'circle',
   selected = false,
+  compactManagement = false,
   onPress,
 }: LoyaltyCardProps) {
   const { width: windowWidth } = useWindowDimensions();
@@ -75,6 +77,7 @@ export default function LoyaltyCard({
   });
   const isExpanded = variant === 'full' || variant === 'preview';
   const isManagement = variant === 'management';
+  const isCompactManagement = isManagement && compactManagement;
   const isReady = presentation.state === 'rewardReady';
   const isArchived = presentation.state === 'archived';
   const logoUri = businessLogoUrl?.trim() || null;
@@ -112,6 +115,7 @@ export default function LoyaltyCard({
         isExpanded ? styles.cardExpanded : null,
         variant === 'preview' ? styles.cardPreview : null,
         isManagement ? styles.cardManagement : null,
+        isCompactManagement ? styles.cardManagementCompact : null,
         { borderColor: theme.keyline },
         selected ? styles.cardSelected : null,
         isReady ? styles.cardReady : null,
@@ -126,6 +130,7 @@ export default function LoyaltyCard({
           style={[
             styles.logo,
             isExpanded ? styles.logoExpanded : null,
+            isCompactManagement ? styles.logoManagementCompact : null,
             { borderColor: theme.keyline },
           ]}
         >
@@ -204,6 +209,7 @@ export default function LoyaltyCard({
               styles.rewardName,
               isExpanded ? styles.rewardNameExpanded : null,
               isManagement ? styles.rewardNameManagement : null,
+              isCompactManagement ? styles.rewardNameManagementCompact : null,
               isReady ? styles.rewardNameReady : null,
               rtlAutoText,
               { color: theme.onSurface },
@@ -440,6 +446,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 12,
   },
+  cardManagementCompact: {
+    minHeight: 126,
+    borderRadius: 18,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    gap: 8,
+  },
   cardSelected: { borderColor: '#93C5FD', borderWidth: 2 },
   cardReady: { borderColor: '#34D399' },
   cardArchived: { borderColor: '#94A3B8' },
@@ -467,6 +480,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   logoExpanded: { width: 52, height: 52, borderRadius: 16 },
+  logoManagementCompact: { width: 38, height: 38, borderRadius: 12 },
   image: { width: '100%', height: '100%' },
   monogram: { fontSize: 14, lineHeight: 18, fontWeight: '800' },
   identityCopy: { flex: 1, alignItems: alignItems.start, gap: 2 },
@@ -505,6 +519,7 @@ const styles = StyleSheet.create({
   },
   rewardNameExpanded: { fontSize: 30, lineHeight: 35 },
   rewardNameManagement: { fontSize: 21, lineHeight: 25 },
+  rewardNameManagementCompact: { fontSize: 17, lineHeight: 21 },
   rewardNameReady: { fontWeight: '900' },
   programImage: {
     width: 56,

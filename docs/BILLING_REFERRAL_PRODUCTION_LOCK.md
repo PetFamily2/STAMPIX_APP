@@ -197,7 +197,12 @@ Legacy `b2bCreditMonthsEarned` / Convex `subscriptionEndAt` extensions are histo
 `bun run prebuild:preview`
 `bun run prebuild:production`
 
-Fail if frozen prices/limits change, free Starter exists, `business_access` missing, six products missing, MOCK_PAYMENTS true, server-authoritative billing false, 30-day-free copy, referral entitlement grant, or Premium maxCards > 10 Themes.
+These also run the RTL source/native-config guards and the remote Convex
+deployment-contract verifier. Fail if frozen prices/limits change, free Starter
+exists, `business_access` missing, six products missing, MOCK_PAYMENTS true,
+server-authoritative billing false, 30-day-free copy, referral entitlement
+grant, Premium maxCards > 10 Themes, or the target Convex deployment is missing
+a public function required by the current app.
 
 ## Environment (Preview/Production)
 

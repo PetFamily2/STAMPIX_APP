@@ -22,15 +22,17 @@ export function SettingsSection({
 
 const styles = StyleSheet.create({
   section: {
-    gap: 8,
+    width: '100%',
+    gap: 9,
     alignItems: 'stretch',
   },
   title: {
     width: '100%',
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
+    paddingTop: 2,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: SETTINGS_TOKENS.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',

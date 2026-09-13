@@ -12,14 +12,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -28,8 +23,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { flexDirection } from '@/lib/rtl';
-import { safeBack } from '@/lib/navigation';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type RewardType = 'STAMP' | 'BENEFIT';
@@ -134,7 +129,6 @@ function EmptyReferralActionState({
 export default function BusinessReferralSettingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
 
@@ -333,22 +327,11 @@ export default function BusinessReferralSettingsScreen() {
           },
         ]}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="חבר מביא חבר"
-            subtitle="הגדרות, פעילות וביצועים"
-            titleAccessory={
-              <BackButton
-                onPress={() =>
-                  safeBack('/(authenticated)/(business)/campaigns')
-                }
-              />
-            }
-          />
-        </StickyScrollHeader>
+        <BusinessSettingsSubpageHeader
+          title="חבר מביא חבר"
+          subtitle="הגדרות, פעילות וביצועים"
+          fallbackHref={BUSINESS_ROUTES.settings}
+        />
 
         <View style={styles.tabRow}>
           {(

@@ -1,18 +1,16 @@
+import { resolveAppEnv, type AppEnv } from '@/config/appEnvironment';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 
 declare const __DEV__: boolean;
 
 export const FORCE_PROD_MODE = false;
-const EXPLICIT_APP_ENV = process.env.EXPO_PUBLIC_APP_ENV?.trim().toLowerCase();
-const IS_NON_PRODUCTION_BUILD =
-  EXPLICIT_APP_ENV === 'development' || EXPLICIT_APP_ENV === 'preview';
-export const IS_DEV_MODE = FORCE_PROD_MODE
-  ? false
-  : IS_NON_PRODUCTION_BUILD ||
-    (EXPLICIT_APP_ENV !== 'production' && __DEV__);
-
-export type AppEnv = 'dev' | 'prod';
-export const APP_ENV: AppEnv = IS_DEV_MODE ? 'dev' : 'prod';
+export type { AppEnv };
+export const APP_ENV: AppEnv = resolveAppEnv({
+  expoPublicAppEnv: process.env.EXPO_PUBLIC_APP_ENV,
+  forceProdMode: FORCE_PROD_MODE,
+  isDevRuntime: typeof __DEV__ !== 'undefined' && __DEV__,
+});
+export const IS_DEV_MODE = APP_ENV === 'dev';
 
 const PAYMENT_SYSTEM_ENABLED_FLAG =
   process.env.EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED;

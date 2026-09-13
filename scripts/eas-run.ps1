@@ -25,38 +25,61 @@ function Get-ArgValue {
   return $null
 }
 
-function Should-VerifyRtlBuildSource {
+function Get-EasProfile {
   param(
     [string[]]$ArgsList
   )
 
-  if ($ArgsList[0] -ne 'build') {
-    return $false
-  }
-
-  $platform = Get-ArgValue -ArgsList $ArgsList -Name '--platform'
-
-  if (-not $platform) {
-    $platform = Get-ArgValue -ArgsList $ArgsList -Name '-p'
-  }
-
-  return $platform -eq 'android' -or $platform -eq 'ios' -or $platform -eq 'all'
+  return Get-ArgValue -ArgsList $ArgsList -Name '--profile'
 }
 
-if (Should-VerifyRtlBuildSource -ArgsList $EasArgs) {
-  $sourceVerifier = Join-Path $PSScriptRoot 'verify-rtl-build-source.mjs'
-  & node $sourceVerifier --require-clean-git
+function Assert-CleanGit {
+  $status = & git status --porcelain
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Cannot inspect git status before EAS build.'
+  }
 
+  if ($status) {
+    Write-Error @"
+Git working tree is dirty. Commit the build inputs before EAS build so the native config, Convex contract, and embedded bundle can be traced and verified.
+$status
+"@
+    exit 1
+  }
+}
+
+function Invoke-PrebuildGate {
+  param(
+    [string]$Profile
+  )
+
+  $scriptName = $null
+  switch ($Profile) {
+    'production' { $scriptName = 'prebuild:production' }
+    'preview' { $scriptName = 'prebuild:preview' }
+    'development' { $scriptName = 'prebuild:preview' }
+    'ios-simulator' { $scriptName = 'prebuild:preview' }
+    default {
+      Write-Error "Unknown EAS build profile '$Profile'. The Convex prebuild gate requires preview or production mapping."
+      exit 1
+    }
+  }
+
+  & bun run $scriptName
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
   }
+}
 
-  $nativeConfigVerifier = Join-Path $PSScriptRoot 'verify-manual-rtl-config.mjs'
-  & node $nativeConfigVerifier
-
-  if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+if ($EasArgs[0] -eq 'build') {
+  $profile = Get-EasProfile -ArgsList $EasArgs
+  if (-not $profile) {
+    Write-Error 'EAS build requires --profile so the Convex, RTL, and billing prebuild gates can run.'
+    exit 1
   }
+
+  Assert-CleanGit
+  Invoke-PrebuildGate -Profile $profile
 }
 
 function Get-NodeMajor {

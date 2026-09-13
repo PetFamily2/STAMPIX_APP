@@ -17,7 +17,6 @@ import {
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
 import {
-  alignItems,
   flexDirection,
   justifyContent,
   rtlBaseView,
@@ -99,7 +98,7 @@ export function BusinessReferralCard({
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(ctaScale, {
-          toValue: 1.08,
+          toValue: 1.03,
           duration: 620,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -268,7 +267,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   topRow: {
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
     gap: 2,
     ...rtlBaseView,
   },
@@ -323,7 +322,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   ctaRow: {
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
     marginTop: 2,
   },
   primaryButtonTouchable: {
@@ -331,13 +330,13 @@ const styles = StyleSheet.create({
     width: 'auto',
   },
   primaryButtonSurface: {
-    minHeight: 30,
+    minHeight: 44,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     shadowColor: '#2F6BFF',
     shadowOpacity: 0.24,
     shadowRadius: 8,

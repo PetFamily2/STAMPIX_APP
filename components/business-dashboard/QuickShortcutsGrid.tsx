@@ -6,7 +6,7 @@ import {
   type DashboardLayoutMode,
   getDashboardLayout,
 } from '@/lib/design/dashboardTokens';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 type ShortcutIcon = keyof typeof Ionicons.glyphMap;
 
@@ -41,6 +41,9 @@ export function QuickShortcutsGrid({
           onPress={item.onPress}
           accessibilityRole="button"
           accessibilityLabel={item.label}
+          accessibilityHint={
+            item.isLocked ? 'פתיחת אפשרויות המסלול עבור פעולה זו' : undefined
+          }
           style={({ pressed }) => [
             styles.itemCard,
             {
@@ -62,26 +65,31 @@ export function QuickShortcutsGrid({
           <Text className={tw.textStart} numberOfLines={2} style={styles.label}>
             {item.label}
           </Text>
-          {item.badgeLabel ? (
-            <View
-              style={[
-                styles.badge,
-                item.isLocked ? styles.lockedBadge : styles.neutralBadge,
-              ]}
-            >
-              <Text
-                numberOfLines={1}
+          <View style={styles.stateSlot}>
+            {item.badgeLabel ? (
+              <View
                 style={[
-                  styles.badgeText,
-                  item.isLocked
-                    ? styles.lockedBadgeText
-                    : styles.neutralBadgeText,
+                  styles.badge,
+                  item.isLocked ? styles.lockedBadge : styles.neutralBadge,
                 ]}
               >
-                {item.badgeLabel}
-              </Text>
-            </View>
-          ) : null}
+                {item.isLocked ? (
+                  <Ionicons name="lock-closed" size={10} color="#92400E" />
+                ) : null}
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.badgeText,
+                    item.isLocked
+                      ? styles.lockedBadgeText
+                      : styles.neutralBadgeText,
+                  ]}
+                >
+                  {item.badgeLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       ))}
     </View>
@@ -91,7 +99,7 @@ export function QuickShortcutsGrid({
 const styles = StyleSheet.create({
   row: {
     flexDirection: flexDirection.row,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
     paddingVertical: 3,
     ...rtlBaseView,
   },
@@ -102,7 +110,6 @@ const styles = StyleSheet.create({
     borderColor: '#DDE5F1',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 7,
     paddingHorizontal: 6,
     paddingVertical: 10,
@@ -122,6 +129,7 @@ const styles = StyleSheet.create({
     borderColor: '#E9EEF8',
   },
   label: {
+    minHeight: 30,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '600',
@@ -131,8 +139,15 @@ const styles = StyleSheet.create({
   },
   badge: {
     minHeight: 18,
+    flexDirection: flexDirection.row,
+    gap: 3,
     borderRadius: 999,
     paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stateSlot: {
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

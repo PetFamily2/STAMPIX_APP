@@ -117,6 +117,7 @@ export default function BusinessTabsLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: false,
@@ -246,24 +247,28 @@ export default function BusinessTabsLayout() {
         name="qr"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="team"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="team/index"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="team/add"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
@@ -276,48 +281,56 @@ export default function BusinessTabsLayout() {
         name="settings-business-profile"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-account"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-account-data"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-subscription"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-referrals"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-invite-businesses"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-profile-complete"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="settings-business-address"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>

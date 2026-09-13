@@ -4,6 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
 import { StampIcon } from './StampIcon';
 
+const PROGRAM_TILE_BORDER_WIDTH = 3;
+const PROGRAM_ICON_CANVAS_SIZE = 38;
+const PROGRAM_ICON_NOMINAL_SIZE = 22;
+
 export function LoyaltyProgramTile({
   title,
   cardThemeId,
@@ -51,7 +55,7 @@ export function LoyaltyProgramTile({
           </View>
         ) : null}
         <View style={[styles.iconRing, { backgroundColor: theme.accent }]}>
-          <StampIcon value={stampIcon} size={22} color={theme.onAccent} />
+          <StampIcon value={stampIcon} size={PROGRAM_ICON_NOMINAL_SIZE} color={theme.onAccent} />
         </View>
         <Text
           numberOfLines={1}
@@ -70,11 +74,10 @@ const styles = StyleSheet.create({
   root: {
     height: 84,
     borderRadius: 13,
-    borderWidth: 1,
+    borderWidth: PROGRAM_TILE_BORDER_WIDTH,
     backgroundColor: '#111827',
   },
   selected: {
-    borderWidth: 3,
     shadowColor: '#1D4ED8',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.24,
@@ -106,8 +109,8 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   iconRing: {
-    width: 38,
-    height: 38,
+    width: PROGRAM_ICON_CANVAS_SIZE,
+    height: PROGRAM_ICON_CANVAS_SIZE,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',

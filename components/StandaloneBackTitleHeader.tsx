@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { flexDirection } from '@/lib/rtl';
 
 type StandaloneBackTitleHeaderProps = {
   title: string;
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   titleBlock: {
     flex: 1,
     minWidth: 0,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   title: {
     width: '100%',

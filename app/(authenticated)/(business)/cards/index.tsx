@@ -17,6 +17,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { LoyaltyCardCompact } from '@/components/loyalty/LoyaltyCardCompact';
+import { ManagementUsageSummary } from '@/components/management';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -70,6 +71,8 @@ function ProgramListSection({
   emptyTitle,
   emptyText,
   programs,
+  businessName,
+  businessLogoUrl,
   onOpenProgram,
   isCollapsible = false,
   isExpanded = true,
@@ -79,6 +82,8 @@ function ProgramListSection({
   emptyTitle?: string;
   emptyText: string;
   programs: ManagementProgram[];
+  businessName: string;
+  businessLogoUrl?: string | null;
   onOpenProgram: (program: ManagementProgram) => void;
   isCollapsible?: boolean;
   isExpanded?: boolean;
@@ -131,16 +136,20 @@ function ProgramListSection({
           programs.map((program) => (
             <View
               key={String(program.loyaltyProgramId)}
-              className="py-1.5"
+              className="py-0.5"
               style={{ width: '100%', maxWidth: 600, alignSelf: 'center' }}
             >
               <LoyaltyCardCompact
                 title={program.title}
                 rewardName={program.rewardName}
+                businessName={businessName}
+                businessLogoUrl={businessLogoUrl}
+                programImageUrl={program.imageUrl}
+                maxStamps={program.maxStamps}
                 lifecycle={program.lifecycle}
                 stampIcon={program.stampIcon}
+                stampShape={program.stampShape}
                 cardThemeId={program.cardThemeId}
-                memberCount={program.metrics.totalMembers}
                 onPress={() => onOpenProgram(program)}
               />
             </View>
@@ -170,7 +179,11 @@ export function LoyaltyCardsHubContent() {
       )
     : null;
   const canManage = businessCapabilities?.edit_loyalty_cards === true;
-  const { entitlements, limitStatus } = useEntitlements(activeBusinessId);
+  const {
+    entitlements,
+    limitStatus,
+    isLoading: isEntitlementsLoading,
+  } = useEntitlements(activeBusinessId);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -205,7 +218,29 @@ export function LoyaltyCardsHubContent() {
 
   const cardLimit = limitStatus('maxCards', nonArchivedProgramCount);
   const canCreate =
-    Boolean(activeBusinessId) && canManage && !cardLimit.isAtLimit;
+    Boolean(activeBusinessId) &&
+    canManage &&
+    !isEntitlementsLoading &&
+    !cardLimit.isAtLimit;
+  const createBlockedReason = !activeBusinessId
+    ? 'יש לבחור עסק פעיל.'
+    : !canManage
+      ? 'אין לך הרשאה ליצור כרטיסיות.'
+      : isEntitlementsLoading
+        ? 'בודקים את מגבלת המסלול…'
+        : cardLimit.isAtLimit
+          ? 'יצירה חסומה עד לפינוי מקום או לשדרוג המסלול.'
+          : null;
+
+  const openCardsUpgrade = () =>
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCards',
+      requiredPlan:
+        entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[
+          entitlements.plan
+        ]?.maxCards ?? null,
+      reason: 'limit_reached',
+    });
 
   const handleCreate = () => {
     if (!activeBusinessId || !canCreate) {
@@ -263,62 +298,52 @@ export function LoyaltyCardsHubContent() {
               handleCreate();
             }}
             className={`mt-4 min-h-[52px] rounded-2xl px-4 py-3 ${
-              !canCreate ? 'bg-[#CBD5E1]' : 'bg-[#2F6BFF]'
+              !canCreate ? 'border border-[#CBD5E1] bg-[#E2E8F0]' : 'bg-[#2F6BFF]'
             }`}
           >
             <View
               className={`${tw.flexRow} items-center justify-center gap-2`}
               style={rtlBaseView}
             >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text className="text-sm font-black text-white">
+              <Ionicons
+                name={canCreate ? 'add' : 'lock-closed-outline'}
+                size={20}
+                color={canCreate ? '#FFFFFF' : '#475569'}
+              />
+              <Text
+                className={`text-sm font-black ${
+                  canCreate ? 'text-white' : 'text-[#334155]'
+                }`}
+              >
                 {TEXT.createNewCard}
               </Text>
             </View>
           </TouchableOpacity>
-        </View>
-
-        <View className="mt-4 border-b border-[#D7E2F4] pb-4">
-          <View className={`${tw.flexRow} items-center justify-between gap-3`}>
+          {!canCreate && createBlockedReason ? (
             <Text
-              className={`text-sm font-bold text-[#334155] ${tw.textStart}`}
+              accessibilityRole="text"
+              className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              כרטיסיות פעילות
+              {createBlockedReason}
             </Text>
-            <Text className={`text-sm font-black text-[#0F172A] ${tw.textEnd}`}>
-              {nonArchivedProgramCount} מתוך {cardLimit.limitValue} כרטיסיות
-            </Text>
-          </View>
-          {cardLimit.isNearLimit || cardLimit.isAtLimit ? (
-            <View className="mt-2 gap-2">
-              <Text
-                className={`text-xs font-bold text-[#B45309] ${tw.textStart}`}
-              >
-                {cardLimit.isAtLimit ? TEXT.limitReached : TEXT.nearLimit}
-              </Text>
-              {cardLimit.isAtLimit && canManage ? (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() =>
-                    openSubscriptionComparison(router, {
-                      featureKey: 'maxCards',
-                      requiredPlan:
-                        entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[
-                          entitlements.plan
-                        ]?.maxCards ?? null,
-                      reason: 'limit_reached',
-                    })
-                  }
-                  className={`${tw.selfStart} min-h-[44px] justify-center rounded-xl border border-[#B8C8E8] bg-white px-3`}
-                >
-                  <Text className="text-xs font-black text-[#1D4ED8]">
-                    לבדיקת מסלולים
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
           ) : null}
         </View>
+
+        {!isEntitlementsLoading ? (
+          <View className="mt-4">
+            <ManagementUsageSummary
+              label="שימוש בכרטיסיות במסלול"
+              used={cardLimit.currentValue}
+              limit={cardLimit.limitValue}
+              unit="כרטיסיות"
+              nearLimitText={TEXT.nearLimit}
+              atLimitText={TEXT.limitReached}
+              overLimitText="הכרטיסיות הקיימות נשמרו. יצירה או הפעלה נוספת חסומה עד לארכוב כרטיסיה או לשדרוג המסלול."
+              actionLabel={cardLimit.isAtLimit && canManage ? 'לבדיקת מסלולים' : undefined}
+              onActionPress={cardLimit.isAtLimit && canManage ? openCardsUpgrade : undefined}
+            />
+          </View>
+        ) : null}
 
         {programsQuery === undefined ? (
           <View className="mt-5 min-h-[110px] items-center justify-center rounded-2xl border border-[#D7E2F4] bg-white">
@@ -334,6 +359,8 @@ export function LoyaltyCardsHubContent() {
               emptyTitle="אין כרטיסיות פעילות"
               emptyText="פרסמו כרטיסייה כדי שלקוחות יוכלו להצטרף ולצבור חותמות."
               programs={activePrograms}
+              businessName={activeBusiness?.name ?? 'העסק שלך'}
+              businessLogoUrl={activeBusiness?.logoUrl ?? null}
               onOpenProgram={openProgramDetails}
             />
 
@@ -341,6 +368,8 @@ export function LoyaltyCardsHubContent() {
               title={TEXT.draftCardsTitle}
               emptyText={TEXT.noDraftCards}
               programs={draftPrograms}
+              businessName={activeBusiness?.name ?? 'העסק שלך'}
+              businessLogoUrl={activeBusiness?.logoUrl ?? null}
               onOpenProgram={openProgramDetails}
               isCollapsible={true}
               isExpanded={isDraftCardsExpanded}
@@ -353,6 +382,8 @@ export function LoyaltyCardsHubContent() {
               title={TEXT.archivedCardsTitle}
               emptyText={TEXT.noArchivedCards}
               programs={archivedPrograms}
+              businessName={activeBusiness?.name ?? 'העסק שלך'}
+              businessLogoUrl={activeBusiness?.logoUrl ?? null}
               onOpenProgram={openProgramDetails}
               isCollapsible={true}
               isExpanded={isArchivedCardsExpanded}

@@ -36,7 +36,6 @@ import {
 } from '@/lib/entitlements/errors';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
-  alignItems,
   flexDirection,
   rtlBaseView,
   selfStart,
@@ -367,7 +366,7 @@ export function CustomersHubContent() {
           />
         </StickyScrollHeader>
 
-        <SurfaceCard style={styles.searchCard}>
+        <SurfaceCard style={styles.searchCard} padding="sm" elevated={false}>
           <View style={styles.searchRow}>
             <Ionicons name="search-outline" size={20} color="#64748B" />
             <TextInput
@@ -375,6 +374,7 @@ export function CustomersHubContent() {
               onChangeText={setSearch}
               placeholder="חיפוש לקוח לפי שם או טלפון"
               placeholderTextColor="#94A3B8"
+              accessibilityLabel="חיפוש לקוח לפי שם או טלפון"
               className={tw.textStart}
               style={styles.searchInput}
             />
@@ -533,12 +533,11 @@ export function CustomersHubContent() {
           collapsable={false}
         >
           <View style={styles.listHeader}>
-            <Text
-              style={styles.listHeaderText}
-            >{`${formatNumber(filteredCustomers.length)} לקוחות`}</Text>
-            <Text
-              style={styles.listHeaderText}
-            >{`${formatNumber(customerList.length)} סה"כ`}</Text>
+            <Text style={styles.listHeaderText}>
+              {effectiveFilter
+                ? `${formatNumber(filteredCustomers.length)} לקוחות מתוך ${formatNumber(customerList.length)}`
+                : `${formatNumber(customerList.length)} לקוחות`}
+            </Text>
           </View>
 
           {effectiveFilter ? (
@@ -597,6 +596,8 @@ export function CustomersHubContent() {
                 <Pressable
                   key={customer.primaryMembershipId}
                   onPress={() => openCustomerCard(String(customer.customerId))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`פתיחת הלקוח ${customer.name}`}
                   style={styles.customerCard}
                 >
                   <View style={styles.customerRow}>
@@ -716,7 +717,6 @@ const styles = StyleSheet.create({
   customerUsageHeader: {
     ...rtlBaseView,
     flexDirection: flexDirection.row,
-    alignItems: alignItems.start,
     gap: 12,
   },
   customerUsageIconWrap: {
@@ -783,6 +783,7 @@ const styles = StyleSheet.create({
   },
   searchRow: {
     ...rtlBaseView,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 10,
@@ -797,14 +798,16 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     marginTop: 16,
-    flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    width: '100%',
+    alignItems: 'stretch',
   },
   listHeaderText: {
+    width: '100%',
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   emptyCustomersCard: {
     gap: 10,
@@ -962,7 +965,7 @@ const styles = StyleSheet.create({
   customerCard: {
     borderBottomWidth: 1,
     borderColor: '#E3E9F4',
-    paddingVertical: 16,
+    paddingVertical: 13,
   },
   customerRow: {
     ...rtlBaseView,
@@ -981,7 +984,8 @@ const styles = StyleSheet.create({
   },
   customerMain: {
     flex: 1,
-    alignItems: alignItems.start,
+    minWidth: 0,
+    alignItems: 'stretch',
   },
   customerName: {
     fontSize: 17,
@@ -1018,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   customerMeta: {
     minWidth: 92,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   metaTitle: {
     fontSize: 11,

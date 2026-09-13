@@ -2,6 +2,7 @@
 // קונפיגורציית CONVEX
 // ============================================================================
 // ניהול כתובות Convex לפי הסביבה
+// Canonical parameterized mapping: config/appEnvironment.ts resolveConvexUrl.
 
 import { APP_ENV } from '@/config/appConfig';
 

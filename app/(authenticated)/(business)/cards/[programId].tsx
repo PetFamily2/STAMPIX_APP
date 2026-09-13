@@ -16,15 +16,16 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
 import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  EditorPreviewSurface,
+  ManagementPageHeader,
+} from '@/components/management';
 import {
   DEFAULT_CARD_THEME_ID,
   resolveCanonicalCardThemeId,
@@ -837,21 +838,10 @@ export default function ProgramDetailsScreen() {
         }}
       >
         <View className="bg-[#E9F0FF]">
-          <StickyScrollHeader
-            topPadding={(insets.top || 0) + 12}
-            backgroundColor="#E9F0FF"
-          >
-            <BusinessScreenHeader
-              title="עריכת כרטיסייה"
-              titleAccessory={
-                <BackButton
-                  onPress={() =>
-                    safeBack('/(authenticated)/(business)/programs')
-                  }
-                />
-              }
-            />
-          </StickyScrollHeader>
+          <ManagementPageHeader
+            title="עריכת כרטיסייה"
+            fallbackHref="/(authenticated)/(business)/programs"
+          />
 
           {details === undefined ? (
             <View className="mt-6 items-center justify-center">
@@ -859,7 +849,8 @@ export default function ProgramDetailsScreen() {
             </View>
           ) : (
             <View className="mt-2 bg-[#E9F0FF] pb-3">
-              <LoyaltyCard
+              <EditorPreviewSurface title="כך הלקוחות יראו את הכרטיסייה">
+                <LoyaltyCard
                 variant={isPreviewExpanded ? 'preview' : 'management'}
                 businessName={selectedBusiness?.name ?? 'העסק שלך'}
                 businessLogoUrl={selectedBusiness?.logoUrl ?? null}
@@ -878,8 +869,8 @@ export default function ProgramDetailsScreen() {
                 cardThemeId={cardThemeId}
                 stampShape={stampShape}
                 stampIcon={stampIcon || details.stampIcon}
-              />
-              <TouchableOpacity
+                />
+                <TouchableOpacity
                 accessibilityRole="button"
                 onPress={() => setIsPreviewExpanded((current) => !current)}
                 className="mt-2 min-h-[44px] items-center justify-center rounded-xl border border-[#B8C8E8] bg-white px-3"
@@ -889,7 +880,8 @@ export default function ProgramDetailsScreen() {
                     ? 'סגור תצוגת לקוח'
                     : 'תצוגת לקוח'}
                 </Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </EditorPreviewSurface>
             </View>
           )}
         </View>

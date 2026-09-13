@@ -4,45 +4,39 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import {
-  SETTINGS_SUBTITLE_STYLE,
-  SETTINGS_TITLE_STYLE,
-  SETTINGS_TOKENS,
-} from '@/components/business-settings/tokens';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safeBack } from '@/lib/navigation';
 
-type BusinessSettingsSubpageHeaderProps = {
-  title: string;
-  subtitle?: string;
-  fallbackHref?: string;
-  onBackPress?: () => void;
-  leftAccessory?: ReactNode;
-};
-
-export function BusinessSettingsSubpageHeader({
+export function ManagementPageHeader({
   title,
   subtitle,
-  fallbackHref = BUSINESS_ROUTES.settings,
+  fallbackHref,
   onBackPress,
   leftAccessory,
-}: BusinessSettingsSubpageHeaderProps) {
+  backgroundColor = '#E9F0FF',
+}: {
+  title: string;
+  subtitle?: string;
+  fallbackHref: string;
+  onBackPress?: () => void;
+  leftAccessory?: ReactNode;
+  backgroundColor?: string;
+}) {
   const insets = useSafeAreaInsets();
 
   return (
     <StickyScrollHeader
       topPadding={(insets.top || 0) + 8}
-      backgroundColor={SETTINGS_TOKENS.pageBackground}
+      backgroundColor={backgroundColor}
       style={styles.sticky}
     >
-      <View style={styles.headerPad}>
+      <View style={styles.header}>
         <StandaloneBackTitleHeader
           title={title}
           subtitle={subtitle}
           onBackPress={onBackPress ?? (() => safeBack(fallbackHref))}
           leftAccessory={leftAccessory}
-          titleStyle={SETTINGS_TITLE_STYLE}
-          subtitleStyle={SETTINGS_SUBTITLE_STYLE}
+          titleStyle={styles.title}
+          subtitleStyle={styles.subtitle}
         />
       </View>
     </StickyScrollHeader>
@@ -53,9 +47,28 @@ const styles = StyleSheet.create({
   sticky: {
     paddingBottom: 10,
   },
-  headerPad: {
+  header: {
     width: '100%',
-    minHeight: SETTINGS_TOKENS.touchTarget,
+    minHeight: 44,
     alignItems: 'stretch',
+  },
+  title: {
+    width: '100%',
+    color: '#12203A',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  subtitle: {
+    width: '100%',
+    marginTop: 2,
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 });

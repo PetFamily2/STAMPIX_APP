@@ -11,12 +11,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  EditorPreviewSurface,
+  ManagementPageHeader,
+} from '@/components/management';
 import { CARD_THEMES, DEFAULT_CARD_THEME_ID } from '@/constants/cardThemes';
 import { DEFAULT_STAMP_ICON_ID } from '@/constants/stampIcons';
 import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
@@ -37,7 +38,6 @@ import {
   LOYALTY_THEME_CONFLICT_COPY,
   loyaltyWriteErrorToHebrewMessage,
 } from '@/lib/loyalty/programErrors';
-import { safeBack } from '@/lib/navigation';
 import { rtlBaseView, tw } from '@/lib/rtl';
 
 type ThemeReservation = {
@@ -158,22 +158,14 @@ export default function NewLoyaltyCardScreen() {
           paddingBottom: (insets.bottom || 0) + 32,
         }}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="כרטיסייה חדשה"
-            titleAccessory={
-              <BackButton
-                onPress={() => safeBack('/(authenticated)/(business)/programs')}
-              />
-            }
-          />
-        </StickyScrollHeader>
+        <ManagementPageHeader
+          title="כרטיסייה חדשה"
+          fallbackHref="/(authenticated)/(business)/programs"
+        />
 
         <View className="mt-3">
-          <LoyaltyCard
+          <EditorPreviewSurface title="כך הלקוחות יראו את הכרטיסייה">
+            <LoyaltyCard
             variant="management"
             businessName={activeBusiness?.name ?? 'העסק שלך'}
             businessLogoUrl={activeBusiness?.logoUrl ?? null}
@@ -185,7 +177,8 @@ export default function NewLoyaltyCardScreen() {
             cardThemeId={cardThemeId}
             stampIcon={stampIcon}
             stampShape="circle"
-          />
+            />
+          </EditorPreviewSurface>
         </View>
 
         <View className="mt-4 gap-5 rounded-3xl border border-[#DCE6F7] bg-white p-5">

@@ -6,7 +6,7 @@ import {
   SETTINGS_SHADOW,
   SETTINGS_TOKENS,
 } from '@/components/business-settings/tokens';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 type SettingsNavRowProps = {
   title: string;
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     minWidth: 0,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
     gap: 3,
   },
   title: {

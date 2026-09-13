@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -13,13 +14,16 @@ import {
 } from 'react-native';
 import {
   SafeAreaView,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BackButton } from '@/components/BackButton';
-import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { CampaignCustomerPreview } from '@/components/campaigns/CampaignCustomerPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  EditorPreviewSurface,
+  EditorPrimaryActions,
+  EditorSection,
+  ManagementPageHeader,
+} from '@/components/management';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -30,6 +34,7 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
+import { safeBack } from '@/lib/navigation';
 import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -251,12 +256,37 @@ function getScheduledTimestamp(daysFromNow: number, hour: number) {
   return target.getTime();
 }
 
+function buildCampaignEditorSignature({
+  messageTitle,
+  messageBody,
+  daysInput,
+  selectedProgramId,
+  deliveryMode,
+  scheduledForAt,
+}: {
+  messageTitle: string;
+  messageBody: string;
+  daysInput: string;
+  selectedProgramId: string;
+  deliveryMode: 'send_now' | 'one_time';
+  scheduledForAt: number | null;
+}) {
+  return JSON.stringify({
+    messageTitle: messageTitle.trim(),
+    messageBody: messageBody.trim(),
+    daysInput: daysInput.trim(),
+    selectedProgramId,
+    deliveryMode,
+    scheduledForAt: deliveryMode === 'one_time' ? scheduledForAt : null,
+  });
+}
+
 export default function CampaignDraftEditorScreen() {
   const campaignPublishTargetRef = useGuidedTargetRef();
   const campaignResumeTargetRef = useGuidedTargetRef();
   const campaignScheduleReviewTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
-  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const router = useRouter();
   const params = useLocalSearchParams<{
     campaignId?: string;
@@ -380,41 +410,91 @@ export default function CampaignDraftEditorScreen() {
   const [isArchiving, setIsArchiving] = useState(false);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  const [pendingSubmitAction, setPendingSubmitAction] = useState<
+    'save' | 'publish' | null
+  >(null);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
+  const formSignature = buildCampaignEditorSignature({
+    messageTitle,
+    messageBody,
+    daysInput,
+    selectedProgramId,
+    deliveryMode,
+    scheduledForAt,
+  });
+  const isDirty = savedSignature !== null && formSignature !== savedSignature;
+
+  usePreventRemove(isDirty && !isSubmitting && !isArchiving, ({ data }) => {
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת בלי לשמור.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
+
+  useEffect(() => {
+    if (campaignGuideTarget === 'resume-action') {
+      setShowAdvancedSettings(true);
+    }
+  }, [campaignGuideTarget]);
 
   const applyCampaignSnapshot = (snapshot: typeof campaignDraft) => {
     if (!snapshot) {
       return;
     }
-    setMessageTitle(snapshot.messageTitle ?? '');
-    setMessageBody(snapshot.messageBody ?? '');
-    setDaysInput(
-      rulesInputFromDraft(snapshot.type as CampaignType, snapshot.rules)
+    const nextMessageTitle = snapshot.messageTitle ?? '';
+    const nextMessageBody = snapshot.messageBody ?? '';
+    const nextDaysInput = rulesInputFromDraft(
+      snapshot.type as CampaignType,
+      snapshot.rules
     );
-    setSelectedProgramId(
-      snapshot.programId ? String(snapshot.programId) : 'all'
-    );
+    const nextSelectedProgramId = snapshot.programId
+      ? String(snapshot.programId)
+      : 'all';
     const nextDeliveryMode =
       snapshot.scheduleMode === 'one_time' ? 'one_time' : 'send_now';
-    setDeliveryMode(nextDeliveryMode);
-    if (nextDeliveryMode === 'one_time') {
-      setScheduledForAt(
-        typeof snapshot.scheduledForAt === 'number'
+    const nextScheduledForAt =
+      nextDeliveryMode === 'one_time'
+        ? typeof snapshot.scheduledForAt === 'number'
           ? snapshot.scheduledForAt
           : Date.now() + DAY_MS
-      );
-    } else {
-      setScheduledForAt(null);
-    }
+        : null;
+    setMessageTitle(nextMessageTitle);
+    setMessageBody(nextMessageBody);
+    setDaysInput(nextDaysInput);
+    setSelectedProgramId(nextSelectedProgramId);
+    setDeliveryMode(nextDeliveryMode);
+    setScheduledForAt(nextScheduledForAt);
     setBaseUpdatedAt(
       typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : null
     );
     setConflictLocked(false);
+    setSavedSignature(
+      buildCampaignEditorSignature({
+        messageTitle: nextMessageTitle,
+        messageBody: nextMessageBody,
+        daysInput: nextDaysInput,
+        selectedProgramId: nextSelectedProgramId,
+        deliveryMode: nextDeliveryMode,
+        scheduledForAt: nextScheduledForAt,
+      })
+    );
   };
 
   useEffect(() => {
     const screenKey = `${selectedBusinessId ?? 'none'}:${campaignId ?? 'none'}`;
     setBaseUpdatedAt(null);
     setConflictLocked(false);
+    setSavedSignature(null);
     if (screenKey === 'none:none') {
       setScheduledForAt(null);
     }
@@ -424,42 +504,49 @@ export default function CampaignDraftEditorScreen() {
     if (!campaignDraft || baseUpdatedAt !== null) {
       return;
     }
-    setMessageTitle(campaignDraft.messageTitle ?? '');
-    setMessageBody(campaignDraft.messageBody ?? '');
-    setDaysInput(
-      rulesInputFromDraft(
-        campaignDraft.type as CampaignType,
-        campaignDraft.rules
-      )
+    const nextMessageTitle = campaignDraft.messageTitle ?? '';
+    const nextMessageBody = campaignDraft.messageBody ?? '';
+    const nextDaysInput = rulesInputFromDraft(
+      campaignDraft.type as CampaignType,
+      campaignDraft.rules
     );
-    setSelectedProgramId(
-      campaignDraft.programId ? String(campaignDraft.programId) : 'all'
-    );
+    const nextSelectedProgramId = campaignDraft.programId
+      ? String(campaignDraft.programId)
+      : 'all';
     const nextDeliveryMode =
       campaignDraft.scheduleMode === 'one_time' ? 'one_time' : 'send_now';
-    setDeliveryMode(nextDeliveryMode);
-    if (nextDeliveryMode === 'one_time') {
-      setScheduledForAt(
-        typeof campaignDraft.scheduledForAt === 'number'
+    const nextScheduledForAt =
+      nextDeliveryMode === 'one_time'
+        ? typeof campaignDraft.scheduledForAt === 'number'
           ? campaignDraft.scheduledForAt
           : Date.now() + DAY_MS
-      );
-    } else {
-      setScheduledForAt(null);
-    }
+        : null;
+    setMessageTitle(nextMessageTitle);
+    setMessageBody(nextMessageBody);
+    setDaysInput(nextDaysInput);
+    setSelectedProgramId(nextSelectedProgramId);
+    setDeliveryMode(nextDeliveryMode);
+    setScheduledForAt(nextScheduledForAt);
     setBaseUpdatedAt(
       typeof campaignDraft.updatedAt === 'number'
         ? campaignDraft.updatedAt
         : null
     );
     setConflictLocked(false);
+    setSavedSignature(
+      buildCampaignEditorSignature({
+        messageTitle: nextMessageTitle,
+        messageBody: nextMessageBody,
+        daysInput: nextDaysInput,
+        selectedProgramId: nextSelectedProgramId,
+        deliveryMode: nextDeliveryMode,
+        scheduledForAt: nextScheduledForAt,
+      })
+    );
   }, [baseUpdatedAt, campaignDraft]);
 
   const goBackToCampaignList = () => {
-    router.replace({
-      pathname: '/(authenticated)/(business)/cards',
-      params: { section: 'campaigns' },
-    });
+    safeBack('/(authenticated)/(business)/campaigns');
   };
 
   const openDraftEditor = (draftCampaignId: Id<'campaigns'>) => {
@@ -631,16 +718,12 @@ export default function CampaignDraftEditorScreen() {
             alignSelf: 'center',
           }}
         >
-          <StickyScrollHeader
-            topPadding={(insets.top || 0) + 12}
-            backgroundColor="#E9F0FF"
-          >
-            <BusinessScreenHeader
-              title="יצירת קמפיין"
-              subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
-              titleAccessory={<BackButton onPress={goBackToCampaignList} />}
-            />
-          </StickyScrollHeader>
+          <ManagementPageHeader
+            title="קמפיין חדש"
+            subtitle="בחרו תבנית מוכנה או צרו קמפיין מותאם אישית"
+            fallbackHref="/(authenticated)/(business)/campaigns"
+            onBackPress={goBackToCampaignList}
+          />
 
           {!canCreateCampaigns ? (
             <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
@@ -962,6 +1045,7 @@ export default function CampaignDraftEditorScreen() {
     if (typeof result?.updatedAt === 'number') {
       setBaseUpdatedAt(result.updatedAt);
     }
+    setSavedSignature(formSignature);
     setConflictLocked(false);
     return result;
   };
@@ -1054,6 +1138,7 @@ export default function CampaignDraftEditorScreen() {
       rulesPayload = builtRules;
     }
 
+    setPendingSubmitAction('save');
     setIsSubmitting(true);
     try {
       await saveDraftMutation(rulesPayload);
@@ -1089,6 +1174,7 @@ export default function CampaignDraftEditorScreen() {
       Alert.alert('שגיאה', 'שמירת טיוטה נכשלה.');
     } finally {
       setIsSubmitting(false);
+      setPendingSubmitAction(null);
     }
   };
 
@@ -1122,6 +1208,7 @@ export default function CampaignDraftEditorScreen() {
       rulesPayload = builtRules;
     }
 
+    setPendingSubmitAction('publish');
     setIsSubmitting(true);
     try {
       const saved = await saveDraftMutation(rulesPayload);
@@ -1202,6 +1289,7 @@ export default function CampaignDraftEditorScreen() {
       Alert.alert('שגיאה', 'שמירה או שליחה נכשלו.');
     } finally {
       setIsSubmitting(false);
+      setPendingSubmitAction(null);
     }
   };
 
@@ -1246,6 +1334,7 @@ export default function CampaignDraftEditorScreen() {
       rulesPayload = builtRules;
     }
 
+    setPendingSubmitAction('publish');
     setIsSubmitting(true);
     try {
       const saved = await saveDraftMutation(rulesPayload);
@@ -1296,6 +1385,7 @@ export default function CampaignDraftEditorScreen() {
       Alert.alert('שגיאה', 'שמירה או תזמון נכשלו.');
     } finally {
       setIsSubmitting(false);
+      setPendingSubmitAction(null);
     }
   };
 
@@ -1392,15 +1482,11 @@ export default function CampaignDraftEditorScreen() {
           alignSelf: 'center',
         }}
       >
-        <StickyScrollHeader
-          topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
-        >
-          <BusinessScreenHeader
-            title="עריכת קמפיין"
-            titleAccessory={<BackButton onPress={goBackToCampaignList} />}
-          />
-        </StickyScrollHeader>
+        <ManagementPageHeader
+          title="עריכת קמפיין"
+          fallbackHref="/(authenticated)/(business)/campaigns"
+          onBackPress={goBackToCampaignList}
+        />
 
         {!canEditContent ? (
           <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
@@ -1432,7 +1518,21 @@ export default function CampaignDraftEditorScreen() {
           </View>
         ) : null}
 
-        <View className="mt-4 rounded-3xl border border-[#DCE7FF] bg-white p-5">
+        <View className="mt-4">
+          <EditorPreviewSurface>
+            <CampaignCustomerPreview
+              businessName={selectedBusiness?.name ?? 'העסק שלך'}
+              title={messageTitle}
+              body={messageBody}
+            />
+          </EditorPreviewSurface>
+        </View>
+
+        <View className="mt-4 gap-4">
+          <EditorSection
+            title="תוכן הקמפיין"
+            subtitle="הכותרת וההודעה שהלקוחות יראו."
+          >
           <View className={`${tw.flexRow} items-center gap-3`}>
             <View
               className={`h-12 w-12 items-center justify-center rounded-2xl ${campaignIdentity.accentBgClass}`}
@@ -1484,7 +1584,153 @@ export default function CampaignDraftEditorScreen() {
             </View>
           </View>
 
-          <View className="my-5 h-px bg-[#E7EEFF]" />
+          <View className="mt-2 gap-3">
+            <Text
+              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              תוכן ההודעה
+            </Text>
+            <TextInput
+              value={messageTitle}
+              onChangeText={setMessageTitle}
+              editable={canEditContent}
+              placeholder="כותרת ההודעה"
+              placeholderTextColor="#94A3B8"
+              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+            />
+            <TextInput
+              value={messageBody}
+              onChangeText={setMessageBody}
+              editable={canEditContent}
+              multiline={true}
+              textAlignVertical="top"
+              placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
+              placeholderTextColor="#94A3B8"
+              className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+            />
+          </View>
+          </EditorSection>
+
+          <EditorSection
+            title="קהל יעד"
+            subtitle="הקהל מחושב מהנתונים האמיתיים של העסק."
+          >
+            <View className="gap-3">
+              <Text
+                className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+              >
+                {audience.title}
+              </Text>
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                {audience.subtitle}
+              </Text>
+
+              {audience.daysLabel ? (
+                <TextInput
+                  value={daysInput}
+                  onChangeText={setDaysInput}
+                  editable={canEditRules}
+                  keyboardType="number-pad"
+                  placeholder={audience.daysLabel}
+                  placeholderTextColor="#94A3B8"
+                  className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                />
+              ) : null}
+
+              <Text
+                className={`mt-2 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
+              >
+                שיוך לתוכנית נאמנות
+              </Text>
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
+              </Text>
+              <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                <TouchableOpacity
+                  disabled={!canEditRules}
+                  onPress={() => setSelectedProgramId('all')}
+                  className={`rounded-full px-3 py-2 ${
+                    selectedProgramId === 'all'
+                      ? 'bg-[#DBEAFE]'
+                      : 'border border-[#E2E8F0] bg-white'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      selectedProgramId === 'all'
+                        ? 'text-[#1D4ED8]'
+                        : 'text-[#475569]'
+                    }`}
+                  >
+                    כל העסק
+                  </Text>
+                </TouchableOpacity>
+                {activePrograms.map((program) => {
+                  const programId = String(program.loyaltyProgramId);
+                  const isSelected = selectedProgramId === programId;
+                  return (
+                    <TouchableOpacity
+                      key={programId}
+                      disabled={!canEditRules}
+                      onPress={() => setSelectedProgramId(programId)}
+                      className={`rounded-full px-3 py-2 ${
+                        isSelected
+                          ? 'bg-[#DBEAFE]'
+                          : 'border border-[#E2E8F0] bg-white'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-[#1D4ED8]' : 'text-[#475569]'
+                        }`}
+                      >
+                        {program.title}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text className={`text-xs font-semibold text-[#475569] ${tw.textStart}`}>
+                קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+              </Text>
+            </View>
+          </EditorSection>
+
+          <EditorSection
+            title="ערוצים"
+            subtitle="מוצגים רק ערוצי שליחה הנתמכים כעת."
+          >
+            <View
+              className={`${tw.flexRow} items-center gap-3 rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-3`}
+            >
+              <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={19}
+                  color="#1D4ED8"
+                />
+              </View>
+              <View className="flex-1 items-stretch">
+                <Text
+                  className={`text-sm font-bold text-[#1E3A8A] ${tw.textStart}`}
+                >
+                  הודעה באפליקציה
+                </Text>
+                <Text
+                  className={`mt-0.5 text-xs text-[#475569] ${tw.textStart}`}
+                >
+                  זהו ערוץ השליחה הנתמך בקמפיין הזה.
+                </Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={21} color="#2563EB" />
+            </View>
+          </EditorSection>
+
+          <EditorSection
+            title="תזמון"
+            subtitle="שליחה עכשיו או תזמון חד-פעמי."
+          >
 
           <View className="gap-3">
             <Text
@@ -1584,8 +1830,32 @@ export default function CampaignDraftEditorScreen() {
               חסומה ב-Starter.
             </Text>
           </View>
+          </EditorSection>
 
-          <View className="my-5 h-px bg-[#E7EEFF]" />
+          <EditorSection
+            title="הגדרות מתקדמות"
+            subtitle="אוטומציה מחזורית נשארת סגורה כברירת מחדל."
+          >
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showAdvancedSettings }}
+              onPress={() => setShowAdvancedSettings((value) => !value)}
+              className={`${tw.flexRow} min-h-[44px] items-center justify-between rounded-2xl border border-[#DCE6F7] bg-[#F8FAFF] px-3 py-2`}
+            >
+              <Text
+                className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+              >
+                אוטומציה מחזורית
+              </Text>
+              <Ionicons
+                name={showAdvancedSettings ? 'chevron-up' : 'chevron-down'}
+                size={19}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+
+            {showAdvancedSettings ? (
+              <View className="gap-3">
 
           <View className="gap-3">
             <Text
@@ -1641,10 +1911,19 @@ export default function CampaignDraftEditorScreen() {
               </TouchableOpacity>
             </View>
           </View>
+              </View>
+            ) : (
+              <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                אפשר לפתוח כדי להגדיר שליחה אוטומטית נתמכת.
+              </Text>
+            )}
+          </EditorSection>
 
-          <View className="my-5 h-px bg-[#E7EEFF]" />
-
-          <View className="gap-2">
+          <EditorSection
+            title="ביצועים"
+            subtitle="נתוני אמת מצטברים של הקמפיין."
+          >
+            <View className="gap-2">
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
@@ -1674,118 +1953,8 @@ export default function CampaignDraftEditorScreen() {
               ) : null}
             </View>
           </View>
+          </EditorSection>
 
-          <View className="my-5 h-px bg-[#E7EEFF]" />
-
-          <View className="gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              תוכן ההודעה
-            </Text>
-            <TextInput
-              value={messageTitle}
-              onChangeText={setMessageTitle}
-              editable={canEditContent}
-              placeholder="כותרת ההודעה"
-              placeholderTextColor="#94A3B8"
-              className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-            <TextInput
-              value={messageBody}
-              onChangeText={setMessageBody}
-              editable={canEditContent}
-              multiline={true}
-              textAlignVertical="top"
-              placeholder="מה המתנה? כתבו כאן את תוכן ההטבה ללקוח"
-              placeholderTextColor="#94A3B8"
-              className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-            />
-          </View>
-
-          <View className="my-5 h-px bg-[#E7EEFF]" />
-
-          <View className="gap-3">
-            <Text
-              className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              קהל יעד
-            </Text>
-            <Text
-              className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-            >
-              {audience.title}
-            </Text>
-            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-              {audience.subtitle}
-            </Text>
-
-            {audience.daysLabel ? (
-              <TextInput
-                value={daysInput}
-                onChangeText={setDaysInput}
-                editable={canEditRules}
-                keyboardType="number-pad"
-                placeholder={audience.daysLabel}
-                placeholderTextColor="#94A3B8"
-                className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-              />
-            ) : null}
-
-            <Text
-              className={`mt-2 text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
-            >
-              שיוך לתוכנית נאמנות
-            </Text>
-            <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-              ברירת מחדל: כל העסק. אפשר לשייך לקמפיין תוכנית ספציפית.
-            </Text>
-            <View className={`${tw.flexRow} flex-wrap gap-2`}>
-              <TouchableOpacity
-                disabled={!canEditRules}
-                onPress={() => setSelectedProgramId('all')}
-                className={`rounded-full px-3 py-2 ${
-                  selectedProgramId === 'all'
-                    ? 'bg-[#DBEAFE]'
-                    : 'border border-[#E2E8F0] bg-white'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    selectedProgramId === 'all'
-                      ? 'text-[#1D4ED8]'
-                      : 'text-[#475569]'
-                  }`}
-                >
-                  כל העסק
-                </Text>
-              </TouchableOpacity>
-              {activePrograms.map((program) => {
-                const programId = String(program.loyaltyProgramId);
-                const isSelected = selectedProgramId === programId;
-                return (
-                  <TouchableOpacity
-                    key={programId}
-                    disabled={!canEditRules}
-                    onPress={() => setSelectedProgramId(programId)}
-                    className={`rounded-full px-3 py-2 ${
-                      isSelected
-                        ? 'bg-[#DBEAFE]'
-                        : 'border border-[#E2E8F0] bg-white'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? 'text-[#1D4ED8]' : 'text-[#475569]'
-                      }`}
-                    >
-                      {program.title}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
         </View>
 
         <View className="mt-6 gap-3">
@@ -1808,28 +1977,6 @@ export default function CampaignDraftEditorScreen() {
             </View>
           ) : null}
 
-          <TouchableOpacity
-            disabled={
-              !canEditContent || isSubmitting || isArchiving || conflictLocked
-            }
-            onPress={() => {
-              void handleSaveOnly();
-            }}
-            className={`rounded-2xl px-4 py-3 ${
-              canEditContent && !isSubmitting && !isArchiving && !conflictLocked
-                ? 'bg-[#2F6BFF]'
-                : 'bg-[#CBD5E1]'
-            }`}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-center text-sm font-bold text-white">
-                שמור טיוטה
-              </Text>
-            )}
-          </TouchableOpacity>
-
           <View
             ref={
               campaignGuideTarget === 'publish-action'
@@ -1838,8 +1985,19 @@ export default function CampaignDraftEditorScreen() {
             }
             collapsable={false}
           >
-            <TouchableOpacity
-              disabled={
+            <Text
+              accessibilityLiveRegion="polite"
+              className={`mb-2 text-xs font-semibold ${
+                isDirty ? 'text-[#B45309]' : 'text-[#15803D]'
+              } ${tw.textStart}`}
+            >
+              {isDirty ? 'יש שינויים שטרם נשמרו' : 'כל השינויים נשמרו'}
+            </Text>
+            <EditorPrimaryActions
+              primaryLabel={
+                isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'
+              }
+              primaryDisabled={
                 !canEditContent ||
                 !canActivateSendCampaigns ||
                 isSubmitting ||
@@ -1847,55 +2005,33 @@ export default function CampaignDraftEditorScreen() {
                 conflictLocked ||
                 (!isEntitlementsLoading && campaignLimit.isOverLimit)
               }
-              onPress={() => {
+              primaryLoading={pendingSubmitAction === 'publish'}
+              onPrimaryPress={() => {
                 if (isOneTimeMode) {
                   void handleSaveAndSchedule();
                   return;
                 }
                 void handleSaveAndSend();
               }}
-              className={`rounded-2xl px-4 py-3 ${
-                canEditContent &&
-                canActivateSendCampaigns &&
-                !isSubmitting &&
-                !isArchiving &&
-                !conflictLocked &&
-                (isEntitlementsLoading || !campaignLimit.isOverLimit)
-                  ? 'bg-[#0F766E]'
-                  : 'bg-[#CBD5E1]'
-              }`}
-            >
-              <Text className="text-center text-sm font-bold text-white">
-                {isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'}
-              </Text>
-            </TouchableOpacity>
+              secondaryLabel="שמור טיוטה"
+              secondaryDisabled={
+                !canEditContent || isSubmitting || isArchiving || conflictLocked
+              }
+              secondaryLoading={pendingSubmitAction === 'save'}
+              onSecondaryPress={() => {
+                void handleSaveOnly();
+              }}
+              lifecycleLabel="העבר לארכיון"
+              lifecycleDisabled={
+                !canArchiveCampaign ||
+                isSubmitting ||
+                isArchiving ||
+                conflictLocked
+              }
+              lifecycleLoading={isArchiving}
+              onLifecyclePress={handleMoveToArchive}
+            />
           </View>
-
-          <TouchableOpacity
-            disabled={
-              !canArchiveCampaign ||
-              isSubmitting ||
-              isArchiving ||
-              conflictLocked
-            }
-            onPress={handleMoveToArchive}
-            className={`rounded-2xl px-4 py-3 ${
-              !canArchiveCampaign ||
-              isSubmitting ||
-              isArchiving ||
-              conflictLocked
-                ? 'bg-[#CBD5E1]'
-                : 'bg-[#F59E0B]'
-            }`}
-          >
-            {isArchiving ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-center text-sm font-bold text-white">
-                העבר לארכיון
-              </Text>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
       <GuidedActionScreenOverlay

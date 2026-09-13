@@ -1,7 +1,14 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { Ionicons } from '@expo/vector-icons';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   BusinessSettingsSubpageHeader,
@@ -16,7 +23,7 @@ import { useSessionContext } from '@/contexts/UserContext';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safePush } from '@/lib/navigation';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -105,57 +112,27 @@ export default function BusinessSettingsAccountScreen() {
         />
       }
     >
-      <View
-        style={{
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: SETTINGS_TOKENS.border,
-          backgroundColor: SETTINGS_TOKENS.surface,
-          padding: 16,
-          gap: 14,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: flexDirection.row,
-            alignItems: 'center',
-            gap: 12,
-            ...rtlBaseView,
-          }}
-        >
+      <View style={styles.identityCard}>
+        <View style={styles.identityRow}>
           <UserAvatar
             avatarUrl={user?.avatarUrl}
             fullName={userFullName}
             size={64}
           />
-          <View style={{ flex: 1, alignItems: alignItems.start, gap: 4 }}>
-            <Text
-              style={{
-                width: '100%',
-                fontSize: 18,
-                lineHeight: 24,
-                fontWeight: '700',
-                color: SETTINGS_TOKENS.textPrimary,
-                textAlign: 'right',
-              }}
-            >
-              {userFullName}
-            </Text>
-            <Text
-              style={{
-                width: '100%',
-                fontSize: 13,
-                color: SETTINGS_TOKENS.textSecondary,
-                textAlign: 'right',
-              }}
-            >
+          <View style={styles.identityCopy}>
+            <Text style={styles.identityName}>{userFullName}</Text>
+            <Text style={styles.identityEmail}>
               {user?.email || 'לא מוגדר'}
             </Text>
           </View>
         </View>
-        <InfoLine label="שם מלא" value={userFullName} />
-        <InfoLine label="אימייל" value={user?.email || 'לא מוגדר'} />
-        <InfoLine label="טלפון" value={user?.phone || 'לא מוגדר'} />
+
+        <View style={styles.identityDivider} />
+        <AccountProperty
+          label="טלפון לחשבון"
+          value={user?.phone || 'לא מוגדר'}
+          isMissing={!user?.phone}
+        />
       </View>
 
       <SettingsSection title="מסמכים ומדיניות">
@@ -177,6 +154,8 @@ export default function BusinessSettingsAccountScreen() {
           <SettingsNavRow
             title="התנתקות מהמכשיר"
             subtitle="יציאה מהחשבון במכשיר זה"
+            icon="log-out-outline"
+            showChevron={false}
             disabled={isSigningOut}
             onPress={handleSignOut}
             isLast={true}
@@ -191,6 +170,7 @@ export default function BusinessSettingsAccountScreen() {
             <SettingsNavRow
               title="ניהול חשבון ונתונים"
               subtitle="פעולות נדירות לעסק ולנתונים"
+              icon="options-outline"
               onPress={() => router.push(BUSINESS_ROUTES.accountData as Href)}
               isLast={true}
               accessibilityHint="פתיחת אזור נפרד לפעולות הרסניות. אינו יציאה מהמכשיר ואינו ביטול מנוי"
@@ -206,37 +186,136 @@ export default function BusinessSettingsAccountScreen() {
   );
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
+function AccountProperty({
+  label,
+  value,
+  isMissing = false,
+}: {
+  label: string;
+  value: string;
+  isMissing?: boolean;
+}) {
   return (
-    <View
-      style={{
-        flexDirection: flexDirection.row,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        ...rtlBaseView,
-      }}
-    >
-      <Text
-        style={{
-          flex: 1,
-          fontSize: 15,
-          fontWeight: '600',
-          color: SETTINGS_TOKENS.textPrimary,
-          textAlign: 'right',
-        }}
-      >
-        {value}
-      </Text>
-      <Text
-        style={{
-          fontSize: 12,
-          color: SETTINGS_TOKENS.textSecondary,
-          textAlign: 'right',
-        }}
-      >
-        {label}
-      </Text>
+    <View style={styles.property}>
+      <Text style={styles.propertyLabel}>{label}</Text>
+      <View style={styles.propertyValueRow}>
+        <Text
+          style={[
+            styles.propertyValue,
+            isMissing ? styles.propertyValueMissing : null,
+          ]}
+        >
+          {value}
+        </Text>
+        {isMissing ? (
+          <View style={styles.missingBadge}>
+            <Ionicons name="alert-circle-outline" size={15} color="#92400E" />
+            <Text style={styles.missingBadgeText}>פרט חסר</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  identityCard: {
+    width: '100%',
+    borderRadius: SETTINGS_TOKENS.radiusLg,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.border,
+    backgroundColor: SETTINGS_TOKENS.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 14,
+  },
+  identityRow: {
+    width: '100%',
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 12,
+    ...rtlBaseView,
+  },
+  identityCopy: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'stretch',
+    gap: 3,
+  },
+  identityName: {
+    width: '100%',
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+    color: SETTINGS_TOKENS.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  identityEmail: {
+    width: '100%',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
+    color: SETTINGS_TOKENS.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  identityDivider: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: SETTINGS_TOKENS.border,
+  },
+  property: {
+    width: '100%',
+    alignItems: 'stretch',
+    gap: 5,
+  },
+  propertyLabel: {
+    width: '100%',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: SETTINGS_TOKENS.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  propertyValueRow: {
+    width: '100%',
+    minHeight: 28,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    ...rtlBaseView,
+  },
+  propertyValue: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+    color: SETTINGS_TOKENS.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  propertyValueMissing: {
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  missingBadge: {
+    minHeight: 28,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+  },
+  missingBadgeText: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+    color: '#92400E',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+});

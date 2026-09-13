@@ -38,8 +38,9 @@
     "lint:full": "biome check . && bun run type-check",
     "check:full": "bun run check && bun run type-check",
     "check:ultracite": "ultracite",
-    "prebuild:preview": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --preview",
-    "prebuild:production": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --production"
+    "prebuild:preview": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --preview && bun scripts/verify-convex-deployment-contract.mjs --preview",
+    "prebuild:production": "bun run verify:rtl-native-config && bun run verify:rtl-build-source && bun scripts/prebuild-billing-gates.mjs --production && bun scripts/verify-convex-deployment-contract.mjs --production",
+    "convex:dev:sync": "bun scripts/convex-dev-sync.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",

@@ -35,7 +35,7 @@ import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
-import { alignItems, flexDirection, tw } from '@/lib/rtl';
+import { flexDirection, tw } from '@/lib/rtl';
 import { useAuthActions } from '@convex-dev/auth/react';
 
 export default function BusinessSettingsScreen() {
@@ -227,7 +227,8 @@ export default function BusinessSettingsScreen() {
               <View
                 style={{
                   flex: 1,
-                  alignItems: alignItems.start,
+                  minWidth: 0,
+                  alignItems: 'stretch',
                 }}
               >
                 <Text

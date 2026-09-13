@@ -65,6 +65,10 @@ import {
   selfStart,
 } from '@/lib/rtl';
 import {
+  getProgramGridMetrics,
+  PROGRAM_GRID_GAP,
+} from '@/lib/scanner/programGrid';
+import {
   awaitCurrentTransaction,
   captureTransactionGeneration,
   classifyPosError,
@@ -161,9 +165,6 @@ const SCANNER_DEVICE_ID_STORAGE_KEY = 'scanner:deviceId';
 const FALLBACK_UNDO_WINDOW_MS = 30_000;
 const COMPLETE_RESET_MS = 30_000;
 const TABLET_BREAKPOINT = 768;
-const PROGRAM_GRID_COLUMNS = 5;
-const PROGRAM_GRID_GAP = 7;
-const TABLET_PROGRAM_GRID_MAX_WIDTH = 560;
 const RECENT_POS_REDEMPTION_LIMIT = 100;
 const STALE_PROGRAM_NOTICE =
   'התוכנית שנבחרה כבר אינה זמינה. יש לבחור תוכנית אחרת.';
@@ -210,12 +211,8 @@ export default function ScannerScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_BREAKPOINT;
   const contentWidth = Math.max(0, Math.min(windowWidth, 960) - 40);
-  const programGridWidth = isTablet
-    ? Math.min(contentWidth, TABLET_PROGRAM_GRID_MAX_WIDTH)
-    : contentWidth;
-  const programTileWidth =
-    (programGridWidth - PROGRAM_GRID_GAP * (PROGRAM_GRID_COLUMNS - 1)) /
-    PROGRAM_GRID_COLUMNS;
+  const { gridWidth: programGridWidth, tileWidth: programTileWidth } =
+    getProgramGridMetrics(contentWidth, isTablet);
   const isStaffRoute = (segments as string[]).includes('(staff)');
   const { preview, map } = useLocalSearchParams<{
     preview?: string;

@@ -10,7 +10,7 @@ import {
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import type { RecommendationAction } from '@/lib/recommendations/navigation';
 import { getRecommendationVisualCtaLabel } from '@/lib/recommendations/presentation';
-import { alignItems, flexDirection, rtlBaseView, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 
 export type RecommendationCategory =
   | 'operational'
@@ -233,12 +233,12 @@ const styles = StyleSheet.create({
   categoryWrap: {
     flex: 1,
     minWidth: 0,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   copy: {
     width: '100%',
     gap: 1,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   category: {
     fontSize: 11,
@@ -276,18 +276,18 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   primaryAction: {
-    minWidth: 72,
-    height: 40,
+    minWidth: 84,
+    height: 44,
     borderRadius: 999,
     paddingHorizontal: 14,
-    backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
+    backgroundColor: '#1D4ED8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   snoozeAction: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#D7E1F2',
     backgroundColor: '#FFFFFF',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
   primaryActionDisabled: {
-    backgroundColor: '#6B91E6',
+    backgroundColor: '#64748B',
   },
   snoozeActionDisabled: {
     backgroundColor: '#F1F5F9',

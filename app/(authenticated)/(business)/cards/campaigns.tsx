@@ -15,8 +15,13 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  CampaignManagementCard,
+  type CampaignManagementType,
+} from '@/components/campaigns/CampaignManagementCard';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
+import { ManagementUsageSummary } from '@/components/management';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -32,20 +37,17 @@ import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
-type ManagementCampaignType =
-  | 'welcome'
-  | 'birthday'
-  | 'anniversary'
-  | 'winback'
-  | 'promo';
 type ManagementCampaign = {
   campaignId: Id<'campaigns'>;
   businessId: Id<'businesses'>;
   programId: Id<'loyaltyPrograms'> | null;
-  type: ManagementCampaignType;
+  type: CampaignManagementType;
   title: string;
   status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
   automationEnabled: boolean;
+  isCountedTowardLimit: boolean;
+  scheduleMode: 'send_now' | 'one_time' | 'recurring' | null;
+  scheduledForAt: number | null;
   lifecycle: 'active' | 'inactive' | 'archived';
   canArchive: boolean;
   estimatedAudience: number;
@@ -66,58 +68,6 @@ function formatDateTime(value: number | null) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function campaignTypeMeta(type: ManagementCampaignType): {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBgClass: string;
-} {
-  switch (type) {
-    case 'welcome':
-      return {
-        label: 'ברוכים הבאים',
-        icon: 'hand-left-outline',
-        iconColor: '#1D4ED8',
-        iconBgClass: 'bg-[#DBEAFE]',
-      };
-    case 'birthday':
-      return {
-        label: 'יום הולדת',
-        icon: 'gift-outline',
-        iconColor: '#C2410C',
-        iconBgClass: 'bg-[#FFEDD5]',
-      };
-    case 'anniversary':
-      return {
-        label: 'יום נישואין',
-        icon: 'heart-outline',
-        iconColor: '#9D174D',
-        iconBgClass: 'bg-[#FCE7F3]',
-      };
-    case 'winback':
-      return {
-        label: 'השבת לקוחות',
-        icon: 'refresh-outline',
-        iconColor: '#0F766E',
-        iconBgClass: 'bg-[#CCFBF1]',
-      };
-    case 'promo':
-      return {
-        label: 'קמפיין כללי',
-        icon: 'megaphone-outline',
-        iconColor: '#4C1D95',
-        iconBgClass: 'bg-[#EDE9FE]',
-      };
-    default:
-      return {
-        label: 'קמפיין',
-        icon: 'megaphone-outline',
-        iconColor: '#1D4ED8',
-        iconBgClass: 'bg-[#DBEAFE]',
-      };
-  }
 }
 
 export function CampaignsHubContent() {
@@ -201,6 +151,11 @@ export function CampaignsHubContent() {
   const isReferralConfigLoading = referralConfig === undefined;
   const referralConsumesCampaignSlot =
     !isReferralConfigLoading && referralConfig?.isEnabled !== false;
+  const customerReferralQuotaCount = referralConsumesCampaignSlot ? 1 : 0;
+  const managementCampaignQuotaCount = Math.max(
+    0,
+    campaignLimit.currentValue - customerReferralQuotaCount
+  );
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
@@ -215,6 +170,15 @@ export function CampaignsHubContent() {
     canCreateCampaigns &&
     !isEntitlementsLoading &&
     !campaignLimit.isAtLimit;
+  const createBlockedReason = !activeBusinessId
+    ? 'יש לבחור עסק פעיל.'
+    : !canCreateCampaigns
+      ? 'אין לך הרשאה ליצור קמפיינים.'
+      : isEntitlementsLoading || isReferralConfigLoading
+        ? 'בודקים את מגבלת המסלול…'
+        : campaignLimit.isAtLimit
+          ? 'יצירה חסומה עד לארכוב קמפיין או לשדרוג המסלול.'
+          : null;
 
   const openCampaignEditor = (campaignId: Id<'campaigns'>) => {
     if (!activeBusinessId) {
@@ -289,46 +253,22 @@ export function CampaignsHubContent() {
   };
 
   const renderCampaignCard = (campaign: ManagementCampaign) => {
-    const isLiveCampaign = campaign.lifecycle === 'active';
-    const typeMeta = campaignTypeMeta(campaign.type);
-
     return (
-      <TouchableOpacity
+      <CampaignManagementCard
         key={String(campaign.campaignId)}
+        type={campaign.type}
+        title={campaign.title}
+        lifecycle={campaign.lifecycle}
+        audienceCount={campaign.estimatedAudience}
+        timingLabel={
+          campaign.scheduleMode === 'one_time' && campaign.scheduledForAt
+            ? `מתוזמן ל-${formatDateTime(campaign.scheduledForAt)}`
+            : campaign.automationEnabled
+              ? 'שליחה אוטומטית'
+              : `שליחה אחרונה: ${formatDateTime(campaign.lastSentAt)}`
+        }
         onPress={() => openCampaignEditor(campaign.campaignId)}
-        className={`${tw.flexRow} min-h-[72px] items-center gap-3 border-b border-[#D7E2F4] py-4`}
-        accessibilityRole="button"
-        accessibilityLabel={`פתיחת הקמפיין ${campaign.title}`}
-      >
-        <View
-          className={`h-10 w-10 items-center justify-center rounded-xl ${typeMeta.iconBgClass}`}
-        >
-          <Ionicons name={typeMeta.icon} size={19} color={typeMeta.iconColor} />
-        </View>
-        <View className={`flex-1 ${tw.itemsStart}`}>
-          <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
-            {campaign.title}
-          </Text>
-          <Text className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}>
-            {typeMeta.label} · שליחה אחרונה:{' '}
-            {formatDateTime(campaign.lastSentAt)}
-          </Text>
-        </View>
-        <View
-          className={`rounded-full px-2.5 py-1 ${
-            isLiveCampaign ? 'bg-[#DCFCE7]' : 'bg-[#E2E8F0]'
-          }`}
-        >
-          <Text
-            className={`text-[11px] font-extrabold ${
-              isLiveCampaign ? 'text-[#15803D]' : 'text-[#475569]'
-            }`}
-          >
-            {isLiveCampaign ? 'פעיל' : 'לא פעיל'}
-          </Text>
-        </View>
-        <Ionicons name="chevron-back" size={18} color="#64748B" />
-      </TouchableOpacity>
+      />
     );
   };
 
@@ -359,91 +299,84 @@ export function CampaignsHubContent() {
           <TouchableOpacity
             disabled={!canCreateCampaign}
             onPress={handleCreateCampaign}
-            className={`mt-4 min-h-[52px] rounded-2xl px-4 py-3 ${
-              canCreateCampaign ? 'bg-[#2F6BFF]' : 'bg-[#CBD5E1]'
+            className={`mt-4 ${tw.selfStart} min-h-[46px] min-w-[148px] rounded-2xl px-4 py-3 ${
+              canCreateCampaign
+                ? 'bg-[#2F6BFF]'
+                : 'border border-[#CBD5E1] bg-[#E2E8F0]'
             }`}
           >
             <View className={`${tw.flexRow} items-center justify-center gap-2`}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-              <Text className="text-sm font-black text-white">צור קמפיין</Text>
+              <Ionicons
+                name={canCreateCampaign ? 'add' : 'lock-closed-outline'}
+                size={19}
+                color={canCreateCampaign ? '#FFFFFF' : '#475569'}
+              />
+              <Text
+                className={`text-sm font-black ${
+                  canCreateCampaign ? 'text-white' : 'text-[#334155]'
+                }`}
+              >
+                צור קמפיין
+              </Text>
             </View>
           </TouchableOpacity>
+          {!canCreateCampaign && createBlockedReason ? (
+            <Text
+              className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+            >
+              {createBlockedReason}
+            </Text>
+          ) : null}
         </View>
 
-        {!isEntitlementsLoading ? (
-          <View className="mt-4 border-b border-[#D7E2F4] pb-4">
-            <View
-              className={`${tw.flexRow} items-center justify-between gap-2`}
-            >
-              <Text
-                className={`text-xs font-bold text-[#1A2B4A] ${tw.textStart}`}
-              >
-                {'מכסת קמפיינים פעילים'}
+        {!isEntitlementsLoading && !isReferralConfigLoading ? (
+          <View className="mt-4 gap-2">
+            <ManagementUsageSummary
+              label="הגדרות קמפיין בשימוש"
+              used={campaignLimit.currentValue}
+              limit={campaignLimit.limitValue}
+              unit="הגדרות"
+              nearLimitText="מתקרבים למכסת הקמפיינים במסלול הנוכחי."
+              atLimitText={campaignLimitReachedCopy}
+              overLimitText="הקמפיינים הקיימים נשמרו. יצירה או הפעלה נוספת חסומה עד לארכוב קמפיין או לשדרוג המסלול."
+              actionLabel={campaignLimit.isAtLimit ? 'שדרוג' : undefined}
+              onActionPress={campaignLimit.isAtLimit ? openCampaignsUpgrade : undefined}
+            />
+            <View className="rounded-2xl border border-[#D7E2F4] bg-white px-3 py-2.5">
+              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
+                {managementCampaignQuotaCount} קמפיינים
+                {customerReferralQuotaCount > 0
+                  ? ' + הפניית לקוחות אחת (C2C)'
+                  : ''}
               </Text>
-              <Text className="text-xs font-black text-[#1D4ED8]">
-                {`${campaignLimit.currentValue}/${campaignLimit.limitValue}`}
+              <Text className={`mt-1 text-[11px] text-[#64748B] ${tw.textStart}`}>
+                הזמנת עסקים ל-StampAix (B2B) מנוהלת בנפרד ואינה נספרת במכסה הזו.
               </Text>
-            </View>
-            {referralConsumesCampaignSlot ? (
-              <View
-                className={`${tw.flexRow} mt-2 items-center justify-between gap-3`}
-              >
-                <Text
-                  className={`flex-1 text-xs text-[#475569] ${tw.textStart}`}
-                >
-                  פעילות &quot;חבר מביא חבר&quot; פעילה ומשתמשת במקום אחד
-                  במכסת הקמפיינים.
-                </Text>
+              {referralConsumesCampaignSlot ? (
                 <TouchableOpacity
                   onPress={() =>
                     router.push(
                       '/(authenticated)/(business)/settings-business-referrals'
                     )
                   }
-                  className="min-h-[44px] items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-3 py-2"
+                  className={`${tw.selfStart} mt-2 min-h-[40px] items-center justify-center rounded-xl border border-[#BFDBFE] bg-[#F8FAFF] px-3`}
                   accessibilityRole="button"
-                  accessibilityLabel="ניהול הפניות"
+                  accessibilityLabel="ניהול הפניית לקוחות"
                 >
                   <Text className="text-xs font-black text-[#1D4ED8]">
-                    ניהול הפניות
+                    ניהול הפניית לקוחות
                   </Text>
                 </TouchableOpacity>
-              </View>
-            ) : null}
-            {campaignLimit.isAtLimit ? (
-              <View
-                className={`${tw.flexRow} mt-2 items-center justify-between gap-3`}
-              >
-                <Text
-                  className={`flex-1 text-xs text-[#B45309] ${tw.textStart}`}
-                >
-                  {campaignLimitReachedCopy}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => openCampaignsUpgrade()}
-                  className="rounded-full bg-[#1D4ED8] px-3 py-1.5"
-                >
-                  <Text className="text-xs font-black text-white">
-                    {'שדרוג'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : campaignLimit.isNearLimit ? (
-              <Text className={`mt-2 text-xs text-[#475569] ${tw.textStart}`}>
-                {'מתקרבים למכסה הפעילה של הקמפיינים במסלול הנוכחי.'}
-              </Text>
-            ) : null}
+              ) : null}
+            </View>
           </View>
         ) : null}
 
-        <View className="mt-5 gap-1 border-t border-[#D7E2F4] pt-4">
+        <View className="mt-5 gap-3 border-t border-[#D7E2F4] pt-4">
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
             קמפיינים פעילים ({liveCampaigns.length})
-          </Text>
-          <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-            העברה לארכיון זמינה רק מתוך דף עריכת הקמפיין.
           </Text>
           {campaignsQuery === undefined ? (
             <View className="py-4">
@@ -527,39 +460,34 @@ export function CampaignsHubContent() {
               ) : (
                 archivedCampaigns.map((campaign) => {
                   const isBusy = busyCampaignId === String(campaign.campaignId);
-                  const typeMeta = campaignTypeMeta(campaign.type);
                   return (
-                    <View
-                      key={String(campaign.campaignId)}
-                      className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
-                    >
-                      <Text
-                        className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-                      >
-                        {campaign.title}
-                      </Text>
-                      <Text
-                        className={`mt-1 text-xs text-[#64748B] ${tw.textStart}`}
-                      >
-                        {typeMeta.label} • בארכיון מאז{' '}
-                        {formatDateTime(campaign.archivedAt)}
-                      </Text>
+                    <View key={String(campaign.campaignId)} className="gap-2">
+                      <CampaignManagementCard
+                        type={campaign.type}
+                        title={campaign.title}
+                        lifecycle="archived"
+                        timingLabel={`בארכיון מאז ${formatDateTime(
+                          campaign.archivedAt
+                        )}`}
+                        audienceCount={campaign.estimatedAudience}
+                        onPress={() => openCampaignEditor(campaign.campaignId)}
+                      />
                       <View className={`${tw.flexRow} mt-3 gap-2`}>
                         <TouchableOpacity
                           disabled={!canEditCampaigns || isBusy}
                           onPress={() => {
                             void handleRestoreCampaign(campaign.campaignId);
                           }}
-                          className={`rounded-xl px-3 py-2 ${
+                          className={`min-h-[40px] rounded-xl border px-3 py-2 ${
                             !canEditCampaigns || isBusy
-                              ? 'bg-[#CBD5E1]'
-                              : 'bg-[#0F766E]'
+                              ? 'border-[#CBD5E1] bg-[#F1F5F9]'
+                              : 'border-[#B8C8E8] bg-white'
                           }`}
                         >
                           {isBusy ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color="#1D4ED8" size="small" />
                           ) : (
-                            <Text className="text-xs font-bold text-white">
+                            <Text className="text-xs font-bold text-[#1D4ED8]">
                               שחזור
                             </Text>
                           )}

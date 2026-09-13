@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Last synced: 2026-08-01
+Last synced: 2026-09-12
 
 This is the canonical deployment and EAS infrastructure guide. The older `docs/EAS_INFRASTRUCTURE.md` content was merged here and the original file was archived at `docs/archive/merged/EAS_INFRASTRUCTURE.md`.
 
@@ -131,7 +131,79 @@ Combined TestFlight path:
 bun run testflight
 ```
 
+## Convex environment mapping
+
+Preview and Development native builds are non-production. They must never fall
+back to Production Convex.
+
+Mapping used by the app and by the prebuild gate:
+
+- EAS profile `preview` sets `EXPO_PUBLIC_APP_ENV=preview`.
+- EAS profile `development` / `ios-simulator` sets `EXPO_PUBLIC_APP_ENV=development`.
+- `preview` and `development` both resolve to app environment `dev`.
+- App environment `dev` selects `EXPO_PUBLIC_CONVEX_URL_DEV` when present.
+- Development-only compatibility fallback: `EXPO_PUBLIC_CONVEX_URL`.
+- EAS profile `production` sets `EXPO_PUBLIC_APP_ENV=production`.
+- Production selects only `EXPO_PUBLIC_CONVEX_URL_PROD` and fails closed if it is
+  missing. Legacy and development Convex URLs are not accepted.
+
+Do not print Convex URLs, deployment names, or env values in logs, tickets, or
+chat. Report only statuses such as `PRESENT`, `MISSING`, `MATCH`, `MISMATCH`,
+`DEV`, `PRODUCTION_BLOCKED`, `FUNCTION_PRESENT`, and `FUNCTION_MISSING`.
+
+## Remote Convex contract verification
+
+`bun run prebuild:preview` and `bun run prebuild:production` now prove:
+
+- client code
+- target app environment
+- target Convex deployment
+- remote public function contract
+- schema compatibility
+
+The verifier is `scripts/verify-convex-deployment-contract.mjs`. It compares the
+current app's local public Convex functions and `api.module.function` client
+usages with a read-only remote `function-spec`. It does not deploy Convex.
+
+Preview uses an explicit DEV deployment selector and never `--prod`.
+Production uses `--prod` and never a DEV deployment name.
+
+`scripts/eas-run.ps1` runs the matching `prebuild:*` script before every EAS
+`build`, after a clean-git guard. Do not start an EAS Preview or Production
+build if that gate fails.
+
+## Canonical DEV synchronization
+
+If a Preview APK fails with a missing public function while current `main`
+contains that function, synchronize canonical DEV Convex. Do not rebuild the
+APK first, and do not deploy Production.
+
+```bash
+bun run convex:dev:sync
+```
+
+The command:
+
+- targets DEV only
+- refuses Production
+- runs schema compatibility checks first
+- uses the current Convex CLI `dev --once` path
+- re-verifies the remote public function contract
+- never prints URLs or secrets
+
+After a backend-only DEV sync, retest the existing Preview APK. Rebuild only if
+a proven client/native defect remains.
+
+Schema compatibility: do not add required fields to historical persisted
+documents (Smart Manager snapshots, billing, referrals, loyalty programs). Use
+optional fields or additive tables. No data-destructive migration is part of
+DEV sync.
+
 ## Convex production deploy
+
+Production Convex deploy is separate from Preview QA and from `convex:dev:sync`.
+Do not run it during Preview investigation.
+
 ```bash
 bunx convex deploy
 ```
@@ -141,7 +213,12 @@ bunx convex deploy
 - `bun run type-check` passes.
 - `bunx expo config --type public` and `bunx expo config --type prebuild`
   complete for the target env.
-- EAS secrets contain the intended Convex URL values.
+- EAS secrets/environment variables contain the intended Convex URL values for
+  the selected profile. Preview must resolve to DEV Convex. Production must
+  resolve to Production Convex.
+- `bun run prebuild:preview` or `bun run prebuild:production` passes for the
+  intended profile. These gates include RTL, billing/referral contracts, and
+  remote Convex function-contract verification.
 - Google OAuth production client is configured for the Convex Auth callback URL.
 - Apple Sign In production client and secret are configured for the Convex Auth callback URL.
 - RevenueCat production keys and package ids are configured if payments are enabled.
@@ -160,6 +237,7 @@ EAS builds or configure external credentials.
 
 Local validation before any EAS build:
 ```bash
+bun run prebuild:preview
 bunx expo config --type public
 bunx expo config --type prebuild
 bun run type-check
@@ -195,14 +273,14 @@ Preview build checklist:
 - Android artifact: APK.
 - iOS artifact: physical-device internal build, not simulator.
 - Channel: `preview`.
-- A future comprehensive Pre-Build Gate must resolve the Convex deployment from
-  the selected app environment and explicitly verify
-  `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` on that deployment before starting a
-  Development or Preview native build. The verifier must fail unless the value
-  is non-empty Base64URL text that decodes to exactly 32 bytes, emit only
-  presence/format/length status (never the value), and use an explicit
-  deployment selector rather than the CLI default. A DEV/Preview check must not
-  query or modify Production.
+- A Convex deployment-contract prebuild gate resolves the Convex deployment
+  from the selected app environment and verifies the remote public function
+  contract before a native build starts. Preview/Development checks never query
+  or modify Production. Production checks never fall back to DEV or the legacy
+  Convex URL.
+- `AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY` on that deployment must remain a
+  non-empty Base64URL value that decodes to exactly 32 bytes. Emit only
+  presence/format/length status (never the value).
 - Android RTL source guard, before starting a preview build:
   ```bash
   bun run verify:rtl-build-source
@@ -217,6 +295,8 @@ Preview build checklist:
   `stampaix-rtl-manual-row-right-v1`, root-layout bundle retention, and static
   RTL/visible-Hebrew scanning across `app/`, `components/`, `screens/`, `lib/`,
   `constants/`, and `config/`. The obsolete native-RTL marker is rejected.
+  `bun run prebuild:preview` also verifies the Preview Convex DEV deployment
+  public-function contract before EAS starts.
 - Commands, after local checks pass:
   ```bash
   bun run eas:build:android:preview

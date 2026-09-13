@@ -8,14 +8,15 @@
  * @module
  */
 
+import type * as __tests___helpers_businessBillingFixtures from "../__tests__/helpers/businessBillingFixtures.js";
 import type * as accountDeletionRequests from "../accountDeletionRequests.js";
 import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as business from "../business.js";
-import type * as businessReferralEngine from "../businessReferralEngine.js";
 import type * as businessBilling from "../businessBilling.js";
 import type * as businessDeletion from "../businessDeletion.js";
+import type * as businessReferralEngine from "../businessReferralEngine.js";
 import type * as campaigns from "../campaigns.js";
 import type * as crons from "../crons.js";
 import type * as customerCards from "../customerCards.js";
@@ -29,6 +30,12 @@ import type * as googlePlacesRateLimits from "../googlePlacesRateLimits.js";
 import type * as guards from "../guards.js";
 import type * as http from "../http.js";
 import type * as lib_aiJsonGeneration from "../lib/aiJsonGeneration.js";
+import type * as lib_billing_accounts from "../lib/billing/accounts.js";
+import type * as lib_billing_identity from "../lib/billing/identity.js";
+import type * as lib_billing_lifecycle from "../lib/billing/lifecycle.js";
+import type * as lib_billing_productMap from "../lib/billing/productMap.js";
+import type * as lib_billing_productionContract from "../lib/billing/productionContract.js";
+import type * as lib_billing_usageCounters from "../lib/billing/usageCounters.js";
 import type * as lib_campaignRuns from "../lib/campaignRuns.js";
 import type * as lib_campaignState from "../lib/campaignState.js";
 import type * as lib_customerIntelligence from "../lib/customerIntelligence.js";
@@ -39,6 +46,11 @@ import type * as lib_recommendationCatalog from "../lib/recommendationCatalog.js
 import type * as lib_recommendationGuideCompletion from "../lib/recommendationGuideCompletion.js";
 import type * as lib_recommendationUtils from "../lib/recommendationUtils.js";
 import type * as lib_redemptionReceipts from "../lib/redemptionReceipts.js";
+import type * as lib_referrals_billingHook from "../lib/referrals/billingHook.js";
+import type * as lib_referrals_copy from "../lib/referrals/copy.js";
+import type * as lib_referrals_qualification from "../lib/referrals/qualification.js";
+import type * as lib_referrals_redemptionProvider from "../lib/referrals/redemptionProvider.js";
+import type * as lib_runRegisteredHandler from "../lib/runRegisteredHandler.js";
 import type * as lib_smartManagerAuthority from "../lib/smartManagerAuthority.js";
 import type * as lib_smartManagerDelivery from "../lib/smartManagerDelivery.js";
 import type * as lib_smartManagerDirty from "../lib/smartManagerDirty.js";
@@ -93,14 +105,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "__tests__/helpers/businessBillingFixtures": typeof __tests___helpers_businessBillingFixtures;
   accountDeletionRequests: typeof accountDeletionRequests;
   aiRecommendations: typeof aiRecommendations;
   analytics: typeof analytics;
   auth: typeof auth;
   business: typeof business;
   businessBilling: typeof businessBilling;
-  businessReferralEngine: typeof businessReferralEngine;
   businessDeletion: typeof businessDeletion;
+  businessReferralEngine: typeof businessReferralEngine;
   campaigns: typeof campaigns;
   crons: typeof crons;
   customerCards: typeof customerCards;
@@ -114,6 +127,12 @@ declare const fullApi: ApiFromModules<{
   guards: typeof guards;
   http: typeof http;
   "lib/aiJsonGeneration": typeof lib_aiJsonGeneration;
+  "lib/billing/accounts": typeof lib_billing_accounts;
+  "lib/billing/identity": typeof lib_billing_identity;
+  "lib/billing/lifecycle": typeof lib_billing_lifecycle;
+  "lib/billing/productMap": typeof lib_billing_productMap;
+  "lib/billing/productionContract": typeof lib_billing_productionContract;
+  "lib/billing/usageCounters": typeof lib_billing_usageCounters;
   "lib/campaignRuns": typeof lib_campaignRuns;
   "lib/campaignState": typeof lib_campaignState;
   "lib/customerIntelligence": typeof lib_customerIntelligence;
@@ -124,6 +143,11 @@ declare const fullApi: ApiFromModules<{
   "lib/recommendationGuideCompletion": typeof lib_recommendationGuideCompletion;
   "lib/recommendationUtils": typeof lib_recommendationUtils;
   "lib/redemptionReceipts": typeof lib_redemptionReceipts;
+  "lib/referrals/billingHook": typeof lib_referrals_billingHook;
+  "lib/referrals/copy": typeof lib_referrals_copy;
+  "lib/referrals/qualification": typeof lib_referrals_qualification;
+  "lib/referrals/redemptionProvider": typeof lib_referrals_redemptionProvider;
+  "lib/runRegisteredHandler": typeof lib_runRegisteredHandler;
   "lib/smartManagerAuthority": typeof lib_smartManagerAuthority;
   "lib/smartManagerDelivery": typeof lib_smartManagerDelivery;
   "lib/smartManagerDirty": typeof lib_smartManagerDirty;

@@ -26,6 +26,9 @@ expo-env.d.ts
 .tmp-node22*
 _tmp/
 
+# Convex CLI function-spec dumps
+function_spec_*.json
+
 # debug
 npm-debug.*
 yarn-debug.*
