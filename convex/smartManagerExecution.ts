@@ -3,28 +3,16 @@ import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
-  mutation,
   type MutationCtx,
+  mutation,
 } from './_generated/server';
 import { isCustomerAtRiskForReferenceNow } from './customerLifecycle';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
-  countsTowardCampaignDefinitions,
-  countsTowardReferralCampaignQuota,
+  campaignConsumesQuota,
 } from './entitlements';
-import {
-  getBusinessStaffStatus,
-  requireCurrentUser,
-} from './guards';
-import {
-  resolveSmartManagerDecisionAuthority,
-} from './lib/smartManagerAuthority';
-import {
-  buildPreparedActionCopyContentHash,
-  evaluatePreparedActionCurrentness,
-  SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
-  SMART_MANAGER_CHANNEL_STRATEGY_VERSION,
-} from './lib/smartManagerPreparedActions';
+import { getBusinessStaffStatus, requireCurrentUser } from './guards';
+import { resolveSmartManagerDecisionAuthority } from './lib/smartManagerAuthority';
 import {
   addSmartManagerRecipientBindingToAccumulator,
   buildSmartManagerApprovalKey,
@@ -35,12 +23,18 @@ import {
   finalizeSmartManagerRecipientSetHash,
   SMART_MANAGER_EXECUTION_KIND,
   SMART_MANAGER_MATERIALIZATION_BATCH_SIZE,
-  SMART_MANAGER_RECIPIENT_EVENT_LIMIT,
   SMART_MANAGER_RECIPIENT_ELIGIBILITY_VERSION,
+  SMART_MANAGER_RECIPIENT_EVENT_LIMIT,
   SMART_MANAGER_RECIPIENT_FINALIZATION_BATCH_SIZE,
   SMART_MANAGER_RECIPIENT_MEMBERSHIP_LIMIT,
   type SmartManagerResolvedChannel,
 } from './lib/smartManagerExecution';
+import {
+  buildPreparedActionCopyContentHash,
+  evaluatePreparedActionCurrentness,
+  SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
+  SMART_MANAGER_CHANNEL_STRATEGY_VERSION,
+} from './lib/smartManagerPreparedActions';
 import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 import { getRoleCapabilities } from './lib/staffPermissions';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
@@ -183,9 +177,9 @@ async function authorizeApprovalActor(
   if (!hasExactApprovalCapabilities(relationship.staffRole)) {
     throwNotEligible();
   }
-  const business = (await ctx.db.get(action.businessId)) as
-    | Doc<'businesses'>
-    | null;
+  const business = (await ctx.db.get(
+    action.businessId
+  )) as Doc<'businesses'> | null;
   if (!business || business.isActive !== true) {
     throwRefreshRequired();
   }
@@ -211,8 +205,15 @@ async function loadBoundedCurrentExecutionEntitlements(
     throwRefreshRequired();
   }
   const activeCampaigns =
-    campaigns.filter(countsTowardCampaignDefinitions).length +
-    (countsTowardReferralCampaignQuota(referralConfigs[0]) ? 1 : 0);
+    campaigns.filter((campaign) =>
+      campaignConsumesQuota({ kind: 'management', campaign })
+    ).length +
+    (campaignConsumesQuota({
+      kind: 'customer_referral',
+      config: referralConfigs[0],
+    })
+      ? 1
+      : 0);
   const entitlements = await buildCanonicalBusinessEntitlementsFromBusiness(
     ctx,
     business,
@@ -280,9 +281,9 @@ async function loadReviewedCopy(
     contentHash: string;
   }
 ) {
-  const copy = (await ctx.db.get(args.selectedCopyId)) as
-    | Doc<'smartManagerPreparedActionCopies'>
-    | null;
+  const copy = (await ctx.db.get(
+    args.selectedCopyId
+  )) as Doc<'smartManagerPreparedActionCopies'> | null;
   if (
     !copy ||
     String(copy.businessId) !== String(action.businessId) ||
@@ -353,8 +354,7 @@ function exactRunMatchesApproval(
     run.approvedAudienceObservedCount === action.audienceCount &&
     run.recipientCeiling === action.recipientCeiling &&
     Number.isFinite(run.recipientContactCooldownDays) &&
-    run.channelStrategyVersion ===
-      action.channelStrategy.channelStrategyVersion
+    run.channelStrategyVersion === action.channelStrategy.channelStrategyVersion
   );
 }
 
@@ -387,9 +387,9 @@ export const approvePreparedWinbackAction = mutation({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const action = (await ctx.db.get(args.preparedActionId)) as
-      | Doc<'smartManagerPreparedActions'>
-      | null;
+    const action = (await ctx.db.get(
+      args.preparedActionId
+    )) as Doc<'smartManagerPreparedActions'> | null;
     if (!action) {
       throwRefreshRequired();
     }
@@ -399,16 +399,16 @@ export const approvePreparedWinbackAction = mutation({
     const exactRuns = await ctx.db
       .query('campaignRuns')
       .withIndex('by_preparedActionId_approvalKey', (q) =>
-        q
-          .eq('preparedActionId', action._id)
-          .eq('approvalKey', approvalKey)
+        q.eq('preparedActionId', action._id).eq('approvalKey', approvalKey)
       )
       .take(APPROVAL_SINGLETON_LIMIT);
     if (exactRuns.length > 1) {
       throwRefreshRequired();
     }
-    const currentEntitlements =
-      await loadBoundedCurrentExecutionEntitlements(ctx, business);
+    const currentEntitlements = await loadBoundedCurrentExecutionEntitlements(
+      ctx,
+      business
+    );
     const existingRun = exactRuns[0];
     if (existingRun) {
       if (
@@ -628,9 +628,9 @@ async function loadWorkerRun(
     expectedCheckpoint: number;
   }
 ) {
-  const run = (await ctx.db.get(args.campaignRunId)) as
-    | Doc<'campaignRuns'>
-    | null;
+  const run = (await ctx.db.get(
+    args.campaignRunId
+  )) as Doc<'campaignRuns'> | null;
   if (
     !run ||
     run.executionKind !== SMART_MANAGER_EXECUTION_KIND ||
@@ -676,11 +676,15 @@ async function workerBindingsRemainImmutable(
     String(action.approvedCampaignRunId ?? '') !== String(run._id) ||
     action.approvalKey !== run.approvalKey ||
     copy.contentHash !==
-      buildPreparedActionCopyContentHash({ title: copy.title, body: copy.body }) ||
+      buildPreparedActionCopyContentHash({
+        title: copy.title,
+        body: copy.body,
+      }) ||
     !exactRunMatchesApproval(run, action, copy, run.approvalKey) ||
     campaign.source !== 'smart_manager' ||
     String(campaign.smartManagerCampaignRunId ?? '') !== String(run._id) ||
-    String(campaign.smartManagerPreparedActionId ?? '') !== String(action._id) ||
+    String(campaign.smartManagerPreparedActionId ?? '') !==
+      String(action._id) ||
     String(campaign.smartManagerSelectedCopyId ?? '') !== String(copy._id) ||
     campaign.smartManagerSelectedCopyRevision !== copy.revision ||
     campaign.smartManagerSelectedCopyContentHash !== copy.contentHash ||
@@ -879,7 +883,9 @@ async function loadCanonicalActiveMembership(
       active.push(membership);
     }
   }
-  active.sort((left, right) => String(left._id).localeCompare(String(right._id)));
+  active.sort((left, right) =>
+    String(left._id).localeCompare(String(right._id))
+  );
   return { overflow: false, membership: active[0] ?? null };
 }
 
@@ -978,12 +984,7 @@ async function finalizeRecipientPage(
           .first(),
       ]);
     if (membershipResult.overflow || stampHistoryResult.overflow) {
-      return await failMaterialization(
-        ctx,
-        run,
-        'SOURCE_LIMIT_EXCEEDED',
-        now
-      );
+      return await failMaterialization(ctx, run, 'SOURCE_LIMIT_EXCEEDED', now);
     }
     const membership = membershipResult.membership;
     const stampSummary = summarizeCanonicalStampHistory(
@@ -1152,8 +1153,8 @@ async function hashRecipientPage(
     accumulator.count !== expectedTotal ||
     expectedTotal > (run.recipientCeiling ?? 0) ||
     (run.pushEligible ?? 0) +
-        (run.inAppFallbackEligible ?? 0) +
-        (run.notContactable ?? 0) !==
+      (run.inAppFallbackEligible ?? 0) +
+      (run.notContactable ?? 0) !==
       expectedTotal ||
     pushCount !== (run.pushEligible ?? 0) ||
     inAppCount !== (run.inAppFallbackEligible ?? 0) ||

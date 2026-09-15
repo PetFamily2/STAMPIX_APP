@@ -214,23 +214,13 @@ export function LoyaltyCardsHubContent() {
     () => programs.filter((program) => program.lifecycle === 'archived'),
     [programs]
   );
-  const nonArchivedProgramCount = draftPrograms.length + activePrograms.length;
-
-  const cardLimit = limitStatus('maxCards', nonArchivedProgramCount);
-  const canCreate =
-    Boolean(activeBusinessId) &&
-    canManage &&
-    !isEntitlementsLoading &&
-    !cardLimit.isAtLimit;
+  const cardLimit = limitStatus('maxCards', activePrograms.length);
+  const canCreate = Boolean(activeBusinessId) && canManage;
   const createBlockedReason = !activeBusinessId
     ? 'יש לבחור עסק פעיל.'
     : !canManage
       ? 'אין לך הרשאה ליצור כרטיסיות.'
-      : isEntitlementsLoading
-        ? 'בודקים את מגבלת המסלול…'
-        : cardLimit.isAtLimit
-          ? 'יצירה חסומה עד לפינוי מקום או לשדרוג המסלול.'
-          : null;
+      : null;
 
   const openCardsUpgrade = () =>
     openSubscriptionComparison(router, {
@@ -298,7 +288,9 @@ export function LoyaltyCardsHubContent() {
               handleCreate();
             }}
             className={`mt-4 min-h-[52px] rounded-2xl px-4 py-3 ${
-              !canCreate ? 'border border-[#CBD5E1] bg-[#E2E8F0]' : 'bg-[#2F6BFF]'
+              !canCreate
+                ? 'border border-[#CBD5E1] bg-[#E2E8F0]'
+                : 'bg-[#2F6BFF]'
             }`}
           >
             <View
@@ -332,15 +324,19 @@ export function LoyaltyCardsHubContent() {
         {!isEntitlementsLoading ? (
           <View className="mt-4">
             <ManagementUsageSummary
-              label="שימוש בכרטיסיות במסלול"
+              label="כרטיסיות פעילות במסלול"
               used={cardLimit.currentValue}
               limit={cardLimit.limitValue}
               unit="כרטיסיות"
               nearLimitText={TEXT.nearLimit}
               atLimitText={TEXT.limitReached}
-              overLimitText="הכרטיסיות הקיימות נשמרו. יצירה או הפעלה נוספת חסומה עד לארכוב כרטיסיה או לשדרוג המסלול."
-              actionLabel={cardLimit.isAtLimit && canManage ? 'לבדיקת מסלולים' : undefined}
-              onActionPress={cardLimit.isAtLimit && canManage ? openCardsUpgrade : undefined}
+              overLimitText="הכרטיסיות והטיוטות הקיימות נשמרו. הפעלה נוספת חסומה עד לארכוב כרטיסיה פעילה או לשדרוג המסלול."
+              actionLabel={
+                cardLimit.isAtLimit && canManage ? 'לבדיקת מסלולים' : undefined
+              }
+              onActionPress={
+                cardLimit.isAtLimit && canManage ? openCardsUpgrade : undefined
+              }
             />
           </View>
         ) : null}

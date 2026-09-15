@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
+import { alignItems } from '@/lib/rtl';
 import { StampIcon } from './StampIcon';
 
 const PROGRAM_TILE_BORDER_WIDTH = 3;
-const PROGRAM_ICON_CANVAS_SIZE = 38;
-const PROGRAM_ICON_NOMINAL_SIZE = 22;
+const PROGRAM_ICON_CANVAS_SIZE = 30;
+const PROGRAM_ICON_NOMINAL_SIZE = 27;
 
 export function LoyaltyProgramTile({
   title,
@@ -37,9 +38,10 @@ export function LoyaltyProgramTile({
       accessibilityState={{ selected, disabled, busy }}
       style={({ pressed }) => [
         styles.root,
-        { width, borderColor: selected ? '#2563EB' : theme.keyline },
+        { width, borderColor: selected ? '#2F6BFF' : theme.keyline },
         selected ? styles.selected : null,
         pressed && !disabled ? styles.pressed : null,
+        disabled ? styles.disabled : null,
       ]}
     >
       <LinearGradient
@@ -49,16 +51,22 @@ export function LoyaltyProgramTile({
         pointerEvents="none"
         style={styles.surface}
       >
-        {selected ? (
-          <View style={[styles.check, { backgroundColor: theme.accent }]}>
-            <Ionicons name="checkmark" size={12} color={theme.onAccent} />
-          </View>
-        ) : null}
-        <View style={[styles.iconRing, { backgroundColor: theme.accent }]}>
-          <StampIcon value={stampIcon} size={PROGRAM_ICON_NOMINAL_SIZE} color={theme.onAccent} />
+        <View style={styles.selectionSlot}>
+          {selected ? (
+            <View style={styles.check}>
+              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.iconCanvas}>
+          <StampIcon
+            value={stampIcon}
+            size={PROGRAM_ICON_NOMINAL_SIZE}
+            color={theme.accent}
+          />
         </View>
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           ellipsizeMode="tail"
           maxFontSizeMultiplier={1.35}
           style={[styles.title, { color: theme.titleColor }]}
@@ -72,7 +80,7 @@ export function LoyaltyProgramTile({
 
 const styles = StyleSheet.create({
   root: {
-    height: 84,
+    height: 92,
     borderRadius: 13,
     borderWidth: PROGRAM_TILE_BORDER_WIDTH,
     backgroundColor: '#111827',
@@ -85,38 +93,43 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   pressed: { opacity: 0.82 },
+  disabled: { opacity: 0.58 },
   surface: {
     flex: 1,
     width: '100%',
     borderRadius: 11,
     overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
+    gap: 3,
     paddingHorizontal: 4,
-    paddingVertical: 7,
+    paddingVertical: 5,
+  },
+  selectionSlot: {
+    width: '100%',
+    height: 16,
+    alignItems: alignItems.start,
+    justifyContent: 'center',
   },
   check: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#FFFFFF',
+    backgroundColor: '#2F6BFF',
   },
-  iconRing: {
+  iconCanvas: {
     width: PROGRAM_ICON_CANVAS_SIZE,
     height: PROGRAM_ICON_CANVAS_SIZE,
-    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   title: {
     width: '100%',
+    minHeight: 24,
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '900',

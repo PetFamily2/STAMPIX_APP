@@ -5,8 +5,8 @@ import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Animated,
   Alert,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -248,13 +248,9 @@ function DashboardBusinessReferralCard({
         accessibilityLabel="הזמנת עסק ל-StampAix"
         style={({ pressed }) => [
           styles.businessReferralButton,
-          layoutMode === 'tablet'
-            ? styles.businessReferralButtonTablet
-            : null,
+          layoutMode === 'tablet' ? styles.businessReferralButtonTablet : null,
           pressed ? styles.businessReferralButtonPressed : null,
-          isSwitchingBusiness
-            ? styles.businessReferralButtonDisabled
-            : null,
+          isSwitchingBusiness ? styles.businessReferralButtonDisabled : null,
         ]}
       >
         <Text style={styles.businessReferralButtonText}>הזמנת עסק</Text>
@@ -941,7 +937,6 @@ export default function BusinessDashboardScreen() {
             ]}
           />
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -1086,6 +1081,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     width: '100%',
     borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#123EA8',
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -1098,9 +1095,12 @@ const styles = StyleSheet.create({
   },
   businessReferralButtonPressed: {
     opacity: 0.86,
+    borderColor: '#0F2F7A',
   },
   businessReferralButtonDisabled: {
     opacity: 0.55,
+    borderColor: '#475569',
+    backgroundColor: '#64748B',
   },
   businessReferralButtonText: {
     fontSize: 13,

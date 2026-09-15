@@ -391,11 +391,9 @@ export default function ProgramDetailsScreen() {
   }
 
   const lifecycle = details?.lifecycle ?? 'draft';
-  const isArchived = lifecycle === 'archived';
-  const isRuleLocked = lifecycle !== 'draft';
+  const isRuleLocked = lifecycle === 'active';
   const parsedMaxStamps = Number(maxStamps);
-  const canEditGeneralFields =
-    canManage && !isSubmitting && !isUploadingImage && !isArchived;
+  const canEditGeneralFields = canManage && !isSubmitting && !isUploadingImage;
   const canEditRuleFields =
     canManage && !isSubmitting && !isUploadingImage && !isRuleLocked;
   const canSave =
@@ -748,6 +746,13 @@ export default function ProgramDetailsScreen() {
     if (!canManage || lifecycle !== 'archived' || isSubmitting) {
       return;
     }
+    if (isDirty) {
+      Alert.alert(
+        'יש שינויים שלא נשמרו',
+        'שמרו את השינויים בכרטיסייה לפני ההפעלה מחדש.'
+      );
+      return;
+    }
 
     Alert.alert(TEXT.reactivateConfirmTitle, TEXT.reactivateConfirmMessage, [
       { text: 'ביטול', style: 'cancel' },
@@ -836,7 +841,7 @@ export default function ProgramDetailsScreen() {
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: (insets.bottom || 0) + (!isArchived ? 124 : 32),
+            paddingBottom: (insets.bottom || 0) + 124,
             width: '100%',
             maxWidth: 960,
             alignSelf: 'center',
@@ -1038,7 +1043,9 @@ export default function ProgramDetailsScreen() {
                   <LoyaltyThemePalette
                     value={cardThemeId}
                     onChange={setCardThemeId}
-                    disabledThemeIds={usedThemeIds}
+                    disabledThemeIds={
+                      lifecycle === 'active' ? usedThemeIds : []
+                    }
                     disabled={!canEditGeneralFields}
                   />
                 </View>
@@ -1231,29 +1238,27 @@ export default function ProgramDetailsScreen() {
             </View>
           ) : null}
         </ScrollView>
-        {!isArchived ? (
-          <EditorStickyFooter>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !canSave, busy: isSubmitting }}
-              disabled={!canSave}
-              onPress={() => {
-                void handleSave();
-              }}
-              className={`min-h-[52px] items-center justify-center rounded-2xl px-4 ${
-                canSave ? 'bg-[#2F6BFF]' : 'bg-[#94A3B8]'
-              }`}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-center text-sm font-bold text-white">
-                  {TEXT.save}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </EditorStickyFooter>
-        ) : null}
+        <EditorStickyFooter>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canSave, busy: isSubmitting }}
+            disabled={!canSave}
+            onPress={() => {
+              void handleSave();
+            }}
+            className={`min-h-[52px] items-center justify-center rounded-2xl px-4 ${
+              canSave ? 'bg-[#2F6BFF]' : 'bg-[#94A3B8]'
+            }`}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-center text-sm font-bold text-white">
+                {TEXT.save}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </EditorStickyFooter>
       </KeyboardAvoidingView>
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}

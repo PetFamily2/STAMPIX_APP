@@ -4,6 +4,7 @@ import { internalMutation, mutation, query } from './_generated/server';
 import {
   assertCampaignsNotOverLimit,
   assertEntitlement,
+  campaignConsumesQuota,
   countActiveCampaignsForBusiness,
   countActiveRetentionActionsForBusiness,
   getBusinessEntitlementsForBusinessId,
@@ -12,11 +13,11 @@ import {
   getCurrentUserOrNull,
   requireActorHasBusinessCapability,
 } from './guards';
-import { classifyCampaignState } from './lib/campaignState';
 import { recordCampaignRun } from './lib/campaignRuns';
+import { classifyCampaignState } from './lib/campaignState';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
-import { sendPushNotificationToUser } from './pushNotifications';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { sendPushNotificationToUser } from './pushNotifications';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_CHANNELS: Array<'in_app' | 'push'> = ['in_app'];
@@ -496,10 +497,7 @@ async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
     .collect();
 }
 
-async function hasPersistedCampaignRun(
-  ctx: any,
-  campaignId: Id<'campaigns'>
-) {
+async function hasPersistedCampaignRun(ctx: any, campaignId: Id<'campaigns'>) {
   const run = await ctx.db
     .query('campaignRuns')
     .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
@@ -901,7 +899,10 @@ export const listManagementCampaignsByBusiness = query({
           campaign.automationEnabled
         );
         const scheduleMode = getScheduleModeFromCampaign(campaign);
-        const isCountedTowardLimit = campaign.isActive === true;
+        const isCountedTowardLimit = campaignConsumesQuota({
+          kind: 'management',
+          campaign,
+        });
         const family =
           campaign.type === 'retention_action'
             ? 'retention'
@@ -914,17 +915,16 @@ export const listManagementCampaignsByBusiness = query({
           hasPersistedCompletionEvidence,
           managementEstimate,
           missingBirthdayCount,
-        ] =
-          await Promise.all([
-            getCampaignLogs(ctx, campaign._id),
-            hasPersistedCampaignRun(ctx, campaign._id),
-            isManagementType(campaign.type)
-              ? estimateAudienceForCampaign(ctx, campaign)
-              : Promise.resolve(null),
-            campaign.type === 'birthday'
-              ? countMissingBirthdayForCampaign(ctx, campaign)
-              : Promise.resolve(null),
-          ]);
+        ] = await Promise.all([
+          getCampaignLogs(ctx, campaign._id),
+          hasPersistedCampaignRun(ctx, campaign._id),
+          isManagementType(campaign.type)
+            ? estimateAudienceForCampaign(ctx, campaign)
+            : Promise.resolve(null),
+          campaign.type === 'birthday'
+            ? countMissingBirthdayForCampaign(ctx, campaign)
+            : Promise.resolve(null),
+        ]);
         const productState = classifyCampaignState(campaign, {
           now,
           hasPersistedCompletionEvidence,
@@ -1001,7 +1001,11 @@ export const getManagementCampaignDraft = query({
       businessId,
       'access_campaigns'
     );
-    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      businessId,
+      campaignId
+    );
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
@@ -1034,6 +1038,12 @@ export const getManagementCampaignDraft = query({
       programId: campaign.programId ?? null,
       automationEnabled,
       isRulesLocked: automationEnabled,
+      lifecycle:
+        campaign.isActive !== true
+          ? 'archived'
+          : campaignConsumesQuota({ kind: 'management', campaign })
+            ? 'active'
+            : 'draft',
       stats: {
         eligibleAudienceNow: estimate.total,
         reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
@@ -1068,8 +1078,6 @@ export const createCampaignDraft = mutation({
       'create_campaigns'
     );
     await validateProgramBelongsToBusiness(ctx, businessId, programId);
-    await assertCampaignCapacity(ctx, businessId);
-
     const defaults = buildDefaultDraftByType(type);
     const now = Date.now();
     const campaignId = await ctx.db.insert('campaigns', {
@@ -1092,7 +1100,12 @@ export const createCampaignDraft = mutation({
       updatedAt: now,
     });
 
-    await markCampaignFactsDirty(ctx, businessId, 'campaign_draft_created', now);
+    await markCampaignFactsDirty(
+      ctx,
+      businessId,
+      'campaign_draft_created',
+      now
+    );
 
     return { campaignId };
   },
@@ -1108,8 +1121,6 @@ export const createGeneralCampaignDraft = mutation({
       businessId,
       'create_campaigns'
     );
-    await assertCampaignCapacity(ctx, businessId);
-
     const defaults = buildDefaultDraftByType('promo');
     const now = Date.now();
     const campaignId = await ctx.db.insert('campaigns', {
@@ -1131,7 +1142,12 @@ export const createGeneralCampaignDraft = mutation({
       updatedAt: now,
     });
 
-    await markCampaignFactsDirty(ctx, businessId, 'campaign_draft_created', now);
+    await markCampaignFactsDirty(
+      ctx,
+      businessId,
+      'campaign_draft_created',
+      now
+    );
 
     return { campaignId };
   },
@@ -1165,7 +1181,9 @@ export const setCampaignAutomationEnabled = mutation({
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
     if (enabled) {
-      await assertCampaignsNotOverLimit(ctx, businessId);
+      if (!campaignConsumesQuota({ kind: 'management', campaign })) {
+        await assertCampaignCapacity(ctx, businessId);
+      }
       if (!isAutomationEnabled(campaign.automationEnabled)) {
         await assertRecurringCampaignCapacity(ctx, businessId);
       }
@@ -1242,7 +1260,6 @@ export const scheduleCampaignOneTime = mutation({
       businessId,
       'activate_send_campaigns'
     );
-    await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
@@ -1253,6 +1270,9 @@ export const scheduleCampaignOneTime = mutation({
     });
     if (!isManagementType(campaign.type)) {
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    }
+    if (!campaignConsumesQuota({ kind: 'management', campaign })) {
+      await assertCampaignCapacity(ctx, businessId);
     }
 
     const now = Date.now();
@@ -1388,13 +1408,12 @@ export const archiveManagementCampaign = mutation({
     const patchPayload: Record<string, unknown> = {
       isActive: false,
       automationEnabled: false,
+      status: 'archived',
+      activationStatus: 'archived',
       archivedAt: now,
       archivedByUserId: actor._id,
       updatedAt: now,
     };
-    if (campaign.type === 'retention_action') {
-      patchPayload.status = 'archived';
-    }
     await ctx.db.patch(campaign._id, patchPayload);
 
     await markCampaignFactsDirty(ctx, businessId, 'campaign_archived', now);
@@ -1424,8 +1443,6 @@ export const restoreManagementCampaign = mutation({
     if (campaign.isActive === true) {
       throw new Error('CAMPAIGN_NOT_ARCHIVED');
     }
-    await assertCampaignCapacity(ctx, businessId);
-
     const now = Date.now();
     const patchPayload: Record<string, unknown> = {
       isActive: true,
@@ -1434,7 +1451,11 @@ export const restoreManagementCampaign = mutation({
       archivedByUserId: undefined,
       updatedAt: now,
     };
-    if (campaign.type === 'retention_action') {
+    if (isManagementType(campaign.type)) {
+      patchPayload.status = 'draft';
+      patchPayload.activationStatus = 'draft';
+      patchPayload.schedule = { mode: 'send_now' };
+    } else if (campaign.type === 'retention_action') {
       patchPayload.status = 'paused';
     }
     await ctx.db.patch(campaign._id, patchPayload);
@@ -1474,7 +1495,11 @@ export const updateCampaignDraft = mutation({
     }
   ) => {
     await requireActorHasBusinessCapability(ctx, businessId, 'edit_campaigns');
-    const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      businessId,
+      campaignId
+    );
     assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
       entity: 'campaign',
@@ -1509,7 +1534,12 @@ export const updateCampaignDraft = mutation({
 
     await ctx.db.patch(campaign._id, patchPayload);
 
-    await markCampaignFactsDirty(ctx, businessId, 'campaign_updated', updatedAt);
+    await markCampaignFactsDirty(
+      ctx,
+      businessId,
+      'campaign_updated',
+      updatedAt
+    );
 
     return { ok: true, updatedAt };
   },
@@ -1550,7 +1580,6 @@ export const sendCampaignNow = mutation({
       businessId,
       'activate_send_campaigns'
     );
-    await assertCampaignsNotOverLimit(ctx, businessId);
     const campaign = await getCampaignOrThrow(ctx, businessId, campaignId);
     assertCampaignIsNotImmutableSmartManagerExecution(campaign);
     assertExpectedUpdatedAt({
@@ -1662,7 +1691,10 @@ export const runAutomationSweepInternal = internalMutation({
         sentCount += result.sentCount;
         skippedCount += result.skippedCount;
         if (result.sentCount > 0) {
-          dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+          dirtyBusinessIds.set(
+            String(campaign.businessId),
+            campaign.businessId
+          );
         }
       }
     }

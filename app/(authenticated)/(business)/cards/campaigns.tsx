@@ -161,36 +161,22 @@ export function CampaignsHubContent() {
   );
   const campaignLimit = limitStatus('maxCampaigns');
   const isReferralConfigLoading = referralConfig === undefined;
-  const referralConsumesCampaignSlot =
-    !isReferralConfigLoading && referralConfig?.isEnabled !== false;
-  const customerReferralQuotaCount = referralConsumesCampaignSlot ? 1 : 0;
-  const managementCampaignQuotaCount = Math.max(
-    0,
-    campaignLimit.currentValue - customerReferralQuotaCount
-  );
+  const hasReferralCampaign =
+    !isReferralConfigLoading && (referralConfig?.configVersion ?? 0) > 0;
+  const referralCampaignEnabled =
+    hasReferralCampaign && referralConfig?.isEnabled === true;
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
-  const campaignLimitReachedCopy = referralConsumesCampaignSlot
-    ? activeCampaigns.length === 0
-      ? 'המכסה מלאה על ידי הפניית הלקוחות הפעילה. אפשר לנהל אותה או לשדרג מסלול.'
-      : 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין, לנהל את הפניית הלקוחות או לשדרג מסלול.'
-    : 'הגעתם למכסה הפעילה. אפשר לארכב קמפיין קיים או לשדרג מסלול כדי לפתוח מקום נוסף.';
+  const campaignLimitReachedCopy =
+    'הגעתם למכסת הקמפיינים הפעילים. אפשר להמשיך ליצור ולערוך טיוטות; הפעלה נוספת תחייב השבתת קמפיין פעיל או שדרוג מסלול.';
   const canCreateCampaign =
-    Boolean(activeBusinessId) &&
-    canViewCampaigns &&
-    canCreateCampaigns &&
-    !isEntitlementsLoading &&
-    !campaignLimit.isAtLimit;
+    Boolean(activeBusinessId) && canViewCampaigns && canCreateCampaigns;
   const createBlockedReason = !activeBusinessId
     ? 'יש לבחור עסק פעיל.'
     : !canCreateCampaigns
       ? 'אין לך הרשאה ליצור קמפיינים.'
-      : isEntitlementsLoading || isReferralConfigLoading
-        ? 'בודקים את מגבלת המסלול…'
-        : campaignLimit.isAtLimit
-          ? 'יצירה חסומה עד לארכוב קמפיין או לשדרוג המסלול.'
-          : null;
+      : null;
 
   const openCampaignEditor = (campaignId: Id<'campaigns'>) => {
     if (!activeBusinessId) {
@@ -279,10 +265,6 @@ export function CampaignsHubContent() {
     if (!activeBusinessId || !canCreateCampaigns) {
       return;
     }
-    if (campaignLimit.isAtLimit) {
-      showCampaignPlanLimit('יצירת קמפיין חדש נחסמה');
-      return;
-    }
     router.push({
       pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
       params: {
@@ -312,6 +294,23 @@ export function CampaignsHubContent() {
     );
   };
 
+  const renderReferralCampaignCard = (lifecycle: 'active' | 'inactive') => (
+    <CampaignManagementCard
+      key="customer-referral-campaign"
+      type="referral"
+      title="חבר מביא חבר"
+      lifecycle={lifecycle}
+      timingLabel={
+        lifecycle === 'active'
+          ? 'מזכה לפי הגדרות ההפניה'
+          : 'הקמפיין שמור אך אינו פעיל'
+      }
+      onPress={() =>
+        router.push('/(authenticated)/(business)/settings-business-referrals')
+      }
+    />
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <ScrollView
@@ -338,11 +337,7 @@ export function CampaignsHubContent() {
         <View ref={guideTargetRef} collapsable={false}>
           <TouchableOpacity
             disabled={
-              !activeBusinessId ||
-              !canViewCampaigns ||
-              !canCreateCampaigns ||
-              isEntitlementsLoading ||
-              isReferralConfigLoading
+              !activeBusinessId || !canViewCampaigns || !canCreateCampaigns
             }
             onPress={handleCreateCampaign}
             className={`mt-4 ${tw.selfStart} min-h-[46px] min-w-[148px] rounded-2xl px-4 py-3 ${
@@ -375,47 +370,23 @@ export function CampaignsHubContent() {
           ) : null}
         </View>
 
-        {!isEntitlementsLoading && !isReferralConfigLoading ? (
+        {!isEntitlementsLoading ? (
           <View className="mt-4 gap-2">
             <ManagementUsageSummary
-              label="הגדרות קמפיין בשימוש"
+              label="קמפיינים פעילים"
               used={campaignLimit.currentValue}
               limit={campaignLimit.limitValue}
-              unit="הגדרות"
+              unit="קמפיינים"
               nearLimitText="מתקרבים למכסת הקמפיינים במסלול הנוכחי."
               atLimitText={campaignLimitReachedCopy}
-              overLimitText="הקמפיינים הקיימים נשמרו. יצירה או הפעלה נוספת חסומה עד לארכוב קמפיין או לשדרוג המסלול."
+              overLimitText="הקמפיינים הקיימים והטיוטות נשמרו. הפעלה נוספת חסומה עד להשבתת קמפיין פעיל או לשדרוג המסלול."
               actionLabel={campaignLimit.isAtLimit ? 'שדרוג' : undefined}
               onActionPress={
                 campaignLimit.isAtLimit
-                  ? () => showCampaignPlanLimit('יצירת קמפיין חדש נחסמה')
+                  ? () => showCampaignPlanLimit('הפעלת קמפיין נוסף נחסמה')
                   : undefined
               }
             />
-            <View className="rounded-2xl border border-[#D7E2F4] bg-white px-3 py-2.5">
-              <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                {managementCampaignQuotaCount} קמפיינים
-                {customerReferralQuotaCount > 0
-                  ? ' + הפניית לקוחות אחת (C2C)'
-                  : ''}
-              </Text>
-              {referralConsumesCampaignSlot ? (
-                <TouchableOpacity
-                  onPress={() =>
-                    router.push(
-                      '/(authenticated)/(business)/settings-business-referrals'
-                    )
-                  }
-                  className={`${tw.selfStart} mt-2 min-h-[40px] items-center justify-center rounded-xl border border-[#BFDBFE] bg-[#F8FAFF] px-3`}
-                  accessibilityRole="button"
-                  accessibilityLabel="ניהול הפניית לקוחות"
-                >
-                  <Text className="text-xs font-black text-[#1D4ED8]">
-                    ניהול הפניית לקוחות
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
           </View>
         ) : null}
 
@@ -423,13 +394,14 @@ export function CampaignsHubContent() {
           <Text
             className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
           >
-            קמפיינים פעילים ({liveCampaigns.length})
+            קמפיינים פעילים (
+            {liveCampaigns.length + (referralCampaignEnabled ? 1 : 0)})
           </Text>
-          {campaignsQuery === undefined ? (
+          {campaignsQuery === undefined || isReferralConfigLoading ? (
             <View className="py-4">
               <ActivityIndicator color="#2F6BFF" />
             </View>
-          ) : liveCampaigns.length === 0 ? (
+          ) : liveCampaigns.length === 0 && !referralCampaignEnabled ? (
             <View className="gap-1">
               <Text
                 className={`text-sm font-black text-[#0F172A] ${tw.textStart}`}
@@ -441,7 +413,12 @@ export function CampaignsHubContent() {
               </Text>
             </View>
           ) : (
-            liveCampaigns.map((campaign) => renderCampaignCard(campaign))
+            <>
+              {referralCampaignEnabled
+                ? renderReferralCampaignCard('active')
+                : null}
+              {liveCampaigns.map((campaign) => renderCampaignCard(campaign))}
+            </>
           )}
         </View>
 
@@ -453,7 +430,10 @@ export function CampaignsHubContent() {
             <Text
               className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
             >
-              קמפיינים לא פעילים ({inactiveCampaigns.length})
+              קמפיינים לא פעילים (
+              {inactiveCampaigns.length +
+                (hasReferralCampaign && !referralCampaignEnabled ? 1 : 0)}
+              )
             </Text>
             <Ionicons
               name={isInactiveExpanded ? 'chevron-up' : 'chevron-down'}
@@ -464,18 +444,24 @@ export function CampaignsHubContent() {
 
           {isInactiveExpanded ? (
             <View className="mt-3 gap-3">
-              {campaignsQuery === undefined ? (
+              {campaignsQuery === undefined || isReferralConfigLoading ? (
                 <View className="py-4">
                   <ActivityIndicator color="#2F6BFF" />
                 </View>
-              ) : inactiveCampaigns.length === 0 ? (
+              ) : inactiveCampaigns.length === 0 &&
+                (!hasReferralCampaign || referralCampaignEnabled) ? (
                 <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
                   אין כרגע קמפיינים לא פעילים.
                 </Text>
               ) : (
-                inactiveCampaigns.map((campaign) =>
-                  renderCampaignCard(campaign)
-                )
+                <>
+                  {hasReferralCampaign && !referralCampaignEnabled
+                    ? renderReferralCampaignCard('inactive')
+                    : null}
+                  {inactiveCampaigns.map((campaign) =>
+                    renderCampaignCard(campaign)
+                  )}
+                </>
               )}
             </View>
           ) : null}

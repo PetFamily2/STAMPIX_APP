@@ -8,7 +8,8 @@ export type CampaignManagementType =
   | 'birthday'
   | 'anniversary'
   | 'winback'
-  | 'promo';
+  | 'promo'
+  | 'referral';
 
 const TYPE_META: Record<
   CampaignManagementType,
@@ -48,6 +49,12 @@ const TYPE_META: Record<
     icon: 'megaphone-outline',
     iconColor: '#4C1D95',
     iconBackground: '#EDE9FE',
+  },
+  referral: {
+    label: 'חבר מביא חבר',
+    icon: 'people-outline',
+    iconColor: '#1D4ED8',
+    iconBackground: '#DBEAFE',
   },
 };
 

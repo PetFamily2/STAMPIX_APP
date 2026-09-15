@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,40 +24,18 @@ import {
   EditorStickyFooter,
   ManagementPageHeader,
 } from '@/components/management';
-import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
-import { CARD_THEMES, DEFAULT_CARD_THEME_ID } from '@/constants/cardThemes';
+import { DEFAULT_CARD_THEME_ID } from '@/constants/cardThemes';
 import { DEFAULT_STAMP_ICON_ID } from '@/constants/stampIcons';
 import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { useEntitlements } from '@/hooks/useEntitlements';
-import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import {
-  entitlementErrorToHebrewMessage,
-  getEntitlementError,
-} from '@/lib/entitlements/errors';
 import {
   DEFAULT_LOYALTY_CARD_TERMS,
   DEFAULT_LOYALTY_REWARD_CONDITIONS,
 } from '@/lib/loyalty/cardTerms';
-import {
-  isLoyaltyThemeConflict,
-  LOYALTY_THEME_CONFLICT_COPY,
-  loyaltyWriteErrorToHebrewMessage,
-} from '@/lib/loyalty/programErrors';
+import { loyaltyWriteErrorToHebrewMessage } from '@/lib/loyalty/programErrors';
 import { rtlBaseView, tw } from '@/lib/rtl';
-import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
-
-type ThemeReservation = {
-  programId: Id<'loyaltyPrograms'>;
-  themeId: string;
-  lifecycle: 'draft' | 'active';
-};
-
-function isThemeConflict(error: unknown) {
-  return isLoyaltyThemeConflict(error);
-}
 
 export default function NewLoyaltyCardScreen() {
   const router = useRouter();
@@ -69,21 +47,7 @@ export default function NewLoyaltyCardScreen() {
   const businessId = (businessIdParam || activeBusinessId) as
     | Id<'businesses'>
     | undefined;
-  const reservations = (useQuery(
-    api.loyaltyPrograms.listThemeReservationsByBusiness,
-    businessId ? { businessId } : 'skip'
-  ) ?? []) as ThemeReservation[];
   const createProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
-  const { entitlements, limitStatus } = useEntitlements(businessId ?? null);
-  const cardLimit = limitStatus('maxCards', reservations.length);
-
-  const usedThemeIds = useMemo(
-    () => reservations.map((reservation) => reservation.themeId),
-    [reservations]
-  );
-  const firstAvailableTheme =
-    CARD_THEMES.find((theme) => !usedThemeIds.includes(theme.id))?.id ??
-    DEFAULT_CARD_THEME_ID;
 
   const [title, setTitle] = useState('');
   const [rewardName, setRewardName] = useState('');
@@ -91,42 +55,12 @@ export default function NewLoyaltyCardScreen() {
   const [cardThemeId, setCardThemeId] = useState(DEFAULT_CARD_THEME_ID);
   const [stampIcon, setStampIcon] = useState(DEFAULT_STAMP_ICON_ID);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [planLimitNotice, setPlanLimitNotice] = useState<{
-    reason: string;
-    requiredPlan: 'starter' | 'pro' | 'premium' | null;
-    navigationReason:
-      | 'feature_locked'
-      | 'limit_reached'
-      | 'subscription_inactive';
-  } | null>(null);
-  const capabilities = activeBusiness
-    ? resolveBusinessCapabilities(
-        activeBusiness.capabilities ?? null,
-        activeBusiness.staffRole
-      )
-    : null;
-  const canManageSubscription = capabilities?.manage_subscription === true;
-  const requiredPlanForCards =
-    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
-      ?.maxCards ?? 'pro';
-
-  useEffect(() => {
-    if (usedThemeIds.includes(cardThemeId)) {
-      setCardThemeId(firstAvailableTheme);
-    }
-  }, [cardThemeId, firstAvailableTheme, usedThemeIds]);
-
-  const noThemeAvailable = CARD_THEMES.every((theme) =>
-    usedThemeIds.includes(theme.id)
-  );
   const formReady =
     Boolean(businessId) &&
     title.trim().length > 0 &&
     rewardName.trim().length > 0 &&
-    !noThemeAvailable &&
-    !usedThemeIds.includes(cardThemeId) &&
     !isSubmitting;
-  const canCreate = formReady && !cardLimit.isAtLimit;
+  const canCreate = formReady;
 
   const submit = async () => {
     if (!businessId || !canCreate) {
@@ -153,31 +87,7 @@ export default function NewLoyaltyCardScreen() {
         },
       });
     } catch (error) {
-      if (isThemeConflict(error)) {
-        Alert.alert(
-          LOYALTY_THEME_CONFLICT_COPY.create.title,
-          LOYALTY_THEME_CONFLICT_COPY.create.message
-        );
-      } else {
-        const entitlementError = getEntitlementError(error);
-        if (entitlementError) {
-          setPlanLimitNotice({
-            reason: entitlementErrorToHebrewMessage(entitlementError),
-            requiredPlan: entitlementError.requiredPlan ?? requiredPlanForCards,
-            navigationReason:
-              entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-                ? 'subscription_inactive'
-                : entitlementError.code === 'PLAN_LIMIT_REACHED'
-                  ? 'limit_reached'
-                  : 'feature_locked',
-          });
-        } else {
-          Alert.alert(
-            'לא הצלחנו ליצור',
-            loyaltyWriteErrorToHebrewMessage(error)
-          );
-        }
-      }
+      Alert.alert('לא הצלחנו ליצור', loyaltyWriteErrorToHebrewMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -301,7 +211,6 @@ export default function NewLoyaltyCardScreen() {
               <LoyaltyThemePalette
                 value={cardThemeId}
                 onChange={setCardThemeId}
-                disabledThemeIds={usedThemeIds}
               />
             </View>
             <View className="gap-2">
@@ -313,17 +222,6 @@ export default function NewLoyaltyCardScreen() {
               <StampIconPicker value={stampIcon} onChange={setStampIcon} />
             </View>
           </View>
-
-          {noThemeAvailable ? (
-            <Text className="mt-4 text-right text-sm font-bold text-[#B45309]">
-              כל הצבעים בשימוש. העברו כרטיסייה לארכיון כדי לפנות צבע.
-            </Text>
-          ) : null}
-          {cardLimit.isAtLimit ? (
-            <Text className="mt-4 text-right text-sm font-bold text-[#B45309]">
-              הגעתם למגבלת הכרטיסיות במסלול הנוכחי.
-            </Text>
-          ) : null}
         </ScrollView>
         <EditorStickyFooter>
           <TouchableOpacity
@@ -331,14 +229,6 @@ export default function NewLoyaltyCardScreen() {
             accessibilityState={{ disabled: !formReady, busy: isSubmitting }}
             disabled={!formReady}
             onPress={() => {
-              if (cardLimit.isAtLimit) {
-                setPlanLimitNotice({
-                  reason: `הגעתם למכסת כרטיסי הנאמנות במסלול הנוכחי (${cardLimit.limitValue}).`,
-                  requiredPlan: requiredPlanForCards,
-                  navigationReason: 'limit_reached',
-                });
-                return;
-              }
               void submit();
             }}
             className={`min-h-[54px] items-center justify-center rounded-2xl px-4 ${
@@ -349,34 +239,12 @@ export default function NewLoyaltyCardScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text className="text-base font-black text-white">
-                יצירת כרטיסייה
+                שמירת טיוטה
               </Text>
             )}
           </TouchableOpacity>
         </EditorStickyFooter>
       </KeyboardAvoidingView>
-      <PlanLimitModal
-        visible={planLimitNotice !== null}
-        blockedAction="יצירת כרטיסייה חדשה נחסמה"
-        reason={planLimitNotice?.reason ?? ''}
-        currentPlan={entitlements?.plan ?? null}
-        limitSummary={`בשימוש ${cardLimit.currentValue} מתוך ${cardLimit.limitValue} כרטיסיות`}
-        canManageSubscription={canManageSubscription}
-        onManageSubscription={
-          planLimitNotice
-            ? () => {
-                const notice = planLimitNotice;
-                setPlanLimitNotice(null);
-                openSubscriptionComparison(router, {
-                  featureKey: 'maxCards',
-                  requiredPlan: notice.requiredPlan,
-                  reason: notice.navigationReason,
-                });
-              }
-            : undefined
-        }
-        onDismiss={() => setPlanLimitNotice(null)}
-      />
     </SafeAreaView>
   );
 }

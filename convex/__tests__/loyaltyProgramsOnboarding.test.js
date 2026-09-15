@@ -6,6 +6,7 @@ import {
   publishProgram,
 } from '../loyaltyPrograms';
 import { completeBusinessOnboarding } from '../users';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 function buildUser(overrides = {}) {
   return {
@@ -113,9 +114,7 @@ function createMockCtx({
   const state = {
     users: new Map(users.map((row) => [row._id, { ...row }])),
     businesses: new Map(businesses.map((row) => [row._id, { ...row }])),
-    businessStaff: new Map(
-      businessStaff.map((row) => [row._id, { ...row }])
-    ),
+    businessStaff: new Map(businessStaff.map((row) => [row._id, { ...row }])),
     loyaltyPrograms: new Map(
       loyaltyPrograms.map((row) => [row._id, { ...row }])
     ),
@@ -409,22 +408,20 @@ describe('business onboarding program idempotency', () => {
 
     expect(result.reused).toBe(false);
     expect(result.loyaltyProgramId).not.toBe('program_prior');
-    expect(state.businessOnboardingDrafts.get('draft_additional')).toMatchObject(
-      {
-        status: 'in_progress',
-        businessId: 'business_1',
-        programId: result.loyaltyProgramId,
-      }
-    );
+    expect(
+      state.businessOnboardingDrafts.get('draft_additional')
+    ).toMatchObject({
+      status: 'in_progress',
+      businessId: 'business_1',
+      programId: result.loyaltyProgramId,
+    });
   });
 });
 
 describe('program management detail recovery', () => {
   test('authorized active program preserves the management detail shape', async () => {
     const { ctx } = createMockCtx({
-      loyaltyPrograms: [
-        buildProgram({ status: 'active', publishedAt: 2 }),
-      ],
+      loyaltyPrograms: [buildProgram({ status: 'active', publishedAt: 2 })],
     });
 
     const result = await getProgramDetailsForManagement._handler(ctx, {
@@ -535,6 +532,13 @@ describe('onboarding publish retry', () => {
     const { ctx, state } = createMockCtx({
       loyaltyPrograms: [buildProgram()],
     });
+    state.businessBillingAccounts.set(
+      'billing_1',
+      buildCanonicalBusinessBillingAccount({
+        businessId: 'business_1',
+        ownerUserId: 'user_owner',
+      })
+    );
 
     const first = await publishProgram._handler(ctx, {
       businessId: 'business_1',
@@ -559,9 +563,7 @@ describe('onboarding publish retry', () => {
     const { ctx } = createMockCtx({
       businesses: [buildBusiness(), business2],
       businessStaff: [buildOwnerStaff(), buildOwnerStaff('business_2')],
-      loyaltyPrograms: [
-        buildProgram({ status: 'archived', isArchived: true }),
-      ],
+      loyaltyPrograms: [buildProgram({ status: 'archived', isArchived: true })],
     });
 
     await expect(
@@ -629,12 +631,7 @@ describe('atomic business onboarding completion', () => {
       buildDraft({ programId: 'program_other' }),
       'ONBOARDING_DRAFT_PROGRAM_MISMATCH',
     ],
-  ])('%s rejects before any final-state write', async (
-    _label,
-    loyaltyPrograms,
-    draft,
-    expectedError
-  ) => {
+  ])('%s rejects before any final-state write', async (_label, loyaltyPrograms, draft, expectedError) => {
     const { ctx, state, patchLog } = createMockCtx({
       loyaltyPrograms,
       businessOnboardingDrafts: [draft],
@@ -736,9 +733,7 @@ describe('atomic business onboarding completion', () => {
       users: [buildUser({ _id: 'user_manager' })],
       businessStaff: [buildOwnerStaff(), manager],
       loyaltyPrograms: [buildProgram({ status: 'active' })],
-      businessOnboardingDrafts: [
-        buildDraft({ userId: 'user_manager' }),
-      ],
+      businessOnboardingDrafts: [buildDraft({ userId: 'user_manager' })],
     });
 
     await expect(

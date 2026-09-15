@@ -81,27 +81,27 @@ export function PlanLimitModal({
           {showManageAction ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="מעבר לניהול המסלול"
+              accessibilityLabel="שדרוג"
               onPress={onManageSubscription}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Text style={styles.primaryButtonText}>ניהול המסלול</Text>
+              <Text style={styles.primaryButtonText}>שדרוג</Text>
             </Pressable>
           ) : null}
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="סגירה"
+            accessibilityLabel="אולי בהמשך"
             onPress={onDismiss}
             style={({ pressed }) => [
               styles.secondaryButton,
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.secondaryButtonText}>סגירה</Text>
+            <Text style={styles.secondaryButtonText}>אולי בהמשך</Text>
           </Pressable>
         </View>
       </View>

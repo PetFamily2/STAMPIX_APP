@@ -2,6 +2,11 @@ import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
+  claimReferralCodeForBusiness,
+  getBusinessReferralHub,
+  getOrCreateBusinessReferralCode,
+} from './businessReferralEngine';
+import {
   assertEntitlement,
   countActiveCampaignsForBusiness,
 } from './entitlements';
@@ -10,16 +15,11 @@ import {
   requireActorHasBusinessCapability,
   requireCurrentUser,
 } from './guards';
-import { sendPushNotificationToUser } from './pushNotifications';
-import { markSmartManagerDirty } from './lib/smartManagerDirty';
-import { markSmartManagerOutcomeDirty } from './lib/smartManagerOutcomes';
 import { createRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 import { runRegisteredHandler } from './lib/runRegisteredHandler';
-import {
-  claimReferralCodeForBusiness,
-  getBusinessReferralHub,
-  getOrCreateBusinessReferralCode,
-} from './businessReferralEngine';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { markSmartManagerOutcomeDirty } from './lib/smartManagerOutcomes';
+import { sendPushNotificationToUser } from './pushNotifications';
 
 const CUSTOMER_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const B2B_REFERRAL_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000;
@@ -1218,7 +1218,7 @@ export const saveReferralConfig = mutation({
       )
       .first();
 
-    const wasEnabled = existing ? existing.isEnabled === true : true;
+    const wasEnabled = existing?.isEnabled === true;
     const willEnable = args.isEnabled === true;
     if (!wasEnabled && willEnable) {
       const activeCampaigns = await countActiveCampaignsForBusiness(
@@ -1227,7 +1227,7 @@ export const saveReferralConfig = mutation({
       );
       await assertEntitlement(ctx, args.businessId, {
         limitKey: 'maxCampaigns',
-        currentValue: activeCampaigns + 1,
+        currentValue: activeCampaigns,
         reserveSlot: true,
       });
     }
@@ -2048,8 +2048,9 @@ export const getOrCreateBusinessReferralLink = mutation({
       getOrCreateBusinessReferralCode,
       ctx,
       {
-      businessId,
-    });
+        businessId,
+      }
+    );
     return {
       code: created.code,
       url: created.url,
@@ -3070,11 +3071,9 @@ export const getBusinessReferralCreditSummary = query({
     businessId: v.id('businesses'),
   },
   handler: async (ctx, { businessId }) => {
-    const hub = await runRegisteredHandler<any>(
-      getBusinessReferralHub,
-      ctx,
-      { businessId }
-    );
+    const hub = await runRegisteredHandler<any>(getBusinessReferralHub, ctx, {
+      businessId,
+    });
     return {
       creditedMonths: hub.metrics.monthsEarned,
       pendingMonths: hub.metrics.monthsPending,

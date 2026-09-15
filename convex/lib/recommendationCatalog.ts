@@ -232,11 +232,7 @@ export function getRecommendationRequiredCapabilities(
     case 'campaign.create_first':
       return ['access_campaigns', 'create_campaigns'];
     case 'campaign.publish_draft':
-      return [
-        'access_campaigns',
-        'edit_campaigns',
-        'activate_send_campaigns',
-      ];
+      return ['access_campaigns', 'edit_campaigns', 'activate_send_campaigns'];
     case 'campaign.resume_paused':
       return ['access_campaigns', 'activate_send_campaigns'];
     case 'campaign.next_scheduled':
@@ -307,8 +303,7 @@ export function getRecommendationAccessDecision(
       break;
     case 'campaign.resume_paused':
       hasRequiredCapabilities =
-        capabilities.accessCampaigns &&
-        capabilities.activateSendCampaigns;
+        capabilities.accessCampaigns && capabilities.activateSendCampaigns;
       requiredFacts = [facts.campaigns];
       break;
     case 'campaign.next_scheduled':
@@ -337,13 +332,6 @@ export function getRecommendationAccessDecision(
     if (unavailable) {
       return unavailable;
     }
-  }
-  if (
-    stableId === 'campaign.create_first' &&
-    isKnown(facts.campaignQuota) &&
-    facts.campaignQuota.value.isAtOrAboveLimit
-  ) {
-    return { state: 'restricted', reasonCode: 'ENTITLEMENT_REQUIRED' };
   }
   return { state: 'allowed' };
 }
@@ -384,7 +372,7 @@ function evidence(
   return {
     evidenceFingerprint: buildRecommendationEvidenceFingerprint(
       stableId,
-      ...safeParts,
+      ...safeParts
     ),
     evidenceObservedAt: observedAt,
   };
@@ -576,9 +564,7 @@ export function buildBusinessRecommendationCatalog(
   }
 
   const campaigns = isKnown(facts.campaigns) ? facts.campaigns : null;
-  const quota = isKnown(facts.campaignQuota)
-    ? facts.campaignQuota
-    : null;
+  const quota = isKnown(facts.campaignQuota) ? facts.campaignQuota : null;
   if (hasActiveProgram && campaigns) {
     const hasScheduledOrRecurringPosture =
       safeCount(campaigns.value.scheduledCount) > 0 ||
@@ -769,9 +755,7 @@ export function buildBusinessRecommendationCatalog(
     hasRecommendationAccess(input, 'team.pending_invitations') &&
     safeCount(facts.team.value.unexpiredPendingInvitationCount) > 0
   ) {
-    const count = safeCount(
-      facts.team.value.unexpiredPendingInvitationCount
-    );
+    const count = safeCount(facts.team.value.unexpiredPendingInvitationCount);
     addCandidate(candidates, {
       stableId: 'team.pending_invitations',
       category: 'informational',
@@ -805,15 +789,12 @@ export function buildBusinessRecommendationCatalog(
     const limit = safeCount(quota.value.campaignDefinitionLimit);
     const ratio = usage / limit;
     if (ratio >= 0.8) {
-      const isAtLimit =
-        quota.value.isAtOrAboveLimit || usage >= limit;
+      const isAtLimit = quota.value.isAtOrAboveLimit || usage >= limit;
       addCandidate(candidates, {
         stableId: 'subscription.quota_near',
         category: 'operational',
         priority: isAtLimit ? 2 : 3,
-        title: isAtLimit
-          ? 'מכסת המבצעים נוצלה'
-          : 'מתקרבים למכסת המבצעים',
+        title: isAtLimit ? 'מכסת המבצעים נוצלה' : 'מתקרבים למכסת המבצעים',
         reason: `${usage} מתוך ${limit} מבצעים במכסה נמצאים בשימוש.`,
         ctaLabel: 'לבדיקת המסלול',
         action: {
@@ -846,8 +827,7 @@ export function buildBusinessRecommendationCatalog(
   const primaryIndex = ranked.findIndex(
     (candidate) => candidate.secondaryOnly !== true
   );
-  const primaryCandidate =
-    primaryIndex >= 0 ? ranked[primaryIndex] : null;
+  const primaryCandidate = primaryIndex >= 0 ? ranked[primaryIndex] : null;
   const secondaryCandidates = ranked
     .filter((_, index) => index !== primaryIndex)
     .slice(0, 2);

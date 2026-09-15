@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
 import { api } from '@/convex/_generated/api';
@@ -124,6 +127,7 @@ function EmptyReferralActionState({
 
 export default function BusinessReferralSettingsScreen() {
   const router = useRouter();
+  const contentWidth = useSettingsContentWidth();
   const params = useLocalSearchParams<{ tab?: string }>();
   const tabBarHeight = useBottomTabBarHeight();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
@@ -291,7 +295,7 @@ export default function BusinessReferralSettingsScreen() {
         setPlanLimitNotice({
           reason: `${entitlementErrorToHebrewMessage(
             entitlementError
-          )} הפניית לקוחות פעילה תופסת מקום אחד במכסה. אפשר לכבות אותה, לארכב קמפיין קיים או לנהל את המסלול.`,
+          )} אפשר לשמור את התבנית כשהיא כבויה, להשבית קמפיין פעיל אחר או לשדרג את המסלול.`,
           requiredPlan:
             entitlementError.requiredPlan ?? requiredPlanForCampaigns,
         });
@@ -316,12 +320,13 @@ export default function BusinessReferralSettingsScreen() {
           styles.content,
           {
             paddingBottom: tabBarHeight + 24,
+            width: contentWidth,
           },
         ]}
       >
         <BusinessSettingsSubpageHeader
-          title="חבר מביא חבר"
-          subtitle="הגדרות, פעילות וביצועים"
+          title="קמפיין חבר מביא חבר"
+          subtitle="הגדרת תבנית, הפעלה וביצועים"
           fallbackHref="/(authenticated)/(business)/campaigns"
         />
 
@@ -356,12 +361,10 @@ export default function BusinessReferralSettingsScreen() {
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>
-                הגדרות חבר-מביא-חבר ללקוחות
-              </Text>
+              <Text style={styles.sectionTitle}>הגדרות הקמפיין</Text>
 
               <View style={styles.row}>
-                <Text style={styles.label}>הפניות פעילות</Text>
+                <Text style={styles.label}>הקמפיין פעיל</Text>
                 <Pressable
                   onPress={() =>
                     canEditConfig && setIsEnabled((value) => !value)
@@ -378,8 +381,8 @@ export default function BusinessReferralSettingsScreen() {
                 </Pressable>
               </View>
               <Text style={styles.quotaNote}>
-                פעילות הזמנת חברים פעילה נספרת כמקום אחד במכסת הקמפיינים של
-                המסלול. כשההפניות כבויות, הן לא נספרות במכסה.
+                רק קמפיין פעיל נספר במכסה. אפשר לערוך ולשמור את התבנית גם
+                כשהמכסה מלאה; המגבלה נבדקת בעת ההפעלה.
               </Text>
 
               <Text style={styles.label}>סוג תגמול</Text>
@@ -732,10 +735,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   content: {
-    paddingHorizontal: 20,
     gap: 10,
-    width: '100%',
-    maxWidth: 760,
     alignSelf: 'center',
   },
   tabRow: {

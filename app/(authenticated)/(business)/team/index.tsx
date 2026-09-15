@@ -7,8 +7,11 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import { BarComparisonChart, KpiCard } from '@/components/business-ui';
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
@@ -23,8 +26,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, rtlBaseView, tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -195,6 +198,7 @@ function describeHistoryEvent(row: TeamHistoryRow) {
 }
 
 export default function BusinessTeamManagementScreen() {
+  const contentWidth = useSettingsContentWidth(920);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
@@ -829,10 +833,8 @@ export default function BusinessTeamManagementScreen() {
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
-          width: '100%',
-          maxWidth: 920,
+          width: contentWidth,
           alignSelf: 'center',
         }}
       >

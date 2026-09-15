@@ -279,6 +279,8 @@ const styles = StyleSheet.create({
     minWidth: 84,
     height: 44,
     borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#123EA8',
     paddingHorizontal: 14,
     backgroundColor: '#1D4ED8',
     alignItems: 'center',
@@ -307,6 +309,7 @@ const styles = StyleSheet.create({
   },
   primaryActionDisabled: {
     backgroundColor: '#64748B',
+    borderColor: '#334155',
   },
   snoozeActionDisabled: {
     backgroundColor: '#F1F5F9',

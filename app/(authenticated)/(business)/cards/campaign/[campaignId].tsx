@@ -47,6 +47,7 @@ type CampaignType =
   | 'anniversary'
   | 'winback'
   | 'promo';
+type CampaignTemplateType = CampaignType | 'referral';
 type CampaignCreateMode = 'template' | 'custom';
 type LoyaltyProgramOption = {
   loyaltyProgramId: Id<'loyaltyPrograms'>;
@@ -55,7 +56,7 @@ type LoyaltyProgramOption = {
 };
 
 const CAMPAIGN_TEMPLATES: Array<{
-  type: CampaignType;
+  type: CampaignTemplateType;
   title: string;
   subtitle: string;
 }> = [
@@ -83,6 +84,11 @@ const CAMPAIGN_TEMPLATES: Array<{
     type: 'promo',
     title: 'קמפיין כללי',
     subtitle: 'קמפיין לכל הלקוחות הפעילים',
+  },
+  {
+    type: 'referral',
+    title: 'חבר מביא חבר',
+    subtitle: 'תגמול לקוחות שמפנים חברים חדשים לעסק',
   },
 ];
 
@@ -232,6 +238,19 @@ function campaignMeta(type: CampaignType): {
         accentBgClass: 'bg-[#DBEAFE]',
       };
   }
+}
+
+function campaignTemplateMeta(type: CampaignTemplateType) {
+  if (type === 'referral') {
+    return {
+      title: 'חבר מביא חבר',
+      subtitle: 'תגמול לקוחות שמפנים חברים חדשים לעסק',
+      icon: 'people-outline' as const,
+      accentClass: 'text-[#1D4ED8]',
+      accentBgClass: 'bg-[#DBEAFE]',
+    };
+  }
+  return campaignMeta(type);
 }
 
 function formatDateTime(value: number): string {
@@ -396,6 +415,9 @@ export default function CampaignDraftEditorScreen() {
   const archiveManagementCampaign = useMutation(
     api.campaigns.archiveManagementCampaign
   );
+  const restoreManagementCampaign = useMutation(
+    api.campaigns.restoreManagementCampaign
+  );
 
   const [messageTitle, setMessageTitle] = useState('');
   const [messageBody, setMessageBody] = useState('');
@@ -407,7 +429,7 @@ export default function CampaignDraftEditorScreen() {
   const [scheduledForAt, setScheduledForAt] = useState<number | null>(null);
   const [createMode, setCreateMode] = useState<CampaignCreateMode>('template');
   const [isCreatingDraft, setIsCreatingDraft] = useState<
-    CampaignType | 'custom' | null
+    CampaignTemplateType | 'custom' | null
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTogglingAutomation, setIsTogglingAutomation] = useState(false);
@@ -688,17 +710,12 @@ export default function CampaignDraftEditorScreen() {
     />
   );
 
-  const handleCreateFromTemplate = async (type: CampaignType) => {
+  const handleCreateFromTemplate = async (type: CampaignTemplateType) => {
     if (!selectedBusinessId || !canCreateCampaigns || isCreatingDraft) {
       return;
     }
-    if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
-      showPlanLimit(
-        'יצירת קמפיין חדש נחסמה',
-        'הגעתם למכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
-        'maxCampaigns',
-        requiredPlanForCampaigns
-      );
+    if (type === 'referral') {
+      router.replace('/(authenticated)/(business)/settings-business-referrals');
       return;
     }
     setIsCreatingDraft(type);
@@ -720,15 +737,6 @@ export default function CampaignDraftEditorScreen() {
 
   const handleCreateCustomCampaign = async () => {
     if (!selectedBusinessId || !canCreateCampaigns || isCreatingDraft) {
-      return;
-    }
-    if (!isEntitlementsLoading && campaignLimit.isAtLimit) {
-      showPlanLimit(
-        'יצירת קמפיין חדש נחסמה',
-        'הגעתם למכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
-        'maxCampaigns',
-        requiredPlanForCampaigns
-      );
       return;
     }
     setIsCreatingDraft('custom');
@@ -816,38 +824,11 @@ export default function CampaignDraftEditorScreen() {
               </Text>
             </View>
           ) : null}
-          {!isEntitlementsLoading && campaignLimit.isOverLimit ? (
-            <View className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4">
-              <Text className="text-right text-sm font-semibold text-red-700">
-                יש חריגה ממכסת הקמפיינים במסלול הנוכחי. יצירה או הפעלה חסומות עד
-                שחוזרים למכסה או משדרגים.
-              </Text>
-              {!isEntitlementsLoading && recurringLimit.isAtLimit ? (
-                <Text className={`text-[11px] text-[#B45309] ${tw.textStart}`}>
-                  שליחה מחזורית חסומה במסלול הנוכחי.
-                </Text>
-              ) : null}
-              <TouchableOpacity
-                onPress={() =>
-                  showPlanLimit(
-                    'יצירת קמפיין חדש נחסמה',
-                    'יש חריגה ממכסת הקמפיינים במסלול הנוכחי. אפשר לארכב קמפיין קיים או לנהל את המסלול.',
-                    'maxCampaigns',
-                    requiredPlanForCampaigns
-                  )
-                }
-                className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
-              >
-                <Text className="text-xs font-black text-white">
-                  שדרוג מסלול
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : !isEntitlementsLoading && campaignLimit.isAtLimit ? (
+          {!isEntitlementsLoading && campaignLimit.isAtLimit ? (
             <View className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
               <Text className="text-right text-sm font-semibold text-amber-700">
-                הגעתם למכסת הקמפיינים. כדי ליצור קמפיין חדש יש לארכב קמפיין קיים
-                או לשדרג.
+                הגעתם למכסת הקמפיינים הפעילים. עדיין אפשר ליצור ולערוך טיוטות;
+                המגבלה תיבדק רק בעת הפעלה.
               </Text>
             </View>
           ) : null}
@@ -892,7 +873,7 @@ export default function CampaignDraftEditorScreen() {
               </Text>
               <View className="mt-3 gap-2">
                 {CAMPAIGN_TEMPLATES.map((template) => {
-                  const meta = campaignMeta(template.type);
+                  const meta = campaignTemplateMeta(template.type);
                   const isBusy = isCreatingDraft === template.type;
                   const disabled =
                     !canCreateCampaigns || isCreatingDraft != null;
@@ -1022,8 +1003,11 @@ export default function CampaignDraftEditorScreen() {
   const campaignType = campaignDraft.type as CampaignType;
   const audience = audienceCopy(campaignType);
   const campaignIdentity = campaignMeta(campaignType);
+  const campaignLifecycle = campaignDraft.lifecycle ?? 'draft';
+  const isArchivedCampaign = campaignLifecycle === 'archived';
   const automationEnabled = campaignDraft.automationEnabled === true;
   const isRulesLocked =
+    !isArchivedCampaign &&
     (campaignDraft.isRulesLocked ?? automationEnabled) === true;
 
   const canEditContent = canEditCampaigns;
@@ -1140,7 +1124,11 @@ export default function CampaignDraftEditorScreen() {
   };
 
   const handleToggleAutomation = async () => {
-    if (!canActivateSendCampaigns || isTogglingAutomation) {
+    if (
+      !canActivateSendCampaigns ||
+      isTogglingAutomation ||
+      isArchivedCampaign
+    ) {
       return;
     }
     if (
@@ -1275,17 +1263,9 @@ export default function CampaignDraftEditorScreen() {
       !canEditContent ||
       !canActivateSendCampaigns ||
       isSubmitting ||
-      conflictLocked
+      conflictLocked ||
+      isArchivedCampaign
     ) {
-      return;
-    }
-    if (!isEntitlementsLoading && campaignLimit.isOverLimit) {
-      showPlanLimit(
-        'שליחת הקמפיין נחסמה',
-        'לא ניתן לשלוח קמפיין כאשר קיימת חריגה ממכסת הקמפיינים הפעילים.',
-        'maxCampaigns',
-        requiredPlanForCampaigns
-      );
       return;
     }
     if (!validateContent()) {
@@ -1396,7 +1376,8 @@ export default function CampaignDraftEditorScreen() {
       !canEditContent ||
       !canActivateSendCampaigns ||
       isSubmitting ||
-      conflictLocked
+      conflictLocked ||
+      isArchivedCampaign
     ) {
       return;
     }
@@ -1488,7 +1469,8 @@ export default function CampaignDraftEditorScreen() {
       !selectedBusinessId ||
       !canArchiveCampaign ||
       isArchiving ||
-      isSubmitting
+      isSubmitting ||
+      isArchivedCampaign
     ) {
       return;
     }
@@ -1562,6 +1544,50 @@ export default function CampaignDraftEditorScreen() {
     ]);
   };
 
+  const handleRestoreAsDraft = () => {
+    if (
+      !selectedBusinessId ||
+      !canEditCampaigns ||
+      isArchiving ||
+      isSubmitting ||
+      !isArchivedCampaign
+    ) {
+      return;
+    }
+
+    Alert.alert('שחזור כטיוטה', 'הקמפיין יחזור לטיוטות ולא יופעל אוטומטית.', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'שחזור',
+        onPress: () => {
+          void (async () => {
+            setIsArchiving(true);
+            try {
+              const result = await restoreManagementCampaign({
+                businessId: selectedBusinessId,
+                campaignId,
+              });
+              if (typeof result?.updatedAt === 'number') {
+                setBaseUpdatedAt(result.updatedAt);
+              }
+              Alert.alert(
+                'שוחזר',
+                'הקמפיין שוחזר כטיוטה וניתן להמשיך לערוך אותו.'
+              );
+            } catch (error) {
+              if (handleEntitlementError(error)) {
+                return;
+              }
+              Alert.alert('שגיאה', 'שחזור הקמפיין נכשל.');
+            } finally {
+              setIsArchiving(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <KeyboardAvoidingView
@@ -1599,6 +1625,14 @@ export default function CampaignDraftEditorScreen() {
             <View className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <Text className="text-right text-sm font-semibold text-blue-700">
                 קמפיין פעיל: חוקים וקהל יעד נעולים. ניתן לערוך טקסט בלבד.
+              </Text>
+            </View>
+          ) : null}
+          {isArchivedCampaign ? (
+            <View className="mt-4 rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] p-4">
+              <Text className="text-right text-sm font-semibold text-[#475569]">
+                הקמפיין בארכיון. אפשר לערוך ולשמור אותו, או לשחזר אותו כטיוטה
+                לפני הפעלה מחדש.
               </Text>
             </View>
           ) : null}
@@ -2025,10 +2059,7 @@ export default function CampaignDraftEditorScreen() {
                         disabled={
                           !canActivateSendCampaigns ||
                           isTogglingAutomation ||
-                          (!automationEnabled &&
-                            !isEntitlementsLoading &&
-                            (campaignLimit.isOverLimit ||
-                              recurringLimit.isAtLimit))
+                          isArchivedCampaign
                         }
                         onPress={() => {
                           void handleToggleAutomation();
@@ -2147,7 +2178,7 @@ export default function CampaignDraftEditorScreen() {
                 isSubmitting ||
                 isArchiving ||
                 conflictLocked ||
-                (!isEntitlementsLoading && campaignLimit.isOverLimit)
+                isArchivedCampaign
               }
               primaryLoading={pendingSubmitAction === 'publish'}
               onPrimaryPress={() => {
@@ -2165,15 +2196,21 @@ export default function CampaignDraftEditorScreen() {
               onSecondaryPress={() => {
                 void handleSaveOnly();
               }}
-              lifecycleLabel="העבר לארכיון"
+              lifecycleLabel={
+                isArchivedCampaign ? 'שחזור כטיוטה' : 'העבר לארכיון'
+              }
               lifecycleDisabled={
-                !canArchiveCampaign ||
+                (isArchivedCampaign
+                  ? !canEditCampaigns
+                  : !canArchiveCampaign) ||
                 isSubmitting ||
                 isArchiving ||
                 conflictLocked
               }
               lifecycleLoading={isArchiving}
-              onLifecyclePress={handleMoveToArchive}
+              onLifecyclePress={
+                isArchivedCampaign ? handleRestoreAsDraft : handleMoveToArchive
+              }
             />
           </View>
         </EditorStickyFooter>

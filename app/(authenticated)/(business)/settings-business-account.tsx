@@ -2,27 +2,21 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import {
   BusinessSettingsSubpageHeader,
+  SETTINGS_TOKENS,
   SettingsGroup,
   SettingsNavRow,
   SettingsPageShell,
   SettingsSection,
-  SETTINGS_TOKENS,
 } from '@/components/business-settings';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safePush } from '@/lib/navigation';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
@@ -129,8 +123,9 @@ export default function BusinessSettingsAccountScreen() {
 
         <View style={styles.identityDivider} />
         <AccountProperty
-          label="טלפון לחשבון"
+          label="טלפון אישי לחשבון"
           value={user?.phone || 'לא מוגדר'}
+          description="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק."
           isMissing={!user?.phone}
         />
       </View>
@@ -189,15 +184,20 @@ export default function BusinessSettingsAccountScreen() {
 function AccountProperty({
   label,
   value,
+  description,
   isMissing = false,
 }: {
   label: string;
   value: string;
+  description?: string;
   isMissing?: boolean;
 }) {
   return (
     <View style={styles.property}>
       <Text style={styles.propertyLabel}>{label}</Text>
+      {description ? (
+        <Text style={styles.propertyDescription}>{description}</Text>
+      ) : null}
       <View style={styles.propertyValueRow}>
         <Text
           style={[
@@ -275,6 +275,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
+    color: SETTINGS_TOKENS.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  propertyDescription: {
+    width: '100%',
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
     color: SETTINGS_TOKENS.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',

@@ -12,6 +12,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
+import { useSettingsContentWidth } from '@/components/business-settings/useSettingsContentWidth';
 import { rtlBaseView } from '@/lib/rtl';
 
 type SettingsPageShellProps = {
@@ -35,6 +36,7 @@ export function SettingsPageShell({
 }: SettingsPageShellProps) {
   const insets = useSafeAreaInsets();
   const safeBottom = Math.max(insets.bottom, 12);
+  const contentWidth = useSettingsContentWidth(maxWidth);
   const content = (
     <ScrollView
       ref={scrollRef}
@@ -44,16 +46,19 @@ export function SettingsPageShell({
         styles.content,
         {
           paddingBottom: safeBottom + (footer ? 96 : 28),
-          maxWidth,
         },
       ]}
     >
-      {header}
-      <View style={styles.body}>{children}</View>
+      <View style={[styles.column, { width: contentWidth }]}>{header}</View>
+      <View style={[styles.column, styles.body, { width: contentWidth }]}>
+        {children}
+      </View>
     </ScrollView>
   );
   const footerContent = footer ? (
-    <View style={[styles.footer, { paddingBottom: safeBottom }]}>{footer}</View>
+    <View style={[styles.footer, { paddingBottom: safeBottom }]}>
+      <View style={[styles.column, { width: contentWidth }]}>{footer}</View>
+    </View>
   ) : null;
 
   return (
@@ -88,8 +93,10 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
+    alignItems: 'center',
+  },
+  column: {
     alignSelf: 'center',
-    paddingHorizontal: SETTINGS_TOKENS.pagePad,
   },
   body: {
     gap: SETTINGS_TOKENS.sectionGap,
@@ -99,8 +106,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: SETTINGS_TOKENS.pagePad,
     paddingTop: 10,
+    alignItems: 'center',
     backgroundColor: SETTINGS_TOKENS.pageBackground,
   },
 });

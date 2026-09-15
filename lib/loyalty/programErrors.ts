@@ -24,9 +24,6 @@ export function isLoyaltyThemeConflict(error: unknown) {
 
 export function loyaltyWriteErrorToHebrewMessage(error: unknown) {
   const raw = String(error);
-  if (raw.includes('PROGRAM_ARCHIVED_READONLY')) {
-    return 'כרטיסייה בארכיון ניתנת להפעלה מחדש בלבד. הנתונים נשמרו כמו שהם.';
-  }
   if (raw.includes('PROGRAM_PUBLISH_REQUIRES_DRAFT')) {
     return 'אפשר לפרסם רק כרטיסייה שנמצאת בטיוטה.';
   }

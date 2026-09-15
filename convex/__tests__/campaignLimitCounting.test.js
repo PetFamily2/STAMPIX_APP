@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 
 import {
+  campaignConsumesQuota,
   countActiveCampaignsForBusiness,
-  countsTowardCampaignDefinitions,
   countsTowardRecurringLiveLimit,
-  countsTowardReferralCampaignQuota,
 } from '../entitlements';
 
 function buildCountingCtx({ campaigns = [], referralConfig = undefined } = {}) {
@@ -30,104 +30,136 @@ function buildCountingCtx({ campaigns = [], referralConfig = undefined } = {}) {
 }
 
 describe('campaign counting rules for entitlement limits', () => {
-  test('campaign definitions count active draft/active/paused and ignore completed/archived', () => {
+  test('only active management campaigns consume quota', () => {
     expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'draft',
+      campaignConsumesQuota({
+        kind: 'management',
+        campaign: {
+          isActive: true,
+          activationStatus: 'active',
+        },
       })
     ).toBe(true);
+    for (const activationStatus of [
+      'draft',
+      'paused',
+      'completed',
+      'archived',
+    ]) {
+      expect(
+        campaignConsumesQuota({
+          kind: 'management',
+          campaign: { isActive: true, activationStatus },
+        })
+      ).toBe(false);
+    }
     expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'active',
-      })
-    ).toBe(true);
-    expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'paused',
-      })
-    ).toBe(true);
-    expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'completed',
-      })
-    ).toBe(false);
-    expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'archived',
-      })
-    ).toBe(false);
-    expect(
-      countsTowardCampaignDefinitions({
-        isActive: false,
-        activationStatus: 'active',
+      campaignConsumesQuota({
+        kind: 'management',
+        campaign: {
+          isActive: false,
+          activationStatus: 'active',
+        },
       })
     ).toBe(false);
   });
 
-  test('active campaign quota count includes regular active campaigns and enabled referral once', async () => {
-    const campaigns = [
-      { _id: 'campaign_1', isActive: true, activationStatus: 'active' },
-      { _id: 'campaign_2', isActive: true, activationStatus: 'draft' },
-      { _id: 'campaign_3', isActive: true, activationStatus: 'completed' },
-      { _id: 'campaign_4', isActive: false, activationStatus: 'active' },
-    ];
+  test('zero active campaigns plus drafts and archives reports zero usage', async () => {
+    await expect(
+      countActiveCampaignsForBusiness(
+        buildCountingCtx({
+          campaigns: [
+            { isActive: true, activationStatus: 'draft' },
+            { isActive: true, activationStatus: 'paused' },
+            { isActive: false, activationStatus: 'archived' },
+          ],
+        }),
+        'business_1'
+      )
+    ).resolves.toBe(0);
+  });
 
-    expect(countsTowardReferralCampaignQuota({ isEnabled: true })).toBe(true);
+  test('N active management campaigns reports N usage', async () => {
+    const campaigns = [
+      {
+        isActive: true,
+        activationStatus: 'active',
+      },
+      {
+        isActive: true,
+        activationStatus: 'active',
+      },
+    ];
+    await expect(
+      countActiveCampaignsForBusiness(
+        buildCountingCtx({ campaigns }),
+        'business_1'
+      )
+    ).resolves.toBe(2);
+  });
+
+  test('enabled C2C referral consumes exactly one additional campaign slot', async () => {
+    expect(
+      campaignConsumesQuota({
+        kind: 'customer_referral',
+        config: { isEnabled: true },
+      })
+    ).toBe(true);
 
     await expect(
       countActiveCampaignsForBusiness(
         buildCountingCtx({
-          campaigns,
+          campaigns: [{ isActive: true, activationStatus: 'active' }],
           referralConfig: { isEnabled: true },
         }),
         'business_1'
       )
-    ).resolves.toBe(3);
+    ).resolves.toBe(2);
   });
 
-  test('missing customer referral config does not consume a campaign slot', async () => {
-    expect(countsTowardReferralCampaignQuota(null)).toBe(false);
+  test('B2B business invitations never consume campaign quota', () => {
+    expect(campaignConsumesQuota({ kind: 'business_referral' })).toBe(false);
+  });
+
+  test('archive, deactivate, and disabling C2C release their slots', () => {
     expect(
-      countsTowardReferralCampaignQuota({ kind: 'b2b', isEnabled: true })
+      campaignConsumesQuota({
+        kind: 'management',
+        campaign: { isActive: false, activationStatus: 'archived' },
+      })
     ).toBe(false);
-
-    await expect(
-      countActiveCampaignsForBusiness(buildCountingCtx(), 'business_1')
-    ).resolves.toBe(0);
+    expect(
+      campaignConsumesQuota({
+        kind: 'management',
+        campaign: { isActive: true, activationStatus: 'paused' },
+      })
+    ).toBe(false);
+    expect(
+      campaignConsumesQuota({
+        kind: 'customer_referral',
+        config: { isEnabled: false },
+      })
+    ).toBe(false);
   });
 
-  test('enabled B2B referral activity never consumes a campaign slot', async () => {
-    await expect(
-      countActiveCampaignsForBusiness(
-        buildCountingCtx({
-          referralConfig: { kind: 'b2b', isEnabled: true },
-        }),
-        'business_1'
-      )
-    ).resolves.toBe(0);
-  });
+  test('draft creation and restore do not reserve quota; activation does', () => {
+    const source = readFileSync('convex/campaigns.ts', 'utf8');
+    const createSource = source.slice(
+      source.indexOf('export const createCampaignDraft'),
+      source.indexOf('export const setCampaignAutomationEnabled')
+    );
+    const restoreSource = source.slice(
+      source.indexOf('export const restoreManagementCampaign'),
+      source.indexOf('export const updateCampaignDraft')
+    );
+    const activationSource = source.slice(
+      source.indexOf('export const setCampaignAutomationEnabled'),
+      source.indexOf('export const clearCampaignOneTimeSchedule')
+    );
 
-  test('disabled referral campaign does not count toward active campaign quota', async () => {
-    const campaigns = [
-      { _id: 'campaign_1', isActive: true, activationStatus: 'active' },
-    ];
-
-    expect(countsTowardReferralCampaignQuota({ isEnabled: false })).toBe(false);
-
-    await expect(
-      countActiveCampaignsForBusiness(
-        buildCountingCtx({
-          campaigns,
-          referralConfig: { isEnabled: false },
-        }),
-        'business_1'
-      )
-    ).resolves.toBe(1);
+    expect(createSource).not.toContain('assertCampaignCapacity');
+    expect(restoreSource).not.toContain('assertCampaignCapacity');
+    expect(activationSource).toContain('assertCampaignCapacity');
   });
 
   test('recurring live limit counts only active recurring/legacy recurring campaigns', () => {

@@ -1,28 +1,27 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import { countNonArchivedPrograms } from '../loyaltyPrograms';
-import { countsTowardCampaignDefinitions } from '../entitlements';
+import { campaignConsumesQuota } from '../entitlements';
 import { getRoleCapabilities } from '../lib/staffPermissions';
+import { countActivePrograms } from '../loyaltyPrograms';
 
 describe('max cards contract', () => {
-  test('draft counts and archived does not', () => {
+  test('only active loyalty programs count', () => {
     expect(
-      countNonArchivedPrograms([
-        { status: 'draft' },
-        { status: 'active' },
-        { status: 'archived' },
+      countActivePrograms([
+        { status: 'draft', isActive: true },
+        { status: 'active', isActive: true },
+        { status: 'archived', isActive: true },
       ])
-    ).toBe(2);
+    ).toBe(1);
   });
 });
 
 describe('campaign vs B2B referral quota', () => {
   test('customer campaigns count while B2B referrals are a separate domain', () => {
     expect(
-      countsTowardCampaignDefinitions({
-        isActive: true,
-        activationStatus: 'active',
+      campaignConsumesQuota({
+        kind: 'management',
+        campaign: { isActive: true, activationStatus: 'active' },
       })
     ).toBe(true);
     const engine = readFileSync('convex/businessReferralEngine.ts', 'utf8');

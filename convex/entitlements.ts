@@ -7,30 +7,28 @@ import {
   query,
 } from './_generated/server';
 import { requireActorHasBusinessCapability } from './guards';
-import { reserveUsageSlot } from './lib/billing/usageCounters';
 import {
   ensureBusinessBillingAccount,
   getBillingAccountByProviderAppUserId,
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
 import {
-  resolveCanonicalBillingState,
-} from './lib/billing/lifecycle';
-import {
-  type BillingPeriod as ContractBillingPeriod,
-  type BusinessPlan as ContractBusinessPlan,
-  PLAN_ORDER as CONTRACT_PLAN_ORDER,
-  PLAN_RANK as CONTRACT_PLAN_RANK,
-  planConfig as CONTRACT_PLAN_CONFIG,
-  REQUIRED_PLAN_BY_CANONICAL_FEATURE as CONTRACT_REQUIRED_PLAN_BY_FEATURE,
-} from './lib/billing/productionContract';
-import { resolveRevenueCatPlanMapping as resolveMappedRevenueCatProduct } from './lib/billing/productMap';
-import {
   isLegacyBusinessScopedAppUserId,
   parseLegacyBusinessIdFromAppUserId,
 } from './lib/billing/identity';
-import { evaluateReferralProgressFromBillingEvent } from './lib/referrals/billingHook';
+import { resolveCanonicalBillingState } from './lib/billing/lifecycle';
+import {
+  planConfig as CONTRACT_PLAN_CONFIG,
+  PLAN_ORDER as CONTRACT_PLAN_ORDER,
+  PLAN_RANK as CONTRACT_PLAN_RANK,
+  REQUIRED_PLAN_BY_CANONICAL_FEATURE as CONTRACT_REQUIRED_PLAN_BY_FEATURE,
+  type BillingPeriod as ContractBillingPeriod,
+  type BusinessPlan as ContractBusinessPlan,
+} from './lib/billing/productionContract';
+import { resolveRevenueCatPlanMapping as resolveMappedRevenueCatProduct } from './lib/billing/productMap';
+import { reserveUsageSlot } from './lib/billing/usageCounters';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
+import { evaluateReferralProgressFromBillingEvent } from './lib/referrals/billingHook';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 export type BusinessPlan = ContractBusinessPlan;
@@ -891,29 +889,24 @@ export function getCampaignScheduleMode(campaign: any) {
   return null;
 }
 
-export function countsTowardCampaignDefinitions(campaign: any) {
-  if (campaign?.isActive !== true) {
+export type CampaignQuotaCandidate =
+  | { kind: 'management'; campaign: any }
+  | { kind: 'customer_referral'; config: any }
+  | { kind: 'business_referral' };
+
+export function campaignConsumesQuota(candidate: CampaignQuotaCandidate) {
+  if (candidate.kind === 'business_referral') {
     return false;
+  }
+  if (candidate.kind === 'customer_referral') {
+    return candidate.config?.isEnabled === true;
   }
 
-  const lifecycle = getCampaignLifecycleState(campaign);
-  if (lifecycle === 'completed' || lifecycle === 'archived') {
-    return false;
-  }
-
-  return true;
-}
-
-export function countsTowardReferralCampaignQuota(referralConfig: any) {
-  // Customer friend-invite campaigns still occupy a campaign slot.
-  // B2B business referrals are a separate domain and never counted here.
-  if (!referralConfig) {
-    return false;
-  }
-  if (referralConfig.kind === 'b2b' || referralConfig.channel === 'b2b') {
-    return false;
-  }
-  return referralConfig.isEnabled === true;
+  const campaign = candidate.campaign;
+  return (
+    campaign?.isActive === true &&
+    getCampaignLifecycleState(campaign) === 'active'
+  );
 }
 
 export async function countReferralCampaignsForBusiness(
@@ -925,7 +918,12 @@ export async function countReferralCampaignsForBusiness(
     .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
     .first();
 
-  return countsTowardReferralCampaignQuota(referralConfig) ? 1 : 0;
+  return campaignConsumesQuota({
+    kind: 'customer_referral',
+    config: referralConfig,
+  })
+    ? 1
+    : 0;
 }
 
 export function countsTowardRecurringLiveLimit(campaign: any) {
@@ -987,7 +985,9 @@ export async function countActiveCampaignsForBusiness(
     businessId
   );
   return (
-    campaigns.filter(countsTowardCampaignDefinitions).length + referralCampaigns
+    campaigns.filter((campaign: any) =>
+      campaignConsumesQuota({ kind: 'management', campaign })
+    ).length + referralCampaigns
   );
 }
 
@@ -1137,12 +1137,13 @@ export async function getUsageSummary(ctx: any, businessId: Id<'businesses'>) {
       billingAccount,
     }
   );
-  const cardsUsed = programs.filter((program: any) => {
-    if (program.status === 'archived' || program.isArchived === true) {
-      return false;
-    }
-    return true;
-  }).length;
+  const cardsUsed = programs.filter(
+    (program: any) =>
+      program.isActive === true &&
+      program.status !== 'draft' &&
+      program.status !== 'archived' &&
+      program.isArchived !== true
+  ).length;
   return {
     cardsUsed,
     customersUsed: activeCustomers,
@@ -1391,7 +1392,12 @@ export const applyRevenueCatWebhookEvent = internalMutation({
         processedAt: now,
         rawEvent: args.rawEvent,
       });
-      return { ok: true, duplicate: false, ignored: true, reason: 'safe_irrelevant' };
+      return {
+        ok: true,
+        duplicate: false,
+        ignored: true,
+        reason: 'safe_irrelevant',
+      };
     }
 
     const isRevokeEvent = shouldRevokeAccessForRevenueCatEvent(args.eventType);
@@ -1408,17 +1414,16 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       throw new Error('REVENUECAT_PERIOD_IDENTIFIER_CONFLICT');
     }
 
-    const billingAccountByIdentity =
-      await getBillingAccountByProviderAppUserId(ctx, args.appUserId);
+    const billingAccountByIdentity = await getBillingAccountByProviderAppUserId(
+      ctx,
+      args.appUserId
+    );
     let businessId: Id<'businesses'> | null =
       billingAccountByIdentity?.businessId ?? null;
     if (!businessId && args.businessId) {
       businessId = normalizeRevenueCatBusinessIdOrThrow(ctx, args.businessId);
     }
-    if (
-      !businessId &&
-      isLegacyBusinessScopedAppUserId(args.appUserId)
-    ) {
+    if (!businessId && isLegacyBusinessScopedAppUserId(args.appUserId)) {
       const legacyId = parseLegacyBusinessIdFromAppUserId(args.appUserId);
       if (legacyId) {
         businessId = normalizeRevenueCatBusinessIdOrThrow(ctx, legacyId);
@@ -1483,11 +1488,14 @@ export const applyRevenueCatWebhookEvent = internalMutation({
     const nextPeriod = mapping.period;
     const nextEndAt = shouldRevoke ? (endAt ?? now) : endAt;
     const revokedAt =
-      shouldRevoke && (args.eventType === 'REFUND' || args.eventType === 'EXPIRATION')
+      shouldRevoke &&
+      (args.eventType === 'REFUND' || args.eventType === 'EXPIRATION')
         ? now
         : undefined;
     const gracePeriodEndAt =
-      args.eventType === 'BILLING_ISSUE' ? (args.gracePeriodEndAt ?? null) : null;
+      args.eventType === 'BILLING_ISSUE'
+        ? (args.gracePeriodEndAt ?? null)
+        : null;
 
     await ctx.db.insert('revenueCatWebhookEvents', {
       eventId: args.eventId,

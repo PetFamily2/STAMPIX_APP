@@ -25,20 +25,24 @@ import {
   SettingsGroup,
   SettingsNavRow,
   SettingsSection,
+  useSettingsContentWidth,
 } from '@/components/business-settings';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { SUBSCRIPTION_PLAN_LABELS } from '@/lib/domain/subscriptions';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { flexDirection, tw } from '@/lib/rtl';
 
 export default function BusinessSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const contentWidth = useSettingsContentWidth();
   const router = useRouter();
   const { signOut } = useAuthActions();
   const sessionContext = useSessionContext();
@@ -61,6 +65,9 @@ export default function BusinessSettingsScreen() {
   const canManageTeam = activeBusinessCapabilities?.manage_team === true;
   const canManageSubscription =
     activeBusinessCapabilities?.manage_subscription === true;
+  const { entitlements: billingEntitlements } = useEntitlements(
+    activeBusinessId && canManageSubscription ? activeBusinessId : null
+  );
   const addBusinessRoute = getBusinessOnboardingEntryRoute(
     sessionContext?.user.businessOnboardedAt != null
   );
@@ -132,10 +139,8 @@ export default function BusinessSettingsScreen() {
         <ScrollView
           stickyHeaderIndices={[0]}
           contentContainerStyle={{
-            paddingHorizontal: 20,
             paddingBottom: 24,
-            width: '100%',
-            maxWidth: 760,
+            width: contentWidth,
             alignSelf: 'center',
           }}
         >
@@ -173,11 +178,9 @@ export default function BusinessSettingsScreen() {
       <ScrollView
         stickyHeaderIndices={[0]}
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: 30,
           gap: 12,
-          width: '100%',
-          maxWidth: 760,
+          width: contentWidth,
           alignSelf: 'center',
         }}
       >
@@ -311,15 +314,20 @@ export default function BusinessSettingsScreen() {
           <SettingsGroup>
             <SettingsNavRow
               title="פרטי חשבון"
-              subtitle="שם, אימייל ומסמכים"
+              subtitle="שם, אימייל, טלפון אישי ומסמכים"
               icon="person-outline"
               onPress={() => router.push(BUSINESS_ROUTES.account as Href)}
               isLast={!canManageSubscription}
             />
             {canManageSubscription ? (
               <SettingsNavRow
-                title="מנוי וחיוב"
-                subtitle="מסלול, שימוש, שדרוג וניהול רכישות"
+                title="המסלול שלי"
+                subtitle="מנוי וחיוב, מה כלול, שימוש, שדרוג וניהול רכישות"
+                value={
+                  billingEntitlements
+                    ? `מסלול ${SUBSCRIPTION_PLAN_LABELS[billingEntitlements.plan]}`
+                    : 'טוען את המסלול...'
+                }
                 icon="card-outline"
                 onPress={() =>
                   router.push(BUSINESS_ROUTES.subscription as Href)

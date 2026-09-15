@@ -12,7 +12,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import QrScanner from '@/components/QrScanner';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -28,8 +31,8 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safeBack } from '@/lib/navigation';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
@@ -44,6 +47,7 @@ type ScannedStaffDetails = {
 };
 
 export default function AddBusinessStaffScreen() {
+  const contentWidth = useSettingsContentWidth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
@@ -205,10 +209,8 @@ export default function AddBusinessStaffScreen() {
         stickyHeaderIndices={[0]}
         className="flex-1"
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: (insets.bottom || 0) + 30,
-          width: '100%',
-          maxWidth: 760,
+          width: contentWidth,
           alignSelf: 'center',
         }}
       >
@@ -403,7 +405,7 @@ export default function AddBusinessStaffScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-            onPress={() => safeBack(BUSINESS_ROUTES.team)}
+              onPress={() => safeBack(BUSINESS_ROUTES.team)}
               className="rounded-2xl border border-[#CBD5E1] bg-white px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-[#334155]">

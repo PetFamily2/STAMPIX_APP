@@ -128,9 +128,7 @@ describe('deterministic business recommendation catalog', () => {
 
     const result = buildBusinessRecommendationCatalog(input);
 
-    expect(result.primary?.stableId).toBe(
-      'subscription.action_required'
-    );
+    expect(result.primary?.stableId).toBe('subscription.action_required');
     expect(result.primary?.priority).toBe(0);
     expect(result.primary?.placement).toBe('primary');
   });
@@ -146,9 +144,7 @@ describe('deterministic business recommendation catalog', () => {
     const result = buildBusinessRecommendationCatalog(input);
 
     expect(result.primary?.stableId).toBe('setup.address.resolve');
-    expect(result.secondary[0]?.stableId).toBe(
-      'setup.profile.complete'
-    );
+    expect(result.secondary[0]?.stableId).toBe('setup.profile.complete');
     expect(result.secondary[0]?.count).toBe(1);
     expect(result.secondary[0]?.action.fieldId).toBe('name');
   });
@@ -187,9 +183,7 @@ describe('deterministic business recommendation catalog', () => {
 
     expect(result.primary?.stableId).toBe('program.publish_first');
     expect(visibleIds(result)).not.toContain('campaign.create_first');
-    expect(visibleIds(result)).not.toContain(
-      'retention.reengage_inactive'
-    );
+    expect(visibleIds(result)).not.toContain('retention.reengage_inactive');
     expect(visibleIds(result)).not.toContain('growth.near_reward');
   });
 
@@ -297,9 +291,7 @@ describe('deterministic business recommendation catalog', () => {
     const result = buildBusinessRecommendationCatalog(input);
 
     expect(result.primary).toBeNull();
-    expect(result.secondary[0]?.stableId).toBe(
-      'campaign.next_scheduled'
-    );
+    expect(result.secondary[0]?.stableId).toBe('campaign.next_scheduled');
     expect(result.secondary[0]?.entityId).toBe('scheduled_1');
   });
 
@@ -315,9 +307,9 @@ describe('deterministic business recommendation catalog', () => {
       },
     });
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(input))
-    ).not.toContain('campaign.next_scheduled');
+    expect(visibleIds(buildBusinessRecommendationCatalog(input))).not.toContain(
+      'campaign.next_scheduled'
+    );
   });
 
   test('reliable inactive customers may emit retention while unknown evidence suppresses it', () => {
@@ -348,9 +340,9 @@ describe('deterministic business recommendation catalog', () => {
       allowed.facts.customerLifecycleSegments.nearReward;
     denied.actor.capabilities.accessCustomers = false;
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(allowed))
-    ).toContain('growth.near_reward');
+    expect(visibleIds(buildBusinessRecommendationCatalog(allowed))).toContain(
+      'growth.near_reward'
+    );
     expect(
       visibleIds(buildBusinessRecommendationCatalog(denied))
     ).not.toContain('growth.near_reward');
@@ -363,9 +355,9 @@ describe('deterministic business recommendation catalog', () => {
     denied.facts.team.value.unexpiredPendingInvitationCount = 2;
     denied.actor.capabilities.manageTeam = false;
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(allowed))
-    ).toContain('team.pending_invitations');
+    expect(visibleIds(buildBusinessRecommendationCatalog(allowed))).toContain(
+      'team.pending_invitations'
+    );
     expect(
       visibleIds(buildBusinessRecommendationCatalog(denied))
     ).not.toContain('team.pending_invitations');
@@ -383,10 +375,9 @@ describe('deterministic business recommendation catalog', () => {
     });
 
     const result = buildBusinessRecommendationCatalog(input);
-    const quotaRecommendation = [
-      result.primary,
-      ...result.secondary,
-    ].find((item) => item?.stableId === 'subscription.quota_near');
+    const quotaRecommendation = [result.primary, ...result.secondary].find(
+      (item) => item?.stableId === 'subscription.quota_near'
+    );
 
     expect(quotaRecommendation?.priority).toBe(priority);
     expect(quotaRecommendation?.action).toEqual({
@@ -401,9 +392,9 @@ describe('deterministic business recommendation catalog', () => {
     input.facts.campaignQuota.value.isAtOrAboveLimit = true;
     input.actor.capabilities.manageSubscription = false;
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(input))
-    ).not.toContain('subscription.quota_near');
+    expect(visibleIds(buildBusinessRecommendationCatalog(input))).not.toContain(
+      'subscription.quota_near'
+    );
   });
 
   test('known below-limit quota allows campaign.create_first', () => {
@@ -414,12 +405,12 @@ describe('deterministic business recommendation catalog', () => {
       isAtOrAboveLimit: false,
     });
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(input))
-    ).toContain('campaign.create_first');
+    expect(visibleIds(buildBusinessRecommendationCatalog(input))).toContain(
+      'campaign.create_first'
+    );
   });
 
-  test('known hard-limit quota suppresses campaign.create_first', () => {
+  test('known hard-limit quota preserves campaign.create_first draft access', () => {
     const input = campaignCreateInput();
     input.facts.campaignQuota = known({
       campaignDefinitionUsage: 10,
@@ -427,25 +418,22 @@ describe('deterministic business recommendation catalog', () => {
       isAtOrAboveLimit: true,
     });
 
-    expect(
-      visibleIds(buildBusinessRecommendationCatalog(input))
-    ).not.toContain('campaign.create_first');
+    expect(visibleIds(buildBusinessRecommendationCatalog(input))).toContain(
+      'campaign.create_first'
+    );
   });
 
   test.each([
     ['unknown', unknown()],
     ['restricted', restricted()],
-  ])(
-    '%s quota does not suppress campaign.create_first by itself',
-    (_label, quotaFact) => {
-      const input = campaignCreateInput();
-      input.facts.campaignQuota = quotaFact;
-      const ids = visibleIds(buildBusinessRecommendationCatalog(input));
+  ])('%s quota does not suppress campaign.create_first by itself', (_label, quotaFact) => {
+    const input = campaignCreateInput();
+    input.facts.campaignQuota = quotaFact;
+    const ids = visibleIds(buildBusinessRecommendationCatalog(input));
 
-      expect(ids).toContain('campaign.create_first');
-      expect(ids).not.toContain('subscription.quota_near');
-    }
-  );
+    expect(ids).toContain('campaign.create_first');
+    expect(ids).not.toContain('subscription.quota_near');
+  });
 
   test('unknown and restricted facts never become zero-based eligibility', () => {
     const input = baseInput();
@@ -511,9 +499,7 @@ describe('deterministic business recommendation catalog', () => {
     const secondResult = buildBusinessRecommendationCatalog(second);
     const fingerprint = firstResult.primary?.evidenceFingerprint;
 
-    expect(fingerprint).toBe(
-      secondResult.primary?.evidenceFingerprint
-    );
+    expect(fingerprint).toBe(secondResult.primary?.evidenceFingerprint);
     expect(fingerprint).toMatch(/^rec_v1_[a-f0-9]{8}$/);
     expect(fingerprint).not.toContain('name');
     expect(JSON.stringify(firstResult)).not.toContain('0500000000');

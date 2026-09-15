@@ -11,12 +11,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
-
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { api } from '@/convex/_generated/api';
@@ -28,8 +28,8 @@ import {
 } from '@/lib/businessAddressSelection';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safeBack } from '@/lib/navigation';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { selfEnd } from '@/lib/rtl';
 
 const TEXT = {
@@ -88,6 +88,7 @@ function toSelectedAddress(
 }
 
 export default function BusinessSettingsAddressScreen() {
+  const contentWidth = useSettingsContentWidth();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -243,7 +244,7 @@ export default function BusinessSettingsAddressScreen() {
         <ScrollView
           ref={scrollViewRef}
           stickyHeaderIndices={[0]}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { width: contentWidth }]}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
         >
@@ -351,11 +352,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
     paddingBottom: 30,
     gap: 12,
-    width: '100%',
-    maxWidth: 760,
     alignSelf: 'center',
   },
   emptyPad: {

@@ -8,14 +8,9 @@ import {
 } from './_generated/server';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
-  countsTowardCampaignDefinitions,
-  countsTowardReferralCampaignQuota,
+  campaignConsumesQuota,
 } from './entitlements';
 import { isBusinessPermanentDeletionInProgress } from './guards';
-import {
-  buildPreparedActionCopyContentHash,
-  SMART_MANAGER_CHANNEL_STRATEGY_VERSION,
-} from './lib/smartManagerPreparedActions';
 import {
   buildSmartManagerDeliveryAttemptId,
   buildSmartManagerDeliveryLeaseToken,
@@ -23,15 +18,15 @@ import {
   classifySmartManagerExpoTicket,
   getSmartManagerPushBackoffMs,
   isSmartManagerRecipientTerminal,
-  sanitizeSmartManagerProviderTicketId,
+  SMART_MANAGER_DELIVERING_RECOVERY_LIMIT,
   SMART_MANAGER_DELIVERY_BATCH_SIZE,
   SMART_MANAGER_DELIVERY_LEASE_MS,
   SMART_MANAGER_DELIVERY_SWEEP_LIMIT,
-  SMART_MANAGER_DELIVERING_RECOVERY_LIMIT,
   SMART_MANAGER_MAX_PUSH_ATTEMPTS,
   SMART_MANAGER_READY_RECOVERY_LIMIT,
   type SmartManagerDeliveryFailureCode,
   type SmartManagerPushResult,
+  sanitizeSmartManagerProviderTicketId,
 } from './lib/smartManagerDelivery';
 import {
   SMART_MANAGER_EXECUTION_KIND,
@@ -42,6 +37,10 @@ import {
   ensureSmartManagerOutcomeForContact,
   normalizeSmartManagerOutcomeCounters,
 } from './lib/smartManagerOutcomes';
+import {
+  buildPreparedActionCopyContentHash,
+  SMART_MANAGER_CHANNEL_STRATEGY_VERSION,
+} from './lib/smartManagerPreparedActions';
 import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 import { sendExpoPushMessages } from './pushNotifications';
 
@@ -133,7 +132,9 @@ const outcomeSweepRef = makeFunctionReference<
   { processedMarkers: number; expiredWindows: number }
 >('smartManagerOutcomes:sweepSmartManagerOutcomesInternal');
 
-function emptyDeliveryCounters(totalFinalizedRecipients: number): DeliveryCounters {
+function emptyDeliveryCounters(
+  totalFinalizedRecipients: number
+): DeliveryCounters {
   return {
     totalFinalizedRecipients,
     completedExecutionCount: 0,
@@ -196,7 +197,8 @@ async function immutableBindingsRemainExact(
     campaign.automationEnabled === false &&
     String(campaign.businessId) === String(run.businessId) &&
     String(campaign.smartManagerCampaignRunId ?? '') === String(run._id) &&
-    String(campaign.smartManagerPreparedActionId ?? '') === String(action._id) &&
+    String(campaign.smartManagerPreparedActionId ?? '') ===
+      String(action._id) &&
     String(campaign.smartManagerSelectedCopyId ?? '') === String(copy._id) &&
     campaign.smartManagerSelectedCopyRevision === copy.revision &&
     campaign.smartManagerSelectedCopyContentHash === copy.contentHash &&
@@ -264,8 +266,15 @@ async function currentExecutionAuthorityFailure(
     return 'CAMPAIGN_SEND_ENTITLEMENT_UNAVAILABLE';
   }
   const activeCampaigns =
-    campaigns.filter(countsTowardCampaignDefinitions).length +
-    (countsTowardReferralCampaignQuota(referralConfigs[0]) ? 1 : 0);
+    campaigns.filter((campaign) =>
+      campaignConsumesQuota({ kind: 'management', campaign })
+    ).length +
+    (campaignConsumesQuota({
+      kind: 'customer_referral',
+      config: referralConfigs[0],
+    })
+      ? 1
+      : 0);
   const entitlements = await buildCanonicalBusinessEntitlementsFromBusiness(
     ctx,
     business,
@@ -274,6 +283,14 @@ async function currentExecutionAuthorityFailure(
       activeCampaigns,
     }
   );
+  const runCampaignConsumesQuota = campaigns.some(
+    (campaign) =>
+      String(campaign._id) === String(run.campaignId) &&
+      campaignConsumesQuota({ kind: 'management', campaign })
+  );
+  const activationWouldExceedCampaignLimit =
+    !runCampaignConsumesQuota &&
+    activeCampaigns >= entitlements.limits.maxCampaigns;
   if (entitlements.isSubscriptionActive !== true) {
     return 'SUBSCRIPTION_INACTIVE';
   }
@@ -282,7 +299,8 @@ async function currentExecutionAuthorityFailure(
   }
   if (
     entitlements.features.marketingHub !== true ||
-    entitlements.usage.activeManagementCampaignsOverLimit
+    entitlements.usage.activeManagementCampaignsOverLimit ||
+    activationWouldExceedCampaignLimit
   ) {
     return 'CAMPAIGN_SEND_ENTITLEMENT_UNAVAILABLE';
   }
@@ -385,7 +403,10 @@ function latestExecutionEvidence(
   existingLastDeliveryAt: number | undefined,
   lastExecutionAt: number | undefined
 ) {
-  if (typeof lastExecutionAt !== 'number' || !Number.isFinite(lastExecutionAt)) {
+  if (
+    typeof lastExecutionAt !== 'number' ||
+    !Number.isFinite(lastExecutionAt)
+  ) {
     return existingLastDeliveryAt;
   }
   if (
@@ -487,7 +508,10 @@ async function invalidateDeliveryRun(
   });
   if (run.preparedActionId) {
     const action = await ctx.db.get(run.preparedActionId);
-    if (action && String(action.approvedCampaignRunId ?? '') === String(run._id)) {
+    if (
+      action &&
+      String(action.approvedCampaignRunId ?? '') === String(run._id)
+    ) {
       await ctx.db.patch(action._id, {
         materializationState: 'invalidated',
         updatedAt: now,
@@ -672,7 +696,10 @@ export const startSmartManagerDeliveryInternal = internalMutation({
     const now = Date.now();
     if (!(await immutableBindingsRemainExact(ctx, run))) {
       await invalidateDeliveryRun(ctx, run, 'IMMUTABLE_BINDING_INVALID', now);
-      return { status: 'invalidated', failureCode: 'IMMUTABLE_BINDING_INVALID' };
+      return {
+        status: 'invalidated',
+        failureCode: 'IMMUTABLE_BINDING_INVALID',
+      };
     }
     const authorityFailure = await currentExecutionAuthorityFailure(
       ctx,
@@ -982,10 +1009,7 @@ export async function sendSmartManagerPushBatch(
         code: 'PUSH_OUTCOME_AMBIGUOUS' as const,
       }));
     }
-    if (
-      transport.statusCode === 429 ||
-      transport.statusCode >= 500
-    ) {
+    if (transport.statusCode === 429 || transport.statusCode >= 500) {
       return recipients.map(() => ({
         status: 'transient_failure' as const,
         code: 'PUSH_PROVIDER_TRANSIENT' as const,
@@ -1067,7 +1091,10 @@ export const finalizeSmartManagerDeliveryBatchInternal = internalMutation({
     if (!campaign && !postCallFailure) {
       postCallFailure = 'IMMUTABLE_BINDING_INVALID';
     }
-    for (const finalized of args.results.slice(0, SMART_MANAGER_DELIVERY_BATCH_SIZE)) {
+    for (const finalized of args.results.slice(
+      0,
+      SMART_MANAGER_DELIVERY_BATCH_SIZE
+    )) {
       const recipient = await ctx.db.get(finalized.recipientId);
       if (
         !recipient ||
@@ -1256,7 +1283,9 @@ export const sweepSmartManagerDeliveriesInternal = internalMutation({
       )
       .take(SMART_MANAGER_DELIVERING_RECOVERY_LIMIT);
     for (const run of ready) {
-      await ctx.scheduler.runAfter(0, startDeliveryRef, { campaignRunId: run._id });
+      await ctx.scheduler.runAfter(0, startDeliveryRef, {
+        campaignRunId: run._id,
+      });
     }
     for (const run of delivering) {
       if (run.deliveryGeneration) {

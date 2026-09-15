@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useSettingsContentWidth } from '@/components/business-settings';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
@@ -38,6 +38,7 @@ export function LegalDocumentScreen({
   fallbackHref: string;
 }) {
   const router = useRouter();
+  const contentWidth = useSettingsContentWidth();
   const params = useLocalSearchParams<{
     document?: string | string[];
     returnTo?: string | string[];
@@ -56,7 +57,7 @@ export function LegalDocumentScreen({
     <SafeAreaView style={styles.container}>
       <ScrollView
         stickyHeaderIndices={[0]}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { width: contentWidth }]}
         showsVerticalScrollIndicator={false}
       >
         <StickyScrollHeader
@@ -167,10 +168,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   content: {
-    paddingHorizontal: 20,
     paddingBottom: 32,
-    width: '100%',
-    maxWidth: 760,
     alignSelf: 'center',
   },
   eyebrow: {

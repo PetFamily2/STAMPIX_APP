@@ -1,12 +1,4 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-
-import {
-  claimSmartManagerDeliveryBatchInternal,
-  finalizeSmartManagerDeliveryBatchInternal,
-  sendSmartManagerPushBatch,
-  startSmartManagerDeliveryInternal,
-  sweepSmartManagerDeliveriesInternal,
-} from '../smartManagerDelivery';
 import {
   buildSmartManagerDeliveryAttemptId,
   buildSmartManagerDeliveryLeaseToken,
@@ -14,12 +6,19 @@ import {
   classifySmartManagerExpoTicket,
   getSmartManagerPushBackoffMs,
   isSmartManagerRecipientTerminal,
-  sanitizeSmartManagerProviderTicketId,
   SMART_MANAGER_DELIVERY_BATCH_SIZE,
   SMART_MANAGER_MAX_PUSH_ATTEMPTS,
+  sanitizeSmartManagerProviderTicketId,
 } from '../lib/smartManagerDelivery';
 import { buildPreparedActionCopyContentHash } from '../lib/smartManagerPreparedActions';
 import { sendExpoPushMessages } from '../pushNotifications';
+import {
+  claimSmartManagerDeliveryBatchInternal,
+  finalizeSmartManagerDeliveryBatchInternal,
+  sendSmartManagerPushBatch,
+  startSmartManagerDeliveryInternal,
+  sweepSmartManagerDeliveriesInternal,
+} from '../smartManagerDelivery';
 import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const originalFetch = globalThis.fetch;
@@ -261,7 +260,8 @@ function makeFixture(channels = ['in_app']) {
     channel,
     eligibilityBindingHash: `eligibility_${index + 1}`,
     recipientBindingHash: `binding_${index + 1}`,
-    executionState: channel === 'not_contactable' ? 'not_contactable' : 'pending',
+    executionState:
+      channel === 'not_contactable' ? 'not_contactable' : 'pending',
     createdAt: 1,
     updatedAt: 1,
   }));
@@ -317,7 +317,8 @@ function makeFixture(channels = ['in_app']) {
   const ctx = {
     db,
     scheduler: {
-      runAfter: async (delay, ref, args) => scheduled.push({ delay, ref, args }),
+      runAfter: async (delay, ref, args) =>
+        scheduled.push({ delay, ref, args }),
     },
   };
   return { ctx, db, scheduled, run, action, campaign, copy, recipients };
@@ -422,7 +423,9 @@ describe('Smart Manager delivery start and authority', () => {
 
   test('6 permanent deletion in progress invalidates before delivery', async () => {
     const fixture = makeFixture();
-    await fixture.db.patch('business_1', { permanentDeletionStatus: 'in_progress' });
+    await fixture.db.patch('business_1', {
+      permanentDeletionStatus: 'in_progress',
+    });
     expect(await start(fixture)).toMatchObject({
       failureCode: 'BUSINESS_DELETION_IN_PROGRESS',
     });
@@ -437,7 +440,9 @@ describe('Smart Manager delivery start and authority', () => {
     await fixture.db.patch('billing_1', {
       status: 'inactive',
     });
-    expect(await start(fixture)).toMatchObject({ failureCode: 'SUBSCRIPTION_INACTIVE' });
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'SUBSCRIPTION_INACTIVE',
+    });
   });
 
   test('canceled subscription with future period end remains operational for delivery', async () => {
@@ -477,12 +482,18 @@ describe('Smart Manager delivery start and authority', () => {
   test('9 missing business fails closed', async () => {
     const fixture = makeFixture();
     fixture.db.tables.businesses.delete('business_1');
-    expect(await start(fixture)).toMatchObject({ failureCode: 'BUSINESS_NOT_FOUND' });
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'BUSINESS_NOT_FOUND',
+    });
   });
 
   test('10 recipient overflow invalidates without sending', async () => {
-    const fixture = makeFixture(Array.from({ length: 101 }, () => 'not_contactable'));
-    expect(await start(fixture)).toMatchObject({ failureCode: 'RECIPIENT_SET_INVALID' });
+    const fixture = makeFixture(
+      Array.from({ length: 101 }, () => 'not_contactable')
+    );
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'RECIPIENT_SET_INVALID',
+    });
   });
 
   test('current campaign-send entitlement is revalidated', async () => {
@@ -492,6 +503,8 @@ describe('Smart Manager delivery start and authority', () => {
         ...fixture.campaign,
         _id: `extra_campaign_${index}`,
         source: 'manual',
+        status: 'active',
+        activationStatus: 'active',
       });
     }
     expect(await start(fixture)).toMatchObject({
@@ -536,13 +549,17 @@ describe('Smart Manager immutable execution binding', () => {
   test('15 changed recipient count invalidates', async () => {
     const fixture = makeFixture();
     await fixture.db.patch('run_1', { totalExecutionRecipients: 2 });
-    expect(await start(fixture)).toMatchObject({ failureCode: 'RECIPIENT_SET_INVALID' });
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'RECIPIENT_SET_INVALID',
+    });
   });
 
   test('16 missing recipient binding invalidates', async () => {
     const fixture = makeFixture();
     await fixture.db.patch('recipient_1', { recipientBindingHash: undefined });
-    expect(await start(fixture)).toMatchObject({ failureCode: 'RECIPIENT_SET_INVALID' });
+    expect(await start(fixture)).toMatchObject({
+      failureCode: 'RECIPIENT_SET_INVALID',
+    });
   });
 });
 
@@ -618,7 +635,9 @@ describe('Smart Manager push execution and fallback', () => {
     const fixture = makeFixture(['push']);
     await start(fixture);
     await claim(fixture);
-    expect(JSON.stringify(await fixture.db.get('run_1'))).not.toContain('token-secret');
+    expect(JSON.stringify(await fixture.db.get('run_1'))).not.toContain(
+      'token-secret'
+    );
     expect(
       JSON.stringify(fixture.db.rows('smartManagerAuditEvents'))
     ).not.toContain('token-secret');
@@ -632,7 +651,9 @@ describe('Smart Manager push execution and fallback', () => {
       status: 'accepted',
       providerTicketId: 'ticket_1',
     });
-    expect((await fixture.db.get('recipient_1')).executionState).toBe('push_accepted');
+    expect((await fixture.db.get('recipient_1')).executionState).toBe(
+      'push_accepted'
+    );
   });
 
   test('26 provider acceptance does not increment deliveredCount', async () => {
@@ -687,7 +708,9 @@ describe('Smart Manager push execution and fallback', () => {
       status: 'transient_failure',
       code: 'PUSH_PROVIDER_TRANSIENT',
     });
-    expect((await fixture.db.get('recipient_1')).executionState).toBe('retryable');
+    expect((await fixture.db.get('recipient_1')).executionState).toBe(
+      'retryable'
+    );
     expect(fixture.db.rows('messageLog')).toHaveLength(0);
   });
 
@@ -716,7 +739,9 @@ describe('Smart Manager push execution and fallback', () => {
       status: 'accepted',
       providerTicketId: 'safe_id',
     });
-    expect((await fixture.db.get('campaign_1')).messageBody).toBe(fixture.copy.body);
+    expect((await fixture.db.get('campaign_1')).messageBody).toBe(
+      fixture.copy.body
+    );
   });
 });
 
@@ -732,9 +757,14 @@ describe('Smart Manager leases, retries, and finalization', () => {
     const fixture = makeFixture(['push']);
     await start(fixture);
     const claimed = await claim(fixture);
-    await fixture.db.patch('recipient_1', { leaseGeneration: 99, leaseToken: 'newer' });
+    await fixture.db.patch('recipient_1', {
+      leaseGeneration: 99,
+      leaseToken: 'newer',
+    });
     await finalize(fixture, claimed, { status: 'accepted' });
-    expect((await fixture.db.get('recipient_1')).executionState).toBe('dispatching');
+    expect((await fixture.db.get('recipient_1')).executionState).toBe(
+      'dispatching'
+    );
   });
 
   test('35 expired dispatch lease recovers as ambiguous fallback', async () => {
@@ -743,7 +773,7 @@ describe('Smart Manager leases, retries, and finalization', () => {
     await claim(fixture);
     await fixture.db.patch('recipient_1', { leaseExpiresAt: 0 });
     await claim(fixture);
-    expect((await fixture.db.get('recipient_1'))).toMatchObject({
+    expect(await fixture.db.get('recipient_1')).toMatchObject({
       executionState: 'in_app_available',
       fallbackReason: 'PUSH_OUTCOME_AMBIGUOUS',
       providerStatus: 'ambiguous',
@@ -761,7 +791,9 @@ describe('Smart Manager leases, retries, and finalization', () => {
     expect(
       (await finalize(fixture, claimed, { status: 'accepted' })).status
     ).toBe('stale');
-    expect((await fixture.db.get('recipient_1')).executionState).toBe('dispatching');
+    expect((await fixture.db.get('recipient_1')).executionState).toBe(
+      'dispatching'
+    );
   });
 
   test('36 retry attempt identity changes deterministically by generation', () => {
@@ -794,7 +826,9 @@ describe('Smart Manager leases, retries, and finalization', () => {
     expect(getSmartManagerPushBackoffMs(1)).toBeLessThan(
       getSmartManagerPushBackoffMs(2)
     );
-    expect(getSmartManagerPushBackoffMs(99)).toBe(getSmartManagerPushBackoffMs(2));
+    expect(getSmartManagerPushBackoffMs(99)).toBe(
+      getSmartManagerPushBackoffMs(2)
+    );
   });
 
   test('39 worker claims are clamped to twenty-five', async () => {
@@ -810,7 +844,9 @@ describe('Smart Manager leases, retries, and finalization', () => {
     const claimed = await claim(fixture);
     await finalize(fixture, claimed, { status: 'accepted' });
     expect((await fixture.db.get('run_1')).executionState).toBe('delivering');
-    expect((await fixture.db.get('run_1')).deliveryCounters.pendingCount).toBe(5);
+    expect((await fixture.db.get('run_1')).deliveryCounters.pendingCount).toBe(
+      5
+    );
   });
 
   test('41 not-contactable recipient is terminal without an artifact', async () => {
@@ -818,7 +854,9 @@ describe('Smart Manager leases, retries, and finalization', () => {
     await start(fixture);
     await claim(fixture);
     expect(fixture.db.rows('messageLog')).toHaveLength(0);
-    expect((await fixture.db.get('run_1')).executionState).toBe('delivery_completed');
+    expect((await fixture.db.get('run_1')).executionState).toBe(
+      'delivery_completed'
+    );
   });
 
   test('42 mixed successful channels reconcile separate counters', async () => {
@@ -851,18 +889,15 @@ describe('Smart Manager leases, retries, and finalization', () => {
     expect((await fixture.db.get('run_1')).sentAt).toBeUndefined();
   });
 
-  test(
-    '45 sentAt appears after provider acceptance without claiming full delivery',
-    async () => {
-      const fixture = makeFixture(['push']);
-      await start(fixture);
-      const claimed = await claim(fixture);
-      await finalize(fixture, claimed, { status: 'accepted' });
-      const run = await fixture.db.get('run_1');
-      expect(Number.isFinite(run.sentAt)).toBe(true);
-      expect(run.deliveredCount).toBe(0);
-    }
-  );
+  test('45 sentAt appears after provider acceptance without claiming full delivery', async () => {
+    const fixture = makeFixture(['push']);
+    await start(fixture);
+    const claimed = await claim(fixture);
+    await finalize(fixture, claimed, { status: 'accepted' });
+    const run = await fixture.db.get('run_1');
+    expect(Number.isFinite(run.sentAt)).toBe(true);
+    expect(run.deliveredCount).toBe(0);
+  });
 
   test('46 recovery sweep schedules ready and delivering runs', async () => {
     const fixture = makeFixture(['push', 'push']);
@@ -878,23 +913,20 @@ describe('Smart Manager leases, retries, and finalization', () => {
     expect(result.scheduled).toBe(2);
   });
 
-  test(
-    'run-level audit contains hashes and counters but no approved copy',
-    async () => {
-      const fixture = makeFixture(['in_app']);
-      await start(fixture);
-      await claim(fixture);
-      const audits = fixture.db.rows('smartManagerAuditEvents');
-      expect(audits.map((audit) => audit.eventType)).toEqual([
-        'delivery_started',
-        'delivery_completed',
-      ]);
-      expect(audits[1].detail.recipientSetHash).toBe(
-        'immutable_recipient_set_hash'
-      );
-      expect(JSON.stringify(audits)).not.toContain(fixture.copy.body);
-    }
-  );
+  test('run-level audit contains hashes and counters but no approved copy', async () => {
+    const fixture = makeFixture(['in_app']);
+    await start(fixture);
+    await claim(fixture);
+    const audits = fixture.db.rows('smartManagerAuditEvents');
+    expect(audits.map((audit) => audit.eventType)).toEqual([
+      'delivery_started',
+      'delivery_completed',
+    ]);
+    expect(audits[1].detail.recipientSetHash).toBe(
+      'immutable_recipient_set_hash'
+    );
+    expect(JSON.stringify(audits)).not.toContain(fixture.copy.body);
+  });
 });
 
 describe('Smart Manager execution evidence timestamps', () => {

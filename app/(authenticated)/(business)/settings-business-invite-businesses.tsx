@@ -20,7 +20,10 @@ import {
 } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { ReferralShareCreative } from '@/components/referrals/ReferralShareCreative';
 import { RewardEarnedCelebration } from '@/components/referrals/RewardEarnedCelebration';
@@ -421,6 +424,7 @@ function BusinessInviteContent({
 }
 
 export default function BusinessInviteBusinessesScreen() {
+  const contentWidth = useSettingsContentWidth(860);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId, isLoading, isSwitchingBusiness } =
@@ -446,6 +450,7 @@ export default function BusinessInviteBusinessesScreen() {
           styles.content,
           {
             paddingBottom: Math.max(insets.bottom, 12) + 24,
+            width: contentWidth,
           },
         ]}
       >
@@ -481,10 +486,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   content: {
-    width: '100%',
-    maxWidth: 860,
     alignSelf: 'center',
-    paddingHorizontal: 20,
     gap: 12,
   },
   heroCard: {

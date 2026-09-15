@@ -1,22 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import {
-  approvePreparedWinbackAction,
-  materializeApprovedRunInternal,
-} from '../smartManagerExecution';
 import {
   buildAuthorityComparisonHash,
   buildAuthorityDecisionHash,
   buildAuthorityFactHash,
 } from '../lib/smartManagerAuthority';
-import {
-  buildPreparedActionCopyContentHash,
-  buildPreparedWinbackPreparationKey,
-  SMART_MANAGER_FALLBACK_GENERATION_VERSION,
-  SMART_MANAGER_WINBACK_CAMPAIGN_DRAFT,
-  SMART_MANAGER_WINBACK_CHANNEL_STRATEGY,
-} from '../lib/smartManagerPreparedActions';
 import {
   buildSmartManagerApprovalKey,
   buildSmartManagerRecipientBindingHash,
@@ -29,7 +17,18 @@ import {
   SMART_MANAGER_POLICY_V1_HASH,
   SMART_MANAGER_POLICY_V1_VERSION,
 } from '../lib/smartManagerPolicy';
+import {
+  buildPreparedActionCopyContentHash,
+  buildPreparedWinbackPreparationKey,
+  SMART_MANAGER_FALLBACK_GENERATION_VERSION,
+  SMART_MANAGER_WINBACK_CAMPAIGN_DRAFT,
+  SMART_MANAGER_WINBACK_CHANNEL_STRATEGY,
+} from '../lib/smartManagerPreparedActions';
 import { buildCustomerSegmentFacts } from '../recommendations';
+import {
+  approvePreparedWinbackAction,
+  materializeApprovedRunInternal,
+} from '../smartManagerExecution';
 import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const NOW = Date.now();
@@ -62,7 +61,13 @@ class FakeQuery {
     };
     builder(q);
     this.db.reads.push({ kind: 'index', table: this.table, index });
-    return new FakeQuery(this.db, this.table, predicates, index, this.direction);
+    return new FakeQuery(
+      this.db,
+      this.table,
+      predicates,
+      index,
+      this.direction
+    );
   }
 
   filter(builder) {
@@ -70,8 +75,10 @@ class FakeQuery {
       field: (field) => field,
       eq: (field, value) => (row) => row[field] === value,
       neq: (field, value) => (row) => row[field] !== value,
-      and: (...predicates) => (row) =>
-        predicates.every((predicate) => predicate(row)),
+      and:
+        (...predicates) =>
+        (row) =>
+          predicates.every((predicate) => predicate(row)),
     };
     return new FakeQuery(
       this.db,
@@ -124,7 +131,11 @@ class FakeQuery {
   }
 
   async paginate({ cursor, numItems }) {
-    this.db.reads.push({ kind: 'paginate', table: this.table, limit: numItems });
+    this.db.reads.push({
+      kind: 'paginate',
+      table: this.table,
+      limit: numItems,
+    });
     const rows = this.rows();
     const start = cursor === null ? 0 : Number(cursor);
     const end = Math.min(rows.length, start + numItems);
@@ -200,7 +211,11 @@ class FakeDb {
   }
 }
 
-function makeFixture({ role = 'owner', marketingOptIn = true, push = false } = {}) {
+function makeFixture({
+  role = 'owner',
+  marketingOptIn = true,
+  push = false,
+} = {}) {
   const business = {
     _id: 'business_1',
     ownerUserId: 'owner_1',
@@ -378,7 +393,8 @@ function makeFixture({ role = 'owner', marketingOptIn = true, push = false } = {
     createdAt: NOW,
     updatedAt: NOW,
   };
-  const actorId = role === 'manager' ? 'manager_1' : role === 'staff' ? 'staff_1' : 'owner_1';
+  const actorId =
+    role === 'manager' ? 'manager_1' : role === 'staff' ? 'staff_1' : 'owner_1';
   const tables = {
     users: [
       { _id: 'owner_1', isActive: true },
@@ -506,7 +522,8 @@ function makeCtx(options = {}) {
       }),
     },
     scheduler: {
-      runAfter: async (delay, ref, args) => scheduled.push({ delay, ref, args }),
+      runAfter: async (delay, ref, args) =>
+        scheduled.push({ delay, ref, args }),
     },
   };
   return { ...fixture, db, scheduled, ctx };
@@ -666,9 +683,9 @@ describe('Smart Manager Pass A approval', () => {
 
   test('8 authority generation or policy drift fails closed', async () => {
     const fixture = makeCtx();
-    fixture.db.tables.smartManagerEvaluationStates.get('evaluation_1').dirtyDomains = [
-      'events',
-    ];
+    fixture.db.tables.smartManagerEvaluationStates.get(
+      'evaluation_1'
+    ).dirtyDomains = ['events'];
     await expect(approve(fixture)).rejects.toThrow(
       'SMART_MANAGER_APPROVAL_REFRESH_REQUIRED'
     );
@@ -691,7 +708,10 @@ describe('Smart Manager Pass A approval', () => {
       createdAt: NOW - 100 * DAY_MS,
       updatedAt: NOW,
     });
-    for (const [id, age] of [['event_3', 60], ['event_4', 50]]) {
+    for (const [id, age] of [
+      ['event_3', 60],
+      ['event_4', 50],
+    ]) {
       fixture.db.tables.events.set(id, {
         _id: id,
         type: 'STAMP_ADDED',
@@ -709,8 +729,10 @@ describe('Smart Manager Pass A approval', () => {
 
   test('10 inactive paid subscription creates no run', async () => {
     const fixture = makeCtx();
-    fixture.db.tables.businesses.get('business_1').subscriptionStatus = 'inactive';
-    fixture.db.tables.businessBillingAccounts.get('billing_1').status = 'inactive';
+    fixture.db.tables.businesses.get('business_1').subscriptionStatus =
+      'inactive';
+    fixture.db.tables.businessBillingAccounts.get('billing_1').status =
+      'inactive';
     await expect(approve(fixture)).rejects.toThrow(
       'SMART_MANAGER_APPROVAL_NOT_ELIGIBLE'
     );
@@ -723,7 +745,8 @@ describe('Smart Manager Pass A approval', () => {
       fixture.db.tables.campaigns.set(`existing_${index}`, {
         _id: `existing_${index}`,
         businessId: 'business_1',
-        status: 'draft',
+        status: 'active',
+        activationStatus: 'active',
         isActive: true,
       });
     }
@@ -767,7 +790,10 @@ describe('Smart Manager Pass A approval', () => {
     expect(buildSmartManagerApprovalKey(common)).toBe(
       buildSmartManagerApprovalKey(structuredClone(common))
     );
-    const schema = readFileSync(new URL('../schema.ts', import.meta.url), 'utf8');
+    const schema = readFileSync(
+      new URL('../schema.ts', import.meta.url),
+      'utf8'
+    );
     expect(schema).toContain(".index('by_preparedActionId_approvalKey'");
   });
 
@@ -1132,13 +1158,16 @@ describe('Smart Manager Pass A hash and finalization', () => {
     expect(run.totalExecutionRecipients).toBe(
       fixture.db.rows('campaignRunRecipients').length
     );
-    expect(run.pushEligible + run.inAppFallbackEligible + run.notContactable).toBe(
-      run.totalExecutionRecipients
-    );
+    expect(
+      run.pushEligible + run.inAppFallbackEligible + run.notContactable
+    ).toBe(run.totalExecutionRecipients);
   });
 
   test('31 ready-for-delivery freezes approved campaign mutation surfaces', () => {
-    const source = readFileSync(new URL('../campaigns.ts', import.meta.url), 'utf8');
+    const source = readFileSync(
+      new URL('../campaigns.ts', import.meta.url),
+      'utf8'
+    );
     expect(source).toContain('SMART_MANAGER_APPROVED_CAMPAIGN_IMMUTABLE');
     expect(source).toContain(
       'function assertCampaignIsNotImmutableSmartManagerExecution('
@@ -1164,13 +1193,19 @@ describe('Smart Manager Pass A deletion and privacy', () => {
   });
 
   test('33 hard wipe includes recipients and campaign runs', () => {
-    const source = readFileSync(new URL('../users.ts', import.meta.url), 'utf8');
+    const source = readFileSync(
+      new URL('../users.ts', import.meta.url),
+      'utf8'
+    );
     expect(source).toContain("'campaignRunRecipients'");
     expect(source).toContain("'campaignRuns'");
   });
 
   test('34 account deletion redacts approver without deleting the run', () => {
-    const source = readFileSync(new URL('../users.ts', import.meta.url), 'utf8');
+    const source = readFileSync(
+      new URL('../users.ts', import.meta.url),
+      'utf8'
+    );
     expect(source).toContain("'by_approvedByUserId'");
     expect(source).toContain("'approvedByUserId'");
   });
@@ -1179,7 +1214,9 @@ describe('Smart Manager Pass A deletion and privacy', () => {
     const fixture = makeCtx({ push: true });
     await approve(fixture);
     await drainWorkers(fixture);
-    const serialized = JSON.stringify(fixture.db.rows('smartManagerAuditEvents'));
+    const serialized = JSON.stringify(
+      fixture.db.rows('smartManagerAuditEvents')
+    );
     expect(serialized).not.toContain('secret-token-not-copied');
     expect(serialized).not.toContain(fixture.copy.body);
     expect(serialized).not.toContain('customer_1');

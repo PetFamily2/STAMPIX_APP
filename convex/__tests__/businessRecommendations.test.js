@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { getRecommendationNavigationTarget } from '../../lib/recommendations/navigation';
-
+import { getRoleCapabilities } from '../lib/staffPermissions';
 import {
   acknowledgeBusinessRecommendationGuideStatus,
   dismissBusinessRecommendation,
@@ -11,10 +11,7 @@ import {
   snoozeBusinessRecommendation,
   startBusinessRecommendationGuide,
 } from '../recommendations';
-import { getRoleCapabilities } from '../lib/staffPermissions';
-import {
-  seedCanonicalBusinessBillingAccounts,
-} from './helpers/businessBillingFixtures';
+import { seedCanonicalBusinessBillingAccounts } from './helpers/businessBillingFixtures';
 
 const NOW = 1_800_000_000_000;
 const EXPECTED_GUIDE_IDS = {
@@ -63,8 +60,7 @@ class FakeQuery {
       typeof operand === 'function' ? operand(row) : operand;
     const q = {
       field: (field) => (row) => row[field],
-      eq: (left, right) => (row) =>
-        resolve(left, row) === resolve(right, row),
+      eq: (left, right) => (row) => resolve(left, row) === resolve(right, row),
     };
     this.predicates.push(builder(q));
     return this;
@@ -264,9 +260,7 @@ function ctx(actorId, customize) {
       },
       query: (tableName) => new FakeQuery(data[tableName] ?? []),
       normalizeId: (tableName, id) =>
-        typeof id === 'string' && Array.isArray(data[tableName])
-          ? id
-          : null,
+        typeof id === 'string' && Array.isArray(data[tableName]) ? id : null,
       insert: async (tableName, value) => {
         const id = `${tableName}_${nextId}`;
         nextId += 1;
@@ -364,10 +358,9 @@ describe('getBusinessRecommendations authorization and identity', () => {
         capabilities: getRoleCapabilities('owner'),
       }
     );
-    const result = await getBusinessRecommendations._handler(
-      ownerCtx,
-      { businessId: 'business_1' }
-    );
+    const result = await getBusinessRecommendations._handler(ownerCtx, {
+      businessId: 'business_1',
+    });
 
     expect(recommendationFacts.facts.campaignQuota.state).toBe('known');
     const campaignQuota = recommendationFacts.facts.campaignQuota.value;
@@ -406,9 +399,7 @@ describe('getBusinessRecommendations authorization and identity', () => {
     expect(visibleStableIds).not.toContain('setup.profile.complete');
     expect(visibleStableIds).not.toContain('program.publish_first');
     expect(visibleStableIds).not.toContain('program.publish_draft');
-    expect(visibleStableIds).not.toContain(
-      'subscription.action_required'
-    );
+    expect(visibleStableIds).not.toContain('subscription.action_required');
     expect(visibleStableIds).not.toContain('subscription.quota_near');
     expect(
       visibleRecommendations.filter(
@@ -440,12 +431,9 @@ describe('getBusinessRecommendations authorization and identity', () => {
       expect(unexpectedFields).toEqual([]);
       expect(typeof recommendation.guideId).toBe('string');
       expect(recommendation.guideId.length).toBeGreaterThan(0);
-      expect(
-        Object.hasOwn(
-          EXPECTED_GUIDE_IDS,
-          recommendation.stableId
-        )
-      ).toBe(true);
+      expect(Object.hasOwn(EXPECTED_GUIDE_IDS, recommendation.stableId)).toBe(
+        true
+      );
       expect(recommendation.guideId).toBe(
         EXPECTED_GUIDE_IDS[recommendation.stableId]
       );
@@ -467,10 +455,9 @@ describe('getBusinessRecommendations authorization and identity', () => {
   });
 
   test('manager with dashboard access receives restricted-safe recommendations', async () => {
-    const result = await getBusinessRecommendations._handler(
-      ctx('manager_1'),
-      { businessId: 'business_1' }
-    );
+    const result = await getBusinessRecommendations._handler(ctx('manager_1'), {
+      businessId: 'business_1',
+    });
 
     expect(result.businessId).toBe('business_1');
     expect(
@@ -593,15 +580,17 @@ describe('recommendation interaction handlers', () => {
     ).rejects.toThrow('NOT_AUTHORIZED');
   });
 
-  test('capability or entitlement loss before mutation rejects old evidence', async () => {
+  test('capability loss rejects while full quota preserves draft guidance evidence', async () => {
     const capabilityCtx = ctx('owner_1', (data) => {
       data.businesses[0].subscriptionStatus = 'past_due';
       data.businessBillingAccounts[0].status = 'past_due';
     });
-    const subscriptionResponse =
-      await getBusinessRecommendations._handler(capabilityCtx, {
+    const subscriptionResponse = await getBusinessRecommendations._handler(
+      capabilityCtx,
+      {
         businessId: 'business_1',
-      });
+      }
+    );
     const subscriptionRecommendation = visibleRecommendation(
       subscriptionResponse,
       'subscription.action_required'
@@ -611,8 +600,7 @@ describe('recommendation interaction handlers', () => {
       dismissBusinessRecommendation._handler(capabilityCtx, {
         businessId: 'business_1',
         stableId: subscriptionRecommendation.stableId,
-        evidenceFingerprint:
-          subscriptionRecommendation.evidenceFingerprint,
+        evidenceFingerprint: subscriptionRecommendation.evidenceFingerprint,
       })
     ).rejects.toThrow();
 
@@ -625,16 +613,14 @@ describe('recommendation interaction handlers', () => {
       createResponse,
       'campaign.create_first'
     );
-    entitlementCtx.data.campaigns.push(
-      managementCampaign('campaign_limit')
-    );
+    entitlementCtx.data.referralConfigs[0].isEnabled = true;
     await expect(
       dismissBusinessRecommendation._handler(entitlementCtx, {
         businessId: 'business_1',
         stableId: createRecommendation.stableId,
         evidenceFingerprint: createRecommendation.evidenceFingerprint,
       })
-    ).rejects.toThrow();
+    ).resolves.toMatchObject({ ok: true });
   });
 });
 
@@ -674,8 +660,7 @@ describe('server-issued recommendation guide sessions', () => {
     expect(navigation).toEqual({
       ok: true,
       target: {
-        pathname:
-          '/(authenticated)/(business)/settings-business-profile',
+        pathname: '/(authenticated)/(business)/settings-business-profile',
         params: {
           businessId: 'business_1',
           guideSessionId: String(session.guideSessionId),
@@ -731,9 +716,7 @@ describe('server-issued recommendation guide sessions', () => {
         'stableId',
       ].sort()
     );
-    expect(first.evidenceFingerprint).toBe(
-      recommendation.evidenceFingerprint
-    );
+    expect(first.evidenceFingerprint).toBe(recommendation.evidenceFingerprint);
     expect(first.action).toEqual(recommendation.action);
     expect(first.entityId).toBe(recommendation.entityId);
     expect(first.expiresAt).toBeGreaterThanOrEqual(
@@ -822,10 +805,7 @@ describe('server-issued recommendation guide sessions', () => {
       response,
       'program.publish_draft'
     );
-    const { session, args } = await issueGuideSession(
-      ownerCtx,
-      recommendation
-    );
+    const { session, args } = await issueGuideSession(ownerCtx, recommendation);
     await expect(
       getBusinessRecommendationGuideStatus._handler(ownerCtx, {
         guideSessionId: 'recommendationGuideSessions_missing',
@@ -918,10 +898,7 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     const target = ownerCtx.data.loyaltyPrograms.shift();
 
     expect(
-      await getBusinessRecommendationGuideStatus._handler(
-        ownerCtx,
-        baseArgs
-      )
+      await getBusinessRecommendationGuideStatus._handler(ownerCtx, baseArgs)
     ).toMatchObject({ state: 'invalidated' });
     target.businessId = 'business_2';
     ownerCtx.data.loyaltyPrograms.push(target);
@@ -941,10 +918,12 @@ describe('recommendation guide status and acknowledgement handlers', () => {
         status: 'draft',
       });
     });
-    const programResponse =
-      await getBusinessRecommendations._handler(programCtx, {
+    const programResponse = await getBusinessRecommendations._handler(
+      programCtx,
+      {
         businessId: 'business_1',
-      });
+      }
+    );
     const programRecommendation = visibleRecommendation(
       programResponse,
       'program.publish_draft'
@@ -966,16 +945,15 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     const campaignCtx = ctx('owner_1', (data) => {
       data.campaigns.push(
         scheduledCampaign('campaign_a', firstSendAt),
-        scheduledCampaign(
-          'campaign_b',
-          firstSendAt + 24 * 60 * 60 * 1000
-        )
+        scheduledCampaign('campaign_b', firstSendAt + 24 * 60 * 60 * 1000)
       );
     });
-    const campaignResponse =
-      await getBusinessRecommendations._handler(campaignCtx, {
+    const campaignResponse = await getBusinessRecommendations._handler(
+      campaignCtx,
+      {
         businessId: 'business_1',
-      });
+      }
+    );
     const campaignRecommendation = visibleRecommendation(
       campaignResponse,
       'campaign.next_scheduled'
@@ -995,16 +973,17 @@ describe('recommendation guide status and acknowledgement handlers', () => {
 
   test('exact entity validation precedes guide capability revalidation', async () => {
     const managerCapabilities = getRoleCapabilities('manager');
-    const originalEditPrograms =
-      managerCapabilities.edit_loyalty_cards;
+    const originalEditPrograms = managerCapabilities.edit_loyalty_cards;
     try {
       const missingCtx = ctx('manager_1', (data) => {
         data.loyaltyPrograms[0].status = 'draft';
       });
-      const missingResponse =
-        await getBusinessRecommendations._handler(missingCtx, {
+      const missingResponse = await getBusinessRecommendations._handler(
+        missingCtx,
+        {
           businessId: 'business_1',
-        });
+        }
+      );
       const missingRecommendation = visibleRecommendation(
         missingResponse,
         'program.publish_draft'
@@ -1029,10 +1008,12 @@ describe('recommendation guide status and acknowledgement handlers', () => {
       const restrictedCtx = ctx('manager_1', (data) => {
         data.loyaltyPrograms[0].status = 'draft';
       });
-      const restrictedResponse =
-        await getBusinessRecommendations._handler(restrictedCtx, {
+      const restrictedResponse = await getBusinessRecommendations._handler(
+        restrictedCtx,
+        {
           businessId: 'business_1',
-        });
+        }
+      );
       const restrictedRecommendation = visibleRecommendation(
         restrictedResponse,
         'program.publish_draft'
@@ -1054,9 +1035,7 @@ describe('recommendation guide status and acknowledgement handlers', () => {
           restrictedArgs
         )
       ).rejects.toThrow();
-      expect(
-        restrictedCtx.data.recommendationInteractions
-      ).toHaveLength(0);
+      expect(restrictedCtx.data.recommendationInteractions).toHaveLength(0);
     } finally {
       managerCapabilities.edit_loyalty_cards = originalEditPrograms;
     }
@@ -1073,17 +1052,13 @@ describe('recommendation guide status and acknowledgement handlers', () => {
       response,
       'program.publish_draft'
     );
-    const { session, args } = await issueGuideSession(
-      ownerCtx,
-      recommendation
-    );
+    const { session, args } = await issueGuideSession(ownerCtx, recommendation);
     ownerCtx.data.loyaltyPrograms.shift();
 
-    const result =
-      await acknowledgeBusinessRecommendationGuideStatus._handler(
-        ownerCtx,
-        args
-      );
+    const result = await acknowledgeBusinessRecommendationGuideStatus._handler(
+      ownerCtx,
+      args
+    );
     expect(result.state).toBe('invalidated');
     expect(ownerCtx.data.recommendationInteractions).toHaveLength(1);
     expect(ownerCtx.data.recommendationInteractions[0]).toMatchObject({
@@ -1093,15 +1068,17 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     });
   });
 
-  test('capability and entitlement loss return restricted and cannot be acknowledged', async () => {
+  test('capability loss restricts while full quota preserves create-first guidance', async () => {
     const capabilityCtx = ctx('owner_1', (data) => {
       data.businesses[0].subscriptionStatus = 'past_due';
       data.businessBillingAccounts[0].status = 'past_due';
     });
-    const capabilityResponse =
-      await getBusinessRecommendations._handler(capabilityCtx, {
+    const capabilityResponse = await getBusinessRecommendations._handler(
+      capabilityCtx,
+      {
         businessId: 'business_1',
-      });
+      }
+    );
     const capabilityRecommendation = visibleRecommendation(
       capabilityResponse,
       'subscription.action_required'
@@ -1138,15 +1115,13 @@ describe('recommendation guide status and acknowledgement handlers', () => {
       entitlementCtx,
       createRecommendation
     );
-    entitlementCtx.data.campaigns.push(
-      managementCampaign('campaign_limit')
-    );
+    entitlementCtx.data.referralConfigs[0].isEnabled = true;
     expect(
       await getBusinessRecommendationGuideStatus._handler(
         entitlementCtx,
         entitlementArgs
       )
-    ).toMatchObject({ state: 'restricted' });
+    ).toMatchObject({ state: 'active', reasonCode: 'ACTIONABLE' });
     await expect(
       acknowledgeBusinessRecommendationGuideStatus._handler(
         entitlementCtx,
@@ -1161,18 +1136,14 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     const originalViewUsageQuota = managerCapabilities.view_usage_quota;
     try {
       const managerCtx = ctx('manager_1');
-      const response = await getBusinessRecommendations._handler(
-        managerCtx,
-        { businessId: 'business_1' }
-      );
+      const response = await getBusinessRecommendations._handler(managerCtx, {
+        businessId: 'business_1',
+      });
       const recommendation = visibleRecommendation(
         response,
         'campaign.create_first'
       );
-      const { args } = await issueGuideSession(
-        managerCtx,
-        recommendation
-      );
+      const { args } = await issueGuideSession(managerCtx, recommendation);
 
       managerCapabilities.view_usage_quota = false;
       const facts = await loadBusinessRecommendationFacts(
@@ -1189,10 +1160,7 @@ describe('recommendation guide status and acknowledgement handlers', () => {
       });
       expect(facts.facts.campaignQuota).not.toHaveProperty('value');
       expect(
-        await getBusinessRecommendationGuideStatus._handler(
-          managerCtx,
-          args
-        )
+        await getBusinessRecommendationGuideStatus._handler(managerCtx, args)
       ).toMatchObject({ state: 'active', reasonCode: 'ACTIONABLE' });
     } finally {
       managerCapabilities.view_usage_quota = originalViewUsageQuota;
@@ -1204,25 +1172,18 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     const originalCreateCampaigns = managerCapabilities.create_campaigns;
     try {
       const managerCtx = ctx('manager_1');
-      const response = await getBusinessRecommendations._handler(
-        managerCtx,
-        { businessId: 'business_1' }
-      );
+      const response = await getBusinessRecommendations._handler(managerCtx, {
+        businessId: 'business_1',
+      });
       const recommendation = visibleRecommendation(
         response,
         'campaign.create_first'
       );
-      const { args } = await issueGuideSession(
-        managerCtx,
-        recommendation
-      );
+      const { args } = await issueGuideSession(managerCtx, recommendation);
 
       managerCapabilities.create_campaigns = false;
       expect(
-        await getBusinessRecommendationGuideStatus._handler(
-          managerCtx,
-          args
-        )
+        await getBusinessRecommendationGuideStatus._handler(managerCtx, args)
       ).toMatchObject({ state: 'restricted' });
     } finally {
       managerCapabilities.create_campaigns = originalCreateCampaigns;
@@ -1247,25 +1208,16 @@ describe('recommendation guide status and acknowledgement handlers', () => {
     ).toMatchObject({ state: 'completed' });
     ownerCtx.data.businesses[0].placeId = undefined;
     await expect(
-      acknowledgeBusinessRecommendationGuideStatus._handler(
-        ownerCtx,
-        args
-      )
+      acknowledgeBusinessRecommendationGuideStatus._handler(ownerCtx, args)
     ).rejects.toThrow();
 
     ownerCtx.data.businesses[0].placeId = 'place_business_1';
-    await acknowledgeBusinessRecommendationGuideStatus._handler(
-      ownerCtx,
-      args
-    );
-    await acknowledgeBusinessRecommendationGuideStatus._handler(
-      ownerCtx,
-      args
-    );
+    await acknowledgeBusinessRecommendationGuideStatus._handler(ownerCtx, args);
+    await acknowledgeBusinessRecommendationGuideStatus._handler(ownerCtx, args);
     expect(ownerCtx.data.recommendationInteractions).toHaveLength(1);
-    expect(
-      ownerCtx.data.recommendationInteractions[0].interactionState
-    ).toBe('completed');
+    expect(ownerCtx.data.recommendationInteractions[0].interactionState).toBe(
+      'completed'
+    );
     expect(
       ownerCtx.data.recommendationInteractions[0].evidenceFingerprint
     ).toBe(args.evidenceFingerprint);
@@ -1300,10 +1252,7 @@ describe('recommendation guide status and acknowledgement handlers', () => {
       state: 'completed',
       reasonCode: 'EVIDENCE_CHANGED',
     });
-    await acknowledgeBusinessRecommendationGuideStatus._handler(
-      ownerCtx,
-      args
-    );
+    await acknowledgeBusinessRecommendationGuideStatus._handler(ownerCtx, args);
     expect(ownerCtx.data.recommendationInteractions[0]).toMatchObject({
       interactionState: 'completed',
       evidenceFingerprint: args.evidenceFingerprint,

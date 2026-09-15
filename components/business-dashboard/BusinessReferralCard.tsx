@@ -332,6 +332,8 @@ const styles = StyleSheet.create({
   primaryButtonSurface: {
     minHeight: 44,
     borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#123EA8',
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -344,7 +346,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   primaryButtonSurfaceDisabled: {
-    backgroundColor: '#93C5FD',
+    backgroundColor: '#64748B',
+    borderColor: '#475569',
   },
   primaryButtonContent: {
     flexDirection: flexDirection.row,

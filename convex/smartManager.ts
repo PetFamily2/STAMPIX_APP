@@ -9,8 +9,7 @@ import {
 } from './_generated/server';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
-  countsTowardCampaignDefinitions,
-  countsTowardReferralCampaignQuota,
+  campaignConsumesQuota,
 } from './entitlements';
 import {
   type BusinessRecommendation,
@@ -120,11 +119,7 @@ async function recoverExpiredEvaluationLease(
   await scheduleSmartManagerEvaluation(ctx, state.businessId);
 }
 
-async function requeueNewerGeneration(
-  ctx: any,
-  state: any,
-  now: number
-) {
+async function requeueNewerGeneration(ctx: any, state: any, now: number) {
   await ctx.db.patch(state._id, {
     nextEvaluationAt: now,
     evaluationScheduledAt: now,
@@ -143,9 +138,11 @@ async function requeueNewerGeneration(
 }
 
 const internalSmartManagerApi = {
-  ensurePolicyV1Internal: makeFunctionReference<'mutation', Record<string, never>, any>(
-    'smartManager:ensurePolicyV1Internal'
-  ),
+  ensurePolicyV1Internal: makeFunctionReference<
+    'mutation',
+    Record<string, never>,
+    any
+  >('smartManager:ensurePolicyV1Internal'),
   claimEvaluationInternal: makeFunctionReference<
     'mutation',
     { businessId: Id<'businesses'>; leaseToken: string },
@@ -202,10 +199,7 @@ const purgeExpiredAuditEventsRef = makeFunctionReference<
   any
 >('smartManager:purgeExpiredAuditEventsInternal');
 
-function nextPolicyRefreshAt(
-  policy: ActiveSmartManagerPolicy,
-  now: number
-) {
+function nextPolicyRefreshAt(policy: ActiveSmartManagerPolicy, now: number) {
   return now + policy.config.evaluationRefreshHours * 60 * 60 * 1000;
 }
 
@@ -364,11 +358,12 @@ function summarizeRecommendation(
   recommendation: BusinessRecommendation,
   input: RecommendationCatalogInput
 ) {
-  const entityType = recommendation.action.type === 'open_program'
-    ? 'program'
-    : recommendation.action.type === 'open_campaign'
-      ? 'campaign'
-      : null;
+  const entityType =
+    recommendation.action.type === 'open_program'
+      ? 'program'
+      : recommendation.action.type === 'open_campaign'
+        ? 'campaign'
+        : null;
   return {
     stableId: recommendation.stableId,
     category: recommendation.category,
@@ -417,7 +412,9 @@ export function compareSmartManagerShadowSummaries(
   ) {
     differences.push('recommendation_order');
   }
-  for (const stableId of [...new Set([...canonicalById.keys(), ...liveById.keys()])].sort()) {
+  for (const stableId of [
+    ...new Set([...canonicalById.keys(), ...liveById.keys()]),
+  ].sort()) {
     const canonicalItem = canonicalById.get(stableId);
     const liveItem = liveById.get(stableId);
     if (!canonicalItem || !liveItem) {
@@ -549,9 +546,7 @@ export function expandSmartManagerRefreshDomains(
   hasCompatiblePriorSnapshot: boolean
 ) {
   const refresh = new Set<SmartManagerDirtyDomain>(
-    hasCompatiblePriorSnapshot
-      ? dirtyDomains
-      : ALL_SMART_MANAGER_DIRTY_DOMAINS
+    hasCompatiblePriorSnapshot ? dirtyDomains : ALL_SMART_MANAGER_DIRTY_DOMAINS
   );
   if (refresh.has('business') || refresh.has('profile')) {
     refresh.add('business');
@@ -576,26 +571,32 @@ export function expandSmartManagerRefreshDomains(
   return refresh;
 }
 
-export function selectDeterministicSmartManagerSingleton<T extends {
-  _id: unknown;
-  _creationTime?: number;
-}>(rows: T[]): T | null {
-  return [...rows].sort(
-    (left, right) =>
-      Number(left._creationTime ?? 0) - Number(right._creationTime ?? 0) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+export function selectDeterministicSmartManagerSingleton<
+  T extends {
+    _id: unknown;
+    _creationTime?: number;
+  },
+>(rows: T[]): T | null {
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(left._creationTime ?? 0) - Number(right._creationTime ?? 0) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 function selectFreshestSmartManagerBusinessSingleton(rows: any[]) {
-  return [...rows].sort(
-    (left, right) =>
-      Number(right.sourceGeneration ?? 0) -
-        Number(left.sourceGeneration ?? 0) ||
-      Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
-      Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(right.sourceGeneration ?? 0) -
+          Number(left.sourceGeneration ?? 0) ||
+        Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
+        Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 async function loadAndReconcileEvaluationState(
@@ -624,15 +625,13 @@ async function loadAndReconcileEvaluationState(
       ...duplicates.map((row: any) => Number(row.dirtyAt ?? canonical.dirtyAt))
     ),
     dirtyDomains: [
-      ...new Set(
-        rows.flatMap((row: any) => row.dirtyDomains ?? [])
-      ),
+      ...new Set(rows.flatMap((row: any) => row.dirtyDomains ?? [])),
     ].sort(),
     dirtyReasons: [
-      ...new Set(
-        rows.flatMap((row: any) => row.dirtyReasons ?? [])
-      ),
-    ].sort().slice(-20),
+      ...new Set(rows.flatMap((row: any) => row.dirtyReasons ?? [])),
+    ]
+      .sort()
+      .slice(-20),
     generation: mergedGeneration,
     nextEvaluationAt: Math.min(
       ...rows.map((row: any) => Number(row.nextEvaluationAt))
@@ -693,7 +692,9 @@ async function loadBoundedSourceRows(
 ): Promise<BoundedSourceRows> {
   const limit = SMART_MANAGER_SOURCE_LIMITS[sourceName];
   if (
-    budget.consumed + limit + 1 +
+    budget.consumed +
+      limit +
+      1 +
       SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE >
     SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET
   ) {
@@ -779,17 +780,18 @@ async function loadSmartManagerSourceBundle(
         budget
       )
     : skippedSource();
-  const campaigns = refreshCampaigns || refreshEntitlements
-    ? await loadBoundedSourceRows(
-        ctx.db
-          .query('campaigns')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', args.businessId)
-          ),
-        'campaigns',
-        budget
-      )
-    : skippedSource();
+  const campaigns =
+    refreshCampaigns || refreshEntitlements
+      ? await loadBoundedSourceRows(
+          ctx.db
+            .query('campaigns')
+            .withIndex('by_businessId', (q: any) =>
+              q.eq('businessId', args.businessId)
+            ),
+          'campaigns',
+          budget
+        )
+      : skippedSource();
   const campaignRuns = refreshCampaigns
     ? await loadBoundedSourceRows(
         ctx.db
@@ -846,8 +848,13 @@ async function loadSmartManagerSourceBundle(
         args.observedAt,
         {
           activeCampaigns:
-            campaigns.rows!.filter(countsTowardCampaignDefinitions).length +
-            (countsTowardReferralCampaignQuota(referralConfigs.rows![0])
+            campaigns.rows!.filter((campaign) =>
+              campaignConsumesQuota({ kind: 'management', campaign })
+            ).length +
+            (campaignConsumesQuota({
+              kind: 'customer_referral',
+              config: referralConfigs.rows![0],
+            })
               ? 1
               : 0),
         }
@@ -874,7 +881,7 @@ async function loadSmartManagerSourceBundle(
     staffRows,
     pendingInvites,
     referralConfigs,
-  ].flatMap((source) => source.reasonCode ? [source.reasonCode] : []);
+  ].flatMap((source) => (source.reasonCode ? [source.reasonCode] : []));
 
   const sourceBundle: BusinessRecommendationFactSourceBundle = {
     business: args.business,
@@ -996,7 +1003,10 @@ function applySmartManagerSourceAvailabilityToFacts(
   };
 }
 
-function isCompatiblePriorFactSnapshot(snapshot: any, businessId: Id<'businesses'>) {
+function isCompatiblePriorFactSnapshot(
+  snapshot: any,
+  businessId: Id<'businesses'>
+) {
   return (
     snapshot?.facts?.schemaVersion === 1 &&
     String(snapshot?.facts?.businessId) === String(businessId) &&
@@ -1032,9 +1042,8 @@ export const loadEvaluationInternal = internalQuery({
         .take(SMART_MANAGER_SINGLETON_RECONCILIATION_LIMIT),
     ]);
     const state = selectDeterministicSmartManagerSingleton(stateRows);
-    const priorSnapshot = selectFreshestSmartManagerBusinessSingleton(
-      snapshotRows
-    );
+    const priorSnapshot =
+      selectFreshestSmartManagerBusinessSingleton(snapshotRows);
     const hasCompatiblePriorSnapshot = isCompatiblePriorFactSnapshot(
       priorSnapshot,
       args.businessId
@@ -1055,7 +1064,8 @@ export const loadEvaluationInternal = internalQuery({
       observedAt,
     });
     const programSourceAvailable =
-      !refreshDomains.has('programs') || boundedSources.sources.programs.rows !== null;
+      !refreshDomains.has('programs') ||
+      boundedSources.sources.programs.rows !== null;
     const customerSourceAvailable =
       !refreshDomains.has('memberships') ||
       boundedSources.sources.memberships.rows !== null;
@@ -1107,10 +1117,8 @@ export const loadEvaluationInternal = internalQuery({
       boundedSources.sources[source].reasonCode;
     const lifecycleReason =
       reasonFor('programs') ?? reasonFor('memberships') ?? reasonFor('events');
-    const campaignReason =
-      reasonFor('campaigns') ?? reasonFor('campaignRuns');
-    const teamReason =
-      reasonFor('staffRows') ?? reasonFor('pendingInvites');
+    const campaignReason = reasonFor('campaigns') ?? reasonFor('campaignRuns');
+    const teamReason = reasonFor('staffRows') ?? reasonFor('pendingInvites');
     const entitlementReason =
       reasonFor('campaigns') ?? reasonFor('referralConfigs');
     const authorization = {
@@ -1176,11 +1184,16 @@ export const loadEvaluationInternal = internalQuery({
       ...liveFacts,
       businessId: String(args.businessId),
     };
-    const canonicalCatalog = buildBusinessRecommendationCatalog(canonicalInput, {
-      includeAllEligible: true,
-    });
-    const canonicalRecommendations = catalogRecommendations(canonicalCatalog).map(
-      (recommendation) => summarizeRecommendation(recommendation, canonicalInput)
+    const canonicalCatalog = buildBusinessRecommendationCatalog(
+      canonicalInput,
+      {
+        includeAllEligible: true,
+      }
+    );
+    const canonicalRecommendations = catalogRecommendations(
+      canonicalCatalog
+    ).map((recommendation) =>
+      summarizeRecommendation(recommendation, canonicalInput)
     );
     const canonicalFactSummary = summarizeRepresentativeFacts(canonicalFacts);
     const liveCatalog = buildBusinessRecommendationCatalog(liveInput, {
@@ -1203,22 +1216,34 @@ export const loadEvaluationInternal = internalQuery({
     differences = differences.slice(0, 50);
     const availability = {
       customerFacts: refreshDomains.has('memberships')
-        ? customerSourceAvailable ? 'known' as const : 'unknown' as const
+        ? customerSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.customerFacts,
       customerLifecycleFacts: refreshDomains.has('events')
-        ? customerLifecycleSourceAvailable ? 'known' as const : 'unknown' as const
+        ? customerLifecycleSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.customerLifecycleFacts,
       campaignFacts: refreshDomains.has('campaigns')
-        ? campaignSourceAvailable ? 'known' as const : 'unknown' as const
+        ? campaignSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.campaignFacts,
       programFacts: refreshDomains.has('programs')
-        ? programSourceAvailable ? 'known' as const : 'unknown' as const
+        ? programSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.programFacts,
       teamFacts: refreshDomains.has('team')
-        ? teamSourceAvailable ? 'known' as const : 'unknown' as const
+        ? teamSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.teamFacts,
       entitlementFacts: refreshDomains.has('entitlements')
-        ? entitlementSourceAvailable ? 'known' as const : 'unknown' as const
+        ? entitlementSourceAvailable
+          ? ('known' as const)
+          : ('unknown' as const)
         : priorCapabilityAvailability!.entitlementFacts,
     };
     const hasUnknownSource = Object.values(availability).some(
@@ -1356,9 +1381,7 @@ async function deactivateStaleDecisionPage(
   const activeStableIds = new Set(args.activeStableIds);
   const page = await ctx.db
     .query('smartManagerDecisions')
-    .withIndex('by_businessId', (q: any) =>
-      q.eq('businessId', args.businessId)
-    )
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
     .paginate({
       cursor: args.cursor,
       numItems: SMART_MANAGER_DECISION_DEACTIVATION_PAGE_SIZE,
@@ -1714,27 +1737,28 @@ export const completeEvaluationInternal = internalMutation({
       'smartManagerShadowComparisons',
       args.businessId
     );
-    const factChanged = !factSnapshot || factSnapshot.factHash !== evaluation.factHash;
+    const factChanged =
+      !factSnapshot || factSnapshot.factHash !== evaluation.factHash;
     const comparisonChanged =
       !comparison || comparison.comparisonHash !== evaluation.comparisonHash;
     const paritySemanticsChanged = Boolean(
       comparison &&
-      hashSmartManagerValue(
-        stripVolatileFactMetadata({
-          status: comparison.status,
-          differences: comparison.differences,
-          canonical: comparison.canonicalSummary?.recommendations,
-          live: comparison.liveSummary?.recommendations,
-        })
-      ) !==
         hashSmartManagerValue(
           stripVolatileFactMetadata({
-            status: evaluation.status,
-            differences: evaluation.differences,
-            canonical: evaluation.canonicalSummary.recommendations,
-            live: evaluation.liveSummary.recommendations,
+            status: comparison.status,
+            differences: comparison.differences,
+            canonical: comparison.canonicalSummary?.recommendations,
+            live: comparison.liveSummary?.recommendations,
           })
-        )
+        ) !==
+          hashSmartManagerValue(
+            stripVolatileFactMetadata({
+              status: evaluation.status,
+              differences: evaluation.differences,
+              canonical: evaluation.canonicalSummary.recommendations,
+              live: evaluation.liveSummary.recommendations,
+            })
+          )
     );
 
     const factSnapshotValues = {
@@ -1792,10 +1816,9 @@ export const completeEvaluationInternal = internalMutation({
     if (factChanged || comparisonChanged) {
       await ctx.db.insert('smartManagerAuditEvents', {
         businessId: args.businessId,
-        eventType:
-          paritySemanticsChanged
-            ? 'parity_changed'
-            : 'evaluation_succeeded',
+        eventType: paritySemanticsChanged
+          ? 'parity_changed'
+          : 'evaluation_succeeded',
         sourceGeneration: args.generation,
         factHash: evaluation.factHash,
         policyVersion: evaluation.policy.version,
@@ -1876,8 +1899,7 @@ export const failEvaluationInternal = internalMutation({
     const nextAttempt = Number(currentAttemptCount) + 1;
     const businessInactive = args.failureDetail === 'BUSINESS_INACTIVE';
     const canRetry =
-      !businessInactive &&
-      nextAttempt < policy.config.delivery.maximumAttempts;
+      !businessInactive && nextAttempt < policy.config.delivery.maximumAttempts;
     const backoffMinutes =
       policy.config.delivery.retryBackoffMinutes[
         Math.min(
@@ -1959,13 +1981,16 @@ export const evaluateDirtyBusinessInternal = internalAction({
     } catch (error) {
       const failureDetail =
         error instanceof Error ? error.message : 'UNKNOWN_EVALUATION_FAILURE';
-      return await ctx.runMutation(internalSmartManagerApi.failEvaluationInternal, {
-        businessId: args.businessId,
-        generation: claim.generation,
-        leaseToken,
-        failureCode: 'SMART_MANAGER_EVALUATION_FAILED',
-        failureDetail,
-      });
+      return await ctx.runMutation(
+        internalSmartManagerApi.failEvaluationInternal,
+        {
+          businessId: args.businessId,
+          generation: claim.generation,
+          leaseToken,
+          failureCode: 'SMART_MANAGER_EVALUATION_FAILED',
+          failureDetail,
+        }
+      );
     }
   },
 });
@@ -2035,9 +2060,7 @@ export const reconcileDueEvaluationsInternal = internalMutation({
         leasePolicyVersion: undefined,
         leasePolicyHash: undefined,
         attemptCount: isTimeRefresh ? 0 : state.attemptCount,
-        attemptGeneration: isTimeRefresh
-          ? generation
-          : state.attemptGeneration,
+        attemptGeneration: isTimeRefresh ? generation : state.attemptGeneration,
         updatedAt: now,
       });
       await scheduleSmartManagerEvaluation(ctx, state.businessId);

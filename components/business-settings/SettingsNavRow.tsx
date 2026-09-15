@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: SETTINGS_TOKENS.rowMinHeight,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: SETTINGS_TOKENS.border,
@@ -147,6 +147,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   inner: {
+    width: '100%',
+    minWidth: 0,
     minHeight: SETTINGS_TOKENS.touchTarget,
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -161,6 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: SETTINGS_TOKENS.accentSoft,
+    flexShrink: 0,
   },
   iconShellDestructive: {
     backgroundColor: SETTINGS_TOKENS.destructiveSoft,
@@ -173,6 +176,7 @@ const styles = StyleSheet.create({
   },
   title: {
     width: '100%',
+    flexShrink: 1,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '600',
@@ -185,6 +189,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     width: '100%',
+    flexShrink: 1,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '400',
@@ -194,6 +199,7 @@ const styles = StyleSheet.create({
   },
   value: {
     width: '100%',
+    flexShrink: 1,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
@@ -210,6 +216,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   pressed: {
     opacity: 0.86,

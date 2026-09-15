@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 
 import {
   archiveProgram,
-  countNonArchivedPrograms,
+  countActivePrograms,
+  createLoyaltyProgram,
   hasLoyaltyThemeConflict,
   publishProgram,
   unarchiveProgram,
@@ -250,6 +251,56 @@ function usageCounter(state) {
 }
 
 describe('archive and reactivation lifecycle', () => {
+  test('draft creation remains available at the active-card quota', async () => {
+    const { ctx, state } = createMockCtx({
+      loyaltyPrograms: [buildProgram()],
+    });
+
+    const result = await createLoyaltyProgram._handler(ctx, {
+      businessId: 'business_1',
+      title: 'Draft at quota',
+      rewardName: 'Draft reward',
+      maxStamps: 10,
+      stampIcon: 'star',
+      stampShape: 'circle',
+      cardThemeId: 'midnight-luxe',
+    });
+
+    expect(state.loyaltyPrograms.get(result.loyaltyProgramId).status).toBe(
+      'draft'
+    );
+    expect(
+      countActivePrograms(Array.from(state.loyaltyPrograms.values()))
+    ).toBe(1);
+  });
+
+  test('publishing a draft is blocked when the active-card quota is full', async () => {
+    const { ctx, state } = createMockCtx({
+      loyaltyPrograms: [
+        buildProgram(),
+        buildProgram({
+          _id: 'program_draft',
+          status: 'draft',
+          publishedAt: undefined,
+          cardThemeId: 'sunset-pop',
+        }),
+      ],
+    });
+
+    const error = await getErrorData(() =>
+      publishProgram._handler(ctx, {
+        businessId: 'business_1',
+        programId: 'program_draft',
+      })
+    );
+    expect(error).toMatchObject({
+      code: 'PLAN_LIMIT_REACHED',
+      limitKey: 'maxCards',
+      limitValue: 1,
+    });
+    expect(state.loyaltyPrograms.get('program_draft').status).toBe('draft');
+  });
+
   test('archived card releases maxCards slot and theme', async () => {
     const { ctx, state } = createMockCtx({
       loyaltyPrograms: [buildProgram()],
@@ -263,9 +314,9 @@ describe('archive and reactivation lifecycle', () => {
     const archived = state.loyaltyPrograms.get('program_1');
     expect(archived.status).toBe('archived');
     expect(archived.isArchived).toBe(true);
-    expect(countNonArchivedPrograms(Array.from(state.loyaltyPrograms.values()))).toBe(
-      0
-    );
+    expect(
+      countActivePrograms(Array.from(state.loyaltyPrograms.values()))
+    ).toBe(0);
     expect(
       hasLoyaltyThemeConflict(
         Array.from(state.loyaltyPrograms.values()),
@@ -348,7 +399,9 @@ describe('archive and reactivation lifecycle', () => {
   test('reactivation is denied when another non-archived card owns the theme', async () => {
     const { ctx, state } = createMockCtx({
       businesses: [buildBusiness({ subscriptionPlan: 'pro' })],
-      businessBillingAccounts: [buildBillingAccount({ plan: 'pro', lastPlan: 'pro' })],
+      businessBillingAccounts: [
+        buildBillingAccount({ plan: 'pro', lastPlan: 'pro' }),
+      ],
       loyaltyPrograms: [
         buildProgram({
           _id: 'program_live',
@@ -377,7 +430,7 @@ describe('archive and reactivation lifecycle', () => {
     );
   });
 
-  test('draft and active reserve theme while archived does not', () => {
+  test('only active programs reserve a theme and consume quota', () => {
     const draft = buildProgram({ _id: 'draft', status: 'draft' });
     const active = buildProgram({ _id: 'active', status: 'active' });
     const archived = buildProgram({
@@ -388,20 +441,22 @@ describe('archive and reactivation lifecycle', () => {
 
     expect(
       hasLoyaltyThemeConflict([draft], 'business_1', 'midnight-luxe')
-    ).toBe(true);
+    ).toBe(false);
     expect(
       hasLoyaltyThemeConflict([active], 'business_1', 'midnight-luxe')
     ).toBe(true);
     expect(
       hasLoyaltyThemeConflict([archived], 'business_1', 'midnight-luxe')
     ).toBe(false);
-    expect(countNonArchivedPrograms([draft, active, archived])).toBe(2);
+    expect(countActivePrograms([draft, active, archived])).toBe(1);
   });
 
   test('concurrent reactivation cannot produce duplicate theme ownership', async () => {
     const { ctx, state } = createMockCtx({
       businesses: [buildBusiness({ subscriptionPlan: 'pro' })],
-      businessBillingAccounts: [buildBillingAccount({ plan: 'pro', lastPlan: 'pro' })],
+      businessBillingAccounts: [
+        buildBillingAccount({ plan: 'pro', lastPlan: 'pro' }),
+      ],
       loyaltyPrograms: [
         buildProgram({
           _id: 'program_a',
@@ -430,9 +485,9 @@ describe('archive and reactivation lifecycle', () => {
     ).rejects.toThrow('LOYALTY_THEME_CONFLICT');
 
     const programs = Array.from(state.loyaltyPrograms.values());
-    expect(programs.filter((program) => program.status === 'active')).toHaveLength(
-      1
-    );
+    expect(
+      programs.filter((program) => program.status === 'active')
+    ).toHaveLength(1);
     expect(state.loyaltyPrograms.get('program_a').status).toBe('active');
     expect(state.loyaltyPrograms.get('program_b').status).toBe('archived');
 
@@ -539,7 +594,7 @@ describe('archive and reactivation lifecycle', () => {
     expect(state.loyaltyPrograms.get('program_1').status).toBe('archived');
   });
 
-  test('publish and update are not reactivation paths', async () => {
+  test('publishing cannot reactivate, while archived content remains editable', async () => {
     const { ctx, state } = createMockCtx({
       loyaltyPrograms: [
         buildProgram({
@@ -555,22 +610,20 @@ describe('archive and reactivation lifecycle', () => {
         programId: 'program_1',
       })
     ).rejects.toThrow('PROGRAM_PUBLISH_REQUIRES_DRAFT');
-    await expect(
-      updateProgramForManagement._handler(ctx, {
-        businessId: 'business_1',
-        programId: 'program_1',
-        title: 'Hijack',
-        rewardName: 'Changed',
-        maxStamps: 8,
-        stampIcon: 'coffee',
-        cardThemeId: 'sunset-pop',
-      })
-    ).rejects.toThrow('PROGRAM_ARCHIVED_READONLY');
+    await updateProgramForManagement._handler(ctx, {
+      businessId: 'business_1',
+      programId: 'program_1',
+      title: 'Edited archive',
+      rewardName: 'Changed',
+      maxStamps: 8,
+      stampIcon: 'coffee',
+      cardThemeId: 'sunset-pop',
+    });
     expect(state.loyaltyPrograms.get('program_1')).toMatchObject({
       status: 'archived',
-      title: 'First card',
-      cardThemeId: 'midnight-luxe',
-      rewardName: 'Free reward',
+      title: 'Edited archive',
+      cardThemeId: 'sunset-pop',
+      rewardName: 'Changed',
     });
   });
 });

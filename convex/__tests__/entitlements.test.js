@@ -525,7 +525,7 @@ describe('business entitlements', () => {
     expect(campaignError?.code).toBe('PLAN_LIMIT_REACHED');
     expect(campaignError?.limitKey).toBe('maxCampaigns');
     expect(campaignError?.limitValue).toBe(1);
-    expect(campaignError?.currentValue).toBe(2);
+    expect(campaignError?.currentValue).toBe(1);
     expect(campaignError?.requiredPlan).toBe('pro');
     expect(state.referralConfigs[0].isEnabled).toBe(false);
   });

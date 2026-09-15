@@ -15,7 +15,10 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { BusinessSettingsSubpageHeader } from '@/components/business-settings';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
@@ -140,6 +143,7 @@ function resolveTeamSeatUsageChip(args: {
 }
 
 export default function BusinessSettingsSubscriptionScreen() {
+  const contentWidth = useSettingsContentWidth();
   const subscriptionRecoveryTargetRef = useGuidedTargetRef();
   const quotaTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
@@ -205,10 +209,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   );
 
   const currentPlan = entitlements?.plan ?? 'starter';
-  const cardsStatus = limitStatus(
-    'maxCards',
-    usageSummary?.cardsUsed ?? entitlements?.limits.maxCards ?? 0
-  );
+  const cardsStatus = limitStatus('maxCards', usageSummary?.cardsUsed ?? 0);
   const customersStatus = limitStatus(
     'maxCustomers',
     usageSummary?.customersUsed ?? 0
@@ -539,6 +540,7 @@ export default function BusinessSettingsSubscriptionScreen() {
           styles.content,
           {
             paddingBottom: Math.max(insets.bottom, 12) + 24,
+            width: contentWidth,
           },
         ]}
       >
@@ -546,6 +548,20 @@ export default function BusinessSettingsSubscriptionScreen() {
           title="מסלול וחיוב"
           fallbackHref={BUSINESS_ROUTES.settings}
         />
+
+        <View style={styles.currentPlanCard}>
+          <View style={styles.currentPlanCopy}>
+            <Text style={styles.currentPlanEyebrow}>המסלול הנוכחי</Text>
+            <Text style={styles.currentPlanName}>
+              {PLAN_LABELS[currentPlan]}
+            </Text>
+            <Text style={styles.currentPlanStatus}>{currentStatusLabel}</Text>
+          </View>
+          <Text style={styles.currentPlanHint}>
+            המכסות והשימוש בפועל מופיעים כאן, ופירוט כל מה שכלול במסלול מופיע
+            בהמשך.
+          </Text>
+        </View>
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
@@ -578,43 +594,26 @@ export default function BusinessSettingsSubscriptionScreen() {
           ))}
         </View>
 
-        {capabilities?.manage_subscription === true ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="ניהול המנוי"
-            onPress={() => {
-              void handleManageSubscription();
-            }}
-            style={({ pressed }) => [
-              styles.subscriptionRecoveryButton,
-              pressed ? styles.secondaryButtonPressed : null,
-              { alignSelf: 'stretch', marginTop: 12 },
-            ]}
-          >
-            <Text style={styles.subscriptionRecoveryButtonText}>
-              ניהול המנוי
+        <View
+          ref={
+            subscriptionGuideTarget?.action === 'restore_purchases'
+              ? subscriptionRecoveryTargetRef
+              : undefined
+          }
+          collapsable={false}
+          style={styles.subscriptionRecoveryRow}
+        >
+          <View style={styles.subscriptionRecoveryCopy}>
+            <Text style={styles.subscriptionRecoveryTitle}>
+              רכישות ומנוי בחנות
             </Text>
-          </Pressable>
-        ) : null}
-
-        {showSubscriptionRecoveryAction ? (
-          <View
-            ref={
-              subscriptionGuideTarget?.action === 'restore_purchases'
-                ? subscriptionRecoveryTargetRef
-                : undefined
-            }
-            collapsable={false}
-            style={styles.subscriptionRecoveryRow}
-          >
-            <View style={styles.subscriptionRecoveryCopy}>
-              <Text style={styles.subscriptionRecoveryTitle}>
-                סטטוס מנוי: {currentStatusLabel}
-              </Text>
-              <Text style={styles.subscriptionRecoveryDescription}>
-                אפשר לנסות לשחזר את הרכישה הקיימת.
-              </Text>
-            </View>
+            <Text style={styles.subscriptionRecoveryDescription}>
+              {showSubscriptionRecoveryAction
+                ? `סטטוס מנוי: ${currentStatusLabel}. אפשר לשחזר את הרכישה הקיימת.`
+                : 'אפשר לשחזר רכישות קודמות או לפתוח את ניהול המנוי בחנות.'}
+            </Text>
+          </View>
+          <View style={styles.subscriptionActionButtons}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="שחזור רכישות למנוי הנוכחי"
@@ -652,7 +651,7 @@ export default function BusinessSettingsSubscriptionScreen() {
               </Text>
             </Pressable>
           </View>
-        ) : null}
+        </View>
 
         {usageWarnings.length > 0 ? (
           <View style={styles.warningStrip}>
@@ -723,11 +722,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0FF',
   },
   content: {
-    paddingHorizontal: 20,
     paddingBottom: 0,
     gap: 10,
-    width: '100%',
-    maxWidth: 760,
     alignSelf: 'center',
   },
   stickyHeader: {
@@ -766,6 +762,48 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: 8,
+  },
+  currentPlanCard: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  currentPlanCopy: {
+    alignItems: alignItems.start,
+    gap: 2,
+  },
+  currentPlanEyebrow: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+    textAlign: TEXT_START,
+  },
+  currentPlanName: {
+    color: '#1D4ED8',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '900',
+    textAlign: TEXT_START,
+  },
+  currentPlanStatus: {
+    color: '#334155',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: TEXT_START,
+  },
+  currentPlanHint: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 19,
+    fontWeight: '600',
+    textAlign: TEXT_START,
   },
   usageChip: {
     width: '31%',
@@ -807,15 +845,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
     gap: 12,
   },
   subscriptionRecoveryCopy: {
     flex: 1,
     alignItems: alignItems.start,
     gap: 3,
+  },
+  subscriptionActionButtons: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   subscriptionRecoveryTitle: {
     color: '#0F172A',
@@ -832,6 +873,7 @@ const styles = StyleSheet.create({
   subscriptionRecoveryButton: {
     minHeight: 48,
     minWidth: 112,
+    flexGrow: 1,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#93C5FD',
