@@ -11,4 +11,5 @@ export const BUSINESS_ROUTES = {
   subscription: '/(authenticated)/(business)/settings-business-subscription',
   inviteBusinesses:
     '/(authenticated)/(business)/settings-business-invite-businesses',
+  help: '/(authenticated)/(business)/settings-business-help',
 } as const;

@@ -26,6 +26,7 @@ import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
 import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import {
   EditorPreviewSurface,
+  EditorSection,
   EditorStickyFooter,
   ManagementPageHeader,
 } from '@/components/management';
@@ -117,6 +118,10 @@ const TEXT = {
   sectionStampShape: 'בחירת צורה לחותמת',
   sectionTheme: 'בחירת רקע',
   iconInput: 'אייקון לחותמת',
+  groupBasic: 'פרטים בסיסיים',
+  groupDesign: 'עיצוב',
+  groupRewardRules: 'כללי הטבה',
+  groupAdvanced: 'הגדרות מתקדמות',
   save: 'שמור שינויים',
   publish: 'פרסם כרטיסיה',
   archive: 'העבר לארכיון',
@@ -244,6 +249,7 @@ export default function ProgramDetailsScreen() {
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(96);
 
   const formSignature = JSON.stringify({
     title: title.trim(),
@@ -847,7 +853,7 @@ export default function ProgramDetailsScreen() {
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: (insets.bottom || 0) + 220,
+            paddingBottom: (insets.bottom || 0) + footerHeight + 24,
             width: '100%',
             maxWidth: 960,
             alignSelf: 'center',
@@ -901,13 +907,8 @@ export default function ProgramDetailsScreen() {
           </View>
 
           {details !== undefined ? (
-            <View className="mt-2 gap-3">
-              <View className="rounded-3xl border border-[#E3E9FF] bg-white p-5 gap-4">
-                <Text
-                  className={`text-lg font-black text-[#0F172A] ${tw.textStart}`}
-                >
-                  תוכן הכרטיסייה
-                </Text>
+            <View className="mt-2 gap-4">
+              <EditorSection title={TEXT.groupBasic}>
                 <View className="gap-2">
                   <Text
                     className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
@@ -923,66 +924,10 @@ export default function ProgramDetailsScreen() {
                     className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                   />
                 </View>
+              </EditorSection>
 
+              <EditorSection title={TEXT.groupDesign}>
                 <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionReward}
-                  </Text>
-                  <TextInput
-                    value={rewardName}
-                    onChangeText={setRewardName}
-                    editable={canEditRuleFields}
-                    placeholder="שם ההטבה"
-                    placeholderTextColor="#94A3B8"
-                    className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                      canEditRuleFields
-                        ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                        : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                    }`}
-                  />
-                </View>
-
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionMaxStamps}
-                  </Text>
-                  <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
-                    {TEXT.sectionMaxStampsHint}
-                  </Text>
-                  <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                    {MAX_STAMP_OPTIONS.map((option) => {
-                      const selected = parsedMaxStamps === option;
-                      return (
-                        <TouchableOpacity
-                          key={String(option)}
-                          disabled={!canEditRuleFields}
-                          onPress={() => setMaxStamps(String(option))}
-                          className={`rounded-full border px-3 py-2 ${
-                            selected
-                              ? 'border-[#2F6BFF] bg-[#EAF1FF]'
-                              : 'border-[#DCE6F7] bg-[#F8FAFF]'
-                          }`}
-                        >
-                          <Text className="text-xs font-bold text-[#1A2B4A]">
-                            {option}
-                            {option === 10 ? ` (${TEXT.recommended})` : ''}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View className="gap-2">
-                  <Text
-                    className={`mb-2 text-lg font-black text-[#0F172A] ${tw.textStart}`}
-                  >
-                    עיצוב
-                  </Text>
                   <Text
                     className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                   >
@@ -993,7 +938,7 @@ export default function ProgramDetailsScreen() {
                     onPress={() => {
                       void handlePickAndUploadImage();
                     }}
-                    className={`rounded-2xl border px-4 py-3 ${
+                    className={`min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 ${
                       canEditGeneralFields
                         ? 'border-[#DCE6F7] bg-[#F8FAFF]'
                         : 'border-[#E2E8F0] bg-[#F1F5F9]'
@@ -1055,19 +1000,76 @@ export default function ProgramDetailsScreen() {
                     disabled={!canEditGeneralFields}
                   />
                 </View>
+              </EditorSection>
 
+              <EditorSection title={TEXT.groupRewardRules}>
+                <View className="gap-2">
+                  <Text
+                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                  >
+                    {TEXT.sectionReward}
+                  </Text>
+                  <TextInput
+                    value={rewardName}
+                    onChangeText={setRewardName}
+                    editable={canEditRuleFields}
+                    placeholder="שם ההטבה"
+                    placeholderTextColor="#94A3B8"
+                    className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                      canEditRuleFields
+                        ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
+                        : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                    }`}
+                  />
+                </View>
+
+                <View className="gap-2">
+                  <Text
+                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                  >
+                    {TEXT.sectionMaxStamps}
+                  </Text>
+                  <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
+                    {TEXT.sectionMaxStampsHint}
+                  </Text>
+                  <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                    {MAX_STAMP_OPTIONS.map((option) => {
+                      const selected = parsedMaxStamps === option;
+                      return (
+                        <TouchableOpacity
+                          key={String(option)}
+                          disabled={!canEditRuleFields}
+                          onPress={() => setMaxStamps(String(option))}
+                          className={`rounded-full border px-3 py-2 ${
+                            selected
+                              ? 'border-[#2F6BFF] bg-[#EAF1FF]'
+                              : 'border-[#DCE6F7] bg-[#F8FAFF]'
+                          }`}
+                        >
+                          <Text className="text-xs font-bold text-[#1A2B4A]">
+                            {option}
+                            {option === 10 ? ` (${TEXT.recommended})` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </EditorSection>
+
+              <EditorSection title={TEXT.groupAdvanced}>
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isAdvancedOpen }}
                   onPress={() => setIsAdvancedOpen((current) => !current)}
-                  className={`min-h-[52px] ${tw.flexRow} items-center justify-between rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-3`}
+                  className={`min-h-[48px] ${tw.flexRow} items-center justify-between rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-3`}
                   style={rtlBaseView}
                 >
-                  <View>
+                  <View className="min-w-0 flex-1">
                     <Text
-                      className={`text-base font-black text-[#0F172A] ${tw.textStart}`}
+                      className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
                     >
-                      הגדרות מתקדמות
+                      {isAdvancedOpen ? 'הסתר תנאים' : 'הצג תנאים'}
                     </Text>
                     <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
                       {cardTerms || rewardConditions
@@ -1128,7 +1130,7 @@ export default function ProgramDetailsScreen() {
                     </View>
                   </View>
                 ) : null}
-              </View>
+              </EditorSection>
 
               <View className="gap-3">
                 {conflictLocked ? (
@@ -1243,33 +1245,44 @@ export default function ProgramDetailsScreen() {
               </View>
             </View>
           ) : null}
-          <View
-            accessibilityElementsHidden={true}
-            importantForAccessibility="no-hide-descendants"
-            style={{ height: 28 }}
-          />
         </ScrollView>
-        <EditorStickyFooter>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSave, busy: isSubmitting }}
-            disabled={!canSave}
-            onPress={() => {
-              void handleSave();
-            }}
-            className={`min-h-[52px] items-center justify-center rounded-2xl px-4 ${
-              canSave ? 'bg-[#2F6BFF]' : 'bg-[#94A3B8]'
-            }`}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-center text-sm font-bold text-white">
-                {TEXT.save}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </EditorStickyFooter>
+        <View
+          onLayout={(event) => {
+            const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+            setFooterHeight((current) =>
+              nextHeight > 0 && nextHeight !== current ? nextHeight : current
+            );
+          }}
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        >
+          <EditorStickyFooter>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSave, busy: isSubmitting }}
+              disabled={!canSave}
+              onPress={() => {
+                void handleSave();
+              }}
+              className={`min-h-[52px] items-center justify-center rounded-2xl px-4 ${
+                canSave ? 'bg-[#2F6BFF]' : 'bg-[#94A3B8]'
+              }`}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text className="text-center text-sm font-bold text-white">
+                  {TEXT.save}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </EditorStickyFooter>
+        </View>
       </KeyboardAvoidingView>
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}

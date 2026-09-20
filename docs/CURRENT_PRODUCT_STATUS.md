@@ -93,8 +93,9 @@ and several external-service gaps that block store-ready release.
 - `qr.tsx`: business join QR/code.
 - `team/index.tsx`, `team/add.tsx`: team and staff invitation management.
 - `settings.tsx`, `settings-business-account.tsx`,
-  `settings-business-address.tsx`, `settings-business-profile.tsx`,
-  `settings-business-referrals.tsx`, `settings-business-subscription.tsx`.
+  `settings-business-address.tsx`, `settings-business-help.tsx`,
+  `settings-business-profile.tsx`, `settings-business-referrals.tsx`,
+  `settings-business-subscription.tsx`.
 
 ### Staff Shell
 

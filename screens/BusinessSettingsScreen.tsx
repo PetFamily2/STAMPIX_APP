@@ -168,6 +168,19 @@ export default function BusinessSettingsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          <View className="mt-4">
+            <SettingsSection title="תמיכה">
+              <SettingsGroup>
+                <SettingsNavRow
+                  title="עזרה ותמיכה"
+                  subtitle="שאלות ופנייה"
+                  icon="help-circle-outline"
+                  onPress={() => router.push(BUSINESS_ROUTES.help as Href)}
+                  isLast={true}
+                />
+              </SettingsGroup>
+            </SettingsSection>
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
@@ -334,6 +347,18 @@ export default function BusinessSettingsScreen() {
                 accessibilityHint="פתיחת ניהול המנוי של העסק"
               />
             ) : null}
+          </SettingsGroup>
+        </SettingsSection>
+
+        <SettingsSection title="תמיכה">
+          <SettingsGroup>
+            <SettingsNavRow
+              title="עזרה ותמיכה"
+              subtitle="שאלות ופנייה"
+              icon="help-circle-outline"
+              onPress={() => router.push(BUSINESS_ROUTES.help as Href)}
+              isLast={true}
+            />
           </SettingsGroup>
         </SettingsSection>
 

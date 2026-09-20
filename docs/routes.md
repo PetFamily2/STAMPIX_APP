@@ -71,6 +71,7 @@ This file replaces the older root-level `ROUTES_REPORT.md` and `docs/spec/screen
 - `app/(authenticated)/(business)/settings-business-profile.tsx`
 - `app/(authenticated)/(business)/settings-business-referrals.tsx`
 - `app/(authenticated)/(business)/settings-business-subscription.tsx`
+- `app/(authenticated)/(business)/settings-business-help.tsx`
 - `app/(authenticated)/(business)/team/index.tsx`
 - `app/(authenticated)/(business)/team/add.tsx`
 - `app/(authenticated)/(business)/cards/_layout.tsx`
