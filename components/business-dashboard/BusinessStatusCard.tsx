@@ -23,31 +23,31 @@ const SUBSCRIPTION_STATUS_COPY: Partial<
 > = {
   expired: {
     title: 'המנוי הסתיים',
-    subtitle: 'נדרש חידוש או עדכון חבילה כדי להמשיך לעבוד ללא מגבלות.',
+    subtitle: 'נדרש חידוש או עדכון חבילה כדי להמשיך לעבוד ללא מגבלות',
     tone: 'danger',
     icon: 'alert-circle-outline',
   },
   inactive: {
     title: 'המנוי לא פעיל',
-    subtitle: 'יש להפעיל או לעדכן את החבילה כדי לחזור לעבודה מלאה.',
+    subtitle: 'יש להפעיל או לעדכן את החבילה כדי לחזור לעבודה מלאה',
     tone: 'danger',
     icon: 'alert-circle-outline',
   },
   canceled: {
     title: 'המנוי בוטל',
-    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה.',
+    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה',
     tone: 'warning',
     icon: 'alert-circle-outline',
   },
   cancelled: {
     title: 'המנוי בוטל',
-    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה.',
+    subtitle: 'אפשר לעדכן או לחדש את החבילה כדי להמשיך לעבוד ללא הפרעה',
     tone: 'warning',
     icon: 'alert-circle-outline',
   },
   past_due: {
     title: 'יש בעיית חיוב במנוי',
-    subtitle: 'נדרש להסדיר את התשלום כדי למנוע הגבלות על הפעילות.',
+    subtitle: 'נדרש להסדיר את התשלום כדי למנוע הגבלות על הפעילות',
     tone: 'warning',
     icon: 'alert-circle-outline',
   },
@@ -75,7 +75,7 @@ function buildStatus(args: {
     return {
       title: 'הגעת למגבלת החבילה',
       subtitle:
-        'נוצלה מלוא המכסה של החבילה הנוכחית. נדרש עדכון חבילה כדי להמשיך בפעולות נוספות.',
+        'נוצלה מלוא המכסה של החבילה הנוכחית. נדרש עדכון חבילה כדי להמשיך בפעולות נוספות',
       tone: 'danger' as StatusTone,
       icon: 'alert-circle-outline' as keyof typeof Ionicons.glyphMap,
     };
@@ -83,7 +83,7 @@ function buildStatus(args: {
   if (args.profileIncomplete) {
     return {
       title: 'יש להשלים פרטי עסק',
-      subtitle: 'השלמת הפרופיל תשפר את איכות ההמלצות והדיוק בדשבורד.',
+      subtitle: 'השלמת הפרופיל תשפר את איכות ההמלצות והדיוק בדשבורד',
       tone: 'warning' as StatusTone,
       icon: 'information-circle-outline' as keyof typeof Ionicons.glyphMap,
     };
@@ -91,7 +91,7 @@ function buildStatus(args: {
   if (hasNearLimit) {
     return {
       title: 'התקרבת למגבלת החבילה',
-      subtitle: 'מומלץ לעקוב אחרי השימוש כדי להימנע מחסימת פעולות.',
+      subtitle: 'מומלץ לעקוב אחרי השימוש כדי להימנע מחסימת פעולות',
       tone: 'neutral' as StatusTone,
       icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap,
     };
@@ -99,14 +99,14 @@ function buildStatus(args: {
   if (args.isFirstBusinessExperience) {
     return {
       title: 'העסק פעיל',
-      subtitle: 'אחרי שלקוחות יצטרפו, המדדים וההמלצות יתעדכנו כאן.',
+      subtitle: 'אחרי שלקוחות יצטרפו, המדדים וההמלצות יתעדכנו כאן',
       tone: 'success' as StatusTone,
       icon: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
     };
   }
   return {
     title: 'העסק פעיל',
-    subtitle: 'הכל תקין והמערכת מזהה הזדמנויות בזמן אמת.',
+    subtitle: 'הכל תקין והמערכת מזהה הזדמנויות בזמן אמת',
     tone: 'success' as StatusTone,
     icon: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
   };

@@ -6,6 +6,12 @@ import { alignItems } from '@/lib/rtl';
 import { StampIcon } from './StampIcon';
 
 const PROGRAM_TILE_BORDER_WIDTH = 3;
+const PROGRAM_TITLE_LINE_HEIGHT = 12;
+const PROGRAM_TITLE_MAX_FONT_MULTIPLIER = 1.35;
+const PROGRAM_LABEL_HEIGHT = Math.ceil(
+  PROGRAM_TITLE_LINE_HEIGHT * 2 * PROGRAM_TITLE_MAX_FONT_MULTIPLIER
+);
+const PROGRAM_TILE_HEIGHT = 101;
 const PROGRAM_ICON_CANVAS_SIZE = 30;
 const PROGRAM_ICON_NOMINAL_SIZE = 27;
 
@@ -30,60 +36,68 @@ export function LoyaltyProgramTile({
 }) {
   const theme = resolveCardTheme(cardThemeId);
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={`בחירת כרטיסייה ${title}`}
-      accessibilityState={{ selected, disabled, busy }}
-      style={({ pressed }) => [
-        styles.root,
-        { width, borderColor: selected ? '#2F6BFF' : theme.keyline },
+    <View
+      style={[
+        styles.shadowHost,
+        { width },
         selected ? styles.selected : null,
-        pressed && !disabled ? styles.pressed : null,
-        disabled ? styles.disabled : null,
       ]}
     >
-      <LinearGradient
-        colors={[theme.surface, theme.surfaceAlt]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        pointerEvents="none"
-        style={styles.surface}
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={`בחירת כרטיסייה ${title}`}
+        accessibilityState={{ selected, disabled, busy }}
+        style={({ pressed }) => [
+          styles.root,
+          { borderColor: selected ? '#2F6BFF' : theme.keyline },
+          pressed && !disabled ? styles.pressed : null,
+          disabled ? styles.disabled : null,
+        ]}
       >
-        <View style={styles.selectionSlot}>
-          {selected ? (
-            <View style={styles.check}>
-              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.iconCanvas}>
-          <StampIcon
-            value={stampIcon}
-            size={PROGRAM_ICON_NOMINAL_SIZE}
-            color={theme.accent}
-          />
-        </View>
-        <Text
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          maxFontSizeMultiplier={1.35}
-          style={[styles.title, { color: theme.titleColor }]}
+        <LinearGradient
+          colors={[theme.surface, theme.surfaceAlt]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          style={styles.surface}
         >
-          {title}
-        </Text>
-      </LinearGradient>
-    </Pressable>
+          <View style={styles.selectionSlot}>
+            {selected ? (
+              <View style={styles.check}>
+                <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.iconCanvas}>
+            <StampIcon
+              value={stampIcon}
+              size={PROGRAM_ICON_NOMINAL_SIZE}
+              color={theme.accent}
+            />
+          </View>
+          <Text
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            maxFontSizeMultiplier={PROGRAM_TITLE_MAX_FONT_MULTIPLIER}
+            style={[styles.title, { color: theme.titleColor }]}
+          >
+            {title}
+          </Text>
+        </LinearGradient>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    height: 92,
+  shadowHost: {
+    height: PROGRAM_TILE_HEIGHT,
     borderRadius: 13,
-    borderWidth: PROGRAM_TILE_BORDER_WIDTH,
     backgroundColor: '#111827',
+    overflow: 'visible',
+    flexShrink: 0,
   },
   selected: {
     shadowColor: '#1D4ED8',
@@ -91,6 +105,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 5,
     elevation: 5,
+  },
+  root: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 13,
+    borderWidth: PROGRAM_TILE_BORDER_WIDTH,
+    backgroundColor: '#111827',
+    overflow: 'hidden',
   },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.58 },
@@ -123,17 +145,20 @@ const styles = StyleSheet.create({
   iconCanvas: {
     width: PROGRAM_ICON_CANVAS_SIZE,
     height: PROGRAM_ICON_CANVAS_SIZE,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
   title: {
     width: '100%',
-    minHeight: 24,
+    height: PROGRAM_LABEL_HEIGHT,
+    flexShrink: 0,
     fontSize: 10,
-    lineHeight: 12,
+    lineHeight: PROGRAM_TITLE_LINE_HEIGHT,
     fontWeight: '900',
     textAlign: 'center',
     writingDirection: 'rtl',
+    includeFontPadding: false,
   },
 });

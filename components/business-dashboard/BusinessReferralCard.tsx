@@ -85,7 +85,7 @@ export function BusinessReferralCard({
     ? 'הגעתם למקסימום הצבירה'
     : statusLine ||
       (pendingInvitesCount === 0 && activeReferralsCount === 0
-        ? 'שלחו הזמנה ראשונה וקבלו חודש מתנה אחרי שהעסק יצטרף.'
+        ? 'שלחו הזמנה ראשונה וקבלו חודש מתנה אחרי שהעסק יצטרף'
         : '');
 
   useEffect(() => {
@@ -135,14 +135,19 @@ export function BusinessReferralCard({
 
           <Text className={tw.textStart} style={styles.description}>
             {
-              'הזמינו אותו ל-\u200EStampAix\u200E וקבלו חודשי שימוש במתנה אחרי שיצטרף למסלול בתשלום.'
+              'הזמינו אותו ל-\u200EStampAix\u200E וקבלו חודשי שימוש במתנה אחרי שיצטרף למסלול בתשלום'
             }
           </Text>
           <View style={styles.ctaRow}>
             <Pressable
               onPress={onPressShare}
               disabled={shareDisabled || isShareLoading}
-              style={styles.primaryButtonTouchable}
+              style={({ pressed }) => [
+                styles.primaryButtonTouchable,
+                pressed && !shareDisabled && !isShareLoading
+                  ? styles.primaryButtonPressed
+                  : null,
+              ]}
             >
               <Animated.View
                 style={[
@@ -232,7 +237,7 @@ export function BusinessReferralCard({
                 {'מנוי שנתי \u200E\u2192\u200E 2 חודשים חינם'}
               </Text>
               <Text className={tw.textStart} style={styles.limitText}>
-                {'אפשר לצבור עד 24 חודשים.'}
+                {'אפשר לצבור עד 24 חודשים'}
               </Text>
             </View>
 
@@ -330,24 +335,24 @@ const styles = StyleSheet.create({
     width: 'auto',
   },
   primaryButtonSurface: {
-    minHeight: 44,
+    minWidth: 168,
     borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#123EA8',
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 7,
     shadowColor: '#2F6BFF',
-    shadowOpacity: 0.24,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   primaryButtonSurfaceDisabled: {
-    backgroundColor: '#64748B',
-    borderColor: '#475569',
+    opacity: 0.6,
+  },
+  primaryButtonPressed: {
+    opacity: 0.88,
   },
   primaryButtonContent: {
     flexDirection: flexDirection.row,
@@ -365,9 +370,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   primaryButtonText: {
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'right',
     writingDirection: 'rtl',

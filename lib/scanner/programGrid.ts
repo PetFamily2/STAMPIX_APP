@@ -10,17 +10,26 @@ export function getProgramGridMetrics(
   const gridWidth = isTablet
     ? Math.min(normalizedWidth, TABLET_PROGRAM_GRID_MAX_WIDTH)
     : normalizedWidth;
+  const totalGapWidth = PROGRAM_GRID_GAP * (PROGRAM_GRID_COLUMNS - 1);
   const tileWidth = Math.max(
     0,
-    (gridWidth - PROGRAM_GRID_GAP * (PROGRAM_GRID_COLUMNS - 1)) /
-      PROGRAM_GRID_COLUMNS
+    Math.floor((gridWidth - totalGapWidth) / PROGRAM_GRID_COLUMNS)
   );
+  const resolvedGridWidth =
+    tileWidth > 0 ? tileWidth * PROGRAM_GRID_COLUMNS + totalGapWidth : 0;
 
-  return { columns: PROGRAM_GRID_COLUMNS, gap: PROGRAM_GRID_GAP, gridWidth, tileWidth };
+  return {
+    columns: PROGRAM_GRID_COLUMNS,
+    gap: PROGRAM_GRID_GAP,
+    gridWidth: resolvedGridWidth,
+    tileWidth,
+  };
 }
 
 export function getProgramGridRowCount(programCount: number) {
-  return Math.ceil(Math.max(0, Math.floor(programCount)) / PROGRAM_GRID_COLUMNS);
+  return Math.ceil(
+    Math.max(0, Math.floor(programCount)) / PROGRAM_GRID_COLUMNS
+  );
 }
 
 export function getProgramGridEmptySlots(programCount: number) {

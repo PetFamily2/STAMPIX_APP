@@ -1,62 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import {
+  type CampaignManagementType,
+  resolveCampaignManagementVisualMeta,
+} from '@/lib/campaigns/managementPresentation';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
-export type CampaignManagementType =
-  | 'welcome'
-  | 'birthday'
-  | 'anniversary'
-  | 'winback'
-  | 'promo'
-  | 'referral';
-
-const TYPE_META: Record<
-  CampaignManagementType,
-  {
-    label: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    iconColor: string;
-    iconBackground: string;
-  }
-> = {
-  welcome: {
-    label: 'ברוכים הבאים',
-    icon: 'hand-left-outline',
-    iconColor: '#1D4ED8',
-    iconBackground: '#DBEAFE',
-  },
-  birthday: {
-    label: 'יום הולדת',
-    icon: 'gift-outline',
-    iconColor: '#C2410C',
-    iconBackground: '#FFEDD5',
-  },
-  anniversary: {
-    label: 'יום נישואין',
-    icon: 'heart-outline',
-    iconColor: '#9D174D',
-    iconBackground: '#FCE7F3',
-  },
-  winback: {
-    label: 'השבת לקוחות',
-    icon: 'refresh-outline',
-    iconColor: '#0F766E',
-    iconBackground: '#CCFBF1',
-  },
-  promo: {
-    label: 'קמפיין כללי',
-    icon: 'megaphone-outline',
-    iconColor: '#4C1D95',
-    iconBackground: '#EDE9FE',
-  },
-  referral: {
-    label: 'חבר מביא חבר',
-    icon: 'people-outline',
-    iconColor: '#1D4ED8',
-    iconBackground: '#DBEAFE',
-  },
-};
+export type { CampaignManagementType } from '@/lib/campaigns/managementPresentation';
 
 export function CampaignManagementCard({
   type,
@@ -66,14 +17,14 @@ export function CampaignManagementCard({
   audienceCount,
   onPress,
 }: {
-  type: CampaignManagementType;
+  type: CampaignManagementType | string | null | undefined;
   title: string;
   lifecycle: 'active' | 'inactive' | 'archived';
   timingLabel: string;
   audienceCount?: number | null;
   onPress: () => void;
 }) {
-  const meta = TYPE_META[type];
+  const meta = resolveCampaignManagementVisualMeta(type);
   const statusLabel =
     lifecycle === 'active'
       ? 'פעיל'

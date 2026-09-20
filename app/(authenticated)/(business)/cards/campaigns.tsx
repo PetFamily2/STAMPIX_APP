@@ -42,7 +42,7 @@ type ManagementCampaign = {
   campaignId: Id<'campaigns'>;
   businessId: Id<'businesses'>;
   programId: Id<'loyaltyPrograms'> | null;
-  type: CampaignManagementType;
+  type: CampaignManagementType | string | null;
   title: string;
   status: 'draft' | 'active' | 'paused' | 'completed' | 'archived';
   automationEnabled: boolean;
@@ -159,12 +159,19 @@ export function CampaignsHubContent() {
         .sort((a, b) => b.updatedAt - a.updatedAt),
     [campaigns]
   );
-  const campaignLimit = limitStatus('maxCampaigns');
   const isReferralConfigLoading = referralConfig === undefined;
   const hasReferralCampaign =
     !isReferralConfigLoading && (referralConfig?.configVersion ?? 0) > 0;
   const referralCampaignEnabled =
     hasReferralCampaign && referralConfig?.isEnabled === true;
+  const countedManagementCampaigns = campaigns.filter(
+    (campaign) => campaign.isCountedTowardLimit
+  ).length;
+  const campaignQuotaUsed =
+    campaignsQuery === undefined || isReferralConfigLoading
+      ? undefined
+      : countedManagementCampaigns + (referralCampaignEnabled ? 1 : 0);
+  const campaignLimit = limitStatus('maxCampaigns', campaignQuotaUsed);
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
@@ -173,9 +180,9 @@ export function CampaignsHubContent() {
   const canCreateCampaign =
     Boolean(activeBusinessId) && canViewCampaigns && canCreateCampaigns;
   const createBlockedReason = !activeBusinessId
-    ? 'יש לבחור עסק פעיל.'
+    ? 'יש לבחור עסק פעיל'
     : !canCreateCampaigns
-      ? 'אין לך הרשאה ליצור קמפיינים.'
+      ? 'אין לך הרשאה ליצור קמפיינים'
       : null;
 
   const openCampaignEditor = (campaignId: Id<'campaigns'>) => {
@@ -377,7 +384,7 @@ export function CampaignsHubContent() {
               used={campaignLimit.currentValue}
               limit={campaignLimit.limitValue}
               unit="קמפיינים"
-              nearLimitText="מתקרבים למכסת הקמפיינים במסלול הנוכחי."
+              nearLimitText="מתקרבים למכסת הקמפיינים במסלול הנוכחי"
               atLimitText={campaignLimitReachedCopy}
               overLimitText="הקמפיינים הקיימים והטיוטות נשמרו. הפעלה נוספת חסומה עד להשבתת קמפיין פעיל או לשדרוג המסלול."
               actionLabel={campaignLimit.isAtLimit ? 'שדרוג' : undefined}
@@ -409,7 +416,7 @@ export function CampaignsHubContent() {
                 עדיין אין קמפיינים פעילים
               </Text>
               <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                מומלץ להתחיל מקמפיינים אחרי שיש לקוחות ראשונים בכרטיסייה.
+                מומלץ להתחיל מקמפיינים אחרי שיש לקוחות ראשונים בכרטיסייה
               </Text>
             </View>
           ) : (
@@ -451,7 +458,7 @@ export function CampaignsHubContent() {
               ) : inactiveCampaigns.length === 0 &&
                 (!hasReferralCampaign || referralCampaignEnabled) ? (
                 <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                  אין כרגע קמפיינים לא פעילים.
+                  אין כרגע קמפיינים לא פעילים
                 </Text>
               ) : (
                 <>
@@ -488,7 +495,7 @@ export function CampaignsHubContent() {
             <View className="mt-3 gap-3">
               {archivedCampaigns.length === 0 ? (
                 <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
-                  אין קמפיינים בארכיון.
+                  אין קמפיינים בארכיון
                 </Text>
               ) : (
                 archivedCampaigns.map((campaign) => {

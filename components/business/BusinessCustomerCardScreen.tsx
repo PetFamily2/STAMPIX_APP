@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -31,6 +33,7 @@ import {
   type CustomerActivityType,
   groupCustomerActivityByDay,
 } from '@/lib/customers/activityHistory';
+import { resolveCustomerContactRecommendation } from '@/lib/customers/contactAction';
 import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
@@ -101,7 +104,7 @@ const REASON_OPTIONS: Array<{ code: ReasonCode; label: string }> = [
 const LEGACY_STATUS_TO_STATE: Record<string, string> = {
   NEW_CUSTOMER: 'חדש',
   ACTIVE: 'פעיל',
-  NEEDS_WINBACK: 'מומלץ ליצור קשר',
+  NEEDS_WINBACK: 'לא ביקר לאחרונה',
   CLOSE_TO_REWARD: 'קרוב להטבה',
   VIP: 'VIP',
 };
@@ -120,7 +123,7 @@ const STATE_LABELS: Record<CustomerState, string> = {
   NEW: 'חדש',
   ACTIVE: 'פעיל',
   NEEDS_NURTURE: 'כדאי לחזק קשר',
-  NEEDS_WINBACK: 'מומלץ ליצור קשר',
+  NEEDS_WINBACK: 'לא ביקר לאחרונה',
   CLOSE_TO_REWARD: 'קרוב להטבה',
 };
 
@@ -248,6 +251,7 @@ function formatBenefitExpiry(expiresAt: number | null) {
 
 export default function BusinessCustomerCardScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const segments = useSegments();
   const { preview, map, customerUserId } = useLocalSearchParams<{
@@ -397,6 +401,13 @@ export default function BusinessCustomerCardScreen() {
 
   const summaryState = card ? resolveSummaryState(card.summary) : 'ACTIVE';
   const summaryTier = card ? resolveSummaryTier(card.summary) : 'REGULAR';
+  const customerContactAction = card
+    ? resolveCustomerContactRecommendation({
+        customerState: summaryState,
+        phone: card.customer.phone,
+        email: card.customer.email,
+      })
+    : null;
   const activityGroups = useMemo(
     () =>
       groupCustomerActivityByDay(
@@ -416,7 +427,9 @@ export default function BusinessCustomerCardScreen() {
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
-          { paddingBottom: (insets.bottom || 0) + 28 },
+          {
+            paddingBottom: Math.max(tabBarHeight, insets.bottom || 0) + 28,
+          },
         ]}
       >
         <StickyScrollHeader
@@ -439,7 +452,7 @@ export default function BusinessCustomerCardScreen() {
           <View style={styles.stateContainer}>
             <Text style={styles.stateTitle}>לא נמצא כרטיס לקוח</Text>
             <Text style={styles.stateText}>
-              ייתכן שהלקוח כבר לא פעיל בכרטיסיות של העסק.
+              ייתכן שהלקוח כבר לא פעיל בכרטיסיות של העסק
             </Text>
             <BackButton onPress={goBack} />
           </View>
@@ -508,6 +521,42 @@ export default function BusinessCustomerCardScreen() {
                 לקוח מאז {formatShortDate(card.summary.joinedAt)}
               </Text>
             </View>
+
+            {customerContactAction ? (
+              <View style={styles.contactActionCard}>
+                <View style={styles.contactActionCopy}>
+                  <Text style={styles.contactActionTitle}>מומלץ ליצור קשר</Text>
+                  <Text style={styles.contactActionReason}>
+                    ביקור אחרון:{' '}
+                    {formatLastVisit(card.summary.lastVisitDaysAgo)}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="צור קשר עם הלקוח"
+                  onPress={() => {
+                    void Linking.openURL(customerContactAction.href).catch(() =>
+                      setFeedbackMessage('לא ניתן לפתוח אמצעי קשר')
+                    );
+                  }}
+                  style={({ pressed }) => [
+                    styles.contactActionButton,
+                    pressed ? styles.contactActionButtonPressed : null,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      customerContactAction.kind === 'phone'
+                        ? 'call-outline'
+                        : 'mail-outline'
+                    }
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.contactActionButtonText}>צור קשר</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {isStaffRoute ? (
               <View style={styles.staffQuickFacts}>
@@ -592,7 +641,7 @@ export default function BusinessCustomerCardScreen() {
                 </View>
               ) : !isStaffRoute ? (
                 <Text style={styles.referralEmptyText}>
-                  הלקוח לא מסומן כמצטרף דרך הפניה.
+                  הלקוח לא מסומן כמצטרף דרך הפניה
                 </Text>
               ) : null}
 
@@ -600,7 +649,7 @@ export default function BusinessCustomerCardScreen() {
                 <Text style={styles.referralBenefitsTitle}>הטבות זמינות</Text>
                 {referralBenefits.length === 0 ? (
                   <Text style={styles.referralEmptyText}>
-                    אין כרגע הטבות הפניה פעילות למימוש.
+                    אין כרגע הטבות הפניה פעילות למימוש
                   </Text>
                 ) : (
                   referralBenefits.map((benefit) => {
@@ -714,8 +763,8 @@ export default function BusinessCustomerCardScreen() {
                 {activityGroups.length === 0 ? (
                   <Text style={styles.emptyTimelineText}>
                     {card.timeline.length === 0
-                      ? 'עדיין אין פעילות ללקוח הזה.'
-                      : 'אין פעולות מהסוג שנבחר.'}
+                      ? 'עדיין אין פעילות ללקוח הזה'
+                      : 'אין פעולות מהסוג שנבחר'}
                   </Text>
                 ) : (
                   activityGroups.map((group) => (
@@ -809,7 +858,7 @@ export default function BusinessCustomerCardScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>ביצוע תיקון ידני</Text>
             <Text style={styles.modalSubtitle}>
-              פעולה זו תירשם בהיסטוריה ותופיע ללקוח.
+              פעולה זו תירשם בהיסטוריה ותופיע ללקוח
             </Text>
             <Text style={styles.modalEventText}>{selectedEventDetail}</Text>
 
@@ -1030,6 +1079,65 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'right',
+  },
+  contactActionCard: {
+    width: '100%',
+    minHeight: 72,
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    padding: 14,
+  },
+  contactActionCopy: {
+    flex: 1,
+    minWidth: 176,
+    alignItems: 'stretch',
+    gap: 3,
+  },
+  contactActionTitle: {
+    width: '100%',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  contactActionReason: {
+    width: '100%',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  contactActionButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  contactActionButtonPressed: {
+    opacity: 0.84,
+  },
+  contactActionButtonText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   statsGrid: {
     flexDirection: flexDirection.row,
@@ -1258,6 +1366,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     width: 28,
     height: 28,
+    flexShrink: 0,
     borderRadius: 14,
     backgroundColor: '#EAF1FF',
     alignItems: 'center',
@@ -1265,27 +1374,37 @@ const styles = StyleSheet.create({
   },
   timelineTextWrap: {
     flex: 1,
-    alignItems: alignItems.start,
+    minWidth: 0,
+    alignItems: 'stretch',
     gap: 4,
   },
   timelineTitleRow: {
+    width: '100%',
     flexDirection: flexDirection.row,
     gap: 8,
-    alignItems: 'center',
+    alignItems: alignItems.start,
   },
   timelineTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
     color: '#14253E',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   timelineSubtitle: {
+    width: '100%',
     fontSize: 12,
+    lineHeight: 18,
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   reversedBadge: {
+    flexShrink: 0,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -1319,6 +1438,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   timelineDate: {
+    flexShrink: 0,
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',

@@ -28,7 +28,7 @@ export function CampaignCustomerPreview({
           {title.trim() || 'כותרת ההודעה'}
         </Text>
         <Text numberOfLines={3} style={styles.body}>
-          {body.trim() || 'תוכן ההודעה יופיע כאן.'}
+          {body.trim() || 'תוכן ההודעה יופיע כאן'}
         </Text>
         <Text style={styles.channel}>הודעה באפליקציה</Text>
       </View>

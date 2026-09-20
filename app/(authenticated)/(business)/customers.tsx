@@ -380,148 +380,158 @@ export function CustomersHubContent() {
           </View>
         </SurfaceCard>
 
-        {hasLockedInsightsFilter ? (
-          <View style={{ marginTop: 12 }}>
-            <FeatureGate
-              isLocked={smartGate.isLocked}
-              requiredPlan={smartGate.requiredPlan}
-              onUpgradeClick={() =>
-                openUpgrade(
-                  'smartAnalytics',
-                  smartGate.requiredPlan,
-                  smartGate.reason === 'subscription_inactive'
-                    ? 'subscription_inactive'
-                    : 'feature_locked'
-                )
-              }
-              title={smartCopy.lockedTitle}
-              subtitle={smartCopy.lockedSubtitle}
-              benefits={smartCopy.benefits}
-            >
-              <View />
-            </FeatureGate>
-          </View>
-        ) : null}
-
-        {showAtRiskActionCard ? (
-          <SurfaceCard style={styles.atRiskActionCard}>
-            <Text className={tw.textStart} style={styles.atRiskTitle}>
-              פעולה ללקוחות בסיכון
-            </Text>
-            <Text className={tw.textStart} style={styles.atRiskBody}>
-              צרו קמפיין החזרה ללקוחות שלא חזרו בזמן.
-            </Text>
-            <View style={styles.atRiskActions}>
-              <Pressable
-                disabled={isCreatingWinbackCampaign || !canCreateCampaigns}
-                onPress={() => {
-                  void handleCreateAtRiskCampaign();
-                }}
-                style={({ pressed }) => [
-                  styles.primaryAction,
-                  (!canCreateCampaigns || isCreatingWinbackCampaign) &&
-                    styles.actionDisabled,
-                  pressed && canCreateCampaigns
-                    ? styles.primaryActionPressed
-                    : null,
-                ]}
+        <View style={styles.searchInfoStack}>
+          {hasLockedInsightsFilter ? (
+            <View>
+              <FeatureGate
+                isLocked={smartGate.isLocked}
+                requiredPlan={smartGate.requiredPlan}
+                onUpgradeClick={() =>
+                  openUpgrade(
+                    'smartAnalytics',
+                    smartGate.requiredPlan,
+                    smartGate.reason === 'subscription_inactive'
+                      ? 'subscription_inactive'
+                      : 'feature_locked'
+                  )
+                }
+                title={smartCopy.lockedTitle}
+                subtitle={smartCopy.lockedSubtitle}
+                benefits={smartCopy.benefits}
               >
-                {isCreatingWinbackCampaign ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryActionText}>צרו קמפיין החזרה</Text>
-                )}
-              </Pressable>
-              <Pressable
-                onPress={openCampaigns}
-                style={({ pressed }) => [
-                  styles.secondaryAction,
-                  pressed ? styles.secondaryActionPressed : null,
-                ]}
-              >
-                <Text style={styles.secondaryActionText}>כל הקמפיינים</Text>
-              </Pressable>
+                <View />
+              </FeatureGate>
             </View>
-            {!canCreateCampaigns ? (
-              <Text className={tw.textStart} style={styles.permissionHint}>
-                למשתמש הנוכחי אין הרשאה ליצור קמפיינים.
+          ) : null}
+
+          {showAtRiskActionCard ? (
+            <SurfaceCard style={styles.atRiskActionCard}>
+              <Text className={tw.textStart} style={styles.atRiskTitle}>
+                פעולה ללקוחות בסיכון
               </Text>
-            ) : null}
-          </SurfaceCard>
-        ) : null}
-        {showCustomerUsageStatus &&
-        customerLimitStatus &&
-        (customerLimitStatus.isNearLimit || customerLimitStatus.isAtLimit) ? (
-          <SurfaceCard
-            style={[
-              styles.customerUsageCard,
-              customerLimitStatus.isAtLimit
-                ? styles.customerUsageCardAtLimit
-                : customerLimitStatus.isNearLimit
-                  ? styles.customerUsageCardNearLimit
-                  : null,
-            ]}
-          >
-            <View style={styles.customerUsageHeader}>
-              <View style={styles.customerUsageIconWrap}>
-                <Ionicons name="people-outline" size={20} color="#1D4ED8" />
-              </View>
-              <View style={styles.customerUsageCopy}>
-                <Text
-                  className={tw.textStart}
-                  style={styles.customerUsageTitle}
-                >
-                  {customerLimitStatus.isAtLimit
-                    ? customerLimitCopy.lockedTitle
-                    : 'מכסת לקוחות'}
-                </Text>
-                <Text className={tw.textStart} style={styles.customerUsageBody}>
-                  {customerLimitStatus.isAtLimit
-                    ? `${customerLimitCopy.lockedSubtitle} אפשר להמשיך לחפש, לפתוח ולנהל לקוחות קיימים.`
-                    : customerLimitStatus.isNearLimit
-                      ? `אתם מתקרבים למכסת הלקוחות במסלול הנוכחי. נותרו ${formatNumber(
-                          customerLimitStatus.remaining
-                        )} מקומות פנויים.`
-                      : 'רואים כאן כמה לקוחות פעילים כבר נספרו מתוך המכסה במסלול הנוכחי.'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.customerUsageProgressWrap}>
-              <UsageProgressBar
-                label="לקוחות בשימוש"
-                used={customerLimitStatus.currentValue}
-                limit={customerLimitStatus.limitValue}
-                accent="#1D4ED8"
-              />
-            </View>
-
-            {customerLimitStatus.isAtLimit ? (
-              <View style={styles.customerUsageUpgradeRow}>
-                <Text className={tw.textStart} style={styles.customerUsageHint}>
-                  הוספת לקוחות חדשים תצריך שדרוג מסלול.
-                </Text>
+              <Text className={tw.textStart} style={styles.atRiskBody}>
+                צרו קמפיין החזרה ללקוחות שלא חזרו בזמן
+              </Text>
+              <View style={styles.atRiskActions}>
                 <Pressable
-                  onPress={() =>
-                    openUpgrade(
-                      'maxCustomers',
-                      customerLimitRequiredPlan,
-                      'limit_reached'
-                    )
-                  }
+                  disabled={isCreatingWinbackCampaign || !canCreateCampaigns}
+                  onPress={() => {
+                    void handleCreateAtRiskCampaign();
+                  }}
                   style={({ pressed }) => [
-                    styles.customerUsageUpgradeButton,
-                    pressed ? styles.customerUsageUpgradeButtonPressed : null,
+                    styles.primaryAction,
+                    (!canCreateCampaigns || isCreatingWinbackCampaign) &&
+                      styles.actionDisabled,
+                    pressed && canCreateCampaigns
+                      ? styles.primaryActionPressed
+                      : null,
                   ]}
                 >
-                  <Text style={styles.customerUsageUpgradeButtonText}>
-                    שדרוג
-                  </Text>
+                  {isCreatingWinbackCampaign ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryActionText}>
+                      צרו קמפיין החזרה
+                    </Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={openCampaigns}
+                  style={({ pressed }) => [
+                    styles.secondaryAction,
+                    pressed ? styles.secondaryActionPressed : null,
+                  ]}
+                >
+                  <Text style={styles.secondaryActionText}>כל הקמפיינים</Text>
                 </Pressable>
               </View>
-            ) : null}
-          </SurfaceCard>
-        ) : null}
+              {!canCreateCampaigns ? (
+                <Text className={tw.textStart} style={styles.permissionHint}>
+                  למשתמש הנוכחי אין הרשאה ליצור קמפיינים
+                </Text>
+              ) : null}
+            </SurfaceCard>
+          ) : null}
+          {showCustomerUsageStatus &&
+          customerLimitStatus &&
+          (customerLimitStatus.isNearLimit || customerLimitStatus.isAtLimit) ? (
+            <SurfaceCard
+              style={[
+                styles.customerUsageCard,
+                customerLimitStatus.isAtLimit
+                  ? styles.customerUsageCardAtLimit
+                  : customerLimitStatus.isNearLimit
+                    ? styles.customerUsageCardNearLimit
+                    : null,
+              ]}
+            >
+              <View style={styles.customerUsageHeader}>
+                <View style={styles.customerUsageIconWrap}>
+                  <Ionicons name="people-outline" size={20} color="#1D4ED8" />
+                </View>
+                <View style={styles.customerUsageCopy}>
+                  <Text
+                    className={tw.textStart}
+                    style={styles.customerUsageTitle}
+                  >
+                    {customerLimitStatus.isAtLimit
+                      ? customerLimitCopy.lockedTitle
+                      : 'מכסת לקוחות'}
+                  </Text>
+                  <Text
+                    className={tw.textStart}
+                    style={styles.customerUsageBody}
+                  >
+                    {customerLimitStatus.isAtLimit
+                      ? `${customerLimitCopy.lockedSubtitle} אפשר להמשיך לחפש, לפתוח ולנהל לקוחות קיימים.`
+                      : customerLimitStatus.isNearLimit
+                        ? `אתם מתקרבים למכסת הלקוחות במסלול הנוכחי. נותרו ${formatNumber(
+                            customerLimitStatus.remaining
+                          )} מקומות פנויים.`
+                        : 'רואים כאן כמה לקוחות פעילים כבר נספרו מתוך המכסה במסלול הנוכחי.'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.customerUsageProgressWrap}>
+                <UsageProgressBar
+                  label="לקוחות בשימוש"
+                  used={customerLimitStatus.currentValue}
+                  limit={customerLimitStatus.limitValue}
+                  accent="#1D4ED8"
+                />
+              </View>
+
+              {customerLimitStatus.isAtLimit ? (
+                <View style={styles.customerUsageUpgradeRow}>
+                  <Text
+                    className={tw.textStart}
+                    style={styles.customerUsageHint}
+                  >
+                    הוספת לקוחות חדשים תצריך שדרוג מסלול
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      openUpgrade(
+                        'maxCustomers',
+                        customerLimitRequiredPlan,
+                        'limit_reached'
+                      )
+                    }
+                    style={({ pressed }) => [
+                      styles.customerUsageUpgradeButton,
+                      pressed ? styles.customerUsageUpgradeButtonPressed : null,
+                    ]}
+                  >
+                    <Text style={styles.customerUsageUpgradeButtonText}>
+                      שדרוג
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </SurfaceCard>
+          ) : null}
+        </View>
 
         <View
           ref={
@@ -558,7 +568,7 @@ export function CustomersHubContent() {
                 עדיין אין לקוחות
               </Text>
               <Text className={tw.textStart} style={styles.emptyBody}>
-                לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו חותמת ראשונה.
+                לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו חותמת ראשונה
               </Text>
               <View style={styles.emptyActionsRow}>
                 <Pressable
@@ -588,7 +598,7 @@ export function CustomersHubContent() {
           ) : filteredCustomers.length === 0 ? (
             <SurfaceCard>
               <Text className={tw.textStart} style={styles.emptyText}>
-                לא נמצאו לקוחות התואמים לחיפוש.
+                לא נמצאו לקוחות התואמים לחיפוש
               </Text>
             </SurfaceCard>
           ) : (
@@ -704,7 +714,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   customerUsageCard: {
-    marginTop: 16,
+    width: '100%',
     borderWidth: 1,
     borderColor: '#DCE7F8',
   },
@@ -782,6 +792,11 @@ const styles = StyleSheet.create({
   },
   searchCard: {
     marginTop: 18,
+  },
+  searchInfoStack: {
+    width: '100%',
+    marginTop: 16,
+    gap: 16,
   },
   searchRow: {
     ...rtlBaseView,
@@ -874,7 +889,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   atRiskActionCard: {
-    marginTop: 16,
+    width: '100%',
   },
   atRiskTitle: {
     fontSize: 16,
