@@ -11,6 +11,11 @@ export {
 export { SettingsGroup, SettingsNavRow } from './SettingsNavRow';
 export { SettingsPageShell } from './SettingsPageShell';
 export { SettingsPrimaryButton } from './SettingsPrimaryButton';
+export {
+  SettingsCard,
+  SettingsDangerSection,
+  SettingsField,
+} from './SettingsPrimitives';
 export { SettingsSection } from './SettingsSection';
 export {
   SETTINGS_SHADOW,

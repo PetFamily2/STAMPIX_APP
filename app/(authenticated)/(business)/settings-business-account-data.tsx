@@ -5,11 +5,10 @@ import { ActivityIndicator, Alert, Text, View } from 'react-native';
 
 import {
   BusinessSettingsSubpageHeader,
-  SettingsGroup,
+  SETTINGS_TOKENS,
+  SettingsDangerSection,
   SettingsNavRow,
   SettingsPageShell,
-  SettingsSection,
-  SETTINGS_TOKENS,
 } from '@/components/business-settings';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -144,41 +143,57 @@ export default function BusinessSettingsAccountDataScreen() {
       </Text>
 
       {canLeaveBusiness || canCloseBusiness ? (
-        <SettingsSection title="פעולות הרסניות">
-          <SettingsGroup>
-            {canLeaveBusiness ? (
+        <>
+          {canLeaveBusiness ? (
+            <SettingsDangerSection
+              title="עזיבת העסק"
+              description="הגישה שלך לעסק הפעיל תוסר. החשבון האישי יישאר פעיל."
+            >
               <SettingsNavRow
                 title="עזיבת העסק"
                 subtitle="הסרת הגישה שלך לעסק הפעיל"
                 destructive={true}
                 disabled={isLeavingBusiness}
                 onPress={handleLeaveBusiness}
-                isLast={!canCloseBusiness}
+                isLast={true}
                 accessibilityHint="פעולה הרסנית. מסירה את הגישה שלך לעסק ואינה מתנתקת מהמכשיר"
               />
-            ) : null}
-            {canCloseBusiness ? (
-              <>
+            </SettingsDangerSection>
+          ) : null}
+
+          {canCloseBusiness ? (
+            <>
+              <SettingsDangerSection
+                title="סגירת העסק"
+                description="העסק יוסתר, הנתונים יישמרו וניתן יהיה לשחזר אותו."
+              >
                 <SettingsNavRow
                   title="סגירת העסק"
-                  subtitle="העסק יוסתר ויהיה ניתן לשחזר"
+                  subtitle="סגירה הפיכה שאינה מבטלת את המנוי"
                   destructive={true}
                   disabled={isClosingBusiness}
                   onPress={handleCloseBusiness}
+                  isLast={true}
                   accessibilityHint="פעולה הרסנית. סגירת העסק ב-StampAix ואינה ביטול מנוי"
                 />
+              </SettingsDangerSection>
+
+              <SettingsDangerSection
+                title="מחיקת העסק לצמיתות"
+                description="פעולה בלתי הפיכה שמוחקת את העסק והנתונים שלו."
+              >
                 <SettingsNavRow
                   title="מחיקת העסק לצמיתות"
-                  subtitle="פעולה בלתי הפיכה"
+                  subtitle="מעבר לתהליך אימות נפרד"
                   destructive={true}
                   onPress={handlePermanentBusinessDeletion}
                   isLast={true}
                   accessibilityHint="פעולה הרסנית ובלתי הפיכה"
                 />
-              </>
-            ) : null}
-          </SettingsGroup>
-        </SettingsSection>
+              </SettingsDangerSection>
+            </>
+          ) : null}
+        </>
       ) : (
         <Text
           style={{

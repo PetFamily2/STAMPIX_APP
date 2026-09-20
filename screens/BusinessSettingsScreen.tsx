@@ -242,8 +242,6 @@ export default function BusinessSettingsScreen() {
                   עסק פעיל
                 </Text>
                 <Text
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
                   style={{
                     marginTop: 2,
                     fontSize: 16,
@@ -444,8 +442,6 @@ export default function BusinessSettingsScreen() {
                     ]}
                   >
                     <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
                       style={{
                         flex: 1,
                         fontSize: 14,

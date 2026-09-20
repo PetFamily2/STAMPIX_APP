@@ -1,6 +1,5 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,10 +17,18 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  SETTINGS_TOKENS,
+  SettingsCard,
+  SettingsField,
+  SettingsPrimaryButton,
+  SettingsSection,
+} from '@/components/business-settings';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { safeBack } from '@/lib/navigation';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
@@ -92,12 +99,7 @@ function DetailRow({
   label: string;
   value: string | number;
 }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailValue}>{String(value)}</Text>
-      <Text style={styles.detailLabel}>{label}</Text>
-    </View>
-  );
+  return <SettingsField label={label} value={String(value)} readOnly={true} />;
 }
 
 export default function CustomerAccountDetailsScreen() {
@@ -244,13 +246,16 @@ export default function CustomerAccountDetailsScreen() {
         >
           <BusinessScreenHeader
             title={TEXT.title}
-            titleAccessory={<BackButton onPress={() => router.back()} />}
+            titleAccessory={
+              <BackButton
+                onPress={() => safeBack('/(authenticated)/(customer)/settings')}
+              />
+            }
           />
         </StickyScrollHeader>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{TEXT.accountInfo}</Text>
-          <View style={styles.card}>
+        <SettingsSection title={TEXT.accountInfo}>
+          <SettingsCard>
             <View style={styles.profileHero}>
               <UserAvatar
                 avatarUrl={user?.avatarUrl}
@@ -265,7 +270,10 @@ export default function CustomerAccountDetailsScreen() {
 
             <DetailRow label={TEXT.fullName} value={fullName} />
 
-            <View style={styles.detailRow}>
+            <SettingsField
+              label={TEXT.phone}
+              helpText="הטלפון האישי של החשבון, בנפרד מטלפון העסק."
+            >
               <View style={styles.phoneEditWrap}>
                 {isEditingPhone ? (
                   <TextInput
@@ -329,21 +337,19 @@ export default function CustomerAccountDetailsScreen() {
                   </Pressable>
                 )}
               </View>
-              <Text style={styles.detailLabel}>{TEXT.phone}</Text>
-            </View>
+            </SettingsField>
 
             <DetailRow label={TEXT.email} value={email} />
             <DetailRow label={TEXT.mode} value={activeMode} />
             <DetailRow label={TEXT.plan} value={subscriptionPlan} />
             <DetailRow label={TEXT.status} value={accountStatus} />
             <DetailRow label={TEXT.businessCount} value={businesses.length} />
-          </View>
-        </View>
+          </SettingsCard>
+        </SettingsSection>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{TEXT.marketingInfo}</Text>
-          <View style={styles.card}>
-            <View style={styles.detailRow}>
+        <SettingsSection title={TEXT.marketingInfo}>
+          <SettingsCard>
+            <SettingsField label={TEXT.marketingOptIn}>
               <Pressable
                 onPress={() => setMarketingOptIn((prev) => !prev)}
                 style={({ pressed }) => [
@@ -365,10 +371,9 @@ export default function CustomerAccountDetailsScreen() {
                   {marketingOptIn ? 'פעיל' : 'כבוי'}
                 </Text>
               </Pressable>
-              <Text style={styles.detailLabel}>{TEXT.marketingOptIn}</Text>
-            </View>
+            </SettingsField>
 
-            <View style={styles.dateRow}>
+            <SettingsField label={TEXT.birthday}>
               <View style={styles.dateInputs}>
                 <TextInput
                   value={birthdayMonth}
@@ -389,10 +394,9 @@ export default function CustomerAccountDetailsScreen() {
                   textAlign="center"
                 />
               </View>
-              <Text style={styles.detailLabel}>{TEXT.birthday}</Text>
-            </View>
+            </SettingsField>
 
-            <View style={styles.dateRow}>
+            <SettingsField label={TEXT.anniversary}>
               <View style={styles.dateInputs}>
                 <TextInput
                   value={anniversaryMonth}
@@ -413,30 +417,16 @@ export default function CustomerAccountDetailsScreen() {
                   textAlign="center"
                 />
               </View>
-              <Text style={styles.detailLabel}>{TEXT.anniversary}</Text>
-            </View>
+            </SettingsField>
 
-            <Pressable
-              onPress={() => {
-                void handleSaveMarketing();
-              }}
+            <SettingsPrimaryButton
+              label={TEXT.marketingSave}
+              onPress={() => void handleSaveMarketing()}
               disabled={isSavingMarketing}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                isSavingMarketing ? styles.buttonDisabled : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              {isSavingMarketing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {TEXT.marketingSave}
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
+              loading={isSavingMarketing}
+            />
+          </SettingsCard>
+        </SettingsSection>
       </ScrollView>
     </SafeAreaView>
   );
@@ -446,7 +436,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
   scrollContent: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: SETTINGS_TOKENS.sectionGap,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
@@ -464,27 +454,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  section: { gap: 10 },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#71717A',
-    textAlign: 'right',
-  },
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    gap: 12,
-  },
   profileHero: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: justifyContent.start,
     gap: 12,
-    paddingBottom: 12,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
@@ -507,43 +482,35 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
   },
-  detailRow: {
-    flexDirection: flexDirection.rowReverse,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  detailLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textAlign: 'right',
-  },
   detailValue: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    width: '100%',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+    color: SETTINGS_TOKENS.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   phoneEditWrap: {
-    flex: 1,
+    width: '100%',
+    minHeight: 52,
+    borderRadius: SETTINGS_TOKENS.radius,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.border,
+    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
+    padding: 10,
     gap: 8,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   phoneInput: {
     width: '100%',
-    minHeight: 40,
-    borderRadius: 12,
+    minHeight: 52,
+    borderRadius: SETTINGS_TOKENS.radius,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    fontSize: 14,
+    borderColor: SETTINGS_TOKENS.borderStrong,
+    backgroundColor: SETTINGS_TOKENS.surface,
+    paddingHorizontal: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'right',
@@ -551,11 +518,12 @@ const styles = StyleSheet.create({
   },
   phoneActionRow: {
     flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
     gap: 8,
   },
   smallButtonSecondary: {
-    minHeight: 34,
-    borderRadius: 10,
+    minHeight: 44,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     backgroundColor: '#FFFFFF',
@@ -571,8 +539,8 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   smallButtonPrimary: {
-    minHeight: 34,
-    borderRadius: 10,
+    minHeight: 44,
+    borderRadius: 12,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 10,
     alignItems: 'center',
@@ -586,7 +554,8 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   marketingToggle: {
-    minHeight: 34,
+    width: '100%',
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 14,
@@ -613,44 +582,23 @@ const styles = StyleSheet.create({
   marketingToggleTextOff: {
     color: '#475569',
   },
-  dateRow: {
-    flexDirection: flexDirection.rowReverse,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
   dateInputs: {
-    flex: 1,
+    width: '100%',
     flexDirection: flexDirection.rowReverse,
+    flexWrap: 'wrap',
     gap: 8,
   },
   dateInput: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 12,
+    minWidth: 104,
+    minHeight: 52,
+    borderRadius: SETTINGS_TOKENS.radius,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F8FAFC',
+    borderColor: SETTINGS_TOKENS.borderStrong,
+    backgroundColor: SETTINGS_TOKENS.surface,
     paddingHorizontal: 10,
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-  },
-  primaryButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    backgroundColor: '#2F6BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    writingDirection: 'rtl',
   },
 });

@@ -30,7 +30,14 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import {
+  SETTINGS_TOKENS,
+  SettingsDangerSection,
+  SettingsGroup,
+  SettingsSection,
+} from '@/components/business-settings';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { usePushNotifications } from '@/contexts/PushNotificationsContext';
@@ -224,6 +231,7 @@ function MenuRow({
   danger,
   disabled,
   showDot,
+  isLast = false,
 }: {
   title: string;
   subtitle?: string;
@@ -232,13 +240,19 @@ function MenuRow({
   danger?: boolean;
   disabled?: boolean;
   showDot?: boolean;
+  isLast?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.menuRow,
+        isLast ? styles.rowLast : null,
         danger ? styles.menuRowDanger : null,
         pressed ? styles.pressed : null,
         disabled ? styles.disabled : null,
@@ -277,19 +291,26 @@ function NotificationToggleRow({
   enabled,
   disabled,
   onPress,
+  isLast = false,
 }: {
   title: string;
   subtitle: string;
   enabled: boolean;
   disabled?: boolean;
   onPress: () => void;
+  isLast?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="switch"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      accessibilityState={{ checked: enabled, disabled }}
       style={({ pressed }) => [
         styles.notificationToggleRow,
+        isLast ? styles.rowLast : null,
         pressed ? styles.pressed : null,
         disabled ? styles.disabled : null,
       ]}
@@ -723,15 +744,21 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
-      <View
-        style={[
-          styles.fixedTopSection,
+      <ScrollView
+        style={styles.scrollArea}
+        stickyHeaderIndices={[0]}
+        contentContainerStyle={[
+          styles.scrollContent,
           {
-            paddingTop: (insets.top || 0) + 12,
+            paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
-        <View style={styles.headerRow}>
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+          style={styles.headerRow}
+        >
           <BusinessScreenHeader
             title={'הגדרות'}
             subtitle={
@@ -743,7 +770,7 @@ export default function SettingsScreen() {
             avatarUrl={user?.avatarUrl}
             avatarFullName={user?.fullName}
           />
-        </View>
+        </StickyScrollHeader>
         <BusinessModeCtaCard
           disabled={deleteBusy}
           forcePromotionalBanner={true}
@@ -837,93 +864,90 @@ export default function SettingsScreen() {
             </View>
           </View>
         ) : null}
-      </View>
+        <SettingsSection title={TEXT.sectionPreferences}>
+          <SettingsGroup>
+            <MenuRow
+              title={TEXT.accountSettingsTitle}
+              subtitle={TEXT.accountSettingsSubtitle}
+              icon="settings-outline"
+              showDot={true}
+              onPress={openAccountDetails}
+            />
+            <NotificationToggleRow
+              title={TEXT.notificationsToggleTitle}
+              subtitle={TEXT.notificationsToggleSubtitle}
+              enabled={notificationsEnabled}
+              disabled={notificationBusy}
+              onPress={toggleNotifications}
+            />
+            <NotificationToggleRow
+              title={TEXT.marketingToggleTitle}
+              subtitle={TEXT.marketingToggleSubtitle}
+              enabled={marketingEnabled}
+              disabled={marketingBusy}
+              onPress={toggleMarketing}
+              isLast={true}
+            />
+          </SettingsGroup>
+        </SettingsSection>
 
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingBottom: tabBarHeight + 24,
-          },
-        ]}
-      >
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>{TEXT.sectionPreferences}</Text>
-          <MenuRow
-            title={TEXT.accountSettingsTitle}
-            subtitle={TEXT.accountSettingsSubtitle}
-            icon="settings-outline"
-            showDot={true}
-            onPress={openAccountDetails}
-          />
-          <NotificationToggleRow
-            title={TEXT.notificationsToggleTitle}
-            subtitle={TEXT.notificationsToggleSubtitle}
-            enabled={notificationsEnabled}
-            disabled={notificationBusy}
-            onPress={toggleNotifications}
-          />
-          <NotificationToggleRow
-            title={TEXT.marketingToggleTitle}
-            subtitle={TEXT.marketingToggleSubtitle}
-            enabled={marketingEnabled}
-            disabled={marketingBusy}
-            onPress={toggleMarketing}
-          />
-        </View>
+        <SettingsSection title={TEXT.sectionSupport}>
+          <SettingsGroup>
+            <MenuRow
+              title={TEXT.helpTitle}
+              subtitle={TEXT.helpSubtitle}
+              icon="help-circle-outline"
+              onPress={openHelpCenter}
+            />
+            <MenuRow
+              title={TEXT.termsTitle}
+              subtitle={TEXT.termsSubtitle}
+              icon="document-text-outline"
+              onPress={openTermsOfService}
+            />
+            <MenuRow
+              title={TEXT.privacyTitle}
+              subtitle={TEXT.privacySubtitle}
+              icon="shield-checkmark-outline"
+              onPress={openPrivacyPolicy}
+            />
+            <MenuRow
+              title={TEXT.accountDeletionPolicyTitle}
+              subtitle={TEXT.accountDeletionPolicySubtitle}
+              icon="information-circle-outline"
+              onPress={openAccountDeletionPolicy}
+              isLast={true}
+            />
+          </SettingsGroup>
+        </SettingsSection>
 
-        <View style={styles.divider} />
+        <SettingsSection title={TEXT.sectionAccount}>
+          <SettingsGroup>
+            <MenuRow
+              title={TEXT.logoutTitle}
+              subtitle={TEXT.logoutSubtitle}
+              icon="log-out-outline"
+              disabled={isActionBusy}
+              onPress={confirmLogout}
+              isLast={true}
+            />
+          </SettingsGroup>
+        </SettingsSection>
 
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>{TEXT.sectionSupport}</Text>
+        <SettingsDangerSection
+          title={TEXT.deleteTitle}
+          description={TEXT.deleteSubtitle}
+        >
           <MenuRow
-            title={TEXT.helpTitle}
-            subtitle={TEXT.helpSubtitle}
-            icon="help-circle-outline"
-            onPress={openHelpCenter}
-          />
-          <MenuRow
-            title={TEXT.termsTitle}
-            subtitle={TEXT.termsSubtitle}
-            icon="document-text-outline"
-            onPress={openTermsOfService}
-          />
-          <MenuRow
-            title={TEXT.privacyTitle}
-            subtitle={TEXT.privacySubtitle}
-            icon="shield-checkmark-outline"
-            onPress={openPrivacyPolicy}
-          />
-          <MenuRow
-            title={TEXT.accountDeletionPolicyTitle}
-            subtitle={TEXT.accountDeletionPolicySubtitle}
-            icon="information-circle-outline"
-            onPress={openAccountDeletionPolicy}
-          />
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>{TEXT.sectionAccount}</Text>
-          <MenuRow
-            title={TEXT.logoutTitle}
-            subtitle={TEXT.logoutSubtitle}
-            icon="log-out-outline"
-            danger={true}
-            disabled={isActionBusy}
-            onPress={confirmLogout}
-          />
-          <MenuRow
-            title={TEXT.deleteTitle}
+            title={TEXT.deletePermanent}
             subtitle={TEXT.deleteSubtitle}
             icon="trash-outline"
             danger={true}
             disabled={isActionBusy}
             onPress={openDeleteModal}
+            isLast={true}
           />
-        </View>
+        </SettingsDangerSection>
 
         <Text style={styles.footerNote}>{TEXT.footerNote}</Text>
       </ScrollView>
@@ -1028,18 +1052,10 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
-  fixedTopSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    gap: 10,
-    width: '100%',
-    maxWidth: 720,
-    alignSelf: 'center',
-  },
   scrollArea: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: SETTINGS_TOKENS.sectionGap,
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
@@ -1049,7 +1065,7 @@ const styles = StyleSheet.create({
 
   headerRow: {
     alignItems: 'stretch',
-    marginBottom: 4,
+    paddingBottom: 10,
   },
   staffBusinessButton: {
     borderRadius: 18,
@@ -1151,19 +1167,12 @@ const styles = StyleSheet.create({
     color: '#171717',
   },
 
-  menuSection: { gap: 10 },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#71717A',
-    textAlign: 'right',
-  },
-  divider: { height: 1, backgroundColor: '#DEDEDE' },
   menuRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D9E2F2',
+    minHeight: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SETTINGS_TOKENS.border,
     paddingVertical: 12,
-    paddingHorizontal: 2,
+    paddingHorizontal: 16,
   },
   menuRowDanger: {
     borderBottomColor: '#FECACA',
@@ -1171,14 +1180,14 @@ const styles = StyleSheet.create({
   menuRowInner: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: 11,
+    gap: 12,
     ...rtlBaseView,
   },
   menuIconShell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#F4F4F5',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: SETTINGS_TOKENS.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1192,11 +1201,16 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: '#E61E5A',
   },
-  menuTextWrap: { flex: 1, alignItems: alignItems.start },
+  menuTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'stretch',
+  },
   menuTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: '#18181B',
+    lineHeight: 22,
+    fontWeight: '600',
+    color: SETTINGS_TOKENS.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -1204,48 +1218,55 @@ const styles = StyleSheet.create({
   menuSubtitle: {
     marginTop: 2,
     fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
+    lineHeight: 17,
+    fontWeight: '400',
+    color: SETTINGS_TOKENS.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   notificationToggleRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D9E2F2',
-    paddingHorizontal: 2,
+    minHeight: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SETTINGS_TOKENS.border,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: 'stretch',
   },
   notificationToggleInner: {
     flexDirection: flexDirection.row,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
+    ...rtlBaseView,
   },
   notificationToggleIconShell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#F4F4F5',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: SETTINGS_TOKENS.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   notificationToggleTextWrap: {
     flex: 1,
-    alignItems: alignItems.start,
+    minWidth: 0,
+    alignItems: 'stretch',
   },
   notificationToggleTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: '#18181B',
+    lineHeight: 22,
+    fontWeight: '600',
+    color: SETTINGS_TOKENS.textPrimary,
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   notificationToggleSubtitle: {
     marginTop: 3,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontWeight: '400',
+    color: SETTINGS_TOKENS.textSecondary,
     textAlign: 'right',
+    writingDirection: 'rtl',
   },
   notificationSwitchTrack: {
     width: 46,
@@ -1280,6 +1301,9 @@ const styles = StyleSheet.create({
   },
   notificationSwitchThumbLeft: {
     alignSelf: selfEnd,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
   },
 
   footerNote: {

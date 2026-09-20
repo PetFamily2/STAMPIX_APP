@@ -842,6 +842,7 @@ export default function BusinessTeamManagementScreen() {
           title="ניהול עובדים"
           subtitle="צפייה בצוות, הרשאות והיסטוריית שינויים"
           fallbackHref={BUSINESS_ROUTES.settings}
+          backgroundColor="#E9F0FF"
         />
 
         <FeatureGate
@@ -868,7 +869,7 @@ export default function BusinessTeamManagementScreen() {
               gap: 12,
             }}
           >
-            <View style={{ width: '48%' }}>
+            <View style={{ flexBasis: 140, flexGrow: 1, minWidth: 0 }}>
               <KpiCard
                 label="צוות פעיל"
                 value={String(activeRows.length)}
@@ -876,7 +877,7 @@ export default function BusinessTeamManagementScreen() {
                 tone="blue"
               />
             </View>
-            <View style={{ width: '48%' }}>
+            <View style={{ flexBasis: 140, flexGrow: 1, minWidth: 0 }}>
               <KpiCard
                 label="הזמנות ממתינות"
                 value={String(pendingInvites.length)}
@@ -884,7 +885,7 @@ export default function BusinessTeamManagementScreen() {
                 tone="teal"
               />
             </View>
-            <View style={{ width: '48%' }}>
+            <View style={{ flexBasis: 140, flexGrow: 1, minWidth: 0 }}>
               <KpiCard
                 label="מנהלים פעילים"
                 value={String(activeManagersCount)}
@@ -892,7 +893,7 @@ export default function BusinessTeamManagementScreen() {
                 tone="violet"
               />
             </View>
-            <View style={{ width: '48%' }}>
+            <View style={{ flexBasis: 140, flexGrow: 1, minWidth: 0 }}>
               <KpiCard
                 label="שימוש במושבים"
                 value={seatUsageLabel}

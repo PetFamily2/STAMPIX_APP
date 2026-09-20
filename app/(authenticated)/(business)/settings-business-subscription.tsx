@@ -17,6 +17,7 @@ import {
 } from 'react-native-safe-area-context';
 import {
   BusinessSettingsSubpageHeader,
+  SETTINGS_TOKENS,
   useSettingsContentWidth,
 } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
@@ -547,6 +548,7 @@ export default function BusinessSettingsSubscriptionScreen() {
         <BusinessSettingsSubpageHeader
           title="מסלול וחיוב"
           fallbackHref={BUSINESS_ROUTES.settings}
+          backgroundColor="#E9F0FF"
         />
 
         <View style={styles.currentPlanCard}>
@@ -558,8 +560,7 @@ export default function BusinessSettingsSubscriptionScreen() {
             <Text style={styles.currentPlanStatus}>{currentStatusLabel}</Text>
           </View>
           <Text style={styles.currentPlanHint}>
-            המכסות והשימוש בפועל מופיעים כאן, ופירוט כל מה שכלול במסלול מופיע
-            בהמשך.
+            השימוש והמכסות העדכניים מוצגים כאן.
           </Text>
         </View>
 
@@ -582,12 +583,8 @@ export default function BusinessSettingsSubscriptionScreen() {
               ) : (
                 <>
                   <Text style={styles.usageChipLabel}>{item.label}</Text>
-                  <Text style={styles.usageChipValue} numberOfLines={1}>
-                    {item.value}
-                  </Text>
-                  <Text style={styles.usageChipHint} numberOfLines={1}>
-                    {item.hint}
-                  </Text>
+                  <Text style={styles.usageChipValue}>{item.value}</Text>
+                  <Text style={styles.usageChipHint}>{item.hint}</Text>
                 </>
               )}
             </View>
@@ -723,7 +720,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 0,
-    gap: 10,
+    gap: SETTINGS_TOKENS.sectionGap,
     alignSelf: 'center',
   },
   stickyHeader: {
@@ -806,13 +803,15 @@ const styles = StyleSheet.create({
     textAlign: TEXT_START,
   },
   usageChip: {
-    width: '31%',
-    minHeight: 76,
-    borderRadius: 18,
+    flexBasis: 124,
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 88,
+    borderRadius: SETTINGS_TOKENS.radiusLg,
     borderWidth: 1,
     borderColor: '#DCE7F8',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: alignItems.start,
     justifyContent: 'center',
@@ -825,6 +824,7 @@ const styles = StyleSheet.create({
     textAlign: TEXT_START,
   },
   usageChipValue: {
+    width: '100%',
     color: '#0F172A',
     fontSize: 16,
     lineHeight: 20,
@@ -832,6 +832,7 @@ const styles = StyleSheet.create({
     textAlign: TEXT_END,
   },
   usageChipHint: {
+    width: '100%',
     color: '#94A3B8',
     fontSize: 10,
     fontWeight: '700',

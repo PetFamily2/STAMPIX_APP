@@ -218,6 +218,7 @@ export default function AddBusinessStaffScreen() {
           title="הוספת עובד"
           subtitle="סרקו קוד אישי מסוג QR של העובד כדי להזמין אותו"
           fallbackHref={BUSINESS_ROUTES.team}
+          backgroundColor="#E9F0FF"
         />
 
         <FeatureGate

@@ -2,15 +2,15 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
 import {
   SETTINGS_SUBTITLE_STYLE,
   SETTINGS_TITLE_STYLE,
   SETTINGS_TOKENS,
 } from '@/components/business-settings/tokens';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
+import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { safeBack } from '@/lib/navigation';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 
 type BusinessSettingsSubpageHeaderProps = {
   title: string;
@@ -18,6 +18,7 @@ type BusinessSettingsSubpageHeaderProps = {
   fallbackHref?: string;
   onBackPress?: () => void;
   leftAccessory?: ReactNode;
+  backgroundColor?: string;
 };
 
 export function BusinessSettingsSubpageHeader({
@@ -26,13 +27,14 @@ export function BusinessSettingsSubpageHeader({
   fallbackHref = BUSINESS_ROUTES.settings,
   onBackPress,
   leftAccessory,
+  backgroundColor = SETTINGS_TOKENS.pageBackground,
 }: BusinessSettingsSubpageHeaderProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <StickyScrollHeader
       topPadding={(insets.top || 0) + 8}
-      backgroundColor={SETTINGS_TOKENS.pageBackground}
+      backgroundColor={backgroundColor}
       style={styles.sticky}
     >
       <View style={styles.headerPad}>

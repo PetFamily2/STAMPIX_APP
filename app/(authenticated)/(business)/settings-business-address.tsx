@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import {
   BusinessSettingsSubpageHeader,
+  SETTINGS_TOKENS,
+  SettingsCard,
+  SettingsPrimaryButton,
   useSettingsContentWidth,
 } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
@@ -270,7 +273,7 @@ export default function BusinessSettingsAddressScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.card}>
+              <SettingsCard>
                 <BusinessAddressSelector
                   key={`${activeBusinessId}:${baseUpdatedAt ?? 'loading'}`}
                   query={addressQuery}
@@ -291,7 +294,7 @@ export default function BusinessSettingsAddressScreen() {
                   guideTargetRef={guideTargetRef}
                   guideFocusTargetRef={guideFocusTargetRef}
                 />
-              </View>
+              </SettingsCard>
 
               {conflictLocked ? (
                 <View style={styles.warningCard}>
@@ -310,22 +313,12 @@ export default function BusinessSettingsAddressScreen() {
                 </View>
               ) : null}
 
-              <Pressable
-                onPress={() => {
-                  void handleSave();
-                }}
+              <SettingsPrimaryButton
+                label={TEXT.save}
+                onPress={() => void handleSave()}
                 disabled={!canSave}
-                style={[
-                  styles.saveButton,
-                  !canSave ? styles.saveButtonOff : null,
-                ]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.saveButtonText}>{TEXT.save}</Text>
-                )}
-              </Pressable>
+                loading={isSubmitting}
+              />
             </>
           )}
         </ScrollView>
@@ -361,10 +354,10 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: SETTINGS_TOKENS.radiusLg,
     borderWidth: 1,
-    borderColor: '#E3E9FF',
-    backgroundColor: '#FFFFFF',
+    borderColor: SETTINGS_TOKENS.border,
+    backgroundColor: SETTINGS_TOKENS.surface,
     padding: 16,
   },
   loadingCard: {
@@ -415,21 +408,6 @@ const styles = StyleSheet.create({
   },
   warningButtonText: {
     fontSize: 12,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  saveButton: {
-    borderRadius: 16,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  saveButtonOff: {
-    backgroundColor: '#CBD5E1',
-  },
-  saveButtonText: {
-    textAlign: 'center',
-    fontSize: 14,
     fontWeight: '900',
     color: '#FFFFFF',
   },

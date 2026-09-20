@@ -7,6 +7,8 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import {
   BusinessSettingsSubpageHeader,
   SETTINGS_TOKENS,
+  SettingsCard,
+  SettingsField,
   SettingsGroup,
   SettingsNavRow,
   SettingsPageShell,
@@ -106,7 +108,7 @@ export default function BusinessSettingsAccountScreen() {
         />
       }
     >
-      <View style={styles.identityCard}>
+      <SettingsCard>
         <View style={styles.identityRow}>
           <UserAvatar
             avatarUrl={user?.avatarUrl}
@@ -121,14 +123,13 @@ export default function BusinessSettingsAccountScreen() {
           </View>
         </View>
 
-        <View style={styles.identityDivider} />
         <AccountProperty
           label="טלפון אישי לחשבון"
           value={user?.phone || 'לא מוגדר'}
           description="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק."
           isMissing={!user?.phone}
         />
-      </View>
+      </SettingsCard>
 
       <SettingsSection title="מסמכים ומדיניות">
         <SettingsGroup>
@@ -193,11 +194,7 @@ function AccountProperty({
   isMissing?: boolean;
 }) {
   return (
-    <View style={styles.property}>
-      <Text style={styles.propertyLabel}>{label}</Text>
-      {description ? (
-        <Text style={styles.propertyDescription}>{description}</Text>
-      ) : null}
+    <SettingsField label={label} helpText={description}>
       <View style={styles.propertyValueRow}>
         <Text
           style={[
@@ -214,21 +211,11 @@ function AccountProperty({
           </View>
         ) : null}
       </View>
-    </View>
+    </SettingsField>
   );
 }
 
 const styles = StyleSheet.create({
-  identityCard: {
-    width: '100%',
-    borderRadius: SETTINGS_TOKENS.radiusLg,
-    borderWidth: 1,
-    borderColor: SETTINGS_TOKENS.border,
-    backgroundColor: SETTINGS_TOKENS.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 14,
-  },
   identityRow: {
     width: '100%',
     flexDirection: flexDirection.row,
@@ -260,41 +247,18 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  identityDivider: {
-    width: '100%',
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: SETTINGS_TOKENS.border,
-  },
-  property: {
-    width: '100%',
-    alignItems: 'stretch',
-    gap: 5,
-  },
-  propertyLabel: {
-    width: '100%',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: SETTINGS_TOKENS.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  propertyDescription: {
-    width: '100%',
-    flexShrink: 1,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '400',
-    color: SETTINGS_TOKENS.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   propertyValueRow: {
     width: '100%',
-    minHeight: 28,
+    minHeight: 52,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: 8,
+    borderRadius: SETTINGS_TOKENS.radius,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.border,
+    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     ...rtlBaseView,
   },
   propertyValue: {
