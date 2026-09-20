@@ -405,7 +405,7 @@ export default function BusinessSettingsProfileScreen() {
                 fontSize: 12,
               }}
             >
-              עריכת נתוני העסק זמינה לבעלים או למנהל בלבד.
+              עריכת נתוני העסק זמינה לבעלים או למנהל בלבד
             </Text>
           ) : null}
         </>

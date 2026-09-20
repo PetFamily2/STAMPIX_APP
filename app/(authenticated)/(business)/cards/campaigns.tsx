@@ -164,14 +164,7 @@ export function CampaignsHubContent() {
     !isReferralConfigLoading && (referralConfig?.configVersion ?? 0) > 0;
   const referralCampaignEnabled =
     hasReferralCampaign && referralConfig?.isEnabled === true;
-  const countedManagementCampaigns = campaigns.filter(
-    (campaign) => campaign.isCountedTowardLimit
-  ).length;
-  const campaignQuotaUsed =
-    campaignsQuery === undefined || isReferralConfigLoading
-      ? undefined
-      : countedManagementCampaigns + (referralCampaignEnabled ? 1 : 0);
-  const campaignLimit = limitStatus('maxCampaigns', campaignQuotaUsed);
+  const campaignLimit = limitStatus('maxCampaigns');
   const requiredPlanForCampaigns =
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';

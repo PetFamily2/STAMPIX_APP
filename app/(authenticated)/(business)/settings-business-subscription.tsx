@@ -41,6 +41,8 @@ import {
   buildComparisonRows,
   normalizePlanCatalog,
   type PlanId,
+  resolveSubscriptionPlanAction,
+  resolveSubscriptionPlanSelection,
 } from '@/lib/subscription/planComparison';
 
 type UpgradeReason =
@@ -215,12 +217,7 @@ export default function BusinessSettingsSubscriptionScreen() {
     'maxCustomers',
     usageSummary?.customersUsed ?? 0
   );
-  const campaignsStatus = limitStatus(
-    'maxCampaigns',
-    usageSummary?.activeManagementCampaignsUsed ??
-      entitlements?.usage.activeManagementCampaigns ??
-      0
-  );
+  const campaignsStatus = limitStatus('maxCampaigns');
   const retentionStatus = limitStatus(
     'maxActiveRetentionActions',
     usageSummary?.activeRetentionActionsUsed ??
@@ -306,7 +303,7 @@ export default function BusinessSettingsSubscriptionScreen() {
   ]);
 
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'premium'>('pro');
+  const [upgradePlan, setUpgradePlan] = useState<PlanId>('pro');
   const [upgradeReason, setUpgradeReason] =
     useState<UpgradeReason>('feature_locked');
   const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
@@ -319,24 +316,20 @@ export default function BusinessSettingsSubscriptionScreen() {
   const [isRestoringSubscription, setIsRestoringSubscription] = useState(false);
 
   const openUpgrade = useCallback(
-    (targetPlan?: 'pro' | 'premium') => {
-      const fallbackPlan =
-        comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
-      const selectedTarget = targetPlan ?? fallbackPlan;
+    (targetPlan?: PlanId) => {
+      const selectedTarget = targetPlan ?? comparisonSelectedPlan;
 
       setUpgradePlan(selectedTarget);
       setUpgradeReason(
-        upgradeReasonParam ??
-          (!entitlements?.isSubscriptionActive && currentPlan !== 'starter'
-            ? 'subscription_inactive'
-            : 'feature_locked')
+        entitlements?.isSubscriptionActive !== true
+          ? 'subscription_inactive'
+          : (upgradeReasonParam ?? 'feature_locked')
       );
       setUpgradeFeatureKey(featureKeyParam?.trim() || 'business_subscription');
       setIsUpgradeVisible(true);
     },
     [
       comparisonSelectedPlan,
-      currentPlan,
       entitlements?.isSubscriptionActive,
       featureKeyParam,
       upgradeReasonParam,
@@ -392,13 +385,17 @@ export default function BusinessSettingsSubscriptionScreen() {
   }, [billingIdentity?.providerAppUserId, getManagementUrl]);
 
   useEffect(() => {
-    if (recommendedPlanParam) {
-      setComparisonSelectedPlan(recommendedPlanParam);
+    if (!entitlements) {
       return;
     }
 
-    setComparisonSelectedPlan(currentPlan);
-  }, [currentPlan, recommendedPlanParam]);
+    setComparisonSelectedPlan(
+      resolveSubscriptionPlanSelection({
+        currentPlan,
+        recommendedPlan: recommendedPlanParam,
+      })
+    );
+  }, [currentPlan, entitlements, recommendedPlanParam]);
 
   useEffect(() => {
     if (entitlements?.billingPeriod) {
@@ -410,25 +407,24 @@ export default function BusinessSettingsSubscriptionScreen() {
     if (
       !autoOpenUpgradeParam ||
       hasAutoOpenedModalRef.current ||
-      !activeBusinessId
+      !activeBusinessId ||
+      !entitlements
     ) {
       return;
     }
 
     hasAutoOpenedModalRef.current = true;
     openUpgrade(
-      recommendedPlanParam === 'premium'
-        ? 'premium'
-        : recommendedPlanParam === 'pro'
-          ? 'pro'
-          : currentPlan === 'premium'
-            ? 'premium'
-            : 'pro'
+      resolveSubscriptionPlanSelection({
+        currentPlan,
+        recommendedPlan: recommendedPlanParam,
+      })
     );
   }, [
     activeBusinessId,
     autoOpenUpgradeParam,
     currentPlan,
+    entitlements,
     openUpgrade,
     recommendedPlanParam,
   ]);
@@ -445,31 +441,44 @@ export default function BusinessSettingsSubscriptionScreen() {
     );
   }
 
+  const displaySubscriptionStatus =
+    entitlements?.isSubscriptionActive === true
+      ? (entitlements.subscriptionStatus ?? 'active')
+      : 'inactive';
   const currentStatusLabel =
-    entitlements?.subscriptionStatus === 'canceled' &&
-    entitlements.isSubscriptionActive
-      ? entitlements.subscriptionEndAt
-        ? `המנוי יבוטל בתאריך ${new Date(
-            entitlements.subscriptionEndAt
-          ).toLocaleDateString('he-IL')}`
-        : 'המנוי יבוטל בסוף התקופה ששולמה'
-      : (STATUS_LABELS[entitlements?.subscriptionStatus ?? 'active'] ?? 'פעיל');
-  const showSubscriptionRecoveryAction = isSubscriptionRecoveryStatus(
-    entitlements?.subscriptionStatus
-  );
+    !entitlements
+      ? 'טוענים את מצב המנוי'
+      : displaySubscriptionStatus === 'canceled' &&
+          entitlements.isSubscriptionActive
+        ? entitlements.subscriptionEndAt
+          ? `המנוי יבוטל בתאריך ${new Date(
+              entitlements.subscriptionEndAt
+            ).toLocaleDateString('he-IL')}`
+          : 'המנוי יבוטל בסוף התקופה ששולמה'
+        : (STATUS_LABELS[displaySubscriptionStatus] ?? 'לא פעיל');
+  const showSubscriptionRecoveryAction =
+    entitlements !== null &&
+    isSubscriptionRecoveryStatus(displaySubscriptionStatus);
   const subscriptionGuideTarget = resolveSubscriptionGuideTarget({
     guideId: guideIdParam,
-    subscriptionStatus: entitlements?.subscriptionStatus,
+    subscriptionStatus: entitlements ? displaySubscriptionStatus : undefined,
     limitKey: guideLimitKeyParam,
   });
-  const comparisonUpgradePlan: 'pro' | 'premium' =
-    comparisonSelectedPlan === 'premium' ? 'premium' : 'pro';
+  const activePlan =
+    entitlements?.isSubscriptionActive === true ? currentPlan : undefined;
+  const comparisonPlanAction = resolveSubscriptionPlanAction({
+    currentPlan,
+    selectedPlan: comparisonSelectedPlan,
+    isSubscriptionActive: entitlements?.isSubscriptionActive === true,
+  });
   const comparisonCtaLabel =
-    comparisonSelectedPlan === currentPlan && currentPlan !== 'starter'
+    comparisonPlanAction === 'manage'
       ? 'ניהול המסלול הנוכחי'
-      : comparisonSelectedPlan === 'starter'
-        ? 'שדרוג ל-Pro'
-        : `שדרוג ל-${PLAN_LABELS[comparisonUpgradePlan]}`;
+      : comparisonPlanAction === 'reactivate'
+        ? `הפעלת ${PLAN_LABELS[comparisonSelectedPlan]}`
+        : comparisonPlanAction === 'switch'
+          ? `מעבר ל-${PLAN_LABELS[comparisonSelectedPlan]}`
+          : `שדרוג ל-${PLAN_LABELS[comparisonSelectedPlan]}`;
 
   const usageItems = [
     {
@@ -508,7 +517,7 @@ export default function BusinessSettingsSubscriptionScreen() {
       key: 'campaigns_usage',
       label: 'קמפיינים',
       value: formatLimit(
-        usageSummary?.activeManagementCampaignsUsed ?? 0,
+        campaignsStatus.currentValue,
         campaignsStatus.limitValue
       ),
       hint: 'פעילים',
@@ -553,10 +562,18 @@ export default function BusinessSettingsSubscriptionScreen() {
 
         <View style={styles.currentPlanCard}>
           <View style={styles.currentPlanCopy}>
-            <Text style={styles.currentPlanEyebrow}>המסלול הנוכחי</Text>
-            <Text style={styles.currentPlanName}>
-              {PLAN_LABELS[currentPlan]}
+            <Text style={styles.currentPlanEyebrow}>
+              {entitlements?.isSubscriptionActive === true
+                ? 'המסלול הנוכחי'
+                : 'המסלול להפעלה'}
             </Text>
+            {entitlements ? (
+              <Text style={styles.currentPlanName}>
+                {PLAN_LABELS[currentPlan]}
+              </Text>
+            ) : (
+              <ActivityIndicator size="small" color="#2F6BFF" />
+            )}
             <Text style={styles.currentPlanStatus}>{currentStatusLabel}</Text>
           </View>
           <Text style={styles.currentPlanHint}>
@@ -660,22 +677,32 @@ export default function BusinessSettingsSubscriptionScreen() {
         ) : null}
 
         <View style={styles.panelWrap}>
-          <SubscriptionSalesPanel
-            plans={normalizedPlanCatalog}
-            rows={comparisonRows}
-            selectedPlan={comparisonSelectedPlan}
-            billingPeriod={comparisonBillingPeriod}
-            currentPlan={currentPlan}
-            context="settings"
-            footerMode="inline"
-            showPlanSelector={false}
-            ctaLabel={comparisonCtaLabel}
-            ctaDisabled={isLoading}
-            footerInsetBottom={0}
-            onSelectPlan={setComparisonSelectedPlan}
-            onBillingPeriodChange={setComparisonBillingPeriod}
-            onPressCta={() => openUpgrade(comparisonUpgradePlan)}
-          />
+          {entitlements ? (
+            <SubscriptionSalesPanel
+              plans={normalizedPlanCatalog}
+              rows={comparisonRows}
+              selectedPlan={comparisonSelectedPlan}
+              billingPeriod={comparisonBillingPeriod}
+              currentPlan={activePlan}
+              context="settings"
+              footerMode="inline"
+              showPlanSelector={false}
+              ctaLabel={comparisonCtaLabel}
+              ctaDisabled={isLoading}
+              footerInsetBottom={0}
+              onSelectPlan={setComparisonSelectedPlan}
+              onBillingPeriodChange={setComparisonBillingPeriod}
+              onPressCta={() => {
+                if (comparisonPlanAction === 'manage') {
+                  void handleManageSubscription();
+                  return;
+                }
+                openUpgrade(comparisonSelectedPlan);
+              }}
+            />
+          ) : (
+            <ActivityIndicator size="small" color="#2F6BFF" />
+          )}
         </View>
       </ScrollView>
 

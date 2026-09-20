@@ -32,7 +32,7 @@ import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 const TEXT = {
   title: 'ה-QR שלי',
   subtitle: 'קוד לקוח אישי אחד לכל העסקים',
-  helper: 'הציגו את הקוד בקופה כדי להצטרף לכרטיסייה, לקבל חותמת או לממש הטבה.',
+  helper: 'הציגו את הקוד בקופה כדי להצטרף לכרטיסייה, לקבל חותמת או לממש הטבה',
   qrLoading: 'טוען QR',
   qrIdle: 'לחצו על רענון QR להצגת קוד',
   qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
@@ -423,10 +423,11 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginTop: 12,
-    borderRadius: 10,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    minHeight: 44,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },

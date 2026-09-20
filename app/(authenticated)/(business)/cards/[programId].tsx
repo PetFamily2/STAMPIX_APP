@@ -91,7 +91,7 @@ const TEXT = {
   unavailableMessage:
     'ייתכן שהכרטיסיה נמחקה, הושבתה או שאינה שייכת לעסק הפעיל.',
   backToPrograms: 'חזרה לכרטיסיות',
-  missingData: 'נתוני כרטיסיה חסרים.',
+  missingData: 'נתוני כרטיסיה חסרים',
   saveDoneTitle: 'נשמר',
   saveDoneMessage: 'השינויים נשמרו בהצלחה.',
   errorTitle: 'שגיאה',
@@ -832,16 +832,22 @@ export default function ProgramDetailsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
       <KeyboardAvoidingView
+        style={{ flex: 1 }}
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           ref={guideScrollRef}
           stickyHeaderIndices={[0]}
           className="flex-1"
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          contentInsetAdjustmentBehavior="never"
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: (insets.bottom || 0) + 124,
+            paddingBottom: (insets.bottom || 0) + 220,
             width: '100%',
             maxWidth: 960,
             alignSelf: 'center',
@@ -1237,6 +1243,11 @@ export default function ProgramDetailsScreen() {
               </View>
             </View>
           ) : null}
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            style={{ height: 28 }}
+          />
         </ScrollView>
         <EditorStickyFooter>
           <TouchableOpacity

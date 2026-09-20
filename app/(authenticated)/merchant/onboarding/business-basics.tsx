@@ -80,7 +80,7 @@ const BUSINESS_PHONE_MAX_LENGTH = 24;
 
 const TEXT = {
   title: 'פרטי העסק',
-  subtitle: 'הפרטים האלה יישמרו לטיוטה ויצורפו לעסק אחרי בחירת הכתובת.',
+  subtitle: 'הפרטים האלה יישמרו לטיוטה ויצורפו לעסק אחרי בחירת הכתובת',
   requiredSection: 'נדרש להקמת העסק',
   recommendationsSection: 'עוזר לנו להמליץ',
   laterSection: 'אפשר לשנות אחר כך',

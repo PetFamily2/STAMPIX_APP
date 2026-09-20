@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -108,6 +109,7 @@ function formatProgress(currentStamps: number, maxStamps: number) {
 
 export default function CustomerBusinessDetailsScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const params = useLocalSearchParams<{
     businessId?: string;
     join?: string;
@@ -340,7 +342,7 @@ export default function CustomerBusinessDetailsScreen() {
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingBottom: (insets.bottom || 0) + 24,
+            paddingBottom: tabBarHeight + 24,
           },
         ]}
       >
@@ -640,10 +642,8 @@ const styles = StyleSheet.create({
   },
   sharePrimaryButton: {
     flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFD3FF',
-    backgroundColor: '#EEF4FF',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -651,11 +651,11 @@ const styles = StyleSheet.create({
   sharePrimaryButtonText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   shareSecondaryButton: {
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D5DEEE',
     backgroundColor: '#FFFFFF',
@@ -728,7 +728,8 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     marginTop: 2,
-    borderRadius: 14,
+    minHeight: 48,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingVertical: 12,
     alignItems: 'center',
@@ -757,9 +758,9 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   openCardText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#5B6475',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
     textAlign: 'right',
   },
   redeemBadge: {

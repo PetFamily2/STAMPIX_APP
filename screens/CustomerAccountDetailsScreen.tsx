@@ -21,7 +21,6 @@ import {
   SETTINGS_TOKENS,
   SettingsCard,
   SettingsField,
-  SettingsPrimaryButton,
   SettingsSection,
 } from '@/components/business-settings';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -272,7 +271,7 @@ export default function CustomerAccountDetailsScreen() {
 
             <SettingsField
               label={TEXT.phone}
-              helpText="הטלפון האישי של החשבון, בנפרד מטלפון העסק."
+              helpText="הטלפון האישי של החשבון, בנפרד מטלפון העסק"
             >
               <View style={styles.phoneEditWrap}>
                 {isEditingPhone ? (
@@ -286,7 +285,7 @@ export default function CustomerAccountDetailsScreen() {
                     style={styles.phoneInput}
                     textAlign="right"
                   />
-                ) : (
+                ) : phone === TEXT.missingValue ? null : (
                   <Text style={styles.detailValue}>{phone}</Text>
                 )}
                 {isEditingPhone ? (
@@ -326,13 +325,29 @@ export default function CustomerAccountDetailsScreen() {
                 ) : (
                   <Pressable
                     onPress={() => setIsEditingPhone(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      phone === TEXT.missingValue
+                        ? 'הוספת טלפון'
+                        : TEXT.editPhone
+                    }
                     style={({ pressed }) => [
-                      styles.smallButtonSecondary,
+                      phone === TEXT.missingValue
+                        ? styles.smallButtonPrimary
+                        : styles.smallButtonSecondary,
                       pressed ? styles.pressed : null,
                     ]}
                   >
-                    <Text style={styles.smallButtonSecondaryText}>
-                      {TEXT.editPhone}
+                    <Text
+                      style={
+                        phone === TEXT.missingValue
+                          ? styles.smallButtonPrimaryText
+                          : styles.smallButtonSecondaryText
+                      }
+                    >
+                      {phone === TEXT.missingValue
+                        ? 'הוספת טלפון'
+                        : TEXT.editPhone}
                     </Text>
                   </Pressable>
                 )}
@@ -419,12 +434,25 @@ export default function CustomerAccountDetailsScreen() {
               </View>
             </SettingsField>
 
-            <SettingsPrimaryButton
-              label={TEXT.marketingSave}
+            <Pressable
               onPress={() => void handleSaveMarketing()}
               disabled={isSavingMarketing}
-              loading={isSavingMarketing}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.marketingSave}
+              style={({ pressed }) => [
+                styles.primarySaveButton,
+                isSavingMarketing ? styles.buttonDisabled : null,
+                pressed && !isSavingMarketing ? styles.pressed : null,
+              ]}
+            >
+              {isSavingMarketing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primarySaveButtonText}>
+                  {TEXT.marketingSave}
+                </Text>
+              )}
+            </Pressable>
           </SettingsCard>
         </SettingsSection>
       </ScrollView>
@@ -444,6 +472,21 @@ const styles = StyleSheet.create({
   headerRow: { alignItems: 'stretch', marginBottom: 4 },
   pressed: { opacity: 0.88 },
   buttonDisabled: { opacity: 0.6 },
+  primarySaveButton: {
+    minHeight: 52,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  primarySaveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
   backButton: {
     width: 30,
     height: 30,
@@ -523,11 +566,11 @@ const styles = StyleSheet.create({
   },
   smallButtonSecondary: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -540,9 +583,9 @@ const styles = StyleSheet.create({
   },
   smallButtonPrimary: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

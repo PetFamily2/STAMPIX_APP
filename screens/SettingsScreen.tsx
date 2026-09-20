@@ -34,6 +34,7 @@ import {
   SETTINGS_TOKENS,
   SettingsDangerSection,
   SettingsGroup,
+  SettingsNavRow,
   SettingsSection,
 } from '@/components/business-settings';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
@@ -57,7 +58,6 @@ import {
   resolveNotificationFailurePresentation,
 } from '@/lib/pushNotificationState';
 import {
-  alignItems,
   flexDirection,
   justifyContent,
   rtlBaseView,
@@ -68,7 +68,6 @@ import {
 const REMEMBERED_EMAIL_STORAGE_KEY = 'remembered_email';
 const SCANNER_LAST_PROGRAM_STORAGE_PREFIX = 'scanner:lastProgram:';
 
-type IconName = keyof typeof Ionicons.glyphMap;
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
 const TEXT = {
@@ -79,29 +78,25 @@ const TEXT = {
   quickNew: 'חדש',
   sectionPreferences: 'העדפות',
   accountSettingsTitle: 'פרטי חשבון',
-  accountSettingsSubtitle: 'שם, אימייל ואבטחה',
+  accountSettingsSubtitle: 'שם ואימייל',
   notificationsToggleTitle: 'התראות',
-  notificationsToggleSubtitle: 'קבלת עדכונים והטבות',
+  notificationsToggleSubtitle: 'עדכונים והטבות',
   marketingToggleTitle: 'דיוור שיווקי',
-  marketingToggleSubtitle: 'הסכמה לקבלת מבצעים והטבות',
+  marketingToggleSubtitle: 'מבצעים והטבות',
   sectionSupport: 'תמיכה ומסמכים',
   helpTitle: 'עזרה ותמיכה',
-  helpSubtitle: 'שאלות נפוצות ויצירת קשר',
+  helpSubtitle: 'שאלות ופנייה',
   termsTitle: 'תנאי שימוש',
-  termsSubtitle: 'המסמך המשפטי של StampAix',
   privacyTitle: 'מדיניות פרטיות',
-  privacySubtitle: 'איך אנחנו שומרים על המידע שלכם',
   accountDeletionPolicyTitle: 'מדיניות מחיקת חשבון',
-  accountDeletionPolicySubtitle: 'מה נמחק, מה נשמר ומגבלת בעלים יחיד',
-  sectionAccount: 'ניהול חשבון',
+  sectionAccount: 'חשבון',
   logoutTitle: 'יציאה מהחשבון',
-  logoutSubtitle: 'התנתקות מהמכשיר הנוכחי',
   logoutConfirmTitle: 'אישור יציאה',
   logoutConfirmMessage: 'האם אתם בטוחים שברצונכם להתנתק מהחשבון?',
   logoutConfirmAction: 'יציאה מהחשבון',
   deleteTitle: 'מחיקת חשבון',
-  deleteSubtitle: 'מחיקה מלאה של החשבון והנתונים',
-  footerNote: 'StampAix - נאמנות דיגיטלית פשוטה לעסקים וללקוחות',
+  deleteSubtitle: 'פעולה בלתי הפיכה',
+  footerNote: 'StampAix',
   helpCenterText: 'צריכים עזרה? פנו אלינו דרך מרכז התמיכה באפליקציה',
   notificationsSaveFailed: 'לא הצלחנו לשמור את העדפת ההתראות נסו שוב',
   marketingSaveFailed: 'לא הצלחנו לשמור את העדפת הדיוור נסו שוב',
@@ -114,9 +109,8 @@ const TEXT = {
     'לא הצלחנו להפעיל את ההתראות כרגע. נסו שוב מאוחר יותר.',
   openSettings: 'פתח הגדרות',
   switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
-  staffBusinessTitlePrefix: 'מעבר ל',
-  staffScannerAction: 'לחץ למעבר',
-  staffBusinessesTitle: 'העסקים שבהם אני עובד',
+  staffScannerAction: 'סריקה',
+  staffBusinessesTitle: 'העסקים שלי',
   logoutFailed: 'לא הצלחנו לבצע יציאה נסו שוב',
   deleteModalTitle: 'מחיקת חשבון',
   deleteModalWarning:
@@ -149,6 +143,11 @@ function toErrorMessage(error: unknown, fallback: string) {
     return fallback;
   }
   return fallback;
+}
+
+function formatStaffBusinessTitle(businessName: string) {
+  const name = businessName.trim();
+  return name.length > 0 ? `מעבר ל${name}` : 'מעבר לעסק';
 }
 
 function showNotificationEnableFailure(
@@ -223,68 +222,6 @@ function reportPostDeletionCleanupWarning(failedStepNames: readonly string[]) {
   void failedStepNames;
 }
 
-function MenuRow({
-  title,
-  subtitle,
-  icon,
-  onPress,
-  danger,
-  disabled,
-  showDot,
-  isLast = false,
-}: {
-  title: string;
-  subtitle?: string;
-  icon: IconName;
-  onPress?: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-  showDot?: boolean;
-  isLast?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityHint={subtitle}
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        styles.menuRow,
-        isLast ? styles.rowLast : null,
-        danger ? styles.menuRowDanger : null,
-        pressed ? styles.pressed : null,
-        disabled ? styles.disabled : null,
-      ]}
-    >
-      <View style={styles.menuRowInner}>
-        <View style={styles.menuIconShell}>
-          <Ionicons
-            name={icon}
-            size={20}
-            color={danger ? '#B42318' : '#111827'}
-          />
-          {showDot ? <View style={styles.menuDot} /> : null}
-        </View>
-
-        <View style={styles.menuTextWrap}>
-          <Text
-            style={[styles.menuTitle, danger ? styles.menuTitleDanger : null]}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={styles.menuSubtitle}>{subtitle}</Text>
-          ) : null}
-        </View>
-
-        <Ionicons name="chevron-back" size={18} color="#A1A1AA" />
-      </View>
-    </Pressable>
-  );
-}
-
 function NotificationToggleRow({
   title,
   subtitle,
@@ -317,7 +254,11 @@ function NotificationToggleRow({
     >
       <View style={styles.notificationToggleInner}>
         <View style={styles.notificationToggleIconShell}>
-          <Ionicons name="notifications-outline" size={20} color="#111827" />
+          <Ionicons
+            name="notifications-outline"
+            size={18}
+            color={SETTINGS_TOKENS.accentText}
+          />
         </View>
 
         <View style={styles.notificationToggleTextWrap}>
@@ -783,94 +724,67 @@ export default function SettingsScreen() {
             disabled={
               deleteBusy || Boolean(staffBusinessBusyId) || isSwitchingBusiness
             }
+            accessibilityRole="button"
+            accessibilityLabel={formatStaffBusinessTitle(
+              singleStaffBusiness.name
+            )}
             style={({ pressed }) => [
-              styles.staffBusinessButton,
+              styles.staffPrimaryButton,
               pressed ? styles.pressed : null,
               deleteBusy || staffBusinessBusyId || isSwitchingBusiness
                 ? styles.disabled
                 : null,
             ]}
           >
-            <View style={styles.staffBusinessButtonInner}>
-              <View style={styles.staffBusinessIconShell}>
-                <Ionicons name="qr-code-outline" size={22} color="#1D4ED8" />
-              </View>
-              <View style={styles.staffBusinessTextWrap}>
-                <Text style={styles.staffBusinessTitle}>
-                  {TEXT.staffBusinessTitlePrefix} {singleStaffBusiness.name}
-                </Text>
-              </View>
-              {staffBusinessBusyId === String(singleStaffBusiness.id) ? (
-                <ActivityIndicator color="#1D4ED8" />
-              ) : (
-                <View style={styles.staffBusinessAction}>
-                  <Text style={styles.staffBusinessActionText}>
-                    {TEXT.staffScannerAction}
-                  </Text>
-                  <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
-                </View>
-              )}
-            </View>
+            {staffBusinessBusyId === String(singleStaffBusiness.id) ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.staffPrimaryButtonText}>
+                {formatStaffBusinessTitle(singleStaffBusiness.name)}
+              </Text>
+            )}
           </Pressable>
         ) : null}
         {staffBusinesses.length > 1 ? (
-          <View style={styles.staffBusinessesCard}>
-            <Text style={styles.staffBusinessesTitle}>
-              {TEXT.staffBusinessesTitle}
-            </Text>
-            <View style={styles.staffBusinessesList}>
-              {staffBusinesses.map((business) => (
-                <Pressable
+          <SettingsSection title={TEXT.staffBusinessesTitle}>
+            <SettingsGroup>
+              {staffBusinesses.map((business, index) => (
+                <SettingsNavRow
                   key={String(business.id)}
-                  onPress={() => {
-                    void openStaffBusinessScanner(business);
-                  }}
+                  title={formatStaffBusinessTitle(business.name)}
+                  icon="qr-code-outline"
                   disabled={
                     deleteBusy ||
                     Boolean(staffBusinessBusyId) ||
                     isSwitchingBusiness
                   }
-                  style={({ pressed }) => [
-                    styles.staffBusinessRow,
-                    pressed ? styles.pressed : null,
-                    deleteBusy || staffBusinessBusyId || isSwitchingBusiness
-                      ? styles.disabled
-                      : null,
-                  ]}
-                >
-                  <View style={styles.staffBusinessRowInner}>
-                    <View style={styles.staffBusinessRowTextWrap}>
-                      <Text style={styles.staffBusinessRowTitle}>
-                        {TEXT.staffBusinessTitlePrefix} {business.name}
-                      </Text>
-                    </View>
-                    {staffBusinessBusyId === String(business.id) ? (
-                      <ActivityIndicator color="#1D4ED8" />
+                  isLast={index === staffBusinesses.length - 1}
+                  onPress={() => {
+                    void openStaffBusinessScanner(business);
+                  }}
+                  trailing={
+                    staffBusinessBusyId === String(business.id) ? (
+                      <ActivityIndicator color="#2F6BFF" />
                     ) : (
-                      <View style={styles.staffBusinessAction}>
-                        <Text style={styles.staffBusinessActionText}>
+                      <View style={styles.staffRowActionPill}>
+                        <Text style={styles.staffRowActionPillText}>
                           {TEXT.staffScannerAction}
                         </Text>
-                        <Ionicons
-                          name="chevron-back"
-                          size={14}
-                          color="#1D4ED8"
-                        />
                       </View>
-                    )}
-                  </View>
-                </Pressable>
+                    )
+                  }
+                  showChevron={false}
+                />
               ))}
-            </View>
-          </View>
+            </SettingsGroup>
+          </SettingsSection>
         ) : null}
         <SettingsSection title={TEXT.sectionPreferences}>
           <SettingsGroup>
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.accountSettingsTitle}
               subtitle={TEXT.accountSettingsSubtitle}
               icon="settings-outline"
-              showDot={true}
               onPress={openAccountDetails}
             />
             <NotificationToggleRow
@@ -893,27 +807,24 @@ export default function SettingsScreen() {
 
         <SettingsSection title={TEXT.sectionSupport}>
           <SettingsGroup>
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.helpTitle}
               subtitle={TEXT.helpSubtitle}
               icon="help-circle-outline"
               onPress={openHelpCenter}
             />
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.termsTitle}
-              subtitle={TEXT.termsSubtitle}
               icon="document-text-outline"
               onPress={openTermsOfService}
             />
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.privacyTitle}
-              subtitle={TEXT.privacySubtitle}
               icon="shield-checkmark-outline"
               onPress={openPrivacyPolicy}
             />
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.accountDeletionPolicyTitle}
-              subtitle={TEXT.accountDeletionPolicySubtitle}
               icon="information-circle-outline"
               onPress={openAccountDeletionPolicy}
               isLast={true}
@@ -923,9 +834,8 @@ export default function SettingsScreen() {
 
         <SettingsSection title={TEXT.sectionAccount}>
           <SettingsGroup>
-            <MenuRow
+            <SettingsNavRow
               title={TEXT.logoutTitle}
-              subtitle={TEXT.logoutSubtitle}
               icon="log-out-outline"
               disabled={isActionBusy}
               onPress={confirmLogout}
@@ -938,11 +848,10 @@ export default function SettingsScreen() {
           title={TEXT.deleteTitle}
           description={TEXT.deleteSubtitle}
         >
-          <MenuRow
+          <SettingsNavRow
             title={TEXT.deletePermanent}
-            subtitle={TEXT.deleteSubtitle}
             icon="trash-outline"
-            danger={true}
+            destructive={true}
             disabled={isActionBusy}
             onPress={openDeleteModal}
             isLast={true}
@@ -1067,97 +976,37 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingBottom: 10,
   },
-  staffBusinessButton: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#1D4ED8',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
-  },
-  staffBusinessButtonInner: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 12,
-    ...rtlBaseView,
-  },
-  staffBusinessIconShell: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#EFF6FF',
+  staffPrimaryButton: {
+    alignSelf: 'stretch',
+    minHeight: 52,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  staffBusinessTextWrap: {
-    flex: 1,
-    alignItems: alignItems.start,
-  },
-  staffBusinessTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E3A8A',
-    textAlign: 'right',
-  },
-  staffBusinessAction: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 4,
-    ...rtlBaseView,
-  },
-  staffBusinessActionText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1D4ED8',
-    textAlign: 'right',
+  staffPrimaryButtonText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
-  staffBusinessesCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#DCE6FF',
-    backgroundColor: '#FFFFFF',
+  staffRowActionPill: {
+    minHeight: 32,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  staffBusinessesTitle: {
+  staffRowActionPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
-    textAlign: 'right',
-  },
-  staffBusinessesList: {
-    gap: 8,
-  },
-  staffBusinessRow: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#D6E3FF',
-    backgroundColor: '#F8FAFF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  staffBusinessRowInner: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 10,
-    ...rtlBaseView,
-  },
-  staffBusinessRowTextWrap: {
-    flex: 1,
-    alignItems: alignItems.start,
-  },
-  staffBusinessRowTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E3A8A',
-    textAlign: 'right',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   pageTitle: {
     textAlign: 'right',
@@ -1167,65 +1016,8 @@ const styles = StyleSheet.create({
     color: '#171717',
   },
 
-  menuRow: {
-    minHeight: 64,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SETTINGS_TOKENS.border,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  menuRowDanger: {
-    borderBottomColor: '#FECACA',
-  },
-  menuRowInner: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 12,
-    ...rtlBaseView,
-  },
-  menuIconShell: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: SETTINGS_TOKENS.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  menuDot: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#E61E5A',
-  },
-  menuTextWrap: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'stretch',
-  },
-  menuTitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '600',
-    color: SETTINGS_TOKENS.textPrimary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  menuTitleDanger: { color: '#B42318' },
-  menuSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '400',
-    color: SETTINGS_TOKENS.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   notificationToggleRow: {
-    minHeight: 64,
+    minHeight: SETTINGS_TOKENS.rowMinHeight,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: SETTINGS_TOKENS.border,
     paddingHorizontal: 16,
@@ -1252,7 +1044,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   notificationToggleTitle: {
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
     fontWeight: '600',
     color: SETTINGS_TOKENS.textPrimary,
@@ -1371,12 +1163,13 @@ const styles = StyleSheet.create({
   },
   modalSecondaryButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D4D4D8',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   modalSecondaryButtonText: { fontWeight: '800', color: '#3F3F46' },
   modalWarningButton: {

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useConvexAuth, useQuery } from 'convex/react';
@@ -5,12 +6,14 @@ import { type Href, useRouter } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -20,43 +23,45 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
-import { alignItems, flexDirection } from '@/lib/rtl';
+import { getBusinessMonogram } from '@/lib/loyalty/cardPresentation';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: 'עסקים בסביבה',
-  subtitle: 'מצאו עסקים קרובים לפי המפה והמרחק מכם',
-  mapTitle: 'מפת עסקים',
+  subtitle: 'עסקים קרובים, לפי מרחק',
+  searchPlaceholder: 'חיפוש עסק או כתובת',
+  mapButton: 'מפה',
+  listButton: 'רשימה',
+  filterButton: 'סינון',
   radiusTitle: 'רדיוס חיפוש',
   nearbyTitle: 'עסקים בסביבתך',
-  permissionTitle: 'כדי להציג עסקים קרובים אנחנו צריכים גישה למיקום',
-  permissionSubtitle: 'אשרו גישה למיקום כדי לראות עסקים במרחק של 1 עד 10 קמ.',
-  permissionButton: 'אשר גישה למיקום',
+  savedTitle: 'עסקים שמורים',
+  permissionTitle: 'נדרשת גישה למיקום',
+  permissionSubtitle: 'אשרו מיקום כדי לראות עסקים במרחק 1 עד 10 ק״מ.',
+  permissionButton: 'אישור מיקום',
   openSettings: 'פתח הגדרות',
   loadingLocation: 'טוענים את המיקום שלך',
   loadingNearby: 'מחפשים עסקים קרובים',
   retry: 'נסו שוב',
-  savedEmpty: 'עסקים שתצטרפו אליהם יופיעו כאן.',
-  emptyTitle: 'לא מצאנו עסקים בטווח הזה',
-  emptySubtitle: 'אפשר להגדיל רדיוס או להצטרף דרך QR בבית העסק.',
-  joinWithQrCta: 'הצטרפות עם QR',
-  myLocation: 'המיקום שלי',
+  emptyTitle: 'לא מצאנו עסקים',
+  emptySubtitle: 'הגדילו את הרדיוס או אפסו את הסינון.',
+  increaseRadius: 'הגדלת רדיוס',
+  resetFilters: 'איפוס סינון',
   addressFallback: 'כתובת לא זמינה',
-  filtersTitle: 'סוגי שירותים',
-  filtersClear: 'נקה סינון',
+  filtersClear: 'ניקוי',
   sortTitle: 'מיון',
   sortDistance: 'מרחק',
   sortServiceType: 'סוג עסק',
-  unclassified: 'לא סווג',
+  unclassified: 'עסק',
+  directions: 'ניווט',
+  myLocation: 'המיקום שלי',
   mapUnavailableTitle: 'המפה לא זמינה בתצוגה הזו',
-  mapUnavailableSubtitle:
-    'אפשר עדיין לראות עסקים קרובים ברשימה ולהצטרף דרך QR בבית העסק.',
+  mapUnavailableSubtitle: 'אפשר לראות את העסקים ברשימה.',
 };
 
 const CAN_RENDER_NATIVE_MAP = Platform.OS !== 'web';
@@ -114,14 +119,6 @@ type SavedBusinessQuery = {
   businessLogoUrl: string | null;
   joinedProgramCount: number;
   redeemableCount: number;
-  previewProgramTitle: string | null;
-  previewRewardName: string | null;
-  previewProgramImageUrl: string | null;
-  previewCardThemeId: string | null;
-  previewMaxStamps: number | null;
-  previewCurrentStamps: number | null;
-  previewStampShape: string | null;
-  previewProgramLifecycle: 'active' | 'archived';
 };
 
 function getMapDelta(radiusKm: number) {
@@ -183,6 +180,34 @@ function toLocationErrorMessage(error: string | null) {
   }
 }
 
+function getPrimaryCategoryLabel(serviceTypes: BusinessServiceType[]) {
+  const primary = serviceTypes[0];
+  if (!primary) {
+    return TEXT.unclassified;
+  }
+  return BUSINESS_SERVICE_TYPE_LABELS[primary] ?? TEXT.unclassified;
+}
+
+function shortenAddress(value: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) {
+    return TEXT.addressFallback;
+  }
+  const [firstPart] = normalized.split(',');
+  return firstPart?.trim() || normalized;
+}
+
+function openBusinessDirections(lat: number, lng: number, name: string) {
+  const query = encodeURIComponent(name.trim() || 'destination');
+  const url =
+    Platform.OS === 'ios'
+      ? `http://maps.apple.com/?daddr=${lat},${lng}&q=${query}`
+      : Platform.OS === 'android'
+        ? `geo:${lat},${lng}?q=${lat},${lng}(${query})`
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  void Linking.openURL(url);
+}
+
 export default function DiscoveryScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -193,6 +218,9 @@ export default function DiscoveryScreen() {
     BusinessServiceType[]
   >([]);
   const [sortBy, setSortBy] = useState<DiscoverySortBy>('distance');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   const deferredRadiusKm = useDeferredValue(radiusKm);
   const deferredServiceTypeFilters = useDeferredValue(serviceTypeFilters);
   const deferredSortBy = useDeferredValue(sortBy);
@@ -247,11 +275,25 @@ export default function DiscoveryScreen() {
     () => (savedBusinessesQuery ?? []) as SavedBusinessQuery[],
     [savedBusinessesQuery]
   );
-  const savedBusinessIds = useMemo(
-    () =>
-      new Set(savedBusinesses.map((business) => String(business.businessId))),
-    [savedBusinesses]
-  );
+  const savedBusinessById = useMemo(() => {
+    const map = new Map<string, SavedBusinessQuery>();
+    for (const business of savedBusinesses) {
+      map.set(String(business.businessId), business);
+    }
+    return map;
+  }, [savedBusinesses]);
+
+  const visibleBusinesses = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) {
+      return nearbyBusinesses;
+    }
+    return nearbyBusinesses.filter((business) => {
+      const name = business.name.toLocaleLowerCase();
+      const address = business.formattedAddress.toLocaleLowerCase();
+      return name.includes(query) || address.includes(query);
+    });
+  }, [nearbyBusinesses, searchQuery]);
 
   const isBusinessesLoading =
     Boolean(coords && isAuthenticated) && nearbyBusinessesQuery === undefined;
@@ -261,6 +303,11 @@ export default function DiscoveryScreen() {
     (isLocationLoading && !coords && !needsPermission) || isBusinessesLoading;
   const mapDelta = getMapDelta(deferredRadiusKm);
   const locationErrorMessage = toLocationErrorMessage(error);
+  const hasActiveFilters =
+    serviceTypeFilters.length > 0 ||
+    searchQuery.trim().length > 0 ||
+    sortBy !== 'distance' ||
+    radiusKm !== 3;
 
   const toggleServiceTypeFilter = (serviceType: BusinessServiceType) => {
     setServiceTypeFilters((current) => {
@@ -271,10 +318,31 @@ export default function DiscoveryScreen() {
     });
   };
 
+  const resetFilters = () => {
+    setSearchQuery('');
+    setServiceTypeFilters([]);
+    setSortBy('distance');
+    setRadiusKm(3);
+    setShowAdvancedFilters(false);
+  };
+
+  const increaseRadius = () => {
+    setRadiusKm((current) => Math.min(10, current + 2));
+    setShowAdvancedFilters(true);
+  };
+
+  const openBusinessPage = (businessId: string) => {
+    router.push({
+      pathname: '/(authenticated)/(customer)/business/[businessId]',
+      params: { businessId: String(businessId) },
+    } as any);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.contentContainer,
           {
@@ -291,95 +359,6 @@ export default function DiscoveryScreen() {
             <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
           </View>
         </StickyScrollHeader>
-
-        <View style={styles.panel}>
-          <View style={styles.panelHeader}>
-            <Text style={styles.radiusValue}>{savedBusinesses.length}</Text>
-            <Text style={styles.panelTitle}>עסקים שמורים</Text>
-          </View>
-
-          {isSavedBusinessesLoading ? (
-            <View style={styles.loadingState}>
-              <ActivityIndicator color="#2F6BFF" />
-              <Text style={styles.statusText}>טוענים עסקים שמורים</Text>
-            </View>
-          ) : null}
-
-          {!isSavedBusinessesLoading && savedBusinesses.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.cardSubtitle}>{TEXT.savedEmpty}</Text>
-            </View>
-          ) : null}
-
-          {!isSavedBusinessesLoading && savedBusinesses.length > 0 ? (
-            <View style={styles.resultsList}>
-              {savedBusinesses.map((business) => (
-                <View
-                  key={String(business.businessId)}
-                  style={styles.businessCard}
-                >
-                  <LoyaltyCard
-                    variant="wallet"
-                    businessName={business.businessName}
-                    businessLogoUrl={business.businessLogoUrl}
-                    programImageUrl={business.previewProgramImageUrl}
-                    programTitle={
-                      business.previewProgramTitle ?? business.businessName
-                    }
-                    rewardName={
-                      business.previewRewardName ??
-                      `כרטיסיות: ${business.joinedProgramCount}`
-                    }
-                    maxStamps={Math.max(
-                      1,
-                      Number(business.previewMaxStamps ?? 1)
-                    )}
-                    progress={{
-                      kind: 'actual',
-                      currentStamps: Number(
-                        business.previewCurrentStamps ?? 0
-                      ),
-                    }}
-                    lifecycle={business.previewProgramLifecycle}
-                    cardThemeId={business.previewCardThemeId}
-                    stampShape={normalizeStampShape(business.previewStampShape)}
-                    onPress={() =>
-                      router.push(
-                        `/(authenticated)/(customer)/business/${String(
-                          business.businessId
-                        )}` as Href
-                      )
-                    }
-                  />
-
-                  <Pressable
-                    style={styles.savedBusinessMetaRow}
-                    onPress={() =>
-                      router.push(
-                        `/(authenticated)/(customer)/business/${String(
-                          business.businessId
-                        )}` as Href
-                      )
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`פתיחת ${business.businessName}`}
-                  >
-                    <View style={styles.savedMetaBadge}>
-                      <Text style={styles.savedMetaBadgeText}>
-                        כרטיסיות: {business.joinedProgramCount}
-                      </Text>
-                    </View>
-                    <View style={styles.savedMetaBadge}>
-                      <Text style={styles.savedMetaBadgeText}>
-                        מוכנות למימוש: {business.redeemableCount}
-                      </Text>
-                    </View>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </View>
 
         {needsPermission ? (
           <View style={styles.infoCard}>
@@ -445,45 +424,27 @@ export default function DiscoveryScreen() {
 
         {coords ? (
           <>
-            <View style={styles.panel}>
-              <View style={styles.panelHeader}>
-                <Text style={styles.radiusValue}>{deferredRadiusKm} km</Text>
-                <Text style={styles.panelTitle}>{TEXT.radiusTitle}</Text>
+            <View style={styles.controlsCard}>
+              <View style={styles.searchShell}>
+                <Ionicons name="search-outline" size={18} color="#64748B" />
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={TEXT.searchPlaceholder}
+                  placeholderTextColor="#94A3B8"
+                  style={styles.searchInput}
+                  textAlign="right"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                />
               </View>
 
-              <Slider
-                value={radiusKm}
-                onValueChange={(value) => {
-                  setRadiusKm(Math.round(value));
-                }}
-                minimumValue={1}
-                maximumValue={10}
-                step={1}
-                minimumTrackTintColor="#2F6BFF"
-                maximumTrackTintColor="#C7D6FF"
-                thumbTintColor="#2F6BFF"
-              />
-            </View>
-
-            <View style={styles.panel}>
-              <View style={styles.filterHeaderRow}>
-                <Text style={styles.panelTitle}>{TEXT.filtersTitle}</Text>
-                {serviceTypeFilters.length > 0 ? (
-                  <Pressable
-                    onPress={() => setServiceTypeFilters([])}
-                    style={({ pressed }) => [
-                      styles.clearButton,
-                      pressed ? styles.pressed : null,
-                    ]}
-                  >
-                    <Text style={styles.clearButtonText}>
-                      {TEXT.filtersClear}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              <View style={styles.filterChipsWrap}>
+              <ScrollView
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+              >
                 {BUSINESS_SERVICE_TYPE_OPTIONS.map((option) => {
                   const isSelected = serviceTypeFilters.includes(option.id);
                   return (
@@ -507,226 +468,375 @@ export default function DiscoveryScreen() {
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
 
-              <View style={styles.sortSection}>
-                <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
-                <View style={styles.sortButtonsRow}>
+              <View style={styles.toolsRow}>
+                <Pressable
+                  onPress={() => setShowAdvancedFilters((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.toolButton,
+                    showAdvancedFilters ? styles.toolButtonActive : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={TEXT.filterButton}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={16}
+                    color={showAdvancedFilters ? '#1D4ED8' : '#334155'}
+                  />
+                  <Text
+                    style={[
+                      styles.toolButtonText,
+                      showAdvancedFilters ? styles.toolButtonTextActive : null,
+                    ]}
+                  >
+                    {`${radiusKm} ק״מ`}
+                  </Text>
+                </Pressable>
+
+                {serviceTypeFilters.length > 0 ? (
                   <Pressable
-                    onPress={() => setSortBy('distance')}
+                    onPress={() => setServiceTypeFilters([])}
                     style={({ pressed }) => [
-                      styles.sortButton,
-                      sortBy === 'distance' ? styles.sortButtonActive : null,
+                      styles.toolButton,
                       pressed ? styles.pressed : null,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.sortButtonText,
-                        sortBy === 'distance'
-                          ? styles.sortButtonTextActive
-                          : null,
-                      ]}
-                    >
-                      {TEXT.sortDistance}
-                    </Text>
+                    <Text style={styles.toolButtonText}>{TEXT.filtersClear}</Text>
                   </Pressable>
-                  <Pressable
-                    onPress={() => setSortBy('service_type')}
-                    style={({ pressed }) => [
-                      styles.sortButton,
-                      sortBy === 'service_type'
-                        ? styles.sortButtonActive
-                        : null,
-                      pressed ? styles.pressed : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.sortButtonText,
-                        sortBy === 'service_type'
-                          ? styles.sortButtonTextActive
-                          : null,
-                      ]}
-                    >
-                      {TEXT.sortServiceType}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
+                ) : null}
 
-            <View style={styles.mapCard}>
-              <View style={styles.panelHeader}>
-                <Text style={styles.locationBadge}>{TEXT.myLocation}</Text>
-                <Text style={styles.panelTitle}>{TEXT.mapTitle}</Text>
+                <Pressable
+                  onPress={() => setIsMapOpen((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.mapButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isMapOpen ? TEXT.listButton : TEXT.mapButton
+                  }
+                >
+                  <Ionicons
+                    name={isMapOpen ? 'list-outline' : 'map-outline'}
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.mapButtonText}>
+                    {isMapOpen ? TEXT.listButton : TEXT.mapButton}
+                  </Text>
+                </Pressable>
               </View>
 
-              <View style={styles.mapShell}>
-                {CAN_RENDER_NATIVE_MAP ? (
-                  <MapView
-                    style={styles.map}
-                    region={{
-                      latitude: coords.latitude,
-                      longitude: coords.longitude,
-                      latitudeDelta: mapDelta,
-                      longitudeDelta: mapDelta,
-                    }}
-                  >
-                    <Marker
-                      coordinate={{
-                        latitude: coords.latitude,
-                        longitude: coords.longitude,
-                      }}
-                      pinColor="#FF6B57"
-                      title={TEXT.myLocation}
-                    />
-
-                    {nearbyBusinesses.map((business) => (
-                      <Marker
-                        key={business.businessId}
-                        coordinate={{
-                          latitude: business.lat,
-                          longitude: business.lng,
-                        }}
-                        pinColor="#2F6BFF"
-                        title={business.name}
-                        description={
-                          business.formattedAddress || TEXT.addressFallback
-                        }
-                      />
-                    ))}
-                  </MapView>
-                ) : (
-                  <View style={styles.mapFallback}>
-                    <Text style={styles.mapFallbackTitle}>
-                      {TEXT.mapUnavailableTitle}
-                    </Text>
-                    <Text style={styles.mapFallbackSubtitle}>
-                      {TEXT.mapUnavailableSubtitle}
-                    </Text>
+              {showAdvancedFilters ? (
+                <View style={styles.advancedFilters}>
+                  <View style={styles.panelHeader}>
+                    <Text style={styles.radiusValue}>{radiusKm} km</Text>
+                    <Text style={styles.panelTitle}>{TEXT.radiusTitle}</Text>
                   </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.panel}>
-              <View style={styles.panelHeader}>
-                <Text style={styles.radiusValue}>
-                  {nearbyBusinesses.length}
-                </Text>
-                <Text style={styles.panelTitle}>{TEXT.nearbyTitle}</Text>
-              </View>
-
-              {isBusinessesLoading ? (
-                <View style={styles.loadingState}>
-                  <ActivityIndicator color="#2F6BFF" />
-                  <Text style={styles.statusText}>{TEXT.loadingNearby}</Text>
-                </View>
-              ) : null}
-
-              {!isBusinessesLoading && nearbyBusinesses.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.cardTitle}>{TEXT.emptyTitle}</Text>
-                  <Text style={styles.cardSubtitle}>{TEXT.emptySubtitle}</Text>
-                  <Pressable
-                    onPress={() => router.push('/(authenticated)/join')}
-                    style={({ pressed }) => [
-                      styles.emptyActionButton,
-                      pressed ? styles.pressed : null,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={TEXT.joinWithQrCta}
-                  >
-                    <Text style={styles.emptyActionButtonText}>
-                      {TEXT.joinWithQrCta}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              {!isBusinessesLoading && nearbyBusinesses.length > 0 ? (
-                <View style={styles.resultsList}>
-                  {nearbyBusinesses.map((business) => {
-                    const typeChips =
-                      business.serviceTypes.length > 0
-                        ? business.serviceTypes.map(
-                            (serviceType) =>
-                              BUSINESS_SERVICE_TYPE_LABELS[serviceType] ??
-                              TEXT.unclassified
-                          )
-                        : [TEXT.unclassified];
-
-                    const isSaved = savedBusinessIds.has(
-                      String(business.businessId)
-                    );
-
-                    return (
-                      <Pressable
-                        key={business.businessId}
-                        onPress={() =>
-                          router.push({
-                            pathname:
-                              '/(authenticated)/(customer)/business/[businessId]',
-                            params: { businessId: String(business.businessId) },
-                          } as any)
-                        }
-                        style={({ pressed }) => [
-                          styles.businessCard,
-                          pressed ? styles.pressed : null,
+                  <Slider
+                    value={radiusKm}
+                    onValueChange={(value) => {
+                      setRadiusKm(Math.round(value));
+                    }}
+                    minimumValue={1}
+                    maximumValue={10}
+                    step={1}
+                    minimumTrackTintColor="#2F6BFF"
+                    maximumTrackTintColor="#C7D6FF"
+                    thumbTintColor="#2F6BFF"
+                  />
+                  <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
+                  <View style={styles.sortButtonsRow}>
+                    <Pressable
+                      onPress={() => setSortBy('distance')}
+                      style={({ pressed }) => [
+                        styles.sortButton,
+                        sortBy === 'distance' ? styles.sortButtonActive : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          sortBy === 'distance'
+                            ? styles.sortButtonTextActive
+                            : null,
                         ]}
                       >
-                        <View style={styles.businessHeader}>
-                          <View style={styles.badgesStack}>
-                            <View style={styles.distanceBadge}>
+                        {TEXT.sortDistance}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSortBy('service_type')}
+                      style={({ pressed }) => [
+                        styles.sortButton,
+                        sortBy === 'service_type'
+                          ? styles.sortButtonActive
+                          : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          sortBy === 'service_type'
+                            ? styles.sortButtonTextActive
+                            : null,
+                        ]}
+                      >
+                        {TEXT.sortServiceType}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            {isMapOpen ? (
+              <View style={styles.mapCard}>
+                <View style={styles.mapShell}>
+                  {CAN_RENDER_NATIVE_MAP ? (
+                    <MapView
+                      style={styles.map}
+                      region={{
+                        latitude: coords.latitude,
+                        longitude: coords.longitude,
+                        latitudeDelta: mapDelta,
+                        longitudeDelta: mapDelta,
+                      }}
+                    >
+                      <Marker
+                        coordinate={{
+                          latitude: coords.latitude,
+                          longitude: coords.longitude,
+                        }}
+                        pinColor="#FF6B57"
+                        title={TEXT.myLocation}
+                      />
+                      {visibleBusinesses.map((business) => (
+                        <Marker
+                          key={business.businessId}
+                          coordinate={{
+                            latitude: business.lat,
+                            longitude: business.lng,
+                          }}
+                          pinColor="#2F6BFF"
+                          title={business.name}
+                          description={
+                            business.formattedAddress || TEXT.addressFallback
+                          }
+                          onPress={() => openBusinessPage(business.businessId)}
+                        />
+                      ))}
+                    </MapView>
+                  ) : (
+                    <View style={styles.mapFallback}>
+                      <Text style={styles.mapFallbackTitle}>
+                        {TEXT.mapUnavailableTitle}
+                      </Text>
+                      <Text style={styles.mapFallbackSubtitle}>
+                        {TEXT.mapUnavailableSubtitle}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.listCard}>
+                <View style={styles.panelHeader}>
+                  <Text style={styles.radiusValue}>
+                    {visibleBusinesses.length}
+                  </Text>
+                  <Text style={styles.panelTitle}>{TEXT.nearbyTitle}</Text>
+                </View>
+
+                {isBusinessesLoading ? (
+                  <View style={styles.loadingState}>
+                    <ActivityIndicator color="#2F6BFF" />
+                    <Text style={styles.statusText}>{TEXT.loadingNearby}</Text>
+                  </View>
+                ) : null}
+
+                {!isBusinessesLoading && visibleBusinesses.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.cardTitle}>{TEXT.emptyTitle}</Text>
+                    <Text style={styles.cardSubtitle}>{TEXT.emptySubtitle}</Text>
+                    <View style={styles.emptyActions}>
+                      <Pressable
+                        onPress={increaseRadius}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          pressed ? styles.pressed : null,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={TEXT.increaseRadius}
+                      >
+                        <Text style={styles.primaryButtonText}>
+                          {TEXT.increaseRadius}
+                        </Text>
+                      </Pressable>
+                      {hasActiveFilters ? (
+                        <Pressable
+                          onPress={resetFilters}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            pressed ? styles.pressed : null,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={TEXT.resetFilters}
+                        >
+                          <Text style={styles.secondaryButtonText}>
+                            {TEXT.resetFilters}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
+
+                {!isBusinessesLoading && visibleBusinesses.length > 0 ? (
+                  <View style={styles.resultsList}>
+                    {visibleBusinesses.map((business) => {
+                      const saved = savedBusinessById.get(
+                        String(business.businessId)
+                      );
+                      const logoUrl = saved?.businessLogoUrl ?? null;
+                      const categoryLabel = getPrimaryCategoryLabel(
+                        business.serviceTypes
+                      );
+
+                      return (
+                        <Pressable
+                          key={business.businessId}
+                          onPress={() => openBusinessPage(business.businessId)}
+                          style={({ pressed }) => [
+                            styles.businessCard,
+                            pressed ? styles.pressed : null,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={business.name}
+                        >
+                          <View style={styles.businessRow}>
+                            <View style={styles.logoShell}>
+                              {logoUrl ? (
+                                <Image
+                                  source={{ uri: logoUrl }}
+                                  style={styles.logoImage}
+                                  resizeMode="cover"
+                                  accessible={false}
+                                />
+                              ) : (
+                                <Text style={styles.logoMonogram}>
+                                  {getBusinessMonogram(business.name)}
+                                </Text>
+                              )}
+                            </View>
+
+                            <View style={styles.businessCopy}>
+                              <Text style={styles.businessName} numberOfLines={1}>
+                                {business.name}
+                              </Text>
+                              <Text style={styles.businessMeta} numberOfLines={1}>
+                                {categoryLabel}
+                              </Text>
+                              <Text
+                                style={styles.businessAddress}
+                                numberOfLines={1}
+                              >
+                                {shortenAddress(business.formattedAddress)}
+                              </Text>
+                            </View>
+
+                            <View style={styles.businessActions}>
                               <Text style={styles.distanceText}>
                                 {formatDistance(business.distanceKm)}
                               </Text>
+                              <Pressable
+                                onPress={() =>
+                                  openBusinessDirections(
+                                    business.lat,
+                                    business.lng,
+                                    business.name
+                                  )
+                                }
+                                style={({ pressed }) => [
+                                  styles.directionsButton,
+                                  pressed ? styles.pressed : null,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${TEXT.directions} ${business.name}`}
+                                hitSlop={8}
+                              >
+                                <Ionicons
+                                  name="navigate-outline"
+                                  size={14}
+                                  color="#1D4ED8"
+                                />
+                                <Text style={styles.directionsText}>
+                                  {TEXT.directions}
+                                </Text>
+                              </Pressable>
                             </View>
-                            {isSaved ? (
-                              <View style={styles.savedBadge}>
-                                <Text style={styles.savedBadgeText}>שמור</Text>
-                              </View>
-                            ) : null}
                           </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </View>
+            )}
 
-                          <View style={styles.businessTextWrap}>
-                            <Text style={styles.businessName}>
-                              {business.name}
+            {!isSavedBusinessesLoading && savedBusinesses.length > 0 ? (
+              <View style={styles.listCard}>
+                <Text style={styles.panelTitle}>{TEXT.savedTitle}</Text>
+                <View style={styles.resultsList}>
+                  {savedBusinesses.map((business) => (
+                    <Pressable
+                      key={String(business.businessId)}
+                      onPress={() =>
+                        router.push(
+                          `/(authenticated)/(customer)/business/${String(
+                            business.businessId
+                          )}` as Href
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.businessCard,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <View style={styles.businessRow}>
+                        <View style={styles.logoShell}>
+                          {business.businessLogoUrl ? (
+                            <Image
+                              source={{ uri: business.businessLogoUrl }}
+                              style={styles.logoImage}
+                              resizeMode="cover"
+                              accessible={false}
+                            />
+                          ) : (
+                            <Text style={styles.logoMonogram}>
+                              {getBusinessMonogram(business.businessName)}
                             </Text>
-                            <Text style={styles.businessAddress}>
-                              {business.formattedAddress ||
-                                TEXT.addressFallback}
-                            </Text>
-                          </View>
+                          )}
                         </View>
-
-                        <View style={styles.metaChipsWrap}>
-                          {typeChips.map((chipLabel) => (
-                            <View
-                              key={`${business.businessId}-${chipLabel}`}
-                              style={[styles.metaChip, styles.metaChipType]}
-                            >
-                              <Text style={styles.metaChipTypeText}>
-                                {chipLabel}
-                              </Text>
-                            </View>
-                          ))}
-                          {business.serviceTags.map((tag) => (
-                            <View
-                              key={`${business.businessId}-${tag}`}
-                              style={[styles.metaChip, styles.metaChipTag]}
-                            >
-                              <Text style={styles.metaChipTagText}>{tag}</Text>
-                            </View>
-                          ))}
+                        <View style={styles.businessCopy}>
+                          <Text style={styles.businessName} numberOfLines={1}>
+                            {business.businessName}
+                          </Text>
+                          <Text style={styles.businessMeta} numberOfLines={1}>
+                            {`כרטיסיות: ${business.joinedProgramCount}`}
+                          </Text>
                         </View>
-                      </Pressable>
-                    );
-                  })}
+                      </View>
+                    </Pressable>
+                  ))}
                 </View>
-              ) : null}
-            </View>
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -754,9 +864,93 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     marginBottom: 4,
   },
-  panel: {
+  controlsCard: {
+    marginTop: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D8E4FF',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+  },
+  searchShell: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7DEEA',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    ...rtlBaseView,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#12203A',
+    writingDirection: 'rtl',
+    paddingVertical: 8,
+  },
+  chipsRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  toolsRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    ...rtlBaseView,
+  },
+  toolButton: {
+    minHeight: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7DEEA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 6,
+    ...rtlBaseView,
+  },
+  toolButtonActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EEF3FF',
+  },
+  toolButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  toolButtonTextActive: {
+    color: '#1D4ED8',
+  },
+  mapButton: {
+    minHeight: 40,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 6,
+    ...rtlBaseView,
+  },
+  mapButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  advancedFilters: {
+    gap: 8,
+  },
+  listCard: {
     marginTop: 14,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#D8E4FF',
     backgroundColor: '#FFFFFF',
@@ -764,11 +958,11 @@ const styles = StyleSheet.create({
   },
   mapCard: {
     marginTop: 14,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#D8E4FF',
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 12,
   },
   panelHeader: {
     flexDirection: flexDirection.row,
@@ -795,40 +989,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     overflow: 'hidden',
   },
-  locationBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#FFE8E2',
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#D94A33',
-  },
-  filterHeaderRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  clearButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#C9D8FF',
-    backgroundColor: '#F8FAFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  clearButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2F6BFF',
-  },
-  filterChipsWrap: {
-    marginTop: 12,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   filterChip: {
     borderRadius: 999,
     borderWidth: 1,
@@ -849,12 +1009,8 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: '#1D4ED8',
   },
-  sortSection: {
-    marginTop: 14,
-    alignItems: alignItems.start,
-    gap: 8,
-  },
   sortTitle: {
+    marginTop: 4,
     fontSize: 13,
     fontWeight: '700',
     color: '#4B5563',
@@ -867,10 +1023,10 @@ const styles = StyleSheet.create({
   },
   sortButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#DCE6F7',
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 10,
     alignItems: 'center',
   },
@@ -887,9 +1043,8 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   mapShell: {
-    marginTop: 14,
-    height: 260,
-    borderRadius: 20,
+    height: 360,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -908,7 +1063,7 @@ const styles = StyleSheet.create({
   mapFallbackTitle: {
     width: '100%',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#0F172A',
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -923,117 +1078,94 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   resultsList: {
-    marginTop: 14,
-    gap: 10,
+    marginTop: 10,
   },
   businessCard: {
     borderBottomWidth: 1,
-    borderBottomColor: '#DCE6F7',
-    paddingHorizontal: 2,
-    paddingVertical: 14,
+    borderBottomColor: '#E6EAF2',
+    paddingVertical: 12,
   },
-  businessHeader: {
+  businessRow: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
+    ...rtlBaseView,
   },
-  businessTextWrap: {
+  logoShell: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E6EAF2',
+    backgroundColor: '#EEF3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoMonogram: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  businessCopy: {
     flex: 1,
+    minWidth: 0,
     alignItems: alignItems.start,
+    gap: 2,
   },
   businessName: {
+    width: '100%',
     fontSize: 15,
     fontWeight: '800',
     color: '#0B1220',
     textAlign: 'right',
   },
+  businessMeta: {
+    width: '100%',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
   businessAddress: {
-    marginTop: 4,
-    fontSize: 13,
+    width: '100%',
+    fontSize: 12,
     fontWeight: '500',
     color: '#5B6475',
     textAlign: 'right',
-    lineHeight: 18,
   },
-  distanceBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#D4EDFF',
-  },
-  badgesStack: {
+  businessActions: {
     alignItems: alignItems.start,
     gap: 6,
-  },
-  savedBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#EAFBF1',
-    borderWidth: 1,
-    borderColor: '#9EDDB9',
-  },
-  savedBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0D7A3E',
+    flexShrink: 0,
   },
   distanceText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+    textAlign: 'right',
   },
-  savedMetaBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  directionsButton: {
+    minHeight: 32,
     borderRadius: 999,
-    backgroundColor: '#EAF1FF',
     borderWidth: 1,
-    borderColor: '#C8D8FF',
+    borderColor: '#C9D8FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 4,
+    ...rtlBaseView,
   },
-  savedMetaBadgeText: {
-    fontSize: 11,
+  directionsText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#1D4ED8',
-    textAlign: 'center',
-  },
-  savedBusinessMetaRow: {
-    marginTop: 10,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  metaChipsWrap: {
-    marginTop: 10,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  metaChip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  metaChipType: {
-    backgroundColor: '#EAF1FF',
-    borderWidth: 1,
-    borderColor: '#C8D8FF',
-  },
-  metaChipTag: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  metaChipTypeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  metaChipTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#374151',
   },
   infoCard: {
     marginTop: 14,
@@ -1058,21 +1190,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFF',
     padding: 16,
     alignItems: alignItems.start,
+    gap: 8,
   },
-  emptyActionButton: {
-    marginTop: 12,
-    borderRadius: 999,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyActionButtonText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
+  emptyActions: {
+    width: '100%',
+    marginTop: 4,
+    gap: 8,
   },
   cardTitle: {
     fontSize: 16,
@@ -1097,11 +1220,12 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignSelf: 'stretch',
-    borderRadius: 14,
+    minHeight: 48,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
-    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryButtonText: {
     fontSize: 14,
@@ -1111,12 +1235,13 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignSelf: 'stretch',
-    borderRadius: 14,
+    minHeight: 48,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#2F6BFF',
     paddingHorizontal: 16,
-    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
   secondaryButtonText: {

@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',
-    backgroundColor: '#EEF4FF',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

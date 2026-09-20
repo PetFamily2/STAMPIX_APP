@@ -1091,8 +1091,8 @@ export default function ScannerScreen() {
           </Text>
           <Text style={styles.programContextMuted}>
             {recovery === 'manage_programs'
-              ? 'יש להפעיל תוכנית לפני תחילת העבודה בקופה.'
-              : 'יש לפנות לבעל העסק או למנהל כדי להפעיל תוכנית.'}
+              ? 'יש להפעיל תוכנית לפני תחילת העבודה בקופה'
+              : 'יש לפנות לבעל העסק או למנהל כדי להפעיל תוכנית'}
           </Text>
           {recovery === 'manage_programs' ? (
             <Pressable

@@ -27,7 +27,7 @@ type BenefitTypeId =
 
 const TEXT = {
   title: 'מה מעניין אותך?',
-  description: 'זה עוזר לנו להבין אילו הטבות מעניינות אותך.',
+  description: 'זה עוזר לנו להבין אילו הטבות מעניינות אותך',
   interestSectionTitle: 'סוגי עסקים',
   interestHelper: 'בחרו עד 3',
   benefitSectionTitle: 'איזה סוג הטבות כיף לך לקבל?',

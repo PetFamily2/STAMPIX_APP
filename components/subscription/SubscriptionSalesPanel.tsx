@@ -13,12 +13,11 @@ import {
 import { PlanComparisonTable } from '@/components/subscription/PlanComparisonTable';
 import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
 import { flexDirection, justifyContent, textAlign } from '@/lib/rtl';
-import { REFERRAL_COPY } from '@/lib/referrals/copy';
 import {
   buildComparisonRows,
   type ComparisonRow,
-  computeEquivalentMonthlyPrice,
-  formatPlanPrice,
+  computeAnnualSavings,
+  formatDisplayPlanPrice,
   type PlanCatalogItem,
   type PlanId,
 } from '@/lib/subscription/planComparison';
@@ -64,11 +63,12 @@ function YearlyValueBadge({ label }: { label: string }) {
   );
 }
 
-function yearlyValueLabel(pricing: PlanCatalogItem['pricing']): string | null {
-  if (pricing.monthly > 0 && pricing.yearly === pricing.monthly * 10) {
-    return REFERRAL_COPY.yearlySaveMonths;
+function yearlySavingsLabel(pricing: PlanCatalogItem['pricing']): string | null {
+  const savings = computeAnnualSavings(pricing);
+  if (!savings) {
+    return null;
   }
-  return null;
+  return `חיסכון ₪${formatDisplayPlanPrice(savings.amount)}`;
 }
 
 export function SubscriptionSalesPanel({
@@ -122,19 +122,15 @@ export function SubscriptionSalesPanel({
     return null;
   }
 
-  const equivalentMonthly =
-    computeEquivalentMonthlyPrice(selectedPlanCard.pricing);
-  const yearlyBadgeLabel = yearlyValueLabel(selectedPlanCard.pricing);
+  const yearlyBadgeLabel = yearlySavingsLabel(selectedPlanCard.pricing);
   const isCurrentSelectedPlan = currentPlan === selectedPlanCard.plan;
   const footerSummaryLabel = isCurrentSelectedPlan
     ? 'המסלול הפעיל'
     : 'המסלול שבחרת';
-  const monthlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.monthly)}`;
-  const yearlyBillingAmount = `₪${formatPlanPrice(selectedPlanCard.pricing.yearly)}`;
+  const monthlyBillingAmount = `₪${formatDisplayPlanPrice(selectedPlanCard.pricing.monthly)}`;
+  const yearlyBillingAmount = `₪${formatDisplayPlanPrice(selectedPlanCard.pricing.yearly)}`;
   const monthlyOptionPrice = `${monthlyBillingAmount}/חודש`;
-  const yearlyOptionPrice = equivalentMonthly
-    ? `₪${formatPlanPrice(equivalentMonthly)}/חודש`
-    : `${yearlyBillingAmount}/שנה`;
+  const yearlyOptionPrice = `${yearlyBillingAmount}/שנה`;
 
   const billingPeriods = ['monthly', 'yearly'] as const;
 
@@ -233,7 +229,7 @@ export function SubscriptionSalesPanel({
               : monthlyOptionPrice;
             const optionLabel = BILLING_PERIOD_LABELS[period];
             const optionSubline = isYearly
-              ? `חיוב ${yearlyBillingAmount} לשנה`
+              ? 'לחיוב שנתי מראש'
               : `חיוב ${monthlyBillingAmount} לחודש`;
 
             return (
@@ -310,13 +306,20 @@ export function SubscriptionSalesPanel({
           disabled={ctaDisabled || ctaLoading}
           style={[
             styles.ctaButton,
-            ctaDisabled ? styles.ctaButtonDisabled : null,
+            ctaDisabled && !ctaLoading ? styles.ctaButtonDisabled : null,
           ]}
         >
           {ctaLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.ctaText}>{ctaLabel}</Text>
+            <Text
+              style={[
+                styles.ctaText,
+                ctaDisabled ? styles.ctaTextDisabled : null,
+              ]}
+            >
+              {ctaLabel}
+            </Text>
           )}
         </Pressable>
 
@@ -609,12 +612,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   ctaButtonDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   ctaText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  ctaTextDisabled: {
+    color: '#64748B',
   },
 });

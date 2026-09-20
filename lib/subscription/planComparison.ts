@@ -50,6 +50,42 @@ export type ComparisonRow = {
 
 const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'premium'];
 
+export type SubscriptionPlanAction =
+  | 'manage'
+  | 'reactivate'
+  | 'upgrade'
+  | 'switch';
+
+export function resolveSubscriptionPlanSelection(args: {
+  currentPlan: PlanId;
+  recommendedPlan: PlanId | null;
+}): PlanId {
+  if (!args.recommendedPlan) {
+    return args.currentPlan;
+  }
+
+  const currentRank = PLAN_ORDER.indexOf(args.currentPlan);
+  const recommendedRank = PLAN_ORDER.indexOf(args.recommendedPlan);
+  return recommendedRank > currentRank
+    ? args.recommendedPlan
+    : args.currentPlan;
+}
+
+export function resolveSubscriptionPlanAction(args: {
+  currentPlan: PlanId;
+  selectedPlan: PlanId;
+  isSubscriptionActive: boolean;
+}): SubscriptionPlanAction {
+  if (args.selectedPlan === args.currentPlan) {
+    return args.isSubscriptionActive ? 'manage' : 'reactivate';
+  }
+
+  return PLAN_ORDER.indexOf(args.selectedPlan) >
+    PLAN_ORDER.indexOf(args.currentPlan)
+    ? 'upgrade'
+    : 'switch';
+}
+
 const LIMIT_ROW_LABELS: Record<LimitKey, string> = {
   maxCards: 'כרטיסיות נאמנות',
   maxCustomers: 'לקוחות',
@@ -64,27 +100,13 @@ const LIMIT_ROW_COMPACT_LABELS: Record<LimitKey, string> = {
   maxCustomers: 'לקוחות',
   maxActiveRetentionActions: 'שימור אוטומטי',
   maxCampaigns: 'קמפיינים פעילים',
-  maxAiExecutionsPerMonth: 'AI מ-Pro',
+  maxAiExecutionsPerMonth: 'פעולות AI',
   maxTeamSeats: 'ניהול צוות',
 };
 
-const FEATURE_ROW_LABELS: Record<FeatureKey, string> = {
-  team: 'ניהול צוות',
-  advancedReports: 'דוחות מתקדמים',
-  marketingHub: 'מרכז קמפיינים',
-  smartAnalytics: 'מודיעין עסקי בסיסי',
-};
-
-const FEATURE_ROW_COMPACT_LABELS: Record<FeatureKey, string> = {
-  team: 'צוות',
-  advancedReports: 'דוחות מתקדמים',
-  marketingHub: 'קמפיינים',
-  smartAnalytics: 'מודיעין עסקי',
-};
-
 export const PLAN_COMPARISON_CLARITY_NOTES = [
-  'השוואה זו מציגה רק יכולות שקיימות בשיגור.',
-  'Starter, Pro ו-Premium הם מסלולי מנוי בתשלום.',
+  'השוואה זו מציגה רק יכולות שקיימות בשיגור',
+  'Starter, Pro ו-Premium הם מסלולי מנוי בתשלום',
 ] as const;
 
 function isPlanId(value: unknown): value is PlanId {
@@ -271,6 +293,17 @@ export function formatPlanPrice(value: number): string {
   return value.toFixed(2);
 }
 
+export function formatDisplayPlanPrice(value: number): string {
+  const normalized = formatPlanPrice(value);
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
+    return normalized;
+  }
+
+  const [whole, fraction] = normalized.split('.');
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction ? `${groupedWhole}.${fraction}` : groupedWhole;
+}
+
 function formatLimitValue(limitValue: number): string {
   return String(limitValue);
 }
@@ -286,7 +319,7 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
     premium: planById.get('premium') ?? getDefaultPlanById('premium'),
   };
 
-  const limitRows: ComparisonRow[] = (
+  return (
     [
       'maxCards',
       'maxCustomers',
@@ -314,30 +347,6 @@ export function buildComparisonRows(plans: PlanCatalogItem[]): ComparisonRow[] {
       },
     },
   }));
-
-  const booleanFeatureRows: ComparisonRow[] = (
-    ['smartAnalytics', 'marketingHub', 'team'] as FeatureKey[]
-  ).map((featureKey) => ({
-    id: `feature:${featureKey}`,
-    label: FEATURE_ROW_LABELS[featureKey],
-    compactLabel: FEATURE_ROW_COMPACT_LABELS[featureKey],
-    cells: {
-      starter: {
-        type: 'boolean',
-        value: resolvedPlans.starter.features[featureKey],
-      },
-      pro: {
-        type: 'boolean',
-        value: resolvedPlans.pro.features[featureKey],
-      },
-      premium: {
-        type: 'boolean',
-        value: resolvedPlans.premium.features[featureKey],
-      },
-    },
-  }));
-
-  return [...limitRows, ...booleanFeatureRows];
 }
 
 export function getPlanPriceForPeriod(

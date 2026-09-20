@@ -6,7 +6,7 @@ import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
   title: 'העמוד לא נמצא',
-  subtitle: 'הקישור שנפתח לא זמין או שהועבר למקום אחר.',
+  subtitle: 'הקישור שנפתח לא זמין או שהועבר למקום אחר',
   action: 'חזרה',
 };
 

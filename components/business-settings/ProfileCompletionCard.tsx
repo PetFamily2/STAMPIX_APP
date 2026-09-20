@@ -61,7 +61,7 @@ export function ProfileCompletionCard({
       </View>
       {!canEdit ? (
         <Text style={styles.locked} maxFontSizeMultiplier={1.4}>
-          השלמת נתונים זמינה לבעלים או למנהל בלבד.
+          השלמת נתונים זמינה לבעלים או למנהל בלבד
         </Text>
       ) : null}
     </View>

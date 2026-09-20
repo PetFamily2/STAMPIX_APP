@@ -254,6 +254,7 @@ function DashboardBusinessReferralCard({
         ]}
       >
         <Text style={styles.businessReferralButtonText}>הזמנת עסק</Text>
+        <Ionicons name="chevron-back" size={14} color="#FFFFFF" />
       </Pressable>
     </Animated.View>
   );
@@ -1079,22 +1080,28 @@ const styles = StyleSheet.create({
   },
   businessReferralButton: {
     minWidth: 168,
-    width: '100%',
+    minHeight: 32,
+    width: 'auto',
+    alignSelf: selfStart,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 20,
     paddingVertical: 7,
+    flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
     shadowColor: '#2F6BFF',
     shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
+    ...rtlBaseView,
   },
   businessReferralButtonTablet: {
     width: 'auto',
     minWidth: 168,
+    flexShrink: 0,
   },
   businessReferralButtonPressed: {
     opacity: 0.88,

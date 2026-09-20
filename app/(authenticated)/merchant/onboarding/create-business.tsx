@@ -42,7 +42,7 @@ import { alignItems, flexDirection } from '@/lib/rtl';
 
 const TEXT = {
   title: 'כתובת העסק',
-  subtitle: 'בחרו עיר ורחוב והזינו מספר בית כדי לאמת כתובת מדויקת.',
+  subtitle: 'בחרו עיר ורחוב והזינו מספר בית כדי לאמת כתובת מדויקת',
   searchLabel: 'פרטי הכתובת',
   continue: 'יצירת העסק והמשך לכרטיסייה',
   creating: 'יוצרים עסק...',

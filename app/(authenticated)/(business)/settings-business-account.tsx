@@ -1,8 +1,16 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { Ionicons } from '@expo/vector-icons';
+import { useMutation } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import {
   BusinessSettingsSubpageHeader,
@@ -16,6 +24,7 @@ import {
 } from '@/components/business-settings';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { safePush } from '@/lib/navigation';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
@@ -50,7 +59,11 @@ export default function BusinessSettingsAccountScreen() {
   const sessionContext = useSessionContext();
   const { signOut } = useAuthActions();
   const { activeBusiness } = useActiveBusiness();
+  const setMyPhone = useMutation(api.users.setMyPhone);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   const user = sessionContext?.user;
   const userFullName =
@@ -65,6 +78,32 @@ export default function BusinessSettingsAccountScreen() {
     : false;
   const canCloseBusiness = activeBusiness?.staffRole === 'owner';
   const canOpenAccountData = canLeaveBusiness || canCloseBusiness;
+  const savedPhone = user?.phone?.trim() ?? '';
+  const hasPhone = savedPhone.length > 0;
+
+  useEffect(() => {
+    if (!isEditingPhone) {
+      setPhoneInput(savedPhone);
+    }
+  }, [isEditingPhone, savedPhone]);
+
+  const canSavePhone = useMemo(() => {
+    const trimmed = phoneInput.trim();
+    return !isSavingPhone && trimmed.length > 0 && trimmed !== savedPhone;
+  }, [isSavingPhone, phoneInput, savedPhone]);
+
+  const handleSavePhone = async () => {
+    try {
+      setIsSavingPhone(true);
+      await setMyPhone({ phone: phoneInput.trim() });
+      setIsEditingPhone(false);
+      Alert.alert('נשמר', 'מספר הטלפון נשמר בהצלחה.');
+    } catch {
+      Alert.alert('שגיאה', 'שמירת הטלפון נכשלה.');
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
 
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -118,17 +157,85 @@ export default function BusinessSettingsAccountScreen() {
           <View style={styles.identityCopy}>
             <Text style={styles.identityName}>{userFullName}</Text>
             <Text style={styles.identityEmail}>
-              {user?.email || 'לא מוגדר'}
+              {user?.email || 'לא הוגדר'}
             </Text>
           </View>
         </View>
 
-        <AccountProperty
+        <SettingsField
           label="טלפון אישי לחשבון"
-          value={user?.phone || 'לא מוגדר'}
-          description="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק."
-          isMissing={!user?.phone}
-        />
+          helpText="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק"
+        >
+          <View style={styles.phoneEditWrap}>
+            {isEditingPhone ? (
+              <TextInput
+                value={phoneInput}
+                onChangeText={setPhoneInput}
+                editable={!isSavingPhone}
+                placeholder="הזינו מספר טלפון"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                style={styles.phoneInput}
+                textAlign="right"
+              />
+            ) : hasPhone ? (
+              <Text style={styles.propertyValue}>{savedPhone}</Text>
+            ) : null}
+            {isEditingPhone ? (
+              <View style={styles.phoneActionRow}>
+                <Pressable
+                  onPress={() => setIsEditingPhone(false)}
+                  disabled={isSavingPhone}
+                  style={({ pressed }) => [
+                    styles.smallButtonSecondary,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={styles.smallButtonSecondaryText}>ביטול</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    void handleSavePhone();
+                  }}
+                  disabled={!canSavePhone}
+                  style={({ pressed }) => [
+                    styles.smallButtonPrimary,
+                    !canSavePhone ? styles.buttonDisabled : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  {isSavingPhone ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.smallButtonPrimaryText}>שמור</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setIsEditingPhone(true)}
+                accessibilityRole="button"
+                accessibilityLabel={hasPhone ? 'עריכת טלפון' : 'הוספת טלפון'}
+                style={({ pressed }) => [
+                  hasPhone
+                    ? styles.smallButtonSecondary
+                    : styles.smallButtonPrimary,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text
+                  style={
+                    hasPhone
+                      ? styles.smallButtonSecondaryText
+                      : styles.smallButtonPrimaryText
+                  }
+                >
+                  {hasPhone ? 'עריכת טלפון' : 'הוספת טלפון'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </SettingsField>
       </SettingsCard>
 
       <SettingsSection title="מסמכים ומדיניות">
@@ -182,39 +289,6 @@ export default function BusinessSettingsAccountScreen() {
   );
 }
 
-function AccountProperty({
-  label,
-  value,
-  description,
-  isMissing = false,
-}: {
-  label: string;
-  value: string;
-  description?: string;
-  isMissing?: boolean;
-}) {
-  return (
-    <SettingsField label={label} helpText={description}>
-      <View style={styles.propertyValueRow}>
-        <Text
-          style={[
-            styles.propertyValue,
-            isMissing ? styles.propertyValueMissing : null,
-          ]}
-        >
-          {value}
-        </Text>
-        {isMissing ? (
-          <View style={styles.missingBadge}>
-            <Ionicons name="alert-circle-outline" size={15} color="#92400E" />
-            <Text style={styles.missingBadgeText}>פרט חסר</Text>
-          </View>
-        ) : null}
-      </View>
-    </SettingsField>
-  );
-}
-
 const styles = StyleSheet.create({
   identityRow: {
     width: '100%',
@@ -247,23 +321,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  propertyValueRow: {
-    width: '100%',
-    minHeight: 52,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: SETTINGS_TOKENS.radius,
-    borderWidth: 1,
-    borderColor: SETTINGS_TOKENS.border,
-    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    ...rtlBaseView,
-  },
   propertyValue: {
-    flex: 1,
-    minWidth: 0,
+    width: '100%',
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '600',
@@ -271,25 +330,68 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  propertyValueMissing: {
-    color: '#92400E',
-    fontWeight: '700',
+  phoneEditWrap: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: SETTINGS_TOKENS.radius,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.border,
+    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
+    padding: 10,
+    gap: 8,
+    alignItems: 'stretch',
   },
-  missingBadge: {
-    minHeight: 28,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-  },
-  missingBadgeText: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '800',
-    color: '#92400E',
+  phoneInput: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: SETTINGS_TOKENS.radius,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.borderStrong,
+    backgroundColor: SETTINGS_TOKENS.surface,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
+  phoneActionRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  smallButtonSecondary: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallButtonSecondaryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  smallButtonPrimary: {
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smallButtonPrimaryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  pressed: { opacity: 0.88 },
+  buttonDisabled: { opacity: 0.6 },
 });

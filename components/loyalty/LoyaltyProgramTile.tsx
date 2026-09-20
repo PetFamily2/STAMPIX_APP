@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { resolveCardTheme } from '@/constants/cardThemes';
-import { alignItems } from '@/lib/rtl';
+import { alignItems, justifyContent } from '@/lib/rtl';
 import { StampIcon } from './StampIcon';
 
 const PROGRAM_TILE_BORDER_WIDTH = 3;
@@ -37,9 +37,11 @@ export function LoyaltyProgramTile({
   const theme = resolveCardTheme(cardThemeId);
   return (
     <View
+      collapsable={false}
+      removeClippedSubviews={false}
       style={[
         styles.shadowHost,
-        { width },
+        { width, backgroundColor: theme.surface },
         selected ? styles.selected : null,
       ]}
     >
@@ -51,7 +53,10 @@ export function LoyaltyProgramTile({
         accessibilityState={{ selected, disabled, busy }}
         style={({ pressed }) => [
           styles.root,
-          { borderColor: selected ? '#2F6BFF' : theme.keyline },
+          {
+            borderColor: selected ? '#2F6BFF' : theme.keyline,
+            backgroundColor: theme.surface,
+          },
           pressed && !disabled ? styles.pressed : null,
           disabled ? styles.disabled : null,
         ]}
@@ -61,7 +66,12 @@ export function LoyaltyProgramTile({
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           pointerEvents="none"
-          style={styles.surface}
+          style={styles.surfaceFill}
+        />
+        <View
+          collapsable={false}
+          pointerEvents="none"
+          style={styles.content}
         >
           <View style={styles.selectionSlot}>
             {selected ? (
@@ -85,7 +95,7 @@ export function LoyaltyProgramTile({
           >
             {title}
           </Text>
-        </LinearGradient>
+        </View>
       </Pressable>
     </View>
   );
@@ -95,7 +105,6 @@ const styles = StyleSheet.create({
   shadowHost: {
     height: PROGRAM_TILE_HEIGHT,
     borderRadius: 13,
-    backgroundColor: '#111827',
     overflow: 'visible',
     flexShrink: 0,
   },
@@ -111,17 +120,24 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 13,
     borderWidth: PROGRAM_TILE_BORDER_WIDTH,
-    backgroundColor: '#111827',
     overflow: 'hidden',
+    position: 'relative',
   },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.58 },
-  surface: {
+  surfaceFill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 11,
+  },
+  content: {
     flex: 1,
     width: '100%',
-    borderRadius: 11,
-    overflow: 'hidden',
     alignItems: 'center',
+    justifyContent: justifyContent.start,
     gap: 3,
     paddingHorizontal: 4,
     paddingVertical: 5,
@@ -148,6 +164,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
     backgroundColor: 'transparent',
   },
   title: {

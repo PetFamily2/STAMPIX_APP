@@ -146,10 +146,7 @@ export default function WalletScreen() {
             accessibilityLabel={TEXT.joinBusinessTitle}
           >
             <View style={styles.joinBusinessButtonContent}>
-              <View style={styles.joinBusinessPlusCircle}>
-                <View style={styles.joinBusinessPlusHorizontal} />
-                <View style={styles.joinBusinessPlusVertical} />
-              </View>
+              <Ionicons name="add" size={18} color="#FFFFFF" />
               <Text style={styles.joinBusinessTitle}>
                 {TEXT.joinBusinessTitle}
               </Text>
@@ -302,7 +299,10 @@ export default function WalletScreen() {
                     ) : null}
 
                     <Pressable
-                      style={styles.openRow}
+                      style={({ pressed }) => [
+                        styles.openRow,
+                        pressed ? styles.pressed : null,
+                      ]}
                       onPress={() =>
                         router.push(
                           `/(authenticated)/(customer)/business/${businessId}` as Href
@@ -312,7 +312,6 @@ export default function WalletScreen() {
                       accessibilityLabel={`${TEXT.openBusiness}: ${business.businessName}`}
                     >
                       <Text style={styles.openText}>{TEXT.openBusiness}</Text>
-                      <Ionicons name="chevron-back" size={14} color="#5B6475" />
                     </Pressable>
                   </View>
                 );
@@ -371,12 +370,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   joinBusinessButton: {
-    borderRadius: 16,
-    backgroundColor: '#DBEAFE',
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#9CC0FF',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   joinBusinessButtonContent: {
     ...rtlBaseView,
@@ -384,42 +384,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  joinBusinessPlusCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#1D4ED8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  joinBusinessPlusHorizontal: {
-    position: 'absolute',
-    width: 15,
-    height: 3.4,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  joinBusinessPlusVertical: {
-    position: 'absolute',
-    width: 3.4,
-    height: 15,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
   joinBusinessTitle: {
-    color: '#1E3A8A',
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   referralCard: {
-    marginTop: 20,
-    minHeight: 58,
+    marginTop: 12,
+    minHeight: 48,
     borderTopWidth: 1,
     borderTopColor: '#C9D8F5',
     paddingHorizontal: 2,
-    paddingTop: 14,
+    paddingTop: 12,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -479,7 +457,7 @@ const styles = StyleSheet.create({
   },
   pendingInviteButton: {
     alignSelf: selfStart,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#FFFFFF',
     borderRadius: 999,
     minHeight: 38,
     paddingHorizontal: 16,
@@ -487,24 +465,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#9CC0FF',
+    borderColor: '#F5D5A0',
   },
   pendingInviteButtonText: {
-    color: '#1E3A8A',
+    color: '#9A3412',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
     textAlign: 'center',
   },
   cardList: {
-    marginTop: 18,
-    gap: 12,
+    marginTop: 12,
+    gap: 8,
   },
   cardContainer: {
     borderRadius: 22,
-    paddingBottom: 2,
+    paddingBottom: 0,
   },
   aggregateMetaText: {
-    marginTop: 8,
+    marginTop: 6,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     paddingHorizontal: 4,
     color: '#475569',
     fontSize: 12,
@@ -533,9 +514,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyPrimaryButton: {
-    borderRadius: 14,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -547,11 +528,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptySecondaryButton: {
-    borderRadius: 14,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',
-    backgroundColor: '#EEF4FF',
-    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -567,17 +548,21 @@ const styles = StyleSheet.create({
   },
   openRow: {
     marginTop: 8,
-    paddingHorizontal: 4,
-    flexDirection: flexDirection.row,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    minHeight: 40,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 16,
     alignItems: 'center',
-    gap: 6,
-    ...rtlBaseView,
+    justifyContent: 'center',
   },
   openText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#5B6475',
-    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
 });

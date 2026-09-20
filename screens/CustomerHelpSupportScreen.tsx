@@ -18,7 +18,6 @@ import {
 } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import { ContinueButton } from '@/components/ContinueButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { alignItems, flexDirection } from '@/lib/rtl';
@@ -202,16 +201,28 @@ export default function CustomerHelpSupportScreen() {
               </Text>
             </View>
 
-            <View style={styles.sendButtonRow}>
-              <ContinueButton
-                onPress={() => {
-                  void handleSubmit();
-                }}
-                disabled={isSendDisabled}
-                label={isSending ? TEXT.sending : TEXT.send}
-                accessibilityLabel={TEXT.send}
-              />
-            </View>
+            <Pressable
+              onPress={() => {
+                void handleSubmit();
+              }}
+              disabled={isSendDisabled}
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.send}
+              style={({ pressed }) => [
+                styles.sendButton,
+                isSendDisabled ? styles.sendButtonDisabled : null,
+                pressed && !isSendDisabled ? styles.pressed : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sendButtonText,
+                  isSendDisabled ? styles.sendButtonTextDisabled : null,
+                ]}
+              >
+                {isSending ? TEXT.sending : TEXT.send}
+              </Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -322,8 +333,27 @@ const styles = StyleSheet.create({
   counterTextDanger: {
     color: '#B42318',
   },
-  sendButtonRow: {
+  sendButton: {
     marginTop: 4,
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#D6DCE8',
+  },
+  sendButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  sendButtonTextDisabled: {
+    color: '#FFFFFF',
   },
 });

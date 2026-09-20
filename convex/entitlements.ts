@@ -856,7 +856,7 @@ export async function countActiveCustomersForBusiness(
   ).size;
 }
 
-export function getCampaignLifecycleState(campaign: any) {
+function readStoredCampaignLifecycle(campaign: any) {
   if (
     campaign?.activationStatus === 'draft' ||
     campaign?.activationStatus === 'active' ||
@@ -875,7 +875,11 @@ export function getCampaignLifecycleState(campaign: any) {
   ) {
     return campaign.status;
   }
-  return 'active';
+  return null;
+}
+
+export function getCampaignLifecycleState(campaign: any) {
+  return readStoredCampaignLifecycle(campaign) ?? 'active';
 }
 
 export function getCampaignScheduleMode(campaign: any) {
@@ -901,12 +905,25 @@ export function campaignConsumesQuota(candidate: CampaignQuotaCandidate) {
   if (candidate.kind === 'customer_referral') {
     return candidate.config?.isEnabled === true;
   }
+  if (
+    typeof candidate.campaign !== 'object' ||
+    candidate.campaign === null
+  ) {
+    return false;
+  }
 
   const campaign = candidate.campaign;
-  return (
-    campaign?.isActive === true &&
-    getCampaignLifecycleState(campaign) === 'active'
-  );
+  if (campaign.isActive !== true) {
+    return false;
+  }
+  if (
+    typeof campaign.archivedAt === 'number' &&
+    Number.isFinite(campaign.archivedAt)
+  ) {
+    return false;
+  }
+
+  return readStoredCampaignLifecycle(campaign) === 'active';
 }
 
 export async function countReferralCampaignsForBusiness(

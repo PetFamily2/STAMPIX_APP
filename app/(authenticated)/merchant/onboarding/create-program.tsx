@@ -59,7 +59,7 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 const CREATE_PROGRAM_COPY = {
   title: 'הכרטיסייה הראשונה שלך',
-  subtitle: 'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך.',
+  subtitle: 'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך',
   continue: 'שמירה והמשך לפרסום',
 };
 

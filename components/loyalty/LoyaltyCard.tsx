@@ -116,6 +116,7 @@ export default function LoyaltyCard({
         variant === 'preview' ? styles.cardPreview : null,
         isManagement ? styles.cardManagement : null,
         isCompactManagement ? styles.cardManagementCompact : null,
+        variant === 'wallet' ? styles.cardWalletCompact : null,
         { borderColor: theme.keyline },
         selected ? styles.cardSelected : null,
         isReady ? styles.cardReady : null,
@@ -387,6 +388,7 @@ export function LoyaltyCardSkeleton({
       style={[
         styles.skeleton,
         expanded ? styles.skeletonExpanded : null,
+        variant === 'wallet' ? styles.skeletonWallet : null,
       ]}
       accessible={false}
       importantForAccessibility="no-hide-descendants"
@@ -429,6 +431,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardWallet: { maxWidth: 420 },
+  cardWalletCompact: {
+    minHeight: 158,
+    paddingVertical: 14,
+    gap: 12,
+  },
   cardNarrow: { paddingHorizontal: 16, paddingVertical: 16 },
   cardExpanded: {
     maxWidth: 600,
@@ -584,6 +591,11 @@ const styles = StyleSheet.create({
     minHeight: 250,
     borderRadius: 28,
     padding: 24,
+  },
+  skeletonWallet: {
+    minHeight: 158,
+    paddingVertical: 16,
+    gap: 14,
   },
   skeletonHeader: {
     flexDirection: flexDirection.row,

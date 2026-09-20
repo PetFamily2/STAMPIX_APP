@@ -34,7 +34,7 @@ import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
   title: 'תצוגה מקדימה לכרטיס',
-  subtitle: 'בחרו את העיצוב שמרגיש הכי מדויק למותג שלכם.',
+  subtitle: 'בחרו את העיצוב שמרגיש הכי מדויק למותג שלכם',
   progressLabel: 'התקדמות לדוגמה',
   feelLabel: 'אופי הכרטיס',
   themeSectionTitle: '10 צבעים לבחירה',
@@ -54,7 +54,7 @@ const TEXT = {
 
 const PREVIEW_COPY = {
   title: 'בדיקה אחרונה לפני פרסום',
-  subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה.',
+  subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה',
   publishNote: 'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
   referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
   continue: 'פרסום וכניסה לניהול',

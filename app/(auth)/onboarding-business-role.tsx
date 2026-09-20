@@ -64,7 +64,7 @@ const AGE_RANGES: Array<{ id: AgeRangeId; label: string }> = [
 
 const SETUP_COPY = {
   title: 'פרטים אחרונים לפני שמקימים עסק',
-  subtitle: 'נשתמש בפרטים האלה לניהול החשבון ולהתאמה ראשונית של ההמלצות.',
+  subtitle: 'נשתמש בפרטים האלה לניהול החשבון ולהתאמה ראשונית של ההמלצות',
   firstNameLabel: 'שם פרטי',
   firstNamePlaceholder: 'שם פרטי',
   lastNameLabel: 'שם משפחה',

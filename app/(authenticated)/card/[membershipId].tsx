@@ -436,7 +436,7 @@ export default function CardDetailsScreen() {
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingBottom: (insets.bottom || 0) + 24,
+            paddingBottom: (insets.bottom || 0) + 96,
           },
         ]}
       >
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   },
   redeemButton: {
     marginTop: 2,
-    borderRadius: 10,
+    borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 14,
     alignItems: 'center',
@@ -768,10 +768,8 @@ const styles = StyleSheet.create({
   },
   invitePrimaryButton: {
     flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BFD3FF',
-    backgroundColor: '#EEF4FF',
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -779,11 +777,11 @@ const styles = StyleSheet.create({
   invitePrimaryButtonText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   inviteSecondaryButton: {
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D5DEEE',
     backgroundColor: '#FFFFFF',
@@ -846,10 +844,10 @@ const styles = StyleSheet.create({
   refreshButton: {
     marginTop: 10,
     alignSelf: selfStart,
-    borderRadius: 10,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   refreshButtonPressed: {
     opacity: 0.9,
@@ -951,7 +949,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     marginTop: 8,
-    borderRadius: 12,
+    borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 18,
     paddingVertical: 12,

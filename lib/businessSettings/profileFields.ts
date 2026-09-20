@@ -315,6 +315,21 @@ export function formatBooleanChoice(value: boolean | null) {
   return MISSING_VALUE;
 }
 
+const COMPACT_SUMMARY_VISIBLE_COUNT = 2;
+
+export function formatCompactItemList(items: string[]) {
+  const normalized = items.map((item) => item.trim()).filter(Boolean);
+  if (normalized.length === 0) {
+    return MISSING_VALUE;
+  }
+  if (normalized.length <= COMPACT_SUMMARY_VISIBLE_COUNT) {
+    return normalized.join(' • ');
+  }
+  const visible = normalized.slice(0, COMPACT_SUMMARY_VISIBLE_COUNT);
+  const remaining = normalized.length - COMPACT_SUMMARY_VISIBLE_COUNT;
+  return `${visible.join(' • ')} ועוד ${remaining}`;
+}
+
 export function formatProfileFieldValue(
   field: ProfileCompletionField,
   input: {
@@ -344,17 +359,15 @@ export function formatProfileFieldValue(
     case 'address':
       return normalizeText(input.formattedAddress) || MISSING_VALUE;
     case 'serviceTypes':
-      return input.serviceTypes.length > 0
-        ? input.serviceTypes.map((item) => SERVICE_TYPE_LABELS[item]).join(' • ')
-        : MISSING_VALUE;
+      return formatCompactItemList(
+        input.serviceTypes.map((item) => SERVICE_TYPE_LABELS[item])
+      );
     case 'serviceTags':
-      return input.serviceTags.length > 0
-        ? input.serviceTags.join(' • ')
-        : MISSING_VALUE;
+      return formatCompactItemList(input.serviceTags);
     case 'usageAreas':
-      return input.usageAreas.length > 0
-        ? input.usageAreas.map((item) => USAGE_AREA_LABELS[item]).join(' • ')
-        : MISSING_VALUE;
+      return formatCompactItemList(
+        input.usageAreas.map((item) => USAGE_AREA_LABELS[item])
+      );
     case 'businessExample':
       return input.businessExample
         ? BUSINESS_EXAMPLE_LABELS[input.businessExample]

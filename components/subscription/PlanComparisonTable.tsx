@@ -167,11 +167,7 @@ export function PlanComparisonTable({
         </View>
 
         {comparisonRows.map((row) => {
-          const isMarketingHubRow = row.id === 'feature:marketingHub';
-          const isRecurringCampaignsRow =
-            row.id === 'limit:maxActiveRetentionActions';
-          const shouldUseCompactLabel =
-            (isNarrow || isRecurringCampaignsRow) && row.compactLabel;
+          const shouldUseCompactLabel = isNarrow && row.compactLabel;
 
           return (
             <View key={row.id} style={styles.tableRow}>
@@ -179,7 +175,6 @@ export function PlanComparisonTable({
                 style={[
                   styles.featureCell,
                   { flex: featureColumnFlex },
-                  isRecurringCampaignsRow ? styles.featureCellTight : null,
                 ]}
               >
                 <Text
@@ -187,9 +182,7 @@ export function PlanComparisonTable({
                     styles.featureLabel,
                     isNarrow ? styles.featureLabelNarrow : null,
                   ]}
-                  numberOfLines={
-                    isMarketingHubRow || isRecurringCampaignsRow ? 1 : 2
-                  }
+                  numberOfLines={2}
                 >
                   {shouldUseCompactLabel ? row.compactLabel : row.label}
                 </Text>
@@ -332,9 +325,6 @@ const styles = StyleSheet.create({
   featureLabelNarrow: {
     fontSize: 10,
     lineHeight: 14,
-  },
-  featureCellTight: {
-    paddingHorizontal: 6,
   },
   cellText: {
     color: '#0F172A',

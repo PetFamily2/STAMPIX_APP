@@ -112,8 +112,9 @@ export function resolveCanonicalBillingState(args: {
   entitlementRevokedAt?: number | null;
   now?: number;
 }): CanonicalBillingState {
-  const plan = normalizeBusinessPlan(args.plan);
-  const lastPlan = normalizeBusinessPlan(args.lastPlan) ?? plan;
+  const currentPlan = normalizeBusinessPlan(args.plan);
+  const lastPlan = normalizeBusinessPlan(args.lastPlan) ?? currentPlan;
+  const plan = currentPlan ?? lastPlan;
   const status = normalizeSubscriptionStatus(args.status) ?? 'inactive';
   const hasProviderEvidence = args.hasProviderEvidence === true;
   const operationalAccess = hasOperationalAccessFromStatus({
@@ -126,7 +127,7 @@ export function resolveCanonicalBillingState(args: {
   });
 
   return {
-    plan: lastPlan,
+    plan,
     lastPlan,
     status: operationalAccess || hasProviderEvidence ? status : 'inactive',
     billingPeriod: normalizeBillingPeriod(args.billingPeriod),

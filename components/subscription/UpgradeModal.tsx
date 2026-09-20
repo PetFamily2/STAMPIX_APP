@@ -56,10 +56,10 @@ type UpgradeModalProps = {
 };
 
 const PLAN_REASON_COPY: Record<string, string> = {
-  feature_locked: 'האזור שבחרתם זמין במסלול מתקדם יותר.',
-  limit_reached: 'הגעתם למגבלת השימוש של המסלול הנוכחי.',
-  subscription_inactive: 'המנוי של העסק לא פעיל כרגע.',
-  onboarding_plan: 'בחרו Starter, Pro או Premium בתשלום כדי להפעיל את העסק.',
+  feature_locked: 'האזור שבחרתם זמין במסלול מתקדם יותר',
+  limit_reached: 'הגעתם למגבלת השימוש של המסלול הנוכחי',
+  subscription_inactive: 'המנוי של העסק לא פעיל כרגע',
+  onboarding_plan: 'בחרו Starter, Pro או Premium בתשלום כדי להפעיל את העסק',
 };
 
 function sleep(ms: number) {
@@ -131,7 +131,7 @@ export function UpgradeModal({
 
   const reasonCopy =
     PLAN_REASON_COPY[reason] ??
-    'שדרוג פותח יותר יכולות ניהול קמפיינים ופעילות לקוחות.';
+    'שדרוג פותח יותר יכולות ניהול קמפיינים ופעילות לקוחות';
   const featureAreaLabel = getUpgradeAreaLabel(featureKey);
   const rcPackageId =
     REVENUECAT_PACKAGE_BY_PLAN_PERIOD[selectedPlan][billingPeriod];
@@ -345,7 +345,7 @@ export function UpgradeModal({
               visiblePlans={['starter', 'pro', 'premium']}
               context="upgrade"
               ctaLabel={ctaLabel}
-              ctaDisabled={isBusy}
+              ctaDisabled={isBusy || !isBillingLive}
               ctaLoading={isBusy}
               footerNote={
                 syncMessage ?? REFERRAL_COPY.paywallBenefitNote

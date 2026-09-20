@@ -149,34 +149,34 @@ function audienceCopy(type: CampaignType): {
     case 'welcome':
       return {
         title: 'לקוחות חדשים',
-        subtitle: 'נשלח ללקוחות חדשים לפי טווח ימים מההצטרפות.',
+        subtitle: 'נשלח ללקוחות חדשים לפי טווח ימים מההצטרפות',
         daysLabel: 'תוך כמה ימים מההצטרפות',
       };
     case 'winback':
       return {
         title: 'לקוחות לא פעילים',
-        subtitle: 'נשלח ללקוחות שלא הגיעו בפרק הזמן שנבחר.',
+        subtitle: 'נשלח ללקוחות שלא הגיעו בפרק הזמן שנבחר',
         daysLabel: 'כמה ימים ללא ביקור',
       };
     case 'birthday':
       return {
         title: 'יום הולדת היום',
-        subtitle: 'קהל קבוע לפי יום ההולדת של הלקוח.',
+        subtitle: 'קהל קבוע לפי יום ההולדת של הלקוח',
       };
     case 'anniversary':
       return {
         title: 'יום נישואין היום',
-        subtitle: 'קהל קבוע לפי יום הנישואין של הלקוח.',
+        subtitle: 'קהל קבוע לפי יום הנישואין של הלקוח',
       };
     case 'promo':
       return {
         title: 'כל הלקוחות הפעילים',
-        subtitle: 'קהל קבוע של כל חברי המועדון הפעילים עם Opt-in.',
+        subtitle: 'קהל קבוע של כל חברי המועדון הפעילים עם Opt-in',
       };
     default:
       return {
         title: 'קהל יעד',
-        subtitle: 'קהל קבוע לפי סוג הקמפיין.',
+        subtitle: 'קהל קבוע לפי סוג הקמפיין',
       };
   }
 }

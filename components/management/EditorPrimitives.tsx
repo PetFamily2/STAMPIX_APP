@@ -287,9 +287,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderTopWidth: 1,
     borderTopColor: '#D7E2F4',
-    backgroundColor: 'rgba(233,240,255,0.98)',
+    backgroundColor: '#E9F0FF',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 12,
   },
   stickyFooterContent: {
     width: '100%',

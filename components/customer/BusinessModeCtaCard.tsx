@@ -36,7 +36,7 @@ const TEXT = {
   switchToCustomerSubtitle: 'מעבר מהיר לארנק ולהטבות האישיות שלכם',
   switchToCustomerButton: 'מעבר ללקוח',
   closedBusinessTitle: 'יש לך עסק סגור ב-StampAix',
-  closedBusinessSubtitle: 'המידע של העסק נשמר וניתן לשחזר אותו בכל זמן.',
+  closedBusinessSubtitle: 'המידע של העסק נשמר וניתן לשחזר אותו בכל זמן',
   restoreBusinessButton: 'שחזור עסק',
   switchModeFailed: 'לא הצלחנו לעדכן מצב משתמש נסו שוב',
   errorTitle: 'שגיאה',

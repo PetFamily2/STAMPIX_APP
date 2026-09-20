@@ -30,7 +30,7 @@ import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
   title: 'עסקים סגורים',
-  subtitle: 'ניתן לשחזר עסק ולחזור בדיוק למצב שבו נסגר.',
+  subtitle: 'ניתן לשחזר עסק ולחזור בדיוק למצב שבו נסגר',
   empty: 'אין עסקים סגורים לשחזור',
   closedDateUnavailable: 'תאריך הסגירה אינו זמין',
   restore: 'שחזור העסק',
