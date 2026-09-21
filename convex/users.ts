@@ -2,12 +2,20 @@ import { getAuthUserId } from '@convex-dev/auth/server';
 import type { PaginationResult } from 'convex/server';
 import { v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
+import {
+  BUSINESS_TERMS_VERSION,
+  CANONICAL_TERMS_URL,
+  CANONICAL_TERMS_VERSION,
+  MARKETING_CONSENT_CHANNELS,
+  MARKETING_CONSENT_SCOPE,
+  MARKETING_CONSENT_VERSION,
+} from '../lib/legalContract';
 import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
   internalQuery,
-  mutation,
   type MutationCtx,
+  mutation,
   query,
 } from './_generated/server';
 import {
@@ -20,15 +28,19 @@ import {
   getIncompleteDeletionBusinessIdsForUser,
 } from './businessDeletion';
 import {
+  AI_AUDIT_RETENTION_MS,
+  COMPLETED_ONBOARDING_DRAFT_RETENTION_MS,
+} from './dataRetention';
+import {
   getBusinessStaffStatus,
   getCurrentUserOrNull,
-  requireActorIsBusinessOwner,
   requireActiveBusiness,
+  requireActorIsBusinessOwner,
   requireCurrentUser,
 } from './guards';
 import { normalizeEmailAddress } from './lib/email';
-import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { transitionSmartManagerOutcomeState } from './lib/smartManagerOutcomes';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
@@ -53,6 +65,71 @@ const BUSINESS_ONBOARDING_FLOW_UNION = v.union(
   v.literal('default'),
   v.literal('additional')
 );
+
+const TERMS_ACCEPTANCE_SOURCE_UNION = v.union(
+  v.literal('signup_email'),
+  v.literal('signup_google'),
+  v.literal('signup_apple')
+);
+
+const MARKETING_CONSENT_SOURCE_UNION = v.union(
+  v.literal('settings'),
+  v.literal('account_details')
+);
+
+type TermsAcceptanceSource = 'signup_email' | 'signup_google' | 'signup_apple';
+
+async function ensureLegalAcceptance(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<'users'>;
+    documentKind: 'terms' | 'business_terms';
+    version: string;
+    source: TermsAcceptanceSource | 'business_activation';
+    businessId?: Id<'businesses'>;
+    acceptedAt: number;
+  }
+) {
+  const existing = await ctx.db
+    .query('legalAcceptances')
+    .withIndex('by_user_document_version_business', (q) =>
+      q
+        .eq('userId', args.userId)
+        .eq('documentKind', args.documentKind)
+        .eq('version', args.version)
+        .eq('businessId', args.businessId)
+    )
+    .unique();
+  if (existing) {
+    return { acceptanceId: existing._id, created: false as const };
+  }
+
+  const acceptanceId = await ctx.db.insert('legalAcceptances', {
+    userId: args.userId,
+    documentKind: args.documentKind,
+    version: args.version,
+    canonicalUrl: CANONICAL_TERMS_URL,
+    source: args.source,
+    businessId: args.businessId,
+    acceptedAt: args.acceptedAt,
+    createdAt: args.acceptedAt,
+  });
+  return { acceptanceId, created: true as const };
+}
+
+export const acceptCurrentTerms = mutation({
+  args: { source: TERMS_ACCEPTANCE_SOURCE_UNION },
+  handler: async (ctx, { source }) => {
+    const user = await requireCurrentUser(ctx);
+    return await ensureLegalAcceptance(ctx, {
+      userId: user._id,
+      documentKind: 'terms',
+      version: CANONICAL_TERMS_VERSION,
+      source: source as TermsAcceptanceSource,
+      acceptedAt: Date.now(),
+    });
+  },
+});
 
 type SubscriptionPlanStatus = 'active' | 'inactive' | 'cancelled';
 
@@ -169,7 +246,7 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 }
 
 const DELETE_BATCH_SIZE = 100;
-const SMART_MANAGER_AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const SMART_MANAGER_AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const WIPE_ALL_TABLE_ORDER = [
   'apiKeys',
   'apiClients',
@@ -180,6 +257,8 @@ const WIPE_ALL_TABLE_ORDER = [
   'businessDeletionJobs',
   'accountDeletionRequests',
   'supportRequests',
+  'marketingConsentEvents',
+  'legalAcceptances',
   'referralAdminAuditLog',
   'businessReferrals',
   'businessReferralLinks',
@@ -266,6 +345,8 @@ type DeleteStats = {
   pushTokens: number;
   pushDeliveryLog: number;
   supportRequests: number;
+  marketingConsentEvents: number;
+  legalAcceptances: number;
   apiClients: number;
   apiKeys: number;
   authAccounts: number;
@@ -335,6 +416,8 @@ function emptyDeleteStats(): DeleteStats {
     pushTokens: 0,
     pushDeliveryLog: 0,
     supportRequests: 0,
+    marketingConsentEvents: 0,
+    legalAcceptances: 0,
     apiClients: 0,
     apiKeys: 0,
     authAccounts: 0,
@@ -359,6 +442,8 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     businessDeletionJobs: 0,
     accountDeletionRequests: 0,
     supportRequests: 0,
+    marketingConsentEvents: 0,
+    legalAcceptances: 0,
     referralAdminAuditLog: 0,
     businessReferrals: 0,
     businessReferralLinks: 0,
@@ -540,8 +625,7 @@ async function deleteSmartManagerExecutionRecipientsForAccount(
           materializationInvalidationReason: 'RECIPIENT_ACCOUNT_DELETED',
           materializationInvalidatedAt: now,
           materializationGeneration: (run.materializationGeneration ?? 0) + 1,
-          materializationCheckpoint:
-            (run.materializationCheckpoint ?? 0) + 1,
+          materializationCheckpoint: (run.materializationCheckpoint ?? 0) + 1,
           materializationCursor: undefined,
           deliveryGeneration: nextDeliveryGeneration,
           deliveryFailureCode: 'RECIPIENT_ACCOUNT_DELETED',
@@ -621,21 +705,16 @@ export async function deleteSmartManagerOutcomesForAccount(
       }
       if (shouldBecomeNotEligible) {
         const now = Date.now();
-        await transitionSmartManagerOutcomeState(
-          ctx,
-          outcome,
-          'not_eligible',
-          {
-            qualifyingActivityAt: undefined,
-            qualifyingEventId: undefined,
-            recordedAt: undefined,
-            supersededAt: undefined,
-            supersededByOutcomeId: undefined,
-            terminalAt: now,
-            purgeAfter: undefined,
-            updatedAt: now,
-          }
-        );
+        await transitionSmartManagerOutcomeState(ctx, outcome, 'not_eligible', {
+          qualifyingActivityAt: undefined,
+          qualifyingEventId: undefined,
+          recordedAt: undefined,
+          supersededAt: undefined,
+          supersededByOutcomeId: undefined,
+          terminalAt: now,
+          purgeAfter: undefined,
+          updatedAt: now,
+        });
       }
       await ctx.db.delete(outcome._id);
       deletedCount += 1;
@@ -787,9 +866,7 @@ async function deleteUserScopedBusinessData(
     domain: 'memberships' | 'events' | 'team'
   ) => void
 ) {
-  const visitBusiness = (
-    domain: 'memberships' | 'events' | 'team'
-  ) =>
+  const visitBusiness = (domain: 'memberships' | 'events' | 'team') =>
     onAffectedBusiness
       ? (doc: { businessId?: Id<'businesses'> }) => {
           if (doc.businessId) {
@@ -881,10 +958,7 @@ async function deleteUserScopedBusinessData(
     userId
   );
   deleted.campaignRunRecipients +=
-    await deleteSmartManagerExecutionRecipientsForAccount(
-      ctx,
-      userId
-    );
+    await deleteSmartManagerExecutionRecipientsForAccount(ctx, userId);
   deleted.pushDeliveryLog += await deleteByIndexInBatches(
     ctx,
     'pushDeliveryLog',
@@ -902,6 +976,20 @@ async function deleteUserScopedBusinessData(
   deleted.supportRequests += await deleteByIndexInBatches(
     ctx,
     'supportRequests',
+    'by_userId',
+    'userId',
+    userId
+  );
+  deleted.marketingConsentEvents += await deleteByIndexInBatches(
+    ctx,
+    'marketingConsentEvents',
+    'by_userId',
+    'userId',
+    userId
+  );
+  deleted.legalAcceptances += await deleteByIndexInBatches(
+    ctx,
+    'legalAcceptances',
     'by_userId',
     'userId',
     userId
@@ -1331,10 +1419,7 @@ export const completeBusinessOnboarding = mutation({
     if (!draft) {
       throw new Error('ONBOARDING_DRAFT_NOT_FOUND');
     }
-    if (
-      !draft.businessId ||
-      String(draft.businessId) !== String(businessId)
-    ) {
+    if (!draft.businessId || String(draft.businessId) !== String(businessId)) {
       throw new Error('ONBOARDING_DRAFT_BUSINESS_MISMATCH');
     }
     if (!draft.programId || String(draft.programId) !== String(programId)) {
@@ -1344,11 +1429,21 @@ export const completeBusinessOnboarding = mutation({
       .query('businessOnboardingDrafts')
       .withIndex('by_programId', (q) => q.eq('programId', programId))
       .collect();
-    if (programDraftLinks.some((linkedDraft) => linkedDraft._id !== draft._id)) {
+    if (
+      programDraftLinks.some((linkedDraft) => linkedDraft._id !== draft._id)
+    ) {
       throw new Error('PROGRAM_ONBOARDING_FLOW_MISMATCH');
     }
 
     const now = Date.now();
+    await ensureLegalAcceptance(ctx, {
+      userId: user._id,
+      documentKind: 'business_terms',
+      version: BUSINESS_TERMS_VERSION,
+      source: 'business_activation',
+      businessId,
+      acceptedAt: now,
+    });
     await ctx.db.patch(user._id, {
       businessOnboardedAt: user.businessOnboardedAt ?? now,
       activeBusinessId: businessId,
@@ -1364,6 +1459,8 @@ export const completeBusinessOnboarding = mutation({
       programId,
       pausedAt: undefined,
       completedAt: draft.completedAt ?? now,
+      rawPayloadPurgeAfter: now + COMPLETED_ONBOARDING_DRAFT_RETENTION_MS,
+      minimizedAt: undefined,
       updatedAt: now,
     });
 
@@ -1468,6 +1565,7 @@ export const setMyPhone = mutation({
 export const setMyMarketingProfile = mutation({
   args: {
     marketingOptIn: v.boolean(),
+    source: MARKETING_CONSENT_SOURCE_UNION,
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
     anniversaryMonth: v.optional(v.number()),
@@ -1477,6 +1575,7 @@ export const setMyMarketingProfile = mutation({
     ctx,
     {
       marketingOptIn,
+      source,
       birthdayMonth,
       birthdayDay,
       anniversaryMonth,
@@ -1528,7 +1627,22 @@ export const setMyMarketingProfile = mutation({
       patch.marketingOptInAt = undefined;
     }
 
+    const previousOptIn = user.marketingOptIn === true;
     await ctx.db.patch(user._id, patch);
+    if (previousOptIn !== marketingOptIn) {
+      await ctx.db.insert('marketingConsentEvents', {
+        userId: user._id,
+        eventType: marketingOptIn ? 'granted' : 'revoked',
+        effectiveOptIn: marketingOptIn,
+        version: MARKETING_CONSENT_VERSION,
+        scope: MARKETING_CONSENT_SCOPE,
+        channels: [...MARKETING_CONSENT_CHANNELS],
+        source,
+        grantedAt: marketingOptIn ? now : undefined,
+        revokedAt: marketingOptIn ? undefined : now,
+        createdAt: now,
+      });
+    }
     const updatedUser = await ctx.db.get(user._id);
     if (!updatedUser) {
       throw new Error('USER_NOT_FOUND');
@@ -1620,7 +1734,12 @@ export async function deleteMyAccountHardImpl(
   deleted.providerRevocationCredentials +=
     providerRevocation.deletedCredentials;
 
-  await deleteUserScopedBusinessData(ctx, user._id, deleted, addAffectedBusiness);
+  await deleteUserScopedBusinessData(
+    ctx,
+    user._id,
+    deleted,
+    addAffectedBusiness
+  );
   await redactUserReferenceByIndexInBatches(
     ctx,
     'smartManagerPreparedActions',
@@ -1712,10 +1831,7 @@ export const deleteMyAccountHard = mutation({
 export async function wipeAllDataHardImpl(
   ctx: any,
   options?: {
-    resetAccountDeletionEmailLimit?: (
-      ctx: any,
-      email: string
-    ) => Promise<void>;
+    resetAccountDeletionEmailLimit?: (ctx: any, email: string) => Promise<void>;
   }
 ): Promise<WipeAllDataHardResult> {
   const requester = await requireCurrentUser(ctx);

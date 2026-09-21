@@ -57,6 +57,8 @@ const TEXT = {
   phoneSaved: 'מספר הטלפון נשמר בהצלחה',
   phoneError: 'שמירת הטלפון נכשלה',
   marketingOptIn: 'הסכמה לקבלת מבצעים',
+  marketingOptInHelp:
+    'הסכמה אחת לכל העסקים שהצטרפת אליהם, עבור הודעות באפליקציה ו-Push',
   birthday: 'יום הולדת (יום/חודש)',
   anniversary: 'יום נישואין (יום/חודש)',
   day: 'יום',
@@ -213,6 +215,7 @@ export default function CustomerAccountDetailsScreen() {
       setIsSavingMarketing(true);
       await setMyMarketingProfile({
         marketingOptIn,
+        source: 'account_details',
         birthdayDay: birthdayDayValue,
         birthdayMonth: birthdayMonthValue,
         anniversaryDay: anniversaryDayValue,
@@ -276,6 +279,7 @@ export default function CustomerAccountDetailsScreen() {
               <View style={styles.phoneEditWrap}>
                 {isEditingPhone ? (
                   <TextInput
+                    accessibilityLabel={TEXT.phone}
                     value={phoneInput}
                     onChangeText={setPhoneInput}
                     editable={!isSavingPhone}
@@ -291,6 +295,9 @@ export default function CustomerAccountDetailsScreen() {
                 {isEditingPhone ? (
                   <View style={styles.phoneActionRow}>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.cancel}
+                      accessibilityState={{ disabled: isSavingPhone }}
                       onPress={() => setIsEditingPhone(false)}
                       disabled={isSavingPhone}
                       style={({ pressed }) => [
@@ -303,6 +310,9 @@ export default function CustomerAccountDetailsScreen() {
                       </Text>
                     </Pressable>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.save}
+                      accessibilityState={{ disabled: !canSavePhone }}
                       onPress={() => {
                         void handleSavePhone();
                       }}
@@ -364,8 +374,15 @@ export default function CustomerAccountDetailsScreen() {
 
         <SettingsSection title={TEXT.marketingInfo}>
           <SettingsCard>
-            <SettingsField label={TEXT.marketingOptIn}>
+            <SettingsField
+              label={TEXT.marketingOptIn}
+              helpText={TEXT.marketingOptInHelp}
+            >
               <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel={TEXT.marketingOptIn}
+                accessibilityHint={TEXT.marketingOptInHelp}
+                accessibilityState={{ checked: marketingOptIn }}
                 onPress={() => setMarketingOptIn((prev) => !prev)}
                 style={({ pressed }) => [
                   styles.marketingToggle,
@@ -391,6 +408,7 @@ export default function CustomerAccountDetailsScreen() {
             <SettingsField label={TEXT.birthday}>
               <View style={styles.dateInputs}>
                 <TextInput
+                  accessibilityLabel={`${TEXT.birthday} - ${TEXT.month}`}
                   value={birthdayMonth}
                   onChangeText={setBirthdayMonth}
                   keyboardType="number-pad"
@@ -400,6 +418,7 @@ export default function CustomerAccountDetailsScreen() {
                   textAlign="center"
                 />
                 <TextInput
+                  accessibilityLabel={`${TEXT.birthday} - ${TEXT.day}`}
                   value={birthdayDay}
                   onChangeText={setBirthdayDay}
                   keyboardType="number-pad"
@@ -414,6 +433,7 @@ export default function CustomerAccountDetailsScreen() {
             <SettingsField label={TEXT.anniversary}>
               <View style={styles.dateInputs}>
                 <TextInput
+                  accessibilityLabel={`${TEXT.anniversary} - ${TEXT.month}`}
                   value={anniversaryMonth}
                   onChangeText={setAnniversaryMonth}
                   keyboardType="number-pad"
@@ -423,6 +443,7 @@ export default function CustomerAccountDetailsScreen() {
                   textAlign="center"
                 />
                 <TextInput
+                  accessibilityLabel={`${TEXT.anniversary} - ${TEXT.day}`}
                   value={anniversaryDay}
                   onChangeText={setAnniversaryDay}
                   keyboardType="number-pad"
@@ -439,6 +460,7 @@ export default function CustomerAccountDetailsScreen() {
               disabled={isSavingMarketing}
               accessibilityRole="button"
               accessibilityLabel={TEXT.marketingSave}
+              accessibilityState={{ disabled: isSavingMarketing }}
               style={({ pressed }) => [
                 styles.primarySaveButton,
                 isSavingMarketing ? styles.buttonDisabled : null,

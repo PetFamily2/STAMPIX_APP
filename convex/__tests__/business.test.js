@@ -1,4 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import {
+  BUSINESS_TERMS_VERSION,
+  CANONICAL_TERMS_URL,
+} from '../../lib/legalContract';
 
 import {
   assertBusinessOnboardingReady,
@@ -79,9 +83,7 @@ function createMockCtx({
     businessOnboardingDrafts: new Map(
       businessOnboardingDrafts.map((entry) => [entry._id, { ...entry }])
     ),
-    memberships: new Map(
-      memberships.map((entry) => [entry._id, { ...entry }])
-    ),
+    memberships: new Map(memberships.map((entry) => [entry._id, { ...entry }])),
     events: new Map(events.map((entry) => [entry._id, { ...entry }])),
     campaigns: new Map(campaigns.map((entry) => [entry._id, { ...entry }])),
     smartManagerEvaluationStates: new Map(
@@ -795,6 +797,18 @@ describe('business profile settings and discovery filters', () => {
       businessId: 'business_1',
       programId: 'program_1',
     });
+    expect(Array.from(state.legalAcceptances.values())).toHaveLength(1);
+    expect(Array.from(state.legalAcceptances.values())[0]).toMatchObject({
+      userId: 'user_owner',
+      businessId: 'business_1',
+      documentKind: 'business_terms',
+      version: BUSINESS_TERMS_VERSION,
+      canonicalUrl: CANONICAL_TERMS_URL,
+      source: 'business_activation',
+    });
+    expect(
+      typeof Array.from(state.legalAcceptances.values())[0].acceptedAt
+    ).toBe('number');
   });
 
   test('staff role cannot update business profile', async () => {

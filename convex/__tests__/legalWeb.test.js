@@ -12,14 +12,14 @@ const LEGAL_CASES = [
     path: '/legal/privacy',
     title: 'מדיניות פרטיות',
     representativeContent:
-      'פרטי חשבון וזיהוי: שם, אימייל או טלפון, מזהי משתמש פנימיים ופרטי אימות הנדרשים להתחברות.',
+      'אנו אוספים מידע שאתם מוסרים במודע, למשל שם וכתובת דואר אלקטרוני',
   },
   {
     key: 'terms',
     path: '/legal/terms',
     title: 'תנאי שימוש',
     representativeContent:
-      'StampAix מספקת פלטפורמה דיגיטלית לנאמנות לקוחות, כרטיסיות, ניקובים, מבצעים, סריקות QR וניהול צוותים.',
+      'תנאים אלה חלים על השימוש באתר הציבורי ובשירותי StampAix.',
   },
 ];
 
@@ -45,6 +45,9 @@ describe('public legal pages', () => {
       expect(html).toContain(legalCase.title);
       expect(html).toContain(legalCase.representativeContent);
       expect(html).toContain('StampAix');
+      expect(html).toContain('21.09.2026');
+      expect(html).toContain('2026.09.21');
+      expect(html).not.toContain('20.06.2026');
       expect(html).not.toContain('<script');
       expect(html).not.toMatch(
         /APPLE_TEAM_ID|sha256_cert_fingerprints|assetlinks|apple-app-site-association/i

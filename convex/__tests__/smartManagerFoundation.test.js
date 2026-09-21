@@ -1,33 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import {
-  buildCustomerSegmentFacts,
-  isCanonicalRecommendationEventEffective,
-} from '../recommendations';
-import {
-  claimEvaluationInternal,
-  buildCanonicalFactHash,
-  buildSmartManagerComparisonHash,
-  compareSmartManagerShadowSummaries,
-  completeEvaluationInternal,
-  deactivateStaleDecisionsInternal,
-  expandSmartManagerRefreshDomains,
-  failEvaluationInternal,
-  getSeedSmartManagerPolicy,
-  getSmartManagerSourceLimitTotal,
-  loadEvaluationInternal,
-  purgeExpiredAuditEventsInternal,
-  reconcileDueEvaluationsInternal,
-  selectDeterministicSmartManagerSingleton,
-  SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET,
-  SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE,
-  SMART_MANAGER_SOURCE_LIMITS,
-} from '../smartManager';
+import { AI_AUDIT_RETENTION_MS } from '../dataRetention';
+import { planConfig, REQUIRED_PLAN_BY_FEATURE } from '../entitlements';
+import { getRecommendationAccessDecision } from '../lib/recommendationCatalog';
+import { resolveSmartManagerDecisionAuthority } from '../lib/smartManagerAuthority';
 import { markSmartManagerDirty } from '../lib/smartManagerDirty';
 import {
-  resolveSmartManagerDecisionAuthority,
-} from '../lib/smartManagerAuthority';
+  getSmartManagerInteractionPolicy,
+  hashSmartManagerValue,
+  SMART_MANAGER_POLICY_V1,
+  SMART_MANAGER_POLICY_V1_HASH,
+} from '../lib/smartManagerPolicy';
 import {
   buildPreparedWinbackPreparationKey,
   SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
@@ -39,13 +22,28 @@ import {
   SMART_MANAGER_WINBACK_CHANNEL_STRATEGY,
 } from '../lib/smartManagerPreparedActions';
 import {
-  getSmartManagerInteractionPolicy,
-  hashSmartManagerValue,
-  SMART_MANAGER_POLICY_V1,
-  SMART_MANAGER_POLICY_V1_HASH,
-} from '../lib/smartManagerPolicy';
-import { getRecommendationAccessDecision } from '../lib/recommendationCatalog';
-import { REQUIRED_PLAN_BY_FEATURE, planConfig } from '../entitlements';
+  buildCustomerSegmentFacts,
+  isCanonicalRecommendationEventEffective,
+} from '../recommendations';
+import {
+  buildCanonicalFactHash,
+  buildSmartManagerComparisonHash,
+  claimEvaluationInternal,
+  compareSmartManagerShadowSummaries,
+  completeEvaluationInternal,
+  deactivateStaleDecisionsInternal,
+  expandSmartManagerRefreshDomains,
+  failEvaluationInternal,
+  getSeedSmartManagerPolicy,
+  getSmartManagerSourceLimitTotal,
+  loadEvaluationInternal,
+  purgeExpiredAuditEventsInternal,
+  reconcileDueEvaluationsInternal,
+  SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET,
+  SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE,
+  SMART_MANAGER_SOURCE_LIMITS,
+  selectDeterministicSmartManagerSingleton,
+} from '../smartManager';
 import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const NOW = 1_800_000_000_000;
@@ -214,7 +212,11 @@ function accessInput(segmentFact) {
     facts: {
       businessProfile: known({ isComplete: true, missingFieldIds: [] }),
       address: known({ isComplete: true }),
-      programs: known({ activeCount: 1, draftCount: 0, firstDraftProgramId: null }),
+      programs: known({
+        activeCount: 1,
+        draftCount: 0,
+        firstDraftProgramId: null,
+      }),
       customers: known({ uniqueActiveCustomerCount: 1 }),
       campaigns: known({
         totalNonarchivedCampaigns: 0,
@@ -417,8 +419,7 @@ function preparedActionFromAuthority(authority, overrides = {}) {
     copyRevisionLimit: SMART_MANAGER_MAX_COPY_REVISION_SLOTS,
     generationState: 'not_requested',
     state: 'reviewable',
-    expiresAt:
-      now + authority.policy.config.actionExpiryHours * 60 * 60 * 1000,
+    expiresAt: now + authority.policy.config.actionExpiryHours * 60 * 60 * 1000,
     retentionExpiresAt: now + SMART_MANAGER_PREPARED_ACTION_RETENTION_MS,
     createdAt: now,
     updatedAt: now,
@@ -448,11 +449,8 @@ describe('Smart Manager policy and entitlement foundation', () => {
       mode: 'evidence_bound',
     });
     expect(
-      getSmartManagerInteractionPolicy(
-        'campaign.next_scheduled',
-        'snooze',
-        NOW
-      ).hiddenUntil
+      getSmartManagerInteractionPolicy('campaign.next_scheduled', 'snooze', NOW)
+        .hiddenUntil
     ).toBe(NOW + 24 * 60 * 60 * 1000);
   });
 
@@ -460,7 +458,9 @@ describe('Smart Manager policy and entitlement foundation', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.smartRetentionManager).toBe('starter');
     expect(REQUIRED_PLAN_BY_FEATURE.smartRetentionManagerAiAssist).toBe('pro');
     expect(planConfig.starter.features.smartRetentionManager).toBe(true);
-    expect(planConfig.starter.features.smartRetentionManagerAiAssist).toBe(false);
+    expect(planConfig.starter.features.smartRetentionManagerAiAssist).toBe(
+      false
+    );
     expect(planConfig.pro.features.smartRetentionManagerAiAssist).toBe(true);
   });
 });
@@ -535,7 +535,10 @@ describe('canonical fact safety', () => {
     ).toBe('unavailable');
     expect(
       getRecommendationAccessDecision(
-        accessInput({ state: 'restricted', requiredCapability: 'access_customers' }),
+        accessInput({
+          state: 'restricted',
+          requiredCapability: 'access_customers',
+        }),
         'growth.near_reward'
       ).state
     ).toBe('restricted');
@@ -619,15 +622,11 @@ describe('dirty coalescing and lease safety', () => {
       dirtyDomains: ['events', 'memberships'],
     });
     expect(ctx.scheduled).toHaveLength(1);
-    expect([...new Set(ctx.queried)]).toEqual([
-      'smartManagerEvaluationStates',
-    ]);
+    expect([...new Set(ctx.queried)]).toEqual(['smartManagerEvaluationStates']);
     expect(
       ctx.writes
         .filter((write) => write.tableName === 'smartManagerEvaluationStates')
-        .every((write) =>
-          ['insert', 'patch'].includes(write.type)
-        )
+        .every((write) => ['insert', 'patch'].includes(write.type))
     ).toBe(true);
   });
 
@@ -694,7 +693,11 @@ describe('dirty coalescing and lease safety', () => {
         },
       ],
     });
-    const evaluation = buildEvaluation({ generation: 1, factValue: 99, policy });
+    const evaluation = buildEvaluation({
+      generation: 1,
+      factValue: 99,
+      policy,
+    });
     const stale = await completeEvaluationInternal._handler(ctx, {
       businessId: 'business_1',
       generation: 1,
@@ -823,8 +826,7 @@ describe('dirty coalescing and lease safety', () => {
         evaluation: firstEvaluation,
       })
     );
-    const firstDecisionHash =
-      ctx.tables.smartManagerDecisions[0].decisionHash;
+    const firstDecisionHash = ctx.tables.smartManagerDecisions[0].decisionHash;
     const auditCountAfterFirstGeneration =
       ctx.tables.smartManagerAuditEvents.length;
     const policy = getSeedSmartManagerPolicy();
@@ -975,9 +977,7 @@ describe('dirty coalescing and lease safety', () => {
 
   test('persists changed shadow evidence without mutating live interactions', async () => {
     const ctx = buildCtx({
-      smartManagerEvaluationStates: [
-        leasedEvaluationState(),
-      ],
+      smartManagerEvaluationStates: [leasedEvaluationState()],
     });
     const decision = {
       stableId: 'growth.near_reward',
@@ -1136,7 +1136,9 @@ describe('dirty coalescing and lease safety', () => {
       })
     );
     expect(staleFailure.status).toBe('newer_generation_requeued');
-    expect(staleFailureCtx.tables.smartManagerEvaluationStates[0]).toMatchObject({
+    expect(
+      staleFailureCtx.tables.smartManagerEvaluationStates[0]
+    ).toMatchObject({
       generation: 2,
       attemptCount: 0,
       attemptGeneration: 2,
@@ -1267,9 +1269,7 @@ describe('dirty coalescing and lease safety', () => {
 
   test('records bounded failure metadata and schedules policy-driven retry', async () => {
     const ctx = buildCtx({
-      smartManagerEvaluationStates: [
-        leasedEvaluationState(),
-      ],
+      smartManagerEvaluationStates: [leasedEvaluationState()],
     });
     const result = await withFixedNow(NOW, () =>
       failEvaluationInternal._handler(ctx, {
@@ -1648,9 +1648,9 @@ describe('Pass B bounded and incremental evaluation', () => {
     expect(ctx.queried.filter((value) => value === 'memberships')).toHaveLength(
       1
     );
-    expect(ctx.queried.filter((value) => value === 'loyaltyPrograms')).toHaveLength(
-      1
-    );
+    expect(
+      ctx.queried.filter((value) => value === 'loyaltyPrograms')
+    ).toHaveLength(1);
   });
 
   test('keeps configured per-source probes inside the aggregate budget', () => {
@@ -1747,8 +1747,7 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
     expect(
       ctx.writes.filter(
         (write) =>
-          write.type === 'patch' &&
-          write.tableName === 'smartManagerDecisions'
+          write.type === 'patch' && write.tableName === 'smartManagerDecisions'
       )
     ).toHaveLength(1);
     expect(ctx.tables.smartManagerDecisions[0]).toMatchObject({
@@ -1878,9 +1877,7 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
     expect(keepAfter).toEqual(keepBefore);
     expect(keepAfter.state).toBe('shadow_active');
     expect(
-      ctx.writes.filter(
-        (write) => write.tableName === 'smartManagerDecisions'
-      )
+      ctx.writes.filter((write) => write.tableName === 'smartManagerDecisions')
     ).toHaveLength(0);
   });
 
@@ -1904,6 +1901,37 @@ describe('Pass B parity, cleanup, and duplicate safety', () => {
       );
     }
     expect(ctx.tables.smartManagerAuditEvents).toHaveLength(0);
+  });
+
+  test('audit cleanup keeps events inside the 12-month policy window', async () => {
+    const createdAt = NOW - 100 * 24 * 60 * 60 * 1000;
+    const ctx = buildCtx({
+      smartManagerAuditEvents: [
+        {
+          _id: 'recent_audit',
+          businessId: 'business_1',
+          createdAt,
+          expiresAt: NOW - 1,
+        },
+        {
+          _id: 'old_audit',
+          businessId: 'business_1',
+          createdAt: NOW - AI_AUDIT_RETENTION_MS - 1,
+          expiresAt: NOW - 1,
+        },
+      ],
+    });
+
+    const result = await withFixedNow(NOW, () =>
+      purgeExpiredAuditEventsInternal._handler(ctx, {})
+    );
+
+    expect(result).toMatchObject({ deleted: 1, retainedForPolicy: 1 });
+    expect(ctx.tables.smartManagerAuditEvents).toHaveLength(1);
+    expect(ctx.tables.smartManagerAuditEvents[0]).toMatchObject({
+      _id: 'recent_audit',
+      expiresAt: createdAt + AI_AUDIT_RETENTION_MS,
+    });
   });
 
   test('reconciles duplicate singleton state deterministically without unique()', async () => {

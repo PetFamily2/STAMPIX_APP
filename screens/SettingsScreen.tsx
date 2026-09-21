@@ -82,7 +82,8 @@ const TEXT = {
   notificationsToggleTitle: 'התראות',
   notificationsToggleSubtitle: 'עדכונים והטבות',
   marketingToggleTitle: 'דיוור שיווקי',
-  marketingToggleSubtitle: 'מבצעים והטבות',
+  marketingToggleSubtitle:
+    'קמפיינים בתוך האפליקציה ובהתראות מכל עסק שהצטרפת אליו',
   sectionSupport: 'תמיכה ומסמכים',
   helpTitle: 'עזרה ותמיכה',
   helpSubtitle: 'שאלות ופנייה',
@@ -643,6 +644,7 @@ export default function SettingsScreen() {
     try {
       await setMyMarketingProfile({
         marketingOptIn: nextValue,
+        source: 'settings',
         birthdayMonth: user.birthdayMonth,
         birthdayDay: user.birthdayDay,
         anniversaryMonth: user.anniversaryMonth,
@@ -868,7 +870,7 @@ export default function SettingsScreen() {
         onRequestClose={closeDeleteModal}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View accessibilityViewIsModal={true} style={styles.modalCard}>
             <Text style={styles.modalTitle}>{TEXT.deleteModalTitle}</Text>
 
             {deleteStep === 1 ? (
@@ -879,6 +881,9 @@ export default function SettingsScreen() {
                   {TEXT.deleteModalConfirmHint}
                 </Text>
                 <TextInput
+                  accessibilityLabel={TEXT.deleteModalConfirmHint}
+                  accessibilityHint="יש להקליד DELETE באותיות באנגלית"
+                  autoFocus={true}
                   value={deleteConfirmationText}
                   onChangeText={setDeleteConfirmationText}
                   editable={!deleteBusy}
@@ -900,6 +905,9 @@ export default function SettingsScreen() {
 
             <View style={styles.modalActions}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.cancel}
+                accessibilityState={{ disabled: deleteBusy }}
                 disabled={deleteBusy}
                 onPress={closeDeleteModal}
                 style={({ pressed }) => [
@@ -915,6 +923,9 @@ export default function SettingsScreen() {
 
               {deleteStep === 1 ? (
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={TEXT.confirmDelete}
+                  accessibilityState={{ disabled: deleteBusy }}
                   disabled={deleteBusy}
                   onPress={() => setDeleteStep(2)}
                   style={({ pressed }) => [
@@ -929,6 +940,9 @@ export default function SettingsScreen() {
                 </Pressable>
               ) : (
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={TEXT.deletePermanent}
+                  accessibilityState={{ disabled: isDeleteFinalDisabled }}
                   disabled={isDeleteFinalDisabled}
                   onPress={handleDeleteAccount}
                   style={({ pressed }) => [

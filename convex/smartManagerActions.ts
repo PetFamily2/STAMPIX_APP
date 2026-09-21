@@ -1,37 +1,45 @@
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
-import { planConfig } from './entitlements';
 import {
   internalAction,
   internalMutation,
   internalQuery,
   type MutationCtx,
-  type QueryCtx,
   mutation,
+  type QueryCtx,
   query,
 } from './_generated/server';
+import { AI_AUDIT_RETENTION_MS } from './dataRetention';
+import { planConfig } from './entitlements';
 import {
   requireActorIsActiveStaffForBusiness,
   requireCurrentUser,
 } from './guards';
 import {
+  generateOpenRouterJson,
+  OPENROUTER_JSON_MODEL,
+} from './lib/aiJsonGeneration';
+import { monthKeyFromTimestamp } from './lib/recommendationUtils';
+import {
   resolveSmartManagerDecisionAuthority,
   SMART_MANAGER_WINBACK_STABLE_ID,
 } from './lib/smartManagerAuthority';
+import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
+import { hashSmartManagerValue } from './lib/smartManagerPolicy';
 import {
+  buildPreparedActionCopyContentHash,
+  buildPreparedWinbackDetectionExplanation,
+  buildPreparedWinbackPreparationKey,
   buildSmartManagerAiCacheKey,
   buildSmartManagerGenerationRequestBinding,
   buildSmartManagerStructuredInputHash,
   buildSmartManagerWinbackPrompt,
   buildSmartManagerWinbackStructuredInput,
-  loadBoundedSmartManagerAccessContext,
-  buildPreparedActionCopyContentHash,
-  buildPreparedWinbackDetectionExplanation,
-  buildPreparedWinbackPreparationKey,
   evaluatePreparedActionCurrentness,
+  isBelowSmartManagerFreshAiMinimum,
+  loadBoundedSmartManagerAccessContext,
   requirePreparedWinbackAuthorization,
-  selectSmartManagerAccessCurrentnessBlockers,
   SMART_MANAGER_AI_CACHE_TTL_MS,
   SMART_MANAGER_AI_GENERATION_VERSION,
   SMART_MANAGER_AI_PROMPT_VERSION,
@@ -44,31 +52,23 @@ import {
   SMART_MANAGER_WINBACK_CAMPAIGN_DRAFT,
   SMART_MANAGER_WINBACK_CHANNEL_STRATEGY,
   SMART_MANAGER_WINBACK_FALLBACK_COPY,
-  isBelowSmartManagerFreshAiMinimum,
   type SmartManagerAiFailureCode,
+  selectSmartManagerAccessCurrentnessBlockers,
   validateSmartManagerWinbackOutput,
 } from './lib/smartManagerPreparedActions';
-import {
-  generateOpenRouterJson,
-  OPENROUTER_JSON_MODEL,
-} from './lib/aiJsonGeneration';
-import { monthKeyFromTimestamp } from './lib/recommendationUtils';
-import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
-import { hashSmartManagerValue } from './lib/smartManagerPolicy';
-import { getRoleCapabilities } from './lib/staffPermissions';
-import { consumeSmartManagerGenerationRateLimits } from './smartManagerRateLimits';
 import { smartManagerAiFailureCodeValidator } from './lib/smartManagerValidators';
+import { getRoleCapabilities } from './lib/staffPermissions';
 import { buildRunResultSummary } from './smartManagerOutcomes';
+import { consumeSmartManagerGenerationRateLimits } from './smartManagerRateLimits';
 
 const BOUNDED_SINGLETON_LIMIT = 2;
-const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const MAX_SUPPORTED_MONTHLY_AI_LIMIT = Math.max(
   ...Object.values(planConfig).map(
     (plan) => plan.limits.maxAiExecutionsPerMonth
   )
 );
-const BOUNDED_AI_USAGE_SENTINEL_LIMIT =
-  MAX_SUPPORTED_MONTHLY_AI_LIMIT + 1;
+const BOUNDED_AI_USAGE_SENTINEL_LIMIT = MAX_SUPPORTED_MONTHLY_AI_LIMIT + 1;
 const SMART_MANAGER_AI_MAX_OUTPUT_TOKENS = 120;
 const SMART_MANAGER_PREPARED_RETENTION_CLEANUP_MAX_PAGE = 100;
 const SMART_MANAGER_PREPARED_RETENTION_CONTINUATION_DELAY_MS = 5_000;
@@ -192,9 +192,9 @@ async function loadSelectedCopyOrThrow(
   if (!action.selectedCopyId || action.selectedCopyRevision === undefined) {
     throwMalformedPreparedAction();
   }
-  const copy = (await ctx.db.get(action.selectedCopyId)) as
-    | Doc<'smartManagerPreparedActionCopies'>
-    | null;
+  const copy = (await ctx.db.get(
+    action.selectedCopyId
+  )) as Doc<'smartManagerPreparedActionCopies'> | null;
   if (
     !copy ||
     String(copy.preparedActionId) !== String(action._id) ||
@@ -575,7 +575,8 @@ async function loadGenerationAuthorization(
     return null;
   }
   const membership = rows[0];
-  const status = membership.status ??
+  const status =
+    membership.status ??
     (membership.isActive === true ? 'active' : 'suspended');
   if (status !== 'active') {
     return null;
@@ -604,9 +605,9 @@ async function revalidateGenerationRequest(
     now: number;
   }
 ) {
-  const action = (await ctx.db.get(args.preparedActionId)) as
-    | Doc<'smartManagerPreparedActions'>
-    | null;
+  const action = (await ctx.db.get(
+    args.preparedActionId
+  )) as Doc<'smartManagerPreparedActions'> | null;
   if (!action || !generationRequestIdentityMatches(action, args)) {
     return {
       ok: false as const,
@@ -947,8 +948,7 @@ export const prepareWinbackAction = mutation({
         stableId: SMART_MANAGER_WINBACK_STABLE_ID,
         actionKind: 'winback_campaign',
         schemaVersion: SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION,
-        actionContractVersion:
-          SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION,
+        actionContractVersion: SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION,
         preparationKey,
         authorityMode: authority.authorityMode,
         authorityBindingHash: authority.authorityBindingHash,
@@ -960,8 +960,7 @@ export const prepareWinbackAction = mutation({
         policyVersion: authority.decision.policyVersion,
         policyHash: authority.decision.policyHash,
         comparisonHash: authority.comparison.comparisonHash,
-        audienceDefinitionVersion:
-          SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
+        audienceDefinitionVersion: SMART_MANAGER_AUDIENCE_DEFINITION_VERSION,
         segment: 'at_risk',
         audienceCount: authority.lifecycleEvidence.audienceCount,
         lifecycleSourceFingerprint:
@@ -1007,9 +1006,9 @@ export const prepareWinbackAction = mutation({
       updatedAt: now,
     });
 
-    const committedAction = (await ctx.db.get(preparedActionId)) as
-      | Doc<'smartManagerPreparedActions'>
-      | null;
+    const committedAction = (await ctx.db.get(
+      preparedActionId
+    )) as Doc<'smartManagerPreparedActions'> | null;
     if (!committedAction) {
       throwMalformedPreparedAction();
     }
@@ -1049,19 +1048,17 @@ export const prepareWinbackAction = mutation({
       });
       let canSchedule = cache.state === 'hit';
       if (cache.state === 'miss') {
-        canSchedule =
-          !isBelowSmartManagerFreshAiMinimum(
-            committedAction.audienceCount,
-            authority.policy
-          );
+        canSchedule = !isBelowSmartManagerFreshAiMinimum(
+          committedAction.audienceCount,
+          authority.policy
+        );
         if (canSchedule) {
           const usage = await loadBoundedSmartManagerFreshUsage({
             ctx,
             businessId: committedAction.businessId,
             now,
           });
-          canSchedule =
-            usage.available && usage.used < access.aiMonthlyLimit;
+          canSchedule = usage.available && usage.used < access.aiMonthlyLimit;
         }
       }
       if (canSchedule) {
@@ -1185,9 +1182,9 @@ export const regeneratePreparedWinbackCopy = mutation({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const action = (await ctx.db.get(args.preparedActionId)) as
-      | Doc<'smartManagerPreparedActions'>
-      | null;
+    const action = (await ctx.db.get(
+      args.preparedActionId
+    )) as Doc<'smartManagerPreparedActions'> | null;
     if (!action) {
       throw new Error('SMART_MANAGER_PREPARED_ACTION_NOT_FOUND');
     }
@@ -1439,9 +1436,7 @@ export const regeneratePreparedWinbackCopy = mutation({
       copyRevision: fallbackRevision,
       contentHash,
       generationRequested: generationScheduled,
-      reason: generationScheduled
-        ? null
-        : 'AI_GENERATION_SCHEDULING_FAILED',
+      reason: generationScheduled ? null : 'AI_GENERATION_SCHEDULING_FAILED',
     };
   },
 });
@@ -1974,7 +1969,8 @@ export const cleanupPreparedActionRetentionInternal = internalMutation({
           !campaign ||
           campaign.source !== 'smart_manager' ||
           String(campaign.businessId) !== String(action.businessId) ||
-          String(campaign.smartManagerCampaignRunId ?? '') !== String(run._id) ||
+          String(campaign.smartManagerCampaignRunId ?? '') !==
+            String(run._id) ||
           String(campaign.smartManagerPreparedActionId ?? '') !==
             String(action._id)
         ) {
@@ -2071,8 +2067,9 @@ async function buildPreparedWinbackReview(
     now,
   });
   const selectedCopy = await loadSelectedCopyOrThrow(ctx, action);
-  const quotaCurrentnessBlockers =
-    selectSmartManagerAccessCurrentnessBlockers(access.blockers);
+  const quotaCurrentnessBlockers = selectSmartManagerAccessCurrentnessBlockers(
+    access.blockers
+  );
   const quotaNeedsEvaluation = quotaCurrentnessBlockers.length > 0;
   const currentness =
     actionCurrentness.currentness === 'current' && quotaNeedsEvaluation
@@ -2081,9 +2078,7 @@ async function buildPreparedWinbackReview(
   const currentnessBlockers = [
     ...actionCurrentness.blockers,
     ...quotaCurrentnessBlockers,
-  ].filter(
-    (blocker, index, values) => values.indexOf(blocker) === index
-  );
+  ].filter((blocker, index, values) => values.indexOf(blocker) === index);
   currentnessBlockers.sort();
 
   const approvalBlockers = [
@@ -2111,8 +2106,7 @@ async function buildPreparedWinbackReview(
   } else if (currentness !== 'current') {
     regenerationReason = 'ACTION_STALE';
   } else if (!access.hasAiAssist) {
-    regenerationReason =
-      access.aiAssistReason ?? 'AI_ASSIST_NOT_AVAILABLE';
+    regenerationReason = access.aiAssistReason ?? 'AI_ASSIST_NOT_AVAILABLE';
   } else if (action.nextCopyRevision + 1 > action.copyRevisionLimit) {
     regenerationReason = 'COPY_REVISION_LIMIT_REACHED';
   } else if (
@@ -2141,10 +2135,7 @@ async function buildPreparedWinbackReview(
       regenerationReason = 'AI_CACHE_UNAVAILABLE';
     } else if (
       cache.state !== 'hit' &&
-      isBelowSmartManagerFreshAiMinimum(
-        action.audienceCount,
-        authority.policy
-      )
+      isBelowSmartManagerFreshAiMinimum(action.audienceCount, authority.policy)
     ) {
       regenerationReason = 'AI_FRESH_AUDIENCE_BELOW_MINIMUM';
     } else if (cache.state !== 'hit') {
@@ -2231,8 +2222,7 @@ async function buildPreparedWinbackReview(
       },
     },
     execution: {
-      state:
-        boundApprovedRun?.executionState ?? ('not_implemented' as const),
+      state: boundApprovedRun?.executionState ?? ('not_implemented' as const),
       campaignId: boundApprovedRun?.campaignId ?? null,
       campaignRunId: boundApprovedRun?._id ?? null,
       recipientsMaterialized:
@@ -2249,9 +2239,9 @@ export const getPreparedWinbackReview = query({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const action = (await ctx.db.get(args.preparedActionId)) as
-      | Doc<'smartManagerPreparedActions'>
-      | null;
+    const action = (await ctx.db.get(
+      args.preparedActionId
+    )) as Doc<'smartManagerPreparedActions'> | null;
     if (!action) {
       throw new Error('SMART_MANAGER_PREPARED_ACTION_NOT_FOUND');
     }

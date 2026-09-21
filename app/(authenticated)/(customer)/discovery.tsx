@@ -335,7 +335,7 @@ export default function DiscoveryScreen() {
     router.push({
       pathname: '/(authenticated)/(customer)/business/[businessId]',
       params: { businessId: String(businessId) },
-    } as any);
+    } as Href);
   };
 
   return (
@@ -365,6 +365,8 @@ export default function DiscoveryScreen() {
             <Text style={styles.cardTitle}>{TEXT.permissionTitle}</Text>
             <Text style={styles.cardSubtitle}>{TEXT.permissionSubtitle}</Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.permissionButton}
               onPress={() => {
                 void requestPermission();
               }}
@@ -379,6 +381,8 @@ export default function DiscoveryScreen() {
             </Pressable>
             {showSettingsAction ? (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.openSettings}
                 onPress={() => {
                   void Linking.openSettings();
                 }}
@@ -409,6 +413,8 @@ export default function DiscoveryScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{locationErrorMessage}</Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.retry}
               onPress={() => {
                 void refreshLocation();
               }}
@@ -428,6 +434,7 @@ export default function DiscoveryScreen() {
               <View style={styles.searchShell}>
                 <Ionicons name="search-outline" size={18} color="#64748B" />
                 <TextInput
+                  accessibilityLabel={TEXT.searchPlaceholder}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder={TEXT.searchPlaceholder}
@@ -450,6 +457,9 @@ export default function DiscoveryScreen() {
                   return (
                     <Pressable
                       key={option.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: isSelected }}
                       onPress={() => toggleServiceTypeFilter(option.id)}
                       style={({ pressed }) => [
                         styles.filterChip,
@@ -498,13 +508,17 @@ export default function DiscoveryScreen() {
 
                 {serviceTypeFilters.length > 0 ? (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={TEXT.filtersClear}
                     onPress={() => setServiceTypeFilters([])}
                     style={({ pressed }) => [
                       styles.toolButton,
                       pressed ? styles.pressed : null,
                     ]}
                   >
-                    <Text style={styles.toolButtonText}>{TEXT.filtersClear}</Text>
+                    <Text style={styles.toolButtonText}>
+                      {TEXT.filtersClear}
+                    </Text>
                   </Pressable>
                 ) : null}
 
@@ -537,6 +551,13 @@ export default function DiscoveryScreen() {
                     <Text style={styles.panelTitle}>{TEXT.radiusTitle}</Text>
                   </View>
                   <Slider
+                    accessibilityLabel={TEXT.radiusTitle}
+                    accessibilityValue={{
+                      min: 1,
+                      max: 10,
+                      now: radiusKm,
+                      text: `${radiusKm} קילומטר`,
+                    }}
                     value={radiusKm}
                     onValueChange={(value) => {
                       setRadiusKm(Math.round(value));
@@ -551,6 +572,9 @@ export default function DiscoveryScreen() {
                   <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
                   <View style={styles.sortButtonsRow}>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.sortDistance}
+                      accessibilityState={{ selected: sortBy === 'distance' }}
                       onPress={() => setSortBy('distance')}
                       style={({ pressed }) => [
                         styles.sortButton,
@@ -570,6 +594,11 @@ export default function DiscoveryScreen() {
                       </Text>
                     </Pressable>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.sortServiceType}
+                      accessibilityState={{
+                        selected: sortBy === 'service_type',
+                      }}
                       onPress={() => setSortBy('service_type')}
                       style={({ pressed }) => [
                         styles.sortButton,
@@ -663,7 +692,9 @@ export default function DiscoveryScreen() {
                 {!isBusinessesLoading && visibleBusinesses.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Text style={styles.cardTitle}>{TEXT.emptyTitle}</Text>
-                    <Text style={styles.cardSubtitle}>{TEXT.emptySubtitle}</Text>
+                    <Text style={styles.cardSubtitle}>
+                      {TEXT.emptySubtitle}
+                    </Text>
                     <View style={styles.emptyActions}>
                       <Pressable
                         onPress={increaseRadius}
@@ -736,10 +767,16 @@ export default function DiscoveryScreen() {
                             </View>
 
                             <View style={styles.businessCopy}>
-                              <Text style={styles.businessName} numberOfLines={1}>
+                              <Text
+                                style={styles.businessName}
+                                numberOfLines={1}
+                              >
                                 {business.name}
                               </Text>
-                              <Text style={styles.businessMeta} numberOfLines={1}>
+                              <Text
+                                style={styles.businessMeta}
+                                numberOfLines={1}
+                              >
                                 {categoryLabel}
                               </Text>
                               <Text
@@ -796,6 +833,8 @@ export default function DiscoveryScreen() {
                   {savedBusinesses.map((business) => (
                     <Pressable
                       key={String(business.businessId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={business.businessName}
                       onPress={() =>
                         router.push(
                           `/(authenticated)/(customer)/business/${String(
@@ -907,7 +946,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   toolButton: {
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D7DEEA',
@@ -931,7 +970,7 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   mapButton: {
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 14,
@@ -990,12 +1029,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   filterChip: {
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#DCE6F7',
     backgroundColor: '#F8FAFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterChipActive: {
     borderColor: '#2F6BFF',
@@ -1023,6 +1065,7 @@ const styles = StyleSheet.create({
   },
   sortButton: {
     flex: 1,
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#DCE6F7',

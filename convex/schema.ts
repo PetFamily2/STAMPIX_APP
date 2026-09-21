@@ -3,8 +3,8 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import {
   persistedSmartManagerCapabilityAvailabilityValidator,
-  smartManagerAuditEventDetailValidator,
   smartManagerAiFailureCodeValidator,
+  smartManagerAuditEventDetailValidator,
   smartManagerAuthorityModeValidator,
   smartManagerComparisonSummaryValidator,
   smartManagerDecisionSummaryValidator,
@@ -96,6 +96,55 @@ export default defineSchema({
     .index('by_userType', ['userType'])
     .index('by_activeBusinessId', ['activeBusinessId']),
 
+  legalAcceptances: defineTable({
+    userId: v.id('users'),
+    documentKind: v.union(v.literal('terms'), v.literal('business_terms')),
+    version: v.string(),
+    canonicalUrl: v.string(),
+    source: v.union(
+      v.literal('signup_email'),
+      v.literal('signup_google'),
+      v.literal('signup_apple'),
+      v.literal('business_activation')
+    ),
+    businessId: v.optional(v.id('businesses')),
+    acceptedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_user_document_version_business', [
+      'userId',
+      'documentKind',
+      'version',
+      'businessId',
+    ]),
+
+  marketingConsentEvents: defineTable({
+    userId: v.id('users'),
+    eventType: v.union(
+      v.literal('granted'),
+      v.literal('revoked'),
+      v.literal('legacy_state_observed')
+    ),
+    effectiveOptIn: v.boolean(),
+    version: v.string(),
+    scope: v.literal('stampaix_and_joined_businesses'),
+    channels: v.array(v.union(v.literal('in_app'), v.literal('push'))),
+    source: v.union(
+      v.literal('settings'),
+      v.literal('account_details'),
+      v.literal('legacy_backfill')
+    ),
+    grantedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    observedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_userId_createdAt', ['userId', 'createdAt'])
+    .index('by_createdAt', ['createdAt']),
+
   businessOnboardingDrafts: defineTable({
     userId: v.id('users'),
     flow: v.union(v.literal('default'), v.literal('additional')),
@@ -115,6 +164,8 @@ export default defineSchema({
     businessOnboardingDraft: v.optional(v.any()),
     pausedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    rawPayloadPurgeAfter: v.optional(v.number()),
+    minimizedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -123,7 +174,8 @@ export default defineSchema({
     .index('by_userId_status', ['userId', 'status'])
     .index('by_businessId', ['businessId'])
     .index('by_programId', ['programId'])
-    .index('by_programImageStorageId', ['programImageStorageId']),
+    .index('by_programImageStorageId', ['programImageStorageId'])
+    .index('by_rawPayloadPurgeAfter', ['rawPayloadPurgeAfter']),
 
   userIdentities: defineTable({
     userId: v.id('users'),
@@ -154,10 +206,7 @@ export default defineSchema({
   })
     .index('by_userId', ['userId'])
     .index('by_userId_provider', ['userId', 'provider'])
-    .index('by_provider_providerAccountId', [
-      'provider',
-      'providerAccountId',
-    ]),
+    .index('by_provider_providerAccountId', ['provider', 'providerAccountId']),
 
   providerRevocationJobs: defineTable({
     provider: v.union(v.literal('apple'), v.literal('google')),
@@ -492,6 +541,8 @@ export default defineSchema({
     ),
     permanentDeletionJobId: v.optional(v.id('businessDeletionJobs')),
     permanentDeletionRequestedAt: v.optional(v.number()),
+    onboardingResearchPurgeAfter: v.optional(v.number()),
+    onboardingResearchMinimizedAt: v.optional(v.number()),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -500,7 +551,8 @@ export default defineSchema({
     .index('by_externalId', ['externalId'])
     .index('by_businessPublicId', ['businessPublicId'])
     .index('by_joinCode', ['joinCode'])
-    .index('by_isActive', ['isActive']),
+    .index('by_isActive', ['isActive'])
+    .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter']),
 
   businessDeletionJobs: defineTable({
     businessId: v.string(),
@@ -806,10 +858,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
-    .index('by_businessId_sourceGeneration', [
-      'businessId',
-      'sourceGeneration',
-    ])
+    .index('by_businessId_sourceGeneration', ['businessId', 'sourceGeneration'])
     .index('by_updatedAt', ['updatedAt']),
 
   smartManagerEvaluationStates: defineTable({
@@ -1013,15 +1062,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index('by_businessId_preparationKey', [
-      'businessId',
-      'preparationKey',
-    ])
-    .index('by_businessId_stableId_state', [
-      'businessId',
-      'stableId',
-      'state',
-    ])
+    .index('by_businessId_preparationKey', ['businessId', 'preparationKey'])
+    .index('by_businessId_stableId_state', ['businessId', 'stableId', 'state'])
     .index('by_preparedByUserId', ['preparedByUserId'])
     .index('by_generationActorUserId', ['generationActorUserId'])
     .index('by_approvedCampaignRunId', ['approvedCampaignRunId'])
@@ -1044,10 +1086,7 @@ export default defineSchema({
     createdAt: v.number(),
     retentionExpiresAt: v.number(),
   })
-    .index('by_preparedActionId_revision', [
-      'preparedActionId',
-      'revision',
-    ])
+    .index('by_preparedActionId_revision', ['preparedActionId', 'revision'])
     .index('by_businessId', ['businessId'])
     .index('by_retentionExpiresAt', ['retentionExpiresAt']),
 
@@ -1641,9 +1680,7 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
-    .index('by_smartManagerPreparedActionId', [
-      'smartManagerPreparedActionId',
-    ])
+    .index('by_smartManagerPreparedActionId', ['smartManagerPreparedActionId'])
     .index('by_activationStatus', ['activationStatus'])
     .index('by_automationEnabled', ['automationEnabled']),
 
@@ -1847,7 +1884,11 @@ export default defineSchema({
     lastFailureCode: v.optional(smartManagerDeliveryFailureCodeValidator),
     provider: v.optional(v.literal('expo')),
     providerStatus: v.optional(
-      v.union(v.literal('accepted'), v.literal('rejected'), v.literal('ambiguous'))
+      v.union(
+        v.literal('accepted'),
+        v.literal('rejected'),
+        v.literal('ambiguous')
+      )
     ),
     providerTicketId: v.optional(v.string()),
     fallbackToInApp: v.optional(v.boolean()),
@@ -1858,10 +1899,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index('by_campaignRunId_recipientKey', [
-      'campaignRunId',
-      'recipientKey',
-    ])
+    .index('by_campaignRunId_recipientKey', ['campaignRunId', 'recipientKey'])
     .index('by_campaignRunId_recipientBindingHash', [
       'campaignRunId',
       'recipientBindingHash',
@@ -1925,10 +1963,7 @@ export default defineSchema({
       'contactEvidenceAt',
       'attributionTieBreaker',
     ])
-    .index('by_state_outcomeWindowEndsAt', [
-      'state',
-      'outcomeWindowEndsAt',
-    ])
+    .index('by_state_outcomeWindowEndsAt', ['state', 'outcomeWindowEndsAt'])
     .index('by_qualifyingEventId', ['qualifyingEventId'])
     .index('by_supersededByOutcomeId', ['supersededByOutcomeId'])
     .index('by_purgeAfter', ['purgeAfter']),
@@ -2341,12 +2376,16 @@ export default defineSchema({
     phone: v.optional(v.string()),
     message: v.string(),
     status: v.union(v.literal('new'), v.literal('handled')),
+    closedAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
+    legalHold: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_userId', ['userId'])
     .index('by_status', ['status'])
-    .index('by_createdAt', ['createdAt']),
+    .index('by_createdAt', ['createdAt'])
+    .index('by_purgeAfter', ['purgeAfter']),
 
   accountDeletionRequests: defineTable({
     email: v.string(),

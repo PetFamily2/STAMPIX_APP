@@ -22,6 +22,7 @@ import type * as crons from "../crons.js";
 import type * as customerCards from "../customerCards.js";
 import type * as customerLifecycle from "../customerLifecycle.js";
 import type * as dashboard from "../dashboard.js";
+import type * as dataRetention from "../dataRetention.js";
 import type * as debug from "../debug.js";
 import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
@@ -68,6 +69,7 @@ import type * as migrations_auditManualSegmentDependencies from "../migrations/a
 import type * as migrations_backfillBusinessBillingAccounts from "../migrations/backfillBusinessBillingAccounts.js";
 import type * as migrations_backfillBusinessPublicIds from "../migrations/backfillBusinessPublicIds.js";
 import type * as migrations_backfillBusinessSubscriptions from "../migrations/backfillBusinessSubscriptions.js";
+import type * as migrations_backfillComplianceEvidence from "../migrations/backfillComplianceEvidence.js";
 import type * as migrations_backfillLoyaltyProgramLifecycle from "../migrations/backfillLoyaltyProgramLifecycle.js";
 import type * as migrations_backfillPermanentDeletionReferences from "../migrations/backfillPermanentDeletionReferences.js";
 import type * as migrations_backfillUserSubscriptionPlans from "../migrations/backfillUserSubscriptionPlans.js";
@@ -119,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   customerCards: typeof customerCards;
   customerLifecycle: typeof customerLifecycle;
   dashboard: typeof dashboard;
+  dataRetention: typeof dataRetention;
   debug: typeof debug;
   entitlements: typeof entitlements;
   events: typeof events;
@@ -165,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/backfillBusinessBillingAccounts": typeof migrations_backfillBusinessBillingAccounts;
   "migrations/backfillBusinessPublicIds": typeof migrations_backfillBusinessPublicIds;
   "migrations/backfillBusinessSubscriptions": typeof migrations_backfillBusinessSubscriptions;
+  "migrations/backfillComplianceEvidence": typeof migrations_backfillComplianceEvidence;
   "migrations/backfillLoyaltyProgramLifecycle": typeof migrations_backfillLoyaltyProgramLifecycle;
   "migrations/backfillPermanentDeletionReferences": typeof migrations_backfillPermanentDeletionReferences;
   "migrations/backfillUserSubscriptionPlans": typeof migrations_backfillUserSubscriptionPlans;

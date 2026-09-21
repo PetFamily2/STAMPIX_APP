@@ -127,6 +127,7 @@ export default function SignUpEmailScreen() {
         <View style={styles.form}>
           <Text style={styles.label}>{TEXT.label}</Text>
           <TextInput
+            accessibilityLabel={TEXT.label}
             value={email}
             onChangeText={setEmail}
             placeholder={TEXT.placeholder}
@@ -146,6 +147,8 @@ export default function SignUpEmailScreen() {
             }}
             disabled={!canSubmit || busy}
             accessibilityRole="button"
+            accessibilityLabel={TEXT.submit}
+            accessibilityState={{ disabled: !canSubmit || busy }}
           >
             <View
               style={[
@@ -170,7 +173,11 @@ export default function SignUpEmailScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <Pressable onPress={handleBack} accessibilityRole="button">
+          <Pressable
+            onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel={TEXT.back}
+          >
             <Text style={styles.backText}>{TEXT.back}</Text>
           </Pressable>
         </View>

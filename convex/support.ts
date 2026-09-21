@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from './_generated/server';
+import { SUPPORT_RETENTION_MS } from './dataRetention';
 import { requireCurrentUser } from './guards';
 import { escapeHtml, normalizeEmailAddress } from './lib/email';
 
@@ -316,11 +317,44 @@ export const setSupportRequestStatus = mutation({
       throw new Error('REQUEST_NOT_FOUND');
     }
 
+    const now = Date.now();
+    const closedAt =
+      status === 'handled' ? (request.closedAt ?? now) : undefined;
     await ctx.db.patch(requestId, {
       status,
-      updatedAt: Date.now(),
+      closedAt,
+      purgeAfter:
+        status === 'handled' && closedAt !== undefined
+          ? closedAt + SUPPORT_RETENTION_MS
+          : undefined,
+      updatedAt: now,
     });
 
+    return requestId;
+  },
+});
+
+export const setSupportRequestLegalHold = mutation({
+  args: {
+    requestId: v.id('supportRequests'),
+    legalHold: v.boolean(),
+  },
+  handler: async (ctx, { requestId, legalHold }) => {
+    const user = await requireCurrentUser(ctx);
+    requireAdmin(user);
+    const request = await ctx.db.get(requestId);
+    if (!request) {
+      throw new Error('REQUEST_NOT_FOUND');
+    }
+    const now = Date.now();
+    await ctx.db.patch(requestId, {
+      legalHold,
+      purgeAfter:
+        legalHold || request.status !== 'handled'
+          ? undefined
+          : (request.closedAt ?? now) + SUPPORT_RETENTION_MS,
+      updatedAt: now,
+    });
     return requestId;
   },
 });

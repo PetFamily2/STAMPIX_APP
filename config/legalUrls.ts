@@ -1,23 +1,11 @@
-function normalizePublicUrl(value: string | undefined, fallbackUrl: string) {
-  const normalized = value?.trim();
-  if (!normalized) {
-    return fallbackUrl;
-  }
-  if (!/^https?:\/\//i.test(normalized)) {
-    return fallbackUrl;
-  }
-  return normalized;
-}
+import {
+  CANONICAL_ACCOUNT_DELETION_URL,
+  CANONICAL_PRIVACY_URL,
+  CANONICAL_TERMS_URL,
+} from '@/lib/legalContract';
 
-const DEFAULT_PRIVACY_POLICY_URL = 'https://stampaix.com/legal/privacy';
-const DEFAULT_TERMS_OF_SERVICE_URL = 'https://stampaix.com/legal/terms';
-
-export const PRIVACY_POLICY_URL = normalizePublicUrl(
-  process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL,
-  DEFAULT_PRIVACY_POLICY_URL
-);
-
-export const TERMS_OF_SERVICE_URL = normalizePublicUrl(
-  process.env.EXPO_PUBLIC_TERMS_OF_SERVICE_URL,
-  DEFAULT_TERMS_OF_SERVICE_URL
-);
+// Store builds must always open the canonical public contract. Environment
+// overrides previously allowed a build to point at a non-canonical document.
+export const PRIVACY_POLICY_URL = CANONICAL_PRIVACY_URL;
+export const TERMS_OF_SERVICE_URL = CANONICAL_TERMS_URL;
+export const ACCOUNT_DELETION_URL = CANONICAL_ACCOUNT_DELETION_URL;

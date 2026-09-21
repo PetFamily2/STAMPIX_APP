@@ -1,5 +1,5 @@
-import { useConvexAuth } from 'convex/react';
-import { type Href, useRouter } from 'expo-router';
+import { useConvexAuth, useMutation } from 'convex/react';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   isPostAuthTransitionPending,
@@ -27,13 +28,29 @@ const TEXT = {
 
 export default function OAuthCallbackScreen() {
   const router = useRouter();
+  const { legalSource } = useLocalSearchParams<{
+    legalSource?: string | string[];
+  }>();
+  const acceptCurrentTerms = useMutation(api.users.acceptCurrentTerms);
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { user: currentUser, isLoading: isUserLoading } = useUser();
   const sessionContext = useSessionContext();
   const { activeBusinessId } = useActiveBusiness();
   const [didTimeout, setDidTimeout] = useState(false);
+  const normalizedLegalSource = Array.isArray(legalSource)
+    ? legalSource[0]
+    : legalSource;
+  const acceptanceSource =
+    normalizedLegalSource === 'signup_google' ||
+    normalizedLegalSource === 'signup_apple'
+      ? normalizedLegalSource
+      : null;
+  const [hasRecordedTerms, setHasRecordedTerms] = useState(
+    acceptanceSource === null
+  );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasNavigatedRef = useRef(false);
+  const acceptanceStartedRef = useRef(false);
 
   const clearPostAuthTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -54,11 +71,34 @@ export default function OAuthCallbackScreen() {
     sessionContext,
     activeBusinessId,
   });
+  const isLegalAcceptancePending =
+    acceptanceSource !== null && !hasRecordedTerms;
+
+  useEffect(() => {
+    if (
+      acceptanceStartedRef.current ||
+      !isAuthenticated ||
+      !currentUser ||
+      !acceptanceSource
+    ) {
+      return;
+    }
+
+    acceptanceStartedRef.current = true;
+    void acceptCurrentTerms({ source: acceptanceSource })
+      .then(() => setHasRecordedTerms(true))
+      .catch(() => {
+        acceptanceStartedRef.current = false;
+        setDidTimeout(true);
+      });
+  }, [acceptCurrentTerms, acceptanceSource, currentUser, isAuthenticated]);
 
   useEffect(() => {
     if (
       hasNavigatedRef.current ||
-      (!isTransitionPending && resolution.status === 'route')
+      (!isTransitionPending &&
+        !isLegalAcceptancePending &&
+        resolution.status === 'route')
     ) {
       return;
     }
@@ -71,12 +111,18 @@ export default function OAuthCallbackScreen() {
     }
 
     return clearPostAuthTimeout;
-  }, [clearPostAuthTimeout, isTransitionPending, resolution.status]);
+  }, [
+    clearPostAuthTimeout,
+    isLegalAcceptancePending,
+    isTransitionPending,
+    resolution.status,
+  ]);
 
   useEffect(() => {
     if (
       hasNavigatedRef.current ||
       isTransitionPending ||
+      isLegalAcceptancePending ||
       resolution.status !== 'route'
     ) {
       return;
@@ -85,7 +131,13 @@ export default function OAuthCallbackScreen() {
     hasNavigatedRef.current = true;
     clearPostAuthTimeout();
     router.replace(resolution.href as Href);
-  }, [clearPostAuthTimeout, isTransitionPending, resolution, router]);
+  }, [
+    clearPostAuthTimeout,
+    isLegalAcceptancePending,
+    isTransitionPending,
+    resolution,
+    router,
+  ]);
 
   const handleReturnToSignUp = () => {
     if (hasNavigatedRef.current) {
@@ -96,7 +148,8 @@ export default function OAuthCallbackScreen() {
     router.replace('/(auth)/sign-up');
   };
 
-  const showFailure = didTimeout && resolution.status !== 'route';
+  const showFailure =
+    didTimeout && (resolution.status !== 'route' || isLegalAcceptancePending);
 
   return (
     <SafeAreaView style={styles.container}>

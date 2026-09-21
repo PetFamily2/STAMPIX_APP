@@ -3,7 +3,6 @@ import { Alert, Linking } from 'react-native';
 export const SUPPORT_MESSAGE_MAX_LENGTH = 1200;
 
 export const SUPPORT_WHATSAPP = {
-  displayPhone: '+972 55-570-5440',
   clickToChatNumber: '972555705440',
   prefillByContext: {
     customer: 'שלום, אני לקוח StampAix וצריך עזרה.',
@@ -11,7 +10,8 @@ export const SUPPORT_WHATSAPP = {
   },
 } as const;
 
-export type SupportWhatsAppContext = keyof typeof SUPPORT_WHATSAPP.prefillByContext;
+export type SupportWhatsAppContext =
+  keyof typeof SUPPORT_WHATSAPP.prefillByContext;
 
 export const SUPPORT_CONTACT_COPY = {
   sectionContact: 'צור קשר',

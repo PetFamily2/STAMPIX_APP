@@ -6,6 +6,7 @@ import {
   internalMutation,
   internalQuery,
 } from './_generated/server';
+import { AI_AUDIT_RETENTION_MS } from './dataRetention';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import {
   hashSmartManagerValue,
@@ -22,8 +23,7 @@ export const SMART_MANAGER_MIGRATION_MAX_BUSINESSES_PER_PAGE = 25;
 const SMART_MANAGER_MIGRATION_DEFAULT_PAGE_SIZE = 10;
 const SMART_MANAGER_MIGRATION_DUPLICATE_CHUNK_SIZE = 25;
 const SMART_MANAGER_MIGRATION_LEASE_MS = 5 * 60 * 1000;
-const SMART_MANAGER_MIGRATION_AUDIT_RETENTION_MS =
-  90 * 24 * 60 * 60 * 1000;
+const SMART_MANAGER_MIGRATION_AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const SMART_MANAGER_MIGRATION_FAILURE_DETAIL_LIMIT = 300;
 const ALL_DIRTY_DOMAINS = [
   'business',
@@ -62,20 +62,19 @@ function boundedPageSize(value: number | undefined) {
     : SMART_MANAGER_MIGRATION_DEFAULT_PAGE_SIZE;
   return Math.max(
     1,
-    Math.min(
-      SMART_MANAGER_MIGRATION_MAX_BUSINESSES_PER_PAGE,
-      requested
-    )
+    Math.min(SMART_MANAGER_MIGRATION_MAX_BUSINESSES_PER_PAGE, requested)
   );
 }
 
 function selectMigrationState(rows: MigrationState[]) {
-  return [...rows].sort(
-    (left, right) =>
-      Number(right.checkpointVersion) - Number(left.checkpointVersion) ||
-      Number(right.updatedAt) - Number(left.updatedAt) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(right.checkpointVersion) - Number(left.checkpointVersion) ||
+        Number(right.updatedAt) - Number(left.updatedAt) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 function ownsActiveMigrationRunnerIdentity(
@@ -109,16 +108,18 @@ async function loadMigrationState(ctx: any, reconcileDuplicates = false) {
 }
 
 function selectFreshestGenerationRow(rows: any[]) {
-  return [...rows].sort(
-    (left, right) =>
-      Number(right.sourceGeneration ?? right.generation ?? 0) -
-        Number(left.sourceGeneration ?? left.generation ?? 0) ||
-      Number(right.lastSuccessfulGeneration ?? 0) -
-        Number(left.lastSuccessfulGeneration ?? 0) ||
-      Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
-      Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(right.sourceGeneration ?? right.generation ?? 0) -
+          Number(left.sourceGeneration ?? left.generation ?? 0) ||
+        Number(right.lastSuccessfulGeneration ?? 0) -
+          Number(left.lastSuccessfulGeneration ?? 0) ||
+        Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
+        Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 function normalizedStrings(rows: any[], field: string, limit?: number) {
@@ -199,9 +200,7 @@ async function reconcileEvaluationStateChunk(
     // chunk. The merged row will meet those rows again on the next bounded
     // pass, so stamping migration wall-clock time here could hide a fresher
     // same-generation historical row.
-    updatedAt: Math.max(
-      ...rows.map((row: any) => Number(row.updatedAt ?? 0))
-    ),
+    updatedAt: Math.max(...rows.map((row: any) => Number(row.updatedAt ?? 0))),
   });
 
   let deleted = 0;

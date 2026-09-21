@@ -14,6 +14,10 @@ const smartManagerDeliverySweepRef = makeFunctionReference<
   Record<string, never>,
   { scheduled: number }
 >('smartManagerDelivery:sweepSmartManagerDeliveriesInternal');
+const dataRetentionRef = (name: string) =>
+  makeFunctionReference<'mutation', { limit?: number }, unknown>(
+    `dataRetention:${name}`
+  );
 
 crons.hourly(
   'campaign automation sweep hourly',
@@ -94,6 +98,48 @@ crons.daily(
   { hourUTC: 3, minuteUTC: 10 },
   internalSmartManagerActionsApi.cleanupPreparedActionRetentionInternal,
   { limit: 100, phase: 'copies', cursor: null }
+);
+
+crons.daily(
+  'support request retention cleanup daily',
+  { hourUTC: 3, minuteUTC: 20 },
+  dataRetentionRef('purgeExpiredSupportRequestsInternal'),
+  { limit: 100 }
+);
+
+crons.daily(
+  'AI cache retention cleanup daily',
+  { hourUTC: 3, minuteUTC: 30 },
+  dataRetentionRef('purgeExpiredAiCacheInternal'),
+  { limit: 100 }
+);
+
+crons.daily(
+  'AI audit metadata retention cleanup daily',
+  { hourUTC: 3, minuteUTC: 40 },
+  dataRetentionRef('purgeExpiredAiAuditMetadataInternal'),
+  { limit: 100 }
+);
+
+crons.daily(
+  'technical log retention cleanup daily',
+  { hourUTC: 3, minuteUTC: 50 },
+  dataRetentionRef('purgeExpiredTechnicalLogsInternal'),
+  { limit: 100 }
+);
+
+crons.daily(
+  'onboarding draft minimization daily',
+  { hourUTC: 4, minuteUTC: 0 },
+  dataRetentionRef('minimizeExpiredOnboardingDraftsInternal'),
+  { limit: 100 }
+);
+
+crons.daily(
+  'onboarding research minimization daily',
+  { hourUTC: 4, minuteUTC: 10 },
+  dataRetentionRef('minimizeExpiredOnboardingResearchInternal'),
+  { limit: 100 }
 );
 
 crons.interval(

@@ -2,12 +2,12 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
+import { ONBOARDING_RESEARCH_RETENTION_MS } from './dataRetention';
 import { assertEntitlement } from './entitlements';
-import { ensureBusinessBillingAccount } from './lib/billing/accounts';
-import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
 import {
   getBusinessStaffStatus,
   isBusinessPermanentDeletionInProgress,
+  requireActiveBusiness,
   requireActorCanInviteRole,
   requireActorCanManageTargetStaff,
   requireActorCanManageTeamForBusiness,
@@ -15,15 +15,17 @@ import {
   requireActorIsActiveStaffForBusiness,
   requireActorIsBusinessOwnerOrManager,
   requireActorIsStaffForBusiness,
-  requireActiveBusiness,
   requireCurrentUser,
 } from './guards';
+import { ensureBusinessBillingAccount } from './lib/billing/accounts';
+import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
   generateJoinCode,
   generatePublicId,
 } from './lib/ids';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { sendPushNotificationToUser } from './pushNotifications';
 import {
   assertScanTokenSignature,
@@ -31,7 +33,6 @@ import {
   isScanTokenExpired,
   parseScanToken,
 } from './scanTokens';
-import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 type BusinessAddressInput = {
   formattedAddress: string;
@@ -940,9 +941,7 @@ export const processBusinessClosureCustomerBatchInternal = internalMutation({
 
     const page = await ctx.db
       .query('memberships')
-      .withIndex('by_businessId', (q: any) =>
-        q.eq('businessId', businessId)
-      )
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
       .filter((q: any) => q.eq(q.field('isActive'), true))
       .paginate({
         cursor,
@@ -1005,9 +1004,7 @@ export const processBusinessClosureStaffBatchInternal = internalMutation({
 
     const page = await ctx.db
       .query('businessStaff')
-      .withIndex('by_businessId', (q: any) =>
-        q.eq('businessId', businessId)
-      )
+      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
       .paginate({
         cursor,
         numItems: BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE,
@@ -1144,9 +1141,7 @@ export const listMyClosedBusinesses = query({
     const user = await requireCurrentUser(ctx);
     const ownedBusinesses = await ctx.db
       .query('businesses')
-      .withIndex('by_ownerUserId', (q: any) =>
-        q.eq('ownerUserId', user._id)
-      )
+      .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', user._id))
       .collect();
 
     return ownedBusinesses
@@ -1467,10 +1462,14 @@ export const createOrResumeBusinessOnboarding = mutation({
         shortDescription: normalizedShortDescription || undefined,
         businessPhone: normalizedBusinessPhone || undefined,
         serviceTypes:
-          normalizedServiceTypes.length > 0 ? normalizedServiceTypes : undefined,
+          normalizedServiceTypes.length > 0
+            ? normalizedServiceTypes
+            : undefined,
         serviceTags:
           normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
         onboardingSnapshot,
+        onboardingResearchPurgeAfter: now + ONBOARDING_RESEARCH_RETENTION_MS,
+        onboardingResearchMinimizedAt: undefined,
         location: normalizedAddress.location,
         placeId: normalizedAddress.placeId,
         formattedAddress: normalizedAddress.formattedAddress,
@@ -1516,6 +1515,8 @@ export const createOrResumeBusinessOnboarding = mutation({
       serviceTags:
         normalizedServiceTags.length > 0 ? normalizedServiceTags : undefined,
       onboardingSnapshot,
+      onboardingResearchPurgeAfter: now + ONBOARDING_RESEARCH_RETENTION_MS,
+      onboardingResearchMinimizedAt: undefined,
       updatedAt: now,
     });
 
@@ -1952,8 +1953,12 @@ export function computeBusinessProfileCompletion(business: {
   serviceTypes?: string[];
   serviceTags?: string[];
   onboardingSnapshot?: unknown;
+  onboardingResearchMinimizedAt?: number;
 }) {
   const missingFields: BusinessProfileCompletionField[] = [];
+  const researchWasMinimized = Number.isFinite(
+    business.onboardingResearchMinimizedAt
+  );
   const onboardingSnapshot =
     sanitizeBusinessOnboardingSnapshot(business.onboardingSnapshot) ?? null;
   if (!normalizeOptionalText(business.name)) {
@@ -1974,7 +1979,7 @@ export function computeBusinessProfileCompletion(business: {
   if (sanitizeServiceTags(business.serviceTags).length === 0) {
     missingFields.push('serviceTags');
   }
-  if (!onboardingSnapshot?.discoverySource) {
+  if (!researchWasMinimized && !onboardingSnapshot?.discoverySource) {
     missingFields.push('discoverySource');
   }
   if (!onboardingSnapshot?.reason) {
@@ -1983,10 +1988,10 @@ export function computeBusinessProfileCompletion(business: {
   if ((onboardingSnapshot?.usageAreas?.length ?? 0) === 0) {
     missingFields.push('usageAreas');
   }
-  if (!onboardingSnapshot?.ownerAgeRange) {
+  if (!researchWasMinimized && !onboardingSnapshot?.ownerAgeRange) {
     missingFields.push('ownerAgeRange');
   }
-  if (!onboardingSnapshot?.businessExample) {
+  if (!researchWasMinimized && !onboardingSnapshot?.businessExample) {
     missingFields.push('businessExample');
   }
   if (typeof onboardingSnapshot?.birthdayCampaignRelevant !== 'boolean') {
@@ -2392,6 +2397,8 @@ export const saveBusinessOnboardingSnapshot = mutation({
     const businessPatchPayload: Record<string, unknown> = {
       onboardingSnapshot: nextSnapshot,
       businessRetentionProfile: nextRetentionProfile,
+      onboardingResearchPurgeAfter: now + ONBOARDING_RESEARCH_RETENTION_MS,
+      onboardingResearchMinimizedAt: undefined,
       updatedAt: now,
     };
 

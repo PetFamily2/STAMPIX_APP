@@ -11,12 +11,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsContentWidth } from '@/components/business-settings';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
+import {
+  ACCOUNT_DELETION_URL,
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+} from '@/config/legalUrls';
 import {
   LEGAL_DOCUMENT_ORDER,
-  LEGAL_DOCUMENTS,
   type LegalDocumentKey,
-} from '@/lib/legalDocuments';
+  MOBILE_LEGAL_DOCUMENTS,
+} from '@/lib/mobileLegalDocuments';
 import { safeBack } from '@/lib/navigation';
 import { flexDirection } from '@/lib/rtl';
 
@@ -44,7 +48,7 @@ export function LegalDocumentScreen({
     returnTo?: string | string[];
   }>();
   const activeKey = normalizeDocumentKey(params.document);
-  const activeDocument = LEGAL_DOCUMENTS[activeKey];
+  const activeDocument = MOBILE_LEGAL_DOCUMENTS[activeKey];
   const returnTo = Array.isArray(params.returnTo)
     ? params.returnTo[0]
     : params.returnTo;
@@ -76,12 +80,13 @@ export function LegalDocumentScreen({
 
           <View style={styles.tabs}>
             {LEGAL_DOCUMENT_ORDER.map((key) => {
-              const document = LEGAL_DOCUMENTS[key];
+              const document = MOBILE_LEGAL_DOCUMENTS[key];
               const selected = key === activeKey;
               return (
                 <Pressable
                   key={key}
                   accessibilityRole="tab"
+                  accessibilityLabel={document.tabLabel}
                   accessibilityState={{ selected }}
                   onPress={() => router.setParams({ document: key })}
                   style={[styles.tab, selected ? styles.tabSelected : null]}
@@ -153,6 +158,17 @@ export function LegalDocumentScreen({
           >
             <Text style={styles.linkButtonText}>תנאי השימוש באתר</Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="מחיקת חשבון באתר"
+            onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed ? styles.linkButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.linkButtonText}>מחיקת חשבון באתר</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -209,7 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flex: 1,
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 8,
   },
   tabSelected: {

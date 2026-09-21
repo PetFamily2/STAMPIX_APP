@@ -308,6 +308,8 @@ describe('wipeAllDataHardImpl', () => {
       businessDeletionJobs: 1,
       accountDeletionRequests: 3,
       supportRequests: 1,
+      marketingConsentEvents: 0,
+      legalAcceptances: 0,
       messageLog: 1,
       redemptionCelebrationReceipts: 1,
       smartManagerRecipientOutcomes: 1,

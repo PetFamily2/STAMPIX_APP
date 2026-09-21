@@ -38,7 +38,7 @@ const TEXT = {
 
 type AuthMethod = 'apple' | 'google' | 'email';
 
-const TERMS_PREFIX = 'בלחיצה על המשך, אתם מסכימים ל';
+const TERMS_PREFIX = 'בלחיצה על אפשרות התחברות או על המשך, אתם מסכימים ל';
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
   return (
@@ -142,7 +142,10 @@ export default function SignUpScreen() {
       }
       trackContinue({ method: provider });
       completeStep({ method: provider });
-      router.replace('/(auth)/oauth-callback');
+      router.replace({
+        pathname: '/(auth)/oauth-callback',
+        params: { legalSource: `signup_${provider}` },
+      });
     } catch (error: unknown) {
       Alert.alert(TEXT.authErrorTitle, mapOAuthError(provider, error));
     } finally {

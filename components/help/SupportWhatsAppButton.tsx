@@ -1,16 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { SettingsGroup, SettingsNavRow } from '@/components/business-settings';
 import {
-  SETTINGS_TOKENS,
-  SettingsGroup,
-  SettingsNavRow,
-} from '@/components/business-settings';
-import {
-  SUPPORT_CONTACT_COPY,
-  SUPPORT_WHATSAPP,
   alertWhatsAppUnavailable,
   openSupportWhatsApp,
+  SUPPORT_CONTACT_COPY,
   type SupportWhatsAppContext,
 } from '@/lib/help/supportContact';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
@@ -36,7 +31,6 @@ export function SupportWhatsAppButton({
         <SettingsNavRow
           title={SUPPORT_CONTACT_COPY.whatsappTitle}
           subtitle={SUPPORT_CONTACT_COPY.whatsappSubtitle}
-          value={SUPPORT_WHATSAPP.displayPhone}
           icon="logo-whatsapp"
           onPress={handlePress}
           isLast={true}
@@ -65,9 +59,6 @@ export function SupportWhatsAppButton({
         </Text>
         <Text style={styles.customerSubtitle} maxFontSizeMultiplier={1.4}>
           {SUPPORT_CONTACT_COPY.whatsappSubtitle}
-        </Text>
-        <Text style={styles.customerValue} maxFontSizeMultiplier={1.4}>
-          {SUPPORT_WHATSAPP.displayPhone}
         </Text>
       </View>
       <Ionicons name="chevron-back" size={18} color="#94A3B8" />
@@ -120,15 +111,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '500',
     color: '#6B7280',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  customerValue: {
-    width: '100%',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    color: SETTINGS_TOKENS.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },

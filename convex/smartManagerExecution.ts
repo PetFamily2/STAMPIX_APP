@@ -7,6 +7,7 @@ import {
   mutation,
 } from './_generated/server';
 import { isCustomerAtRiskForReferenceNow } from './customerLifecycle';
+import { AI_AUDIT_RETENTION_MS } from './dataRetention';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
   campaignConsumesQuota,
@@ -43,7 +44,7 @@ import {
   isCanonicalRecommendationEventEffective,
 } from './recommendations';
 
-const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const APPROVAL_SINGLETON_LIMIT = 2;
 
 type MaterializationFailureCode =

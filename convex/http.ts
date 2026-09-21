@@ -1,4 +1,5 @@
 import { type FunctionReference, httpRouter } from 'convex/server';
+import { CANONICAL_LEGAL_VERSION } from '../lib/legalContract';
 import { LEGAL_DOCUMENTS } from '../lib/legalDocuments';
 import { api, internal } from './_generated/api';
 import { httpAction } from './_generated/server';
@@ -344,9 +345,7 @@ function legalDocumentHeaders() {
   };
 }
 
-export function renderPublicLegalDocument(
-  documentKey: PublicLegalDocumentKey
-) {
+export function renderPublicLegalDocument(documentKey: PublicLegalDocumentKey) {
   const document = LEGAL_DOCUMENTS[documentKey];
   const sections = document.sections
     .map(
@@ -439,7 +438,7 @@ export function renderPublicLegalDocument(
       <p class="brand">StampAix</p>
       <h1>${escapeHtml(document.title)}</h1>
       <p class="subtitle">${escapeHtml(document.subtitle)}</p>
-      <p class="updated">עודכן לאחרונה: ${escapeHtml(document.updatedAt)}</p>
+      <p class="updated">עודכן לאחרונה: ${escapeHtml(document.updatedAt)} · גרסה ${escapeHtml(CANONICAL_LEGAL_VERSION)}</p>
     </header>
     ${sections}
   </main>
@@ -495,10 +494,7 @@ function resolveSupportEmail() {
   }
 }
 
-function renderAccountDeletionShell(args: {
-  title: string;
-  body: string;
-}) {
+function renderAccountDeletionShell(args: { title: string; body: string }) {
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -729,10 +725,13 @@ export async function handleAccountDeletionSubmissionRequest(
   }
 
   try {
-    await ctx.runMutation(accountDeletionInternalApi.submitExternalRequestInternal, {
-      email,
-      requestReference,
-    });
+    await ctx.runMutation(
+      accountDeletionInternalApi.submitExternalRequestInternal,
+      {
+        email,
+        requestReference,
+      }
+    );
   } catch (error) {
     if (isAccountDeletionRateLimitError(error)) {
       return new Response(
@@ -818,9 +817,7 @@ http.route({
 http.route({
   path: '/legal/privacy',
   method: 'GET',
-  handler: httpAction(
-    async () => handlePublicLegalDocumentRequest('privacy')
-  ),
+  handler: httpAction(async () => handlePublicLegalDocumentRequest('privacy')),
 });
 
 http.route({
@@ -838,8 +835,9 @@ http.route({
 http.route({
   path: '/account-deletion/request',
   method: 'POST',
-  handler: httpAction(async (ctx, request) =>
-    await handleAccountDeletionSubmissionRequest(ctx, request)
+  handler: httpAction(
+    async (ctx, request) =>
+      await handleAccountDeletionSubmissionRequest(ctx, request)
   ),
 });
 

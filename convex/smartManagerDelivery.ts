@@ -6,6 +6,7 @@ import {
   internalMutation,
   type MutationCtx,
 } from './_generated/server';
+import { AI_AUDIT_RETENTION_MS } from './dataRetention';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
   campaignConsumesQuota,
@@ -44,7 +45,7 @@ import {
 import { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 import { sendExpoPushMessages } from './pushNotifications';
 
-const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const DELIVERY_SINGLETON_LIMIT = 2;
 
 type DeliveryCounters = {

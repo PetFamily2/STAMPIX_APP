@@ -296,7 +296,10 @@ export const deleteBusinessPermanently = mutation({
     const user = await requireCurrentUser(ctx);
     const business = await ctx.db.get(args.businessId);
     if (!business) {
-      const previousJobs = await findJobsForBusiness(ctx, String(args.businessId));
+      const previousJobs = await findJobsForBusiness(
+        ctx,
+        String(args.businessId)
+      );
       const previous = previousJobs.find(
         (job: Doc<'businessDeletionJobs'>) =>
           String(job.requestedByUserId) === String(user._id)
@@ -447,11 +450,14 @@ export const runBusinessDeletionWorkerInternal = internalAction({
     } catch (error) {
       const detail =
         error instanceof Error ? error.message.slice(0, 500) : 'UNKNOWN';
-      await ctx.runMutation(internalDeletionApi.markBusinessDeletionFailedInternal, {
-        jobId,
-        failureCode: 'DELETION_PHASE_FAILED',
-        failureDetail: detail,
-      });
+      await ctx.runMutation(
+        internalDeletionApi.markBusinessDeletionFailedInternal,
+        {
+          jobId,
+          failureCode: 'DELETION_PHASE_FAILED',
+          failureDetail: detail,
+        }
+      );
       return { status: 'failed' as const };
     }
   },
@@ -488,7 +494,11 @@ export const markBusinessDeletionFailedInternal = internalMutation({
   },
 });
 
-async function scheduleWorker(ctx: any, jobId: Id<'businessDeletionJobs'>, delay = 0) {
+async function scheduleWorker(
+  ctx: any,
+  jobId: Id<'businessDeletionJobs'>,
+  delay = 0
+) {
   await ctx.scheduler.runAfter(
     delay,
     internalDeletionApi.runBusinessDeletionWorkerInternal,
@@ -742,13 +752,7 @@ async function runDeleteSteps(
   for (let prerequisite = 0; prerequisite < stepIndex; prerequisite += 1) {
     const step = steps[prerequisite];
     if (
-      await hasDirectRows(
-        ctx,
-        step.table,
-        step.index,
-        step.field,
-        businessId
-      )
+      await hasDirectRows(ctx, step.table, step.index, step.field, businessId)
     ) {
       stepIndex = prerequisite;
       break;
@@ -760,7 +764,9 @@ async function runDeleteSteps(
     businessId
   );
   if (deleted > 0) {
-    await continuePhase(ctx, job, { progress: { step: steps[stepIndex].name } });
+    await continuePhase(ctx, job, {
+      progress: { step: steps[stepIndex].name },
+    });
     return;
   }
   if (stepIndex + 1 < steps.length) {
@@ -1084,6 +1090,17 @@ async function runOnboardingPurge(
     await continuePhase(ctx, job);
     return;
   }
+  const businessAcceptances = await ctx.db
+    .query('legalAcceptances')
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .take(DELETE_BATCH_SIZE);
+  for (const acceptance of businessAcceptances) {
+    await ctx.db.delete(acceptance._id);
+  }
+  if (businessAcceptances.length > 0) {
+    await continuePhase(ctx, job);
+    return;
+  }
   await moveToPhase(ctx, job, 'purge_memberships');
 }
 
@@ -1109,10 +1126,7 @@ async function runProgramPurge(
   await moveToPhase(ctx, job, 'purge_assets');
 }
 
-async function runAssetPurge(
-  ctx: any,
-  job: Doc<'businessDeletionJobs'>
-) {
+async function runAssetPurge(ctx: any, job: Doc<'businessDeletionJobs'>) {
   const assets = await ctx.db
     .query('businessDeletionAssets')
     .withIndex('by_jobId_cleanupStatus', (q: any) =>
@@ -1241,23 +1255,58 @@ async function findRemainingPhase(
           index: 'by_businessId_createdAt',
           field: 'businessId',
         },
-        { name: '', table: 'referralConfigs', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'referralConfigs',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
       'purge_scans_events',
       [
-        { name: '', table: 'redemptionCelebrationReceipts', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'scanTokenEvents', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'scanSessions', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'events', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'redemptionCelebrationReceipts',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'scanTokenEvents',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'scanSessions',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'events',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
       'purge_messages',
       [
-        { name: '', table: 'messageLog', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'pushDeliveryLog', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'messageLog',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'pushDeliveryLog',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
@@ -1275,7 +1324,12 @@ async function findRemainingPhase(
           index: 'by_businessId_stableId_state',
           field: 'businessId',
         },
-        { name: '', table: 'aiUsageLedger', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'aiUsageLedger',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
         {
           name: '',
           table: 'recommendationInteractions',
@@ -1318,28 +1372,88 @@ async function findRemainingPhase(
           index: 'by_businessId',
           field: 'businessId',
         },
-        { name: '', table: 'smartManagerOutcomeDirtyMarkers', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'smartManagerOutcomeReversalMarkers', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'aiRecommendations', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'aiBusinessSnapshots', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'aiGenerationCache', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'smartManagerOutcomeDirtyMarkers',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'smartManagerOutcomeReversalMarkers',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'aiRecommendations',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'aiBusinessSnapshots',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'aiGenerationCache',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
       'purge_campaigns',
       [
-        { name: '', table: 'smartManagerRecipientOutcomes', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'campaignRunRecipients', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'campaignRuns', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'campaigns', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'smartManagerRecipientOutcomes',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'campaignRunRecipients',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'campaignRuns',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'campaigns',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
       'purge_staff',
       [
-        { name: '', table: 'staffEvents', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'staffInvites', index: 'by_businessId', field: 'businessId' },
-        { name: '', table: 'businessStaff', index: 'by_businessId', field: 'businessId' },
+        {
+          name: '',
+          table: 'staffEvents',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'staffInvites',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
+          table: 'businessStaff',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
@@ -1351,19 +1465,46 @@ async function findRemainingPhase(
           index: 'by_businessId',
           field: 'businessId',
         },
+        {
+          name: '',
+          table: 'legalAcceptances',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
       ],
     ],
     [
       'purge_memberships',
-      [{ name: '', table: 'memberships', index: 'by_businessId', field: 'businessId' }],
+      [
+        {
+          name: '',
+          table: 'memberships',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+      ],
     ],
     [
       'purge_subscriptions',
-      [{ name: '', table: 'subscriptions', index: 'by_businessId', field: 'businessId' }],
+      [
+        {
+          name: '',
+          table: 'subscriptions',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+      ],
     ],
     [
       'purge_programs',
-      [{ name: '', table: 'loyaltyPrograms', index: 'by_businessId', field: 'businessId' }],
+      [
+        {
+          name: '',
+          table: 'loyaltyPrograms',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+      ],
     ],
   ];
   for (const [phase, checks] of phaseChecks) {
@@ -1504,15 +1645,45 @@ const CUSTOMER_REFERRAL_STEPS: DeleteStep[] = [
 ];
 
 const SCAN_EVENT_STEPS: DeleteStep[] = [
-  { name: 'redemption_receipts', table: 'redemptionCelebrationReceipts', index: 'by_businessId', field: 'businessId' },
-  { name: 'tokens', table: 'scanTokenEvents', index: 'by_businessId', field: 'businessId' },
-  { name: 'sessions', table: 'scanSessions', index: 'by_businessId', field: 'businessId' },
-  { name: 'events', table: 'events', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'redemption_receipts',
+    table: 'redemptionCelebrationReceipts',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'tokens',
+    table: 'scanTokenEvents',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'sessions',
+    table: 'scanSessions',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'events',
+    table: 'events',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const MESSAGE_STEPS: DeleteStep[] = [
-  { name: 'messages', table: 'messageLog', index: 'by_businessId', field: 'businessId' },
-  { name: 'push_logs', table: 'pushDeliveryLog', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'messages',
+    table: 'messageLog',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'push_logs',
+    table: 'pushDeliveryLog',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const AI_STEPS: DeleteStep[] = [
@@ -1528,7 +1699,12 @@ const AI_STEPS: DeleteStep[] = [
     index: 'by_businessId_stableId_state',
     field: 'businessId',
   },
-  { name: 'usage', table: 'aiUsageLedger', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'usage',
+    table: 'aiUsageLedger',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
   {
     name: 'interactions',
     table: 'recommendationInteractions',
@@ -1589,8 +1765,18 @@ const AI_STEPS: DeleteStep[] = [
     index: 'by_businessId',
     field: 'businessId',
   },
-  { name: 'snapshots', table: 'aiBusinessSnapshots', index: 'by_businessId', field: 'businessId' },
-  { name: 'cache', table: 'aiGenerationCache', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'snapshots',
+    table: 'aiBusinessSnapshots',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'cache',
+    table: 'aiGenerationCache',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const CAMPAIGN_STEPS: DeleteStep[] = [
@@ -1606,14 +1792,39 @@ const CAMPAIGN_STEPS: DeleteStep[] = [
     index: 'by_businessId',
     field: 'businessId',
   },
-  { name: 'runs', table: 'campaignRuns', index: 'by_businessId', field: 'businessId' },
-  { name: 'campaigns', table: 'campaigns', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'runs',
+    table: 'campaignRuns',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'campaigns',
+    table: 'campaigns',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const STAFF_STEPS: DeleteStep[] = [
-  { name: 'events', table: 'staffEvents', index: 'by_businessId', field: 'businessId' },
-  { name: 'invites', table: 'staffInvites', index: 'by_businessId', field: 'businessId' },
-  { name: 'relationships', table: 'businessStaff', index: 'by_businessId', field: 'businessId' },
+  {
+    name: 'events',
+    table: 'staffEvents',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'invites',
+    table: 'staffInvites',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
+  {
+    name: 'relationships',
+    table: 'businessStaff',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 export const processBusinessDeletionBatchInternal = internalMutation({
@@ -1676,13 +1887,7 @@ export const processBusinessDeletionBatchInternal = internalMutation({
         );
         break;
       case 'purge_messages':
-        await runDeleteSteps(
-          ctx,
-          job,
-          businessId,
-          MESSAGE_STEPS,
-          'purge_ai'
-        );
+        await runDeleteSteps(ctx, job, businessId, MESSAGE_STEPS, 'purge_ai');
         break;
       case 'purge_ai':
         await runDeleteSteps(ctx, job, businessId, AI_STEPS, 'purge_campaigns');

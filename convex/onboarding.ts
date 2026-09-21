@@ -2,6 +2,10 @@ import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { type MutationCtx, mutation, query } from './_generated/server';
+import {
+  COMPLETED_ONBOARDING_DRAFT_RETENTION_MS,
+  INACTIVE_ONBOARDING_DRAFT_RETENTION_MS,
+} from './dataRetention';
 import { getCurrentUserOrNull, requireCurrentUser } from './guards';
 
 const BUSINESS_ONBOARDING_FLOW_UNION = v.union(
@@ -133,9 +137,7 @@ export async function getBusinessOnboardingDraftForUserAndFlow(
 ): Promise<Doc<'businessOnboardingDrafts'> | null> {
   return await ctx.db
     .query('businessOnboardingDrafts')
-    .withIndex('by_userId_flow', (q) =>
-      q.eq('userId', userId).eq('flow', flow)
-    )
+    .withIndex('by_userId_flow', (q) => q.eq('userId', userId).eq('flow', flow))
     .unique();
 }
 
@@ -156,10 +158,7 @@ export async function upsertBusinessOnboardingDraft(
   const now = Date.now();
   const nextStatus: BusinessOnboardingStatus = input.status ?? 'in_progress';
   const normalizedCurrentStep = normalizeStep(input.flow, input.currentStep);
-  const currentStepOrder = resolveStepOrder(
-    input.flow,
-    normalizedCurrentStep
-  );
+  const currentStepOrder = resolveStepOrder(input.flow, normalizedCurrentStep);
   const existing = await getBusinessOnboardingDraftForUserAndFlow(
     ctx,
     input.userId,
@@ -168,10 +167,7 @@ export async function upsertBusinessOnboardingDraft(
 
   const hasReusableProgress = existing && existing.status !== 'completed';
   const previousFarthestStep = hasReusableProgress
-    ? normalizeStep(
-        input.flow,
-        existing.farthestStep as BusinessOnboardingStep
-      )
+    ? normalizeStep(input.flow, existing.farthestStep as BusinessOnboardingStep)
     : normalizedCurrentStep;
   const previousFarthestOrder = hasReusableProgress
     ? resolveStepOrder(input.flow, previousFarthestStep)
@@ -206,6 +202,12 @@ export async function upsertBusinessOnboardingDraft(
       existing?.businessOnboardingDraft,
     pausedAt: nextStatus === 'paused' ? now : undefined,
     completedAt: nextStatus === 'completed' ? now : undefined,
+    rawPayloadPurgeAfter:
+      now +
+      (nextStatus === 'completed'
+        ? COMPLETED_ONBOARDING_DRAFT_RETENTION_MS
+        : INACTIVE_ONBOARDING_DRAFT_RETENTION_MS),
+    minimizedAt: undefined,
     updatedAt: now,
   };
 

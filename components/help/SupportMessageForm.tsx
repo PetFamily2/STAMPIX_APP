@@ -65,6 +65,8 @@ export function SupportMessageForm({
         {SUPPORT_CONTACT_COPY.messageLabel}
       </Text>
       <TextInput
+        accessibilityLabel={SUPPORT_CONTACT_COPY.messageLabel}
+        accessibilityHint={SUPPORT_CONTACT_COPY.messagePlaceholder}
         value={message}
         onChangeText={setMessage}
         editable={!isSending}
@@ -90,9 +92,7 @@ export function SupportMessageForm({
       {isSettings ? (
         <SettingsPrimaryButton
           label={
-            isSending
-              ? SUPPORT_CONTACT_COPY.sending
-              : SUPPORT_CONTACT_COPY.send
+            isSending ? SUPPORT_CONTACT_COPY.sending : SUPPORT_CONTACT_COPY.send
           }
           onPress={() => {
             void handleSubmit();

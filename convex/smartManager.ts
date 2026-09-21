@@ -7,6 +7,7 @@ import {
   internalQuery,
   type MutationCtx,
 } from './_generated/server';
+import { AI_AUDIT_RETENTION_MS } from './dataRetention';
 import {
   buildCanonicalBusinessEntitlementsFromBusiness,
   campaignConsumesQuota,
@@ -54,7 +55,7 @@ const MAX_RECONCILIATION_STATES = 25;
 export { SMART_MANAGER_SOURCE_LIMITS } from './lib/smartManagerSourceLimits';
 export const SMART_MANAGER_AGGREGATE_SOURCE_READ_BUDGET = 10_900;
 export const SMART_MANAGER_FIXED_EVALUATION_READ_ALLOWANCE = 60;
-const AUDIT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const PARKED_NEXT_EVALUATION_AT = Number.MAX_SAFE_INTEGER;
 const SMART_MANAGER_SINGLETON_RECONCILIATION_LIMIT = 25;
 const SMART_MANAGER_DECISION_DEACTIVATION_PAGE_SIZE = 50;
@@ -2092,19 +2093,32 @@ export const purgeExpiredAuditEventsInternal = internalMutation({
       )
     );
     const cutoff = Date.now();
+    const policyCutoff = cutoff - AI_AUDIT_RETENTION_MS;
     const expired = await ctx.db
       .query('smartManagerAuditEvents')
       .withIndex('by_expiresAt', (q) => q.lte('expiresAt', cutoff))
       .take(limit);
+    let deleted = 0;
+    let retainedForPolicy = 0;
     for (const event of expired) {
+      const createdAt = Number(event.createdAt);
+      if (Number.isFinite(createdAt) && createdAt > policyCutoff) {
+        const targetExpiry = createdAt + AI_AUDIT_RETENTION_MS;
+        if (event.expiresAt < targetExpiry) {
+          await ctx.db.patch(event._id, { expiresAt: targetExpiry });
+        }
+        retainedForPolicy += 1;
+        continue;
+      }
       await ctx.db.delete(event._id);
+      deleted += 1;
     }
     const continuationScheduled =
       expired.length === limit && Boolean(ctx.scheduler?.runAfter);
     if (continuationScheduled) {
       await ctx.scheduler.runAfter(0, purgeExpiredAuditEventsRef, { limit });
     }
-    return { deleted: expired.length, continuationScheduled };
+    return { deleted, retainedForPolicy, continuationScheduled };
   },
 });
 

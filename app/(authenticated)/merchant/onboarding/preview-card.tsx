@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +18,7 @@ import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -58,6 +60,8 @@ const PREVIEW_COPY = {
   publishNote: 'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
   referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
   continue: 'פרסום וכניסה לניהול',
+  businessTermsPrefix: 'בלחיצה על פרסום, אתם מקבלים גם את ',
+  businessTermsLink: 'תנאי השימוש לעסק',
 };
 
 const PREVIEW_FILLED_STAMPS = 3;
@@ -89,7 +93,9 @@ export default function PreviewCardScreen() {
     businessId ? { businessId } : 'skip'
   ) ?? []) as Array<{ programId: Id<'loyaltyPrograms'>; themeId: string }>;
   const usedThemeIds = themeReservations
-    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .filter(
+      (reservation) => String(reservation.programId) !== String(programId)
+    )
     .map((reservation) => reservation.themeId);
 
   const [isFinishing, setIsFinishing] = useState(false);
@@ -313,6 +319,17 @@ export default function PreviewCardScreen() {
           ) : null}
 
           <View style={styles.footer}>
+            <Text style={styles.businessTermsNotice}>
+              {PREVIEW_COPY.businessTermsPrefix}
+              <Text
+                accessibilityRole="link"
+                style={styles.businessTermsLink}
+                onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+              >
+                {PREVIEW_COPY.businessTermsLink}
+              </Text>
+              .
+            </Text>
             <ContinueButton
               onPress={() => {
                 void handleFinish();
@@ -453,5 +470,19 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 4,
+    gap: 10,
+  },
+  businessTermsNotice: {
+    color: '#57534E',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  businessTermsLink: {
+    color: '#1D4ED8',
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
 });

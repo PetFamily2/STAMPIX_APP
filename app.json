@@ -20,7 +20,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "StampAix uses the camera to scan customer and business QR codes.",
-        "NSLocationWhenInUseUsageDescription": "StampAix uses your location to show nearby participating businesses."
+        "NSLocationWhenInUseUsageDescription": "StampAix uses your approximate location to show nearby participating businesses.",
+        "NSLocationDefaultAccuracyReduced": true
       }
     },
     "android": {
@@ -32,11 +33,13 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.POST_NOTIFICATIONS"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_EXTERNAL_STORAGE"
       ],
@@ -93,7 +96,12 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "StampAix uses your location to show nearby participating businesses."
+          "locationWhenInUsePermission": "StampAix uses your approximate location to show nearby participating businesses.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [

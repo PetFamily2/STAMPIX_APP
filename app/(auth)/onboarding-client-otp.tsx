@@ -1,5 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useConvexAuth } from 'convex/react';
+import { useConvexAuth, useMutation } from 'convex/react';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
@@ -50,11 +51,13 @@ const TEXT = {
 
 export default function OnboardingOtpScreen() {
   const router = useRouter();
-  const { contact, sent } = useLocalSearchParams<{
+  const { contact, sent, entry } = useLocalSearchParams<{
     contact?: string | string[];
     sent?: string | string[];
+    entry?: string | string[];
   }>();
   const { signIn } = useAuthActions();
+  const acceptCurrentTerms = useMutation(api.users.acceptCurrentTerms);
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const { user: currentUser, isLoading: isUserLoading } = useUser();
   const sessionContext = useSessionContext();
@@ -74,6 +77,7 @@ export default function OnboardingOtpScreen() {
   const lastAutoSubmittedCodeRef = useRef<string | null>(null);
   const postAuthTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasNavigatedRef = useRef(false);
+  const acceptanceStartedRef = useRef(false);
   const digitIndexes = useMemo(
     () => Array.from({ length: CODE_LENGTH }, (_, index) => index),
     []
@@ -117,6 +121,11 @@ export default function OnboardingOtpScreen() {
     }
     return sent ?? '';
   }, [sent]);
+  const entryValue = useMemo(
+    () => (Array.isArray(entry) ? entry[0] : entry),
+    [entry]
+  );
+  const shouldRecordTermsAcceptance = entryValue !== 'sign-in';
 
   const shouldSkipInitialSend = useMemo(
     () => sentValue === '1' || sentValue.toLowerCase() === 'true',
@@ -358,15 +367,35 @@ export default function OnboardingOtpScreen() {
       return;
     }
 
-    hasNavigatedRef.current = true;
-    clearPostAuthTimeout();
-    router.replace(postAuthResolution.href as Href);
+    if (acceptanceStartedRef.current) {
+      return;
+    }
+
+    const finishPostAuth = async () => {
+      acceptanceStartedRef.current = true;
+      try {
+        if (shouldRecordTermsAcceptance) {
+          await acceptCurrentTerms({ source: 'signup_email' });
+        }
+        hasNavigatedRef.current = true;
+        clearPostAuthTimeout();
+        router.replace(postAuthResolution.href as Href);
+      } catch {
+        acceptanceStartedRef.current = false;
+        setIsAwaitingSession(false);
+        setError(TEXT.missingSession);
+      }
+    };
+
+    void finishPostAuth();
   }, [
+    acceptCurrentTerms,
     clearPostAuthTimeout,
     isAwaitingSession,
     isTransitionPending,
     postAuthResolution,
     router,
+    shouldRecordTermsAcceptance,
   ]);
 
   const handleContinue = useCallback(async () => {

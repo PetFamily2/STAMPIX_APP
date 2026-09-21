@@ -13,7 +13,7 @@ type CurrentLocationState = {
 
 async function getCurrentPosition() {
   const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
+    accuracy: Location.Accuracy.Low,
   });
 
   return {
