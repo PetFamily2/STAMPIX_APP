@@ -218,6 +218,21 @@ function buildProgramSelectionRows(
   });
 }
 
+/**
+ * Server-clock watermark for one customer stamp celebration session.
+ * Nothing is written. Event identity stays membershipId + lastStampAt.
+ */
+export const armCustomerStampCelebrationSession = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ armedAt: number } | null> => {
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) {
+      return null;
+    }
+    return { armedAt: Date.now() };
+  },
+});
+
 export const byCustomer = query({
   args: {},
   handler: async (ctx) => {

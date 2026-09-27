@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  Vibration,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -19,7 +18,6 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
@@ -30,9 +28,12 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  shouldRedirectAwayFromOwnCustomerCard,
+  shouldWaitForOwnCustomerCardOwnership,
+} from '@/lib/customer/customerCardAccess';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
-import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -64,9 +65,7 @@ const TEXT = {
   copyInviteLink: 'העתק קישור',
   shareInviteError: 'לא הצלחנו ליצור קישור הזמנה',
   inviteLinkCopied: 'קישור ההזמנה מוכן לשיתוף',
-  stampSuccessBanner: '✅ קיבלת חותמת!',
 };
-const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 const CUSTOMER_ACTIVITY_TITLE = 'פעילות בכרטיס';
 const CUSTOMER_ACTIVITY_EMPTY = 'עדיין אין פעילות בכרטיס הזה.';
 
@@ -108,16 +107,6 @@ export default function CardDetailsScreen() {
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isShareInviteLoading, setIsShareInviteLoading] = useState(false);
-  const lastCelebratedStampAtRef = useRef(0);
-  const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
-  const [stampSuccessBannerMessage, setStampSuccessBannerMessage] = useState(
-    TEXT.stampSuccessBanner
-  );
-  const scrollViewRef = useRef<ScrollView | null>(null);
-  const celebrationResetTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
-  const [isCelebrationCardMode, setIsCelebrationCardMode] = useState(false);
 
   const membershipIdForToken = membership?.membershipId;
   const membershipActivity = useQuery(
@@ -194,70 +183,6 @@ export default function CardDetailsScreen() {
     };
   }, [scanTokenPayload, tokenExpiresAt]);
 
-  useEffect(() => {
-    return () => {
-      if (celebrationResetTimeoutRef.current) {
-        clearTimeout(celebrationResetTimeoutRef.current);
-        celebrationResetTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (memberships === undefined) {
-      return;
-    }
-
-    const latestStamped = memberships.reduce<{
-      stampAt: number;
-      membership: CustomerMembershipView | null;
-    }>(
-      (latest, membershipEntry) => {
-        const stampAt = Number(membershipEntry.lastStampAt ?? 0);
-        if (stampAt > latest.stampAt) {
-          return { stampAt, membership: membershipEntry };
-        }
-        return latest;
-      },
-      { stampAt: 0, membership: null }
-    );
-    const latestStampAt = latestStamped.stampAt;
-    const latestMembership = latestStamped.membership;
-
-    if (!latestStampAt) {
-      return;
-    }
-
-    if (latestStampAt <= lastCelebratedStampAtRef.current) {
-      return;
-    }
-
-    lastCelebratedStampAtRef.current = latestStampAt;
-
-    if (Date.now() - latestStampAt > CUSTOMER_STAMP_BANNER_DURATION_MS) {
-      return;
-    }
-
-    if (celebrationResetTimeoutRef.current) {
-      clearTimeout(celebrationResetTimeoutRef.current);
-      celebrationResetTimeoutRef.current = null;
-    }
-    setIsCelebrationCardMode(true);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-    celebrationResetTimeoutRef.current = setTimeout(() => {
-      setIsCelebrationCardMode(false);
-      celebrationResetTimeoutRef.current = null;
-    }, CUSTOMER_STAMP_BANNER_DURATION_MS);
-
-    Vibration.vibrate(120);
-    if (latestMembership) {
-      setStampSuccessBannerMessage(
-        `${TEXT.stampSuccessBanner}\n${buildRewardProgressLine(latestMembership)}`
-      );
-    }
-    setCustomerStampBannerKey((currentValue) => currentValue + 1);
-  }, [memberships]);
-
   // Track QR presented event when scan token is ready
   useEffect(() => {
     if (scanTokenPayload && membershipId) {
@@ -268,7 +193,21 @@ export default function CardDetailsScreen() {
     }
   }, [scanTokenPayload, membershipId]);
 
-  if (isLoading || memberships === undefined) {
+  const membershipOwnershipResolved = memberships !== undefined;
+  const membershipBelongsToCurrentUser =
+    memberships?.some((entry) => entry.membershipId === membershipId) === true;
+  const customerCardAccess = {
+    isPreviewMode,
+    hasAuthenticatedUser: Boolean(user),
+    derivedRoleIsCustomer: isAuthorized,
+    membershipOwnershipResolved,
+  };
+
+  if (
+    isLoading ||
+    !membershipOwnershipResolved ||
+    shouldWaitForOwnCustomerCardOwnership(customerCardAccess)
+  ) {
     return <FullScreenLoading />;
   }
 
@@ -276,7 +215,12 @@ export default function CardDetailsScreen() {
     return <Redirect href="/(auth)/sign-up" />;
   }
 
-  if (!isAuthorized && !isPreviewMode) {
+  if (
+    shouldRedirectAwayFromOwnCustomerCard({
+      ...customerCardAccess,
+      membershipBelongsToCurrentUser,
+    })
+  ) {
     return <Redirect href={CUSTOMER_BACK_FALLBACKS.cardDetail} />;
   }
 
@@ -415,24 +359,8 @@ export default function CardDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
-      <AnimatedActionBanner
-        eventKey={customerStampBannerKey}
-        message={stampSuccessBannerMessage}
-        bannerStyle={styles.stampCelebrationBanner}
-        messageStyle={styles.stampCelebrationMessage}
-        iconStyle={styles.stampCelebrationIcon}
-        topOffset={(insets.top || 0) + 8}
-        durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
-        variant="success"
-        showFireworks={false}
-        showConfetti={false}
-        placement="top"
-        emphasis="default"
-        fullScreenCelebration={false}
-      />
       <ScrollView
         stickyHeaderIndices={[0]}
-        ref={scrollViewRef}
         style={styles.scrollBackground}
         contentContainerStyle={[
           styles.scrollContainer,
@@ -566,56 +494,52 @@ export default function CardDetailsScreen() {
           </View>
         </View>
 
-        {!isCelebrationCardMode ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
-            <Text style={styles.cardSubtitle}>
-              {isRedeemEligible
-                ? TEXT.personalQrRedeemSubtitle
-                : TEXT.personalQrSubtitle}
-            </Text>
-            <View style={styles.qrFrame}>
-              {scanTokenPayload ? (
-                <QRCode
-                  value={scanTokenPayload}
-                  size={200}
-                  color="#1A2B4A"
-                  backgroundColor="#FFFFFF"
-                />
-              ) : (
-                <View style={styles.qrPlaceholder}>
-                  {isTokenLoading ? (
-                    <ActivityIndicator color="#2F6BFF" />
-                  ) : null}
-                  <Text style={styles.qrPlaceholderText}>
-                    {tokenError ? tokenError : TEXT.qrLoading}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Pressable
-              onPress={() => void refreshScanToken()}
-              disabled={isTokenLoading || !membershipIdForToken}
-              style={({ pressed }) => [
-                styles.refreshButton,
-                isTokenLoading || !membershipIdForToken
-                  ? styles.refreshButtonDisabled
-                  : null,
-                pressed ? styles.refreshButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.refreshButtonText}>
-                {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
-              </Text>
-            </Pressable>
-
-            {tokenError ? (
-              <View style={styles.errorRow}>
-                <Text style={styles.errorText}>{tokenError}</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
+          <Text style={styles.cardSubtitle}>
+            {isRedeemEligible
+              ? TEXT.personalQrRedeemSubtitle
+              : TEXT.personalQrSubtitle}
+          </Text>
+          <View style={styles.qrFrame}>
+            {scanTokenPayload ? (
+              <QRCode
+                value={scanTokenPayload}
+                size={200}
+                color="#1A2B4A"
+                backgroundColor="#FFFFFF"
+              />
+            ) : (
+              <View style={styles.qrPlaceholder}>
+                {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
+                <Text style={styles.qrPlaceholderText}>
+                  {tokenError ? tokenError : TEXT.qrLoading}
+                </Text>
               </View>
-            ) : null}
+            )}
           </View>
-        ) : null}
+          <Pressable
+            onPress={() => void refreshScanToken()}
+            disabled={isTokenLoading || !membershipIdForToken}
+            style={({ pressed }) => [
+              styles.refreshButton,
+              isTokenLoading || !membershipIdForToken
+                ? styles.refreshButtonDisabled
+                : null,
+              pressed ? styles.refreshButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.refreshButtonText}>
+              {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
+            </Text>
+          </Pressable>
+
+          {tokenError ? (
+            <View style={styles.errorRow}>
+              <Text style={styles.errorText}>{tokenError}</Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{CUSTOMER_ACTIVITY_TITLE}</Text>
@@ -888,24 +812,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'right',
-  },
-  stampCelebrationBanner: {
-    backgroundColor: '#E8FFF4',
-    borderColor: '#88D7AB',
-    borderWidth: 2.5,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-  },
-  stampCelebrationMessage: {
-    color: '#0A5C35',
-    fontSize: 24,
-    lineHeight: 34,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  stampCelebrationIcon: {
-    color: '#0A8F4E',
-    fontSize: 26,
   },
   errorRow: {
     marginTop: 10,

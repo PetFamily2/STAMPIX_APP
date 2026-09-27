@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import CustomerStampCelebrationHost from '@/components/customer/CustomerStampCelebrationHost';
 import RedemptionCelebrationHost from '@/components/customer/RedemptionCelebrationHost';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -209,7 +210,10 @@ export default function AuthenticatedLayout() {
         <Stack.Screen name="card/[membershipId]" />
       </Stack>
       {!isPreviewMode && isAuthenticated && resolvedAppMode === 'customer' ? (
-        <RedemptionCelebrationHost />
+        <>
+          <RedemptionCelebrationHost />
+          <CustomerStampCelebrationHost />
+        </>
       ) : null}
     </View>
   );

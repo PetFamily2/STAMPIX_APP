@@ -11,7 +11,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  Vibration,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -20,14 +19,24 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  CUSTOMER_STAMP_QR_TO_CARD_DELAY_MS,
+  clearCustomerStampNavigationTarget,
+  getCustomerStampCelebrationSessionEpoch,
+  noteCustomerStampNavigationTarget,
+  observeCustomerStampCelebrationChannel,
+  toCustomerStampMembershipSnapshots,
+} from '@/lib/customer/customerStampCelebration';
+import {
+  readCustomerStampCelebrationArmSnapshot,
+  useCustomerStampCelebrationArm,
+} from '@/lib/customer/customerStampCelebrationArm';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
-import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import {
   CUSTOMER_ROUTES,
   customerCardRoute,
@@ -42,10 +51,7 @@ const TEXT = {
   qrCreateFailed: 'לא הצלחנו לייצר את ה-QR, נסו שוב.',
   qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
   refreshCta: 'רענון QR',
-  stampSuccessBanner: '✅ קיבלת חותמת!',
 };
-
-const CUSTOMER_STAMP_BANNER_DURATION_MS = 5000;
 
 type ScanTokenResult = {
   scanToken: string;
@@ -57,19 +63,16 @@ export default function CustomerShowQrScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const { isAuthenticated } = useConvexAuth();
+  const { serverArmedAt, serverArmFailed } = useCustomerStampCelebrationArm();
 
   const memberships = useQuery(
     api.memberships.byCustomer,
     isAuthenticated ? {} : 'skip'
   ) as CustomerMembershipView[] | undefined;
 
-  const lastCelebratedStampAtRef = useRef(0);
-  const [customerStampBannerKey, setCustomerStampBannerKey] = useState(0);
-  const [stampSuccessBannerMessage, setStampSuccessBannerMessage] = useState(
-    TEXT.stampSuccessBanner
-  );
   const didInitialQrLoadRef = useRef(false);
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduledMembershipIdRef = useRef<string | null>(null);
 
   const createCustomerScanToken = useMutation(
     api.scanner.createCustomerScanToken
@@ -159,54 +162,58 @@ export default function CustomerShowQrScreen() {
   }, [scanTokenPayload, tokenExpiresAt]);
 
   useEffect(() => {
-    if (!isAuthenticated || memberships === undefined) {
+    if (!isAuthenticated) {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+      scheduledMembershipIdRef.current = null;
+      clearCustomerStampNavigationTarget();
       return;
     }
 
-    const latestStamped = memberships.reduce<{
-      stampAt: number;
-      membership: CustomerMembershipView | null;
-    }>(
-      (latest, membership) => {
-        const stampAt = Number(membership.lastStampAt ?? 0);
-        if (stampAt > latest.stampAt) {
-          return { stampAt, membership };
-        }
-        return latest;
-      },
-      { stampAt: 0, membership: null }
-    );
-
-    const latestStampAt = latestStamped.stampAt;
-    const latestMembership = latestStamped.membership;
-    const latestMembershipId = String(latestMembership?.membershipId ?? '');
-    if (!latestStampAt || latestStampAt <= lastCelebratedStampAtRef.current) {
+    const arm = readCustomerStampCelebrationArmSnapshot();
+    const scheduledEpoch = getCustomerStampCelebrationSessionEpoch();
+    const armWasReset =
+      serverArmedAt !== arm.serverArmedAt ||
+      serverArmFailed !== arm.serverArmFailed;
+    const celebrations = observeCustomerStampCelebrationChannel('navigation', {
+      memberships: toCustomerStampMembershipSnapshots(memberships),
+      serverArmedAt: armWasReset ? arm.serverArmedAt : serverArmedAt,
+      serverArmFailed: armWasReset ? arm.serverArmFailed : serverArmFailed,
+    });
+    const latestMembershipId = noteCustomerStampNavigationTarget(celebrations);
+    if (!latestMembershipId) {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+      scheduledMembershipIdRef.current = null;
+      return;
+    }
+    if (
+      redirectTimeoutRef.current &&
+      scheduledMembershipIdRef.current === latestMembershipId
+    ) {
       return;
     }
 
-    lastCelebratedStampAtRef.current = latestStampAt;
-    if (Date.now() - latestStampAt > CUSTOMER_STAMP_BANNER_DURATION_MS) {
-      return;
-    }
-
-    Vibration.vibrate(120);
-    if (latestMembership) {
-      setStampSuccessBannerMessage(
-        `${TEXT.stampSuccessBanner}\n${buildRewardProgressLine(latestMembership)}`
-      );
-    }
-    setCustomerStampBannerKey((current) => current + 1);
     if (redirectTimeoutRef.current) {
       clearTimeout(redirectTimeoutRef.current);
-      redirectTimeoutRef.current = null;
     }
-    if (latestMembershipId) {
-      redirectTimeoutRef.current = setTimeout(() => {
-        router.replace(customerCardRoute(latestMembershipId) as Href);
+    scheduledMembershipIdRef.current = latestMembershipId;
+    redirectTimeoutRef.current = setTimeout(() => {
+      if (getCustomerStampCelebrationSessionEpoch() !== scheduledEpoch) {
         redirectTimeoutRef.current = null;
-      }, 350);
-    }
-  }, [isAuthenticated, memberships]);
+        scheduledMembershipIdRef.current = null;
+        return;
+      }
+      clearCustomerStampNavigationTarget();
+      scheduledMembershipIdRef.current = null;
+      router.replace(customerCardRoute(latestMembershipId) as Href);
+      redirectTimeoutRef.current = null;
+    }, CUSTOMER_STAMP_QR_TO_CARD_DELAY_MS);
+  }, [isAuthenticated, memberships, serverArmFailed, serverArmedAt]);
 
   useEffect(() => {
     return () => {
@@ -214,6 +221,8 @@ export default function CustomerShowQrScreen() {
         clearTimeout(redirectTimeoutRef.current);
         redirectTimeoutRef.current = null;
       }
+      scheduledMembershipIdRef.current = null;
+      clearCustomerStampNavigationTarget();
     };
   }, []);
 
@@ -230,22 +239,6 @@ export default function CustomerShowQrScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
-      <AnimatedActionBanner
-        eventKey={customerStampBannerKey}
-        message={stampSuccessBannerMessage}
-        bannerStyle={styles.stampCelebrationBanner}
-        messageStyle={styles.stampCelebrationMessage}
-        iconStyle={styles.stampCelebrationIcon}
-        topOffset={(insets.top || 0) + 8}
-        durationMs={CUSTOMER_STAMP_BANNER_DURATION_MS}
-        variant="success"
-        showFireworks={false}
-        showConfetti={false}
-        placement="top"
-        emphasis="default"
-        fullScreenCelebration={false}
-      />
-
       <View
         style={[
           styles.screen,
@@ -444,23 +437,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  stampCelebrationBanner: {
-    backgroundColor: '#E8FFF4',
-    borderColor: '#88D7AB',
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  stampCelebrationMessage: {
-    color: '#0A5C35',
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  stampCelebrationIcon: {
-    color: '#0A8F4E',
-    fontSize: 18,
   },
 });
