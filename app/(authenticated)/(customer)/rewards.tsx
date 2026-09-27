@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
-import { useRouter, type Href } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -15,9 +15,14 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import {
-  isReadyLoyaltyMembership,
   type CustomerMembershipView,
+  isReadyLoyaltyMembership,
 } from '@/lib/domain/customerMemberships';
+import {
+  CUSTOMER_ROUTES,
+  customerCardRoute,
+  resolveCustomerInboxDestination,
+} from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, selfStart } from '@/lib/rtl';
 
 const TEXT = {
@@ -59,10 +64,11 @@ export default function RewardsScreen() {
     !isLoading && redeemableRewards.length === 0 && inbox.length === 0;
 
   const handleInboxPress = (destinationHref: string | null) => {
-    if (!destinationHref) {
+    const destination = resolveCustomerInboxDestination(destinationHref);
+    if (!destination) {
       return;
     }
-    router.push(destinationHref as Href);
+    router.push(destination as Href);
   };
 
   return (
@@ -93,7 +99,7 @@ export default function RewardsScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => router.push('/(authenticated)/(customer)/referrals')}
+            onPress={() => router.push(CUSTOMER_ROUTES.referrals)}
             style={({ pressed }) => [
               styles.referralButton,
               pressed ? styles.referralButtonPressed : null,
@@ -112,9 +118,7 @@ export default function RewardsScreen() {
             <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
             <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
             <Pressable
-              onPress={() =>
-                router.push('/(authenticated)/(customer)/discovery')
-              }
+              onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
               style={({ pressed }) => [
                 styles.emptyButton,
                 pressed ? styles.emptyButtonPressed : null,
@@ -155,11 +159,9 @@ export default function RewardsScreen() {
                       stampIcon={reward.stampIcon}
                       stampShape={normalizeStampShape(reward.stampShape)}
                       onPress={() =>
-                        router.push({
-                          pathname:
-                            '/(authenticated)/(customer)/customer-card/[membershipId]',
-                          params: { membershipId: reward.membershipId },
-                        })
+                        router.push(
+                          customerCardRoute(reward.membershipId) as Href
+                        )
                       }
                     />
                   ))}
@@ -173,38 +175,43 @@ export default function RewardsScreen() {
               </View>
             ) : null}
 
-            {inbox.map((item) => (
-              <Pressable
-                key={item.messageId}
-                onPress={() => handleInboxPress(item.destinationHref)}
-                disabled={!item.destinationHref}
-                accessibilityRole={item.destinationHref ? 'button' : undefined}
-                style={({ pressed }) => [
-                  styles.messageCard,
-                  item.destinationHref ? styles.messageCardWithAction : null,
-                  pressed && item.destinationHref
-                    ? styles.messageCardPressed
-                    : null,
-                ]}
-              >
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>
-                    {formatDateTime(item.createdAt)}
-                  </Text>
-                  <Text style={styles.badge}>{item.businessName}</Text>
-                </View>
-                <Text style={styles.messageTitle}>{item.title}</Text>
-                <Text style={styles.messageBody}>{item.body}</Text>
-                {item.destinationHref ? (
-                  <View style={styles.messageActionRow}>
-                    <Text style={styles.messageActionText}>
-                      {TEXT.messageAction}
+            {inbox.map((item) => {
+              const inboxDestination = resolveCustomerInboxDestination(
+                item.destinationHref
+              );
+              return (
+                <Pressable
+                  key={item.messageId}
+                  onPress={() => handleInboxPress(item.destinationHref)}
+                  disabled={!inboxDestination}
+                  accessibilityRole={inboxDestination ? 'button' : undefined}
+                  style={({ pressed }) => [
+                    styles.messageCard,
+                    inboxDestination ? styles.messageCardWithAction : null,
+                    pressed && inboxDestination
+                      ? styles.messageCardPressed
+                      : null,
+                  ]}
+                >
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaText}>
+                      {formatDateTime(item.createdAt)}
                     </Text>
-                    <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
+                    <Text style={styles.badge}>{item.businessName}</Text>
                   </View>
-                ) : null}
-              </Pressable>
-            ))}
+                  <Text style={styles.messageTitle}>{item.title}</Text>
+                  <Text style={styles.messageBody}>{item.body}</Text>
+                  {inboxDestination ? (
+                    <View style={styles.messageActionRow}>
+                      <Text style={styles.messageActionText}>
+                        {TEXT.messageAction}
+                      </Text>
+                      <Ionicons name="chevron-back" size={14} color="#1D4ED8" />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </ScrollView>

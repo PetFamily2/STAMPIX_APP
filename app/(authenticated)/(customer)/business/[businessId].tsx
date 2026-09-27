@@ -31,6 +31,10 @@ import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
 import {
+  CUSTOMER_BACK_FALLBACKS,
+  customerCardRoute,
+} from '@/lib/navigation/customerRoutes';
+import {
   alignItems,
   flexDirection,
   justifyContent,
@@ -169,6 +173,13 @@ export default function CustomerBusinessDetailsScreen() {
     () => new Set(selectedProgramIds.map((programId) => String(programId))),
     [selectedProgramIds]
   );
+
+  const openJoinedCard = (membershipId: string | null | undefined) => {
+    if (!membershipId) {
+      return;
+    }
+    router.push(customerCardRoute(String(membershipId)) as Href);
+  };
 
   const toggleProgramSelection = (programId: string) => {
     setFeedback(null);
@@ -356,7 +367,9 @@ export default function CustomerBusinessDetailsScreen() {
               subtitle={business.formattedAddress ?? ''}
               titleAccessory={
                 <BackButton
-                  onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+                  onPress={() =>
+                    safeBack(CUSTOMER_BACK_FALLBACKS.businessDetail)
+                  }
                 />
               }
             />
@@ -507,23 +520,11 @@ export default function CustomerBusinessDetailsScreen() {
                     cardThemeId={program.cardThemeId}
                     stampIcon={program.stampIcon}
                     stampShape={normalizeStampShape(program.stampShape)}
-                    onPress={() => {
-                      if (program.membershipId) {
-                        router.push(
-                          `/customer-card/${program.membershipId}` as Href
-                        );
-                      }
-                    }}
+                    onPress={() => openJoinedCard(program.membershipId)}
                   />
                   <Pressable
                     style={styles.programFooterRow}
-                    onPress={() => {
-                      if (program.membershipId) {
-                        router.push(
-                          `/customer-card/${program.membershipId}` as Href
-                        );
-                      }
-                    }}
+                    onPress={() => openJoinedCard(program.membershipId)}
                     accessibilityRole="button"
                     accessibilityLabel={`${TEXT.openCard}: ${program.title}`}
                   >

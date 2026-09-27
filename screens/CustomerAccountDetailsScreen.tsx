@@ -28,6 +28,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
+import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
 
 const TEXT = {
@@ -250,7 +251,7 @@ export default function CustomerAccountDetailsScreen() {
             title={TEXT.title}
             titleAccessory={
               <BackButton
-                onPress={() => safeBack('/(authenticated)/(customer)/settings')}
+                onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.accountDetails)}
               />
             }
           />

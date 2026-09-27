@@ -67,7 +67,7 @@ class FakeDb {
   }
 }
 
-function buildContext() {
+function buildContext({ extraPrograms = [], extraMemberships = [] } = {}) {
   const now = 1_700_000_000_000;
   const db = new FakeDb({
     users: [{ _id: 'customer_1', isActive: true }],
@@ -106,6 +106,7 @@ function buildContext() {
         status: 'active',
         isActive: true,
       },
+      ...extraPrograms,
     ],
     memberships: [
       {
@@ -148,6 +149,7 @@ function buildContext() {
         createdAt: now - 3,
         updatedAt: now - 3,
       },
+      ...extraMemberships,
     ],
   });
 
@@ -182,8 +184,60 @@ describe('customer membership presentation lifecycle', () => {
     expect(result).toHaveLength(1);
     expect(result[0].joinedProgramCount).toBe(2);
     expect(result[0].redeemableCount).toBe(0);
-    expect(['active', 'archived']).toContain(
-      result[0].previewProgramLifecycle
+    expect(['active', 'archived']).toContain(result[0].previewProgramLifecycle);
+  });
+
+  test('preview membership id matches the preview card and follows newer activity', async () => {
+    const initial = await byCustomerBusinesses._handler(buildContext(), {});
+
+    expect(initial).toHaveLength(1);
+    expect(initial[0].previewMembershipId).toBe('membership_active');
+    expect(initial[0].previewProgramTitle).toBe('פעיל');
+    expect(initial[0].previewRewardName).toBe('קפה');
+    expect(initial[0].previewCurrentStamps).toBe(4);
+    expect(initial[0].previewMaxStamps).toBe(10);
+
+    const replaced = await byCustomerBusinesses._handler(
+      buildContext({
+        extraPrograms: [
+          {
+            _id: 'program_newer',
+            businessId: 'business_open',
+            title: 'חדש',
+            rewardName: 'עוגה',
+            maxStamps: 8,
+            stampIcon: 'heart',
+            cardThemeId: 'theme_newer',
+            stampShape: 'square',
+            status: 'active',
+            isActive: true,
+          },
+        ],
+        extraMemberships: [
+          {
+            _id: 'membership_newer',
+            userId: 'customer_1',
+            businessId: 'business_open',
+            programId: 'program_newer',
+            currentStamps: 2,
+            isActive: true,
+            createdAt: 1_700_000_000_000,
+            updatedAt: 1_700_000_000_000,
+            lastStampAt: 1_700_000_010_000,
+          },
+        ],
+      }),
+      {}
     );
+
+    expect(replaced[0].joinedProgramCount).toBe(3);
+    expect(replaced[0].previewMembershipId).toBe('membership_newer');
+    expect(replaced[0].previewProgramTitle).toBe('חדש');
+    expect(replaced[0].previewRewardName).toBe('עוגה');
+    expect(replaced[0].previewCurrentStamps).toBe(2);
+    expect(replaced[0].previewMaxStamps).toBe(8);
+    expect(replaced[0].previewCardThemeId).toBe('theme_newer');
+    expect(replaced[0].previewStampShape).toBe('square');
+    expect(replaced[0].previewProgramLifecycle).toBe('active');
   });
 });

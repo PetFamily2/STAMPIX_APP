@@ -15,11 +15,9 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import {
-  POST_AUTH_ROUTES,
-  resolvePostAuthRoute,
-} from '@/lib/auth/postAuthRouting';
+import { resolvePostAuthRoute } from '@/lib/auth/postAuthRouting';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
+import { resolveAuthenticatedRouteGuard } from '@/lib/navigation/authenticatedRouteGuard';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlScreenContentStyle } from '@/lib/rtl';
@@ -111,26 +109,6 @@ export default function AuthenticatedLayout() {
       lastRedirectRef.current = null;
     }
 
-    const inCard = currentSegments.includes('card');
-    const inMerchant = currentSegments.includes('merchant');
-    const inAdmin = currentSegments.includes('admin');
-    const inJoin = currentSegments.includes('join');
-    const inBusinessRecovery = currentSegments.includes('business-recovery');
-    const inBusinessPermanentDeletion = currentSegments.includes(
-      'business-permanent-deletion'
-    );
-    const inCustomerGroup = currentSegments.includes('(customer)');
-    const inBusinessGroup = currentSegments.includes('(business)');
-    const inStaffGroup = currentSegments.includes('(staff)');
-
-    const isFreeRoute =
-      inCard ||
-      inMerchant ||
-      inAdmin ||
-      inJoin ||
-      inBusinessRecovery ||
-      inBusinessPermanentDeletion;
-
     const safeReplace = (href: string) => {
       const key = `${currentKey}=>${href}`;
       if (lastRedirectRef.current === key) {
@@ -157,45 +135,14 @@ export default function AuthenticatedLayout() {
       return;
     }
 
-    if (resolution.href === POST_AUTH_ROUTES.nameCapture) {
-      safeReplace(POST_AUTH_ROUTES.nameCapture);
-      return;
-    }
-
-    if (
-      resolution.href === POST_AUTH_ROUTES.merchantOnboarding &&
-      !inMerchant
-    ) {
-      safeReplace(POST_AUTH_ROUTES.merchantOnboarding);
-      return;
-    }
-
-    if (resolution.href === POST_AUTH_ROUTES.businessDashboard) {
-      if (
-        inCustomerGroup ||
-        inStaffGroup ||
-        (inMerchant && !isAdditionalMerchantOnboarding)
-      ) {
-        safeReplace(POST_AUTH_ROUTES.businessDashboard);
-      }
-      return;
-    }
-
-    if (resolution.href === POST_AUTH_ROUTES.staffScanner) {
-      if (!inStaffGroup && (!inMerchant || !isAdditionalMerchantOnboarding)) {
-        safeReplace(POST_AUTH_ROUTES.staffScanner);
-      }
-      return;
-    }
-
-    if (
-      resolution.href === POST_AUTH_ROUTES.customerWallet &&
-      (activeMode === 'business' ||
-        inBusinessGroup ||
-        inStaffGroup ||
-        (!inCustomerGroup && !inBusinessGroup && !inStaffGroup && !isFreeRoute))
-    ) {
-      safeReplace(POST_AUTH_ROUTES.customerWallet);
+    const decision = resolveAuthenticatedRouteGuard({
+      resolutionHref: resolution.href,
+      segments: currentSegments,
+      activeMode,
+      isAdditionalMerchantOnboarding,
+    });
+    if (decision.action === 'replace') {
+      safeReplace(decision.href);
     }
   }, [
     isAuthenticated,
@@ -255,6 +202,7 @@ export default function AuthenticatedLayout() {
         <Stack.Screen name="admin" />
         <Stack.Screen name="join" />
         <Stack.Screen name="accept-invite" />
+        <Stack.Screen name="settings-legal" />
         <Stack.Screen name="business-recovery" />
         <Stack.Screen name="business-permanent-deletion" />
         <Stack.Screen name="card/index" />

@@ -11,8 +11,8 @@ import {
   requireActorIsStaffForBusiness,
   requireCurrentUser,
 } from './guards';
-import { processReferralAfterJoin } from './referrals';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { processReferralAfterJoin } from './referrals';
 
 // ---------------------------------------------------------------------------
 // Public resolve queries (no auth required -- used by landing page & join flow)
@@ -396,6 +396,7 @@ export const byCustomerBusinesses = query({
         joinedProgramCount: number;
         redeemableCount: number;
         lastActivityAt: number;
+        previewMembershipId: Id<'memberships'> | null;
         previewProgramTitle: string | null;
         previewRewardName: string | null;
         previewProgramImageUrl: string | null;
@@ -446,6 +447,7 @@ export const byCustomerBusinesses = query({
           joinedProgramCount: 1,
           redeemableCount: redeemable ? 1 : 0,
           lastActivityAt,
+          previewMembershipId: membership._id,
           previewProgramTitle: program.title,
           previewRewardName: program.rewardName,
           previewProgramImageUrl,
@@ -464,6 +466,7 @@ export const byCustomerBusinesses = query({
       }
       if (lastActivityAt > existing.lastActivityAt) {
         existing.lastActivityAt = lastActivityAt;
+        existing.previewMembershipId = membership._id;
         existing.previewProgramTitle = program.title;
         existing.previewRewardName = program.rewardName;
         existing.previewProgramImageUrl = previewProgramImageUrl;

@@ -19,6 +19,10 @@ import {
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
 import { safeBack } from '@/lib/navigation';
+import {
+  CUSTOMER_BACK_FALLBACKS,
+  CUSTOMER_BUSINESS_PATHNAME,
+} from '@/lib/navigation/customerRoutes';
 import { selfStart } from '@/lib/rtl';
 
 const TEXT = {
@@ -113,7 +117,7 @@ export default function JoinScreen() {
         setScannerResetKey((prev) => prev + 1);
 
         router.replace({
-          pathname: '/(authenticated)/(customer)/business/[businessId]',
+          pathname: CUSTOMER_BUSINESS_PATHNAME,
           params: {
             businessId: String(result.business.businessId),
             join: 'true',
@@ -148,7 +152,7 @@ export default function JoinScreen() {
         const result = await openCustomerReferralLink({ code: normalized });
         await clearPendingJoin();
         router.replace({
-          pathname: '/(authenticated)/(customer)/business/[businessId]',
+          pathname: CUSTOMER_BUSINESS_PATHNAME,
           params: {
             businessId: String(result.businessId),
             join: 'true',
@@ -336,7 +340,7 @@ export default function JoinScreen() {
         >
           <StandaloneBackTitleHeader
             title={TEXT.title}
-            onBackPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            onBackPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.join)}
             titleStyle={{
               fontSize: 22,
               fontWeight: '900',

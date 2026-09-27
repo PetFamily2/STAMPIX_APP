@@ -29,6 +29,7 @@ import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
 import { getBusinessMonogram } from '@/lib/loyalty/cardPresentation';
+import { customerBusinessRoute } from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 const TEXT = {
@@ -332,10 +333,7 @@ export default function DiscoveryScreen() {
   };
 
   const openBusinessPage = (businessId: string) => {
-    router.push({
-      pathname: '/(authenticated)/(customer)/business/[businessId]',
-      params: { businessId: String(businessId) },
-    } as Href);
+    router.push(customerBusinessRoute(String(businessId)) as Href);
   };
 
   return (
@@ -836,11 +834,7 @@ export default function DiscoveryScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={business.businessName}
                       onPress={() =>
-                        router.push(
-                          `/(authenticated)/(customer)/business/${String(
-                            business.businessId
-                          )}` as Href
-                        )
+                        openBusinessPage(String(business.businessId))
                       }
                       style={({ pressed }) => [
                         styles.businessCard,

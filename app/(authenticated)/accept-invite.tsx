@@ -19,6 +19,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
+import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { tw } from '@/lib/rtl';
 
 const TEXT = {
@@ -111,7 +112,7 @@ export default function AcceptInviteScreen() {
           <View className="px-6 pt-6 pb-8">
             <StandaloneBackTitleHeader
               title={TEXT.title}
-              onBackPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+              onBackPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.acceptInvite)}
               titleStyle={{
                 fontSize: 24,
                 fontWeight: '700',

@@ -22,8 +22,8 @@ import {
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
-import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
@@ -34,6 +34,7 @@ import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
 import { safeBack } from '@/lib/navigation';
+import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, selfStart } from '@/lib/rtl';
 
@@ -276,7 +277,7 @@ export default function CardDetailsScreen() {
   }
 
   if (!isAuthorized && !isPreviewMode) {
-    return <Redirect href="/(authenticated)/(customer)/wallet" />;
+    return <Redirect href={CUSTOMER_BACK_FALLBACKS.cardDetail} />;
   }
 
   if (!membershipId) {
@@ -286,7 +287,7 @@ export default function CardDetailsScreen() {
           <Text style={styles.centerMessageText}>{TEXT.missingDetails}</Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.cardDetail)}
             style={({ pressed }) => [
               styles.centerMessageAction,
               pressed ? styles.pressed : null,
@@ -313,7 +314,7 @@ export default function CardDetailsScreen() {
           </Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => safeBack('/(authenticated)/(customer)/wallet')}
+            onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.cardDetail)}
             style={({ pressed }) => [
               styles.centerMessageAction,
               pressed ? styles.pressed : null,
@@ -451,9 +452,7 @@ export default function CardDetailsScreen() {
                 subtitle={`${membership.businessName} \u00b7 ${membership.rewardName}`}
                 titleAccessory={
                   <BackButton
-                    onPress={() =>
-                      safeBack('/(authenticated)/(customer)/wallet')
-                    }
+                    onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.cardDetail)}
                   />
                 }
               />
@@ -493,9 +492,7 @@ export default function CardDetailsScreen() {
                       : styles.redeemTitlePending,
                   ]}
                 >
-                  {isArchived
-                    ? TEXT.archivedTitle
-                    : TEXT.cardReadyTitle}
+                  {isArchived ? TEXT.archivedTitle : TEXT.cardReadyTitle}
                 </Text>
                 <Text
                   style={[
@@ -505,9 +502,7 @@ export default function CardDetailsScreen() {
                       : styles.redeemSubtitlePending,
                   ]}
                 >
-                  {isArchived
-                    ? TEXT.archivedSubtitle
-                    : TEXT.cardReadySubtitle}
+                  {isArchived ? TEXT.archivedSubtitle : TEXT.cardReadySubtitle}
                 </Text>
                 <Pressable
                   onPress={() => void refreshScanToken()}
@@ -542,32 +537,30 @@ export default function CardDetailsScreen() {
 
             <View style={styles.inviteRow}>
               <Pressable
-                  onPress={() => void handleShareInviteViaWhatsApp()}
-                  disabled={isShareInviteLoading}
-                  style={({ pressed }) => [
-                    styles.invitePrimaryButton,
-                    pressed ? styles.inviteButtonPressed : null,
-                    isShareInviteLoading ? styles.inviteButtonDisabled : null,
-                  ]}
-                >
-                  <Text style={styles.invitePrimaryButtonText}>
-                    {isShareInviteLoading
-                      ? TEXT.loading
-                      : TEXT.shareViaWhatsApp}
-                  </Text>
+                onPress={() => void handleShareInviteViaWhatsApp()}
+                disabled={isShareInviteLoading}
+                style={({ pressed }) => [
+                  styles.invitePrimaryButton,
+                  pressed ? styles.inviteButtonPressed : null,
+                  isShareInviteLoading ? styles.inviteButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.invitePrimaryButtonText}>
+                  {isShareInviteLoading ? TEXT.loading : TEXT.shareViaWhatsApp}
+                </Text>
               </Pressable>
               <Pressable
-                  onPress={() => void handleCopyInviteLink()}
-                  disabled={isShareInviteLoading}
-                  style={({ pressed }) => [
-                    styles.inviteSecondaryButton,
-                    pressed ? styles.inviteButtonPressed : null,
-                    isShareInviteLoading ? styles.inviteButtonDisabled : null,
-                  ]}
-                >
-                  <Text style={styles.inviteSecondaryButtonText}>
-                    {TEXT.copyInviteLink}
-                  </Text>
+                onPress={() => void handleCopyInviteLink()}
+                disabled={isShareInviteLoading}
+                style={({ pressed }) => [
+                  styles.inviteSecondaryButton,
+                  pressed ? styles.inviteButtonPressed : null,
+                  isShareInviteLoading ? styles.inviteButtonDisabled : null,
+                ]}
+              >
+                <Text style={styles.inviteSecondaryButtonText}>
+                  {TEXT.copyInviteLink}
+                </Text>
               </Pressable>
             </View>
           </View>

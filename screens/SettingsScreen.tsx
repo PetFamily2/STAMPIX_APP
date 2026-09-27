@@ -54,6 +54,10 @@ import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
 import {
+  CUSTOMER_ROUTES,
+  customerSettingsLegalRoute,
+} from '@/lib/navigation/customerRoutes';
+import {
   type NotificationRegistrationFailure,
   resolveNotificationFailurePresentation,
 } from '@/lib/pushNotificationState';
@@ -399,15 +403,15 @@ export default function SettingsScreen() {
   }, [user?.marketingOptIn]);
 
   const openHelpCenter = () => {
-    router.push('/(authenticated)/(customer)/help-support');
+    router.push(CUSTOMER_ROUTES.helpSupport);
   };
 
   const openAccountDetails = () => {
-    router.push('/(authenticated)/(customer)/account-details');
+    router.push(CUSTOMER_ROUTES.accountDetails);
   };
 
   const openLegalDocument = (document: LegalDocumentKey) => {
-    safePush(`/(authenticated)/settings-legal?document=${document}`);
+    safePush(customerSettingsLegalRoute(document));
   };
 
   const openTermsOfService = () => {

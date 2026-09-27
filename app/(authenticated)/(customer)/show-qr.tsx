@@ -28,6 +28,10 @@ import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { buildRewardProgressLine } from '@/lib/memberships/celebrationMessage';
+import {
+  CUSTOMER_ROUTES,
+  customerCardRoute,
+} from '@/lib/navigation/customerRoutes';
 
 const TEXT = {
   title: 'ה-QR שלי',
@@ -198,7 +202,7 @@ export default function CustomerShowQrScreen() {
     }
     if (latestMembershipId) {
       redirectTimeoutRef.current = setTimeout(() => {
-        router.replace(`/customer-card/${latestMembershipId}` as Href);
+        router.replace(customerCardRoute(latestMembershipId) as Href);
         redirectTimeoutRef.current = null;
       }, 350);
     }
@@ -258,9 +262,7 @@ export default function CustomerShowQrScreen() {
             subtitleStyle={styles.pageSubtitle}
             titleAccessory={
               <BackButton
-                onPress={() =>
-                  router.replace('/(authenticated)/(customer)/wallet')
-                }
+                onPress={() => router.replace(CUSTOMER_ROUTES.wallet)}
               />
             }
           />

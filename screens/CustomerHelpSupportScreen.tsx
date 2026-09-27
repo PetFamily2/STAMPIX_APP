@@ -1,5 +1,4 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -13,6 +12,8 @@ import { SupportMessageForm } from '@/components/help/SupportMessageForm';
 import { SupportWhatsAppButton } from '@/components/help/SupportWhatsAppButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { SUPPORT_CONTACT_COPY } from '@/lib/help/supportContact';
+import { safeBack } from '@/lib/navigation';
+import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 
 const TEXT = {
   title: 'עזרה ותמיכה',
@@ -64,7 +65,11 @@ export default function CustomerHelpSupportScreen() {
         >
           <BusinessScreenHeader
             title={TEXT.title}
-            titleAccessory={<BackButton onPress={() => router.back()} />}
+            titleAccessory={
+              <BackButton
+                onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.helpSupport)}
+              />
+            }
           />
         </StickyScrollHeader>
 

@@ -12,6 +12,11 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
+import { safeBack } from '@/lib/navigation';
+import {
+  CUSTOMER_BACK_FALLBACKS,
+  CUSTOMER_ROUTES,
+} from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection } from '@/lib/rtl';
 
 type ReferralTab = 'pending' | 'completed' | 'rewards';
@@ -169,9 +174,7 @@ export default function CustomerReferralsScreen() {
               subtitle="סטטוס הזמנות, זכאויות ומימושים"
               titleAccessory={
                 <BackButton
-                  onPress={() =>
-                    router.push('/(authenticated)/(customer)/wallet')
-                  }
+                  onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.referrals)}
                 />
               }
             />
@@ -248,9 +251,7 @@ export default function CustomerReferralsScreen() {
           <View style={styles.section}>
             {pendingReferrals.length === 0 ? (
               <EmptyReferralState
-                onPress={() =>
-                  router.push('/(authenticated)/(customer)/discovery')
-                }
+                onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
               />
             ) : (
               pendingReferrals.map((item) => (
@@ -271,9 +272,7 @@ export default function CustomerReferralsScreen() {
           <View style={styles.section}>
             {completedReferrals.length === 0 ? (
               <EmptyReferralState
-                onPress={() =>
-                  router.push('/(authenticated)/(customer)/discovery')
-                }
+                onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
               />
             ) : (
               completedReferrals.map((item) => (
@@ -297,9 +296,7 @@ export default function CustomerReferralsScreen() {
           <View style={styles.section}>
             {(rewards ?? []).length === 0 ? (
               <EmptyReferralState
-                onPress={() =>
-                  router.push('/(authenticated)/(customer)/discovery')
-                }
+                onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
               />
             ) : (
               (rewards ?? []).map((item) => (

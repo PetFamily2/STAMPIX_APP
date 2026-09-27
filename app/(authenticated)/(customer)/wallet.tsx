@@ -28,6 +28,11 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
+import {
+  CUSTOMER_ROUTES,
+  customerBusinessRoute,
+  resolveWalletPreviewCardRoute,
+} from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, rtlBaseView, selfStart } from '@/lib/rtl';
 
 const TEXT = {
@@ -57,6 +62,7 @@ type WalletBusiness = {
   joinedProgramCount: number;
   redeemableCount: number;
   lastActivityAt: number;
+  previewMembershipId: string | null;
   previewProgramTitle: string | null;
   previewRewardName: string | null;
   previewProgramImageUrl: string | null;
@@ -85,7 +91,7 @@ export default function WalletScreen() {
       if (pending?.biz || pending?.ref || pending?.bref) {
         await savePendingJoin(pending);
         router.push({
-          pathname: '/(authenticated)/join',
+          pathname: CUSTOMER_ROUTES.join,
           params: {
             biz: pending.biz,
             ref: pending.ref,
@@ -137,7 +143,7 @@ export default function WalletScreen() {
 
         <View style={styles.joinBusinessRow}>
           <Pressable
-            onPress={() => router.push('/(authenticated)/join')}
+            onPress={() => router.push(CUSTOMER_ROUTES.join)}
             style={({ pressed }) => [
               styles.joinBusinessButton,
               pressed && styles.pressed,
@@ -169,7 +175,7 @@ export default function WalletScreen() {
                 : `כמות הזמנות: ${pendingStaffInvites.length}`}
             </Text>
             <Pressable
-              onPress={() => router.push('/(authenticated)/accept-invite')}
+              onPress={() => router.push(CUSTOMER_ROUTES.acceptInvite)}
               style={({ pressed }) => [
                 styles.pendingInviteButton,
                 pressed ? styles.pressed : null,
@@ -196,7 +202,7 @@ export default function WalletScreen() {
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
             <View style={styles.emptyActionsRow}>
               <Pressable
-                onPress={() => router.push('/(authenticated)/join')}
+                onPress={() => router.push(CUSTOMER_ROUTES.join)}
                 style={({ pressed }) => [
                   styles.emptyPrimaryButton,
                   pressed ? styles.pressed : null,
@@ -209,9 +215,7 @@ export default function WalletScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() =>
-                  router.push('/(authenticated)/(customer)/discovery')
-                }
+                onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
                 style={({ pressed }) => [
                   styles.emptySecondaryButton,
                   pressed ? styles.pressed : null,
@@ -231,6 +235,10 @@ export default function WalletScreen() {
           {!isLoading
             ? businesses.map((business) => {
                 const businessId = String(business.businessId);
+                const businessRoute = customerBusinessRoute(businessId);
+                const previewCardRoute = resolveWalletPreviewCardRoute(
+                  business.previewMembershipId
+                );
                 const aggregateMetaItems: string[] = [];
 
                 if (
@@ -252,10 +260,7 @@ export default function WalletScreen() {
 
                 const aggregateMeta = aggregateMetaItems.join(' · ');
                 return (
-                  <View
-                    key={businessId}
-                    style={styles.cardContainer}
-                  >
+                  <View key={businessId} style={styles.cardContainer}>
                     <LoyaltyCard
                       variant="wallet"
                       businessName={
@@ -285,10 +290,10 @@ export default function WalletScreen() {
                       stampShape={normalizeStampShape(
                         business.previewStampShape
                       )}
-                      onPress={() =>
-                        router.push(
-                          `/(authenticated)/(customer)/business/${businessId}` as Href
-                        )
+                      onPress={
+                        previewCardRoute
+                          ? () => router.push(previewCardRoute as Href)
+                          : undefined
                       }
                     />
 
@@ -303,11 +308,7 @@ export default function WalletScreen() {
                         styles.openRow,
                         pressed ? styles.pressed : null,
                       ]}
-                      onPress={() =>
-                        router.push(
-                          `/(authenticated)/(customer)/business/${businessId}` as Href
-                        )
-                      }
+                      onPress={() => router.push(businessRoute as Href)}
                       accessibilityRole="button"
                       accessibilityLabel={`${TEXT.openBusiness}: ${business.businessName}`}
                     >
@@ -320,7 +321,7 @@ export default function WalletScreen() {
         </View>
 
         <Pressable
-          onPress={() => router.push('/(authenticated)/(customer)/referrals')}
+          onPress={() => router.push(CUSTOMER_ROUTES.referrals)}
           style={({ pressed }) => [
             styles.referralCard,
             pressed ? styles.pressed : null,
