@@ -61,6 +61,7 @@ const TEXT = {
   stamps: 'חותמות',
   redeemReady: 'מוכנה למימוש',
   openCard: 'פתח כרטיסיה',
+  showForRedemption: 'הצג למימוש',
   shareInviteTitle: 'הזמן חברים',
   shareInviteSubtitle: 'שתף את הקישור וכשהחבר יקבל חותמת ראשונה תקבלו מתנה',
   shareViaWhatsApp: 'שיתוף ב-WhatsApp',
@@ -499,51 +500,61 @@ export default function CustomerBusinessDetailsScreen() {
             <Text style={styles.sectionEmpty}>{TEXT.noJoined}</Text>
           ) : (
             <View style={styles.programList}>
-              {joinedPrograms.map((program) => (
-                <View
-                  key={String(program.programId)}
-                  style={styles.programCard}
-                >
-                  <LoyaltyCard
-                    variant="wallet"
-                    businessName={business.name}
-                    businessLogoUrl={business.logoUrl}
-                    programImageUrl={program.programImageUrl}
-                    programTitle={program.title}
-                    rewardName={program.rewardName}
-                    maxStamps={program.maxStamps}
-                    progress={{
-                      kind: 'actual',
-                      currentStamps: program.currentStamps,
-                    }}
-                    lifecycle={program.programLifecycle}
-                    cardThemeId={program.cardThemeId}
-                    stampIcon={program.stampIcon}
-                    stampShape={normalizeStampShape(program.stampShape)}
-                    onPress={() => openJoinedCard(program.membershipId)}
-                  />
-                  <Pressable
-                    style={styles.programFooterRow}
-                    onPress={() => openJoinedCard(program.membershipId)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${TEXT.openCard}: ${program.title}`}
+              {joinedPrograms.map((program) => {
+                const cardActionLabel = program.canRedeem
+                  ? TEXT.showForRedemption
+                  : TEXT.openCard;
+                return (
+                  <View
+                    key={String(program.programId)}
+                    style={styles.programCard}
                   >
-                    <View style={styles.joinedDetails}>
-                      {program.canRedeem ? (
-                        <View style={styles.redeemBadge}>
-                          <Text style={styles.redeemBadgeText}>
-                            {TEXT.redeemReady}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <Text style={styles.openCardText}>{TEXT.openCard}</Text>
-                    </View>
-                    <Text style={styles.programProgress}>
-                      {formatProgress(program.currentStamps, program.maxStamps)}
-                    </Text>
-                  </Pressable>
-                </View>
-              ))}
+                    <LoyaltyCard
+                      variant="wallet"
+                      businessName={business.name}
+                      businessLogoUrl={business.logoUrl}
+                      programImageUrl={program.programImageUrl}
+                      programTitle={program.title}
+                      rewardName={program.rewardName}
+                      maxStamps={program.maxStamps}
+                      progress={{
+                        kind: 'actual',
+                        currentStamps: program.currentStamps,
+                      }}
+                      lifecycle={program.programLifecycle}
+                      cardThemeId={program.cardThemeId}
+                      stampIcon={program.stampIcon}
+                      stampShape={normalizeStampShape(program.stampShape)}
+                      onPress={() => openJoinedCard(program.membershipId)}
+                    />
+                    <Pressable
+                      style={styles.programFooterRow}
+                      onPress={() => openJoinedCard(program.membershipId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${cardActionLabel}: ${program.title}`}
+                    >
+                      <View style={styles.joinedDetails}>
+                        {program.canRedeem ? (
+                          <View style={styles.redeemBadge}>
+                            <Text style={styles.redeemBadgeText}>
+                              {TEXT.redeemReady}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <Text style={styles.openCardText}>
+                          {cardActionLabel}
+                        </Text>
+                      </View>
+                      <Text style={styles.programProgress}>
+                        {formatProgress(
+                          program.currentStamps,
+                          program.maxStamps
+                        )}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
             </View>
           )}
         </View>

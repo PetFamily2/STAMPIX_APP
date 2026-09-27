@@ -21,9 +21,11 @@ import LoyaltyCard, {
   LoyaltyCardSkeleton,
 } from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { isVisibleWalletPreviewRedeemable } from '@/lib/customer/rewardReadyCta';
 import {
   consumePendingJoin,
   savePendingJoin,
@@ -47,6 +49,7 @@ const TEXT = {
   findNearbyCta: 'מציאת עסקים בסביבה',
   businessFallback: 'עסק',
   joinedPrograms: 'כרטיסיות שלי',
+  showForRedemption: 'הצג למימוש',
   openBusiness: 'פתח את העסק',
   pendingInviteTitle: 'יש לך הזמנה ממתינה לצוות',
   pendingInviteAction: 'לצפייה ואישור',
@@ -239,6 +242,12 @@ export default function WalletScreen() {
                 const previewCardRoute = resolveWalletPreviewCardRoute(
                   business.previewMembershipId
                 );
+                const previewIsRedeemable = isVisibleWalletPreviewRedeemable({
+                  previewProgramLifecycle: business.previewProgramLifecycle,
+                  previewCurrentStamps: business.previewCurrentStamps,
+                  previewMaxStamps: business.previewMaxStamps,
+                  previewCardRoute,
+                });
                 const aggregateMetaItems: string[] = [];
 
                 if (
@@ -296,6 +305,16 @@ export default function WalletScreen() {
                           : undefined
                       }
                     />
+
+                    {previewIsRedeemable && previewCardRoute ? (
+                      <ActionButton
+                        label={TEXT.showForRedemption}
+                        onPress={() => router.push(previewCardRoute as Href)}
+                        fullWidth={true}
+                        accessibilityLabel={TEXT.showForRedemption}
+                        style={styles.redeemCta}
+                      />
+                    ) : null}
 
                     {aggregateMeta ? (
                       <Text style={styles.aggregateMetaText}>
@@ -481,6 +500,12 @@ const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: 22,
     paddingBottom: 0,
+  },
+  redeemCta: {
+    marginTop: 10,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   aggregateMetaText: {
     marginTop: 6,

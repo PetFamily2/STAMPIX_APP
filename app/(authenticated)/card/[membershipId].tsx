@@ -1,9 +1,16 @@
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  findNodeHandle,
   Linking,
   Pressable,
   ScrollView,
@@ -23,6 +30,7 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -32,6 +40,10 @@ import {
   shouldRedirectAwayFromOwnCustomerCard,
   shouldWaitForOwnCustomerCardOwnership,
 } from '@/lib/customer/customerCardAccess';
+import {
+  hasUsableCustomerScanToken,
+  shouldRefreshScanTokenForReveal,
+} from '@/lib/customer/rewardReadyCta';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import { CUSTOMER_ROLE, useRoleGuard } from '@/lib/hooks/useRoleGuard';
 import { safeBack } from '@/lib/navigation';
@@ -48,14 +60,13 @@ const TEXT = {
   cardDetails: 'פרטי כרטיס',
   personalQr: 'קוד QR לקוח',
   personalQrSubtitle: 'הראו את הקוד בקופה. העסק בוחר את התוכנית לפעולה.',
-  personalQrRedeemSubtitle:
-    'הקוד הזה כללי ללקוח. בביזנס בוחרים את הכרטיסייה להוספת חותמת או למימוש.',
+  personalQrRedeemSubtitle: 'הציגו את הקוד בקופה. בעסק מאשרים את המימוש.',
   qrExpired: 'תוקף ה-QR פג. רעננו קוד חדש.',
   qrLoading: 'טוען QR',
   refreshCta: 'רענון QR',
   loading: 'טוען',
-  cardReadyTitle: 'הכרטיס מלא - מחכה לך מתנה',
-  cardReadySubtitle: 'המימוש מתבצע בביקור הבא בעסקה נפרדת',
+  cardReadyTitle: 'ההטבה מוכנה למימוש',
+  cardReadySubtitle: 'אפשר לממש עכשיו בקופה או בביקור הבא',
   redeemButtonReady: 'הצג למימוש',
   archivedTitle: 'הכרטיס בארכיון',
   archivedSubtitle: 'לא ניתן לצבור חותמות או לממש הטבה בכרטיסייה הזאת',
@@ -107,6 +118,11 @@ export default function CardDetailsScreen() {
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [isShareInviteLoading, setIsShareInviteLoading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollContentRef = useRef<View>(null);
+  const qrSectionRef = useRef<View>(null);
+  const qrSectionOffsetY = useRef(0);
+  const stickyHeaderHeightRef = useRef(0);
 
   const membershipIdForToken = membership?.membershipId;
   const membershipActivity = useQuery(
@@ -135,11 +151,11 @@ export default function CardDetailsScreen() {
       setScanTokenPayload(result.scanToken);
       setTokenExpiresAt(Number(result.expiresAt));
     } catch {
-      const now = Date.now();
-      const hasValidToken =
-        Boolean(scanTokenPayload) &&
-        typeof tokenExpiresAt === 'number' &&
-        now < tokenExpiresAt;
+      const hasValidToken = hasUsableCustomerScanToken({
+        scanTokenPayload,
+        tokenExpiresAt,
+        now: Date.now(),
+      });
       if (!hasValidToken) {
         setScanTokenPayload(null);
         setTokenExpiresAt(null);
@@ -192,6 +208,50 @@ export default function CardDetailsScreen() {
       });
     }
   }, [scanTokenPayload, membershipId]);
+
+  const scrollQrIntoView = useCallback(() => {
+    const scrollToMeasuredY = (y: number) => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, y - stickyHeaderHeightRef.current),
+        animated: true,
+      });
+    };
+    const target = qrSectionRef.current;
+    const relativeNode = findNodeHandle(scrollContentRef.current);
+    if (target && relativeNode != null) {
+      target.measureLayout(
+        relativeNode,
+        (_x, y) => {
+          scrollToMeasuredY(y);
+        },
+        () => {
+          scrollToMeasuredY(qrSectionOffsetY.current);
+        }
+      );
+      return;
+    }
+    scrollToMeasuredY(qrSectionOffsetY.current);
+  }, []);
+
+  const revealQrForRedemption = useCallback(() => {
+    scrollQrIntoView();
+    if (
+      shouldRefreshScanTokenForReveal({
+        scanTokenPayload,
+        tokenExpiresAt,
+        isTokenLoading,
+        now: Date.now(),
+      })
+    ) {
+      void refreshScanToken();
+    }
+  }, [
+    isTokenLoading,
+    refreshScanToken,
+    scanTokenPayload,
+    scrollQrIntoView,
+    tokenExpiresAt,
+  ]);
 
   const membershipOwnershipResolved = memberships !== undefined;
   const membershipBelongsToCurrentUser =
@@ -360,6 +420,8 @@ export default function CardDetailsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
+        ref={scrollRef}
+        innerViewRef={scrollContentRef as RefObject<View>}
         stickyHeaderIndices={[0]}
         style={styles.scrollBackground}
         contentContainerStyle={[
@@ -369,7 +431,11 @@ export default function CardDetailsScreen() {
           },
         ]}
       >
-        <View style={styles.stickyTopSection}>
+        <View
+          onLayout={(event) => {
+            stickyHeaderHeightRef.current = event.nativeEvent.layout.height;
+          }}
+        >
           <StickyScrollHeader
             topPadding={(insets.top || 0) + 12}
             backgroundColor="#E9F0FF"
@@ -386,115 +452,106 @@ export default function CardDetailsScreen() {
               />
             </View>
           </StickyScrollHeader>
+        </View>
 
-          <View style={styles.loyaltyCardSection}>
-            <LoyaltyCard
-              variant="full"
-              businessName={membership.businessName}
-              businessLogoUrl={membership.businessLogoUrl}
-              programImageUrl={membership.programImageUrl}
-              programTitle={membership.programTitle}
-              rewardName={membership.rewardName}
-              maxStamps={goal}
-              progress={{ kind: 'actual', currentStamps: current }}
-              lifecycle={membership.programLifecycle}
-              cardThemeId={membership.cardThemeId}
-              stampIcon={membership.stampIcon}
-              stampShape={normalizeStampShape(membership.stampShape)}
-            />
+        <View style={styles.loyaltyCardSection}>
+          <LoyaltyCard
+            variant="full"
+            businessName={membership.businessName}
+            businessLogoUrl={membership.businessLogoUrl}
+            programImageUrl={membership.programImageUrl}
+            programTitle={membership.programTitle}
+            rewardName={membership.rewardName}
+            maxStamps={goal}
+            progress={{ kind: 'actual', currentStamps: current }}
+            lifecycle={membership.programLifecycle}
+            cardThemeId={membership.cardThemeId}
+            stampIcon={membership.stampIcon}
+            stampShape={normalizeStampShape(membership.stampShape)}
+          />
 
-            {isRedeemEligible || isArchived ? (
-              <View
+          {isRedeemEligible || isArchived ? (
+            <View
+              style={[
+                styles.redeemPanel,
+                isRedeemEligible
+                  ? styles.redeemPanelReady
+                  : styles.redeemPanelPending,
+              ]}
+            >
+              <Text
                 style={[
-                  styles.redeemPanel,
+                  styles.redeemTitle,
                   isRedeemEligible
-                    ? styles.redeemPanelReady
-                    : styles.redeemPanelPending,
+                    ? styles.redeemTitleReady
+                    : styles.redeemTitlePending,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.redeemTitle,
-                    isRedeemEligible
-                      ? styles.redeemTitleReady
-                      : styles.redeemTitlePending,
-                  ]}
-                >
-                  {isArchived ? TEXT.archivedTitle : TEXT.cardReadyTitle}
-                </Text>
-                <Text
-                  style={[
-                    styles.redeemSubtitle,
-                    isRedeemEligible
-                      ? styles.redeemSubtitleReady
-                      : styles.redeemSubtitlePending,
-                  ]}
-                >
-                  {isArchived ? TEXT.archivedSubtitle : TEXT.cardReadySubtitle}
-                </Text>
-                <Pressable
-                  onPress={() => void refreshScanToken()}
-                  disabled={
-                    !isRedeemEligible || isTokenLoading || !membershipIdForToken
-                  }
-                  style={({ pressed }) => [
-                    styles.redeemButton,
-                    isRedeemEligible
-                      ? styles.redeemButtonReady
-                      : styles.redeemButtonDisabled,
-                    (pressed && isRedeemEligible) || isTokenLoading
-                      ? { opacity: 0.9 }
-                      : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.redeemButtonText,
-                      !isRedeemEligible && styles.redeemButtonTextDisabled,
-                    ]}
-                  >
-                    {isArchived
-                      ? TEXT.archivedButton
-                      : isTokenLoading && isRedeemEligible
-                        ? TEXT.loading
-                        : TEXT.redeemButtonReady}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            <View style={styles.inviteRow}>
-              <Pressable
-                onPress={() => void handleShareInviteViaWhatsApp()}
-                disabled={isShareInviteLoading}
-                style={({ pressed }) => [
-                  styles.invitePrimaryButton,
-                  pressed ? styles.inviteButtonPressed : null,
-                  isShareInviteLoading ? styles.inviteButtonDisabled : null,
+                {isArchived ? TEXT.archivedTitle : TEXT.cardReadyTitle}
+              </Text>
+              <Text
+                style={[
+                  styles.redeemSubtitle,
+                  isRedeemEligible
+                    ? styles.redeemSubtitleReady
+                    : styles.redeemSubtitlePending,
                 ]}
               >
-                <Text style={styles.invitePrimaryButtonText}>
-                  {isShareInviteLoading ? TEXT.loading : TEXT.shareViaWhatsApp}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void handleCopyInviteLink()}
-                disabled={isShareInviteLoading}
-                style={({ pressed }) => [
-                  styles.inviteSecondaryButton,
-                  pressed ? styles.inviteButtonPressed : null,
-                  isShareInviteLoading ? styles.inviteButtonDisabled : null,
-                ]}
-              >
-                <Text style={styles.inviteSecondaryButtonText}>
-                  {TEXT.copyInviteLink}
-                </Text>
-              </Pressable>
+                {isArchived ? TEXT.archivedSubtitle : TEXT.cardReadySubtitle}
+              </Text>
+              <ActionButton
+                label={
+                  isArchived ? TEXT.archivedButton : TEXT.redeemButtonReady
+                }
+                onPress={revealQrForRedemption}
+                disabled={!isRedeemEligible}
+                fullWidth={true}
+                accessibilityLabel={
+                  isArchived ? TEXT.archivedButton : TEXT.redeemButtonReady
+                }
+                style={styles.redeemAction}
+              />
             </View>
+          ) : null}
+
+          <View style={styles.inviteRow}>
+            <Pressable
+              onPress={() => void handleShareInviteViaWhatsApp()}
+              disabled={isShareInviteLoading}
+              style={({ pressed }) => [
+                styles.invitePrimaryButton,
+                pressed ? styles.inviteButtonPressed : null,
+                isShareInviteLoading ? styles.inviteButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.invitePrimaryButtonText}>
+                {isShareInviteLoading ? TEXT.loading : TEXT.shareViaWhatsApp}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void handleCopyInviteLink()}
+              disabled={isShareInviteLoading}
+              style={({ pressed }) => [
+                styles.inviteSecondaryButton,
+                pressed ? styles.inviteButtonPressed : null,
+                isShareInviteLoading ? styles.inviteButtonDisabled : null,
+              ]}
+            >
+              <Text style={styles.inviteSecondaryButtonText}>
+                {TEXT.copyInviteLink}
+              </Text>
+            </Pressable>
           </View>
         </View>
 
-        <View style={styles.card}>
+        <View
+          ref={qrSectionRef}
+          collapsable={false}
+          onLayout={(event) => {
+            qrSectionOffsetY.current = event.nativeEvent.layout.y;
+          }}
+          style={styles.card}
+        >
           <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
           <Text style={styles.cardSubtitle}>
             {isRedeemEligible
@@ -586,9 +643,6 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     alignSelf: 'center',
   },
-  stickyTopSection: {
-    backgroundColor: '#E9F0FF',
-  },
   headerRow: {
     alignItems: 'stretch',
     marginBottom: 4,
@@ -613,6 +667,10 @@ const styles = StyleSheet.create({
   loyaltyCardSection: {
     width: '100%',
     alignItems: 'center',
+  },
+  redeemAction: {
+    marginTop: 2,
+    width: '100%',
   },
   redeemPanel: {
     width: '100%',
@@ -653,28 +711,6 @@ const styles = StyleSheet.create({
   },
   redeemSubtitlePending: {
     color: '#5B6475',
-  },
-  redeemButton: {
-    marginTop: 2,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  redeemButtonReady: {
-    backgroundColor: '#0D9A4B',
-  },
-  redeemButtonDisabled: {
-    backgroundColor: '#CFDAF2',
-  },
-  redeemButtonText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  redeemButtonTextDisabled: {
-    color: '#5F6D86',
   },
   inviteRow: {
     width: '100%',

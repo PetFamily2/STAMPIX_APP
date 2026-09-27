@@ -12,6 +12,7 @@ import {
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import {
@@ -30,6 +31,7 @@ const TEXT = {
   subtitle: 'כאן תראו מבצעים ועדכונים שנשלחו אליכם מהעסקים',
   readyRewardsTitle: 'זכאים עכשיו למימוש',
   readyRewardsSubtitle: 'כרטיסיות שהושלמו ומחכות למימוש בבית העסק',
+  showForRedemption: 'הצג למימוש',
   emptyTitle: 'עדיין אין הטבות פעילות',
   emptySubtitle:
     'הטבות ומבצעים יופיעו כאן אחרי שתצטרפו לכרטיסיות ותתקדמו בחותמות.',
@@ -141,29 +143,44 @@ export default function RewardsScreen() {
                 </Text>
                 <View style={styles.readyRewardsList}>
                   {redeemableRewards.map((reward) => (
-                    <LoyaltyCard
+                    <View
                       key={reward.membershipId}
-                      variant="wallet"
-                      businessName={reward.businessName}
-                      businessLogoUrl={reward.businessLogoUrl}
-                      programImageUrl={reward.programImageUrl}
-                      programTitle={reward.programTitle}
-                      rewardName={reward.rewardName}
-                      maxStamps={reward.maxStamps}
-                      progress={{
-                        kind: 'actual',
-                        currentStamps: reward.currentStamps,
-                      }}
-                      lifecycle={reward.programLifecycle}
-                      cardThemeId={reward.cardThemeId}
-                      stampIcon={reward.stampIcon}
-                      stampShape={normalizeStampShape(reward.stampShape)}
-                      onPress={() =>
-                        router.push(
-                          customerCardRoute(reward.membershipId) as Href
-                        )
-                      }
-                    />
+                      style={styles.readyRewardItem}
+                    >
+                      <LoyaltyCard
+                        variant="wallet"
+                        businessName={reward.businessName}
+                        businessLogoUrl={reward.businessLogoUrl}
+                        programImageUrl={reward.programImageUrl}
+                        programTitle={reward.programTitle}
+                        rewardName={reward.rewardName}
+                        maxStamps={reward.maxStamps}
+                        progress={{
+                          kind: 'actual',
+                          currentStamps: reward.currentStamps,
+                        }}
+                        lifecycle={reward.programLifecycle}
+                        cardThemeId={reward.cardThemeId}
+                        stampIcon={reward.stampIcon}
+                        stampShape={normalizeStampShape(reward.stampShape)}
+                        onPress={() =>
+                          router.push(
+                            customerCardRoute(reward.membershipId) as Href
+                          )
+                        }
+                      />
+                      <ActionButton
+                        label={TEXT.showForRedemption}
+                        onPress={() =>
+                          router.push(
+                            customerCardRoute(reward.membershipId) as Href
+                          )
+                        }
+                        fullWidth={true}
+                        accessibilityLabel={TEXT.showForRedemption}
+                        style={styles.readyRewardCta}
+                      />
+                    </View>
                   ))}
                 </View>
               </View>
@@ -338,6 +355,14 @@ const styles = StyleSheet.create({
   readyRewardsList: {
     gap: 12,
     alignItems: 'center',
+  },
+  readyRewardItem: {
+    width: '100%',
+    maxWidth: 420,
+    gap: 10,
+  },
+  readyRewardCta: {
+    width: '100%',
   },
   messageCard: {
     borderBottomWidth: 1,
