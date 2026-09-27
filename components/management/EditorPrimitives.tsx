@@ -1,14 +1,9 @@
 import type { ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
+import { ActionButton } from '@/components/ui/ActionButton';
+import { rtlBaseView } from '@/lib/rtl';
 
 export function EditorSection({
   title,
@@ -59,6 +54,7 @@ export function EditorPrimaryActions({
   lifecycleLabel,
   lifecycleDisabled,
   lifecycleLoading,
+  lifecycleVariant = 'lifecycle',
   onLifecyclePress,
 }: {
   primaryLabel: string;
@@ -72,72 +68,39 @@ export function EditorPrimaryActions({
   lifecycleLabel?: string;
   lifecycleDisabled?: boolean;
   lifecycleLoading?: boolean;
+  lifecycleVariant?: 'secondary' | 'lifecycle';
   onLifecyclePress?: () => void;
 }) {
   return (
     <View style={styles.actions}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: primaryDisabled, busy: primaryLoading }}
+      <ActionButton
+        label={primaryLabel}
         disabled={primaryDisabled}
+        loading={primaryLoading}
         onPress={onPrimaryPress}
-        style={({ pressed }) => [
-          styles.primaryButton,
-          primaryDisabled ? styles.primaryButtonDisabled : null,
-          pressed && !primaryDisabled ? styles.pressed : null,
-        ]}
-      >
-        {primaryLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
-        )}
-      </Pressable>
+        fullWidth={true}
+      />
 
       {secondaryLabel && onSecondaryPress ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled: secondaryDisabled,
-            busy: secondaryLoading,
-          }}
+        <ActionButton
+          label={secondaryLabel}
+          variant="secondary"
           disabled={secondaryDisabled}
+          loading={secondaryLoading}
           onPress={onSecondaryPress}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            secondaryDisabled ? styles.secondaryButtonDisabled : null,
-            pressed && !secondaryDisabled ? styles.pressed : null,
-          ]}
-        >
-          {secondaryLoading ? (
-            <ActivityIndicator color="#1D4ED8" />
-          ) : (
-            <Text style={styles.secondaryButtonText}>{secondaryLabel}</Text>
-          )}
-        </Pressable>
+          fullWidth={true}
+        />
       ) : null}
 
       {lifecycleLabel && onLifecyclePress ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled: lifecycleDisabled,
-            busy: lifecycleLoading,
-          }}
+        <ActionButton
+          label={lifecycleLabel}
+          variant={lifecycleVariant}
           disabled={lifecycleDisabled}
+          loading={lifecycleLoading}
           onPress={onLifecyclePress}
-          style={({ pressed }) => [
-            styles.lifecycleButton,
-            lifecycleDisabled ? styles.lifecycleButtonDisabled : null,
-            pressed && !lifecycleDisabled ? styles.pressed : null,
-          ]}
-        >
-          {lifecycleLoading ? (
-            <ActivityIndicator color="#64748B" />
-          ) : (
-            <Text style={styles.lifecycleButtonText}>{lifecycleLabel}</Text>
-          )}
-        </Pressable>
+          fullWidth={true}
+        />
       ) : null}
     </View>
   );
@@ -217,79 +180,17 @@ const styles = StyleSheet.create({
     gap: 10,
     ...rtlBaseView,
   },
-  primaryButton: {
-    minHeight: 50,
-    borderRadius: 16,
-    backgroundColor: '#2F6BFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#94A3B8',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  secondaryButton: {
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: '#B8C8E8',
-    borderRadius: 15,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  secondaryButtonDisabled: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
-  },
-  secondaryButtonText: {
-    color: '#1D4ED8',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  lifecycleButton: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: '#D7DEEA',
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  lifecycleButtonDisabled: {
-    opacity: 0.55,
-  },
-  lifecycleButtonText: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  pressed: {
-    opacity: 0.84,
-  },
   stickyFooter: {
     width: '100%',
+    flexShrink: 0,
     borderTopWidth: 1,
     borderTopColor: '#D7E2F4',
     backgroundColor: '#E9F0FF',
     paddingHorizontal: 20,
     paddingTop: 12,
+    overflow: 'visible',
+    zIndex: 20,
+    elevation: 20,
   },
   stickyFooterContent: {
     width: '100%',

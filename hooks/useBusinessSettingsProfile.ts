@@ -3,20 +3,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import type { SelectedBusinessAddress } from '@/lib/businessAddressSelection';
+import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import {
   type BusinessExampleId,
   type BusinessServiceType,
   type DiscoverySourceId,
+  formatProfileFieldValue,
+  isProfileCompletionField,
   type OwnerAgeRangeId,
   type ProfileCompletionField,
   type ReasonId,
-  type UsageAreaId,
-  formatProfileFieldValue,
-  isProfileCompletionField,
   sanitizeServiceTags,
   sanitizeServiceTypes,
+  type UsageAreaId,
 } from '@/lib/businessSettings/profileFields';
-import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
 
@@ -81,6 +82,7 @@ export function useBusinessSettingsProfile() {
     activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const updateBusinessProfile = useMutation(api.business.updateBusinessProfile);
+  const updateBusinessAddress = useMutation(api.business.updateBusinessAddress);
   const saveBusinessOnboardingSnapshot = useMutation(
     api.business.saveBusinessOnboardingSnapshot
   );
@@ -88,17 +90,22 @@ export function useBusinessSettingsProfile() {
   const [snapshot, setSnapshot] =
     useState<BusinessSettingsSnapshot>(EMPTY_SNAPSHOT);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
+  const baseUpdatedAtRef = useRef<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const saveInFlightRef = useRef(false);
+  const commitBaseUpdatedAt = useCallback((value: number | null) => {
+    baseUpdatedAtRef.current = value;
+    setBaseUpdatedAt(value);
+  }, []);
 
   const applyBusinessSettingsSnapshot = useCallback(
     (settings: typeof businessSettings) => {
       if (!settings) {
-        return;
+        return null;
       }
       const onboarding = settings.onboardingSnapshot;
-      setSnapshot({
+      const nextSnapshot = {
         name: settings.name ?? '',
         shortDescription: settings.shortDescription ?? '',
         businessPhone: settings.businessPhone ?? '',
@@ -124,26 +131,28 @@ export function useBusinessSettingsProfile() {
         reason: (onboarding?.reason as ReasonId | undefined) ?? null,
         ownerAgeRange:
           (onboarding?.ownerAgeRange as OwnerAgeRangeId | undefined) ?? null,
-      });
-      setBaseUpdatedAt(
+      };
+      setSnapshot(nextSnapshot);
+      commitBaseUpdatedAt(
         typeof settings.updatedAt === 'number' ? settings.updatedAt : null
       );
       setConflictLocked(false);
+      return nextSnapshot;
     },
-    []
+    [commitBaseUpdatedAt]
   );
 
   useEffect(() => {
     if (activeBusinessId == null) {
-      setBaseUpdatedAt(null);
+      commitBaseUpdatedAt(null);
       setConflictLocked(false);
       setSnapshot(EMPTY_SNAPSHOT);
       return;
     }
-    setBaseUpdatedAt(null);
+    commitBaseUpdatedAt(null);
     setConflictLocked(false);
     setSnapshot(EMPTY_SNAPSHOT);
-  }, [activeBusinessId]);
+  }, [activeBusinessId, commitBaseUpdatedAt]);
 
   useEffect(() => {
     if (!businessSettings || baseUpdatedAt !== null) {
@@ -173,14 +182,20 @@ export function useBusinessSettingsProfile() {
     serviceTags?: string[];
   }) => {
     if (!activeBusinessId || saveInFlightRef.current) {
-      return { ok: false as const, conflict: false, message: null };
+      return {
+        ok: false as const,
+        conflict: false,
+        message: null,
+        updatedAt: null,
+      };
     }
     saveInFlightRef.current = true;
     setIsSaving(true);
     try {
       const payload = {
         name: overrides.name ?? snapshot.name,
-        shortDescription: overrides.shortDescription ?? snapshot.shortDescription,
+        shortDescription:
+          overrides.shortDescription ?? snapshot.shortDescription,
         businessPhone: overrides.businessPhone ?? snapshot.businessPhone,
         serviceTypes: sanitizeServiceTypes(
           overrides.serviceTypes ?? snapshot.serviceTypes
@@ -191,28 +206,36 @@ export function useBusinessSettingsProfile() {
       };
       const result = await updateBusinessProfile({
         businessId: activeBusinessId,
-        expectedUpdatedAt: baseUpdatedAt ?? undefined,
+        expectedUpdatedAt: baseUpdatedAtRef.current ?? undefined,
         ...payload,
       });
       setSnapshot((current) => ({
         ...current,
         ...payload,
       }));
-      if (typeof result?.updatedAt === 'number') {
-        setBaseUpdatedAt(result.updatedAt);
+      const updatedAt =
+        typeof result?.updatedAt === 'number' ? result.updatedAt : null;
+      if (updatedAt !== null) {
+        commitBaseUpdatedAt(updatedAt);
       }
       setConflictLocked(false);
-      return { ok: true as const, conflict: false, message: null };
+      return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
         setConflictLocked(true);
-        return { ok: false as const, conflict: true, message: null };
+        return {
+          ok: false as const,
+          conflict: true,
+          message: null,
+          updatedAt: null,
+        };
       }
       return {
         ok: false as const,
         conflict: false,
         message: toErrorMessage(error, 'שמירת הנתון נכשלה.'),
+        updatedAt: null,
       };
     } finally {
       saveInFlightRef.current = false;
@@ -231,12 +254,17 @@ export function useBusinessSettingsProfile() {
     weakTimePromosRelevant?: boolean;
   }) => {
     if (!activeBusinessId || saveInFlightRef.current) {
-      return { ok: false as const, conflict: false, message: null };
+      return {
+        ok: false as const,
+        conflict: false,
+        message: null,
+        updatedAt: null,
+      };
     }
     saveInFlightRef.current = true;
     setIsSaving(true);
     try {
-      await saveBusinessOnboardingSnapshot({
+      const result = await saveBusinessOnboardingSnapshot({
         businessId: activeBusinessId,
         ...overrides,
       });
@@ -244,13 +272,76 @@ export function useBusinessSettingsProfile() {
         ...current,
         ...overrides,
       }));
+      const updatedAt =
+        typeof result?.updatedAt === 'number' ? result.updatedAt : null;
+      if (updatedAt !== null) {
+        commitBaseUpdatedAt(updatedAt);
+      }
       setConflictLocked(false);
-      return { ok: true as const, conflict: false, message: null };
+      return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
       return {
         ok: false as const,
         conflict: false,
         message: toErrorMessage(error, 'שמירת הנתון נכשלה.'),
+        updatedAt: null,
+      };
+    } finally {
+      saveInFlightRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  const saveBusinessAddress = async (address: SelectedBusinessAddress) => {
+    if (!activeBusinessId || saveInFlightRef.current) {
+      return {
+        ok: false as const,
+        conflict: false,
+        message: null,
+        updatedAt: null,
+      };
+    }
+    saveInFlightRef.current = true;
+    setIsSaving(true);
+    try {
+      const result = await updateBusinessAddress({
+        businessId: activeBusinessId,
+        expectedUpdatedAt: baseUpdatedAtRef.current ?? undefined,
+        formattedAddress: address.formattedAddress,
+        placeId: address.placeId,
+        lat: address.latitude,
+        lng: address.longitude,
+        city: address.city,
+        street: address.street,
+        streetNumber: address.streetNumber,
+      });
+      const updatedAt =
+        typeof result?.updatedAt === 'number' ? result.updatedAt : null;
+      if (updatedAt !== null) {
+        commitBaseUpdatedAt(updatedAt);
+      }
+      setSnapshot((current) => ({
+        ...current,
+        formattedAddress: address.formattedAddress,
+      }));
+      setConflictLocked(false);
+      return { ok: true as const, conflict: false, message: null, updatedAt };
+    } catch (error) {
+      const conflict = getEditConflictError(error);
+      if (conflict) {
+        setConflictLocked(true);
+        return {
+          ok: false as const,
+          conflict: true,
+          message: null,
+          updatedAt: null,
+        };
+      }
+      return {
+        ok: false as const,
+        conflict: false,
+        message: toErrorMessage(error, 'עדכון הכתובת נכשל.'),
+        updatedAt: null,
       };
     } finally {
       saveInFlightRef.current = false;
@@ -272,6 +363,7 @@ export function useBusinessSettingsProfile() {
     displayValueFor,
     saveProfileFields,
     saveOnboardingFields,
+    saveBusinessAddress,
     applyBusinessSettingsSnapshot: () =>
       applyBusinessSettingsSnapshot(businessSettings),
     isProfileCompletionField,

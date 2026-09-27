@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { selfStart } from '@/lib/rtl';
+import { StyleSheet, Text, View } from 'react-native';
+import { ActionButton } from '@/components/ui/ActionButton';
 
 type ReferralEmptyStateProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -27,17 +27,12 @@ export function ReferralEmptyState({
         <Text style={styles.body}>{body}</Text>
       </View>
       {actionLabel && onActionPress ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
+        <ActionButton
+          label={actionLabel}
+          variant="secondary"
           onPress={onActionPress}
-          style={({ pressed }) => [
-            styles.action,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        </Pressable>
+          accessibilityLabel={actionLabel}
+        />
       ) : null}
     </View>
   );
@@ -80,27 +75,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
     writingDirection: 'rtl',
-  },
-  action: {
-    minHeight: 40,
-    alignSelf: selfStart,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-  },
-  actionText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '900',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  pressed: {
-    opacity: 0.86,
   },
 });

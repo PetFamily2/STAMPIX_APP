@@ -24,6 +24,7 @@ import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOve
 import { ManagementUsageSummary } from '@/components/management';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -335,32 +336,22 @@ export function CampaignsHubContent() {
         </StickyScrollHeader>
 
         <View ref={guideTargetRef} collapsable={false}>
-          <TouchableOpacity
+          <ActionButton
+            label="צור קמפיין"
             disabled={
               !activeBusinessId || !canViewCampaigns || !canCreateCampaigns
             }
             onPress={handleCreateCampaign}
-            className={`mt-4 ${tw.selfStart} min-h-[46px] min-w-[148px] rounded-2xl px-4 py-3 ${
-              canCreateCampaign
-                ? 'bg-[#2F6BFF]'
-                : 'border border-[#CBD5E1] bg-[#E2E8F0]'
-            }`}
-          >
-            <View className={`${tw.flexRow} items-center justify-center gap-2`}>
+            accessibilityLabel="צור קמפיין"
+            icon={
               <Ionicons
                 name={canCreateCampaign ? 'add' : 'lock-closed-outline'}
                 size={19}
                 color={canCreateCampaign ? '#FFFFFF' : '#475569'}
               />
-              <Text
-                className={`text-sm font-black ${
-                  canCreateCampaign ? 'text-white' : 'text-[#334155]'
-                }`}
-              >
-                צור קמפיין
-              </Text>
-            </View>
-          </TouchableOpacity>
+            }
+            style={{ marginTop: 16 }}
+          />
           {!canCreateCampaign && createBlockedReason ? (
             <Text
               className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}

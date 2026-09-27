@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +30,7 @@ import {
   SmartRecommendationsPanel,
 } from '@/components/business-dashboard/SmartRecommendationsPanel';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -72,6 +72,7 @@ import {
   tw,
 } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+import { readableCtaIconColor } from '@/lib/ui/actionButtonVisual';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL', {
@@ -241,21 +242,24 @@ function DashboardBusinessReferralCard({
         )}
       </View>
 
-      <Pressable
+      <ActionButton
+        label="הזמנת עסק"
         onPress={onOpen}
         disabled={isSwitchingBusiness}
-        accessibilityRole="button"
         accessibilityLabel="הזמנת עסק ל-StampAix"
-        style={({ pressed }) => [
-          styles.businessReferralButton,
-          layoutMode === 'tablet' ? styles.businessReferralButtonTablet : null,
-          pressed ? styles.businessReferralButtonPressed : null,
-          isSwitchingBusiness ? styles.businessReferralButtonDisabled : null,
-        ]}
-      >
-        <Text style={styles.businessReferralButtonText}>הזמנת עסק</Text>
-        <Ionicons name="chevron-back" size={14} color="#FFFFFF" />
-      </Pressable>
+        icon={
+          <Ionicons
+            name="chevron-back"
+            size={14}
+            color={readableCtaIconColor(isSwitchingBusiness)}
+          />
+        }
+        style={
+          layoutMode === 'tablet'
+            ? styles.businessReferralButtonTablet
+            : undefined
+        }
+      />
     </Animated.View>
   );
 }
@@ -1078,42 +1082,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  businessReferralButton: {
-    minWidth: 168,
-    minHeight: 32,
-    width: 'auto',
-    alignSelf: selfStart,
-    borderRadius: 999,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 20,
-    paddingVertical: 7,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    shadowColor: '#2F6BFF',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-    ...rtlBaseView,
-  },
   businessReferralButtonTablet: {
-    width: 'auto',
     minWidth: 168,
     flexShrink: 0,
-  },
-  businessReferralButtonPressed: {
-    opacity: 0.88,
-  },
-  businessReferralButtonDisabled: {
-    opacity: 0.6,
-  },
-  businessReferralButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
 });

@@ -1,13 +1,12 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -20,15 +19,23 @@ import {
   SettingsGroup,
   SettingsNavRow,
   SettingsPageShell,
+  SettingsPrimaryButton,
   SettingsSection,
 } from '@/components/business-settings';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import {
+  type AccountFormState,
+  accountBaselines,
+  accountSaveResultMessage,
+  commitAccountSaveGroup,
+  listDirtyAccountGroups,
+} from '@/lib/businessSettings/accountFormSave';
 import { safePush } from '@/lib/navigation';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
+import { alignItems, rtlBaseText } from '@/lib/rtl';
 
 type LegalDocumentKey = 'privacy' | 'terms' | 'deletion';
 
@@ -55,53 +62,138 @@ const LEGAL_ROWS: Array<{
 ];
 
 export default function BusinessSettingsAccountScreen() {
+  const navigation = useNavigation();
   const router = useRouter();
   const sessionContext = useSessionContext();
   const { signOut } = useAuthActions();
   const { activeBusiness } = useActiveBusiness();
+  const setMyName = useMutation(api.users.setMyName);
   const setMyPhone = useMutation(api.users.setMyPhone);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [phoneInput, setPhoneInput] = useState('');
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [firstNameDraft, setFirstNameDraft] = useState<string | null>(null);
+  const [lastNameDraft, setLastNameDraft] = useState<string | null>(null);
+  const [phoneDraft, setPhoneDraft] = useState<string | null>(null);
+  const [committedFirstName, setCommittedFirstName] = useState<string | null>(
+    null
+  );
+  const [committedLastName, setCommittedLastName] = useState<string | null>(
+    null
+  );
+  const [committedPhone, setCommittedPhone] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const user = sessionContext?.user;
-  const userFullName =
-    user?.fullName?.trim() ||
-    [user?.firstName?.trim(), user?.lastName?.trim()]
-      .filter(Boolean)
-      .join(' ')
-      .trim() ||
-    'ללא שם';
+  const savedFirstName = user?.firstName?.trim() ?? '';
+  const savedLastName = user?.lastName?.trim() ?? '';
   const canLeaveBusiness = activeBusiness
     ? activeBusiness.staffRole !== 'owner'
     : false;
   const canCloseBusiness = activeBusiness?.staffRole === 'owner';
   const canOpenAccountData = canLeaveBusiness || canCloseBusiness;
   const savedPhone = user?.phone?.trim() ?? '';
-  const hasPhone = savedPhone.length > 0;
+  const emailValue = user?.email?.trim() || 'לא הוגדר';
+  const accountFormState: AccountFormState = {
+    serverFirstName: savedFirstName,
+    serverLastName: savedLastName,
+    serverPhone: savedPhone,
+    committedFirstName,
+    committedLastName,
+    committedPhone,
+    firstNameDraft,
+    lastNameDraft,
+    phoneDraft,
+  };
+  const baselines = accountBaselines(accountFormState);
+  const dirtyAccountGroups = listDirtyAccountGroups(accountFormState);
+  const userFullName =
+    [baselines.firstName, baselines.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    user?.fullName?.trim() ||
+    'ללא שם';
+  const firstNameInput = firstNameDraft ?? baselines.firstName;
+  const lastNameInput = lastNameDraft ?? baselines.lastName;
+  const phoneInput = phoneDraft ?? baselines.phone;
+  const trimmedFirstName = firstNameInput.trim();
+  const trimmedLastName = lastNameInput.trim();
+  const trimmedPhone = phoneInput.trim();
+  const isNameDirty = dirtyAccountGroups.includes('name');
+  const isPhoneDirty = dirtyAccountGroups.includes('phone');
+  const hasUnsavedChanges = isNameDirty || isPhoneDirty;
+  const isNameValid =
+    !isNameDirty || (trimmedFirstName.length > 0 && trimmedLastName.length > 0);
+  const isPhoneValid = !isPhoneDirty || trimmedPhone.length > 0;
+  const canSave = !isSaving && hasUnsavedChanges && isNameValid && isPhoneValid;
 
-  useEffect(() => {
-    if (!isEditingPhone) {
-      setPhoneInput(savedPhone);
+  usePreventRemove(hasUnsavedChanges && !isSaving, ({ data }) => {
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
+
+  const applyAccountFormState = (next: AccountFormState) => {
+    setCommittedFirstName(next.committedFirstName);
+    setCommittedLastName(next.committedLastName);
+    setCommittedPhone(next.committedPhone);
+    setFirstNameDraft(next.firstNameDraft);
+    setLastNameDraft(next.lastNameDraft);
+    setPhoneDraft(next.phoneDraft);
+  };
+
+  const handleSave = async () => {
+    if (!canSave) {
+      return;
     }
-  }, [isEditingPhone, savedPhone]);
-
-  const canSavePhone = useMemo(() => {
-    const trimmed = phoneInput.trim();
-    return !isSavingPhone && trimmed.length > 0 && trimmed !== savedPhone;
-  }, [isSavingPhone, phoneInput, savedPhone]);
-
-  const handleSavePhone = async () => {
+    const savedGroups: Array<'name' | 'phone'> = [];
+    let formState = accountFormState;
+    const savedValues = {
+      firstName: trimmedFirstName,
+      lastName: trimmedLastName,
+      phone: trimmedPhone,
+    };
+    setIsSaving(true);
     try {
-      setIsSavingPhone(true);
-      await setMyPhone({ phone: phoneInput.trim() });
-      setIsEditingPhone(false);
-      Alert.alert('נשמר', 'מספר הטלפון נשמר בהצלחה.');
-    } catch {
-      Alert.alert('שגיאה', 'שמירת הטלפון נכשלה.');
+      if (isNameDirty) {
+        try {
+          await setMyName({
+            firstName: trimmedFirstName,
+            lastName: trimmedLastName,
+          });
+          formState = commitAccountSaveGroup(formState, 'name', savedValues);
+          applyAccountFormState(formState);
+          savedGroups.push('name');
+        } catch {
+          const result = accountSaveResultMessage(savedGroups, 'name');
+          Alert.alert(result.title, result.message);
+          return;
+        }
+      }
+      if (isPhoneDirty) {
+        try {
+          await setMyPhone({ phone: trimmedPhone });
+          formState = commitAccountSaveGroup(formState, 'phone', savedValues);
+          applyAccountFormState(formState);
+          savedGroups.push('phone');
+        } catch {
+          const result = accountSaveResultMessage(savedGroups, 'phone');
+          Alert.alert(result.title, result.message);
+          return;
+        }
+      }
+      const result = accountSaveResultMessage(savedGroups, null);
+      Alert.alert(result.title, result.message);
     } finally {
-      setIsSavingPhone(false);
+      setIsSaving(false);
     }
   };
 
@@ -140,103 +232,106 @@ export default function BusinessSettingsAccountScreen() {
 
   return (
     <SettingsPageShell
+      keyboardAware={true}
       header={
         <BusinessSettingsSubpageHeader
           title="פרטי חשבון"
           fallbackHref={BUSINESS_ROUTES.settings}
         />
       }
+      footer={
+        <SettingsPrimaryButton
+          label="שמירה"
+          loading={isSaving}
+          disabled={!canSave}
+          onPress={() => {
+            void handleSave();
+          }}
+          accessibilityLabel="שמירת פרטי החשבון"
+        />
+      }
     >
-      <SettingsCard>
-        <View style={styles.identityRow}>
-          <UserAvatar
-            avatarUrl={user?.avatarUrl}
-            fullName={userFullName}
-            size={64}
+      <SettingsSection title="פרטים אישיים">
+        <SettingsCard>
+          <View style={styles.avatarWrap}>
+            <UserAvatar
+              avatarUrl={user?.avatarUrl}
+              fullName={userFullName}
+              size={64}
+            />
+          </View>
+          <SettingsField
+            label="שם פרטי"
+            errorText={
+              isNameDirty && trimmedFirstName.length === 0
+                ? 'יש להזין שם פרטי.'
+                : null
+            }
+          >
+            <TextInput
+              value={firstNameInput}
+              onChangeText={setFirstNameDraft}
+              editable={!isSaving}
+              placeholder="הזינו שם פרטי"
+              placeholderTextColor={SETTINGS_TOKENS.textTertiary}
+              autoCapitalize="words"
+              accessibilityLabel="שם פרטי"
+              textAlignVertical="center"
+              underlineColorAndroid="transparent"
+              style={styles.inlineInput}
+            />
+          </SettingsField>
+          <SettingsField
+            label="שם משפחה"
+            errorText={
+              isNameDirty && trimmedLastName.length === 0
+                ? 'יש להזין שם משפחה.'
+                : null
+            }
+          >
+            <TextInput
+              value={lastNameInput}
+              onChangeText={setLastNameDraft}
+              editable={!isSaving}
+              placeholder="הזינו שם משפחה"
+              placeholderTextColor={SETTINGS_TOKENS.textTertiary}
+              autoCapitalize="words"
+              accessibilityLabel="שם משפחה"
+              textAlignVertical="center"
+              underlineColorAndroid="transparent"
+              style={styles.inlineInput}
+            />
+          </SettingsField>
+          <SettingsField
+            label="אימייל"
+            value={emailValue}
+            readOnly={true}
+            helpText="לקריאה בלבד. כתובת האימייל מנוהלת דרך ההתחברות."
           />
-          <View style={styles.identityCopy}>
-            <Text style={styles.identityName}>{userFullName}</Text>
-            <Text style={styles.identityEmail}>
-              {user?.email || 'לא הוגדר'}
-            </Text>
-          </View>
-        </View>
-
-        <SettingsField
-          label="טלפון אישי לחשבון"
-          helpText="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק"
-        >
-          <View style={styles.phoneEditWrap}>
-            {isEditingPhone ? (
-              <TextInput
-                value={phoneInput}
-                onChangeText={setPhoneInput}
-                editable={!isSavingPhone}
-                placeholder="הזינו מספר טלפון"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                style={styles.phoneInput}
-                textAlign="right"
-              />
-            ) : hasPhone ? (
-              <Text style={styles.propertyValue}>{savedPhone}</Text>
-            ) : null}
-            {isEditingPhone ? (
-              <View style={styles.phoneActionRow}>
-                <Pressable
-                  onPress={() => setIsEditingPhone(false)}
-                  disabled={isSavingPhone}
-                  style={({ pressed }) => [
-                    styles.smallButtonSecondary,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Text style={styles.smallButtonSecondaryText}>ביטול</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    void handleSavePhone();
-                  }}
-                  disabled={!canSavePhone}
-                  style={({ pressed }) => [
-                    styles.smallButtonPrimary,
-                    !canSavePhone ? styles.buttonDisabled : null,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  {isSavingPhone ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.smallButtonPrimaryText}>שמור</Text>
-                  )}
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setIsEditingPhone(true)}
-                accessibilityRole="button"
-                accessibilityLabel={hasPhone ? 'עריכת טלפון' : 'הוספת טלפון'}
-                style={({ pressed }) => [
-                  hasPhone
-                    ? styles.smallButtonSecondary
-                    : styles.smallButtonPrimary,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Text
-                  style={
-                    hasPhone
-                      ? styles.smallButtonSecondaryText
-                      : styles.smallButtonPrimaryText
-                  }
-                >
-                  {hasPhone ? 'עריכת טלפון' : 'הוספת טלפון'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </SettingsField>
-      </SettingsCard>
+          <SettingsField
+            label="טלפון אישי"
+            helpText="הטלפון האישי נשמר בנפרד מהטלפון העסקי שמוצג בפרטי העסק"
+            errorText={
+              isPhoneDirty && trimmedPhone.length === 0
+                ? 'יש להזין מספר טלפון.'
+                : null
+            }
+          >
+            <TextInput
+              value={phoneInput}
+              onChangeText={setPhoneDraft}
+              editable={!isSaving}
+              placeholder="הזינו מספר טלפון"
+              placeholderTextColor={SETTINGS_TOKENS.textTertiary}
+              keyboardType="phone-pad"
+              accessibilityLabel="טלפון אישי"
+              textAlignVertical="center"
+              underlineColorAndroid="transparent"
+              style={styles.inlineInput}
+            />
+          </SettingsField>
+        </SettingsCard>
+      </SettingsSection>
 
       <SettingsSection title="מסמכים ומדיניות">
         <SettingsGroup>
@@ -290,108 +385,22 @@ export default function BusinessSettingsAccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  identityRow: {
+  avatarWrap: {
     width: '100%',
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: 12,
-    ...rtlBaseView,
+    alignItems: alignItems.start,
   },
-  identityCopy: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'stretch',
-    gap: 3,
-  },
-  identityName: {
-    width: '100%',
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: SETTINGS_TOKENS.textPrimary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  identityEmail: {
-    width: '100%',
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '500',
-    color: SETTINGS_TOKENS.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  propertyValue: {
-    width: '100%',
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '600',
-    color: SETTINGS_TOKENS.textPrimary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  phoneEditWrap: {
+  inlineInput: {
     width: '100%',
     minHeight: 52,
-    borderRadius: SETTINGS_TOKENS.radius,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: SETTINGS_TOKENS.border,
-    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
-    padding: 10,
-    gap: 8,
-    alignItems: 'stretch',
-  },
-  phoneInput: {
-    width: '100%',
-    minHeight: 52,
-    borderRadius: SETTINGS_TOKENS.radius,
-    borderWidth: 1,
-    borderColor: SETTINGS_TOKENS.borderStrong,
     backgroundColor: SETTINGS_TOKENS.surface,
     paddingHorizontal: 16,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    paddingVertical: 8,
+    fontSize: 16,
+    fontWeight: '500',
+    color: SETTINGS_TOKENS.textPrimary,
+    ...rtlBaseText,
   },
-  phoneActionRow: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  smallButtonSecondary: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  smallButtonSecondaryText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  smallButtonPrimary: {
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  smallButtonPrimaryText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  pressed: { opacity: 0.88 },
-  buttonDisabled: { opacity: 0.6 },
 });

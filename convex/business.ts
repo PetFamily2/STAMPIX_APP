@@ -2424,6 +2424,7 @@ export const saveBusinessOnboardingSnapshot = mutation({
       businessId,
       onboardingSnapshot: nextSnapshot,
       businessRetentionProfile: nextRetentionProfile,
+      updatedAt: now,
     };
   },
 });

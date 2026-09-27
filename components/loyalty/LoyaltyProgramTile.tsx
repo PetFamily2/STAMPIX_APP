@@ -68,11 +68,7 @@ export function LoyaltyProgramTile({
           pointerEvents="none"
           style={styles.surfaceFill}
         />
-        <View
-          collapsable={false}
-          pointerEvents="none"
-          style={styles.content}
-        >
+        <View collapsable={false} pointerEvents="none" style={styles.content}>
           <View style={styles.selectionSlot}>
             {selected ? (
               <View style={styles.check}>

@@ -19,6 +19,7 @@ import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOve
 import { LoyaltyCardCompact } from '@/components/loyalty/LoyaltyCardCompact';
 import { ManagementUsageSummary } from '@/components/management';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -56,7 +57,7 @@ type ManagementProgram = {
 
 const TEXT = {
   screenTitle: 'כרטיסיות נאמנות',
-  createNewCard: 'צור כרטיסיה חדשה',
+  createNewCard: 'צור כרטיסייה חדשה',
   limitReached: 'הגעתם למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   nearLimit: 'אתם מתקרבים למגבלת הכרטיסים הפעילים במסלול הנוכחי.',
   draftCardsTitle: 'טיוטות',
@@ -279,7 +280,8 @@ export function LoyaltyCardsHubContent() {
         </StickyScrollHeader>
 
         <View ref={guideTargetRef} collapsable={false}>
-          <TouchableOpacity
+          <ActionButton
+            label={TEXT.createNewCard}
             disabled={!canCreate}
             onPress={() => {
               if (!canCreate) {
@@ -287,30 +289,16 @@ export function LoyaltyCardsHubContent() {
               }
               handleCreate();
             }}
-            className={`mt-4 min-h-[52px] rounded-2xl px-4 py-3 ${
-              !canCreate
-                ? 'border border-[#CBD5E1] bg-[#E2E8F0]'
-                : 'bg-[#2F6BFF]'
-            }`}
-          >
-            <View
-              className={`${tw.flexRow} items-center justify-center gap-2`}
-              style={rtlBaseView}
-            >
+            accessibilityLabel={TEXT.createNewCard}
+            icon={
               <Ionicons
                 name={canCreate ? 'add' : 'lock-closed-outline'}
                 size={20}
                 color={canCreate ? '#FFFFFF' : '#475569'}
               />
-              <Text
-                className={`text-sm font-black ${
-                  canCreate ? 'text-white' : 'text-[#334155]'
-                }`}
-              >
-                {TEXT.createNewCard}
-              </Text>
-            </View>
-          </TouchableOpacity>
+            }
+            style={{ marginTop: 16 }}
+          />
           {!canCreate && createBlockedReason ? (
             <Text
               accessibilityRole="text"

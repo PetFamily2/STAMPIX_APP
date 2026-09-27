@@ -1,6 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type Ref, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import {
   SettingsBooleanChoices,
@@ -44,6 +51,10 @@ type ProfileFieldFormProps = {
   values: BusinessSettingsSnapshot;
   onChange: (next: BusinessSettingsSnapshot) => void;
   error?: string | null;
+  editable?: boolean;
+  anchoredField?: ProfileCompletionField | null;
+  anchorRef?: Ref<View>;
+  onAnchorLayout?: (y: number) => void;
 };
 
 export function ProfileFieldForm({
@@ -51,11 +62,18 @@ export function ProfileFieldForm({
   values,
   onChange,
   error,
+  editable = true,
+  anchoredField = null,
+  anchorRef,
+  onAnchorLayout,
 }: ProfileFieldFormProps) {
   const [tagDraft, setTagDraft] = useState('');
   const [tagError, setTagError] = useState<string | null>(null);
 
   const addTag = () => {
+    if (!editable) {
+      return;
+    }
     const message = validateServiceTagDraft(tagDraft, values.serviceTags);
     if (message) {
       setTagError(message);
@@ -81,8 +99,19 @@ export function ProfileFieldForm({
         if (field === 'address') {
           return null;
         }
+        const isAnchored = anchoredField === field;
         return (
-          <View key={field} style={styles.fieldBlock}>
+          <View
+            key={field}
+            ref={isAnchored ? anchorRef : undefined}
+            collapsable={false}
+            onLayout={
+              isAnchored
+                ? (event) => onAnchorLayout?.(event.nativeEvent.layout.y)
+                : undefined
+            }
+            style={styles.fieldBlock}
+          >
             {field !== 'birthdayCampaignRelevant' &&
             field !== 'joinAnniversaryCampaignRelevant' &&
             field !== 'weakTimePromosRelevant' ? (
@@ -93,11 +122,14 @@ export function ProfileFieldForm({
               <TextInput
                 value={values.name}
                 onChangeText={(name) => onChange({ ...values, name })}
+                editable={editable}
                 placeholder="שם העסק"
                 placeholderTextColor={SETTINGS_TOKENS.textTertiary}
                 maxLength={BUSINESS_NAME_MAX_LENGTH}
                 accessibilityLabel={PROFILE_FIELD_LABELS.name}
-                style={styles.input}
+                textAlignVertical="center"
+                underlineColorAndroid="transparent"
+                style={[styles.input, editable ? null : styles.inputReadOnly]}
               />
             ) : null}
 
@@ -107,13 +139,19 @@ export function ProfileFieldForm({
                 onChangeText={(shortDescription) =>
                   onChange({ ...values, shortDescription })
                 }
+                editable={editable}
                 placeholder="תיאור קצר של העסק"
                 placeholderTextColor={SETTINGS_TOKENS.textTertiary}
                 maxLength={SHORT_DESCRIPTION_MAX_LENGTH}
                 multiline={true}
                 textAlignVertical="top"
+                underlineColorAndroid="transparent"
                 accessibilityLabel={PROFILE_FIELD_LABELS.shortDescription}
-                style={[styles.input, styles.multiline]}
+                style={[
+                  styles.input,
+                  styles.multiline,
+                  editable ? null : styles.inputReadOnly,
+                ]}
               />
             ) : null}
 
@@ -123,12 +161,15 @@ export function ProfileFieldForm({
                 onChangeText={(businessPhone) =>
                   onChange({ ...values, businessPhone })
                 }
+                editable={editable}
                 placeholder="050-123-4567"
                 placeholderTextColor={SETTINGS_TOKENS.textTertiary}
                 keyboardType="phone-pad"
                 maxLength={BUSINESS_PHONE_MAX_LENGTH}
                 accessibilityLabel={PROFILE_FIELD_LABELS.businessPhone}
-                style={styles.input}
+                textAlignVertical="center"
+                underlineColorAndroid="transparent"
+                style={[styles.input, editable ? null : styles.inputReadOnly]}
               />
             ) : null}
 
@@ -139,6 +180,7 @@ export function ProfileFieldForm({
                 </Text>
                 <SettingsChoiceList
                   multiple={true}
+                  disabled={!editable}
                   options={SERVICE_TYPES}
                   selected={values.serviceTypes}
                   onSelect={(id) => {
@@ -174,23 +216,44 @@ export function ProfileFieldForm({
                       setTagDraft(next);
                       setTagError(null);
                     }}
+                    editable={editable}
                     placeholder="תגית חדשה"
                     placeholderTextColor={SETTINGS_TOKENS.textTertiary}
                     accessibilityLabel="תגית שירות חדשה"
                     onSubmitEditing={addTag}
-                    style={[styles.input, styles.tagInput]}
+                    textAlignVertical="center"
+                    underlineColorAndroid="transparent"
+                    style={[
+                      styles.input,
+                      styles.tagInput,
+                      editable ? null : styles.inputReadOnly,
+                    ]}
                   />
                   <Pressable
                     onPress={addTag}
                     accessibilityRole="button"
                     accessibilityLabel="הוספת תגית"
-                    disabled={values.serviceTags.length >= SERVICE_TAG_LIMIT}
+                    disabled={
+                      !editable ||
+                      values.serviceTags.length >= SERVICE_TAG_LIMIT
+                    }
                     style={({ pressed }) => [
-                      styles.addTag,
-                      pressed ? styles.pressed : null,
+                      styles.addTagPressable,
+                      pressed && editable ? styles.pressed : null,
                     ]}
                   >
-                    <Text style={styles.addTagLabel}>הוסף</Text>
+                    <View
+                      collapsable={false}
+                      style={[
+                        styles.addTag,
+                        !editable ||
+                        values.serviceTags.length >= SERVICE_TAG_LIMIT
+                          ? styles.addTagDisabled
+                          : null,
+                      ]}
+                    >
+                      <Text style={styles.addTagLabel}>הוסף</Text>
+                    </View>
                   </Pressable>
                 </View>
                 {tagError ? <Text style={styles.error}>{tagError}</Text> : null}
@@ -198,14 +261,18 @@ export function ProfileFieldForm({
                   {values.serviceTags.map((tag) => (
                     <Pressable
                       key={tag}
-                      onPress={() =>
+                      onPress={() => {
+                        if (!editable) {
+                          return;
+                        }
                         onChange({
                           ...values,
                           serviceTags: values.serviceTags.filter(
                             (item) => item !== tag
                           ),
-                        })
-                      }
+                        });
+                      }}
+                      disabled={!editable}
                       accessibilityRole="button"
                       accessibilityLabel={`הסרת תגית ${tag}`}
                       style={styles.chip}
@@ -227,6 +294,7 @@ export function ProfileFieldForm({
             {field === 'usageAreas' ? (
               <SettingsChoiceList
                 multiple={true}
+                disabled={!editable}
                 options={USAGE_AREAS}
                 selected={values.usageAreas}
                 onSelect={(id) => {
@@ -243,6 +311,7 @@ export function ProfileFieldForm({
 
             {field === 'businessExample' ? (
               <SettingsChoiceList
+                disabled={!editable}
                 options={BUSINESS_EXAMPLE_OPTIONS}
                 selected={values.businessExample}
                 onSelect={(id) =>
@@ -256,6 +325,7 @@ export function ProfileFieldForm({
 
             {field === 'discoverySource' ? (
               <SettingsChoiceList
+                disabled={!editable}
                 options={DISCOVERY_SOURCES}
                 selected={values.discoverySource}
                 onSelect={(id) =>
@@ -269,6 +339,7 @@ export function ProfileFieldForm({
 
             {field === 'reason' ? (
               <SettingsChoiceList
+                disabled={!editable}
                 options={REASONS}
                 selected={values.reason}
                 onSelect={(id) =>
@@ -279,6 +350,7 @@ export function ProfileFieldForm({
 
             {field === 'ownerAgeRange' ? (
               <SettingsChoiceList
+                disabled={!editable}
                 options={OWNER_AGE_RANGES}
                 selected={values.ownerAgeRange}
                 onSelect={(id) =>
@@ -296,6 +368,7 @@ export function ProfileFieldForm({
                   {PROFILE_FIELD_EDITOR_TITLES.birthdayCampaignRelevant}
                 </Text>
                 <SettingsBooleanChoices
+                  disabled={!editable}
                   value={values.birthdayCampaignRelevant}
                   onChange={(birthdayCampaignRelevant) =>
                     onChange({ ...values, birthdayCampaignRelevant })
@@ -310,6 +383,7 @@ export function ProfileFieldForm({
                   {PROFILE_FIELD_EDITOR_TITLES.joinAnniversaryCampaignRelevant}
                 </Text>
                 <SettingsBooleanChoices
+                  disabled={!editable}
                   value={values.joinAnniversaryCampaignRelevant}
                   onChange={(joinAnniversaryCampaignRelevant) =>
                     onChange({ ...values, joinAnniversaryCampaignRelevant })
@@ -324,6 +398,7 @@ export function ProfileFieldForm({
                   {PROFILE_FIELD_EDITOR_TITLES.weakTimePromosRelevant}
                 </Text>
                 <SettingsBooleanChoices
+                  disabled={!editable}
                   value={values.weakTimePromosRelevant}
                   onChange={(weakTimePromosRelevant) =>
                     onChange({ ...values, weakTimePromosRelevant })
@@ -420,8 +495,8 @@ const styles = StyleSheet.create({
   label: {
     width: '100%',
     fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '600',
+    lineHeight: 22,
+    fontWeight: '700',
     color: SETTINGS_TOKENS.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -437,20 +512,26 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     minHeight: 52,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: SETTINGS_TOKENS.border,
     backgroundColor: SETTINGS_TOKENS.surface,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'android' ? 8 : 12,
     fontSize: 16,
-    lineHeight: 22,
     fontWeight: '500',
     color: SETTINGS_TOKENS.textPrimary,
     ...rtlBaseText,
   },
+  inputReadOnly: {
+    backgroundColor: SETTINGS_TOKENS.surfaceMuted,
+  },
   multiline: {
-    minHeight: 112,
+    minHeight: 120,
+    paddingTop: 14,
+    paddingBottom: 14,
+    lineHeight: 22,
+    textAlignVertical: 'top',
   },
   tagRow: {
     width: '100%',
@@ -462,6 +543,9 @@ const styles = StyleSheet.create({
   tagInput: {
     flex: 1,
   },
+  addTagPressable: {
+    minHeight: SETTINGS_TOKENS.touchTarget,
+  },
   addTag: {
     minHeight: SETTINGS_TOKENS.touchTarget,
     minWidth: 72,
@@ -470,6 +554,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+  },
+  addTagDisabled: {
+    opacity: 0.55,
   },
   addTagLabel: {
     fontSize: 14,
@@ -484,6 +571,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   chip: {
+    maxWidth: '100%',
     borderRadius: 999,
     backgroundColor: SETTINGS_TOKENS.accentSoft,
     paddingHorizontal: 10,
@@ -496,9 +584,13 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   chipLabel: {
+    flexShrink: 1,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
     color: SETTINGS_TOKENS.accentText,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   error: {
     width: '100%',

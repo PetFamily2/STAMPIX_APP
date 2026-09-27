@@ -1,80 +1,122 @@
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { type Ref, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   type ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import {
   BusinessSettingsSubpageHeader,
   ProfileFieldForm,
-  SettingsGroup,
-  SettingsNavRow,
+  SETTINGS_TOKENS,
+  SettingsCard,
   SettingsPageShell,
   SettingsPrimaryButton,
   SettingsSection,
-  SETTINGS_TOKENS,
   validateProfileFields,
 } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { useBusinessSettingsProfile } from '@/hooks/useBusinessSettingsProfile';
+import {
+  type BusinessSettingsSnapshot,
+  useBusinessSettingsProfile,
+} from '@/hooks/useBusinessSettingsProfile';
+import {
+  isValidSelectedBusinessAddress,
+  type SelectedBusinessAddress,
+} from '@/lib/businessAddressSelection';
 import {
   EVERYDAY_PROFILE_GROUPS,
-  isOnboardingAnalyticsField,
-  MISSING_VALUE,
   type ProfileCompletionField,
-  PROFILE_FIELD_EDITOR_TITLES,
-  PROFILE_FIELD_LABELS,
 } from '@/lib/businessSettings/profileFields';
+import {
+  type AddressDraftText,
+  addressDraftTextFromSelection,
+  buildOnboardingSaveArgs,
+  dirtyOnboardingFormFields,
+  dirtyProfileDocumentFields,
+  fieldsToValidateForSave,
+  isProfileAddressDirty,
+  planProfileGroupSave,
+  profileSaveFollowUp,
+  revertedAddressDraft,
+  sameAddressDraftText,
+  shouldGuardUnsavedProfileLeave,
+} from '@/lib/businessSettings/profileFormDraft';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import {
   resolveExactMissingProfileGuideField,
   resolveProfileGuideField,
 } from '@/lib/recommendations/guidance';
 
-function ProfileValueRow({
-  field,
-  value,
-  disabled,
-  onPress,
-  isLast,
-  targetRef,
-  onTargetLayout,
-}: {
-  field: ProfileCompletionField;
-  value: string;
-  disabled: boolean;
-  onPress: () => void;
-  isLast?: boolean;
-  targetRef?: Ref<View>;
-  onTargetLayout?: (y: number) => void;
-}) {
-  return (
-    <View
-      ref={targetRef}
-      collapsable={false}
-      onLayout={(event) => onTargetLayout?.(event.nativeEvent.layout.y)}
-    >
-      <SettingsNavRow
-        title={PROFILE_FIELD_LABELS[field]}
-        value={value}
-        disabled={disabled}
-        onPress={onPress}
-        isLast={isLast}
-        accessibilityHint={`עריכת ${PROFILE_FIELD_LABELS[field]}`}
-      />
-    </View>
-  );
+const CONTEXT_PROFILE_FIELDS: ProfileCompletionField[] = [
+  'discoverySource',
+  'reason',
+  'ownerAgeRange',
+];
+
+const PROFILE_FORM_SECTIONS: Array<{
+  id: string;
+  title: string;
+  fields: readonly ProfileCompletionField[];
+}> = [
+  ...EVERYDAY_PROFILE_GROUPS,
+  {
+    id: 'context',
+    title: 'עוד על העסק',
+    fields: CONTEXT_PROFILE_FIELDS,
+  },
+];
+
+function toSelectedAddress(
+  settings:
+    | {
+        formattedAddress?: string;
+        placeId?: string;
+        location?: { lat?: number; lng?: number } | null;
+        city?: string;
+        street?: string;
+        streetNumber?: string;
+      }
+    | null
+    | undefined
+): SelectedBusinessAddress | null {
+  const formattedAddress = settings?.formattedAddress?.trim() ?? '';
+  const placeId = settings?.placeId?.trim() ?? '';
+  const lat = settings?.location?.lat;
+  const lng = settings?.location?.lng;
+
+  if (
+    !formattedAddress ||
+    !placeId ||
+    typeof lat !== 'number' ||
+    typeof lng !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    formattedAddress,
+    placeId,
+    latitude: lat,
+    longitude: lng,
+    city: settings?.city ?? '',
+    street: settings?.street ?? '',
+    streetNumber: settings?.streetNumber ?? '',
+  };
 }
 
 export default function BusinessSettingsProfileScreen() {
-  const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{
     fieldId?: string | string[];
   }>();
@@ -85,14 +127,28 @@ export default function BusinessSettingsProfileScreen() {
   const guideTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const guideCardYRef = useRef(0);
-  const guideTargetYRef = useRef(0);
+  const guideSectionYRef = useRef(0);
+  const guideFieldYRef = useRef(0);
   const profile = useBusinessSettingsProfile();
   const { activeBusinessId } = useActiveBusiness();
-
-  const [editingField, setEditingField] =
-    useState<ProfileCompletionField | null>(null);
-  const [draft, setDraft] = useState(profile.snapshot);
+  const [draft, setDraft] = useState<BusinessSettingsSnapshot>(
+    profile.snapshot
+  );
+  const [hydratedBusinessId, setHydratedBusinessId] = useState<string | null>(
+    null
+  );
+  const [addressQuery, setAddressQuery] = useState('');
+  const [selectedAddress, setSelectedAddress] =
+    useState<SelectedBusinessAddress | null>(null);
+  const [loadedAddress, setLoadedAddress] =
+    useState<SelectedBusinessAddress | null>(null);
+  const [addressRevision, setAddressRevision] = useState(0);
+  const [addressDraftText, setAddressDraftText] = useState<AddressDraftText>(
+    addressDraftTextFromSelection(null)
+  );
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [isSavingForm, setIsSavingForm] = useState(false);
 
   const exactGuideField = useMemo(
     () =>
@@ -104,122 +160,243 @@ export default function BusinessSettingsProfileScreen() {
   );
 
   useEffect(() => {
-    setDraft(profile.snapshot);
-  }, [profile.snapshot]);
-
-  const openEditor = (field: ProfileCompletionField) => {
-    if (!profile.canEditBusiness) {
+    if (!activeBusinessId || !profile.businessSettings) {
       return;
     }
-    if (field === 'address') {
-      router.push(BUSINESS_ROUTES.address as Href);
-      return;
-    }
-    setFieldError(null);
-    setDraft(profile.snapshot);
-    setEditingField(field);
-  };
-
-  const closeEditor = () => {
-    if (profile.isSaving) {
-      return;
-    }
-    setEditingField(null);
-    setFieldError(null);
-  };
-
-  const saveEditor = async () => {
-    if (!editingField) {
-      return;
-    }
-    const message = validateProfileFields([editingField], draft);
-    if (message) {
-      setFieldError(message);
-      return;
-    }
-
-    let result: { ok: boolean; conflict: boolean; message: string | null };
     if (
-      editingField === 'name' ||
-      editingField === 'shortDescription' ||
-      editingField === 'businessPhone' ||
-      editingField === 'serviceTypes' ||
-      editingField === 'serviceTags'
+      String(profile.businessSettings.businessId) !== String(activeBusinessId)
     ) {
-      result = await profile.saveProfileFields({
-        name: draft.name,
-        shortDescription: draft.shortDescription,
-        businessPhone: draft.businessPhone,
-        serviceTypes: draft.serviceTypes,
-        serviceTags: draft.serviceTags,
-      });
-    } else if (editingField === 'usageAreas') {
-      result = await profile.saveOnboardingFields({
-        usageAreas: draft.usageAreas,
-      });
-    } else if (editingField === 'businessExample' && draft.businessExample) {
-      result = await profile.saveOnboardingFields({
-        businessExample: draft.businessExample,
-      });
-    } else if (editingField === 'discoverySource' && draft.discoverySource) {
-      result = await profile.saveOnboardingFields({
-        discoverySource: draft.discoverySource,
-      });
-    } else if (editingField === 'reason' && draft.reason) {
-      result = await profile.saveOnboardingFields({ reason: draft.reason });
-    } else if (editingField === 'ownerAgeRange' && draft.ownerAgeRange) {
-      result = await profile.saveOnboardingFields({
-        ownerAgeRange: draft.ownerAgeRange,
-      });
-    } else if (
-      editingField === 'birthdayCampaignRelevant' &&
-      draft.birthdayCampaignRelevant !== null
+      return;
+    }
+    if (profile.baseUpdatedAt === null) {
+      return;
+    }
+    const businessKey = String(activeBusinessId);
+    if (hydratedBusinessId === businessKey) {
+      return;
+    }
+    const nextAddress = toSelectedAddress(profile.businessSettings);
+    setDraft(profile.snapshot);
+    setAddressQuery(profile.businessSettings.formattedAddress?.trim() ?? '');
+    setSelectedAddress(nextAddress);
+    setLoadedAddress(nextAddress);
+    setAddressDraftText(addressDraftTextFromSelection(nextAddress));
+    setFieldError(null);
+    setSaveNotice(null);
+    setHydratedBusinessId(businessKey);
+  }, [
+    activeBusinessId,
+    hydratedBusinessId,
+    profile.baseUpdatedAt,
+    profile.businessSettings,
+    profile.snapshot,
+  ]);
+
+  const isHydrated =
+    activeBusinessId !== null &&
+    hydratedBusinessId === String(activeBusinessId);
+  const dirtyDocumentFields = dirtyProfileDocumentFields(
+    draft,
+    profile.snapshot
+  );
+  const dirtyOnboardingFields = dirtyOnboardingFormFields(
+    draft,
+    profile.snapshot
+  );
+  const addressDirty = isProfileAddressDirty(
+    loadedAddress,
+    selectedAddress,
+    addressDraftText
+  );
+  const isDirty = shouldGuardUnsavedProfileLeave({
+    hasActiveBusiness: Boolean(activeBusinessId),
+    isHydrated,
+    isSaving: false,
+    documentDirty: dirtyDocumentFields.length > 0,
+    onboardingDirty: dirtyOnboardingFields.length > 0,
+    addressDirty,
+  });
+
+  const loadLatest = () => {
+    const next = profile.applyBusinessSettingsSnapshot();
+    const settings = profile.businessSettings;
+    if (next) {
+      setDraft(next);
+    }
+    const nextAddress = toSelectedAddress(settings);
+    const reverted = revertedAddressDraft(nextAddress);
+    setAddressQuery(reverted.addressQuery);
+    setSelectedAddress(reverted.selectedAddress);
+    setLoadedAddress(reverted.selectedAddress);
+    setAddressDraftText(reverted.draftText);
+    setAddressRevision((current) => current + 1);
+    setFieldError(null);
+    setSaveNotice(null);
+  };
+
+  const showConflict = () => {
+    Alert.alert(
+      'הנתונים עודכנו',
+      'נמצאה גרסה חדשה של פרטי העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
+      [
+        { text: 'טען גרסה עדכנית', onPress: loadLatest },
+        { text: 'השאר טיוטה מקומית' },
+      ]
+    );
+  };
+
+  const handleAddressDraftChange = useCallback((next: AddressDraftText) => {
+    setAddressDraftText((current) =>
+      sameAddressDraftText(current, next) ? current : next
+    );
+  }, []);
+
+  const revertAddress = () => {
+    const reverted = revertedAddressDraft(loadedAddress);
+    setAddressQuery(reverted.addressQuery);
+    setSelectedAddress(reverted.selectedAddress);
+    setAddressDraftText(reverted.draftText);
+    setAddressRevision((current) => current + 1);
+    setFieldError(null);
+    setSaveNotice(null);
+  };
+
+  const updateDraft = (next: BusinessSettingsSnapshot) => {
+    setDraft(next);
+    setFieldError(null);
+    setSaveNotice(null);
+  };
+
+  const handleSave = async () => {
+    if (
+      !profile.canEditBusiness ||
+      profile.isSaving ||
+      isSavingForm ||
+      profile.conflictLocked
     ) {
-      result = await profile.saveOnboardingFields({
-        birthdayCampaignRelevant: draft.birthdayCampaignRelevant,
-      });
-    } else if (
-      editingField === 'joinAnniversaryCampaignRelevant' &&
-      draft.joinAnniversaryCampaignRelevant !== null
+      return;
+    }
+    if (
+      dirtyDocumentFields.length === 0 &&
+      dirtyOnboardingFields.length === 0 &&
+      !addressDirty
     ) {
-      result = await profile.saveOnboardingFields({
-        joinAnniversaryCampaignRelevant: draft.joinAnniversaryCampaignRelevant,
-      });
-    } else if (
-      editingField === 'weakTimePromosRelevant' &&
-      draft.weakTimePromosRelevant !== null
-    ) {
-      result = await profile.saveOnboardingFields({
-        weakTimePromosRelevant: draft.weakTimePromosRelevant,
-      });
-    } else {
-      result = { ok: false, conflict: false, message: 'שמירת הנתון נכשלה.' };
+      return;
     }
 
-    if (result.conflict) {
+    const otherFieldsError = validateProfileFields(
+      fieldsToValidateForSave(dirtyDocumentFields, dirtyOnboardingFields),
+      draft
+    );
+    const savePlan = planProfileGroupSave({
+      hasDocumentChanges: dirtyDocumentFields.length > 0,
+      hasOnboardingChanges: dirtyOnboardingFields.length > 0,
+      addressDirty,
+      addressValid: isValidSelectedBusinessAddress(selectedAddress),
+      otherFieldsError,
+    });
+    if (otherFieldsError) {
+      setFieldError(otherFieldsError);
+      setSaveNotice(null);
+      return;
+    }
+    if (
+      !savePlan.saveDocument &&
+      !savePlan.saveOnboarding &&
+      !savePlan.saveAddress
+    ) {
+      const followUp = profileSaveFollowUp(savePlan, false);
+      setFieldError(followUp.fieldError);
+      setSaveNotice(followUp.saveNotice);
+      return;
+    }
+
+    setFieldError(null);
+    setSaveNotice(null);
+    setIsSavingForm(true);
+
+    try {
+      let savedOtherGroups = false;
+      if (savePlan.saveDocument) {
+        const result = await profile.saveProfileFields({
+          name: draft.name,
+          shortDescription: draft.shortDescription,
+          businessPhone: draft.businessPhone,
+          serviceTypes: draft.serviceTypes,
+          serviceTags: draft.serviceTags,
+        });
+        if (result.conflict) {
+          showConflict();
+          return;
+        }
+        if (!result.ok) {
+          setFieldError(result.message ?? 'שמירת הנתון נכשלה.');
+          return;
+        }
+        savedOtherGroups = true;
+      }
+
+      if (
+        savePlan.saveAddress &&
+        selectedAddress &&
+        isValidSelectedBusinessAddress(selectedAddress)
+      ) {
+        const result = await profile.saveBusinessAddress(selectedAddress);
+        if (result.conflict) {
+          showConflict();
+          return;
+        }
+        if (!result.ok) {
+          setFieldError(result.message ?? 'עדכון הכתובת נכשל.');
+          return;
+        }
+        setLoadedAddress(selectedAddress);
+        setAddressDraftText(addressDraftTextFromSelection(selectedAddress));
+      }
+
+      if (savePlan.saveOnboarding) {
+        const result = await profile.saveOnboardingFields(
+          buildOnboardingSaveArgs(dirtyOnboardingFields, draft)
+        );
+        if (!result.ok) {
+          setFieldError(result.message ?? 'שמירת הנתון נכשלה.');
+          return;
+        }
+        savedOtherGroups = true;
+      }
+
+      const followUp = profileSaveFollowUp(savePlan, savedOtherGroups);
+      setFieldError(followUp.fieldError);
+      setSaveNotice(followUp.saveNotice);
+    } finally {
+      setIsSavingForm(false);
+    }
+  };
+
+  usePreventRemove(
+    shouldGuardUnsavedProfileLeave({
+      hasActiveBusiness: Boolean(activeBusinessId),
+      isHydrated,
+      isSaving: isSavingForm,
+      documentDirty: dirtyDocumentFields.length > 0,
+      onboardingDirty: dirtyOnboardingFields.length > 0,
+      addressDirty,
+    }),
+    ({ data }) => {
       Alert.alert(
-        'הנתונים עודכנו',
-        'נמצאה גרסה חדשה של פרטי העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
+        'יש שינויים שלא נשמרו',
+        'אפשר להמשיך לערוך או לצאת ללא שמירה.',
         [
+          { text: 'המשך עריכה', style: 'cancel' },
           {
-            text: 'טען גרסה עדכנית',
-            onPress: () => {
-              profile.applyBusinessSettingsSnapshot();
-              setEditingField(null);
-            },
+            text: 'יציאה ללא שמירה',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(data.action),
           },
-          { text: 'השאר טיוטה מקומית' },
         ]
       );
-      return;
     }
-    if (!result.ok) {
-      setFieldError(result.message ?? 'שמירת הנתון נכשלה.');
-      return;
-    }
-    setEditingField(null);
-    setFieldError(null);
-  };
+  );
 
   if (!activeBusinessId) {
     return (
@@ -245,53 +422,42 @@ export default function BusinessSettingsProfileScreen() {
     );
   }
 
-  const guidedOnboardingField =
-    exactGuideField && isOnboardingAnalyticsField(exactGuideField)
-      ? exactGuideField
-      : null;
-
-  if (editingField) {
-    return (
-      <SettingsPageShell
-        keyboardAware={true}
-        header={
-          <BusinessSettingsSubpageHeader
-            title={PROFILE_FIELD_EDITOR_TITLES[editingField]}
-            fallbackHref={BUSINESS_ROUTES.profile}
-            onBackPress={closeEditor}
-          />
-        }
-        footer={
-          profile.canEditBusiness ? (
-            <SettingsPrimaryButton
-              label="שמירה"
-              loading={profile.isSaving}
-              disabled={profile.isSaving || profile.conflictLocked}
-              onPress={() => {
-                void saveEditor();
-              }}
-            />
-          ) : null
-        }
-      >
-        <ProfileFieldForm
-          fields={[editingField]}
-          values={draft}
-          onChange={setDraft}
-          error={fieldError}
-        />
-      </SettingsPageShell>
-    );
-  }
+  const formReady =
+    profile.businessSettings != null &&
+    hydratedBusinessId === String(activeBusinessId);
+  const canEditFields =
+    profile.canEditBusiness && !profile.isSaving && !isSavingForm;
 
   return (
     <SettingsPageShell
+      keyboardAware={true}
       scrollRef={guideScrollRef}
       header={
         <BusinessSettingsSubpageHeader
           title="פרטי העסק"
           fallbackHref={BUSINESS_ROUTES.settings}
         />
+      }
+      footer={
+        formReady && profile.canEditBusiness ? (
+          <View style={styles.footerStack}>
+            {fieldError ? (
+              <Text style={styles.error} accessibilityRole="alert">
+                {fieldError}
+              </Text>
+            ) : saveNotice ? (
+              <Text style={styles.notice}>{saveNotice}</Text>
+            ) : null}
+            <SettingsPrimaryButton
+              label="שמירה"
+              loading={isSavingForm}
+              disabled={!isDirty || isSavingForm || profile.conflictLocked}
+              onPress={() => {
+                void handleSave();
+              }}
+            />
+          </View>
+        ) : null
       }
       overlay={
         <GuidedActionScreenOverlay
@@ -304,7 +470,10 @@ export default function BusinessSettingsProfileScreen() {
             guideScrollRef.current?.scrollTo({
               y: Math.max(
                 0,
-                guideCardYRef.current + guideTargetYRef.current - 24
+                guideCardYRef.current +
+                  guideSectionYRef.current +
+                  guideFieldYRef.current -
+                  24
               ),
               animated: false,
             });
@@ -312,104 +481,194 @@ export default function BusinessSettingsProfileScreen() {
         />
       }
     >
-      {profile.businessSettings === undefined ? (
-        <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+      {profile.businessSettings === undefined ||
+      (profile.businessSettings !== null && !formReady) ? (
+        <View style={styles.loading}>
           <ActivityIndicator color={SETTINGS_TOKENS.accent} />
         </View>
       ) : profile.businessSettings === null ? (
-        <Text
-          style={{
-            textAlign: 'right',
-            color: SETTINGS_TOKENS.textSecondary,
-          }}
-        >
-          לא נמצאו נתוני עסק להצגה.
-        </Text>
+        <Text style={styles.empty}>לא נמצאו נתוני עסק להצגה.</Text>
       ) : (
-        <>
-          <View
-            onLayout={(event) => {
-              guideCardYRef.current = event.nativeEvent.layout.y;
-            }}
-            style={{ gap: 16 }}
-          >
-            {EVERYDAY_PROFILE_GROUPS.map((group) => (
-              <SettingsSection key={group.id} title={group.title}>
-                <SettingsGroup>
-                  {group.fields.map((field, index) => {
-                    const isLast = index === group.fields.length - 1;
-                    if (field === 'address') {
-                      return (
-                        <SettingsNavRow
-                          key={field}
-                          title={PROFILE_FIELD_LABELS.address}
-                          value={
-                            profile.displayValueFor('address') || MISSING_VALUE
-                          }
-                          disabled={!profile.canEditBusiness}
-                          onPress={() => openEditor('address')}
-                          isLast={isLast}
-                          accessibilityHint="עריכת כתובת העסק"
-                        />
-                      );
-                    }
-                    return (
-                      <ProfileValueRow
-                        key={field}
-                        field={field}
-                        value={profile.displayValueFor(field)}
-                        disabled={!profile.canEditBusiness}
-                        onPress={() => openEditor(field)}
-                        isLast={isLast}
-                        targetRef={
-                          exactGuideField === field ? guideTargetRef : undefined
-                        }
-                        onTargetLayout={
-                          exactGuideField === field
+        <View
+          onLayout={(event) => {
+            guideCardYRef.current = event.nativeEvent.layout.y;
+          }}
+          style={styles.sections}
+        >
+          {PROFILE_FORM_SECTIONS.map((group) => {
+            const editorFields = group.fields.filter(
+              (field) => field !== 'address'
+            );
+            const sectionGuides =
+              exactGuideField !== null &&
+              group.fields.includes(exactGuideField);
+            return (
+              <View
+                key={group.id}
+                onLayout={(event) => {
+                  if (sectionGuides) {
+                    guideSectionYRef.current = event.nativeEvent.layout.y;
+                  }
+                }}
+              >
+                <SettingsSection title={group.title}>
+                  <SettingsCard>
+                    {editorFields.length > 0 ? (
+                      <ProfileFieldForm
+                        fields={editorFields}
+                        values={draft}
+                        onChange={updateDraft}
+                        editable={canEditFields}
+                        anchoredField={sectionGuides ? exactGuideField : null}
+                        anchorRef={sectionGuides ? guideTargetRef : undefined}
+                        onAnchorLayout={
+                          sectionGuides
                             ? (y) => {
-                                guideTargetYRef.current = y;
+                                guideFieldYRef.current = y;
                               }
                             : undefined
                         }
                       />
-                    );
-                  })}
-                </SettingsGroup>
-              </SettingsSection>
-            ))}
+                    ) : null}
+                    {group.fields.includes('address') ? (
+                      <>
+                        <BusinessAddressSelector
+                          key={`${activeBusinessId}:${addressRevision}`}
+                          query={addressQuery}
+                          selectedAddress={selectedAddress}
+                          onQueryChange={(value) => {
+                            setAddressQuery(value);
+                            setFieldError(null);
+                            setSaveNotice(null);
+                          }}
+                          onSelectedAddressChange={(value) => {
+                            setSelectedAddress(value);
+                            setFieldError(null);
+                            setSaveNotice(null);
+                          }}
+                          onDraftChange={handleAddressDraftChange}
+                          disabled={!canEditFields}
+                          scrollViewRef={guideScrollRef}
+                        />
+                        {addressDirty && canEditFields ? (
+                          <Pressable
+                            onPress={revertAddress}
+                            accessibilityRole="button"
+                            accessibilityLabel="שחזור הכתובת השמורה"
+                            style={styles.warningActionHit}
+                          >
+                            <Text style={styles.warningAction}>
+                              שחזור הכתובת השמורה
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </SettingsCard>
+                </SettingsSection>
+              </View>
+            );
+          })}
 
-            {guidedOnboardingField ? (
-              <SettingsSection title="השלמת פרט חסר">
-                <SettingsGroup>
-                  <ProfileValueRow
-                    field={guidedOnboardingField}
-                    value={profile.displayValueFor(guidedOnboardingField)}
-                    disabled={!profile.canEditBusiness}
-                    onPress={() => openEditor(guidedOnboardingField)}
-                    isLast={true}
-                    targetRef={guideTargetRef}
-                    onTargetLayout={(y) => {
-                      guideTargetYRef.current = y;
-                    }}
-                  />
-                </SettingsGroup>
-              </SettingsSection>
-            ) : null}
-          </View>
+          {profile.conflictLocked ? (
+            <View style={styles.warningCard}>
+              <Text style={styles.warningText}>
+                נמצאה גרסה חדשה של פרטי העסק. השמירה נעולה עד לטעינת הגרסה
+                העדכנית.
+              </Text>
+              <Pressable
+                onPress={loadLatest}
+                accessibilityRole="button"
+                accessibilityLabel="טען גרסה עדכנית"
+                style={styles.warningActionHit}
+              >
+                <Text style={styles.warningAction}>טען גרסה עדכנית</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {!profile.canEditBusiness ? (
-            <Text
-              style={{
-                textAlign: 'right',
-                color: SETTINGS_TOKENS.textSecondary,
-                fontSize: 12,
-              }}
-            >
+            <Text style={styles.permission}>
               עריכת נתוני העסק זמינה לבעלים או למנהל בלבד
             </Text>
           ) : null}
-        </>
+        </View>
       )}
     </SettingsPageShell>
   );
 }
+
+const styles = StyleSheet.create({
+  sections: {
+    gap: 16,
+  },
+  loading: {
+    alignItems: 'center' as const,
+    paddingVertical: 28,
+  },
+  empty: {
+    width: '100%' as const,
+    textAlign: 'right' as const,
+    writingDirection: 'rtl' as const,
+    color: SETTINGS_TOKENS.textSecondary,
+  },
+  footerStack: {
+    width: '100%' as const,
+    gap: 8,
+    alignItems: 'stretch' as const,
+  },
+  error: {
+    width: '100%' as const,
+    fontSize: 13,
+    lineHeight: 18,
+    color: SETTINGS_TOKENS.destructive,
+    textAlign: 'right' as const,
+    writingDirection: 'rtl' as const,
+  },
+  notice: {
+    width: '100%' as const,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+    color: SETTINGS_TOKENS.accentText,
+    textAlign: 'right' as const,
+    writingDirection: 'rtl' as const,
+  },
+  permission: {
+    textAlign: 'right' as const,
+    writingDirection: 'rtl' as const,
+    color: SETTINGS_TOKENS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  warningCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: SETTINGS_TOKENS.warningBorder,
+    backgroundColor: SETTINGS_TOKENS.warningBg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  warningText: {
+    width: '100%' as const,
+    textAlign: 'right' as const,
+    writingDirection: 'rtl' as const,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600' as const,
+    color: SETTINGS_TOKENS.warningTitle,
+  },
+  warningActionHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  warningAction: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: SETTINGS_TOKENS.accentText,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+});

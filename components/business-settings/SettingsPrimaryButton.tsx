@@ -1,7 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
-import { rtlCenterText } from '@/lib/rtl';
+import { ActionButton } from '@/components/ui/ActionButton';
 
 export function SettingsPrimaryButton({
   label,
@@ -16,51 +15,21 @@ export function SettingsPrimaryButton({
   loading?: boolean;
   accessibilityLabel?: string;
 }) {
-  const isDisabled = disabled || loading;
-
   return (
-    <Pressable
+    <ActionButton
+      label={label}
       onPress={onPress}
-      disabled={isDisabled}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
-      style={({ pressed }) => [
-        styles.button,
-        isDisabled ? styles.buttonDisabled : null,
-        pressed && !isDisabled ? styles.pressed : null,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <Text style={styles.label}>{label}</Text>
-      )}
-    </Pressable>
+      disabled={disabled}
+      loading={loading}
+      accessibilityLabel={accessibilityLabel}
+      style={styles.button}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
-    borderRadius: 16,
-    backgroundColor: SETTINGS_TOKENS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  buttonDisabled: {
-    backgroundColor: '#D6DCE8',
-  },
-  pressed: {
-    opacity: 0.9,
-  },
-  label: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    ...rtlCenterText,
+    minWidth: 168,
+    alignSelf: 'center',
   },
 });

@@ -32,16 +32,17 @@ import {
 } from 'react-native-safe-area-context';
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { LoyaltyProgramTile } from '@/components/loyalty/LoyaltyProgramTile';
 import QrScanner from '@/components/QrScanner';
+import StickyScrollHeader from '@/components/StickyScrollHeader';
 import PosRedemptionCelebration from '@/components/scanner/PosRedemptionCelebration';
 import RewardReadyCue from '@/components/scanner/RewardReadyCue';
-import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { LoyaltyProgramTile } from '@/components/loyalty/LoyaltyProgramTile';
 import { track } from '@/lib/analytics';
 import {
   trackActivationEvent,
@@ -1115,29 +1116,31 @@ export default function ScannerScreen() {
         {flow.notice ? (
           <Text style={styles.programNotice}>{flow.notice}</Text>
         ) : null}
-        <View
-          style={[
-            styles.programGrid,
-            { width: programGridWidth, gap: PROGRAM_GRID_GAP },
-          ]}
-        >
-          {programs.map((program) => {
-            const selected =
-              program.loyaltyProgramId === flow.selectedProgramId;
-            return (
-              <LoyaltyProgramTile
-                key={program.loyaltyProgramId}
-                title={program.title}
-                cardThemeId={program.cardThemeId}
-                stampIcon={program.stampIcon}
-                selected={selected}
-                disabled={!selectionEnabled}
-                busy={flow.phase === 'resolving'}
-                width={programTileWidth}
-                onPress={() => void selectProgram(program.loyaltyProgramId)}
-              />
-            );
-          })}
+        <View collapsable={false} style={styles.programGridRegion}>
+          <View
+            style={[
+              styles.programGrid,
+              { width: programGridWidth, gap: PROGRAM_GRID_GAP },
+            ]}
+          >
+            {programs.map((program) => {
+              const selected =
+                program.loyaltyProgramId === flow.selectedProgramId;
+              return (
+                <LoyaltyProgramTile
+                  key={program.loyaltyProgramId}
+                  title={program.title}
+                  cardThemeId={program.cardThemeId}
+                  stampIcon={program.stampIcon}
+                  selected={selected}
+                  disabled={!selectionEnabled}
+                  busy={flow.phase === 'resolving'}
+                  width={programTileWidth}
+                  onPress={() => void selectProgram(program.loyaltyProgramId)}
+                />
+              );
+            })}
+          </View>
         </View>
       </View>
     );
@@ -1194,27 +1197,24 @@ export default function ScannerScreen() {
           <Text style={styles.primaryButtonText}>הלקוח הבא</Text>
         </Pressable>
         {result.undo && undoNow < result.undo.availableUntil ? (
-          <Pressable
-            onPress={() => void handleUndo()}
-            disabled={isUndoing}
-            accessibilityRole="button"
-            accessibilityLabel="ביטול הפעולה האחרונה"
-            style={({ pressed }) => [
-              styles.undoButton,
-              pressed ? styles.buttonPressed : null,
-              isUndoing ? styles.buttonDisabled : null,
-            ]}
-          >
-            <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
-            <Text style={styles.undoButtonText}>
-              {isUndoing
+          <ActionButton
+            label={
+              isUndoing
                 ? 'מבטלים...'
                 : `ביטול פעולה ${formatUndoCountdown(
                     result.undo.availableUntil,
                     undoNow
-                  )}`}
-            </Text>
-          </Pressable>
+                  )}`
+            }
+            variant="secondary"
+            onPress={() => void handleUndo()}
+            disabled={isUndoing}
+            loading={isUndoing}
+            accessibilityLabel="ביטול הפעולה האחרונה"
+            icon={
+              <Ionicons name="arrow-undo-outline" size={18} color="#1D4ED8" />
+            }
+          />
         ) : null}
       </>
     );
@@ -1605,6 +1605,7 @@ const styles = StyleSheet.create({
     width: '100%',
     color: '#14213D',
     fontSize: 15,
+    lineHeight: 22,
     fontWeight: '900',
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -1635,9 +1636,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
+  programGridRegion: {
+    width: '100%',
+    minHeight: 101,
+    alignItems: alignItems.start,
+    overflow: 'visible',
+  },
   programGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
+    alignContent: 'flex-start',
+    overflow: 'visible',
   },
   transactionArea: {
     width: '100%',
@@ -1826,23 +1835,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     writingDirection: 'rtl',
-  },
-  undoButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFD3FF',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  undoButtonText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '900',
   },
   ownerGuidance: {
     width: '100%',

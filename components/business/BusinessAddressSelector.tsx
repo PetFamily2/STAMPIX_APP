@@ -1,10 +1,10 @@
 import {
-  useEffect,
-  useRef,
-  useState,
   type MutableRefObject,
   type Ref,
   type RefObject,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 import {
   ActivityIndicator,
@@ -20,6 +20,7 @@ import {
 import { useGoogleAddressResolution } from '@/hooks/useGoogleAddressResolution';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
 import {
+  type BusinessAddressSelectionState,
   createBusinessAddressSelectionState,
   editBusinessAddressCity,
   editBusinessAddressHouseNumber,
@@ -30,14 +31,13 @@ import {
   isValidHouseNumber,
   normalizeHouseNumber,
   resolveBusinessAddressGuideTarget,
+  type SelectedBusinessAddress,
   selectBusinessAddressCity,
   selectBusinessAddressStreet,
   shouldAcceptAddressResolutionResponse,
-  type BusinessAddressSelectionState,
-  type SelectedBusinessAddress,
 } from '@/lib/businessAddressSelection';
 import type { PlaceSuggestion } from '@/lib/googlePlaces';
-import { alignItems, flexDirection, ltrIslandText } from '@/lib/rtl';
+import { flexDirection, ltrIslandText } from '@/lib/rtl';
 
 const TEXT = {
   label: 'כתובת העסק',
@@ -56,10 +56,8 @@ const TEXT = {
   invalidHouseNumber:
     'מספר הבית חייב לכלול ספרה ועד 16 תווים: אותיות, רווח, מקף או לוכסן.',
   autocompleteFailed: 'לא הצלחנו לטעון הצעות כתובת. נסו שוב.',
-  notFound:
-    'לא הצלחנו לאתר את הכתובת. בדקו את העיר, הרחוב ומספר הבית.',
-  serviceFailure:
-    'לא ניתן לבדוק את הכתובת כרגע. נסו שוב בעוד מספר רגעים.',
+  notFound: 'לא הצלחנו לאתר את הכתובת. בדקו את העיר, הרחוב ומספר הבית.',
+  serviceFailure: 'לא ניתן לבדוק את הכתובת כרגע. נסו שוב בעוד מספר רגעים.',
   googleAttribution: 'Google Maps',
 };
 
@@ -76,6 +74,11 @@ type BusinessAddressSelectorProps = {
   scrollViewRef?: RefObject<ScrollView | null>;
   guideTargetRef?: Ref<View>;
   guideFocusTargetRef?: MutableRefObject<(() => void) | null>;
+  onDraftChange?: (draft: {
+    cityText: string;
+    streetText: string;
+    houseNumber: string;
+  }) => void;
 };
 
 type AddressField = 'city' | 'street' | 'houseNumber';
@@ -153,7 +156,7 @@ function AutocompleteResults({
         style={styles.suggestionsScroll}
         contentContainerStyle={styles.suggestionsContent}
         keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
+        nestedScrollEnabled={true}
         showsVerticalScrollIndicator={suggestions.length >= 5}
       >
         {suggestions.slice(0, 5).map((suggestion) => (
@@ -182,6 +185,7 @@ export default function BusinessAddressSelector({
   scrollViewRef,
   guideTargetRef,
   guideFocusTargetRef,
+  onDraftChange,
 }: BusinessAddressSelectorProps) {
   const [state, setState] = useState<BusinessAddressSelectionState>(() =>
     createBusinessAddressSelectionState(selectedAddress)
@@ -249,6 +253,14 @@ export default function BusinessAddressSelector({
     cityAutocomplete.suggestions.length,
     streetAutocomplete.suggestions.length,
   ]);
+
+  useEffect(() => {
+    onDraftChange?.({
+      cityText: state.cityText,
+      streetText: state.streetText,
+      houseNumber: state.houseNumber,
+    });
+  }, [onDraftChange, state.cityText, state.houseNumber, state.streetText]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -384,7 +396,11 @@ export default function BusinessAddressSelector({
   };
 
   useEffect(() => {
-    if (state.status !== 'idle' || !isAddressResolutionReady(state) || disabled) {
+    if (
+      state.status !== 'idle' ||
+      !isAddressResolutionReady(state) ||
+      disabled
+    ) {
       return;
     }
     const timeoutId = setTimeout(() => {
@@ -487,11 +503,7 @@ export default function BusinessAddressSelector({
       ) : null}
 
       <View
-        ref={
-          guideTarget === 'city'
-            ? guideTargetRef
-            : undefined
-        }
+        ref={guideTarget === 'city' ? guideTargetRef : undefined}
         collapsable={false}
         style={styles.field}
       >
@@ -537,11 +549,7 @@ export default function BusinessAddressSelector({
       ) : null}
 
       <View
-        ref={
-          guideTarget === 'street'
-            ? guideTargetRef
-            : undefined
-        }
+        ref={guideTarget === 'street' ? guideTargetRef : undefined}
         collapsable={false}
         style={styles.field}
       >
@@ -590,11 +598,7 @@ export default function BusinessAddressSelector({
       ) : null}
 
       <View
-        ref={
-          guideTarget === 'houseNumber'
-            ? guideTargetRef
-            : undefined
-        }
+        ref={guideTarget === 'houseNumber' ? guideTargetRef : undefined}
         collapsable={false}
         style={styles.field}
       >
@@ -685,26 +689,35 @@ export default function BusinessAddressSelector({
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
     gap: 10,
   },
   groupLabel: {
+    width: '100%',
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   field: {
+    width: '100%',
+    alignItems: 'stretch',
     gap: 8,
   },
   label: {
+    width: '100%',
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '700',
     color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   input: {
+    width: '100%',
+    minHeight: 52,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -716,6 +729,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    textAlignVertical: 'center',
   },
   inputDisabled: {
     backgroundColor: '#F3F4F6',
@@ -766,18 +780,23 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   suggestionTextWrap: {
-    alignItems: alignItems.start,
+    width: '100%',
+    alignItems: 'stretch',
   },
   suggestionPrimary: {
+    width: '100%',
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   suggestionSecondary: {
+    width: '100%',
     marginTop: 2,
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '500',
     color: '#6B7280',
     textAlign: 'right',
@@ -795,6 +814,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   readOnlyCard: {
+    width: '100%',
     gap: 6,
     borderRadius: 16,
     borderWidth: 1,
@@ -802,17 +822,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    alignItems: alignItems.start,
+    alignItems: 'stretch',
   },
   previewLabel: {
+    width: '100%',
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '700',
     color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   previewValue: {
+    width: '100%',
     fontSize: 15,
+    lineHeight: 22,
     fontWeight: '800',
     color: '#111827',
     textAlign: 'right',

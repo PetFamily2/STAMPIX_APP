@@ -42,6 +42,7 @@ export function SettingsPageShell({
       ref={scrollRef}
       stickyHeaderIndices={[0]}
       keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled={true}
       contentContainerStyle={[
         styles.content,
         {

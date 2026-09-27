@@ -2208,6 +2208,7 @@ export default function CampaignDraftEditorScreen() {
                 conflictLocked
               }
               lifecycleLoading={isArchiving}
+              lifecycleVariant={isArchivedCampaign ? 'secondary' : 'lifecycle'}
               onLifecyclePress={
                 isArchivedCampaign ? handleRestoreAsDraft : handleMoveToArchive
               }

@@ -856,12 +856,13 @@ describe('business profile settings and discovery filters', () => {
       ],
     });
 
-    await saveBusinessOnboardingSnapshot._handler(ctx, {
+    const result = await saveBusinessOnboardingSnapshot._handler(ctx, {
       businessId: 'business_1',
       discoverySource: 'social',
       usageAreas: ['nearby', 'citywide'],
       ownerAgeRange: '25-34',
     });
+    expect(typeof result.updatedAt).toBe('number');
 
     const updatedBusiness = state.businesses.get('business_1');
     expect(updatedBusiness.onboardingSnapshot.discoverySource).toBe('social');
