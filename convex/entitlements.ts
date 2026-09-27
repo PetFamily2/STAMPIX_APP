@@ -12,6 +12,8 @@ import {
   getBillingAccountByProviderAppUserId,
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
+import { applyVerifiedBillingEvent } from './lib/billing/applyVerifiedBillingEvent';
+import { mapRevenueCatToCanonicalEvent } from './lib/billing/canonicalEvent';
 import {
   isLegacyBusinessScopedAppUserId,
   parseLegacyBusinessIdFromAppUserId,
@@ -28,8 +30,6 @@ import {
 import { resolveRevenueCatPlanMapping as resolveMappedRevenueCatProduct } from './lib/billing/productMap';
 import { reserveUsageSlot } from './lib/billing/usageCounters';
 import { monthKeyFromTimestamp } from './lib/recommendationUtils';
-import { evaluateReferralProgressFromBillingEvent } from './lib/referrals/billingHook';
-import { markSmartManagerDirty } from './lib/smartManagerDirty';
 
 export type BusinessPlan = ContractBusinessPlan;
 export type LegacyBusinessPlan = 'starter' | 'pro' | 'unlimited' | 'free';
@@ -281,28 +281,6 @@ export function resolveRevenueCatPlanMapping(args: {
     plan: mapped.plan,
     period: mapped.period,
   };
-}
-
-function normalizeRevenueCatSubscriptionStatus(
-  eventType: string
-): BusinessSubscriptionStatus {
-  if (eventType === 'TRIAL_STARTED') {
-    return 'trialing';
-  }
-  if (REVENUECAT_PAST_DUE_EVENT_TYPES.has(eventType)) {
-    return 'past_due';
-  }
-  if (eventType === 'CANCELLATION') {
-    return 'canceled';
-  }
-  if (
-    eventType === 'EXPIRATION' ||
-    eventType === 'REFUND' ||
-    eventType === 'SUBSCRIPTION_PAUSED'
-  ) {
-    return 'inactive';
-  }
-  return 'active';
 }
 
 function shouldRevokeAccessForRevenueCatEvent(eventType: string) {
@@ -905,10 +883,7 @@ export function campaignConsumesQuota(candidate: CampaignQuotaCandidate) {
   if (candidate.kind === 'customer_referral') {
     return candidate.config?.isEnabled === true;
   }
-  if (
-    typeof candidate.campaign !== 'object' ||
-    candidate.campaign === null
-  ) {
+  if (typeof candidate.campaign !== 'object' || candidate.campaign === null) {
     return false;
   }
 
@@ -1455,16 +1430,31 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       throw new Error('REVENUECAT_UNKNOWN_PROVIDER_IDENTITY');
     }
 
-    const billingAccount = await ensureBusinessBillingAccount(ctx, {
+    await ensureBusinessBillingAccount(ctx, {
       businessId,
       ownerUserId: business.ownerUserId,
       preferredProviderAppUserId: args.appUserId,
       now,
     });
 
-    const incomingEventAt = args.providerEventAt ?? now;
-    const lastEventAt = Number(billingAccount.lastProviderEventAt ?? 0);
-    if (lastEventAt > 0 && incomingEventAt < lastEventAt) {
+    const canonicalEvent = mapRevenueCatToCanonicalEvent({
+      eventId: args.eventId,
+      eventType: args.eventType,
+      businessId,
+      plan: mapping.plan,
+      billingPeriod: mapping.period,
+      purchasedAt: args.purchasedAt,
+      expirationAt: args.expirationAt,
+      gracePeriodEndAt: args.gracePeriodEndAt,
+      providerEventAt: args.providerEventAt,
+      providerProductId: args.newProductId ?? args.productId,
+      providerSubscriptionId: args.providerSubscriptionId,
+      fallbackPeriodStartAt: business.subscriptionStartAt ?? null,
+      fallbackPeriodEndAt: business.subscriptionEndAt ?? null,
+      now,
+    });
+    const applied = await applyVerifiedBillingEvent(ctx, canonicalEvent);
+    if (!applied.applied) {
       await ctx.db.insert('revenueCatWebhookEvents', {
         eventId: args.eventId,
         eventType: args.eventType,
@@ -1474,7 +1464,7 @@ export const applyRevenueCatWebhookEvent = internalMutation({
         entitlementIds: args.entitlementIds,
         status: 'ignored_stale',
         ignoredReason: 'older_than_last_provider_event',
-        providerEventAt: incomingEventAt,
+        providerEventAt: canonicalEvent.occurredAt,
         receivedAt: now,
         processedAt: now,
         rawEvent: args.rawEvent,
@@ -1489,31 +1479,6 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       };
     }
 
-    const providerStatus = normalizeRevenueCatSubscriptionStatus(
-      args.eventType
-    );
-    const shouldRevoke = shouldRevokeAccessForRevenueCatEvent(args.eventType);
-    const startAt = args.purchasedAt ?? business.subscriptionStartAt ?? now;
-    const endAt =
-      args.expirationAt === undefined
-        ? (business.subscriptionEndAt ?? null)
-        : args.expirationAt;
-    const nextPlan = mapping.plan;
-    const nextStatus: BusinessSubscriptionStatus = shouldRevoke
-      ? 'inactive'
-      : providerStatus;
-    const nextPeriod = mapping.period;
-    const nextEndAt = shouldRevoke ? (endAt ?? now) : endAt;
-    const revokedAt =
-      shouldRevoke &&
-      (args.eventType === 'REFUND' || args.eventType === 'EXPIRATION')
-        ? now
-        : undefined;
-    const gracePeriodEndAt =
-      args.eventType === 'BILLING_ISSUE'
-        ? (args.gracePeriodEndAt ?? null)
-        : null;
-
     await ctx.db.insert('revenueCatWebhookEvents', {
       eventId: args.eventId,
       eventType: args.eventType,
@@ -1522,7 +1487,7 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       productId: args.productId,
       entitlementIds: args.entitlementIds,
       status: 'processed',
-      providerEventAt: incomingEventAt,
+      providerEventAt: canonicalEvent.occurredAt,
       receivedAt: now,
       processedAt: now,
       rawEvent: args.rawEvent,
@@ -1530,74 +1495,20 @@ export const applyRevenueCatWebhookEvent = internalMutation({
 
     await upsertRevenueCatSubscriptionRow(ctx, {
       businessId,
-      plan: nextPlan,
-      status: nextStatus,
-      period: nextPeriod,
-      startAt,
-      endAt: nextEndAt,
+      plan: canonicalEvent.plan,
+      status: canonicalEvent.status,
+      period: canonicalEvent.billingPeriod,
+      startAt: canonicalEvent.periodStartAt,
+      endAt: canonicalEvent.periodEndAt,
       providerSubscriptionId: args.providerSubscriptionId,
       now,
     });
 
-    await ctx.db.patch(billingAccount._id, {
-      plan: nextPlan,
-      lastPlan: nextPlan,
-      status: nextStatus,
-      billingPeriod: nextPeriod,
-      provider: 'revenuecat',
-      providerProductId: args.newProductId ?? args.productId,
-      providerSubscriptionIdentifier: args.providerSubscriptionId,
-      subscriptionStartAt: startAt,
-      currentPeriodStartAt: startAt,
-      currentPeriodEndAt: nextEndAt,
-      gracePeriodEndAt,
-      canceledAt:
-        args.eventType === 'CANCELLATION'
-          ? now
-          : args.eventType === 'UNCANCELLATION'
-            ? null
-            : billingAccount.canceledAt,
-      entitlementRevokedAt: revokedAt,
-      revokeReason: shouldRevoke ? args.eventType.toLowerCase() : undefined,
-      lastProviderEventAt: incomingEventAt,
-      lastProviderEventId: args.eventId,
-      hasProviderEvidence: true,
-      updatedAt: now,
-    });
-
-    await ctx.db.patch(businessId, {
-      subscriptionPlan: nextPlan,
-      subscriptionStatus: nextStatus,
-      subscriptionStartAt: startAt,
-      subscriptionEndAt: nextEndAt,
-      billingPeriod: nextPeriod,
-      updatedAt: now,
-    });
-
     await enforceTeamAccessForPlanState(ctx, {
       businessId,
-      plan: nextPlan,
-      status: nextStatus,
-      subscriptionEndAt: nextEndAt,
-      now,
-    });
-
-    await evaluateReferralProgressFromBillingEvent(ctx, {
-      businessId,
-      eventType: args.eventType,
-      eventId: args.eventId,
-      providerEventAt: incomingEventAt,
-      plan: nextPlan,
-      period: nextPeriod,
-      expirationAt: nextEndAt,
-      isRevoked: shouldRevoke,
-      now,
-    });
-
-    await markSmartManagerDirty(ctx, {
-      businessId,
-      domains: ['entitlements', 'team'],
-      reasons: ['subscription_state_changed'],
+      plan: canonicalEvent.plan,
+      status: canonicalEvent.status,
+      subscriptionEndAt: canonicalEvent.periodEndAt,
       now,
     });
 
@@ -1606,8 +1517,8 @@ export const applyRevenueCatWebhookEvent = internalMutation({
       duplicate: false,
       eventId: args.eventId,
       businessId,
-      plan: nextPlan,
-      status: nextStatus,
+      plan: canonicalEvent.plan,
+      status: canonicalEvent.status,
     };
   },
 });
