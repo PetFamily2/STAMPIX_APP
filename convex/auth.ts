@@ -7,6 +7,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
+import { linkVerifiedEmailOtpToExistingOAuthUser } from './lib/verifiedEmailAccountLink';
 import {
   encryptProviderCredentialCapture,
   type OAuthTokenSetLike,
@@ -550,6 +551,27 @@ export async function createOrUpdateUserHandler(ctx: any, args: any) {
     avatarUrl,
     now: Date.now(),
   };
+
+  // Only a successful email OTP verification may attach the email identity
+  // to an existing OAuth user. Convex Auth applies the returned user id to
+  // the existing auth account and then opens the session for that user.
+  if (
+    email &&
+    emailVerified &&
+    args.type === 'verification' &&
+    args.existingUserId &&
+    args.provider?.id === 'email' &&
+    args.provider?.type === 'email'
+  ) {
+    const linkedUserId = await linkVerifiedEmailOtpToExistingOAuthUser(ctx, {
+      existingUserId: args.existingUserId,
+      email,
+      now: normalizedIdentityInput.now,
+    });
+    if (linkedUserId) {
+      return linkedUserId;
+    }
+  }
 
   if (args.existingUserId) {
     const existingUser = await ctx.db.get(args.existingUserId);
