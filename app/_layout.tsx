@@ -2,7 +2,6 @@ import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { ConvexReactClient } from 'convex/react';
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -15,7 +14,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { PushNotificationsProvider } from '@/contexts/PushNotificationsContext';
 import { RevenueCatProvider } from '@/contexts/RevenueCatContext';
 import * as UserCtx from '@/contexts/UserContext';
-import { CONVEX_AUTH_STORAGE_NAMESPACE } from '@/lib/auth/storageKeys';
+import { getConvexAuthProviderStorageProps } from '@/lib/auth/authStorage';
 import { disposeFeedbackAudioPlayers } from '@/lib/feedback';
 import { retainRtlArchitectureMarker } from '@/lib/rtl';
 import { getConvexUrl } from '@/utils/convexConfig';
@@ -26,32 +25,7 @@ retainRtlArchitectureMarker();
 
 const convexUrl = getConvexUrl();
 const convex = new ConvexReactClient(convexUrl);
-
-// Store auth tokens in expo-secure-store.
-// This keeps user session data out of plain AsyncStorage.
-const secureStorage = {
-  getItem: async (key: string) => {
-    try {
-      return await SecureStore.getItemAsync(key);
-    } catch {
-      return null;
-    }
-  },
-  setItem: async (key: string, value: string) => {
-    try {
-      await SecureStore.setItemAsync(key, value);
-    } catch {
-      // Ignore secure storage write failures; auth will retry through provider state.
-    }
-  },
-  removeItem: async (key: string) => {
-    try {
-      await SecureStore.deleteItemAsync(key);
-    } catch {
-      // Ignore secure storage delete failures; auth state handles cleanup fallback.
-    }
-  },
-};
+const convexAuthStorageProps = getConvexAuthProviderStorageProps();
 
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -112,8 +86,10 @@ export default function RootLayout() {
       <StatusBar style="dark" translucent={false} backgroundColor="#F6F8FC" />
       <ConvexAuthProvider
         client={convex}
-        storage={secureStorage}
-        storageNamespace={CONVEX_AUTH_STORAGE_NAMESPACE}
+        storageNamespace={convexAuthStorageProps.storageNamespace}
+        {...(convexAuthStorageProps.storage
+          ? { storage: convexAuthStorageProps.storage }
+          : {})}
       >
         <UserCtx.UserProvider>
           <PushNotificationsProvider>

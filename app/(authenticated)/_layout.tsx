@@ -8,7 +8,7 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import CustomerStampCelebrationHost from '@/components/customer/CustomerStampCelebrationHost';
 import RedemptionCelebrationHost from '@/components/customer/RedemptionCelebrationHost';
@@ -16,7 +16,11 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { resolvePostAuthRoute } from '@/lib/auth/postAuthRouting';
+import {
+  resolvePlatformPostAuthHref,
+  resolvePostAuthRoute,
+  WEB_BUSINESS_PROOF_HREF,
+} from '@/lib/auth/postAuthRouting';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 import { resolveAuthenticatedRouteGuard } from '@/lib/navigation/authenticatedRouteGuard';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
@@ -122,17 +126,25 @@ export default function AuthenticatedLayout() {
     const activeMode = sessionContext?.activeMode ?? 'customer';
     void syncAppMode(activeMode);
 
-    const resolution = resolvePostAuthRoute({
-      isAuthLoading: isLoading,
-      isAuthenticated,
-      user,
-      sessionContext,
-      activeBusinessId: resolvedActiveBusinessId,
-      isBusinessOnboardingLoading,
-      hasInProgressBusinessOnboarding,
-    });
+    const resolution = resolvePlatformPostAuthHref(
+      Platform.OS,
+      resolvePostAuthRoute({
+        isAuthLoading: isLoading,
+        isAuthenticated,
+        user,
+        sessionContext,
+        activeBusinessId: resolvedActiveBusinessId,
+        isBusinessOnboardingLoading,
+        hasInProgressBusinessOnboarding,
+      })
+    );
 
     if (resolution.status !== 'route') {
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      safeReplace(resolution.href);
       return;
     }
 
@@ -173,6 +185,10 @@ export default function AuthenticatedLayout() {
 
   if (!isAuthenticated && !isPreviewMode && !isLoading) {
     return <Redirect href="/(auth)/sign-up" />;
+  }
+
+  if (Platform.OS === 'web' && isAuthenticated && routingStatus === 'route') {
+    return <Redirect href={WEB_BUSINESS_PROOF_HREF as Href} />;
   }
 
   const shouldShowLoadingScreen =

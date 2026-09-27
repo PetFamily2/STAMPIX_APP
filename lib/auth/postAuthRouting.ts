@@ -1,11 +1,11 @@
 import {
+  type ActiveBusinessStaffRole,
   getActiveMembershipByBusinessId,
   requiresBusinessOnboardingForRole,
   resolveActiveBusinessShell,
-  type ActiveBusinessStaffRole,
 } from '../activeBusinessShell';
-import { BUSINESS_ONBOARDING_ROUTES } from '../onboarding/businessOnboardingFlow';
 import { MVP_FEATURE_FLAGS } from '../billing/productionContract';
+import { BUSINESS_ONBOARDING_ROUTES } from '../onboarding/businessOnboardingFlow';
 
 export const POST_AUTH_ROUTES = {
   nameCapture: '/(auth)/name-capture',
@@ -17,6 +17,15 @@ export const POST_AUTH_ROUTES = {
 
 export type PostAuthRoute =
   (typeof POST_AUTH_ROUTES)[keyof typeof POST_AUTH_ROUTES];
+
+export const WEB_BUSINESS_PROOF_HREF = '/business' as const;
+
+export type PlatformPostAuthResolution =
+  | Exclude<PostAuthResolution, { status: 'route' }>
+  | {
+      status: 'route';
+      href: PostAuthRoute | typeof WEB_BUSINESS_PROOF_HREF;
+    };
 
 export type PostAuthResolution =
   | { status: 'loading' }
@@ -185,6 +194,17 @@ export function resolveAuthGroupDisposition({
   }
 
   return { status: 'redirect', href: postAuthResolution.href };
+}
+
+export function resolvePlatformPostAuthHref(
+  platform: string,
+  nativeResolution: PostAuthResolution
+): PlatformPostAuthResolution {
+  if (platform !== 'web' || nativeResolution.status !== 'route') {
+    return nativeResolution;
+  }
+
+  return { status: 'route', href: WEB_BUSINESS_PROOF_HREF };
 }
 
 export function isPostAuthTransitionPending({

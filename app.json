@@ -71,7 +71,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/StampAix_LOGO_S.png"
     },
     "plugins": [

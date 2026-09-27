@@ -2,7 +2,14 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -10,6 +17,7 @@ import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
+import { showsProviderOAuthOnSignUp } from '@/lib/auth/webAuthEntry';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -76,6 +84,7 @@ export default function SignUpScreen() {
     map?: string;
   }>();
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
+  const showProviderOAuth = showsProviderOAuthOnSignUp(Platform.OS);
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'sign_up',
   });
@@ -182,67 +191,71 @@ export default function SignUpScreen() {
         />
 
         <View style={styles.optionsContainer}>
-          <Pressable
-            onPress={() => handleSelect('apple')}
-            accessibilityRole="button"
-            accessibilityLabel={TEXT.apple}
-            accessibilityState={{ selected: selectedMethod === 'apple' }}
-          >
-            <View
-              style={
-                selectedMethod === 'apple'
-                  ? styles.optionSelected
-                  : styles.optionUnselected
-              }
-            >
-              <Ionicons
-                name="logo-apple"
-                size={18}
-                color={selectedMethod === 'apple' ? '#2563eb' : '#111827'}
-              />
-              <Text
-                style={
-                  selectedMethod === 'apple'
-                    ? styles.optionTextSelected
-                    : styles.optionTextUnselected
-                }
+          {showProviderOAuth ? (
+            <>
+              <Pressable
+                onPress={() => handleSelect('apple')}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.apple}
+                accessibilityState={{ selected: selectedMethod === 'apple' }}
               >
-                {TEXT.apple}
-              </Text>
-            </View>
-          </Pressable>
+                <View
+                  style={
+                    selectedMethod === 'apple'
+                      ? styles.optionSelected
+                      : styles.optionUnselected
+                  }
+                >
+                  <Ionicons
+                    name="logo-apple"
+                    size={18}
+                    color={selectedMethod === 'apple' ? '#2563eb' : '#111827'}
+                  />
+                  <Text
+                    style={
+                      selectedMethod === 'apple'
+                        ? styles.optionTextSelected
+                        : styles.optionTextUnselected
+                    }
+                  >
+                    {TEXT.apple}
+                  </Text>
+                </View>
+              </Pressable>
 
-          <Pressable
-            onPress={() => handleSelect('google')}
-            accessibilityRole="button"
-            accessibilityLabel={TEXT.google}
-            accessibilityState={{ selected: selectedMethod === 'google' }}
-          >
-            <View
-              style={
-                selectedMethod === 'google'
-                  ? styles.optionSelected
-                  : styles.optionUnselected
-              }
-            >
-              <GoogleLogo size={20} />
-              <Text
-                style={
-                  selectedMethod === 'google'
-                    ? styles.optionTextSelected
-                    : styles.optionTextUnselected
-                }
+              <Pressable
+                onPress={() => handleSelect('google')}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.google}
+                accessibilityState={{ selected: selectedMethod === 'google' }}
               >
-                {TEXT.google}
-              </Text>
-            </View>
-          </Pressable>
+                <View
+                  style={
+                    selectedMethod === 'google'
+                      ? styles.optionSelected
+                      : styles.optionUnselected
+                  }
+                >
+                  <GoogleLogo size={20} />
+                  <Text
+                    style={
+                      selectedMethod === 'google'
+                        ? styles.optionTextSelected
+                        : styles.optionTextUnselected
+                    }
+                  >
+                    {TEXT.google}
+                  </Text>
+                </View>
+              </Pressable>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{TEXT.extra}</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>{TEXT.extra}</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            </>
+          ) : null}
 
           <Pressable
             onPress={() => {

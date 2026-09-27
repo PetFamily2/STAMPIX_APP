@@ -5,6 +5,7 @@
 
 import { Platform } from 'react-native';
 import { APP_ENV } from '@/config/appConfig';
+import { canUseRevenueCatPurchasesOnPlatform } from '@/lib/subscription/billingGuards';
 
 type RevenueCatPlatform = 'ios' | 'android';
 
@@ -62,6 +63,10 @@ export function getRevenueCatApiKey(
  * קבלת מפתח RevenueCat API עבור הפלטפורמה הנוכחית
  */
 export function getCurrentPlatformRevenueCatApiKey(): string | null {
+  if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+    return null;
+  }
+
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   return getRevenueCatApiKey(platform);
 }

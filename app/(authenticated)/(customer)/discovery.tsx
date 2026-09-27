@@ -16,7 +16,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -24,6 +23,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
+import { DiscoveryMap } from '@/components/customer/DiscoveryMap';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -61,11 +61,7 @@ const TEXT = {
   unclassified: 'עסק',
   directions: 'ניווט',
   myLocation: 'המיקום שלי',
-  mapUnavailableTitle: 'המפה לא זמינה בתצוגה הזו',
-  mapUnavailableSubtitle: 'אפשר לראות את העסקים ברשימה.',
 };
-
-const CAN_RENDER_NATIVE_MAP = Platform.OS !== 'web';
 
 type BusinessServiceType =
   | 'food_drink'
@@ -625,50 +621,16 @@ export default function DiscoveryScreen() {
             {isMapOpen ? (
               <View style={styles.mapCard}>
                 <View style={styles.mapShell}>
-                  {CAN_RENDER_NATIVE_MAP ? (
-                    <MapView
-                      style={styles.map}
-                      region={{
-                        latitude: coords.latitude,
-                        longitude: coords.longitude,
-                        latitudeDelta: mapDelta,
-                        longitudeDelta: mapDelta,
-                      }}
-                    >
-                      <Marker
-                        coordinate={{
-                          latitude: coords.latitude,
-                          longitude: coords.longitude,
-                        }}
-                        pinColor="#FF6B57"
-                        title={TEXT.myLocation}
-                      />
-                      {visibleBusinesses.map((business) => (
-                        <Marker
-                          key={business.businessId}
-                          coordinate={{
-                            latitude: business.lat,
-                            longitude: business.lng,
-                          }}
-                          pinColor="#2F6BFF"
-                          title={business.name}
-                          description={
-                            business.formattedAddress || TEXT.addressFallback
-                          }
-                          onPress={() => openBusinessPage(business.businessId)}
-                        />
-                      ))}
-                    </MapView>
-                  ) : (
-                    <View style={styles.mapFallback}>
-                      <Text style={styles.mapFallbackTitle}>
-                        {TEXT.mapUnavailableTitle}
-                      </Text>
-                      <Text style={styles.mapFallbackSubtitle}>
-                        {TEXT.mapUnavailableSubtitle}
-                      </Text>
-                    </View>
-                  )}
+                  <DiscoveryMap
+                    userLatitude={coords.latitude}
+                    userLongitude={coords.longitude}
+                    latitudeDelta={mapDelta}
+                    longitudeDelta={mapDelta}
+                    businesses={visibleBusinesses}
+                    onBusinessPress={openBusinessPage}
+                    myLocationLabel={TEXT.myLocation}
+                    addressFallback={TEXT.addressFallback}
+                  />
                 </View>
               </View>
             ) : (
@@ -1085,34 +1047,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  map: {
-    flex: 1,
-  },
-  mapFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 18,
-    gap: 8,
-  },
-  mapFallbackTitle: {
-    width: '100%',
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  mapFallbackSubtitle: {
-    width: '100%',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    lineHeight: 18,
   },
   resultsList: {
     marginTop: 10,

@@ -1,5 +1,12 @@
 export type PushPlatform = 'ios' | 'android';
 
+export function isPushRuntimeUnsupported(input: {
+  platformOs: string;
+  appOwnership?: string | null;
+}): boolean {
+  return input.platformOs === 'web' || input.appOwnership === 'expo';
+}
+
 export type NotificationPermissionStatus =
   | 'granted'
   | 'denied'

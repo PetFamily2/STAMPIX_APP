@@ -16,7 +16,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import {
   APP_ENV,
   MOCK_PAYMENTS,
@@ -26,6 +26,7 @@ import {
 import type { SubscriptionPlan } from '@/lib/domain/subscriptions';
 import {
   BILLING_UNAVAILABLE_TITLE_HE,
+  canUseRevenueCatPurchasesOnPlatform,
   evaluateRevenueCatBillingGuard,
   SERVER_AUTHORITATIVE_BILLING_ENABLED,
 } from '@/lib/subscription/billingGuards';
@@ -130,7 +131,8 @@ export function RevenueCatProvider({
   const didInitializationRun = useRef(false);
 
   const isExpoGo = isRunningInExpoGo();
-  const isConfigured = isRevenueCatConfigured();
+  const purchasesSupported = canUseRevenueCatPurchasesOnPlatform(Platform.OS);
+  const isConfigured = purchasesSupported && isRevenueCatConfigured();
   const isBillingConfigurationValid =
     PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID && isConfigured;
   const [, setLastIdentifiedUserId] = useState<string | null>(null);
@@ -147,6 +149,13 @@ export function RevenueCatProvider({
     didInitializationRun.current = true;
 
     async function initialize() {
+      if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+        setPackages(PREVIEW_PACKAGES);
+        setIsLoading(false);
+        setIsInitialized(true);
+        return;
+      }
+
       if (!PAYMENT_SYSTEM_ENABLED || !isBillingConfigurationValid) {
         setPackages(PREVIEW_PACKAGES);
         setIsLoading(false);
@@ -220,6 +229,10 @@ export function RevenueCatProvider({
       packageId: string,
       options?: PurchasePackageOptions
     ): Promise<boolean> => {
+      if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+        return false;
+      }
+
       const overrideAppUserId = options?.appUserId?.trim();
       const billingGuard = evaluateRevenueCatBillingGuard({
         paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
@@ -342,6 +355,10 @@ export function RevenueCatProvider({
 
   const restorePurchases = useCallback(
     async (options?: RestorePurchasesOptions): Promise<boolean> => {
+      if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+        return false;
+      }
+
       const overrideAppUserId = options?.appUserId?.trim();
       const billingGuard = evaluateRevenueCatBillingGuard({
         paymentSystemEnabled: PAYMENT_SYSTEM_ENABLED,
@@ -398,7 +415,11 @@ export function RevenueCatProvider({
 
   const getManagementUrl = useCallback(
     async (appUserId?: string) => {
-      if (!isBillingConfigurationValid || isExpoGo) {
+      if (
+        !canUseRevenueCatPurchasesOnPlatform(Platform.OS) ||
+        !isBillingConfigurationValid ||
+        isExpoGo
+      ) {
         return null;
       }
       try {
@@ -417,7 +438,12 @@ export function RevenueCatProvider({
   );
 
   const refreshPurchaserInfo = useCallback(async () => {
-    if (!isBillingConfigurationValid || isExpoGo || !isInitialized) {
+    if (
+      !canUseRevenueCatPurchasesOnPlatform(Platform.OS) ||
+      !isBillingConfigurationValid ||
+      isExpoGo ||
+      !isInitialized
+    ) {
       return;
     }
 

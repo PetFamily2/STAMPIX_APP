@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -22,6 +23,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
   isPostAuthTransitionPending,
+  resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
 import { safeBack } from '@/lib/navigation';
@@ -100,13 +102,16 @@ export default function OnboardingOtpScreen() {
     user: resolverUser,
     sessionContext,
   });
-  const postAuthResolution = resolvePostAuthRoute({
-    isAuthLoading,
-    isAuthenticated,
-    user: resolverUser,
-    sessionContext,
-    activeBusinessId,
-  });
+  const postAuthResolution = resolvePlatformPostAuthHref(
+    Platform.OS,
+    resolvePostAuthRoute({
+      isAuthLoading,
+      isAuthenticated,
+      user: resolverUser,
+      sessionContext,
+      activeBusinessId,
+    })
+  );
 
   const contactValue = useMemo(() => {
     if (Array.isArray(contact)) {

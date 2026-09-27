@@ -22,6 +22,7 @@ import {
   createNotificationRegistrationResult,
   isNotificationContractEnabled,
   isNotificationStateForSession,
+  isPushRuntimeUnsupported,
   type NotificationPermissionStatus,
   type NotificationRegistrationResult,
   type NotificationSessionSnapshot,
@@ -69,7 +70,10 @@ function resolvePushPlatform(): PushPlatform | null {
 }
 
 function isUnsupportedPushRuntime() {
-  return Constants.appOwnership === 'expo';
+  return isPushRuntimeUnsupported({
+    platformOs: Platform.OS,
+    appOwnership: Constants.appOwnership,
+  });
 }
 
 async function loadNotificationsModule() {

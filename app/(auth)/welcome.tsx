@@ -5,6 +5,7 @@ import { useCallback } from 'react';
 import {
   BackHandler,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -93,7 +94,9 @@ export default function WelcomeScreen() {
             <View className="items-center justify-center">
               <Image
                 source={BRAND_IMAGE_LOGO}
-                className="w-36 h-36"
+                {...(Platform.OS === 'web'
+                  ? { style: styles.webLogo }
+                  : { className: 'w-36 h-36' })}
                 resizeMode="contain"
                 accessibilityLabel="StampAix logo"
               />
@@ -211,6 +214,13 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  webLogo: {
+    width: 128,
+    height: 128,
+    maxWidth: 144,
+    maxHeight: 144,
+    alignSelf: 'center',
+  },
   benefitsShadow: {
     width: '100%',
     borderRadius: 22,

@@ -1,13 +1,20 @@
 import { useConvexAuth, useQuery } from 'convex/react';
-import { Redirect, Slot, useLocalSearchParams, useSegments } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import {
+  type Href,
+  Redirect,
+  Slot,
+  useLocalSearchParams,
+  useSegments,
+} from 'expo-router';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { api } from '@/convex/_generated/api';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import {
   type AuthGroupRouteKind,
   resolveAuthGroupDisposition,
+  resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
@@ -58,7 +65,7 @@ export default function AuthRoutesLayout() {
             : 'standard';
 
   const resolverUser = isUserLoading ? undefined : user;
-  const postAuthResolution = resolvePostAuthRoute({
+  const nativePostAuthResolution = resolvePostAuthRoute({
     isAuthLoading,
     isAuthenticated,
     user: resolverUser,
@@ -69,20 +76,37 @@ export default function AuthRoutesLayout() {
     hasInProgressBusinessOnboarding:
       defaultBusinessOnboardingDraft?.status === 'in_progress',
   });
+  const platformPostAuthResolution = resolvePlatformPostAuthHref(
+    Platform.OS,
+    nativePostAuthResolution
+  );
   const disposition = resolveAuthGroupDisposition({
     routeKind,
-    postAuthResolution,
+    postAuthResolution: nativePostAuthResolution,
     customerOnboarded: user?.customerOnboardedAt != null,
     businessOnboarded: user?.businessOnboardedAt != null,
     isAdditionalBusinessFlow: isAdditionalBusinessFlow(flow),
   });
+
+  if (
+    Platform.OS === 'web' &&
+    platformPostAuthResolution.status === 'route' &&
+    routeKind !== 'transition' &&
+    routeKind !== 'preview'
+  ) {
+    return <Redirect href={platformPostAuthResolution.href as Href} />;
+  }
 
   if (disposition.status === 'loading') {
     return <FullScreenLoading />;
   }
 
   if (disposition.status === 'redirect') {
-    return <Redirect href={disposition.href} />;
+    const href =
+      Platform.OS === 'web' && platformPostAuthResolution.status === 'route'
+        ? platformPostAuthResolution.href
+        : disposition.href;
+    return <Redirect href={href as Href} />;
   }
 
   return (

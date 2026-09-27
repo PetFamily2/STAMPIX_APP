@@ -3,6 +3,7 @@ import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   isPostAuthTransitionPending,
+  resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
 
@@ -64,13 +66,16 @@ export default function OAuthCallbackScreen() {
     user: resolverUser,
     sessionContext,
   });
-  const resolution = resolvePostAuthRoute({
-    isAuthLoading: isLoading,
-    isAuthenticated,
-    user: resolverUser,
-    sessionContext,
-    activeBusinessId,
-  });
+  const resolution = resolvePlatformPostAuthHref(
+    Platform.OS,
+    resolvePostAuthRoute({
+      isAuthLoading: isLoading,
+      isAuthenticated,
+      user: resolverUser,
+      sessionContext,
+      activeBusinessId,
+    })
+  );
   const isLegalAcceptancePending =
     acceptanceSource !== null && !hasRecordedTerms;
 

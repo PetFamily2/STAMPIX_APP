@@ -1,3 +1,7 @@
+export function canUseRevenueCatPurchasesOnPlatform(platform: string): boolean {
+  return platform === 'ios' || platform === 'android';
+}
+
 export const SERVER_AUTHORITATIVE_BILLING_ENABLED =
   process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'true';
 
