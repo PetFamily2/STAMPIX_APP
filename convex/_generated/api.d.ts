@@ -32,6 +32,8 @@ import type * as guards from "../guards.js";
 import type * as http from "../http.js";
 import type * as lib_aiJsonGeneration from "../lib/aiJsonGeneration.js";
 import type * as lib_billing_accounts from "../lib/billing/accounts.js";
+import type * as lib_billing_applyVerifiedBillingEvent from "../lib/billing/applyVerifiedBillingEvent.js";
+import type * as lib_billing_canonicalEvent from "../lib/billing/canonicalEvent.js";
 import type * as lib_billing_identity from "../lib/billing/identity.js";
 import type * as lib_billing_lifecycle from "../lib/billing/lifecycle.js";
 import type * as lib_billing_productMap from "../lib/billing/productMap.js";
@@ -62,6 +64,7 @@ import type * as lib_smartManagerPreparedActions from "../lib/smartManagerPrepar
 import type * as lib_smartManagerSourceLimits from "../lib/smartManagerSourceLimits.js";
 import type * as lib_smartManagerValidators from "../lib/smartManagerValidators.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
+import type * as lib_verifiedEmailAccountLink from "../lib/verifiedEmailAccountLink.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_auditLegacyBilling from "../migrations/auditLegacyBilling.js";
@@ -131,6 +134,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/aiJsonGeneration": typeof lib_aiJsonGeneration;
   "lib/billing/accounts": typeof lib_billing_accounts;
+  "lib/billing/applyVerifiedBillingEvent": typeof lib_billing_applyVerifiedBillingEvent;
+  "lib/billing/canonicalEvent": typeof lib_billing_canonicalEvent;
   "lib/billing/identity": typeof lib_billing_identity;
   "lib/billing/lifecycle": typeof lib_billing_lifecycle;
   "lib/billing/productMap": typeof lib_billing_productMap;
@@ -161,6 +166,7 @@ declare const fullApi: ApiFromModules<{
   "lib/smartManagerSourceLimits": typeof lib_smartManagerSourceLimits;
   "lib/smartManagerValidators": typeof lib_smartManagerValidators;
   "lib/staffPermissions": typeof lib_staffPermissions;
+  "lib/verifiedEmailAccountLink": typeof lib_verifiedEmailAccountLink;
   loyaltyPrograms: typeof loyaltyPrograms;
   memberships: typeof memberships;
   "migrations/auditLegacyBilling": typeof migrations_auditLegacyBilling;

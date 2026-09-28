@@ -88,9 +88,26 @@ try {
   }
 
   const nodeExe = resolveConvexNode(projectRoot);
+  const typecheck = spawnSync(process.execPath, ['run', 'type-check'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    env: { ...process.env },
+    timeout: 180000,
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  const typecheckStdout = redactSecrets(typecheck.stdout || '');
+  const typecheckStderr = redactSecrets(typecheck.stderr || '');
+  if (typecheck.status !== 0) {
+    fail(
+      `Project TypeScript check failed (${typecheck.status ?? typecheck.signal}). ${typecheckStderr || typecheckStdout}`.trim()
+    );
+  }
+  // biome-ignore lint/suspicious/noConsole: secret-safe operator status.
+  console.log('Project TypeScript check: PASS');
+
   const result = spawnSync(
     nodeExe,
-    [convexBin, 'dev', '--once', '--typecheck', 'try'],
+    [convexBin, 'dev', '--once', '--typecheck', 'disable'],
     {
       cwd: projectRoot,
       encoding: 'utf8',

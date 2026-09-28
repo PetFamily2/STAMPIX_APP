@@ -114,4 +114,44 @@ describe('Phase C2 OAuth redirect safety', () => {
       })
     ).toThrow('Missing auth site URL');
   });
+
+  test('production accepts only the business web oauth callback', () => {
+    const productionEnv = {
+      CONVEX_DEPLOYMENT: 'prod:stampaix',
+      CONVEX_SITE_URL: 'https://example-deployment.convex.site',
+    };
+    const callback =
+      'https://business.stampaix.com/oauth-callback?legalSource=signup_google';
+
+    expect(resolveAuthRedirectUrl(callback, productionEnv)).toBe(callback);
+    expect(() =>
+      resolveAuthRedirectUrl(
+        'http://localhost:8081/oauth-callback',
+        productionEnv
+      )
+    ).toThrow('Invalid redirectTo');
+    expect(() =>
+      resolveAuthRedirectUrl('https://evil.example/oauth-callback', productionEnv)
+    ).toThrow('Invalid redirectTo');
+    expect(() =>
+      resolveAuthRedirectUrl(
+        'https://business.stampaix.com.evil.example/oauth-callback',
+        productionEnv
+      )
+    ).toThrow('Invalid redirectTo');
+    expect(() =>
+      resolveAuthRedirectUrl('https://business.stampaix.com/business', productionEnv)
+    ).toThrow('Invalid redirectTo');
+  });
+
+  test('development accepts the localhost web oauth callback', () => {
+    const developmentEnv = {
+      CONVEX_DEPLOYMENT: 'dev:stampaix',
+      CONVEX_SITE_URL: 'https://stampaix-dev.convex.site',
+    };
+    const callback =
+      'http://localhost:8081/oauth-callback?legalSource=signup_google';
+
+    expect(resolveAuthRedirectUrl(callback, developmentEnv)).toBe(callback);
+  });
 });

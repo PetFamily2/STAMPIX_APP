@@ -44,6 +44,10 @@ export function resolveSignedInScreenRedirect(
   };
 }
 
-export function showsProviderOAuthOnSignUp(platform: string): boolean {
+export function showsGoogleOAuthOnSignUp(platform: string): boolean {
+  return platform === 'web' || platform === 'ios' || platform === 'android';
+}
+
+export function showsAppleOAuthOnSignUp(platform: string): boolean {
   return platform !== 'web';
 }

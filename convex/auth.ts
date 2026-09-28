@@ -27,6 +27,9 @@ const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
   'exps://',
   'https://auth.expo.io/',
 ] as const;
+const WEB_OAUTH_CALLBACK_PATH = '/oauth-callback';
+const WEB_OAUTH_PRODUCTION_ORIGIN = 'https://business.stampaix.com';
+const WEB_OAUTH_DEVELOPMENT_ORIGIN = 'http://localhost:8081';
 const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 
@@ -451,11 +454,45 @@ export function isAllowedAuthAppRedirect(
   );
 }
 
+function isAllowedWebOAuthCallback(
+  redirectTo: string,
+  env: Partial<Record<string, string | undefined>>
+) {
+  let url: URL;
+  try {
+    url = new URL(redirectTo);
+  } catch {
+    return false;
+  }
+
+  if (url.username || url.password || url.hash) {
+    return false;
+  }
+
+  if (url.pathname !== WEB_OAUTH_CALLBACK_PATH) {
+    return false;
+  }
+
+  if (url.origin === WEB_OAUTH_PRODUCTION_ORIGIN) {
+    return true;
+  }
+
+  if (isProductionRuntime(env)) {
+    return false;
+  }
+
+  return url.origin === WEB_OAUTH_DEVELOPMENT_ORIGIN;
+}
+
 export function resolveAuthRedirectUrl(
   redirectTo: string,
   env: Partial<Record<string, string | undefined>> = process.env
 ): string {
   if (isAllowedAuthAppRedirect(redirectTo, env)) {
+    return redirectTo;
+  }
+
+  if (isAllowedWebOAuthCallback(redirectTo, env)) {
     return redirectTo;
   }
 
