@@ -1,7 +1,7 @@
 import { useConvexAuth, useQuery } from 'convex/react';
 import { type Href, Redirect, Slot } from 'expo-router';
 import { Platform } from 'react-native';
-
+import { BusinessWebShellRoute } from '@/components/business-web/BusinessWebShellRoute';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -28,7 +28,11 @@ function WebBusinessGate() {
     return <Redirect href={resolveBusinessSignedOutHref('web')} />;
   }
 
-  return <Slot />;
+  return (
+    <BusinessWebShellRoute>
+      <Slot />
+    </BusinessWebShellRoute>
+  );
 }
 
 function NativePostAuthRedirect() {

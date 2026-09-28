@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import {
   Building2,
   ChartNoAxesCombined,
@@ -26,6 +27,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Id } from '@/convex/_generated/dataModel';
 import {
+  BUSINESS_WEB_ROUTES,
+  isBusinessWebRouteActive,
+} from '@/lib/businessWebNavigation';
+import {
   type BusinessWebShellOverlay,
   getBusinessWebResponsiveLayout,
   getNextBusinessWebShellOverlay,
@@ -49,11 +54,13 @@ type BusinessWebShellProps = {
   activeBusinessId: Id<'businesses'> | null;
   businesses: BusinessIdentity[];
   children: ReactNode;
+  currentPathname: string;
   displayName: string;
   email: string;
   isSigningOut: boolean;
   isSwitchingBusiness: boolean;
   onLogout: () => void;
+  onNavigate: (href: Href) => void;
   onSelectBusiness: (businessId: Id<'businesses'>) => void;
   selectError: string;
 };
@@ -62,17 +69,32 @@ type NavigationItem = {
   key: string;
   label: string;
   icon: LucideIcon;
-  active?: boolean;
+  href?: Href;
 };
 
 export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
-  { key: 'dashboard', label: 'דף הבית', icon: LayoutDashboard, active: true },
+  {
+    key: 'dashboard',
+    label: 'דף הבית',
+    icon: LayoutDashboard,
+    href: BUSINESS_WEB_ROUTES.dashboard,
+  },
   { key: 'customers', label: 'לקוחות', icon: Users },
   { key: 'loyalty', label: 'מועדון והטבות', icon: Gift },
-  { key: 'team', label: 'צוות', icon: UserRoundCog },
+  {
+    key: 'team',
+    label: 'צוות',
+    icon: UserRoundCog,
+    href: BUSINESS_WEB_ROUTES.team,
+  },
   { key: 'analytics', label: 'ניתוחים', icon: ChartNoAxesCombined },
   { key: 'billing', label: 'חיוב וחשבוניות', icon: ReceiptText },
-  { key: 'settings', label: 'הגדרות העסק', icon: Settings },
+  {
+    key: 'settings',
+    label: 'הגדרות העסק',
+    icon: Settings,
+    href: BUSINESS_WEB_ROUTES.settings,
+  },
 ];
 
 const ROLE_LABELS = {
@@ -93,43 +115,53 @@ function initialsForName(displayName: string) {
   );
 }
 
-function NavList({ compact = false }: { compact?: boolean }) {
+function NavList({
+  compact = false,
+  currentPathname,
+  onNavigate,
+}: {
+  compact?: boolean;
+  currentPathname: string;
+  onNavigate: (href: Href) => void;
+}) {
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
       {BUSINESS_WEB_NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const isDisabled = !item.active;
+        const isDisabled = !item.href;
+        const isActive = isBusinessWebRouteActive(
+          currentPathname,
+          item.href ? String(item.href) : null
+        );
         return (
-          <View
+          <Pressable
             accessibilityLabel={
               isDisabled ? `${item.label}, בקרוב` : item.label
             }
             accessibilityRole="link"
-            accessibilityState={{ disabled: true, selected: item.active }}
+            accessibilityState={{ disabled: isDisabled, selected: isActive }}
+            disabled={isDisabled}
             key={item.key}
-            style={[
+            onPress={() => item.href && onNavigate(item.href)}
+            style={({ pressed }) => [
               styles.navItem,
-              item.active ? styles.navItemActive : null,
+              isActive ? styles.navItemActive : null,
               compact ? styles.navItemCompact : null,
+              pressed ? styles.controlPressed : null,
             ]}
           >
             <Icon
-              color={
-                item.active ? TOKENS.colors.primary : TOKENS.colors.textMuted
-              }
+              color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
               size={TOKENS.icons.navigation}
               strokeWidth={TOKENS.icons.strokeWidth}
             />
             <Text
-              style={[
-                styles.navLabel,
-                item.active ? styles.navLabelActive : null,
-              ]}
+              style={[styles.navLabel, isActive ? styles.navLabelActive : null]}
             >
               {item.label}
             </Text>
             {isDisabled ? <Text style={styles.soonLabel}>בקרוב</Text> : null}
-          </View>
+          </Pressable>
         );
       })}
     </View>
@@ -414,7 +446,10 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                 {props.activeBusiness?.name ?? 'לא נבחר עסק'}
               </Text>
             </View>
-            <NavList />
+            <NavList
+              currentPathname={props.currentPathname}
+              onNavigate={props.onNavigate}
+            />
             <View style={styles.sidebarSpacer} />
             <AccountBlock
               displayName={props.displayName}
@@ -556,7 +591,14 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                   contentContainerStyle={styles.mobileMenuContent}
                   keyboardShouldPersistTaps="handled"
                 >
-                  <NavList compact={true} />
+                  <NavList
+                    compact={true}
+                    currentPathname={props.currentPathname}
+                    onNavigate={(href) => {
+                      setActiveOverlay(null);
+                      props.onNavigate(href);
+                    }}
+                  />
                   <AccountBlock
                     compact={true}
                     displayName={props.displayName}

@@ -66,6 +66,41 @@ function asBooleanOrNull(value: unknown): boolean | null {
   return value === true || value === false ? value : null;
 }
 
+export function toBusinessSettingsSnapshot(settings: {
+  name?: string;
+  shortDescription?: string;
+  businessPhone?: string;
+  formattedAddress?: string;
+  serviceTypes?: string[];
+  serviceTags?: string[];
+  onboardingSnapshot?: Record<string, unknown> | null;
+}): BusinessSettingsSnapshot {
+  const onboarding = settings.onboardingSnapshot;
+  return {
+    name: settings.name ?? '',
+    shortDescription: settings.shortDescription ?? '',
+    businessPhone: settings.businessPhone ?? '',
+    formattedAddress: settings.formattedAddress ?? '',
+    serviceTypes: sanitizeServiceTypes(settings.serviceTypes),
+    serviceTags: sanitizeServiceTags(settings.serviceTags),
+    usageAreas: (onboarding?.usageAreas as UsageAreaId[] | undefined) ?? [],
+    businessExample:
+      (onboarding?.businessExample as BusinessExampleId | undefined) ?? null,
+    birthdayCampaignRelevant: asBooleanOrNull(
+      onboarding?.birthdayCampaignRelevant
+    ),
+    joinAnniversaryCampaignRelevant: asBooleanOrNull(
+      onboarding?.joinAnniversaryCampaignRelevant
+    ),
+    weakTimePromosRelevant: asBooleanOrNull(onboarding?.weakTimePromosRelevant),
+    discoverySource:
+      (onboarding?.discoverySource as DiscoverySourceId | undefined) ?? null,
+    reason: (onboarding?.reason as ReasonId | undefined) ?? null,
+    ownerAgeRange:
+      (onboarding?.ownerAgeRange as OwnerAgeRangeId | undefined) ?? null,
+  };
+}
+
 export function useBusinessSettingsProfile() {
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
@@ -92,6 +127,9 @@ export function useBusinessSettingsProfile() {
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
   const baseUpdatedAtRef = useRef<number | null>(null);
   const [conflictLocked, setConflictLocked] = useState(false);
+  const [conflictServerUpdatedAt, setConflictServerUpdatedAt] = useState<
+    number | null
+  >(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveInFlightRef = useRef(false);
   const commitBaseUpdatedAt = useCallback((value: number | null) => {
@@ -101,56 +139,32 @@ export function useBusinessSettingsProfile() {
 
   const applyBusinessSettingsSnapshot = useCallback(
     (settings: typeof businessSettings) => {
-      if (!settings) {
+      if (!settings || settings.businessId !== activeBusinessId) {
         return null;
       }
-      const onboarding = settings.onboardingSnapshot;
-      const nextSnapshot = {
-        name: settings.name ?? '',
-        shortDescription: settings.shortDescription ?? '',
-        businessPhone: settings.businessPhone ?? '',
-        formattedAddress: settings.formattedAddress ?? '',
-        serviceTypes: sanitizeServiceTypes(settings.serviceTypes),
-        serviceTags: sanitizeServiceTags(settings.serviceTags),
-        usageAreas: (onboarding?.usageAreas as UsageAreaId[] | undefined) ?? [],
-        businessExample:
-          (onboarding?.businessExample as BusinessExampleId | undefined) ??
-          null,
-        birthdayCampaignRelevant: asBooleanOrNull(
-          onboarding?.birthdayCampaignRelevant
-        ),
-        joinAnniversaryCampaignRelevant: asBooleanOrNull(
-          onboarding?.joinAnniversaryCampaignRelevant
-        ),
-        weakTimePromosRelevant: asBooleanOrNull(
-          onboarding?.weakTimePromosRelevant
-        ),
-        discoverySource:
-          (onboarding?.discoverySource as DiscoverySourceId | undefined) ??
-          null,
-        reason: (onboarding?.reason as ReasonId | undefined) ?? null,
-        ownerAgeRange:
-          (onboarding?.ownerAgeRange as OwnerAgeRangeId | undefined) ?? null,
-      };
+      const nextSnapshot = toBusinessSettingsSnapshot(settings);
       setSnapshot(nextSnapshot);
       commitBaseUpdatedAt(
         typeof settings.updatedAt === 'number' ? settings.updatedAt : null
       );
       setConflictLocked(false);
+      setConflictServerUpdatedAt(null);
       return nextSnapshot;
     },
-    [commitBaseUpdatedAt]
+    [activeBusinessId, commitBaseUpdatedAt]
   );
 
   useEffect(() => {
     if (activeBusinessId == null) {
       commitBaseUpdatedAt(null);
       setConflictLocked(false);
+      setConflictServerUpdatedAt(null);
       setSnapshot(EMPTY_SNAPSHOT);
       return;
     }
     commitBaseUpdatedAt(null);
     setConflictLocked(false);
+    setConflictServerUpdatedAt(null);
     setSnapshot(EMPTY_SNAPSHOT);
   }, [activeBusinessId, commitBaseUpdatedAt]);
 
@@ -219,11 +233,13 @@ export function useBusinessSettingsProfile() {
         commitBaseUpdatedAt(updatedAt);
       }
       setConflictLocked(false);
+      setConflictServerUpdatedAt(null);
       return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
         setConflictLocked(true);
+        setConflictServerUpdatedAt(conflict.serverUpdatedAt);
         return {
           ok: false as const,
           conflict: true,
@@ -278,6 +294,7 @@ export function useBusinessSettingsProfile() {
         commitBaseUpdatedAt(updatedAt);
       }
       setConflictLocked(false);
+      setConflictServerUpdatedAt(null);
       return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
       return {
@@ -325,11 +342,13 @@ export function useBusinessSettingsProfile() {
         formattedAddress: address.formattedAddress,
       }));
       setConflictLocked(false);
+      setConflictServerUpdatedAt(null);
       return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
         setConflictLocked(true);
+        setConflictServerUpdatedAt(conflict.serverUpdatedAt);
         return {
           ok: false as const,
           conflict: true,
@@ -359,6 +378,7 @@ export function useBusinessSettingsProfile() {
     isComplete,
     isSaving,
     conflictLocked,
+    conflictServerUpdatedAt,
     baseUpdatedAt,
     displayValueFor,
     saveProfileFields,
