@@ -862,6 +862,50 @@ export default function BusinessDashboardScreen() {
           />
         </View>
 
+        <View style={styles.section}>
+          <Text
+            className={tw.textStart}
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: layout.sectionTitleSize,
+                lineHeight: layout.sectionTitleLineHeight,
+              },
+            ]}
+          >
+            פעולות מהירות
+          </Text>
+          <QuickShortcutsGrid
+            layoutMode={layoutMode}
+            items={[
+              {
+                key: 'scanner',
+                label: 'סריקת לקוח',
+                icon: 'scan-outline',
+                onPress: () => openRoute('/(authenticated)/(business)/scanner'),
+              },
+              {
+                key: 'join-qr',
+                label: 'צרפו לקוחות',
+                icon: 'qr-code-outline',
+                onPress: () => openRoute('/(authenticated)/(business)/qr'),
+              },
+              {
+                key: 'team',
+                label: 'הוספת עובד',
+                icon: 'person-add-outline',
+                badgeLabel: teamGate.isLocked
+                  ? 'נעול'
+                  : isTeamSeatLimitReached
+                    ? 'מלא'
+                    : undefined,
+                isLocked: teamGate.isLocked || isTeamSeatLimitReached,
+                onPress: openTeamShortcut,
+              },
+            ]}
+          />
+        </View>
+
         {Array.isArray(recentActivity) && recentActivity.length > 0 ? (
           <View style={styles.section}>
             <Text
@@ -896,52 +940,6 @@ export default function BusinessDashboardScreen() {
             />
           </View>
         ) : null}
-
-        <View style={styles.section}>
-          <Text
-            className={tw.textStart}
-            style={[
-              styles.sectionTitle,
-              {
-                fontSize: layout.sectionTitleSize,
-                lineHeight: layout.sectionTitleLineHeight,
-              },
-            ]}
-          >
-            פעולות מהירות
-          </Text>
-          <QuickShortcutsGrid
-            layoutMode={layoutMode}
-            items={[
-              {
-                key: 'scanner',
-                label: 'סריקת לקוח',
-                icon: 'scan-outline',
-                onPress: () => openRoute('/(authenticated)/(business)/scanner'),
-              },
-              {
-                key: 'join-qr',
-                label: 'צרפו לקוחות',
-                icon: 'qr-code-outline',
-                onPress: () => openRoute('/(authenticated)/(business)/qr'),
-              },
-              {
-                key: 'team',
-                label: 'הוספת עובד',
-                icon: teamGate.isLocked
-                  ? 'lock-closed-outline'
-                  : 'person-add-outline',
-                badgeLabel: teamGate.isLocked
-                  ? 'נעול'
-                  : isTeamSeatLimitReached
-                    ? 'מלא'
-                    : undefined,
-                isLocked: teamGate.isLocked || isTeamSeatLimitReached,
-                onPress: openTeamShortcut,
-              },
-            ]}
-          />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
