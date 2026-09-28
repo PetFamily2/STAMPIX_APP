@@ -36,6 +36,12 @@ import type * as lib_billing_applyVerifiedBillingEvent from "../lib/billing/appl
 import type * as lib_billing_canonicalEvent from "../lib/billing/canonicalEvent.js";
 import type * as lib_billing_identity from "../lib/billing/identity.js";
 import type * as lib_billing_lifecycle from "../lib/billing/lifecycle.js";
+import type * as lib_billing_payplus_callbackHttp from "../lib/billing/payplus/callbackHttp.js";
+import type * as lib_billing_payplus_checkout from "../lib/billing/payplus/checkout.js";
+import type * as lib_billing_payplus_config from "../lib/billing/payplus/config.js";
+import type * as lib_billing_payplus_mapToCanonical from "../lib/billing/payplus/mapToCanonical.js";
+import type * as lib_billing_payplus_providerClient from "../lib/billing/payplus/providerClient.js";
+import type * as lib_billing_payplus_verify from "../lib/billing/payplus/verify.js";
 import type * as lib_billing_productMap from "../lib/billing/productMap.js";
 import type * as lib_billing_productionContract from "../lib/billing/productionContract.js";
 import type * as lib_billing_usageCounters from "../lib/billing/usageCounters.js";
@@ -84,6 +90,7 @@ import type * as migrations_postCutoverValidation from "../migrations/postCutove
 import type * as migrations_removeManualSegments from "../migrations/removeManualSegments.js";
 import type * as onboarding from "../onboarding.js";
 import type * as otp from "../otp.js";
+import type * as payplusBilling from "../payplusBilling.js";
 import type * as providerCredentials from "../providerCredentials.js";
 import type * as pushNotifications from "../pushNotifications.js";
 import type * as recommendations from "../recommendations.js";
@@ -138,6 +145,12 @@ declare const fullApi: ApiFromModules<{
   "lib/billing/canonicalEvent": typeof lib_billing_canonicalEvent;
   "lib/billing/identity": typeof lib_billing_identity;
   "lib/billing/lifecycle": typeof lib_billing_lifecycle;
+  "lib/billing/payplus/callbackHttp": typeof lib_billing_payplus_callbackHttp;
+  "lib/billing/payplus/checkout": typeof lib_billing_payplus_checkout;
+  "lib/billing/payplus/config": typeof lib_billing_payplus_config;
+  "lib/billing/payplus/mapToCanonical": typeof lib_billing_payplus_mapToCanonical;
+  "lib/billing/payplus/providerClient": typeof lib_billing_payplus_providerClient;
+  "lib/billing/payplus/verify": typeof lib_billing_payplus_verify;
   "lib/billing/productMap": typeof lib_billing_productMap;
   "lib/billing/productionContract": typeof lib_billing_productionContract;
   "lib/billing/usageCounters": typeof lib_billing_usageCounters;
@@ -186,6 +199,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/removeManualSegments": typeof migrations_removeManualSegments;
   onboarding: typeof onboarding;
   otp: typeof otp;
+  payplusBilling: typeof payplusBilling;
   providerCredentials: typeof providerCredentials;
   pushNotifications: typeof pushNotifications;
   recommendations: typeof recommendations;

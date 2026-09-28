@@ -2515,6 +2515,7 @@ export default defineSchema({
     provider: v.optional(
       v.union(
         v.literal('revenuecat'),
+        v.literal('payplus'),
         v.literal('app_store'),
         v.literal('play_store'),
         v.literal('unknown')
@@ -2539,6 +2540,55 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_providerAppUserId', ['providerAppUserId'])
     .index('by_ownerUserId', ['ownerUserId']),
+
+  payplusCheckoutIntents: defineTable({
+    checkoutId: v.string(),
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('premium')),
+    billingPeriod: v.union(v.literal('monthly'), v.literal('yearly')),
+    logicalProductId: v.string(),
+    amount: v.number(),
+    currency: v.literal('ILS'),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('hosted_checkout_created'),
+      v.literal('verified'),
+      v.literal('expired'),
+      v.literal('rejected')
+    ),
+    pageRequestUid: v.optional(v.string()),
+    recurringPaymentUid: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_checkoutId', ['checkoutId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_pageRequestUid', ['pageRequestUid']),
+
+  payplusProviderEvents: defineTable({
+    externalEventId: v.string(),
+    checkoutId: v.optional(v.string()),
+    businessId: v.optional(v.id('businesses')),
+    transactionUid: v.optional(v.string()),
+    transactionType: v.string(),
+    status: v.union(v.literal('processed'), v.literal('ignored')),
+    ignoredReason: v.optional(v.string()),
+    amount: v.optional(v.number()),
+    currency: v.optional(v.literal('ILS')),
+    recurringUid: v.optional(v.string()),
+    providerEventAt: v.optional(v.number()),
+    invoiceUuid: v.optional(v.string()),
+    invoiceNumber: v.optional(v.string()),
+    invoiceOriginalUrl: v.optional(v.string()),
+    invoiceCopyUrl: v.optional(v.string()),
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index('by_externalEventId', ['externalEventId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_transactionUid', ['transactionUid']),
 
   businessUsageCounters: defineTable({
     businessId: v.id('businesses'),

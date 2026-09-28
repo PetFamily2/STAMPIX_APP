@@ -5,7 +5,7 @@ import type {
   BusinessSubscriptionStatus,
 } from './productionContract';
 
-export type CanonicalBillingProvider = 'revenuecat';
+export type CanonicalBillingProvider = 'revenuecat' | 'payplus';
 
 export type CanonicalBillingEventKind =
   | 'initial_payment'

@@ -10,6 +10,7 @@ import {
 import { auth } from './auth';
 import { resolveRevenueCatPlanMapping } from './entitlements';
 import { isUsableProviderAppUserId } from './lib/billing/identity';
+import { handlePayPlusCallbackRequest } from './lib/billing/payplus/callbackHttp';
 
 const http = httpRouter();
 
@@ -803,6 +804,17 @@ http.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     return await handleRevenueCatWebhookRequest(ctx, request);
+  }),
+});
+
+http.route({
+  path: '/payplus/callback',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    return await handlePayPlusCallbackRequest(ctx, request, {
+      intentRef: internal.payplusBilling.getPayPlusCheckoutIntent,
+      applyRef: internal.payplusBilling.applyVerifiedPayPlusEvidence,
+    });
   }),
 });
 
