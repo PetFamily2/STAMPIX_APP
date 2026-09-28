@@ -11,3 +11,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Keyboard focus treatment isolated to the Business Web shell. */
+#business-web-shell [role='button']:focus-visible,
+#business-web-shell [role='menuitem']:focus-visible {
+  outline: 3px solid rgba(18, 48, 168, 0.28);
+  outline-offset: 2px;
+}
+
+#business-web-shell [role='button']:not([aria-disabled='true']),
+#business-web-shell [role='menuitem']:not([aria-disabled='true']) {
+  transition:
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+#business-web-shell [role='button']:not([aria-disabled='true']):hover,
+#business-web-shell [role='menuitem']:not([aria-disabled='true']):hover {
+  filter: brightness(0.97);
+}
