@@ -2,10 +2,10 @@ import {
   BILLING_CURRENCY,
   type BillingPeriod,
   type BusinessPlan,
+  getCanonicalSubscriptionPrice,
   isBillingPeriod,
   isBusinessPlan,
   isLogicalSubscriptionProductId,
-  planConfig,
 } from '../productionContract';
 
 export const PAYPLUS_CHECKOUT_TTL_MS = 30 * 60 * 1000;
@@ -48,14 +48,7 @@ export function canonicalPlanAmount(
   plan: BusinessPlan,
   period: BillingPeriod
 ): number {
-  const amount = planConfig[plan].pricing[period];
-  if (!Number.isInteger(amount) || amount <= 0) {
-    throw new Error('PAYPLUS_CONTRACT_AMOUNT_INVALID');
-  }
-  if (planConfig[plan].pricing.currency !== BILLING_CURRENCY) {
-    throw new Error('PAYPLUS_CONTRACT_CURRENCY_INVALID');
-  }
-  return amount;
+  return getCanonicalSubscriptionPrice(plan, period).amount;
 }
 
 export function assertPayPlusCheckoutCanHost(args: {

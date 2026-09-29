@@ -2516,6 +2516,7 @@ export default defineSchema({
       v.union(
         v.literal('revenuecat'),
         v.literal('payplus'),
+        v.literal('sumit'),
         v.literal('app_store'),
         v.literal('play_store'),
         v.literal('unknown')
@@ -2589,6 +2590,63 @@ export default defineSchema({
     .index('by_externalEventId', ['externalEventId'])
     .index('by_businessId', ['businessId'])
     .index('by_transactionUid', ['transactionUid']),
+
+  sumitCheckoutIntents: defineTable({
+    checkoutId: v.string(),
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    plan: v.union(v.literal('starter'), v.literal('pro'), v.literal('premium')),
+    billingPeriod: v.union(v.literal('monthly'), v.literal('yearly')),
+    logicalProductId: v.string(),
+    amount: v.number(),
+    currency: v.literal('ILS'),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('hosted_checkout_created'),
+      v.literal('verified'),
+      v.literal('expired'),
+      v.literal('rejected')
+    ),
+    sumitCustomerId: v.optional(v.string()),
+    sumitRecurringId: v.optional(v.string()),
+    sumitPaymentId: v.optional(v.string()),
+    sumitDocumentId: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_checkoutId', ['checkoutId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_sumitPaymentId', ['sumitPaymentId'])
+    .index('by_sumitRecurringId', ['sumitRecurringId']),
+
+  sumitProviderEvents: defineTable({
+    externalEventId: v.string(),
+    checkoutId: v.optional(v.string()),
+    businessId: v.optional(v.id('businesses')),
+    sumitPaymentId: v.optional(v.string()),
+    sumitCustomerId: v.optional(v.string()),
+    sumitRecurringId: v.optional(v.string()),
+    sumitDocumentId: v.optional(v.string()),
+    eventType: v.string(),
+    status: v.union(v.literal('processed'), v.literal('ignored')),
+    ignoredReason: v.optional(v.string()),
+    amount: v.optional(v.number()),
+    currency: v.optional(v.literal('ILS')),
+    providerProductId: v.optional(v.string()),
+    providerEventAt: v.optional(v.number()),
+    canonicalPeriodStartAt: v.optional(v.number()),
+    canonicalPeriodEndAt: v.optional(v.number()),
+    documentNumber: v.optional(v.string()),
+    documentType: v.optional(v.string()),
+    documentUrl: v.optional(v.string()),
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index('by_externalEventId', ['externalEventId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_sumitPaymentId', ['sumitPaymentId'])
+    .index('by_sumitRecurringId', ['sumitRecurringId']),
 
   businessUsageCounters: defineTable({
     businessId: v.id('businesses'),

@@ -44,6 +44,11 @@ import type * as lib_billing_payplus_providerClient from "../lib/billing/payplus
 import type * as lib_billing_payplus_verify from "../lib/billing/payplus/verify.js";
 import type * as lib_billing_productMap from "../lib/billing/productMap.js";
 import type * as lib_billing_productionContract from "../lib/billing/productionContract.js";
+import type * as lib_billing_sumit_checkout from "../lib/billing/sumit/checkout.js";
+import type * as lib_billing_sumit_config from "../lib/billing/sumit/config.js";
+import type * as lib_billing_sumit_mapToCanonical from "../lib/billing/sumit/mapToCanonical.js";
+import type * as lib_billing_sumit_providerClient from "../lib/billing/sumit/providerClient.js";
+import type * as lib_billing_sumit_verify from "../lib/billing/sumit/verify.js";
 import type * as lib_billing_usageCounters from "../lib/billing/usageCounters.js";
 import type * as lib_campaignRuns from "../lib/campaignRuns.js";
 import type * as lib_campaignState from "../lib/campaignState.js";
@@ -107,6 +112,7 @@ import type * as smartManagerExecution from "../smartManagerExecution.js";
 import type * as smartManagerMigration from "../smartManagerMigration.js";
 import type * as smartManagerOutcomes from "../smartManagerOutcomes.js";
 import type * as smartManagerRateLimits from "../smartManagerRateLimits.js";
+import type * as sumitBilling from "../sumitBilling.js";
 import type * as support from "../support.js";
 import type * as users from "../users.js";
 
@@ -153,6 +159,11 @@ declare const fullApi: ApiFromModules<{
   "lib/billing/payplus/verify": typeof lib_billing_payplus_verify;
   "lib/billing/productMap": typeof lib_billing_productMap;
   "lib/billing/productionContract": typeof lib_billing_productionContract;
+  "lib/billing/sumit/checkout": typeof lib_billing_sumit_checkout;
+  "lib/billing/sumit/config": typeof lib_billing_sumit_config;
+  "lib/billing/sumit/mapToCanonical": typeof lib_billing_sumit_mapToCanonical;
+  "lib/billing/sumit/providerClient": typeof lib_billing_sumit_providerClient;
+  "lib/billing/sumit/verify": typeof lib_billing_sumit_verify;
   "lib/billing/usageCounters": typeof lib_billing_usageCounters;
   "lib/campaignRuns": typeof lib_campaignRuns;
   "lib/campaignState": typeof lib_campaignState;
@@ -216,6 +227,7 @@ declare const fullApi: ApiFromModules<{
   smartManagerMigration: typeof smartManagerMigration;
   smartManagerOutcomes: typeof smartManagerOutcomes;
   smartManagerRateLimits: typeof smartManagerRateLimits;
+  sumitBilling: typeof sumitBilling;
   support: typeof support;
   users: typeof users;
 }>;

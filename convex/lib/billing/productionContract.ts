@@ -116,6 +116,9 @@ export const INTENDED_PLAY_BASE_PLANS = {
 } as const;
 
 export const STORE_GRACE_POLICY_DAYS = 16;
+export const DIRECT_PROVIDER_RENEWAL_GRACE_DAYS = 7;
+export const DIRECT_PROVIDER_RENEWAL_GRACE_MS =
+  DIRECT_PROVIDER_RENEWAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
 export const PLAY_PAUSE_ENABLED_FOR_MVP = false;
 
 export const planConfig: Record<BusinessPlan, PlanDefinition> = {
@@ -314,6 +317,37 @@ export function isLogicalSubscriptionProductId(
     value === 'premium_monthly' ||
     value === 'premium_yearly'
   );
+}
+
+/**
+ * The provider-neutral, server-authoritative subscription price lookup.
+ * Provider adapters may validate browser/provider amounts against this value,
+ * but must never accept those external amounts as the source of truth.
+ */
+export function getCanonicalSubscriptionPrice(
+  plan: BusinessPlan,
+  period: BillingPeriod
+): { amount: number; currency: typeof BILLING_CURRENCY } {
+  const definition = planConfig[plan];
+  const amount = definition.pricing[period];
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('BILLING_CONTRACT_AMOUNT_INVALID');
+  }
+  if (definition.pricing.currency !== BILLING_CURRENCY) {
+    throw new Error('BILLING_CONTRACT_CURRENCY');
+  }
+  return { amount, currency: BILLING_CURRENCY };
+}
+
+export function getDirectProviderRenewalGraceEnd(args: {
+  occurredAt: number;
+  currentPeriodEndAt: number | null;
+}): number {
+  const graceBase = Math.max(
+    args.currentPeriodEndAt ?? args.occurredAt,
+    args.occurredAt
+  );
+  return graceBase + DIRECT_PROVIDER_RENEWAL_GRACE_MS;
 }
 
 export function getReferrerRewardMonths(period: BillingPeriod): number {
