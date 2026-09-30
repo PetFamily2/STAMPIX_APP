@@ -1,6 +1,7 @@
 export const BUSINESS_WEB_ROUTES = {
   dashboard: '/business',
   team: '/business/team',
+  billing: '/business/billing',
   settings: '/business/settings',
 } as const;
 

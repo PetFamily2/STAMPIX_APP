@@ -3,7 +3,10 @@ import { useConvexAuth, useMutation } from 'convex/react';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
+  Easing,
   type NativeSyntheticEvent,
   Platform,
   Pressable,
@@ -28,7 +31,7 @@ import {
 } from '@/lib/auth/postAuthRouting';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
-import { flexDirection, justifyContent } from '@/lib/rtl';
+import { justifyContent } from '@/lib/rtl';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 3 * 60;
@@ -51,6 +54,33 @@ const TEXT = {
   missingSession: 'לא זוהתה התחברות פעילה. נסו שוב.',
 };
 
+function usePrefersReducedMotion(): boolean | null {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState<
+    boolean | null
+  >(null);
+
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active) {
+        setPrefersReducedMotion(enabled);
+      }
+    });
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (enabled) => {
+        setPrefersReducedMotion(enabled);
+      }
+    );
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return prefersReducedMotion;
+}
+
 export default function OnboardingOtpScreen() {
   const router = useRouter();
   const { contact, sent, entry } = useLocalSearchParams<{
@@ -68,12 +98,15 @@ export default function OnboardingOtpScreen() {
   const [digits, setDigits] = useState<string[]>(
     Array.from({ length: CODE_LENGTH }, () => '')
   );
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(0);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
   const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isAwaitingSession, setIsAwaitingSession] = useState(false);
   const inputsRef = useRef<Array<TextInput | null>>([]);
+  const focusCaretOpacity = useRef(new Animated.Value(1)).current;
+  const prefersReducedMotion = usePrefersReducedMotion();
   const isSendingRef = useRef(false);
   const otpSentRef = useRef(false);
   const lastAutoSubmittedCodeRef = useRef<string | null>(null);
@@ -198,6 +231,7 @@ export default function OnboardingOtpScreen() {
         });
         if (resetFields) {
           setDigits(Array.from({ length: CODE_LENGTH }, () => ''));
+          setFocusedIndex(0);
           inputsRef.current[0]?.focus();
         }
         setSecondsLeft(RESEND_COOLDOWN_SECONDS);
@@ -241,6 +275,39 @@ export default function OnboardingOtpScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const focusedDigit =
+    focusedIndex === null ? '' : (digits[focusedIndex] ?? '');
+
+  useEffect(() => {
+    if (prefersReducedMotion !== false || focusedDigit.length > 0) {
+      focusCaretOpacity.setValue(1);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(focusCaretOpacity, {
+          toValue: 0.2,
+          duration: 90,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(460),
+        Animated.timing(focusCaretOpacity, {
+          toValue: 1,
+          duration: 90,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(460),
+      ])
+    );
+    animation.start();
+    return () => {
+      animation.stop();
+    };
+  }, [focusCaretOpacity, focusedDigit, prefersReducedMotion]);
+
   const isComplete = useMemo(
     () => digits.every((digit) => digit.length === 1),
     [digits]
@@ -261,6 +328,12 @@ export default function OnboardingOtpScreen() {
         next[index] = '';
         return next;
       });
+      return;
+    }
+
+    if (sanitized.length >= CODE_LENGTH) {
+      setDigits(sanitized.slice(0, CODE_LENGTH).split(''));
+      inputsRef.current[CODE_LENGTH - 1]?.focus();
       return;
     }
 
@@ -504,23 +577,61 @@ export default function OnboardingOtpScreen() {
         />
 
         <View style={styles.digitsContainer}>
-          {digitIndexes.map((digitIndex) => (
-            <TextInput
-              key={`digit-${digitIndex}`}
-              ref={(ref) => {
-                inputsRef.current[digitIndex] = ref;
-              }}
-              value={digits[digitIndex]}
-              onChangeText={(value) => handleChange(digitIndex, value)}
-              onKeyPress={(event) => handleKeyPress(digitIndex, event)}
-              keyboardType="number-pad"
-              returnKeyType="done"
-              textContentType="oneTimeCode"
-              maxLength={CODE_LENGTH}
-              style={styles.digitInput}
-              accessibilityLabel={`ספרה ${digitIndex + 1} בקוד`}
-            />
-          ))}
+          {digitIndexes.map((digitIndex) => {
+            const isActive = focusedIndex === digitIndex;
+            const isEmpty = digits[digitIndex].length === 0;
+            return (
+              <View
+                key={`digit-${digitIndex}`}
+                collapsable={false}
+                style={[
+                  styles.digitCell,
+                  isActive ? styles.digitCellActive : null,
+                ]}
+              >
+                <TextInput
+                  ref={(ref) => {
+                    inputsRef.current[digitIndex] = ref;
+                  }}
+                  value={digits[digitIndex]}
+                  onChangeText={(value) => handleChange(digitIndex, value)}
+                  onKeyPress={(event) => handleKeyPress(digitIndex, event)}
+                  onFocus={() => setFocusedIndex(digitIndex)}
+                  onBlur={() => {
+                    setFocusedIndex((current) =>
+                      current === digitIndex ? null : current
+                    );
+                  }}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  importantForAutofill="yes"
+                  autoFocus={digitIndex === 0}
+                  caretHidden={isActive && isEmpty}
+                  cursorColor="#2563eb"
+                  selectionColor="#2563eb"
+                  underlineColorAndroid="transparent"
+                  maxLength={CODE_LENGTH}
+                  style={styles.digitInput}
+                  accessibilityLabel={`ספרה ${digitIndex + 1} בקוד`}
+                />
+                {isActive && isEmpty ? (
+                  <Animated.View
+                    pointerEvents="none"
+                    accessible={false}
+                    importantForAccessibility="no"
+                    style={[
+                      styles.focusCaret,
+                      prefersReducedMotion === false
+                        ? { opacity: focusCaretOpacity }
+                        : null,
+                    ]}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -596,14 +707,15 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
   },
+  // Digit 1 is the leftmost cell. This row stays physically LTR.
   digitsContainer: {
     marginTop: 22,
-    flexDirection: flexDirection.row,
+    flexDirection: 'row',
     direction: 'ltr',
     justifyContent: 'space-between',
     gap: 6,
   },
-  digitInput: {
+  digitCell: {
     flex: 1,
     height: 48,
     minWidth: 38,
@@ -612,11 +724,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#ffffff',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  digitCellActive: {
+    borderColor: '#2563eb',
+  },
+  digitInput: {
+    width: '100%',
+    height: '100%',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
     writingDirection: 'ltr',
+    backgroundColor: 'transparent',
+    includeFontPadding: false,
+  },
+  focusCaret: {
+    position: 'absolute',
+    top: 14,
+    left: '50%',
+    width: 2,
+    height: 20,
+    marginLeft: -1,
+    borderRadius: 1,
+    backgroundColor: '#2563eb',
   },
   errorText: {
     marginTop: 16,

@@ -83,6 +83,8 @@ const ALLOWED_RAW_STYLE_FINDINGS = new Set([
   'screens/SettingsScreen.tsx:notificationToggleInner:raw alignItems flex-start/end',
   // On a row/row-reverse this is vertical cross-axis top alignment, not RTL direction.
   'components/customer/RedemptionCelebration.tsx:normalLayoutTablet:raw alignItems flex-start/end',
+  // OTP digits are a deliberate physical LTR island: digit 1 is leftmost.
+  'app/(auth)/onboarding-client-otp.tsx:digitsContainer:raw flexDirection row',
 ]);
 
 const ALLOWED_LTR_STYLES = new Set([

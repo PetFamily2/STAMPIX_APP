@@ -31,6 +31,7 @@ import {
   verifySumitPaymentEvidence,
   verifySumitRefundEvidence,
 } from '../lib/billing/sumit/verify';
+import { runRegisteredHandler } from '../lib/runRegisteredHandler';
 import {
   applySUMITCancellationRecord,
   applyVerifiedSUMITPaymentRecord,
@@ -148,6 +149,30 @@ function business(overrides = {}) {
     subscriptionStartAt: null,
     subscriptionEndAt: null,
     billingPeriod: null,
+    createdAt: OCCURRED_AT,
+    updatedAt: OCCURRED_AT,
+    ...overrides,
+  };
+}
+
+function billingAccount(overrides = {}) {
+  return {
+    _id: 'billing_sumit_owner_001',
+    businessId: BUSINESS_ID,
+    ownerUserId: OWNER_ID,
+    providerAppUserId: 'ba_sumit_owner_001',
+    plan: 'starter',
+    lastPlan: 'starter',
+    status: 'active',
+    billingPeriod: 'monthly',
+    provider: 'sumit',
+    providerSubscriptionIdentifier: RECURRING_ID,
+    currentPeriodStartAt: OCCURRED_AT,
+    currentPeriodEndAt: Date.parse('2026-02-15T10:00:00Z'),
+    gracePeriodEndAt: null,
+    canceledAt: null,
+    entitlementRevokedAt: null,
+    hasProviderEvidence: true,
     createdAt: OCCURRED_AT,
     updatedAt: OCCURRED_AT,
     ...overrides,
@@ -289,6 +314,20 @@ async function seedCheckout(ctx, overrides = {}) {
   });
 }
 
+async function seedHistoricalCheckoutIntent(ctx, overrides = {}) {
+  const draft = buildSumitCheckoutDraft({
+    checkoutId: overrides.checkoutId ?? CHECKOUT_ID,
+    businessId: BUSINESS_ID,
+    ownerUserId: OWNER_ID,
+    actorUserId: OWNER_ID,
+    businessActive: true,
+    plan: overrides.plan ?? 'starter',
+    billingPeriod: overrides.billingPeriod ?? 'monthly',
+    now: overrides.now ?? OCCURRED_AT,
+  });
+  return await ctx.db.insert('sumitCheckoutIntents', draft);
+}
+
 function verifiedPaymentArgs(overrides = {}) {
   return {
     checkoutId: CHECKOUT_ID,
@@ -323,6 +362,89 @@ describe('SUMIT server authority and hosted checkout', () => {
     const draft = await seedCheckout(ctx);
     expect(draft.amount).toBe(149);
     expect(draft.currency).toBe('ILS');
+  });
+
+  test.each([
+    ['active', {}],
+    ['trialing', { status: 'trialing' }],
+    [
+      'past_due in grace',
+      {
+        status: 'past_due',
+        gracePeriodEndAt: OCCURRED_AT + 60_000,
+      },
+    ],
+    [
+      'canceled in paid period',
+      {
+        status: 'canceled',
+        canceledAt: OCCURRED_AT - 1,
+        currentPeriodEndAt: OCCURRED_AT + 60_000,
+      },
+    ],
+  ])('server rejects a second recurring checkout for %s access', async (_label, overrides) => {
+    const ctx = createMockCtx({
+      businesses: [business()],
+      businessBillingAccounts: [billingAccount(overrides)],
+    });
+
+    await expect(seedCheckout(ctx)).rejects.toThrow(
+      'SUMIT_ACTIVE_SUBSCRIPTION_EXISTS'
+    );
+    expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
+  });
+
+  test('direct public action call returns the stable active-subscription code', async () => {
+    const recordCtx = createMockCtx({
+      businesses: [business()],
+      businessBillingAccounts: [billingAccount()],
+    });
+    const result = await runRegisteredHandler(
+      createSUMITCheckout,
+      {
+        runMutation: async () =>
+          await createSUMITCheckoutRecord(recordCtx, {
+            actorUserId: OWNER_ID,
+            businessId: BUSINESS_ID,
+            plan: 'premium',
+            billingPeriod: 'yearly',
+            now: OCCURRED_AT,
+          }),
+      },
+      {
+        businessId: BUSINESS_ID,
+        plan: 'premium',
+        billingPeriod: 'yearly',
+      }
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      hosted: false,
+      code: 'SUMIT_ACTIVE_SUBSCRIPTION_EXISTS',
+    });
+    expect(recordCtx.rows('sumitCheckoutIntents')).toHaveLength(0);
+  });
+
+  test('expired grace or paid periods do not block a new checkout', async () => {
+    for (const account of [
+      billingAccount({
+        status: 'past_due',
+        gracePeriodEndAt: OCCURRED_AT,
+      }),
+      billingAccount({
+        status: 'canceled',
+        currentPeriodEndAt: OCCURRED_AT,
+      }),
+    ]) {
+      const ctx = createMockCtx({
+        businesses: [business()],
+        businessBillingAccounts: [account],
+      });
+      await expect(seedCheckout(ctx)).resolves.toMatchObject({
+        status: 'pending',
+      });
+    }
   });
 
   test('a wrong browser amount cannot change the authoritative amount', () => {
@@ -928,7 +1050,7 @@ describe('SUMIT canonical application and lifecycle', () => {
         },
       ],
     });
-    await seedCheckout(ctx);
+    await seedHistoricalCheckoutIntent(ctx);
     const result = await applyVerifiedSUMITPaymentRecord(
       ctx,
       verifiedPaymentArgs({ validPayment: false, recurringId: null })
@@ -979,9 +1101,7 @@ describe('SUMIT canonical application and lifecycle', () => {
     const ctx = createMockCtx({ businesses: [business()] });
     await seedCheckout(ctx);
     await applyVerifiedSUMITPaymentRecord(ctx, verifiedPaymentArgs());
-    await createSUMITCheckoutRecord(ctx, {
-      actorUserId: OWNER_ID,
-      businessId: BUSINESS_ID,
+    await seedHistoricalCheckoutIntent(ctx, {
       plan: 'pro',
       billingPeriod: 'monthly',
       now: OCCURRED_AT + 1000,

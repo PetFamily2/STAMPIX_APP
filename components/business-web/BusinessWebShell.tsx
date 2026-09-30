@@ -88,7 +88,12 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     href: BUSINESS_WEB_ROUTES.team,
   },
   { key: 'analytics', label: 'ניתוחים', icon: ChartNoAxesCombined },
-  { key: 'billing', label: 'חיוב וחשבוניות', icon: ReceiptText },
+  {
+    key: 'billing',
+    label: 'חיוב וחשבוניות',
+    icon: ReceiptText,
+    href: BUSINESS_WEB_ROUTES.billing,
+  },
   {
     key: 'settings',
     label: 'הגדרות העסק',

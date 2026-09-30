@@ -18,6 +18,7 @@ import {
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
 import { applyVerifiedBillingEvent } from './lib/billing/applyVerifiedBillingEvent';
+import { hasOperationalAccessFromStatus } from './lib/billing/lifecycle';
 import type {
   BillingPeriod,
   BusinessPlan,
@@ -181,6 +182,20 @@ export async function createSUMITCheckoutRecord(
     throw new Error('BUSINESS_NOT_FOUND');
   }
   const now = args.now ?? Date.now();
+  const billingAccount = await getBillingAccountForBusiness(ctx, business._id);
+  if (
+    billingAccount &&
+    hasOperationalAccessFromStatus({
+      status: billingAccount.status ?? 'inactive',
+      hasProviderEvidence: billingAccount.hasProviderEvidence === true,
+      currentPeriodEndAt: billingAccount.currentPeriodEndAt ?? null,
+      gracePeriodEndAt: billingAccount.gracePeriodEndAt ?? null,
+      entitlementRevokedAt: billingAccount.entitlementRevokedAt ?? null,
+      now,
+    })
+  ) {
+    throw new Error('SUMIT_ACTIVE_SUBSCRIPTION_EXISTS');
+  }
   const draft = buildSumitCheckoutDraft({
     checkoutId: args.checkoutId ?? `su_${generateOpaqueToken(24)}`,
     businessId: business._id,
@@ -974,10 +989,20 @@ export const createSUMITCheckout = action({
     billingPeriod: v.union(v.literal('monthly'), v.literal('yearly')),
   },
   handler: async (ctx, args): Promise<any> => {
-    const prepared = await ctx.runMutation(
-      internal.sumitBilling.prepareSUMITCheckout,
-      args
-    );
+    let prepared: Awaited<ReturnType<typeof createSUMITCheckoutRecord>>;
+    try {
+      prepared = await ctx.runMutation(
+        internal.sumitBilling.prepareSUMITCheckout,
+        args
+      );
+    } catch (error) {
+      rethrowAuth(error);
+      return {
+        ok: false as const,
+        hosted: false as const,
+        code: sumitErrorCode(error),
+      };
+    }
     const clientBase = {
       checkoutId: prepared.checkoutId,
       expiresAt: prepared.expiresAt,
@@ -1003,6 +1028,9 @@ export const createSUMITCheckout = action({
         checkoutId: prepared.checkoutId,
         amount: prepared.amount,
       });
+      // These URLs describe the required external hosted-page configuration.
+      // Returning them does not configure SUMIT or append a redirect contract
+      // to an already configured hosted payment page.
       const returnUrls = buildSumitReturnUrls(config.webOrigin);
       await ctx.runMutation(internal.sumitBilling.markSUMITCheckoutHosted, {
         checkoutId: prepared.checkoutId,
@@ -1053,7 +1081,23 @@ export const verifySUMITCheckoutPayment = action({
         config,
         paymentId: args.paymentId,
       });
-      return await verifyAndApplyPayment(ctx, { config, context, payment });
+      const result = await verifyAndApplyPayment(ctx, {
+        config,
+        context,
+        payment,
+      });
+      if (!result.ok) {
+        return result;
+      }
+      const subscription = await ctx.runQuery(
+        internal.sumitBilling.getSUMITSubscriptionContext,
+        { businessId: context.businessId }
+      );
+      return {
+        ...result,
+        subscriptionStatus: subscription.status,
+        currentPeriodEndAt: subscription.currentPeriodEndAt,
+      };
     } catch (error) {
       rethrowAuth(error);
       return { ok: false as const, code: sumitErrorCode(error) };

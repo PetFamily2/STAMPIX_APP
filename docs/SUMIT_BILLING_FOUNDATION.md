@@ -20,6 +20,17 @@ production end-to-end payment has been completed.
 6. The adapter calls the existing `applyVerifiedBillingEvent`. No SUMIT code
    writes an entitlement directly.
 
+Until an explicit provider-verified plan-change lifecycle exists,
+`createSUMITCheckout` rejects businesses that already have canonical paid
+access with `SUMIT_ACTIVE_SUBSCRIPTION_EXISTS`. The guard is server-side and
+uses the canonical lifecycle, including valid grace and paid cancellation
+periods; the web UI is not the authority.
+
+The `successUrl` and `cancelUrl` returned with hosted-checkout metadata state
+the required redirect contract only. They do not configure the SUMIT hosted
+payment page automatically. The six hosted pages/products must still be
+configured externally in SUMIT with those redirect destinations.
+
 `reconcileSUMITBilling` provides the owner-authenticated action, while
 `reconcileSUMITBillingInternal` exposes the same server-only reconciliation
 helper to a future cron. No production cron is registered by this change.
@@ -68,6 +79,8 @@ as twelve monthly installments. The adapter verifies both the full amount and
 - `externalidentifier` and `fixedprice` are supported hosted-page parameters.
 - A successful redirect can include customer, payment, document, and external
   identifiers, but the redirect is not treated as payment evidence.
+- Redirect identifiers may be absent for Bit. Missing identifiers are a
+  neutral awaiting-verification state, never proof of failure or entitlement.
 - `billing/payments/get/`, `billing/payments/list/`,
   `billing/recurring/listforcustomer/`, `billing/recurring/cancel/`, and
   `accounting/documents/getdetails/` are published REST operations.
