@@ -85,7 +85,7 @@ export function entitlementErrorToHebrewMessage(
           typeof payload.currentValue === 'number' &&
           payload.currentValue > payload.limitValue
         ) {
-          return `יש חריגה ממכסת הקמפיינים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב קמפיינים או לשדרג כדי להפעיל שוב.`;
+          return `יש חריגה ממכסת הקמפיינים הפעילים במסלול הנוכחי (${payload.currentValue}/${payload.limitValue}). יש לארכב קמפיינים כדי לחזור למכסה.`;
         }
         return `הגעתם למכסת מספר הקמפיינים הפעילים במסלול הנוכחי (${payload.limitValue}).`;
       }
@@ -99,7 +99,7 @@ export function entitlementErrorToHebrewMessage(
       return 'הגעתם למגבלת המסלול הנוכחי.';
     }
     case 'SUBSCRIPTION_INACTIVE':
-      return 'המנוי לא פעיל כרגע. יש להסדיר תשלום או לשדרג.';
+      return 'המנוי לא פעיל כרגע.';
     default:
       return 'אין הרשאה לפעולה הזו.';
   }

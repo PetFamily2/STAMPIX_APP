@@ -4,10 +4,17 @@ Last synced: 2026-02-18
 
 StampAix is an Expo + React Native + Convex mobile app for customer loyalty and business scanner workflows.
 
+## Launch billing
+Native iOS and Android are a consumption and companion app. They show the current plan, status, usage, and which plan includes a locked capability. They do not sell subscriptions.
+Business Web purchases and manages subscriptions through SUMIT at `/business/billing`.
+Convex is the entitlement authority.
+RevenueCat remains dormant rollback infrastructure. Setup notes stay in `docs/REVENUECAT_SETUP.md`.
+
 ## Stack
 - Expo Router
 - Convex (database + auth + server logic)
-- RevenueCat (subscriptions)
+- SUMIT on Business Web for subscription purchase
+- RevenueCat dormant rollback only
 - RTL-first UI (Hebrew-focused)
 
 ## Quick start
@@ -43,7 +50,7 @@ Recommended Convex variables:
 Development-only compatibility Convex variable:
 - `EXPO_PUBLIC_CONVEX_URL`
 
-RevenueCat variables:
+RevenueCat rollback variables:
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_DEV`
 - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY_PROD`
 - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY_DEV`

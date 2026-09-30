@@ -120,11 +120,6 @@ export default function BusinessSettingsScreen() {
     ]);
   };
 
-  const handleCancelSubscription = () => {
-    setIsLogoutSheetVisible(false);
-    router.push(BUSINESS_ROUTES.subscription as Href);
-  };
-
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-[#F5F7FB]">
@@ -333,7 +328,7 @@ export default function BusinessSettingsScreen() {
             {canManageSubscription ? (
               <SettingsNavRow
                 title="המסלול שלי"
-                subtitle="מנוי וחיוב, מה כלול, שימוש, שדרוג וניהול רכישות"
+                subtitle="המסלול הנוכחי, הסטטוס והשימוש"
                 value={
                   billingEntitlements
                     ? `מסלול ${SUBSCRIPTION_PLAN_LABELS[billingEntitlements.plan]}`
@@ -366,7 +361,7 @@ export default function BusinessSettingsScreen() {
           <SettingsGroup>
             <SettingsNavRow
               title="התנתקות"
-              subtitle="יציאה מהמכשיר או ניהול המנוי"
+              subtitle="יציאה מהחשבון במכשיר זה"
               icon="log-out-outline"
               onPress={() => setIsLogoutSheetVisible(true)}
               isLast={true}
@@ -379,10 +374,6 @@ export default function BusinessSettingsScreen() {
         visible={isLogoutSheetVisible}
         onClose={() => setIsLogoutSheetVisible(false)}
         onLogoutDevice={handleLogoutDevice}
-        onCancelSubscription={
-          canManageSubscription ? handleCancelSubscription : undefined
-        }
-        showCancelSubscription={canManageSubscription}
       />
 
       <Modal

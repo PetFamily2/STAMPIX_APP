@@ -8,6 +8,7 @@ import {
   mutation,
 } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
+import { generateNumericCode } from './lib/secureRandom';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MS = 3 * 60 * 1000;
@@ -19,9 +20,7 @@ function normalizeEmail(value: string) {
 }
 
 function generateOtpCode() {
-  return Array.from({ length: OTP_LENGTH }, () =>
-    Math.floor(Math.random() * 10).toString()
-  ).join('');
+  return generateNumericCode(OTP_LENGTH);
 }
 
 export const storeEmailOtp = internalMutation({

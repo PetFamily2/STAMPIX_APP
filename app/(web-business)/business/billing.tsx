@@ -1,7 +1,5 @@
-import { BusinessWebBilling } from '@/components/business-web/BusinessWebBilling';
-import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { NativeCompanionRedirect } from '@/components/navigation/NativeCompanionRedirect';
 
-export default function BusinessWebBillingScreen() {
-  const { activeBusinessId } = useActiveBusiness();
-  return <BusinessWebBilling key={String(activeBusinessId ?? 'none')} />;
+export default function NativeBusinessBillingRedirect() {
+  return <NativeCompanionRedirect />;
 }

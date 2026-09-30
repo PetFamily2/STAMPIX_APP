@@ -6,6 +6,16 @@ Frozen product decisions. Do not reopen pricing, free Starter, Referral, or mult
 
 Stale docs that previously described free Starter or old prices must defer to this file.
 
+## Launch billing channel
+
+Native iOS and Android are a consumption and companion app. They may show the current plan, status, usage, limits, and the plan that includes a locked capability. They do not show prices, purchase buttons, restore, Apple/Google subscription management, or SUMIT checkout.
+
+Business Web is the subscription purchase and billing surface, through SUMIT.
+
+Convex is the canonical entitlement authority.
+
+RevenueCat purchase UI is dormant rollback infrastructure. Provider mapping, webhook history, and this file's RevenueCat identity rules stay in place for rollback. They are not the launch purchase path. Store `priceString` checkout applies only to that dormant path. Web checkout uses the canonical SUMIT amounts in this contract.
+
 ## Frozen plan table
 
 Currency: ILS. No free plan. No general free trial.

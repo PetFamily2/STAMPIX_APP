@@ -40,7 +40,7 @@ EXPO_PUBLIC_CONVEX_URL="https://your-convex.convex.cloud"
 Production builds require `EXPO_PUBLIC_CONVEX_URL_PROD` and never use the
 compatibility fallback.
 
-Optional RevenueCat variables:
+Optional RevenueCat rollback variables. The launch app does not use these for native purchase:
 ```env
 EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED="true"
 EXPO_PUBLIC_MOCK_PAYMENTS="false"
@@ -54,7 +54,7 @@ EXPO_PUBLIC_RC_PACKAGE_PREMIUM_MONTHLY="premium_monthly"
 EXPO_PUBLIC_RC_PACKAGE_PREMIUM_YEARLY="premium_yearly"
 ```
 
-RevenueCat setup details live in `docs/REVENUECAT_SETUP.md`, which is the source of truth for billing configuration.
+Launch billing is Business Web through SUMIT. See `docs/SUMIT_BILLING_FOUNDATION.md`. RevenueCat rollback details live in `docs/REVENUECAT_SETUP.md`.
 
 Optional legal and public integration variables:
 ```env
@@ -143,7 +143,7 @@ High-level route groups:
 - Module not found: run `bun install`.
 - Metro cache issue: run `bun dev --clear`.
 - Convex connection issue: verify `EXPO_PUBLIC_CONVEX_URL_DEV` locally or `EXPO_PUBLIC_CONVEX_URL_PROD` for production. The unsuffixed compatibility variable is development-only.
-- RevenueCat purchase issue: check `docs/REVENUECAT_SETUP.md`.
+- Business Web billing issue: check `docs/SUMIT_BILLING_FOUNDATION.md`. RevenueCat rollback: check `docs/REVENUECAT_SETUP.md`.
 - EAS build issue: check `docs/deployment.md`.
 
 ## Notes

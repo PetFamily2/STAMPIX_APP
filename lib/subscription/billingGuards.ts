@@ -5,6 +5,12 @@ export function canUseRevenueCatPurchasesOnPlatform(platform: string): boolean {
 export const SERVER_AUTHORITATIVE_BILLING_ENABLED =
   process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'true';
 
+/**
+ * Store launch keeps native RevenueCat purchase, restore, and store-management
+ * calls dormant. Flip this only for an explicit rollback build.
+ */
+export const NATIVE_REVENUECAT_PURCHASES_ENABLED = false;
+
 export const BILLING_UNAVAILABLE_TITLE_HE = 'הרכישה אינה זמינה';
 
 export const BILLING_UNAVAILABLE_MESSAGE_HE =

@@ -191,9 +191,10 @@ Convex Auth tables.
   Localization, Updates, Dev Client.
 - Convex: database, functions, cron jobs, HTTP routes, Convex Auth.
 - Convex Auth providers: email OTP, password, Google, Apple.
-- RevenueCat: `react-native-purchases`, `react-native-purchases-ui`,
-  `RevenueCatProvider`, business upgrade modal, package id config, and
-  development-gated mock payment mode.
+- SUMIT: Business Web checkout, success, and cancel routes. Native apps do not
+  import that checkout UI.
+- RevenueCat: dormant `react-native-purchases` provider, package id config, and
+  webhook mapping kept for rollback. The native upgrade modal is removed.
 - Google Maps/Places: address autocomplete, geocoding, discovery/map features.
 - Expo Push Notifications: client token registration and Convex delivery via
   Expo push API.
@@ -237,12 +238,11 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
 
 ## 10. Features That Appear Partially Implemented
 
-- RevenueCat billing: production purchase/restore entry points are guarded
-  before RevenueCat SDK purchase calls, public client-side subscription writes
-  fail closed, and `convex/http.ts` registers `/revenuecat/webhook` for
-  server-authoritative lifecycle updates. Production readiness still requires
-  real RevenueCat products, entitlement ids, webhook secret configuration, and
-  sandbox/device QA.
+- Billing launch path: Business Web purchases through SUMIT. Native iOS and
+  Android are a consumption companion and do not expose purchase, restore,
+  prices, or store-management UI. Convex remains the entitlement authority.
+  RevenueCat purchase code remains dormant rollback infrastructure, with
+  `/revenuecat/webhook` and provider mapping kept for rollback.
 - Analytics: `lib/analytics/index.ts` defaults to console logging; PostHog and
   Firebase providers are placeholders.
 - AI recommendations: Convex module is substantial, but it depends on
@@ -259,9 +259,10 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
   Campaigns whose channel list includes `push` now keep the inbox `messageLog`
   delivery and attempt best-effort Expo push delivery. Referral reward
   notifications keep their existing inbox behavior and are covered for push
-  attempts. Expo config now reserves `./google-services.json` for the Firebase
-  Android app registered as `com.stampaix.app`; the real file is still required
-  externally. Production readiness also depends on APNs/FCM/EAS credential
+  attempts. Production Expo config attaches `./google-services.json` for the
+  Firebase Android app registered as `com.stampaix.app`. Preview can attach a
+  separate client file for physical-device FCM testing and does not reuse the
+  production file. Production readiness also depends on APNs/FCM/EAS credential
   configuration, a dedicated Android notification icon asset, and real-device
   testing.
 - Store/deep-link landing: `convex/http.ts` serves `/join`, preserves join and
@@ -273,8 +274,9 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
   tree.
 - Legacy retention module: several legacy APIs intentionally return disabled or
   migration messages while the newer campaigns flow is used.
-- Payment identity: paid business upgrades use `business:<businessId>` identity
-  and wait for server-authoritative entitlement confirmation.
+- Payment identity: web SUMIT checkout is business-scoped and Convex confirms
+  entitlement. The dormant RevenueCat rollback still uses `business:<businessId>`
+  and waits for server-authoritative entitlement confirmation.
 
 ### EAS Build Readiness
 
@@ -316,9 +318,9 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
   wallet demo seed action was removed. Development seed/debug access now needs
   server-side internal invocation or local tooling rather than public client
   calls.
-- RevenueCat webhook code exists, but production drift can still occur until
-  the live RevenueCat dashboard, webhook secret, product ids, and sandbox
-  lifecycle events are verified end to end.
+- RevenueCat webhook code remains for rollback. It is not the launch purchase
+  path. SUMIT web billing is the purchase path and still depends on external
+  SUMIT configuration.
 - Native permission declarations in `app.json` now cover the used camera,
   image picker/photo library, foreground location, maps, and notification
   flows. Store disclosure copy and generated native build verification are
@@ -344,17 +346,18 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
   privacy/data-safety disclosures for camera, location, push, purchases, AI,
   support requests, and account deletion.
 - Store-ready permission prompts and native permission strings.
-- Full purchase QA for business plans, restore purchases, cancellation, refund,
-  and entitlement downgrade.
+- Business Web SUMIT purchase, cancellation, and refund QA. Native restore and
+  store purchase QA are not part of this launch.
 - Admin support route under the current admin route tree, if support inbox is
   intended to be a live admin MVP tool.
 
 ## 13. Production Blockers
 
 1. New email sign-up appears blocked for users without existing accounts.
-2. Billing webhook code exists, but RevenueCat production products, webhook
-   secret, product ids, entitlement ids, sandbox lifecycle QA, and store purchase
-   QA are still required.
+2. Native store purchase is intentionally absent. Business Web SUMIT billing
+   still needs the external SUMIT dashboard configuration described in
+   `docs/SUMIT_BILLING_FOUNDATION.md`. RevenueCat products and webhook secrets
+   are rollback work, not the launch purchase path.
 3. Analytics is not production-grade; provider integrations are placeholders.
 4. Native permissions were added to `app.json`, but store disclosure
    configuration and generated native build verification are still required for
@@ -369,8 +372,8 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
 
 ## 14. App Store / Google Play Blockers
 
-- App requires camera, location, notifications, image picker/photo access, and
-  in-app purchases. `app.json` now contains native permission declarations for
+- App requires camera, location, notifications, and image picker/photo access.
+  Native in-app purchases are not part of this launch. `app.json` now contains native permission declarations for
   the used camera/location/photo/notification/map capabilities, but generated
   native builds and store privacy disclosures still need verification.
 - The iOS App Store URL defaults to a search URL in backend join fallback code;
@@ -400,13 +403,13 @@ The historical free-Starter / 129 / 1238 table is **legacy documentation**. Laun
 1. Fix new-user email OTP sign-up in `sign-up-email.tsx`.
 2. Add tests for new email sign-up, existing email sign-in, and OAuth account
    linking.
-3. Verify the RevenueCat webhook HTTP route and lifecycle sync with sandbox
-   purchase, renewal, cancellation, refund, and billing issue events.
-4. Make business billing identity consistent across onboarding, paywall,
-   upgrade modal, restore, and entitlement checks.
+3. Verify Business Web SUMIT checkout, return, cancellation, and Convex
+   entitlement confirmation. RevenueCat webhook sandbox QA is rollback work.
+4. Keep native plan, status, and usage screens consistent with Convex
+   entitlements. Do not reintroduce a native purchase surface.
 5. Add explicit business ownership transfer and business deletion flows for
    sole active owners.
-6. Configure real RevenueCat products, offerings, package ids, and sandbox QA.
+6. Keep RevenueCat products and sandbox QA on the rollback track only.
 7. Verify generated native builds and store disclosure copy for the `app.json`
    camera, location, photo/media, maps, and notification configuration.
 8. Verify Apple/Google OAuth production redirect and bundle/package settings.

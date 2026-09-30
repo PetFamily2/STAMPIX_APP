@@ -1,17 +1,16 @@
 #!/usr/bin/env bun
 import { readFileSync } from 'node:fs';
-
+import { CARD_THEMES } from '../constants/cardThemes.ts';
 import {
+  assertFrozenPlanContract,
   FORBIDDEN_STARTER_COPY_PATTERNS,
   FORBIDDEN_V2_PLAN_COPY_PATTERNS,
   LOGICAL_SUBSCRIPTION_PRODUCTS,
   MVP_FEATURE_FLAGS,
+  planConfig,
   REFERRAL_CONTRACT,
   REVENUECAT_CANONICAL_ENTITLEMENT,
-  assertFrozenPlanContract,
-  planConfig,
 } from '../convex/lib/billing/productionContract.ts';
-import { CARD_THEMES } from '../constants/cardThemes.ts';
 
 function fail(message) {
   console.error(`PREBUILD FAIL: ${message}`);
@@ -56,8 +55,8 @@ const sources = [
   'lib/subscription/planComparison.ts',
   'contexts/RevenueCatContext.tsx',
   'config/appConfig.ts',
-  'components/subscription/SubscriptionSalesPanel.tsx',
-  'components/subscription/UpgradeModal.tsx',
+  'lib/subscription/lockedAreaCopy.ts',
+  'app/(authenticated)/(business)/settings-business-subscription.tsx',
   'app/(auth)/paywall/index.tsx',
 ];
 const blob = sources.map((path) => readFileSync(path, 'utf8')).join('\n');
@@ -65,7 +64,10 @@ const blob = sources.map((path) => readFileSync(path, 'utf8')).join('\n');
 if (blob.includes("Exclude<BusinessPlan, 'starter'>")) {
   fail('Starter excluded from RC mapping');
 }
-if (blob.includes('המשך עם Starter') || blob.includes('אפשר להמשיך עם Starter')) {
+if (
+  blob.includes('המשך עם Starter') ||
+  blob.includes('אפשר להמשיך עם Starter')
+) {
   fail('free Starter skip copy present');
 }
 if (blob.includes('subscriptionEndAt:') && blob.includes('grantMonths')) {
@@ -86,7 +88,9 @@ if (profile === 'production' || profile === 'preview') {
   if (process.env.EXPO_PUBLIC_MOCK_PAYMENTS === 'true') {
     fail('MOCK_PAYMENTS true in Preview or Production');
   }
-  if (process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'false') {
+  if (
+    process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'false'
+  ) {
     fail('SERVER_AUTHORITATIVE_BILLING false');
   }
 }

@@ -274,25 +274,7 @@ export function CustomersHubContent() {
       if (entitlementError) {
         Alert.alert(
           'לא ניתן ליצור קמפיין',
-          entitlementErrorToHebrewMessage(entitlementError),
-          [
-            {
-              text: 'שדרוג',
-              onPress: () =>
-                openUpgrade(
-                  entitlementError.limitKey ??
-                    entitlementError.featureKey ??
-                    'marketingHub',
-                  entitlementError.requiredPlan ?? null,
-                  entitlementError.code === 'SUBSCRIPTION_INACTIVE'
-                    ? 'subscription_inactive'
-                    : entitlementError.code === 'PLAN_LIMIT_REACHED'
-                      ? 'limit_reached'
-                      : 'feature_locked'
-                ),
-            },
-            { text: 'אישור', style: 'cancel' },
-          ]
+          entitlementErrorToHebrewMessage(entitlementError)
         );
         return;
       }
@@ -508,25 +490,8 @@ export function CustomersHubContent() {
                     className={tw.textStart}
                     style={styles.customerUsageHint}
                   >
-                    הוספת לקוחות חדשים תצריך שדרוג מסלול
+                    הוספת לקוחות חדשים אינה זמינה במסלול הנוכחי
                   </Text>
-                  <Pressable
-                    onPress={() =>
-                      openUpgrade(
-                        'maxCustomers',
-                        customerLimitRequiredPlan,
-                        'limit_reached'
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.customerUsageUpgradeButton,
-                      pressed ? styles.customerUsageUpgradeButtonPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.customerUsageUpgradeButtonText}>
-                      שדרוג
-                    </Text>
-                  </Pressable>
                 </View>
               ) : null}
             </SurfaceCard>

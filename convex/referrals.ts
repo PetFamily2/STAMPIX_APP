@@ -17,6 +17,7 @@ import {
 } from './guards';
 import { createRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 import { runRegisteredHandler } from './lib/runRegisteredHandler';
+import { generateReferralCode } from './lib/secureRandom';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { markSmartManagerOutcomeDirty } from './lib/smartManagerOutcomes';
 import { sendPushNotificationToUser } from './pushNotifications';
@@ -121,7 +122,7 @@ function buildMonthWindow(now: number) {
 }
 
 function buildReferralCode(prefix: 'ref' | 'bref' = 'ref') {
-  return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`.toUpperCase();
+  return generateReferralCode(prefix);
 }
 
 function buildCustomerReferralLinkUrl(code: string) {

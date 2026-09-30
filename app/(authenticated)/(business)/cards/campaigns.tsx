@@ -170,7 +170,7 @@ export function CampaignsHubContent() {
     entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
       ?.maxCampaigns ?? 'pro';
   const campaignLimitReachedCopy =
-    'הגעתם למכסת הקמפיינים הפעילים. אפשר להמשיך ליצור ולערוך טיוטות; הפעלה נוספת תחייב השבתת קמפיין פעיל או שדרוג מסלול.';
+    'הגעתם למכסת הקמפיינים הפעילים. אפשר להמשיך ליצור ולערוך טיוטות. הפעלה נוספת זמינה אחרי השבתת קמפיין פעיל, או במסלול עם מכסה גבוהה יותר.';
   const canCreateCampaign =
     Boolean(activeBusinessId) && canViewCampaigns && canCreateCampaigns;
   const createBlockedReason = !activeBusinessId
@@ -370,13 +370,7 @@ export function CampaignsHubContent() {
               unit="קמפיינים"
               nearLimitText="מתקרבים למכסת הקמפיינים במסלול הנוכחי"
               atLimitText={campaignLimitReachedCopy}
-              overLimitText="הקמפיינים הקיימים והטיוטות נשמרו. הפעלה נוספת חסומה עד להשבתת קמפיין פעיל או לשדרוג המסלול."
-              actionLabel={campaignLimit.isAtLimit ? 'שדרוג' : undefined}
-              onActionPress={
-                campaignLimit.isAtLimit
-                  ? () => showCampaignPlanLimit('הפעלת קמפיין נוסף נחסמה')
-                  : undefined
-              }
+              overLimitText="הקמפיינים הקיימים והטיוטות נשמרו. הפעלה נוספת אינה זמינה במסלול הנוכחי עד להשבתת קמפיין פעיל."
             />
           </View>
         ) : null}

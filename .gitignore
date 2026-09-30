@@ -47,3 +47,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Preview Firebase client file stays outside source. Production keeps its
+# existing google-services.json path and must not be reused for Preview.
+google-services.preview.json

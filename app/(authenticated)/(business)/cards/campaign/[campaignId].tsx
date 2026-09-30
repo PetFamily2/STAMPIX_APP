@@ -1654,7 +1654,7 @@ export default function CampaignDraftEditorScreen() {
                 className={`mt-3 ${tw.selfStart} rounded-full bg-red-600 px-3 py-1.5`}
               >
                 <Text className="text-xs font-black text-white">
-                  שדרוג מסלול
+                  פרטי המגבלה
                 </Text>
               </TouchableOpacity>
             </View>

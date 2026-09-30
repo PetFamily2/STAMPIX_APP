@@ -7,7 +7,7 @@ This is the canonical architecture document. The older `docs/spec/architecture.m
 ## System overview
 - Mobile app: Expo + React Native + Expo Router with typed routes.
 - Backend: Convex for auth, database, server functions, permissions, and realtime data.
-- Billing: RevenueCat through one app-level context.
+- Billing: Business Web purchases through SUMIT. Native iOS/Android is a consumption companion. Convex is the entitlement authority. RevenueCat stays as dormant rollback infrastructure.
 - UI direction: RTL-first, Hebrew-focused screens with explicit RTL helpers.
 
 ## Layering
@@ -127,13 +127,16 @@ embedded bundle. iOS and Android device-level visual RTL QA remains a later
 runtime checkpoint; no artifact build is part of this source-only contract.
 
 ## Payments
-- `contexts/RevenueCatContext.tsx` is the single runtime integration point for package loading, purchase, restore, and subscription sync.
-- If payments are disabled, unconfigured, or running in Expo Go, the app falls back to preview behavior.
-- RevenueCat configuration is documented in `docs/REVENUECAT_SETUP.md`.
+- Launch purchase and billing management live on Business Web through SUMIT: `/business/billing`, `/billing/sumit/success`, and `/billing/sumit/cancel`.
+- Native iOS/Android shows current plan, status, usage, and locked-capability plan names. It does not start a purchase, restore, or store-management flow.
+- Convex remains the entitlement authority for both surfaces.
+- `contexts/RevenueCatContext.tsx` remains dormant rollback infrastructure for package loading, purchase, restore, and subscription sync. The store candidate keeps `NATIVE_REVENUECAT_PURCHASES_ENABLED` false.
+- RevenueCat rollback configuration is documented in `docs/REVENUECAT_SETUP.md`.
+- SUMIT web billing is documented in `docs/SUMIT_BILLING_FOUNDATION.md`.
 
 ## Non-goals for this document
 - Detailed EAS deployment steps: use `docs/deployment.md`.
-- Full billing setup: use `docs/REVENUECAT_SETUP.md`.
+- Full web billing setup: use `docs/SUMIT_BILLING_FOUNDATION.md`. RevenueCat rollback setup: use `docs/REVENUECAT_SETUP.md`.
 - Exhaustive route listing: use `docs/routes.md`.
 - Historical generated architecture snapshots: see `docs/archive/route-snapshots/ARCHITECTURAL_MAP.md`.
 

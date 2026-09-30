@@ -466,9 +466,13 @@ Native config:
 - Android default FCM channel id: `default`.
 - Runtime Android channel name: `StampAix`.
 - Android notification tint color: `#2F6BFF`.
-- Expo config references `./google-services.json`; obtain the real Firebase
-  Android client file for `com.stampaix.app` before building. Do not substitute
-  the private FCM service-account JSON.
+- Production Android builds attach `./google-services.json` for the Firebase
+  Android app registered as `com.stampaix.app`.
+- Preview Android builds never attach that production file. A physical-device
+  Preview FCM test can use `./google-services.preview.json`, or the
+  `GOOGLE_SERVICES_JSON` file path when it points at a different file. Do not
+  substitute the private FCM service-account JSON, and do not commit either
+  client file as a new secret.
 - No notification icon is configured yet because the repo does not contain a
   dedicated 96x96 all-white transparent Android notification icon asset.
 
@@ -486,7 +490,8 @@ Backend behavior:
 Production credential blockers:
 - APNs key/certificate configured through EAS credentials.
 - FCM V1 credentials configured through EAS credentials.
-- Firebase Android client `google-services.json` present at the configured path.
+- Production Firebase Android client `google-services.json` present at
+  `./google-services.json`. Preview FCM testing uses a separate client file.
 - Real iOS and Android device tests using preview/production builds.
 - Large queued fanout/retry infrastructure is not wired in C3.2.
 

@@ -1,11 +1,8 @@
 import { useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,33 +19,16 @@ import {
 } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
-import { SubscriptionSalesPanel } from '@/components/subscription/SubscriptionSalesPanel';
-import { UpgradeModal } from '@/components/subscription/UpgradeModal';
-import { BILLING_PERIOD_LABELS, type BillingPeriod } from '@/config/appConfig';
-import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { BILLING_PERIOD_LABELS } from '@/config/appConfig';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
-import {
-  isSubscriptionRecoveryStatus,
-  resolveSubscriptionGuideTarget,
-} from '@/lib/recommendations/guidance';
+import { resolveSubscriptionGuideTarget } from '@/lib/recommendations/guidance';
 import { alignItems, flexDirection, textAlign } from '@/lib/rtl';
-import { buildRevenueCatBusinessAppUserId } from '@/lib/subscription/billingGuards';
-import {
-  buildComparisonRows,
-  normalizePlanCatalog,
-  type PlanId,
-  resolveSubscriptionPlanAction,
-  resolveSubscriptionPlanSelection,
-} from '@/lib/subscription/planComparison';
-
-type UpgradeReason =
-  | 'feature_locked'
-  | 'limit_reached'
-  | 'subscription_inactive';
+import { getLockedAreaCopy } from '@/lib/subscription/lockedAreaCopy';
+import type { PlanId } from '@/lib/subscription/planComparison';
 
 const TEXT_START = textAlign.start;
 const TEXT_END = textAlign.end;
@@ -77,21 +57,6 @@ function parsePlanParam(value: string | string[] | undefined): PlanId | null {
     normalized === 'starter' ||
     normalized === 'pro' ||
     normalized === 'premium'
-  ) {
-    return normalized;
-  }
-
-  return null;
-}
-
-function parseUpgradeReasonParam(
-  value: string | string[] | undefined
-): UpgradeReason | null {
-  const normalized = firstParam(value);
-  if (
-    normalized === 'feature_locked' ||
-    normalized === 'limit_reached' ||
-    normalized === 'subscription_inactive'
   ) {
     return normalized;
   }
@@ -155,11 +120,9 @@ export default function BusinessSettingsSubscriptionScreen() {
     recommendedPlan?: string | string[];
     upgradeReason?: string | string[];
     featureKey?: string | string[];
-    autoOpenUpgrade?: string | string[];
     guideId?: string | string[];
     limitKey?: string | string[];
   }>();
-  const hasAutoOpenedModalRef = useRef(false);
 
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
   const capabilities = activeBusiness
@@ -169,14 +132,8 @@ export default function BusinessSettingsSubscriptionScreen() {
       )
     : null;
 
-  const {
-    entitlements,
-    planCatalog: planCatalogQuery,
-    limitStatus,
-    gate,
-    isLoading,
-  } = useEntitlements(activeBusinessId);
-  const { restorePurchases, getManagementUrl } = useRevenueCat();
+  const { entitlements, limitStatus, gate, isLoading } =
+    useEntitlements(activeBusinessId);
   const teamGate = gate('team');
   const usageSummary = useQuery(
     api.entitlements.getBusinessUsageSummary,
@@ -188,28 +145,16 @@ export default function BusinessSettingsSubscriptionScreen() {
       ? { businessId: activeBusinessId }
       : 'skip'
   ) as { usedSeats: number; maxSeats: number } | null | undefined;
-  const billingIdentity = useQuery(
-    api.businessBilling.getBusinessBillingIdentity,
-    activeBusinessId && capabilities?.manage_subscription === true
-      ? { businessId: activeBusinessId }
-      : 'skip'
-  );
 
   const recommendedPlanParam = parsePlanParam(params.recommendedPlan);
-  const upgradeReasonParam = parseUpgradeReasonParam(params.upgradeReason);
   const featureKeyParam = firstParam(params.featureKey);
-  const autoOpenUpgradeParam = firstParam(params.autoOpenUpgrade) === 'true';
+  const upgradeReasonParam = firstParam(params.upgradeReason);
   const guideIdParam = firstParam(params.guideId);
   const guideLimitKeyParam = firstParam(params.limitKey);
-
-  const normalizedPlanCatalog = useMemo(
-    () => normalizePlanCatalog(planCatalogQuery),
-    [planCatalogQuery]
-  );
-  const comparisonRows = useMemo(
-    () => buildComparisonRows(normalizedPlanCatalog),
-    [normalizedPlanCatalog]
-  );
+  const featureNotice =
+    featureKeyParam || recommendedPlanParam || upgradeReasonParam
+      ? getLockedAreaCopy(featureKeyParam || 'generic', recommendedPlanParam)
+      : null;
 
   const currentPlan = entitlements?.plan ?? 'starter';
   const cardsStatus = limitStatus('maxCards', usageSummary?.cardsUsed ?? 0);
@@ -302,133 +247,6 @@ export default function BusinessSettingsSubscriptionScreen() {
     teamSeatsStatus,
   ]);
 
-  const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<PlanId>('pro');
-  const [upgradeReason, setUpgradeReason] =
-    useState<UpgradeReason>('feature_locked');
-  const [upgradeFeatureKey, setUpgradeFeatureKey] = useState<
-    string | undefined
-  >(undefined);
-  const [comparisonSelectedPlan, setComparisonSelectedPlan] =
-    useState<PlanId>('pro');
-  const [comparisonBillingPeriod, setComparisonBillingPeriod] =
-    useState<BillingPeriod>('monthly');
-  const [isRestoringSubscription, setIsRestoringSubscription] = useState(false);
-
-  const openUpgrade = useCallback(
-    (targetPlan?: PlanId) => {
-      const selectedTarget = targetPlan ?? comparisonSelectedPlan;
-
-      setUpgradePlan(selectedTarget);
-      setUpgradeReason(
-        entitlements?.isSubscriptionActive !== true
-          ? 'subscription_inactive'
-          : (upgradeReasonParam ?? 'feature_locked')
-      );
-      setUpgradeFeatureKey(featureKeyParam?.trim() || 'business_subscription');
-      setIsUpgradeVisible(true);
-    },
-    [
-      comparisonSelectedPlan,
-      entitlements?.isSubscriptionActive,
-      featureKeyParam,
-      upgradeReasonParam,
-    ]
-  );
-
-  const handleRestoreSubscription = useCallback(async () => {
-    if (!activeBusinessId || isRestoringSubscription) {
-      return;
-    }
-    const appUserId = buildRevenueCatBusinessAppUserId(
-      billingIdentity?.providerAppUserId ?? null
-    );
-    if (!appUserId) {
-      Alert.alert(
-        'שחזור רכישות',
-        'לא הצלחנו לזהות את חשבון החיוב של העסק. נסו שוב מאוחר יותר.'
-      );
-      return;
-    }
-    setIsRestoringSubscription(true);
-    try {
-      await restorePurchases({
-        appUserId,
-        syncUserSubscription: false,
-      });
-    } finally {
-      setIsRestoringSubscription(false);
-    }
-  }, [
-    activeBusinessId,
-    billingIdentity?.providerAppUserId,
-    isRestoringSubscription,
-    restorePurchases,
-  ]);
-
-  const handleManageSubscription = useCallback(async () => {
-    const appUserId = buildRevenueCatBusinessAppUserId(
-      billingIdentity?.providerAppUserId ?? null
-    );
-    const managementUrl = await getManagementUrl(appUserId ?? undefined);
-    if (managementUrl) {
-      const canOpen = await Linking.canOpenURL(managementUrl);
-      if (canOpen) {
-        await Linking.openURL(managementUrl);
-        return;
-      }
-    }
-    Alert.alert(
-      'ניהול המנוי',
-      'ניהול המנוי מתבצע בחנות של Apple או Google. לא הצלחנו לפתוח את מסך הניהול כרגע.'
-    );
-  }, [billingIdentity?.providerAppUserId, getManagementUrl]);
-
-  useEffect(() => {
-    if (!entitlements) {
-      return;
-    }
-
-    setComparisonSelectedPlan(
-      resolveSubscriptionPlanSelection({
-        currentPlan,
-        recommendedPlan: recommendedPlanParam,
-      })
-    );
-  }, [currentPlan, entitlements, recommendedPlanParam]);
-
-  useEffect(() => {
-    if (entitlements?.billingPeriod) {
-      setComparisonBillingPeriod(entitlements.billingPeriod);
-    }
-  }, [entitlements?.billingPeriod]);
-
-  useEffect(() => {
-    if (
-      !autoOpenUpgradeParam ||
-      hasAutoOpenedModalRef.current ||
-      !activeBusinessId ||
-      !entitlements
-    ) {
-      return;
-    }
-
-    hasAutoOpenedModalRef.current = true;
-    openUpgrade(
-      resolveSubscriptionPlanSelection({
-        currentPlan,
-        recommendedPlan: recommendedPlanParam,
-      })
-    );
-  }, [
-    activeBusinessId,
-    autoOpenUpgradeParam,
-    currentPlan,
-    entitlements,
-    openUpgrade,
-    recommendedPlanParam,
-  ]);
-
   if (activeBusiness && capabilities?.manage_subscription !== true) {
     return <Redirect href="/(authenticated)/(business)/settings" />;
   }
@@ -445,40 +263,21 @@ export default function BusinessSettingsSubscriptionScreen() {
     entitlements?.isSubscriptionActive === true
       ? (entitlements.subscriptionStatus ?? 'active')
       : 'inactive';
-  const currentStatusLabel =
-    !entitlements
-      ? 'טוענים את מצב המנוי'
-      : displaySubscriptionStatus === 'canceled' &&
-          entitlements.isSubscriptionActive
-        ? entitlements.subscriptionEndAt
-          ? `המנוי יבוטל בתאריך ${new Date(
-              entitlements.subscriptionEndAt
-            ).toLocaleDateString('he-IL')}`
-          : 'המנוי יבוטל בסוף התקופה ששולמה'
-        : (STATUS_LABELS[displaySubscriptionStatus] ?? 'לא פעיל');
-  const showSubscriptionRecoveryAction =
-    entitlements !== null &&
-    isSubscriptionRecoveryStatus(displaySubscriptionStatus);
+  const currentStatusLabel = !entitlements
+    ? 'טוענים את מצב המנוי'
+    : displaySubscriptionStatus === 'canceled' &&
+        entitlements.isSubscriptionActive
+      ? entitlements.subscriptionEndAt
+        ? `המנוי יבוטל בתאריך ${new Date(
+            entitlements.subscriptionEndAt
+          ).toLocaleDateString('he-IL')}`
+        : 'המנוי יבוטל בסוף התקופה ששולמה'
+      : (STATUS_LABELS[displaySubscriptionStatus] ?? 'לא פעיל');
   const subscriptionGuideTarget = resolveSubscriptionGuideTarget({
     guideId: guideIdParam,
     subscriptionStatus: entitlements ? displaySubscriptionStatus : undefined,
     limitKey: guideLimitKeyParam,
   });
-  const activePlan =
-    entitlements?.isSubscriptionActive === true ? currentPlan : undefined;
-  const comparisonPlanAction = resolveSubscriptionPlanAction({
-    currentPlan,
-    selectedPlan: comparisonSelectedPlan,
-    isSubscriptionActive: entitlements?.isSubscriptionActive === true,
-  });
-  const comparisonCtaLabel =
-    comparisonPlanAction === 'manage'
-      ? 'ניהול המסלול הנוכחי'
-      : comparisonPlanAction === 'reactivate'
-        ? `הפעלת ${PLAN_LABELS[comparisonSelectedPlan]}`
-        : comparisonPlanAction === 'switch'
-          ? `מעבר ל-${PLAN_LABELS[comparisonSelectedPlan]}`
-          : `שדרוג ל-${PLAN_LABELS[comparisonSelectedPlan]}`;
 
   const usageItems = [
     {
@@ -562,11 +361,7 @@ export default function BusinessSettingsSubscriptionScreen() {
 
         <View style={styles.currentPlanCard}>
           <View style={styles.currentPlanCopy}>
-            <Text style={styles.currentPlanEyebrow}>
-              {entitlements?.isSubscriptionActive === true
-                ? 'המסלול הנוכחי'
-                : 'המסלול להפעלה'}
-            </Text>
+            <Text style={styles.currentPlanEyebrow}>המסלול הנוכחי</Text>
             {entitlements ? (
               <Text style={styles.currentPlanName}>
                 {PLAN_LABELS[currentPlan]}
@@ -580,6 +375,17 @@ export default function BusinessSettingsSubscriptionScreen() {
             השימוש והמכסות העדכניים מוצגים כאן.
           </Text>
         </View>
+
+        {featureNotice ? (
+          <View style={styles.featureNotice}>
+            <Text style={styles.featureNoticeTitle}>
+              {featureNotice.lockedTitle}
+            </Text>
+            <Text style={styles.featureNoticeBody}>
+              {featureNotice.lockedSubtitle}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.usageStrip}>
           {usageItems.map((item) => (
@@ -618,52 +424,10 @@ export default function BusinessSettingsSubscriptionScreen() {
           style={styles.subscriptionRecoveryRow}
         >
           <View style={styles.subscriptionRecoveryCopy}>
-            <Text style={styles.subscriptionRecoveryTitle}>
-              רכישות ומנוי בחנות
-            </Text>
+            <Text style={styles.subscriptionRecoveryTitle}>סטטוס המסלול</Text>
             <Text style={styles.subscriptionRecoveryDescription}>
-              {showSubscriptionRecoveryAction
-                ? `סטטוס מנוי: ${currentStatusLabel}. אפשר לשחזר את הרכישה הקיימת.`
-                : 'אפשר לשחזר רכישות קודמות או לפתוח את ניהול המנוי בחנות.'}
+              {currentStatusLabel}
             </Text>
-          </View>
-          <View style={styles.subscriptionActionButtons}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="שחזור רכישות למנוי הנוכחי"
-              disabled={isRestoringSubscription}
-              onPress={() => {
-                void handleRestoreSubscription();
-              }}
-              style={({ pressed }) => [
-                styles.subscriptionRecoveryButton,
-                pressed ? styles.secondaryButtonPressed : null,
-                isRestoringSubscription ? styles.buttonDisabled : null,
-              ]}
-            >
-              {isRestoringSubscription ? (
-                <ActivityIndicator size="small" color="#1D4ED8" />
-              ) : (
-                <Text style={styles.subscriptionRecoveryButtonText}>
-                  שחזור רכישות
-                </Text>
-              )}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="ניהול המנוי בחנות"
-              onPress={() => {
-                void handleManageSubscription();
-              }}
-              style={({ pressed }) => [
-                styles.subscriptionRecoveryButton,
-                pressed ? styles.secondaryButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.subscriptionRecoveryButtonText}>
-                ניהול המנוי
-              </Text>
-            </Pressable>
           </View>
         </View>
 
@@ -675,46 +439,7 @@ export default function BusinessSettingsSubscriptionScreen() {
             </Text>
           </View>
         ) : null}
-
-        <View style={styles.panelWrap}>
-          {entitlements ? (
-            <SubscriptionSalesPanel
-              plans={normalizedPlanCatalog}
-              rows={comparisonRows}
-              selectedPlan={comparisonSelectedPlan}
-              billingPeriod={comparisonBillingPeriod}
-              currentPlan={activePlan}
-              context="settings"
-              footerMode="inline"
-              showPlanSelector={false}
-              ctaLabel={comparisonCtaLabel}
-              ctaDisabled={isLoading}
-              footerInsetBottom={0}
-              onSelectPlan={setComparisonSelectedPlan}
-              onBillingPeriodChange={setComparisonBillingPeriod}
-              onPressCta={() => {
-                if (comparisonPlanAction === 'manage') {
-                  void handleManageSubscription();
-                  return;
-                }
-                openUpgrade(comparisonSelectedPlan);
-              }}
-            />
-          ) : (
-            <ActivityIndicator size="small" color="#2F6BFF" />
-          )}
-        </View>
       </ScrollView>
-
-      <UpgradeModal
-        visible={isUpgradeVisible}
-        businessId={activeBusinessId}
-        initialPlan={upgradePlan}
-        initialBillingPeriod={comparisonBillingPeriod}
-        reason={upgradeReason}
-        featureKey={upgradeFeatureKey}
-        onClose={() => setIsUpgradeVisible(false)}
-      />
       <GuidedActionScreenOverlay
         activeBusinessId={activeBusinessId}
         routeKey="business-subscription"
@@ -750,9 +475,6 @@ const styles = StyleSheet.create({
     gap: SETTINGS_TOKENS.sectionGap,
     alignSelf: 'center',
   },
-  stickyHeader: {
-    paddingBottom: 8,
-  },
   emptyState: {
     flex: 1,
     backgroundColor: '#E9F0FF',
@@ -767,19 +489,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 14,
     fontWeight: '600',
-  },
-  backButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  backButtonPressed: {
-    opacity: 0.82,
   },
   usageStrip: {
     marginTop: 4,
@@ -827,6 +536,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 19,
     fontWeight: '600',
+    textAlign: TEXT_START,
+  },
+  featureNotice: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D7E2F4',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  featureNoticeTitle: {
+    color: '#0F172A',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '900',
+    textAlign: TEXT_START,
+  },
+  featureNoticeBody: {
+    color: '#475569',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
     textAlign: TEXT_START,
   },
   usageChip: {
@@ -881,11 +613,6 @@ const styles = StyleSheet.create({
     alignItems: alignItems.start,
     gap: 3,
   },
-  subscriptionActionButtons: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
   subscriptionRecoveryTitle: {
     color: '#0F172A',
     fontSize: 14,
@@ -897,24 +624,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: TEXT_START,
-  },
-  subscriptionRecoveryButton: {
-    minHeight: 48,
-    minWidth: 112,
-    flexGrow: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  subscriptionRecoveryButtonText: {
-    color: '#1D4ED8',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
   },
   warningStrip: {
     flexDirection: flexDirection.row,
@@ -940,14 +649,5 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '700',
     textAlign: TEXT_START,
-  },
-  secondaryButtonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  panelWrap: {
-    marginTop: 2,
   },
 });

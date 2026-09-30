@@ -22,11 +22,9 @@ export function PlanLimitModal({
   currentPlan,
   limitSummary,
   canManageSubscription,
-  onManageSubscription,
   onDismiss,
 }: PlanLimitModalProps) {
   const insets = useSafeAreaInsets();
-  const showManageAction = canManageSubscription && onManageSubscription;
 
   return (
     <Modal
@@ -71,37 +69,22 @@ export function PlanLimitModal({
             </View>
           ) : null}
 
-          {!showManageAction ? (
-            <Text style={styles.ownerHint}>
-              רק בעלי העסק יכולים לנהל את המסלול. אפשר לפנות לבעלי העסק לקבלת
-              עזרה.
-            </Text>
-          ) : null}
-
-          {showManageAction ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="שדרוג"
-              onPress={onManageSubscription}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>שדרוג</Text>
-            </Pressable>
-          ) : null}
+          <Text style={styles.ownerHint}>
+            {canManageSubscription
+              ? 'היכולת הזו אינה כלולה במסלול הנוכחי.'
+              : 'רק בעלי העסק רואים את פרטי המסלול המלאים.'}
+          </Text>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="אולי בהמשך"
+            accessibilityLabel="הבנתי"
             onPress={onDismiss}
             style={({ pressed }) => [
               styles.secondaryButton,
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.secondaryButtonText}>אולי בהמשך</Text>
+            <Text style={styles.secondaryButtonText}>הבנתי</Text>
           </Pressable>
         </View>
       </View>

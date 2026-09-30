@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appJson from './app.json';
 
 const baseConfig = appJson.expo as ExpoConfig;
-const PRODUCTION_GOOGLE_SERVICES_FILE = './google-services.json';
+export const PRODUCTION_GOOGLE_SERVICES_FILE = './google-services.json';
+export const PREVIEW_GOOGLE_SERVICES_FILE = './google-services.preview.json';
 const NOTIFICATIONS_PLUGIN = 'expo-notifications';
 const AUDIO_PLUGIN = 'expo-audio';
 type ExpoPlugin = NonNullable<ExpoConfig['plugins']>[number];
@@ -20,10 +23,67 @@ function getAppEnvironment(): string | undefined {
   return process.env.EXPO_PUBLIC_APP_ENV?.trim().toLowerCase();
 }
 
-function withProductionGoogleServicesFile(config: ExpoConfig): ExpoConfig {
-  const appEnvironment = getAppEnvironment();
+function normalizeConfigPath(value: string) {
+  return value.trim().replaceAll('\\', '/');
+}
 
-  if (appEnvironment !== 'production') {
+export function isProductionGoogleServicesPath(value: string) {
+  const normalized = normalizeConfigPath(value);
+  if (!normalized) {
+    return false;
+  }
+  if (
+    normalized === PRODUCTION_GOOGLE_SERVICES_FILE ||
+    normalized === 'google-services.json'
+  ) {
+    return true;
+  }
+  return resolve(normalized) === resolve(PRODUCTION_GOOGLE_SERVICES_FILE);
+}
+
+export function resolveAndroidGoogleServicesFile(options?: {
+  appEnvironment?: string;
+  previewServicesPath?: string | null;
+  fileExists?: (filePath: string) => boolean;
+}): string | undefined {
+  const appEnvironment = (options?.appEnvironment ?? getAppEnvironment())
+    ?.trim()
+    .toLowerCase();
+  const fileExists = options?.fileExists ?? existsSync;
+
+  if (appEnvironment === 'production') {
+    return PRODUCTION_GOOGLE_SERVICES_FILE;
+  }
+
+  if (appEnvironment !== 'preview') {
+    return undefined;
+  }
+
+  const configured = normalizeConfigPath(
+    options && 'previewServicesPath' in options
+      ? (options.previewServicesPath ?? '')
+      : (process.env.GOOGLE_SERVICES_JSON ?? '')
+  );
+  if (
+    configured &&
+    !isProductionGoogleServicesPath(configured) &&
+    fileExists(configured)
+  ) {
+    return configured;
+  }
+
+  if (fileExists(PREVIEW_GOOGLE_SERVICES_FILE)) {
+    return PREVIEW_GOOGLE_SERVICES_FILE;
+  }
+
+  return undefined;
+}
+
+function withEnvironmentAwareGoogleServicesFile(
+  config: ExpoConfig
+): ExpoConfig {
+  const googleServicesFile = resolveAndroidGoogleServicesFile();
+  if (!googleServicesFile) {
     return config;
   }
 
@@ -31,7 +91,7 @@ function withProductionGoogleServicesFile(config: ExpoConfig): ExpoConfig {
     ...config,
     android: {
       ...config.android,
-      googleServicesFile: PRODUCTION_GOOGLE_SERVICES_FILE,
+      googleServicesFile,
     },
   };
 }
@@ -98,7 +158,7 @@ export default function defineConfig(_context: ConfigContext): ExpoConfig {
   return withUiSoundEffects(
     withGoogleMapsNativeKeys(
       withEnvironmentAwareNotifications(
-        withProductionGoogleServicesFile(baseConfig)
+        withEnvironmentAwareGoogleServicesFile(baseConfig)
       )
     )
   );

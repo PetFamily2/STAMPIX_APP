@@ -28,6 +28,7 @@ import {
   BILLING_UNAVAILABLE_TITLE_HE,
   canUseRevenueCatPurchasesOnPlatform,
   evaluateRevenueCatBillingGuard,
+  NATIVE_REVENUECAT_PURCHASES_ENABLED,
   SERVER_AUTHORITATIVE_BILLING_ENABLED,
 } from '@/lib/subscription/billingGuards';
 import {
@@ -142,6 +143,13 @@ export function RevenueCatProvider({
   // ============================================================================
 
   useEffect(() => {
+    if (!NATIVE_REVENUECAT_PURCHASES_ENABLED) {
+      setPackages(PREVIEW_PACKAGES);
+      setIsLoading(false);
+      setIsInitialized(true);
+      return;
+    }
+
     if (didInitializationRun.current) {
       return;
     }
@@ -229,7 +237,10 @@ export function RevenueCatProvider({
       packageId: string,
       options?: PurchasePackageOptions
     ): Promise<boolean> => {
-      if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+      if (
+        !NATIVE_REVENUECAT_PURCHASES_ENABLED ||
+        !canUseRevenueCatPurchasesOnPlatform(Platform.OS)
+      ) {
         return false;
       }
 
@@ -314,10 +325,11 @@ export function RevenueCatProvider({
           if (typeof purchasesWithOffers.getPromotionalOffer !== 'function') {
             return false;
           }
-          const promotionalOffer = await purchasesWithOffers.getPromotionalOffer(
-            packageToPurchase.product,
-            discount
-          );
+          const promotionalOffer =
+            await purchasesWithOffers.getPromotionalOffer(
+              packageToPurchase.product,
+              discount
+            );
           if (!promotionalOffer) {
             return false;
           }
@@ -355,7 +367,10 @@ export function RevenueCatProvider({
 
   const restorePurchases = useCallback(
     async (options?: RestorePurchasesOptions): Promise<boolean> => {
-      if (!canUseRevenueCatPurchasesOnPlatform(Platform.OS)) {
+      if (
+        !NATIVE_REVENUECAT_PURCHASES_ENABLED ||
+        !canUseRevenueCatPurchasesOnPlatform(Platform.OS)
+      ) {
         return false;
       }
 
@@ -416,6 +431,7 @@ export function RevenueCatProvider({
   const getManagementUrl = useCallback(
     async (appUserId?: string) => {
       if (
+        !NATIVE_REVENUECAT_PURCHASES_ENABLED ||
         !canUseRevenueCatPurchasesOnPlatform(Platform.OS) ||
         !isBillingConfigurationValid ||
         isExpoGo
@@ -439,6 +455,7 @@ export function RevenueCatProvider({
 
   const refreshPurchaserInfo = useCallback(async () => {
     if (
+      !NATIVE_REVENUECAT_PURCHASES_ENABLED ||
       !canUseRevenueCatPurchasesOnPlatform(Platform.OS) ||
       !isBillingConfigurationValid ||
       isExpoGo ||

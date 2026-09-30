@@ -9,16 +9,12 @@ type LogoutOptionsSheetProps = {
   visible: boolean;
   onClose: () => void;
   onLogoutDevice: () => void;
-  onCancelSubscription?: () => void;
-  showCancelSubscription: boolean;
 };
 
 export function LogoutOptionsSheet({
   visible,
   onClose,
   onLogoutDevice,
-  onCancelSubscription,
-  showCancelSubscription,
 }: LogoutOptionsSheetProps) {
   const insets = useSafeAreaInsets();
 
@@ -70,35 +66,6 @@ export function LogoutOptionsSheet({
               </View>
             </View>
           </Pressable>
-
-          {showCancelSubscription && onCancelSubscription ? (
-            <Pressable
-              onPress={onCancelSubscription}
-              accessibilityRole="button"
-              accessibilityLabel="ביטול המנוי"
-              accessibilityHint="מעבר לניהול המנוי והחיוב"
-              style={({ pressed }) => [
-                styles.option,
-                pressed ? styles.optionPressed : null,
-              ]}
-            >
-              <View style={styles.optionRow}>
-                <View style={styles.iconShell}>
-                  <Ionicons
-                    name="card-outline"
-                    size={18}
-                    color={SETTINGS_TOKENS.textPrimary}
-                  />
-                </View>
-                <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>ביטול המנוי</Text>
-                  <Text style={styles.optionSubtitle}>
-                    מעבר לניהול המסלול והחיוב הקיים
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          ) : null}
 
           <Pressable
             onPress={onClose}

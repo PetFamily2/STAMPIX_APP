@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-16
 
-This is a snapshot and execution log. For current setup, deployment, and billing instructions, use `docs/setup.md`, `docs/deployment.md`, and `docs/REVENUECAT_SETUP.md`.
+This is a snapshot and execution log. For current setup and deployment, use `docs/setup.md` and `docs/deployment.md`. Launch subscription purchase is Business Web through SUMIT (`docs/SUMIT_BILLING_FOUNDATION.md`). `docs/REVENUECAT_SETUP.md` is dormant rollback documentation. Native RevenueCat purchase UI described below is historical.
 
 ## Scope
 - Full integration map for mobile app + Convex backend.

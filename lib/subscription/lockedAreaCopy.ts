@@ -29,6 +29,12 @@ const PLAN_LABELS: Record<'starter' | 'pro' | 'premium', string> = {
   premium: 'Premium',
 };
 
+function availableOnPlan(requiredPlanLabel: string | null) {
+  return requiredPlanLabel
+    ? `זמין במסלול ${requiredPlanLabel}`
+    : 'זמין במסלול מתקדם יותר';
+}
+
 const FEATURE_KEY_ALIAS_MAP: Record<string, LockedAreaKey> = {
   team: 'team',
   canManageTeam: 'team',
@@ -53,7 +59,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'ניהול צוות',
     lockedTitle: 'ניהול צוות נעול במסלול הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
-      `הזמנת עובדים זמינה במסלול ${requiredPlanLabel ?? 'מתקדם יותר'}`,
+      `הזמנת עובדים ${availableOnPlan(requiredPlanLabel)}`,
     benefits: ['הזמנת עובדים וניהול הרשאות', 'עבודה מסודרת עם צוות'],
     upgradeAreaLabel: 'ניהול צוות',
   },
@@ -61,9 +67,9 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'מרכז הקמפיינים',
     lockedTitle: 'מרכז הקמפיינים מוגבל במסלול הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `קמפיינים ידניים זמינים לפי מכסת המסלול. שדרוג למסלול ${requiredPlanLabel} מגדיל מכסות ויכולות AI`
-        : 'קמפיינים ידניים זמינים לפי מכסת המסלול. AI מתקדם מחייב מסלול Pro',
+      `קמפיינים ידניים זמינים לפי מכסת המסלול. יכולות AI ${availableOnPlan(
+        requiredPlanLabel ?? 'Pro'
+      )}`,
     benefits: [
       'קמפיינים ידניים לפי מכסת המסלול (מ-Starter)',
       'המלצות AI ופעולות חכמות מ-Pro: 100 בחודש, 300 ב-Premium',
@@ -95,9 +101,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'מגבלת כרטיסים',
     lockedTitle: 'הגעתם למגבלת כרטיסי הנאמנות',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר פתיחת כרטיסים נוספים`
-        : 'שדרוג למסלול מתקדם יותר יאפשר פתיחת כרטיסים נוספים',
+      `כרטיסים נוספים ${availableOnPlan(requiredPlanLabel)}`,
     benefits: ['כמה תוכניות נאמנות במקביל', 'צמיחה בלי לעצור'],
     upgradeAreaLabel: 'מגבלת כרטיסים',
   },
@@ -105,9 +109,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'מגבלת לקוחות',
     lockedTitle: 'הגעתם למגבלת מספר הלקוחות',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר צירוף לקוחות נוספים`
-        : 'שדרוג למסלול מתקדם יותר יאפשר צירוף לקוחות נוספים',
+      `לקוחות נוספים ${availableOnPlan(requiredPlanLabel)}`,
     benefits: ['הרחבת בסיס הלקוחות', 'מניעת חסימה בגיוס לקוחות'],
     upgradeAreaLabel: 'מגבלת לקוחות',
   },
@@ -115,19 +117,18 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'מגבלת פעולות שימור',
     lockedTitle: 'הגעתם למגבלת פעולות שימור הלקוחות',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר הפעלת יותר פעולות שימור אוטומטיות`
-        : 'שדרוג למסלול מתקדם יפתח אוטומציות שימור נוספות',
-    benefits: ['ב-Starter אין פעולות שימור אוטומטיות', 'עד 5 ב-Pro ו-15 ב-Premium'],
+      `פעולות שימור נוספות ${availableOnPlan(requiredPlanLabel)}`,
+    benefits: [
+      'ב-Starter אין פעולות שימור אוטומטיות',
+      'עד 5 ב-Pro ו-15 ב-Premium',
+    ],
     upgradeAreaLabel: 'מגבלת פעולות שימור',
   },
   maxCampaigns: {
     sectionTitle: 'מגבלת קמפיינים',
     lockedTitle: 'הגעתם למגבלת מספר הקמפיינים הפעילים',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יוסיף מקומות לקמפיינים ידניים ולפעילות הזמנת חברים פעילה`
-        : 'שדרוג למסלול מתקדם יותר יוסיף מקומות לקמפיינים ידניים ולפעילות הזמנת חברים פעילה',
+      `קמפיינים נוספים ${availableOnPlan(requiredPlanLabel)}`,
     benefits: [
       'המכסה כוללת קמפיינים ידניים ופעילות הזמנת חברים פעילה',
       'גמישות באוטומציה וקמפיינים',
@@ -138,9 +139,9 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     sectionTitle: 'מגבלת AI חודשית',
     lockedTitle: 'הגעתם למכסת שימושי AI לחודש הנוכחי',
     lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `פעולות AI מתחילות ממסלול Pro (0 ב-Starter, 100 ב-Pro, 300 ב-Premium). שדרוג למסלול ${requiredPlanLabel} מגדיל מכסת AI חודשית`
-        : 'פעולות AI מתחילות ממסלול Pro (0 ב-Starter, 100 ב-Pro, 300 ב-Premium). שדרוג למסלול מתקדם מגדיל מכסת AI חודשית',
+      `פעולות AI: 0 ב-Starter, 100 ב-Pro, 300 ב-Premium. ${availableOnPlan(
+        requiredPlanLabel
+      )}`,
     benefits: [
       'Starter: 0 \u00b7 Pro: 100 \u00b7 Premium: 300 פעולות AI בחודש',
       'המלצות חכמות וניסוח AI ללקוחות ולקמפיינים',
@@ -152,7 +153,7 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
     lockedTitle: 'הגעתם למכסת מושבי הצוות',
     lockedSubtitle: (requiredPlanLabel) =>
       requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יאפשר להוסיף עובדים נוספים`
+        ? `עובדים נוספים ${availableOnPlan(requiredPlanLabel)}`
         : 'כל מושבי הצוות במסלול הנוכחי כבר בשימוש',
     benefits: ['מושבי צוות נוספים לצמיחה', 'עד 5 ב-Pro ו-20 ב-Premium'],
     upgradeAreaLabel: 'מגבלת מושבי צוות',
@@ -160,25 +161,22 @@ const LOCKED_AREA_COPY: Record<LockedAreaKey, LockedAreaDefinition> = {
   business_subscription: {
     sectionTitle: 'מנוי וחיוב',
     lockedTitle: 'אפשרויות מתקדמות זמינות במסלול גבוה יותר',
-    lockedSubtitle: () => 'שדרוג מסלול יפתח מגבלות ויכולות מתקדמות',
-    benefits: ['הרחבת מגבלות', 'עבור למסלול מתאים לצמיחה'],
+    lockedSubtitle: () => 'יכולות נוספות זמינות במסלול מתקדם יותר',
+    benefits: ['הרחבת מגבלות', 'המסלול קובע את היכולות הזמינות'],
     upgradeAreaLabel: 'מנוי וחיוב',
   },
   onboarding_plan_selection: {
     sectionTitle: 'בחירת מסלול',
     lockedTitle: 'בחירת מסלול משפיעה ישירות על היכולות',
-    lockedSubtitle: () => 'אפשר להתחיל ב-Starter ולשדרג בכל שלב',
+    lockedSubtitle: () => 'המסלול הנוכחי קובע אילו יכולות זמינות',
     benefits: ['מגבלות ותכונות ברורות', 'מעבר פשוט למסלול מתקדם'],
     upgradeAreaLabel: 'בחירת מסלול',
   },
   generic: {
     sectionTitle: 'יכולות מתקדמות',
     lockedTitle: 'האזור הזה זמין במסלול מתקדם יותר',
-    lockedSubtitle: (requiredPlanLabel) =>
-      requiredPlanLabel
-        ? `שדרוג למסלול ${requiredPlanLabel} יפתח את היכולת הזו`
-        : 'שדרוג למסלול מתקדם יותר יפתח את היכולת הזו',
-    benefits: ['הרחבת יכולות מוצר', 'מעבר למסלול מתאים לצמיחה'],
+    lockedSubtitle: (requiredPlanLabel) => availableOnPlan(requiredPlanLabel),
+    benefits: ['הרחבת יכולות מוצר', 'המסלול קובע את היכולות הזמינות'],
     upgradeAreaLabel: 'יכולות מתקדמות',
   },
 };

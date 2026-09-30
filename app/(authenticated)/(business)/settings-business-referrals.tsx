@@ -295,7 +295,7 @@ export default function BusinessReferralSettingsScreen() {
         setPlanLimitNotice({
           reason: `${entitlementErrorToHebrewMessage(
             entitlementError
-          )} אפשר לשמור את התבנית כשהיא כבויה, להשבית קמפיין פעיל אחר או לשדרג את המסלול.`,
+          )} אפשר לשמור את התבנית כשהיא כבויה או להשבית קמפיין פעיל אחר.`,
           requiredPlan:
             entitlementError.requiredPlan ?? requiredPlanForCampaigns,
         });

@@ -1,5 +1,7 @@
 ﻿# RevenueCat Setup (iOS + Android)
 
+**Rollback only.** The store launch does not sell subscriptions inside native iOS or Android. Business Web purchases through SUMIT, and Convex is the entitlement authority. Keep this document for an explicit RevenueCat rollback. Do not treat it as the launch purchase path.
+
 **Canonical production billing + referral contract:** [`docs/BILLING_REFERRAL_PRODUCTION_LOCK.md`](./BILLING_REFERRAL_PRODUCTION_LOCK.md)
 
 This file is legacy operational notes. Frozen launch prices, plans, identity, and Referral rules live in the production lock. Do not use the historical free-Starter table below as an authorization source.

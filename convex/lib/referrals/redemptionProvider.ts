@@ -135,7 +135,7 @@ export function createGoogleRedemptionProvider(options?: {
 export function createAppleRedemptionProvider(options?: {
   promotionalOfferByMonths?: Record<number, string>;
 }): ReferralRewardRedemptionProvider {
-  const offers = options?.promotionalOfferByMonths ?? {
+  const offers: Record<number, string> = options?.promotionalOfferByMonths ?? {
     1: process.env.REVENUECAT_APPLE_PROMO_OFFER_1_MONTH ?? '',
     2: process.env.REVENUECAT_APPLE_PROMO_OFFER_2_MONTH ?? '',
   };

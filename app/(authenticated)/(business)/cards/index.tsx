@@ -28,7 +28,6 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlBaseView, tw } from '@/lib/rtl';
-import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 
@@ -180,11 +179,8 @@ export function LoyaltyCardsHubContent() {
       )
     : null;
   const canManage = businessCapabilities?.edit_loyalty_cards === true;
-  const {
-    entitlements,
-    limitStatus,
-    isLoading: isEntitlementsLoading,
-  } = useEntitlements(activeBusinessId);
+  const { limitStatus, isLoading: isEntitlementsLoading } =
+    useEntitlements(activeBusinessId);
 
   useEffect(() => {
     if (isPreviewMode || isAppModeLoading) {
@@ -222,16 +218,6 @@ export function LoyaltyCardsHubContent() {
     : !canManage
       ? 'אין לך הרשאה ליצור כרטיסיות.'
       : null;
-
-  const openCardsUpgrade = () =>
-    openSubscriptionComparison(router, {
-      featureKey: 'maxCards',
-      requiredPlan:
-        entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[
-          entitlements.plan
-        ]?.maxCards ?? null,
-      reason: 'limit_reached',
-    });
 
   const handleCreate = () => {
     if (!activeBusinessId || !canCreate) {
@@ -318,13 +304,7 @@ export function LoyaltyCardsHubContent() {
               unit="כרטיסיות"
               nearLimitText={TEXT.nearLimit}
               atLimitText={TEXT.limitReached}
-              overLimitText="הכרטיסיות והטיוטות הקיימות נשמרו. הפעלה נוספת חסומה עד לארכוב כרטיסיה פעילה או לשדרוג המסלול."
-              actionLabel={
-                cardLimit.isAtLimit && canManage ? 'לבדיקת מסלולים' : undefined
-              }
-              onActionPress={
-                cardLimit.isAtLimit && canManage ? openCardsUpgrade : undefined
-              }
+              overLimitText="הכרטיסיות והטיוטות הקיימות נשמרו. הפעלה נוספת חסומה עד לארכוב כרטיסייה פעילה."
             />
           </View>
         ) : null}

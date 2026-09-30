@@ -27,15 +27,9 @@ import {
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { ReferralShareCreative } from '@/components/referrals/ReferralShareCreative';
 import { RewardEarnedCelebration } from '@/components/referrals/RewardEarnedCelebration';
-import { REVENUECAT_PACKAGE_BY_PLAN_PERIOD } from '@/config/appConfig';
-import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import {
-  isBillingPeriod,
-  isBusinessPlan,
-} from '@/lib/billing/productionContract';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   earnedRewardLabel,
@@ -70,14 +64,6 @@ function BusinessInviteContent({
   const prepareRedemption = useMutation(
     api.businessReferralEngine.prepareReferralRewardRedemption
   );
-  const confirmRedemption = useMutation(
-    api.businessReferralEngine.confirmReferralRewardRedemption
-  );
-  const billingIdentity = useQuery(
-    api.businessBilling.getBusinessBillingIdentity,
-    canRedeemBilling ? { businessId } : 'skip'
-  );
-  const { purchasePackage } = useRevenueCat();
   const creativeRef = useRef<View>(null);
   const [isShareLoading, setIsShareLoading] = useState(false);
   const isSummaryLoading = isSwitchingBusiness || hub == null;
@@ -176,57 +162,13 @@ function BusinessInviteContent({
         );
         return;
       }
-      if (store === 'google' && prepared.applied) {
-        Alert.alert('מימוש ההטבה', REFERRAL_COPY.rewardActivated);
-        return;
-      }
-      if (
-        store === 'apple' &&
-        prepared.mode === 'promotional_offer' &&
-        typeof prepared.offerIdentifier === 'string'
-      ) {
-        const identityPlan = billingIdentity?.plan;
-        const plan = isBusinessPlan(identityPlan) ? identityPlan : null;
-        const identityPeriod = billingIdentity?.billingPeriod;
-        const period = isBillingPeriod(identityPeriod) ? identityPeriod : null;
-        const packagesForPlan = plan
-          ? REVENUECAT_PACKAGE_BY_PLAN_PERIOD[plan]
-          : null;
-        const packageId =
-          packagesForPlan && period ? packagesForPlan[period] : null;
-        const appUserId = billingIdentity?.providerAppUserId;
-        if (!packageId || !appUserId) {
-          Alert.alert(
-            'מימוש ההטבה',
-            'לא הצלחנו להתחיל את המימוש בחנות. ההטבה נשארה זמינה.'
-          );
-          return;
-        }
-        const purchased = await purchasePackage(packageId, {
-          appUserId,
-          applePromotionalOffer: {
-            productIdentifier: '',
-            offerIdentifier: prepared.offerIdentifier,
-          },
-        });
-        if (!purchased) {
-          Alert.alert(
-            'מימוש ההטבה',
-            'ההטבה נשארה זמינה. אפשר לנסות שוב אחרי אישור החנות.'
-          );
-          return;
-        }
-        await confirmRedemption({
-          businessId,
-          rewardId: rewardId as never,
-          monthsConfirmed: prepared.months ?? 1,
-        });
+      if (prepared.applied === true) {
         Alert.alert('מימוש ההטבה', REFERRAL_COPY.rewardActivated);
         return;
       }
       Alert.alert(
         'מימוש ההטבה',
-        'המשיכו באישור החנות כדי להפעיל את ההטבה. אם תבטלו, ההטבה תישאר זמינה.'
+        'ההטבה נשארה זמינה. ההפעלה אינה זמינה מתוך האפליקציה.'
       );
     } catch {
       Alert.alert('מימוש ההטבה', 'לא הצלחנו להתחיל את המימוש כרגע.');

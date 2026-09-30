@@ -7,6 +7,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
+import { generateNumericCode } from './lib/secureRandom';
 import { linkVerifiedEmailOtpToExistingOAuthUser } from './lib/verifiedEmailAccountLink';
 import {
   encryptProviderCredentialCapture,
@@ -38,9 +39,7 @@ function normalizeEmailIdentifier(identifier: string): string {
 }
 
 function generateEmailOtpToken(): string {
-  return Array.from({ length: EMAIL_OTP_LENGTH }, () =>
-    Math.floor(Math.random() * 10).toString()
-  ).join('');
+  return generateNumericCode(EMAIL_OTP_LENGTH);
 }
 
 async function sendEmailVerificationOtp(email: string, token: string) {

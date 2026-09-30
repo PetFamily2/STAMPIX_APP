@@ -293,20 +293,6 @@ export default function AddBusinessStaffScreen() {
                   >
                     {teamSeatCopy.lockedSubtitle}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      openUpgrade(
-                        'maxTeamSeats',
-                        seatLimitRequiredPlan,
-                        'limit_reached'
-                      )
-                    }
-                    className="mt-4 rounded-2xl bg-[#1E40AF] px-4 py-3"
-                  >
-                    <Text className="text-center text-sm font-black text-white">
-                      שדרוג לניהול צוות גדול יותר
-                    </Text>
-                  </TouchableOpacity>
                 </View>
               ) : (
                 <View className="mt-1 min-h-[320px] rounded-2xl border border-[#DCE7FF] bg-[#F8FAFF] p-3">
@@ -377,17 +363,8 @@ export default function AddBusinessStaffScreen() {
 
           <View className="mt-4 gap-2">
             <TouchableOpacity
-              disabled={isInvitingByScan}
-              onPress={
-                isTeamSeatLimitReached
-                  ? () =>
-                      openUpgrade(
-                        'maxTeamSeats',
-                        seatLimitRequiredPlan,
-                        'limit_reached'
-                      )
-                  : handleScanAgain
-              }
+              onPress={isTeamSeatLimitReached ? undefined : handleScanAgain}
+              disabled={isInvitingByScan || isTeamSeatLimitReached}
               className={`rounded-2xl border px-4 py-3 ${
                 isInvitingByScan
                   ? 'border-[#CBD5E1] bg-[#F1F5F9]'
@@ -400,7 +377,9 @@ export default function AddBusinessStaffScreen() {
                 <ActivityIndicator color="#94A3B8" />
               ) : (
                 <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                  {isTeamSeatLimitReached ? 'שדרוג להוספת עובד' : 'סרוק שוב'}
+                  {isTeamSeatLimitReached
+                    ? 'הוספת עובד אינה זמינה במסלול הנוכחי'
+                    : 'סרוק שוב'}
                 </Text>
               )}
             </TouchableOpacity>

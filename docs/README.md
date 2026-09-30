@@ -10,7 +10,8 @@ StampAix is an Expo + React Native + Convex mobile app for customer loyalty, QR 
 Core platform pieces:
 - Expo Router file-based navigation.
 - Convex Auth and Convex backend functions.
-- RevenueCat subscriptions.
+- Business Web subscription purchase through SUMIT. Native apps are consumption companions.
+- RevenueCat dormant rollback infrastructure.
 - RTL-first Hebrew-focused UI.
 - EAS build and submit infrastructure.
 
@@ -19,7 +20,8 @@ Core platform pieces:
 - `docs/architecture.md` - runtime architecture, provider stack, routing model, auth, permissions, data flows, storage, and payments overview.
 - `docs/routes.md` - current generated route map from `app/`.
 - `docs/deployment.md` - EAS build/submit infrastructure, production deployment, secrets, release checklist, and build troubleshooting.
-- `docs/REVENUECAT_SETUP.md` - RevenueCat source of truth for billing setup, variables, package mapping, runtime behavior, and tests.
+- `docs/SUMIT_BILLING_FOUNDATION.md` - Business Web SUMIT billing, the launch purchase path.
+- `docs/REVENUECAT_SETUP.md` - dormant RevenueCat rollback setup, variables, package mapping, and runtime behavior.
 - `docs/spec/data-model.md` - Convex data model reference.
 - `docs/spec/roles.md` - roles and permissions reference.
 - `docs/spec/scanner-contract.md` - scanner UI-to-Convex contract.

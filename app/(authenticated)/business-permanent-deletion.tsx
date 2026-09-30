@@ -4,9 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,19 +37,15 @@ const TEXT = {
   continueDelete: 'המשך למחיקה',
   typedConfirmation: 'כדי לאשר, הקלידו בדיוק את שם העסק:',
   finalDelete: 'מחקו את העסק לצמיתות',
-  accepted:
-    'בקשת המחיקה התקבלה. העסק אינו זמין עוד והמחיקה מתבצעת ברקע.',
+  accepted: 'בקשת המחיקה התקבלה. העסק אינו זמין עוד והמחיקה מתבצעת ברקע.',
   completed: 'העסק נמחק לצמיתות.',
   completedSupport: 'לא ניתן לשחזר את העסק לאחר השלמת המחיקה.',
   failed: 'לא הצלחנו להשלים את מחיקת העסק.',
   failedSupport: 'העסק נשאר נעול למחיקה. ניתן לנסות שוב בבטחה.',
   retry: 'נסה שוב',
   billing:
-    'יש לבטל תחילה את חידוש המנוי. לאחר שסטטוס המנוי יתעדכן ל״מבוטל״, ניתן יהיה למחוק את העסק לצמיתות.',
-  manageSubscription: 'ניהול מנוי',
-  subscriptionOpenFailed: 'לא הצלחנו לפתוח את ניהול המנוי. נסו שוב.',
-  accountReturn:
-    'העסקים נמחקו. ניתן לחזור ולהמשיך במחיקת החשבון.',
+    'מחיקה לצמיתות אינה זמינה כל עוד חידוש המנוי פעיל. לאחר שהסטטוס יתעדכן ל״מבוטל״, ניתן יהיה למחוק את העסק.',
+  accountReturn: 'העסקים נמחקו. ניתן לחזור ולהמשיך במחיקת החשבון.',
   returnToAccountDeletion: 'חזרה למחיקת החשבון',
   returnToSettings: 'חזרה להגדרות',
   returnToWallet: 'חזרה לארנק',
@@ -120,10 +113,7 @@ function errorHasCode(error: unknown, code: string) {
   return error instanceof Error && error.message.includes(code);
 }
 
-function businessRoute(
-  businessId: string,
-  returnToAccountDeletion: boolean
-) {
+function businessRoute(businessId: string, returnToAccountDeletion: boolean) {
   const params: {
     businessId: string;
     returnTo?: 'account-deletion';
@@ -191,9 +181,9 @@ export default function BusinessPermanentDeletionScreen() {
   const selectedBusiness = useMemo(
     () =>
       requestedBusinessId
-        ? businesses?.find(
+        ? (businesses?.find(
             (business) => String(business.businessId) === requestedBusinessId
-          ) ?? null
+          ) ?? null)
         : null,
     [businesses, requestedBusinessId]
   );
@@ -303,24 +293,6 @@ export default function BusinessPermanentDeletionScreen() {
     );
   };
 
-  const handleManageSubscription = async () => {
-    const url =
-      Platform.OS === 'ios'
-        ? 'https://apps.apple.com/account/subscriptions'
-        : Platform.OS === 'android'
-          ? 'https://play.google.com/store/account/subscriptions'
-          : null;
-    if (!url) {
-      Alert.alert(TEXT.subscriptionOpenFailed);
-      return;
-    }
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert(TEXT.subscriptionOpenFailed);
-    }
-  };
-
   const handleRetry = async (targetJobId: Id<'businessDeletionJobs'>) => {
     if (retryInFlightRef.current) {
       return;
@@ -384,9 +356,7 @@ export default function BusinessPermanentDeletionScreen() {
     } catch (error) {
       if (errorHasCode(error, 'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE')) {
         setRequestError(TEXT.billing);
-      } else if (
-        errorHasCode(error, 'BUSINESS_NAME_CONFIRMATION_MISMATCH')
-      ) {
+      } else if (errorHasCode(error, 'BUSINESS_NAME_CONFIRMATION_MISMATCH')) {
         setRequestError(TEXT.nameMismatch);
       } else if (errorHasCode(error, 'NOT_AUTHORIZED')) {
         setRequestError(TEXT.authorizationError);
@@ -508,9 +478,7 @@ export default function BusinessPermanentDeletionScreen() {
                 ? TEXT.returnToAccountDeletion
                 : TEXT.returnToSettings
             }
-            onPress={
-              returnToAccountDeletion ? resumeAccountDeletion : goBack
-            }
+            onPress={returnToAccountDeletion ? resumeAccountDeletion : goBack}
             style={({ pressed }) => [
               styles.primaryButton,
               pressed ? styles.pressed : null,
@@ -538,7 +506,11 @@ export default function BusinessPermanentDeletionScreen() {
             <View key={String(business.businessId)} style={styles.businessCard}>
               <View style={styles.businessCardHeader}>
                 <View style={styles.businessIcon}>
-                  <Ionicons name="storefront-outline" size={22} color="#7F1D1D" />
+                  <Ionicons
+                    name="storefront-outline"
+                    size={22}
+                    color="#7F1D1D"
+                  />
                 </View>
                 <View style={styles.businessCopy}>
                   <Text style={styles.businessName}>{business.name}</Text>
@@ -629,7 +601,9 @@ export default function BusinessPermanentDeletionScreen() {
             </View>
           );
         })}
-        {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
+        {requestError ? (
+          <Text style={styles.errorText}>{requestError}</Text>
+        ) : null}
       </View>
     );
   };
@@ -667,7 +641,9 @@ export default function BusinessPermanentDeletionScreen() {
               pressed ? styles.pressed : null,
             ]}
           >
-            <Text style={styles.secondaryButtonText}>{TEXT.returnToSettings}</Text>
+            <Text style={styles.secondaryButtonText}>
+              {TEXT.returnToSettings}
+            </Text>
           </Pressable>
         </View>
       );
@@ -677,7 +653,7 @@ export default function BusinessPermanentDeletionScreen() {
       return (
         <View style={styles.billingCard}>
           <Ionicons name="card-outline" size={30} color="#92400E" />
-          <Text style={styles.billingTitle}>{TEXT.manageSubscription}</Text>
+          <Text style={styles.billingTitle}>המחיקה אינה זמינה כרגע</Text>
           <Text style={styles.billingText}>{TEXT.billing}</Text>
           <View style={styles.actionRow}>
             <Pressable
@@ -691,21 +667,6 @@ export default function BusinessPermanentDeletionScreen() {
               ]}
             >
               <Text style={styles.secondaryButtonText}>{TEXT.cancel}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={TEXT.manageSubscription}
-              accessibilityHint="פותח את ניהול המנויים של חנות האפליקציות"
-              onPress={() => void handleManageSubscription()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                styles.actionButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>
-                {TEXT.manageSubscription}
-              </Text>
             </Pressable>
           </View>
         </View>
@@ -776,7 +737,9 @@ export default function BusinessPermanentDeletionScreen() {
           accessibilityHint={`יש להקליד בדיוק את שם העסק ${displayBusiness.name}`}
           style={styles.confirmationInput}
         />
-        {requestError ? <Text style={styles.errorText}>{requestError}</Text> : null}
+        {requestError ? (
+          <Text style={styles.errorText}>{requestError}</Text>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={TEXT.finalDelete}

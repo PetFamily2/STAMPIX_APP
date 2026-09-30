@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   canStartRevenueCatPurchase,
   evaluateRevenueCatBillingGuard,
@@ -225,75 +225,33 @@ describe('Phase A client-forgery denials', () => {
     expectGuardBefore(source, 'Purchases.restorePurchases');
   });
 
-  test('auth paywall native RevenueCat UI paths are explicitly disabled', () => {
+  test('auth paywall does not expose a native purchase surface', () => {
     const source = readFileSync('app/(auth)/paywall/index.tsx', 'utf8');
 
-    expect(source).toContain('NATIVE_REVENUECAT_UI_ENABLED = false');
-    expect(source).toContain('isNativeRevenueCatUiDisabled');
-    expect(source).toContain('selectedBillingGuard.canStart');
-    expect(source).not.toContain('RevenueCatUI.presentPaywallIfNeeded');
-    expect(source).not.toContain('RevenueCatUI.presentCustomerCenter');
-    expectGuardBefore(source, 'restorePurchases({');
-    expectGuardBefore(source, 'purchasePackage(packageId');
+    expect(source).not.toContain('purchasePackage');
+    expect(source).not.toContain('restorePurchases');
+    expect(source).not.toContain('RevenueCatUI');
+    expect(source).not.toContain('המשך לרכישה');
+    expect(source).not.toContain('שחזור רכישות');
+    expect(source).toContain('NativeCompanionRedirect');
+    expect(source).not.toContain("safeBack('/(auth)/sign-up')");
   });
 
-  test('auth paywall disabled states use the full billing guard', () => {
-    const source = readFileSync('app/(auth)/paywall/index.tsx', 'utf8');
-
-    expect(source).toContain('isSelectedPaidBillingReady');
-    expect(source).toContain('selectedBillingGuard.canStart');
-    expect(source).toContain('ctaDisabled={');
-    expect(source).toContain('!isSelectedPaidBillingReady');
-    expect(source).toContain(
-      'disabled={isRestoring || !selectedBillingGuard.canStart}'
+  test('native purchase UI components are removed from the store candidate', () => {
+    expect(existsSync('components/subscription/UpgradeModal.tsx')).toBe(false);
+    expect(
+      existsSync('components/subscription/SubscriptionSalesPanel.tsx')
+    ).toBe(false);
+    expect(existsSync('components/subscription/PlanComparisonTable.tsx')).toBe(
+      false
     );
-    expect(source).not.toContain(
-      'isRestoring || isPreviewMode || !PAYMENT_SYSTEM_ENABLED'
-    );
-  });
-
-  test('UpgradeModal checks billing guard before starting purchase flow', () => {
-    const source = readFileSync(
-      'components/subscription/UpgradeModal.tsx',
-      'utf8'
-    );
-
-    expectGuardBefore(source, 'purchasePackage(rcPackageId');
-  });
-
-  test('UpgradeModal waits for server entitlement confirmation after purchase and restore', () => {
-    const source = readFileSync(
-      'components/subscription/UpgradeModal.tsx',
-      'utf8'
-    );
-    const authPaywallSource = readFileSync(
-      'app/(auth)/paywall/index.tsx',
-      'utf8'
-    );
-
-    expect(source).toContain('syncUserSubscription: false');
-    expect(source).toContain("'pending_purchase'");
-    expect(source).toContain("'pending_restore'");
-    expect(source).toContain("setSyncStatus('timeout')");
-    expect(source).toContain('SERVER_SYNC_TIMEOUT_MESSAGE_HE');
-    expect(source).toContain('isServerConfirmedPaidEntitlement');
-    expect(source).toContain('restorePurchases({');
-    expect(source).toContain("waitForServerEntitlements('purchase'");
-    expect(source).toContain("waitForServerEntitlements('restore'");
-    expect(source).not.toContain('syncBusinessSubscription');
-    expect(authPaywallSource).toContain('syncUserSubscription: false');
-    expect(authPaywallSource).toContain('isServerConfirmedPaidEntitlement');
-    expect(authPaywallSource).toContain('waitForServerEntitlements(');
   });
 
   test('RevenueCat context cannot grant local premium from customer info', () => {
     const source = readFileSync('contexts/RevenueCatContext.tsx', 'utf8');
     const mockPurchaseStart = source.indexOf('if (MOCK_PAYMENTS)');
     const mockPurchaseEnd = source.indexOf('// Expo Go', mockPurchaseStart);
-    const mockPurchaseBranch = source.slice(
-      mockPurchaseStart,
-      mockPurchaseEnd
-    );
+    const mockPurchaseBranch = source.slice(mockPurchaseStart, mockPurchaseEnd);
 
     expect(source).not.toContain('planFromRevenueCatSubscriber');
     expect(source).not.toContain('setSubscriptionPlan');

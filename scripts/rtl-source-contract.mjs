@@ -74,7 +74,6 @@ const ALLOWED_END_ALIGNMENT_STYLES = new Set([
   'components/business-dashboard/BusinessReferralCard.tsx:modalOverlay',
   'components/business-ui/BarComparisonChart.tsx:columnTrack',
   'components/business-ui/BarComparisonChart.tsx:plotArea',
-  'components/subscription/UpgradeModal.tsx:overlay',
 ]);
 
 const ALLOWED_RAW_STYLE_FINDINGS = new Set([

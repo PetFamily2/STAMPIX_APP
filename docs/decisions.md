@@ -1,6 +1,16 @@
 ﻿# Architectural Decisions
 
-Last synced: 2026-02-18
+Last synced: 2026-09-30
+
+## Decision: Native apps do not sell subscriptions
+- Date: 2026-09-30
+- Decision: iOS and Android ship as a consumption and companion app. Business Web is the only launch purchase surface, through SUMIT. Convex remains the entitlement authority.
+- Rationale: Store policy for this launch keeps subscription purchase out of the native binary.
+- Implications:
+  - Native screens may show plan, status, usage, and which plan includes a locked capability.
+  - Native screens do not show prices, purchase, restore, store-management, or SUMIT checkout.
+  - RevenueCat code stays as dormant rollback infrastructure. Do not delete provider mapping or webhook history.
+  - Rollback setup remains in `docs/REVENUECAT_SETUP.md`.
 
 ## Decision: Remove page-header subtitles across screens
 - Date: 2026-03-26

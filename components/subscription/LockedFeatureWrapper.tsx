@@ -1,12 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 export type RequiredPlan = 'starter' | 'pro' | 'premium' | null;
 
@@ -30,8 +24,7 @@ const PLAN_LABEL: Record<'starter' | 'pro' | 'premium', string> = {
 export function FeatureGate({
   isLocked,
   requiredPlan = null,
-  onUpgradeClick,
-  title = 'פיצר נעול במסלול הנוכחי',
+  title = 'היכולת אינה זמינה במסלול הנוכחי',
   subtitle,
   benefits,
   style,
@@ -40,9 +33,7 @@ export function FeatureGate({
   const requiredLabel = requiredPlan ? PLAN_LABEL[requiredPlan] : null;
   const resolvedSubtitle =
     subtitle ??
-    (requiredLabel
-      ? `זמין במסלול ${requiredLabel} ומעלה`
-      : 'שדרגו כדי לפתוח את האפשרות הזו');
+    (requiredLabel ? `זמין במסלול ${requiredLabel}` : 'זמין במסלול מתקדם יותר');
 
   return (
     <View style={[styles.container, style]}>
@@ -68,17 +59,6 @@ export function FeatureGate({
                 ))}
               </View>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="שדרגו"
-              onPress={onUpgradeClick}
-              style={({ pressed }) => [
-                styles.upgradeButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.upgradeButtonText}>שדרגו</Text>
-            </Pressable>
           </View>
         </View>
       ) : null}
