@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { safeBack, safeDismissTo, safePush } from '@/lib/navigation';
 import {
@@ -1030,6 +1030,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addTagButton: {
+    minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#2563EB',
     paddingHorizontal: 16,

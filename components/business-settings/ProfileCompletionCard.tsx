@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   formatMissingFieldsCountLabel,
   formatProfileCompletionTitle,

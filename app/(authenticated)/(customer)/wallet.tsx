@@ -4,7 +4,6 @@ import { useConvexAuth, useQuery } from 'convex/react';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,10 @@ import LoyaltyCard, {
 } from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -145,7 +148,7 @@ export default function WalletScreen() {
         </StickyScrollHeader>
 
         <View style={styles.joinBusinessRow}>
-          <Pressable
+          <PaintedPressable
             onPress={() => router.push(CUSTOMER_ROUTES.join)}
             style={({ pressed }) => [
               styles.joinBusinessButton,
@@ -160,7 +163,7 @@ export default function WalletScreen() {
                 {TEXT.joinBusinessTitle}
               </Text>
             </View>
-          </Pressable>
+          </PaintedPressable>
         </View>
 
         {pendingStaffInvites.length > 0 ? (
@@ -177,7 +180,7 @@ export default function WalletScreen() {
                   }`
                 : `כמות הזמנות: ${pendingStaffInvites.length}`}
             </Text>
-            <Pressable
+            <PaintedPressable
               onPress={() => router.push(CUSTOMER_ROUTES.acceptInvite)}
               style={({ pressed }) => [
                 styles.pendingInviteButton,
@@ -189,7 +192,7 @@ export default function WalletScreen() {
               <Text style={styles.pendingInviteButtonText}>
                 {TEXT.pendingInviteAction}
               </Text>
-            </Pressable>
+            </PaintedPressable>
           </View>
         ) : null}
 
@@ -204,7 +207,7 @@ export default function WalletScreen() {
             <Text style={styles.emptyTitle}>{TEXT.noCards}</Text>
             <Text style={styles.infoText}>{TEXT.noCardsHint}</Text>
             <View style={styles.emptyActionsRow}>
-              <Pressable
+              <PaintedPressable
                 onPress={() => router.push(CUSTOMER_ROUTES.join)}
                 style={({ pressed }) => [
                   styles.emptyPrimaryButton,
@@ -216,8 +219,8 @@ export default function WalletScreen() {
                 <Text style={styles.emptyPrimaryButtonText}>
                   {TEXT.joinWithQrCta}
                 </Text>
-              </Pressable>
-              <Pressable
+              </PaintedPressable>
+              <PaintedPressable
                 onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
                 style={({ pressed }) => [
                   styles.emptySecondaryButton,
@@ -229,7 +232,7 @@ export default function WalletScreen() {
                 <Text style={styles.emptySecondaryButtonText}>
                   {TEXT.findNearbyCta}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             </View>
           </View>
         ) : null}
@@ -322,7 +325,7 @@ export default function WalletScreen() {
                       </Text>
                     ) : null}
 
-                    <Pressable
+                    <PaintedPressable
                       style={({ pressed }) => [
                         styles.openRow,
                         pressed ? styles.pressed : null,
@@ -332,7 +335,7 @@ export default function WalletScreen() {
                       accessibilityLabel={`${TEXT.openBusiness}: ${business.businessName}`}
                     >
                       <Text style={styles.openText}>{TEXT.openBusiness}</Text>
-                    </Pressable>
+                    </PaintedPressable>
                   </View>
                 );
               })
@@ -392,7 +395,7 @@ const styles = StyleSheet.create({
   joinBusinessButton: {
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: 10,
     paddingHorizontal: 16,
     alignItems: 'center',
@@ -479,7 +482,7 @@ const styles = StyleSheet.create({
     alignSelf: selfStart,
     backgroundColor: '#FFFFFF',
     borderRadius: 999,
-    minHeight: 38,
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 8,
     alignItems: 'center',
@@ -540,6 +543,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyPrimaryButton: {
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
@@ -554,6 +558,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptySecondaryButton: {
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',
@@ -577,7 +582,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
-    minHeight: 40,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,

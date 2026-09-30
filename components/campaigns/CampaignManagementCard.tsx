@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 
 import {
   type CampaignManagementType,

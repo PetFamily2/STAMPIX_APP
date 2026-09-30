@@ -3,7 +3,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -13,6 +13,10 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import {
@@ -100,7 +104,7 @@ export default function RewardsScreen() {
               {'מעקב אחר הזמנות ממתינות ומתנות שהתקבלו'}
             </Text>
           </View>
-          <Pressable
+          <PaintedPressable
             onPress={() => router.push(CUSTOMER_ROUTES.referrals)}
             style={({ pressed }) => [
               styles.referralButton,
@@ -108,7 +112,7 @@ export default function RewardsScreen() {
             ]}
           >
             <Text style={styles.referralButtonText}>{'למסך ההזמנות'}</Text>
-          </Pressable>
+          </PaintedPressable>
         </View>
 
         {isLoading ? (
@@ -119,7 +123,7 @@ export default function RewardsScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>{TEXT.emptyTitle}</Text>
             <Text style={styles.emptySubtitle}>{TEXT.emptySubtitle}</Text>
-            <Pressable
+            <PaintedPressable
               onPress={() => router.push(CUSTOMER_ROUTES.discovery)}
               style={({ pressed }) => [
                 styles.emptyButton,
@@ -129,7 +133,7 @@ export default function RewardsScreen() {
               accessibilityLabel={TEXT.emptyCta}
             >
               <Text style={styles.emptyButtonText}>{TEXT.emptyCta}</Text>
-            </Pressable>
+            </PaintedPressable>
           </View>
         ) : (
           <View style={styles.feedWrap}>
@@ -275,6 +279,7 @@ const styles = StyleSheet.create({
   emptyButton: {
     marginTop: 14,
     alignSelf: selfStart,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
@@ -319,6 +324,7 @@ const styles = StyleSheet.create({
   },
   referralButton: {
     alignSelf: selfStart,
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFD3FF',

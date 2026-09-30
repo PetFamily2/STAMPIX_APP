@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
   Keyboard,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,26 +13,25 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type {
-  GuidedTargetRef,
-} from '@/components/guidance/GuidedActionAnchor';
+import type { GuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type GuidedActionController,
   useGuidedAction,
 } from '@/hooks/useGuidedAction';
-import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { flexDirection, rtlBaseView } from '@/lib/rtl';
 import {
+  getGuidedSpotlightGeometry,
   getGuideOverlayLayout,
   getGuidePulseIterations,
-  getGuidedSpotlightGeometry,
   isGuideRetryableState,
   REJECTED_GUIDE_CLEANUP_MESSAGE,
-  shouldRenderGuidedStatusPanel,
   type RecommendationGuideEntityKind,
   type RecommendationGuideId,
+  shouldRenderGuidedStatusPanel,
 } from '@/lib/recommendations/guidance';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export function GuidedActionScreenOverlay({
   activeBusinessId,
@@ -56,9 +54,7 @@ export function GuidedActionScreenOverlay({
   destinationTargetValid?: boolean;
   steps?: string[];
   targetRef?: RefObject<View | null>;
-  targetRefs?: Partial<
-    Record<RecommendationGuideId, GuidedTargetRef<View>>
-  >;
+  targetRefs?: Partial<Record<RecommendationGuideId, GuidedTargetRef<View>>>;
   focusTarget?: () => void;
   focusTargetRef?: RefObject<(() => void) | null>;
   prepareTarget?: () => void | Promise<void>;
@@ -84,8 +80,7 @@ export function GuidedActionScreenOverlay({
     steps,
   });
   const selectedTargetRef =
-    (guide.guideId ? targetRefs?.[guide.guideId] : undefined) ??
-    targetRef;
+    (guide.guideId ? targetRefs?.[guide.guideId] : undefined) ?? targetRef;
 
   useEffect(() => {
     if (
@@ -137,8 +132,7 @@ export function GuidedActionScreenOverlay({
               null,
             ...(scrollTargetIntoViewRef.current
               ? {
-                  scrollIntoView: () =>
-                    scrollTargetIntoViewRef.current?.(),
+                  scrollIntoView: () => scrollTargetIntoViewRef.current?.(),
                 }
               : {}),
           });
@@ -301,8 +295,7 @@ export function GuidedActionOverlay({
       return null;
     }
     const showRetry =
-      panelMode !== 'rejected_cleanup' &&
-      (retryable || guide.isStatusRetrying);
+      panelMode !== 'rejected_cleanup' && (retryable || guide.isStatusRetrying);
     return (
       <View pointerEvents="box-none" style={styles.layer}>
         <View
@@ -315,7 +308,7 @@ export function GuidedActionOverlay({
             },
           ]}
         >
-          <Text allowFontScaling style={styles.feedbackText}>
+          <Text allowFontScaling={true} style={styles.feedbackText}>
             {lifecycleFeedback}
           </Text>
           {showRetry ? (
@@ -374,7 +367,7 @@ export function GuidedActionOverlay({
       spotlight.height > 0 ? (
         <Animated.View
           pointerEvents="none"
-          accessibilityElementsHidden
+          accessibilityElementsHidden={true}
           importantForAccessibility="no-hide-descendants"
           style={[
             styles.spotlight,
@@ -401,7 +394,7 @@ export function GuidedActionOverlay({
         ]}
       >
         <View style={styles.header}>
-          <Text allowFontScaling style={styles.stepLabel}>
+          <Text allowFontScaling={true} style={styles.stepLabel}>
             {guide.stepCount > 1
               ? `שלב ${guide.stepIndex + 1} מתוך ${guide.stepCount}`
               : 'הדרכה קצרה'}
@@ -418,13 +411,13 @@ export function GuidedActionOverlay({
         <ScrollView
           style={styles.instructionScroll}
           contentContainerStyle={styles.instructionContent}
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={true}
         >
-          <Text allowFontScaling style={styles.instruction}>
+          <Text allowFontScaling={true} style={styles.instruction}>
             {guide.instruction}
           </Text>
           {guide.feedback ? (
-            <Text allowFontScaling style={styles.inlineFeedback}>
+            <Text allowFontScaling={true} style={styles.inlineFeedback}>
               {guide.feedback}
             </Text>
           ) : null}

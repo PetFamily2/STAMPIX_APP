@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 
@@ -248,7 +248,7 @@ export default function NameCaptureScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <Text style={styles.recoveryText}>{bootstrapError}</Text>
-        <Pressable
+        <PaintedPressable
           accessibilityRole="button"
           disabled={isSigningOut}
           onPress={() => {
@@ -257,8 +257,8 @@ export default function NameCaptureScreen() {
           style={styles.recoveryPrimaryButton}
         >
           <Text style={styles.recoveryPrimaryText}>{RECOVERY_TEXT.retry}</Text>
-        </Pressable>
-        <Pressable
+        </PaintedPressable>
+        <PaintedPressable
           accessibilityRole="button"
           disabled={isSigningOut}
           onPress={() => {
@@ -269,7 +269,7 @@ export default function NameCaptureScreen() {
           <Text style={styles.recoverySecondaryText}>
             {RECOVERY_TEXT.returnToSignIn}
           </Text>
-        </Pressable>
+        </PaintedPressable>
       </SafeAreaView>
     );
   }
@@ -393,6 +393,7 @@ const styles = StyleSheet.create({
   },
   recoveryPrimaryButton: {
     minWidth: 180,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2563EB',
     paddingHorizontal: 24,
@@ -406,6 +407,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   recoverySecondaryButton: {
+    minHeight: 48,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },

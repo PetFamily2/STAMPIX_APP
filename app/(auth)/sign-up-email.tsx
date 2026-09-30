@@ -149,8 +149,13 @@ export default function SignUpEmailScreen() {
             accessibilityRole="button"
             accessibilityLabel={TEXT.submit}
             accessibilityState={{ disabled: !canSubmit || busy }}
+            style={({ pressed }) =>
+              pressed && canSubmit && !busy ? styles.buttonPressed : undefined
+            }
           >
             <View
+              collapsable={false}
+              pointerEvents="none"
               style={[
                 styles.button,
                 canSubmit && !busy
@@ -252,6 +257,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  buttonPressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.99 }],
   },
   buttonActive: {
     backgroundColor: '#2563eb',

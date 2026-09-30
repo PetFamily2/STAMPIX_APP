@@ -1,14 +1,14 @@
 import { useConvex, useMutation } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import QrScanner from '@/components/QrScanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
@@ -421,9 +421,14 @@ export default function JoinScreen() {
 
           <Pressable
             onPress={handleManual}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={busy ? TEXT.checking : TEXT.join}
+            accessibilityState={{ disabled: busy, busy }}
             style={({ pressed }) => ({
               alignSelf: selfStart,
               borderRadius: 14,
+              minHeight: 48,
               paddingHorizontal: 14,
               paddingVertical: 11,
               backgroundColor: '#2F6BFF',
@@ -445,9 +450,12 @@ export default function JoinScreen() {
 
           <Pressable
             onPress={handleRetryScan}
+            accessibilityRole="button"
+            accessibilityLabel={TEXT.scanAgain}
             style={({ pressed }) => ({
               alignSelf: selfStart,
               borderRadius: 14,
+              minHeight: 48,
               paddingHorizontal: 14,
               paddingVertical: 11,
               backgroundColor: '#D4EDFF',

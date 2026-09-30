@@ -155,15 +155,24 @@ export default function AcceptInviteScreen() {
                   }
                 }}
                 disabled={busy}
-                className={`mt-3 ${tw.selfStart} rounded-xl bg-blue-600 px-4 py-2`}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.accept}
+                accessibilityState={{ disabled: busy, busy }}
+                className={`mt-3 ${tw.selfStart}`}
               >
-                {busy ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text className="text-sm font-bold text-white">
-                    {TEXT.accept}
-                  </Text>
-                )}
+                <View
+                  collapsable={false}
+                  pointerEvents="none"
+                  className="min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 py-2"
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text className="text-sm font-bold text-white">
+                      {TEXT.accept}
+                    </Text>
+                  )}
+                </View>
               </Pressable>
               {error && (
                 <Text className={`mt-3 text-sm text-rose-600 ${tw.textStart}`}>
@@ -202,19 +211,28 @@ export default function AcceptInviteScreen() {
               <Pressable
                 onPress={handleAccept}
                 disabled={!canAccept}
-                className={`mt-4 rounded-xl px-4 py-3 items-center ${
-                  canAccept ? 'bg-blue-600' : 'bg-zinc-300'
-                }`}
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.accept}
+                accessibilityState={{ disabled: !canAccept, busy }}
+                className="mt-4"
               >
-                {busy ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text
-                    className={`text-sm font-bold ${canAccept ? 'text-white' : 'text-zinc-500'}`}
-                  >
-                    {TEXT.accept}
-                  </Text>
-                )}
+                <View
+                  collapsable={false}
+                  pointerEvents="none"
+                  className={`min-h-12 items-center justify-center rounded-xl px-4 py-3 ${
+                    canAccept ? 'bg-blue-600' : 'bg-zinc-300'
+                  }`}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text
+                      className={`text-sm font-bold ${canAccept ? 'text-white' : 'text-zinc-500'}`}
+                    >
+                      {TEXT.accept}
+                    </Text>
+                  )}
+                </View>
               </Pressable>
             </View>
           ) : null}

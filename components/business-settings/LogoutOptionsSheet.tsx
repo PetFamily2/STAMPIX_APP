@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 type LogoutOptionsSheetProps = {

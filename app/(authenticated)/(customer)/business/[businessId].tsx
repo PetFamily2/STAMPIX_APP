@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -24,6 +23,10 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -389,7 +392,7 @@ export default function CustomerBusinessDetailsScreen() {
             <Text style={styles.shareTitle}>{TEXT.shareInviteTitle}</Text>
             <Text style={styles.shareSubtitle}>{TEXT.shareInviteSubtitle}</Text>
             <View style={styles.shareActions}>
-              <Pressable
+              <PaintedPressable
                 onPress={() => void handleShareInviteViaWhatsApp()}
                 disabled={isShareInviteLoading}
                 style={({ pressed }) => [
@@ -401,8 +404,8 @@ export default function CustomerBusinessDetailsScreen() {
                 <Text style={styles.sharePrimaryButtonText}>
                   {isShareInviteLoading ? TEXT.joining : TEXT.shareViaWhatsApp}
                 </Text>
-              </Pressable>
-              <Pressable
+              </PaintedPressable>
+              <PaintedPressable
                 onPress={() => void handleCopyInviteLink()}
                 disabled={isShareInviteLoading}
                 style={({ pressed }) => [
@@ -414,7 +417,7 @@ export default function CustomerBusinessDetailsScreen() {
                 <Text style={styles.shareSecondaryButtonText}>
                   {TEXT.copyInviteLink}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             </View>
           </View>
         ) : null}
@@ -479,7 +482,7 @@ export default function CustomerBusinessDetailsScreen() {
             </View>
           )}
 
-          <Pressable
+          <PaintedPressable
             onPress={handleJoinSelected}
             disabled={!canSubmitSelection}
             style={({ pressed }) => [
@@ -491,7 +494,7 @@ export default function CustomerBusinessDetailsScreen() {
             <Text style={styles.joinButtonText}>
               {isJoining ? TEXT.joining : TEXT.joinButton}
             </Text>
-          </Pressable>
+          </PaintedPressable>
         </View>
 
         <View style={styles.sectionCard}>
@@ -654,6 +657,7 @@ const styles = StyleSheet.create({
   },
   sharePrimaryButton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingVertical: 10,
@@ -667,6 +671,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   shareSecondaryButton: {
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D5DEEE',

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +24,7 @@ import {
 } from '@/components/business-settings';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
@@ -295,7 +295,7 @@ export default function CustomerAccountDetailsScreen() {
                 )}
                 {isEditingPhone ? (
                   <View style={styles.phoneActionRow}>
-                    <Pressable
+                    <PaintedPressable
                       accessibilityRole="button"
                       accessibilityLabel={TEXT.cancel}
                       accessibilityState={{ disabled: isSavingPhone }}
@@ -309,8 +309,8 @@ export default function CustomerAccountDetailsScreen() {
                       <Text style={styles.smallButtonSecondaryText}>
                         {TEXT.cancel}
                       </Text>
-                    </Pressable>
-                    <Pressable
+                    </PaintedPressable>
+                    <PaintedPressable
                       accessibilityRole="button"
                       accessibilityLabel={TEXT.save}
                       accessibilityState={{ disabled: !canSavePhone }}
@@ -331,10 +331,10 @@ export default function CustomerAccountDetailsScreen() {
                           {TEXT.save}
                         </Text>
                       )}
-                    </Pressable>
+                    </PaintedPressable>
                   </View>
                 ) : (
-                  <Pressable
+                  <PaintedPressable
                     onPress={() => setIsEditingPhone(true)}
                     accessibilityRole="button"
                     accessibilityLabel={
@@ -360,7 +360,7 @@ export default function CustomerAccountDetailsScreen() {
                         ? 'הוספת טלפון'
                         : TEXT.editPhone}
                     </Text>
-                  </Pressable>
+                  </PaintedPressable>
                 )}
               </View>
             </SettingsField>
@@ -379,7 +379,7 @@ export default function CustomerAccountDetailsScreen() {
               label={TEXT.marketingOptIn}
               helpText={TEXT.marketingOptInHelp}
             >
-              <Pressable
+              <PaintedPressable
                 accessibilityRole="switch"
                 accessibilityLabel={TEXT.marketingOptIn}
                 accessibilityHint={TEXT.marketingOptInHelp}
@@ -403,7 +403,7 @@ export default function CustomerAccountDetailsScreen() {
                 >
                   {marketingOptIn ? 'פעיל' : 'כבוי'}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             </SettingsField>
 
             <SettingsField label={TEXT.birthday}>
@@ -456,7 +456,7 @@ export default function CustomerAccountDetailsScreen() {
               </View>
             </SettingsField>
 
-            <Pressable
+            <PaintedPressable
               onPress={() => void handleSaveMarketing()}
               disabled={isSavingMarketing}
               accessibilityRole="button"
@@ -475,7 +475,7 @@ export default function CustomerAccountDetailsScreen() {
                   {TEXT.marketingSave}
                 </Text>
               )}
-            </Pressable>
+            </PaintedPressable>
           </SettingsCard>
         </SettingsSection>
       </ScrollView>
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   smallButtonSecondary: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   smallButtonPrimary: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 14,

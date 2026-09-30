@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RefObject } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   type StyleProp,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 
 import RedemptionBusinessMark from '@/components/customer/RedemptionBusinessMark';
 import RedemptionShareCard from '@/components/customer/RedemptionShareCard';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useRedemptionShare } from '@/hooks/useRedemptionShare';
 import {
   buildRedemptionPresentation,

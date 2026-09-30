@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  Pressable,
   type StyleProp,
   StyleSheet,
   Text,
@@ -8,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   DASHBOARD_CARD_STATES,
   DASHBOARD_TOKENS,

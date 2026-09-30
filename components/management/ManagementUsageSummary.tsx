@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export function ManagementUsageSummary({
@@ -47,7 +48,9 @@ export function ManagementUsageSummary({
         <View style={styles.copy}>
           <Text style={styles.label}>{label}</Text>
           <Text style={styles.value}>
-            {isOverLimit ? `${safeUsed} ${unit}` : `${safeUsed} מתוך ${safeLimit} ${unit}`}
+            {isOverLimit
+              ? `${safeUsed} ${unit}`
+              : `${safeUsed} מתוך ${safeLimit} ${unit}`}
           </Text>
         </View>
         {isOverLimit ? (
@@ -194,7 +197,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   action: {
-    minHeight: 40,
+    minHeight: 48,
     borderRadius: 12,
     backgroundColor: '#1D4ED8',
     alignItems: 'center',

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { SETTINGS_TOKENS } from '@/components/business-settings/tokens';
-import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { MVP_FEATURE_FLAGS } from '@/lib/billing/productionContract';
+import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export const ADD_BUSINESS_CTA_LABEL = 'צרפו עסק נוסף';
 

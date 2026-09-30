@@ -2,7 +2,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -11,6 +11,10 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { safeBack } from '@/lib/navigation';
 import {
@@ -117,7 +121,7 @@ function EmptyReferralState({ onPress }: { onPress: () => void }) {
     <View style={styles.emptyCard}>
       <Text style={styles.emptyTitle}>{EMPTY_TITLE}</Text>
       <Text style={styles.emptyBody}>{EMPTY_BODY}</Text>
-      <Pressable
+      <PaintedPressable
         onPress={onPress}
         style={({ pressed }) => [
           styles.emptyActionButton,
@@ -127,7 +131,7 @@ function EmptyReferralState({ onPress }: { onPress: () => void }) {
         accessibilityLabel={EMPTY_ACTION}
       >
         <Text style={styles.emptyActionButtonText}>{EMPTY_ACTION}</Text>
-      </Pressable>
+      </PaintedPressable>
     </View>
   );
 }
@@ -448,6 +452,7 @@ const styles = StyleSheet.create({
   emptyActionButton: {
     marginTop: 4,
     alignSelf: 'flex-end',
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 14,

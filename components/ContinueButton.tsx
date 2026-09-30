@@ -22,8 +22,15 @@ export function ContinueButton({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }) =>
+        pressed && !disabled ? styles.pressed : undefined
+      }
     >
-      <View style={disabled ? styles.buttonInactive : styles.buttonActive}>
+      <View
+        collapsable={false}
+        pointerEvents="none"
+        style={disabled ? styles.buttonInactive : styles.buttonActive}
+      >
         <Text style={disabled ? styles.textInactive : styles.textActive}>
           {label}
         </Text>
@@ -33,6 +40,10 @@ export function ContinueButton({
 }
 
 const styles = StyleSheet.create({
+  pressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.99 }],
+  },
   buttonActive: {
     backgroundColor: '#2563eb',
     minHeight: 52,

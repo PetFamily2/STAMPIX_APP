@@ -12,7 +12,6 @@ import {
   Alert,
   findNodeHandle,
   Linking,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -31,6 +30,7 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -289,7 +289,7 @@ export default function CardDetailsScreen() {
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <View style={styles.centerMessage}>
           <Text style={styles.centerMessageText}>{TEXT.missingDetails}</Text>
-          <Pressable
+          <PaintedPressable
             accessibilityRole="button"
             onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.cardDetail)}
             style={({ pressed }) => [
@@ -300,7 +300,7 @@ export default function CardDetailsScreen() {
             <Text style={styles.centerMessageActionText}>
               {TEXT.backToWallet}
             </Text>
-          </Pressable>
+          </PaintedPressable>
         </View>
       </SafeAreaView>
     );
@@ -316,7 +316,7 @@ export default function CardDetailsScreen() {
           <Text style={styles.centerMessageText}>
             {TEXT.cardNotFoundSubtitle}
           </Text>
-          <Pressable
+          <PaintedPressable
             accessibilityRole="button"
             onPress={() => safeBack(CUSTOMER_BACK_FALLBACKS.cardDetail)}
             style={({ pressed }) => [
@@ -327,7 +327,7 @@ export default function CardDetailsScreen() {
             <Text style={styles.centerMessageActionText}>
               {TEXT.backToWallet}
             </Text>
-          </Pressable>
+          </PaintedPressable>
         </View>
       </SafeAreaView>
     );
@@ -515,7 +515,7 @@ export default function CardDetailsScreen() {
           ) : null}
 
           <View style={styles.inviteRow}>
-            <Pressable
+            <PaintedPressable
               onPress={() => void handleShareInviteViaWhatsApp()}
               disabled={isShareInviteLoading}
               style={({ pressed }) => [
@@ -527,8 +527,8 @@ export default function CardDetailsScreen() {
               <Text style={styles.invitePrimaryButtonText}>
                 {isShareInviteLoading ? TEXT.loading : TEXT.shareViaWhatsApp}
               </Text>
-            </Pressable>
-            <Pressable
+            </PaintedPressable>
+            <PaintedPressable
               onPress={() => void handleCopyInviteLink()}
               disabled={isShareInviteLoading}
               style={({ pressed }) => [
@@ -540,7 +540,7 @@ export default function CardDetailsScreen() {
               <Text style={styles.inviteSecondaryButtonText}>
                 {TEXT.copyInviteLink}
               </Text>
-            </Pressable>
+            </PaintedPressable>
           </View>
         </View>
 
@@ -575,7 +575,7 @@ export default function CardDetailsScreen() {
               </View>
             )}
           </View>
-          <Pressable
+          <PaintedPressable
             onPress={() => void refreshScanToken()}
             disabled={isTokenLoading || !membershipIdForToken}
             style={({ pressed }) => [
@@ -589,7 +589,7 @@ export default function CardDetailsScreen() {
             <Text style={styles.refreshButtonText}>
               {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
             </Text>
-          </Pressable>
+          </PaintedPressable>
 
           {tokenError ? (
             <View style={styles.errorRow}>
@@ -721,6 +721,7 @@ const styles = StyleSheet.create({
   },
   invitePrimaryButton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingVertical: 10,
@@ -734,6 +735,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inviteSecondaryButton: {
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D5DEEE',
@@ -797,6 +799,7 @@ const styles = StyleSheet.create({
   refreshButton: {
     marginTop: 10,
     alignSelf: selfStart,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
@@ -884,6 +887,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     marginTop: 8,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 18,

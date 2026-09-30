@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -41,16 +41,14 @@ const TEXT = {
   restoring: 'משחזרים את העסק...',
   restoreFailed: 'לא הצלחנו לשחזר את העסק. נסו שוב.',
   permanentDelete: 'מחיקה לצמיתות',
-  permanentDeleteHint:
-    'מחיקה בלתי הפיכה של העסק ושל נתוני מועדון הלקוחות שלו.',
+  permanentDeleteHint: 'מחיקה בלתי הפיכה של העסק ושל נתוני מועדון הלקוחות שלו.',
   deletionSectionTitle: 'עסקים בתהליך מחיקה',
   deletionInProgress: 'מחיקת העסק מתבצעת ברקע.',
   deletionFailed: 'מחיקת העסק נכשלה. ניתן להיכנס ולנסות שוב.',
   showDeletionStatus: 'הצגת מצב המחיקה',
   errorTitle: 'שגיאה',
   newBusiness: 'פתיחת עסק חדש',
-  newBusinessSupport:
-    'העסק הסגור יישאר שמור ותוכלו לשחזר אותו גם בהמשך.',
+  newBusinessSupport: 'העסק הסגור יישאר שמור ותוכלו לשחזר אותו גם בהמשך.',
 };
 
 function formatClosedDate(timestamp: number | null) {
@@ -263,9 +261,7 @@ export default function BusinessRecoveryScreen() {
                       {TEXT.permanentDeleteHint}
                     </Text>
                     <Pressable
-                      onPress={() =>
-                        openPermanentDeletion(business.businessId)
-                      }
+                      onPress={() => openPermanentDeletion(business.businessId)}
                       disabled={Boolean(restoringBusinessId)}
                       accessibilityRole="button"
                       accessibilityLabel={`${TEXT.permanentDelete}: ${business.name}`}
@@ -308,9 +304,7 @@ export default function BusinessRecoveryScreen() {
                     <View style={styles.cardText}>
                       <Text style={styles.businessName}>{business.name}</Text>
                       <Text style={styles.deletionStateText}>
-                        {failed
-                          ? TEXT.deletionFailed
-                          : TEXT.deletionInProgress}
+                        {failed ? TEXT.deletionFailed : TEXT.deletionInProgress}
                       </Text>
                     </View>
                   </View>
@@ -461,7 +455,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   restoreButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
@@ -489,7 +483,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   permanentDeleteButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#B42318',
@@ -539,7 +533,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   deletionStatusButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#B42318',
     alignItems: 'center',
@@ -570,7 +564,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   newBusinessButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#9DB6FF',

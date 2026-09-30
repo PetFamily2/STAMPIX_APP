@@ -39,9 +39,11 @@ export function OnboardingChoiceButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={pressableStyle}
+      style={({ pressed }) => [pressableStyle, pressed ? styles.pressed : null]}
     >
       <View
+        collapsable={false}
+        pointerEvents="none"
         style={[
           styles.option,
           selected ? styles.optionSelected : styles.optionUnselected,
@@ -71,6 +73,10 @@ export function OnboardingChoiceButton({
 }
 
 const styles = StyleSheet.create({
+  pressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
+  },
   option: {
     minHeight: 52,
     borderRadius: 14,

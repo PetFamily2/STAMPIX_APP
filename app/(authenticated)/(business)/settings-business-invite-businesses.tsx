@@ -7,7 +7,6 @@ import {
   Alert,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +26,7 @@ import {
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { ReferralShareCreative } from '@/components/referrals/ReferralShareCreative';
 import { RewardEarnedCelebration } from '@/components/referrals/RewardEarnedCelebration';
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -238,11 +238,15 @@ function BusinessInviteContent({
       </View>
 
       <View style={styles.actionsCard}>
-        <Pressable
+        <PaintedPressable
           onPress={() => void handleShare('native')}
           disabled={isShareLoading || isSwitchingBusiness}
           accessibilityRole="button"
           accessibilityLabel={REFERRAL_COPY.inviteCta}
+          accessibilityState={{
+            disabled: isShareLoading || isSwitchingBusiness,
+            busy: isShareLoading,
+          }}
           style={({ pressed }) => [
             styles.primaryButton,
             pressed ? styles.pressed : null,
@@ -254,12 +258,16 @@ function BusinessInviteContent({
           <Text style={styles.primaryButtonText}>
             {REFERRAL_COPY.inviteCta}
           </Text>
-        </Pressable>
-        <Pressable
+        </PaintedPressable>
+        <PaintedPressable
           onPress={() => void handleShare('whatsapp')}
           disabled={isShareLoading || isSwitchingBusiness}
           accessibilityRole="button"
           accessibilityLabel="שיתוף הזמנת עסק ב-WhatsApp"
+          accessibilityState={{
+            disabled: isShareLoading || isSwitchingBusiness,
+            busy: isShareLoading,
+          }}
           style={({ pressed }) => [
             styles.primaryButton,
             pressed ? styles.pressed : null,
@@ -273,12 +281,16 @@ function BusinessInviteContent({
           ) : (
             <Text style={styles.primaryButtonText}>שיתוף ב-WhatsApp</Text>
           )}
-        </Pressable>
-        <Pressable
+        </PaintedPressable>
+        <PaintedPressable
           onPress={() => void handleShare('copy')}
           disabled={isShareLoading || isSwitchingBusiness}
           accessibilityRole="button"
           accessibilityLabel="העתקת קישור להזמנת עסק"
+          accessibilityState={{
+            disabled: isShareLoading || isSwitchingBusiness,
+            busy: isShareLoading,
+          }}
           style={({ pressed }) => [
             styles.secondaryButton,
             pressed ? styles.pressed : null,
@@ -288,7 +300,7 @@ function BusinessInviteContent({
           ]}
         >
           <Text style={styles.secondaryButtonText}>העתקת קישור</Text>
-        </Pressable>
+        </PaintedPressable>
       </View>
       {hub?.history?.length ? (
         <View style={styles.summaryCard}>
@@ -337,7 +349,7 @@ function BusinessInviteContent({
                 </Text>
                 {canRedeemBilling &&
                 (row.status === 'redeemable' || row.status === 'earned') ? (
-                  <Pressable
+                  <PaintedPressable
                     accessibilityRole="button"
                     accessibilityLabel={REFERRAL_COPY.redeemCta}
                     onPress={() => {
@@ -348,7 +360,7 @@ function BusinessInviteContent({
                     <Text style={styles.secondaryButtonText}>
                       {REFERRAL_COPY.redeemCta}
                     </Text>
-                  </Pressable>
+                  </PaintedPressable>
                 ) : null}
               </View>
             )

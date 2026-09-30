@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -166,13 +166,13 @@ export default function OAuthCallbackScreen() {
           {showFailure ? TEXT.failure : TEXT.loading}
         </Text>
         {showFailure ? (
-          <Pressable
+          <PaintedPressable
             accessibilityRole="button"
             onPress={handleReturnToSignUp}
             style={styles.retryButton}
           >
             <Text style={styles.retryText}>{TEXT.returnToSignUp}</Text>
-          </Pressable>
+          </PaintedPressable>
         ) : null}
       </View>
     </SafeAreaView>
@@ -203,6 +203,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 8,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2563eb',
     paddingHorizontal: 20,

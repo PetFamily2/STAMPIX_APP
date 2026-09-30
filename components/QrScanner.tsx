@@ -4,13 +4,13 @@ import {
   ActivityIndicator,
   AppState,
   Linking,
-  Pressable,
   type StyleProp,
   StyleSheet,
   Text,
   View,
   type ViewStyle,
 } from 'react-native';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { flexDirection } from '@/lib/rtl';
 import {
   resolveCameraPermissionAction,
@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
   },
   permissionButton: {
     marginTop: 14,
+    minHeight: 48,
     backgroundColor: '#2F6BFF',
     borderRadius: 16,
     paddingHorizontal: 20,

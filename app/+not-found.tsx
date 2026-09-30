@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {

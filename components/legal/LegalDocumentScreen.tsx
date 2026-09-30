@@ -1,16 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsContentWidth } from '@/components/business-settings';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   ACCOUNT_DELETION_URL,
   PRIVACY_POLICY_URL,
@@ -306,7 +300,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   linkButton: {
-    minHeight: 46,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#BFDBFE',

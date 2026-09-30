@@ -8,10 +8,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import RedemptionCelebration from '@/components/customer/RedemptionCelebration';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -108,9 +109,7 @@ function RedemptionCelebrationHostContent() {
   );
   const livePresentation = useQuery(
     api.redemptionReceipts.getRedemptionReceiptPresentation,
-    claimedReceipt
-      ? { receiptToken: claimedReceipt.receiptToken }
-      : 'skip'
+    claimedReceipt ? { receiptToken: claimedReceipt.receiptToken } : 'skip'
   );
   const presentation = livePresentation ?? claimedReceipt?.presentation;
   const pending = pendingSignal?.pending === true;
@@ -240,10 +239,7 @@ function RedemptionCelebrationHostContent() {
         retryUsedForSignalRef.current = false;
         acknowledgeRetryUsedRef.current = false;
         const currentClaim = claimedReceiptRef.current;
-        if (
-          currentClaim &&
-          currentClaim.claimExpiresAt <= Date.now()
-        ) {
+        if (currentClaim && currentClaim.claimExpiresAt <= Date.now()) {
           openClaimTokenRef.current = null;
           setClaimedReceipt(null);
         }
@@ -324,23 +320,14 @@ function RedemptionCelebrationHostContent() {
       .finally(() => {
         acknowledgeInFlightRef.current = false;
       });
-  }, [
-    acknowledgePresentation,
-    appState,
-    claimedReceipt,
-    presentation?.state,
-  ]);
+  }, [acknowledgePresentation, appState, claimedReceipt, presentation?.state]);
 
   useEffect(() => {
     void acknowledgeRetryGeneration;
     if (claimedReceipt) {
       handlePresentationVisible();
     }
-  }, [
-    acknowledgeRetryGeneration,
-    claimedReceipt,
-    handlePresentationVisible,
-  ]);
+  }, [acknowledgeRetryGeneration, claimedReceipt, handlePresentationVisible]);
 
   const handleClose = useCallback(() => {
     openClaimTokenRef.current = null;
@@ -360,10 +347,7 @@ function RedemptionCelebrationHostContent() {
       );
       return;
     }
-    if (
-      presentation?.state === 'normal' &&
-      !acknowledgeInFlightRef.current
-    ) {
+    if (presentation?.state === 'normal' && !acknowledgeInFlightRef.current) {
       acknowledgeInFlightRef.current = true;
       void acknowledgePresentation({
         receiptToken: receipt.receiptToken,

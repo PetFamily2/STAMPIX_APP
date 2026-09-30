@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import { flexDirection, selfStart, tw } from '@/lib/rtl';
 import { SurfaceCard } from './SurfaceCard';
@@ -118,6 +119,7 @@ const styles = StyleSheet.create({
   cta: {
     alignSelf: selfStart,
     marginTop: 2,
+    minHeight: 48,
     borderRadius: 10,
     backgroundColor: DASHBOARD_TOKENS.colors.brandBlue,
     paddingHorizontal: 14,

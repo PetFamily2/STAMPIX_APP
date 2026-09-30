@@ -17,7 +17,6 @@ import {
   AppState,
   Linking,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,6 +38,10 @@ import {
 } from '@/components/business-settings';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { usePushNotifications } from '@/contexts/PushNotificationsContext';
@@ -723,7 +726,7 @@ export default function SettingsScreen() {
           forcePromotionalBanner={true}
         />
         {singleStaffBusiness ? (
-          <Pressable
+          <PaintedPressable
             onPress={() => {
               void openStaffBusinessScanner(singleStaffBusiness);
             }}
@@ -749,7 +752,7 @@ export default function SettingsScreen() {
                 {formatStaffBusinessTitle(singleStaffBusiness.name)}
               </Text>
             )}
-          </Pressable>
+          </PaintedPressable>
         ) : null}
         {staffBusinesses.length > 1 ? (
           <SettingsSection title={TEXT.staffBusinessesTitle}>
@@ -908,7 +911,7 @@ export default function SettingsScreen() {
             ) : null}
 
             <View style={styles.modalActions}>
-              <Pressable
+              <PaintedPressable
                 accessibilityRole="button"
                 accessibilityLabel={TEXT.cancel}
                 accessibilityState={{ disabled: deleteBusy }}
@@ -923,10 +926,10 @@ export default function SettingsScreen() {
                 <Text style={styles.modalSecondaryButtonText}>
                   {TEXT.cancel}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
 
               {deleteStep === 1 ? (
-                <Pressable
+                <PaintedPressable
                   accessibilityRole="button"
                   accessibilityLabel={TEXT.confirmDelete}
                   accessibilityState={{ disabled: deleteBusy }}
@@ -941,9 +944,9 @@ export default function SettingsScreen() {
                   <Text style={styles.modalWarningButtonText}>
                     {TEXT.confirmDelete}
                   </Text>
-                </Pressable>
+                </PaintedPressable>
               ) : (
-                <Pressable
+                <PaintedPressable
                   accessibilityRole="button"
                   accessibilityLabel={TEXT.deletePermanent}
                   accessibilityState={{ disabled: isDeleteFinalDisabled }}
@@ -967,7 +970,7 @@ export default function SettingsScreen() {
                   >
                     {TEXT.deletePermanent}
                   </Text>
-                </Pressable>
+                </PaintedPressable>
               )}
             </View>
           </View>
@@ -1181,6 +1184,7 @@ const styles = StyleSheet.create({
   },
   modalSecondaryButton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#D4D4D8',
@@ -1192,6 +1196,7 @@ const styles = StyleSheet.create({
   modalSecondaryButtonText: { fontWeight: '800', color: '#3F3F46' },
   modalWarningButton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#B42318',
@@ -1203,6 +1208,7 @@ const styles = StyleSheet.create({
   modalWarningButtonText: { fontWeight: '900', color: '#B42318' },
   modalDangerButton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#B42318',

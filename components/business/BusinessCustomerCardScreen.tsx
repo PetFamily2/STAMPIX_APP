@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
@@ -1118,7 +1118,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   contactActionButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     flexDirection: flexDirection.row,
@@ -1419,7 +1419,7 @@ const styles = StyleSheet.create({
   },
   adjustmentButton: {
     marginTop: 2,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1533,7 +1533,7 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -1548,7 +1548,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 10,
     backgroundColor: '#2F6BFF',
     paddingVertical: 10,

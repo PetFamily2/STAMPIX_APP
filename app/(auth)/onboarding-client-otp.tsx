@@ -9,7 +9,6 @@ import {
   Easing,
   type NativeSyntheticEvent,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -17,9 +16,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';

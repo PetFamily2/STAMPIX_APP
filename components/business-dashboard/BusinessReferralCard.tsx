@@ -5,12 +5,12 @@ import {
   Animated,
   Easing,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,
@@ -336,6 +336,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonSurface: {
     minWidth: 168,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
@@ -463,7 +464,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   closeButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',

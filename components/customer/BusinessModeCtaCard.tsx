@@ -7,7 +7,6 @@ import {
   Alert,
   Animated,
   Easing,
-  Pressable,
   type StyleProp,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -135,26 +135,23 @@ export default function BusinessModeCtaCard({
     isAppModeLoading ||
     modeSwitchBusy ||
     isClosedBusinessQueryLoading;
-  const hostTitle =
-    showClosedBusinessRecovery
-      ? TEXT.closedBusinessTitle
-      : !showPromotionalBanner && showExistingBusinessCta
-        ? formatSwitchToBusinessTitle(manageableBusinessName)
-        : TEXT.hostTitle;
-  const hostSubtitle =
-    showClosedBusinessRecovery
-      ? TEXT.closedBusinessSubtitle
-      : !showPromotionalBanner && showExistingBusinessCta
-        ? shouldStartBusinessOnboarding
-          ? TEXT.existingBusinessSetupSubtitle
-          : TEXT.existingBusinessSubtitle
-        : TEXT.hostSubtitle;
-  const hostButtonLabel =
-    showClosedBusinessRecovery
-      ? TEXT.restoreBusinessButton
-      : !showPromotionalBanner && showExistingBusinessCta
-        ? TEXT.switchToBusinessButton
-        : TEXT.hostButton;
+  const hostTitle = showClosedBusinessRecovery
+    ? TEXT.closedBusinessTitle
+    : !showPromotionalBanner && showExistingBusinessCta
+      ? formatSwitchToBusinessTitle(manageableBusinessName)
+      : TEXT.hostTitle;
+  const hostSubtitle = showClosedBusinessRecovery
+    ? TEXT.closedBusinessSubtitle
+    : !showPromotionalBanner && showExistingBusinessCta
+      ? shouldStartBusinessOnboarding
+        ? TEXT.existingBusinessSetupSubtitle
+        : TEXT.existingBusinessSubtitle
+      : TEXT.hostSubtitle;
+  const hostButtonLabel = showClosedBusinessRecovery
+    ? TEXT.restoreBusinessButton
+    : !showPromotionalBanner && showExistingBusinessCta
+      ? TEXT.switchToBusinessButton
+      : TEXT.hostButton;
   const shouldUseAccentButton = !isBusinessMode || accentButton;
 
   useEffect(() => {
@@ -392,6 +389,7 @@ const styles = StyleSheet.create({
   },
   hostButton: {
     marginTop: 2,
+    minHeight: 48,
     backgroundColor: '#111827',
     borderRadius: 999,
     paddingHorizontal: 12,

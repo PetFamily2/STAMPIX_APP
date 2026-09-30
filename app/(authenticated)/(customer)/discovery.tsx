@@ -9,7 +9,6 @@ import {
   Image,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +24,10 @@ import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import BusinessModeCtaCard from '@/components/customer/BusinessModeCtaCard';
 import { DiscoveryMap } from '@/components/customer/DiscoveryMap';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { formatDistance } from '@/lib/location';
@@ -358,7 +361,7 @@ export default function DiscoveryScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{TEXT.permissionTitle}</Text>
             <Text style={styles.cardSubtitle}>{TEXT.permissionSubtitle}</Text>
-            <Pressable
+            <PaintedPressable
               accessibilityRole="button"
               accessibilityLabel={TEXT.permissionButton}
               onPress={() => {
@@ -372,9 +375,9 @@ export default function DiscoveryScreen() {
               <Text style={styles.primaryButtonText}>
                 {TEXT.permissionButton}
               </Text>
-            </Pressable>
+            </PaintedPressable>
             {showSettingsAction ? (
-              <Pressable
+              <PaintedPressable
                 accessibilityRole="button"
                 accessibilityLabel={TEXT.openSettings}
                 onPress={() => {
@@ -388,7 +391,7 @@ export default function DiscoveryScreen() {
                 <Text style={styles.secondaryButtonText}>
                   {TEXT.openSettings}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             ) : null}
           </View>
         ) : null}
@@ -406,7 +409,7 @@ export default function DiscoveryScreen() {
         locationErrorMessage ? (
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{locationErrorMessage}</Text>
-            <Pressable
+            <PaintedPressable
               accessibilityRole="button"
               accessibilityLabel={TEXT.retry}
               onPress={() => {
@@ -418,7 +421,7 @@ export default function DiscoveryScreen() {
               ]}
             >
               <Text style={styles.secondaryButtonText}>{TEXT.retry}</Text>
-            </Pressable>
+            </PaintedPressable>
           </View>
         ) : null}
 
@@ -656,7 +659,7 @@ export default function DiscoveryScreen() {
                       {TEXT.emptySubtitle}
                     </Text>
                     <View style={styles.emptyActions}>
-                      <Pressable
+                      <PaintedPressable
                         onPress={increaseRadius}
                         style={({ pressed }) => [
                           styles.primaryButton,
@@ -668,9 +671,9 @@ export default function DiscoveryScreen() {
                         <Text style={styles.primaryButtonText}>
                           {TEXT.increaseRadius}
                         </Text>
-                      </Pressable>
+                      </PaintedPressable>
                       {hasActiveFilters ? (
-                        <Pressable
+                        <PaintedPressable
                           onPress={resetFilters}
                           style={({ pressed }) => [
                             styles.secondaryButton,
@@ -682,7 +685,7 @@ export default function DiscoveryScreen() {
                           <Text style={styles.secondaryButtonText}>
                             {TEXT.resetFilters}
                           </Text>
-                        </Pressable>
+                        </PaintedPressable>
                       ) : null}
                     </View>
                   </View>

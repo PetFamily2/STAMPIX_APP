@@ -12,7 +12,11 @@ import {
 import { flexDirection, rtlCenterText, selfStart } from '@/lib/rtl';
 import { actionButtonUsesMutedSurface } from '@/lib/ui/actionButtonVisual';
 
-export type ActionButtonVariant = 'primary' | 'secondary' | 'lifecycle';
+export type ActionButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'lifecycle';
 
 type ActionButtonProps = {
   label: string;
@@ -30,6 +34,7 @@ type ActionButtonProps = {
 const ACTIVITY_COLORS: Record<ActionButtonVariant, string> = {
   primary: '#FFFFFF',
   secondary: '#1D4ED8',
+  success: '#FFFFFF',
   lifecycle: '#9F1239',
 };
 
@@ -143,6 +148,14 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
     backgroundColor: '#F1F5F9',
   },
+  success: {
+    borderColor: '#15803D',
+    backgroundColor: '#15803D',
+  },
+  successDisabled: {
+    borderColor: '#B7C3D6',
+    backgroundColor: '#D5DCE8',
+  },
   lifecycle: {
     borderColor: '#FDA4AF',
     backgroundColor: '#FFF1F2',
@@ -174,6 +187,12 @@ const styles = StyleSheet.create({
   },
   secondaryLabelDisabled: {
     color: '#64748B',
+  },
+  successLabel: {
+    color: '#FFFFFF',
+  },
+  successLabelDisabled: {
+    color: '#334155',
   },
   lifecycleLabel: {
     color: '#9F1239',

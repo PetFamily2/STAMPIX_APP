@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-
+import { StyleSheet, Text, View } from 'react-native';
 import {
   RecommendationActionCard,
   type RecommendationCategory,
   type RecommendationTone,
 } from '@/components/business-dashboard/RecommendationActionCard';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   DASHBOARD_TOKENS,
   type DashboardLayoutMode,

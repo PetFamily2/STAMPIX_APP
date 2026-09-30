@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { REFERRAL_COPY } from '@/lib/referrals/copy';
 import { persistPendingReferralCode } from '@/lib/referrals/pendingCode';
 
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
   },
   cta: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 16,
     backgroundColor: '#111827',
     alignItems: 'center',

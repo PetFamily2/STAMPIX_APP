@@ -6,13 +6,7 @@ import { type ParamListBase, useNavigation } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { type Href, router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {
   SafeAreaView,
@@ -21,6 +15,7 @@ import {
 
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
+import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -295,7 +290,7 @@ export default function CustomerShowQrScreen() {
                   </View>
                 )}
               </View>
-              <Pressable
+              <PaintedPressable
                 onPress={() => void refreshScanToken()}
                 disabled={isTokenLoading}
                 style={({ pressed }) => [
@@ -307,7 +302,7 @@ export default function CustomerShowQrScreen() {
                 <Text style={styles.refreshButtonText}>
                   {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             </View>
           ) : null}
         </View>
@@ -420,7 +415,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 18,
     paddingVertical: 10,
     alignItems: 'center',

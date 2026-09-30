@@ -1,12 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 import type { RecommendationAction } from '@/lib/recommendations/navigation';
 import { getRecommendationVisualCtaLabel } from '@/lib/recommendations/presentation';
@@ -277,7 +272,7 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     minWidth: 84,
-    height: 44,
+    minHeight: 48,
     borderRadius: 999,
     borderWidth: 2,
     borderColor: '#123EA8',
@@ -287,9 +282,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   snoozeAction: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#D7E1F2',
     backgroundColor: '#FFFFFF',

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import {
   alignItems,
   flexDirection,
@@ -130,6 +131,7 @@ const styles = StyleSheet.create({
   },
   cta: {
     alignSelf: selfStart,
+    minHeight: 48,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',

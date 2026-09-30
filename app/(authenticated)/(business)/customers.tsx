@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +23,10 @@ import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { FeatureGate } from '@/components/subscription/LockedFeatureWrapper';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -395,7 +398,7 @@ export function CustomersHubContent() {
                 צרו קמפיין החזרה ללקוחות שלא חזרו בזמן
               </Text>
               <View style={styles.atRiskActions}>
-                <Pressable
+                <PaintedPressable
                   disabled={isCreatingWinbackCampaign || !canCreateCampaigns}
                   onPress={() => {
                     void handleCreateAtRiskCampaign();
@@ -416,8 +419,8 @@ export function CustomersHubContent() {
                       צרו קמפיין החזרה
                     </Text>
                   )}
-                </Pressable>
-                <Pressable
+                </PaintedPressable>
+                <PaintedPressable
                   onPress={openCampaigns}
                   style={({ pressed }) => [
                     styles.secondaryAction,
@@ -425,7 +428,7 @@ export function CustomersHubContent() {
                   ]}
                 >
                   <Text style={styles.secondaryActionText}>כל הקמפיינים</Text>
-                </Pressable>
+                </PaintedPressable>
               </View>
               {!canCreateCampaigns ? (
                 <Text className={tw.textStart} style={styles.permissionHint}>
@@ -536,7 +539,7 @@ export function CustomersHubContent() {
                 לקוחות יופיעו כאן אחרי שיצטרפו לכרטיסייה ויקבלו חותמת ראשונה
               </Text>
               <View style={styles.emptyActionsRow}>
-                <Pressable
+                <PaintedPressable
                   onPress={openBusinessQr}
                   style={({ pressed }) => [
                     styles.emptyPrimaryButton,
@@ -546,8 +549,8 @@ export function CustomersHubContent() {
                   <Text style={styles.emptyPrimaryButtonText}>
                     הצגת QR להצטרפות
                   </Text>
-                </Pressable>
-                <Pressable
+                </PaintedPressable>
+                <PaintedPressable
                   onPress={openScanner}
                   style={({ pressed }) => [
                     styles.emptySecondaryButton,
@@ -557,7 +560,7 @@ export function CustomersHubContent() {
                   <Text style={styles.emptySecondaryButtonText}>
                     פתיחת סורק
                   </Text>
-                </Pressable>
+                </PaintedPressable>
               </View>
             </SurfaceCard>
           ) : filteredCustomers.length === 0 ? (
@@ -739,7 +742,7 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   customerUsageUpgradeButton: {
-    minHeight: 36,
+    minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#1D4ED8',
     alignItems: 'center',
@@ -817,7 +820,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyPrimaryButton: {
-    minHeight: 42,
+    minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#2F6BFF',
     alignItems: 'center',
@@ -826,7 +829,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   emptySecondaryButton: {
-    minHeight: 42,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#BFD3FF',
@@ -877,7 +880,7 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     ...rtlBaseView,
-    minHeight: 44,
+    minHeight: 48,
     flex: 1,
     borderRadius: 16,
     backgroundColor: '#0F766E',
@@ -891,7 +894,7 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   secondaryAction: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#BFE7E2',

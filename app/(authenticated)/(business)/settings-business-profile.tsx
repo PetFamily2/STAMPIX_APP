@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   type ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +24,7 @@ import {
 } from '@/components/business-settings';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BusinessSettingsSnapshot,

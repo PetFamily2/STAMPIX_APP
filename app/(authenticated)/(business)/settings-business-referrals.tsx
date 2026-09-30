@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,10 @@ import {
 } from '@/components/business-settings';
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -520,9 +523,15 @@ export default function BusinessReferralSettingsScreen() {
                 ))}
               </View>
 
-              <Pressable
+              <PaintedPressable
                 onPress={() => void handleSaveConfig()}
                 disabled={!canEditConfig || isSaving}
+                accessibilityRole="button"
+                accessibilityLabel="שמירת הגדרות"
+                accessibilityState={{
+                  disabled: !canEditConfig || isSaving,
+                  busy: isSaving,
+                }}
                 style={({ pressed }) => [
                   styles.primaryButton,
                   pressed ? styles.pressed : null,
@@ -532,7 +541,7 @@ export default function BusinessReferralSettingsScreen() {
                 <Text style={styles.primaryButtonText}>
                   {isSaving ? 'שומר...' : 'שמירת הגדרות'}
                 </Text>
-              </Pressable>
+              </PaintedPressable>
             </View>
           )
         ) : null}

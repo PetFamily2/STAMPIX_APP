@@ -19,7 +19,6 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +37,7 @@ import StickyScrollHeader from '@/components/StickyScrollHeader';
 import PosRedemptionCelebration from '@/components/scanner/PosRedemptionCelebration';
 import RewardReadyCue from '@/components/scanner/RewardReadyCue';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -53,22 +53,13 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
   playPunchSuccessFeedback,
   playRedemptionCelebrationFeedback,
   playSubtleConfirmationHaptic,
 } from '@/lib/feedback';
-import {
-  alignItems,
-  flexDirection,
-  ltrIslandText,
-  selfStart,
-} from '@/lib/rtl';
-import {
-  getProgramGridMetrics,
-  PROGRAM_GRID_GAP,
-} from '@/lib/scanner/programGrid';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
+import { alignItems, flexDirection, ltrIslandText, selfStart } from '@/lib/rtl';
 import {
   awaitCurrentTransaction,
   captureTransactionGeneration,
@@ -85,6 +76,10 @@ import {
   resolveSameBusinessProgramRefresh,
   resolveSubscriptionRecovery,
 } from '@/lib/scanner/posFlow';
+import {
+  getProgramGridMetrics,
+  PROGRAM_GRID_GAP,
+} from '@/lib/scanner/programGrid';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
 type ScannerProgram = {
@@ -455,9 +450,7 @@ export default function ScannerScreen() {
       const savedPresetIsValid = Boolean(
         savedProgramId && programIds.includes(savedProgramId)
       );
-      const savedPresetIsStale = Boolean(
-        savedProgramId && !savedPresetIsValid
-      );
+      const savedPresetIsStale = Boolean(savedProgramId && !savedPresetIsValid);
       if (savedPresetIsStale) {
         invalidateStalePreset();
         try {
@@ -512,15 +505,18 @@ export default function ScannerScreen() {
   const queueCompleteReset = useCallback(
     (delayMs = COMPLETE_RESET_MS) => {
       clearCompleteResetTimer();
-      completeResetTimeoutRef.current = setTimeout(() => {
-        invalidateTransactionGeneration(transactionGenerationRef);
-        setIsUndoing(false);
-        setIsRedeemingBenefitId(null);
-        setBenefitActionMessage(null);
-        setPosRedemptionCelebration(null);
-        dispatch({ type: 'NEXT_CUSTOMER' });
-        completeResetTimeoutRef.current = null;
-      }, Math.max(0, delayMs));
+      completeResetTimeoutRef.current = setTimeout(
+        () => {
+          invalidateTransactionGeneration(transactionGenerationRef);
+          setIsUndoing(false);
+          setIsRedeemingBenefitId(null);
+          setBenefitActionMessage(null);
+          setPosRedemptionCelebration(null);
+          dispatch({ type: 'NEXT_CUSTOMER' });
+          completeResetTimeoutRef.current = null;
+        },
+        Math.max(0, delayMs)
+      );
     },
     [clearCompleteResetTimer]
   );
@@ -607,10 +603,7 @@ export default function ScannerScreen() {
   const showTerminalError = useCallback(
     async (error: PosErrorPresentation, generation: number) => {
       if (
-        !isTransactionGenerationCurrent(
-          transactionGenerationRef,
-          generation
-        )
+        !isTransactionGenerationCurrent(transactionGenerationRef, generation)
       ) {
         return;
       }
@@ -662,10 +655,7 @@ export default function ScannerScreen() {
   const commitFromSession = useCallback(
     async (session: PosResolvedSession, generation: number) => {
       if (
-        !isTransactionGenerationCurrent(
-          transactionGenerationRef,
-          generation
-        )
+        !isTransactionGenerationCurrent(transactionGenerationRef, generation)
       ) {
         return;
       }
@@ -704,8 +694,9 @@ export default function ScannerScreen() {
               celebratedPosRedemptionIdsRef.current.size >
               RECENT_POS_REDEMPTION_LIMIT
             ) {
-              const oldest =
-                celebratedPosRedemptionIdsRef.current.values().next().value;
+              const oldest = celebratedPosRedemptionIdsRef.current
+                .values()
+                .next().value;
               if (oldest) {
                 celebratedPosRedemptionIdsRef.current.delete(oldest);
               }
@@ -775,10 +766,7 @@ export default function ScannerScreen() {
         queueCompleteReset(resetAt - Date.now());
       } catch (error) {
         if (
-          !isTransactionGenerationCurrent(
-            transactionGenerationRef,
-            generation
-          )
+          !isTransactionGenerationCurrent(transactionGenerationRef, generation)
         ) {
           return;
         }
@@ -831,9 +819,7 @@ export default function ScannerScreen() {
       ) {
         return;
       }
-      const generation = captureTransactionGeneration(
-        transactionGenerationRef
-      );
+      const generation = captureTransactionGeneration(transactionGenerationRef);
       const qrData = rawData.trim();
       if (!qrData.startsWith('scanToken:')) {
         await showTerminalError(
@@ -884,10 +870,7 @@ export default function ScannerScreen() {
         await commitFromSession(session, generation);
       } catch (error) {
         if (
-          !isTransactionGenerationCurrent(
-            transactionGenerationRef,
-            generation
-          )
+          !isTransactionGenerationCurrent(transactionGenerationRef, generation)
         ) {
           return;
         }
@@ -1149,14 +1132,13 @@ export default function ScannerScreen() {
   const renderResultDetails = (result: PosTransactionResult) => {
     const isReversed = flow.phase === 'reversed';
     const isRedeem = result.actionMode === 'redeem';
-    const actionText =
-      isReversed
-        ? isRedeem
-          ? 'מימוש ההטבה בוטל'
-          : 'החותמת האחרונה בוטלה'
-        : isRedeem
-          ? 'ההטבה מומשה'
-          : 'נוספה חותמת';
+    const actionText = isReversed
+      ? isRedeem
+        ? 'מימוש ההטבה בוטל'
+        : 'החותמת האחרונה בוטלה'
+      : isRedeem
+        ? 'ההטבה מומשה'
+        : 'נוספה חותמת';
     return (
       <>
         <View
@@ -1166,9 +1148,7 @@ export default function ScannerScreen() {
           ]}
         >
           <Ionicons
-            name={
-              isReversed ? 'arrow-undo' : isRedeem ? 'gift' : 'checkmark'
-            }
+            name={isReversed ? 'arrow-undo' : isRedeem ? 'gift' : 'checkmark'}
             size={26}
             color="#FFFFFF"
           />
@@ -1184,18 +1164,13 @@ export default function ScannerScreen() {
             לא ניתן לבטל את החותמת מפני שהיא כבר הפעילה תגמול הפניה.
           </Text>
         ) : null}
-        <Pressable
+        <ActionButton
+          label="הלקוח הבא"
           onPress={resetForNextCustomer}
-          accessibilityRole="button"
           accessibilityLabel="הלקוח הבא"
-          style={({ pressed }) => [
-            styles.primaryButton,
-            pressed ? styles.buttonPressed : null,
-          ]}
-        >
-          <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.primaryButtonText}>הלקוח הבא</Text>
-        </Pressable>
+          fullWidth={true}
+          icon={<Ionicons name="scan-outline" size={20} color="#FFFFFF" />}
+        />
         {result.undo && undoNow < result.undo.availableUntil ? (
           <ActionButton
             label={
@@ -1286,17 +1261,15 @@ export default function ScannerScreen() {
               {flow.session.membership.maxStamps}
             </Text>
           ) : null}
-          <Pressable
+          <ActionButton
+            label="מימוש ההטבה"
+            variant="success"
             onPress={() => void handleRedeem()}
-            accessibilityRole="button"
             accessibilityLabel={`מימוש ${flow.session.program.rewardName}`}
-            style={({ pressed }) => [
-              styles.redeemButton,
-              pressed ? styles.buttonPressed : null,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>מימוש ההטבה</Text>
-          </Pressable>
+            fullWidth={true}
+            testID="scanner-redeem-reward-cta"
+            icon={<Ionicons name="gift-outline" size={20} color="#FFFFFF" />}
+          />
           <Pressable
             onPress={resetForNextCustomer}
             accessibilityRole="button"
@@ -1314,17 +1287,12 @@ export default function ScannerScreen() {
           <Ionicons name="cloud-offline-outline" size={36} color="#B54708" />
           <Text style={styles.statusTitle}>הפעולה טרם הושלמה</Text>
           <Text style={styles.statusBody}>{flow.error.message}</Text>
-          <Pressable
+          <ActionButton
+            label="נסה שוב"
             onPress={() => void handleRetry()}
-            accessibilityRole="button"
             accessibilityLabel="נסה שוב"
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed ? styles.buttonPressed : null,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>נסה שוב</Text>
-          </Pressable>
+            fullWidth={true}
+          />
           <Pressable
             onPress={resetForNextCustomer}
             accessibilityRole="button"
@@ -1377,21 +1345,16 @@ export default function ScannerScreen() {
             </Pressable>
           ) : null}
           {flow.error.kind !== 'business_closed' ? (
-            <Pressable
-              onPress={resetForNextCustomer}
-              accessibilityRole="button"
-              accessibilityLabel="סריקה חדשה"
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed ? styles.buttonPressed : null,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>
-                {flow.error.kind === 'pos_enroll_disabled'
+            <ActionButton
+              label={
+                flow.error.kind === 'pos_enroll_disabled'
                   ? 'הלקוח הבא'
-                  : 'סריקה חדשה'}
-              </Text>
-            </Pressable>
+                  : 'סריקה חדשה'
+              }
+              onPress={resetForNextCustomer}
+              accessibilityLabel="סריקה חדשה"
+              fullWidth={true}
+            />
           ) : null}
         </View>
       );
@@ -1469,9 +1432,7 @@ export default function ScannerScreen() {
       scannerDeviceId &&
       canAccessScanner &&
       (flow.phase === 'ready' ||
-        (isTablet &&
-          flow.phase !== 'setup' &&
-          flow.phase !== 'needs_program'))
+        (isTablet && flow.phase !== 'setup' && flow.phase !== 'needs_program'))
   );
   const shouldShowStatusRail =
     !shouldShowCamera ||
@@ -1515,26 +1476,26 @@ export default function ScannerScreen() {
               ]}
             >
               {shouldShowCamera ? (
-              <View
-                style={[
-                  styles.cameraPane,
-                  isTablet ? styles.cameraPaneTablet : null,
-                ]}
-              >
-                <QrScanner
-                  onScan={handleScan}
-                  resetKey={flow.scannerResetKey}
-                  showStatus={false}
-                  cameraMinHeight={isTablet ? 360 : 260}
-                  isBusy={flow.phase !== 'ready'}
-                />
-                {flow.phase === 'resolving' ? (
-                  <View pointerEvents="none" style={styles.cameraBusyOverlay}>
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                    <Text style={styles.cameraBusyText}>מעבדים...</Text>
-                  </View>
-                ) : null}
-              </View>
+                <View
+                  style={[
+                    styles.cameraPane,
+                    isTablet ? styles.cameraPaneTablet : null,
+                  ]}
+                >
+                  <QrScanner
+                    onScan={handleScan}
+                    resetKey={flow.scannerResetKey}
+                    showStatus={false}
+                    cameraMinHeight={isTablet ? 360 : 260}
+                    isBusy={flow.phase !== 'ready'}
+                  />
+                  {flow.phase === 'resolving' ? (
+                    <View pointerEvents="none" style={styles.cameraBusyOverlay}>
+                      <ActivityIndicator size="large" color="#FFFFFF" />
+                      <Text style={styles.cameraBusyText}>מעבדים...</Text>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
               {shouldShowStatusRail ? (
                 <View
@@ -1652,6 +1613,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 260,
     position: 'relative',
+    overflow: 'visible',
   },
   transactionAreaTablet: {
     flexDirection: flexDirection.row,
@@ -1692,6 +1654,7 @@ const styles = StyleSheet.create({
     borderColor: '#C7DBFF',
     backgroundColor: '#FFFFFF',
     padding: 14,
+    overflow: 'visible',
   },
   statusRailTablet: {
     flex: 1,
@@ -1700,7 +1663,8 @@ const styles = StyleSheet.create({
     minHeight: 360,
   },
   statusContent: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1777,35 +1741,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  primaryButton: {
-    width: '100%',
-    minHeight: 52,
-    borderRadius: 14,
-    backgroundColor: '#2F6BFF',
-    paddingHorizontal: 16,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  redeemButton: {
-    width: '100%',
-    minHeight: 52,
-    borderRadius: 14,
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
   secondaryButton: {
-    minHeight: 44,
+    minHeight: 48,
     alignSelf: selfStart,
     borderRadius: 12,
     borderWidth: 1,
@@ -1824,7 +1761,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   textButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1911,7 +1848,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   referralRedeemButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#16A34A',
@@ -1924,9 +1861,6 @@ const styles = StyleSheet.create({
     color: '#166534',
     fontSize: 11,
     fontWeight: '900',
-  },
-  buttonPressed: {
-    opacity: 0.86,
   },
   buttonDisabled: {
     opacity: 0.55,
