@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
@@ -48,6 +48,8 @@ export function AdminBusinessDetail({
   businessId: Id<'businesses'>;
 }) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < 760;
   const detail = useQuery(api.adminWeb.getBusinessDetail, { businessId });
 
   if (detail === undefined) {
@@ -67,7 +69,7 @@ export function AdminBusinessDetail({
 
   return (
     <ScrollView
-      contentContainerStyle={styles.page}
+      contentContainerStyle={[styles.page, compact ? styles.pageCompact : null]}
       showsVerticalScrollIndicator={false}
     >
       <Pressable onPress={() => router.back()} style={styles.backLink}>
@@ -90,7 +92,7 @@ export function AdminBusinessDetail({
       </View>
 
       <View style={styles.grid}>
-        <View style={styles.card}>
+        <View style={[styles.card, compact ? styles.cardCompact : null]}>
           <View style={styles.cardHeader}>
             <Building2 color={TOKENS.colors.primary} size={20} />
             <Text style={styles.cardTitle}>פרטי העסק</Text>
@@ -104,7 +106,7 @@ export function AdminBusinessDetail({
           <Field label="נוצר" value={formatDate(detail.business.createdAt)} />
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, compact ? styles.cardCompact : null]}>
           <View style={styles.cardHeader}>
             <ShieldCheck color={TOKENS.colors.primary} size={20} />
             <Text style={styles.cardTitle}>בעלים</Text>
@@ -118,7 +120,7 @@ export function AdminBusinessDetail({
           />
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, compact ? styles.cardCompact : null]}>
           <View style={styles.cardHeader}>
             <CircleDollarSign color={TOKENS.colors.primary} size={20} />
             <Text style={styles.cardTitle}>חיוב</Text>
@@ -165,7 +167,7 @@ export function AdminBusinessDetail({
           />
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, compact ? styles.cardCompact : null]}>
           <View style={styles.cardHeader}>
             <Users color={TOKENS.colors.primary} size={20} />
             <Text style={styles.cardTitle}>שימוש וצוות</Text>
@@ -242,6 +244,9 @@ const styles = StyleSheet.create({
     minHeight: '100vh' as never,
     padding: 36,
   },
+  pageCompact: {
+    padding: TOKENS.space.lg,
+  },
   backLink: {
     alignItems: 'center',
     alignSelf: selfStart,
@@ -302,6 +307,10 @@ const styles = StyleSheet.create({
     minWidth: 360,
     padding: TOKENS.space.xl,
     width: '48%' as never,
+  },
+  cardCompact: {
+    minWidth: 0,
+    width: '100%',
   },
   wideCard: {
     backgroundColor: TOKENS.colors.elevatedSurface,
