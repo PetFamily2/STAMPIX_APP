@@ -30,16 +30,11 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
-body *,
-#root * {
-  font-family: 'Heebo', Arial, sans-serif !important;
-}
-
 input,
 button,
 textarea,
 select {
-  font: inherit;
+  font-family: 'Heebo', Arial, sans-serif;
 }
 
 /* Keyboard focus treatment isolated to the Business Web shell. */
