@@ -2500,6 +2500,9 @@ export default defineSchema({
     lastPlan: v.optional(
       v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
     ),
+    trialSource: v.optional(v.literal('stampaix')),
+    trialStartedAt: v.optional(v.number()),
+    trialEndsAt: v.optional(v.number()),
     status: v.optional(
       v.union(
         v.literal('active'),
@@ -2544,7 +2547,8 @@ export default defineSchema({
     .index('by_businessId', ['businessId'])
     .index('by_providerAppUserId', ['providerAppUserId'])
     .index('by_ownerUserId', ['ownerUserId'])
-    .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt']),
+    .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt'])
+    .index('by_trialSource_trialEndsAt', ['trialSource', 'trialEndsAt']),
 
   payplusCheckoutIntents: defineTable({
     checkoutId: v.string(),
