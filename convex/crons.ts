@@ -9,6 +9,7 @@ const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
 const internalSmartManagerApi = (internal as any).smartManager;
 const internalSmartManagerActionsApi = (internal as any).smartManagerActions;
 const internalRedemptionReceiptsApi = (internal as any).redemptionReceipts;
+const internalGeneralFreeTrialApi = (internal as any).generalFreeTrial;
 const smartManagerDeliverySweepRef = makeFunctionReference<
   'mutation',
   Record<string, never>,
@@ -90,6 +91,13 @@ crons.hourly(
   'sumit billing reconciliation sweep hourly',
   { minuteUTC: 15 },
   internal.sumitBilling.reconcileSUMITBillingSweepInternal,
+  { limit: 25 }
+);
+
+crons.hourly(
+  'general free trial expiry hourly',
+  { minuteUTC: 25 },
+  internalGeneralFreeTrialApi.expireGeneralFreeTrialsInternal,
   { limit: 25 }
 );
 
