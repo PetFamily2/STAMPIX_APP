@@ -194,6 +194,7 @@ export async function createSUMITCheckoutRecord(
   const billingAccount = await getBillingAccountForBusiness(ctx, business._id);
   if (
     billingAccount &&
+    billingAccount.hasProviderEvidence === true &&
     hasOperationalAccessFromStatus({
       status: billingAccount.status ?? 'inactive',
       hasProviderEvidence: billingAccount.hasProviderEvidence === true,
