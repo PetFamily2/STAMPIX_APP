@@ -6,7 +6,7 @@ import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
-import { flexDirection, rtlBaseText } from '@/lib/rtl';
+import { alignItems, flexDirection, rtlBaseText } from '@/lib/rtl';
 
 const LIFECYCLE_LABEL: Record<string, string> = {
   active: 'פעילה',
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   sectionSubtitle: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, ...rtlBaseText },
   cards: { gap: 12 },
   programCard: { borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.md, padding: 18, gap: 16, backgroundColor: TOKENS.colors.subtleSurface },
-  programTop: { flexDirection: flexDirection.row, justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 },
+  programTop: { flexDirection: flexDirection.row, justifyContent: 'space-between', alignItems: alignItems.start, gap: 14 },
   programCopy: { flex: 1, gap: 4 },
   programTitle: { ...TOKENS.typography.cardTitle, color: TOKENS.colors.textPrimary, ...rtlBaseText },
   rewardName: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, ...rtlBaseText },
