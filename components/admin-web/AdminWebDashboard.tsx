@@ -6,7 +6,7 @@ import {
   LifeBuoy,
   Trash2,
 } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { AdminBusinessSearch } from '@/components/admin-web/AdminBusinessSearch';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
@@ -33,6 +33,8 @@ function StatusPill({ value }: { value: string | null }) {
 }
 
 export function AdminWebDashboard() {
+  const { width } = useWindowDimensions();
+  const compact = width < 760;
   const overview = useQuery(api.adminWeb.getOverview);
 
   if (overview === undefined) {
@@ -41,7 +43,7 @@ export function AdminWebDashboard() {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, compact ? styles.contentCompact : null]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.pageHeader}>
@@ -57,7 +59,7 @@ export function AdminWebDashboard() {
       </View>
 
       <View style={styles.metrics}>
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, compact ? styles.metricCardCompact : null]}>
           <LifeBuoy color={TOKENS.colors.primary} size={22} />
           <Text style={styles.metricLabel}>בקשות תמיכה חדשות</Text>
           <Text style={styles.metricValue}>
@@ -65,7 +67,7 @@ export function AdminWebDashboard() {
             {overview.queues.support.hasMore ? '+' : ''}
           </Text>
         </View>
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, compact ? styles.metricCardCompact : null]}>
           <Trash2 color={TOKENS.colors.primary} size={22} />
           <Text style={styles.metricLabel}>בקשות מחיקה פתוחות</Text>
           <Text style={styles.metricValue}>
@@ -73,12 +75,12 @@ export function AdminWebDashboard() {
             {overview.queues.accountDeletion.hasMore ? '+' : ''}
           </Text>
         </View>
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, compact ? styles.metricCardCompact : null]}>
           <Building2 color={TOKENS.colors.primary} size={22} />
           <Text style={styles.metricLabel}>עסקים אחרונים</Text>
           <Text style={styles.metricValue}>{overview.recentBusinesses.length}</Text>
         </View>
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, compact ? styles.metricCardCompact : null]}>
           <CircleDollarSign color={TOKENS.colors.primary} size={22} />
           <Text style={styles.metricLabel}>חשבונות חיוב אחרונים</Text>
           <Text style={styles.metricValue}>
@@ -90,7 +92,7 @@ export function AdminWebDashboard() {
       <AdminBusinessSearch />
 
       <View style={styles.sectionGrid}>
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, compact ? styles.sectionCardCompact : null]}>
           <View style={styles.sectionHeader}>
             <Building2 color={TOKENS.colors.primary} size={20} />
             <Text style={styles.sectionTitle}>עסקים אחרונים</Text>
@@ -110,7 +112,7 @@ export function AdminWebDashboard() {
           </View>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, compact ? styles.sectionCardCompact : null]}>
           <View style={styles.sectionHeader}>
             <CircleDollarSign color={TOKENS.colors.primary} size={20} />
             <Text style={styles.sectionTitle}>חיוב אחרון</Text>
@@ -133,7 +135,7 @@ export function AdminWebDashboard() {
           </View>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, compact ? styles.sectionCardCompact : null]}>
           <View style={styles.sectionHeader}>
             <LifeBuoy color={TOKENS.colors.primary} size={20} />
             <Text style={styles.sectionTitle}>תמיכה חדשה</Text>
@@ -155,7 +157,7 @@ export function AdminWebDashboard() {
           </View>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, compact ? styles.sectionCardCompact : null]}>
           <View style={styles.sectionHeader}>
             <Trash2 color={TOKENS.colors.primary} size={20} />
             <Text style={styles.sectionTitle}>בקשות מחיקת חשבון</Text>
@@ -187,6 +189,9 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.xl,
     minHeight: '100vh' as never,
     padding: 36,
+  },
+  contentCompact: {
+    padding: TOKENS.space.lg,
   },
   pageHeader: { maxWidth: 820 },
   eyebrow: {
@@ -229,6 +234,10 @@ const styles = StyleSheet.create({
     minWidth: 190,
     padding: TOKENS.space.lg,
   },
+  metricCardCompact: {
+    minWidth: 0,
+    width: '100%',
+  },
   metricLabel: {
     ...rtlBaseText,
     color: TOKENS.colors.textMuted,
@@ -252,6 +261,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 320,
     padding: TOKENS.space.xl,
+  },
+  sectionCardCompact: {
+    minWidth: 0,
+    width: '100%',
   },
   sectionHeader: {
     alignItems: 'center',
