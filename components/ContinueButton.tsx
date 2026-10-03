@@ -1,4 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { rtlBaseView, rtlCenterText } from '@/lib/rtl';
 
