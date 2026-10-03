@@ -93,6 +93,13 @@ crons.hourly(
   { limit: 25 }
 );
 
+crons.hourly(
+  'SUMIT payment failure reminders hourly',
+  { minuteUTC: 30 },
+  internal.sumitBilling.sendSUMITBillingReminderSweepInternal,
+  { cursor: null }
+);
+
 crons.daily(
   'smart manager audit retention cleanup daily',
   { hourUTC: 2, minuteUTC: 50 },
