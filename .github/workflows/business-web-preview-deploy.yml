@@ -46,6 +46,49 @@ jobs:
       - name: Load Preview environment
         run: eas env:pull preview --path .env.local --non-interactive
 
+      - name: Resolve Convex DEV deployment
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = '.env.local';
+          const source = fs.readFileSync(path, 'utf8');
+          if (/^CONVEX_DEPLOYMENT=/m.test(source)) {
+            process.exit(0);
+          }
+
+          const match = source.match(/^EXPO_PUBLIC_CONVEX_URL_DEV=(.*)$/m);
+          if (!match) {
+            console.error('EXPO_PUBLIC_CONVEX_URL_DEV is missing from EAS Preview environment.');
+            process.exit(1);
+          }
+
+          const raw = match[1].trim().replace(/^["']|["']$/g, '');
+          let url;
+          try {
+            url = new URL(raw);
+          } catch {
+            console.error('EXPO_PUBLIC_CONVEX_URL_DEV is not a valid URL.');
+            process.exit(1);
+          }
+
+          const suffix = '.convex.cloud';
+          if (
+            url.protocol !== 'https:' ||
+            !url.hostname.endsWith(suffix)
+          ) {
+            console.error('Preview Convex URL is not a canonical convex.cloud URL.');
+            process.exit(1);
+          }
+
+          const slug = url.hostname.slice(0, -suffix.length);
+          if (!/^[a-z0-9-]+$/.test(slug)) {
+            console.error('Could not derive a safe Convex DEV deployment slug.');
+            process.exit(1);
+          }
+
+          fs.appendFileSync(path, `\nCONVEX_DEPLOYMENT=dev:${slug}\n`);
+          NODE
+
       - name: Sync Convex DEV backend
         run: bun run convex:dev:sync
 
