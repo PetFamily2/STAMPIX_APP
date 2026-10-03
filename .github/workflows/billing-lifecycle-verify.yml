@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - launch/sumit-lifecycle-hardening
+      - launch/14-day-pro-trial
   pull_request:
     branches:
       - main
