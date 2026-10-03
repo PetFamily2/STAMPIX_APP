@@ -13,16 +13,20 @@ import {
   UserRoundCog,
   Users,
   X,
-} from 'lucide-react-native';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { type ReactNode,
+  useEffect,
+  useMemo,
+  useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Id } from '@/convex/_generated/dataModel';
