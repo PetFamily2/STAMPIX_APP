@@ -41,6 +41,20 @@ export function isProductionGoogleServicesPath(value: string) {
   return resolve(normalized) === resolve(PRODUCTION_GOOGLE_SERVICES_FILE);
 }
 
+export function isPreviewGoogleServicesPath(value: string) {
+  const normalized = normalizeConfigPath(value);
+  if (!normalized) {
+    return false;
+  }
+  if (
+    normalized === PREVIEW_GOOGLE_SERVICES_FILE ||
+    normalized === 'google-services.preview.json'
+  ) {
+    return true;
+  }
+  return resolve(normalized) === resolve(PREVIEW_GOOGLE_SERVICES_FILE);
+}
+
 export function resolveAndroidGoogleServicesFile(options?: {
   appEnvironment?: string;
   servicesPath?: string | null;
@@ -57,7 +71,11 @@ export function resolveAndroidGoogleServicesFile(options?: {
   );
 
   if (appEnvironment === 'production') {
-    if (configured && fileExists(configured)) {
+    if (
+      configured &&
+      !isPreviewGoogleServicesPath(configured) &&
+      fileExists(configured)
+    ) {
       return configured;
     }
     if (fileExists(PRODUCTION_GOOGLE_SERVICES_FILE)) {
