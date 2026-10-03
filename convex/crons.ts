@@ -86,6 +86,13 @@ crons.hourly(
   internalProviderCredentialsApi.sweepProviderRevocationJobsInternal
 );
 
+crons.hourly(
+  'sumit billing reconciliation sweep hourly',
+  { minuteUTC: 15 },
+  internal.sumitBilling.reconcileSUMITBillingSweepInternal,
+  { limit: 25 }
+);
+
 crons.daily(
   'smart manager audit retention cleanup daily',
   { hourUTC: 2, minuteUTC: 50 },

@@ -2534,13 +2534,17 @@ export default defineSchema({
     providerEnvironment: v.optional(v.string()),
     lastProviderEventAt: v.optional(v.number()),
     lastProviderEventId: v.optional(v.string()),
+    lastReconciledAt: v.optional(v.number()),
+    lastReconciliationOk: v.optional(v.boolean()),
+    lastReconciliationCode: v.optional(v.string()),
     hasProviderEvidence: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_providerAppUserId', ['providerAppUserId'])
-    .index('by_ownerUserId', ['ownerUserId']),
+    .index('by_ownerUserId', ['ownerUserId'])
+    .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt']),
 
   payplusCheckoutIntents: defineTable({
     checkoutId: v.string(),
