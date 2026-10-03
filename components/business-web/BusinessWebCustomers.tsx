@@ -70,7 +70,7 @@ export function BusinessWebCustomers({
       <View style={styles.header}>
         <Text style={styles.pageTitle}>לקוחות</Text>
         <Text style={styles.pageSubtitle}>
-          כל לקוחות המועדון והפעילות האחרונה שלהם במקום אחד.
+          לקוחות, פעילות והתקדמות במועדון.
         </Text>
       </View>
 
