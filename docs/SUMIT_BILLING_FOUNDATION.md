@@ -20,11 +20,35 @@ production end-to-end payment has been completed.
 6. The adapter calls the existing `applyVerifiedBillingEvent`. No SUMIT code
    writes an entitlement directly.
 
+## Launch trial contract
+
+A newly activated business receives a first-party 14-day Pro trial. The trial
+starts only when business onboarding is completed, not when a draft business
+record is created. It does not require a card or a SUMIT checkout up front.
+
+Trial access is server-authoritative and is intentionally distinct from paid
+provider evidence:
+
+- `status = trialing`
+- `plan = pro`
+- `trialStartedAt` and `trialEndAt` are persisted on the business billing account
+- `hasProviderEvidence` remains `false`
+- canonical access expires from server time when `trialEndAt <= now`
+- repeating onboarding cannot extend an already-started trial
+- the trial does not replace the 7-day direct-provider renewal grace period,
+  which applies only after a verified paid subscription later fails to renew
+
+A trialing business may create a SUMIT checkout for Starter, Pro, or Premium.
+A verified SUMIT payment transitions the canonical billing state to paid access
+through the existing provider-evidence path. A browser redirect alone still
+never grants access.
+
 Until an explicit provider-verified plan-change lifecycle exists,
-`createSUMITCheckout` rejects businesses that already have canonical paid
-access with `SUMIT_ACTIVE_SUBSCRIPTION_EXISTS`. The guard is server-side and
-uses the canonical lifecycle, including valid grace and paid cancellation
-periods; the web UI is not the authority.
+`createSUMITCheckout` rejects businesses that already have canonical **paid**
+access with `SUMIT_ACTIVE_SUBSCRIPTION_EXISTS`. First-party trial access is
+not treated as paid access for this guard. The guard is server-side and uses
+the canonical lifecycle, including valid grace and paid cancellation periods;
+the web UI is not the authority.
 
 The `successUrl` and `cancelUrl` returned with hosted-checkout metadata state
 the required redirect contract only. They do not configure the SUMIT hosted
