@@ -34,7 +34,7 @@ export function BusinessWebLoyalty({
       <View style={styles.header}>
         <Text style={styles.pageTitle}>מועדון והטבות</Text>
         <Text style={styles.pageSubtitle}>
-          ניהול תמונת המצב של הכרטיסיות, החברים וההטבות בעסק.
+          כרטיסיות, חברים והטבות במקום אחד.
         </Text>
       </View>
 
@@ -59,7 +59,7 @@ export function BusinessWebLoyalty({
       <View style={styles.panel}>
         <View style={styles.panelHeader}>
           <Text style={styles.sectionTitle}>הכרטיסיות שלכם</Text>
-          <Text style={styles.sectionSubtitle}>נתונים חיים מתוך המועדון</Text>
+          <Text style={styles.sectionSubtitle}>נתונים חיים</Text>
         </View>
 
         {data === undefined ? (
