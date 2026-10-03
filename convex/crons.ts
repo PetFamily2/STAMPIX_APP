@@ -155,4 +155,18 @@ crons.interval(
   smartManagerDeliverySweepRef
 );
 
+crons.interval(
+  'SUMIT billing reconciliation every 6 hours',
+  { hours: 6 },
+  internal.sumitBilling.reconcileSUMITBillingSweepInternal,
+  { cursor: null }
+);
+
+crons.hourly(
+  'SUMIT payment failure reminders hourly',
+  { minuteUTC: 15 },
+  internal.sumitBilling.sendSUMITBillingReminderSweepInternal,
+  { cursor: null }
+);
+
 export default crons;
