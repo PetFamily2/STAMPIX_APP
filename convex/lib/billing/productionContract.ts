@@ -4,7 +4,7 @@
  * without an explicit product decision.
  */
 
-export const BILLING_CONTRACT_VERSION = '1.0.0';
+export const BILLING_CONTRACT_VERSION = '1.1.0';
 
 export const BILLING_CURRENCY = 'ILS' as const;
 
@@ -68,7 +68,7 @@ export const LAUNCH_PLAN_COUNT = 3;
 
 export const MVP_FEATURE_FLAGS = {
   additionalBusinessCreationEnabled: false,
-  generalFreeTrialEnabled: false,
+  generalFreeTrialEnabled: true,
   freeStarterEnabled: false,
   ownerLevelBillingEnabled: false,
   multiBusinessBillingEnabled: false,
@@ -114,6 +114,11 @@ export const INTENDED_PLAY_BASE_PLANS = {
   monthly: 'monthly',
   yearly: 'yearly',
 } as const;
+
+export const GENERAL_FREE_TRIAL_DAYS = 14;
+export const GENERAL_FREE_TRIAL_PLAN: BusinessPlan = 'pro';
+export const GENERAL_FREE_TRIAL_MS =
+  GENERAL_FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 export const STORE_GRACE_POLICY_DAYS = 16;
 export const DIRECT_PROVIDER_RENEWAL_GRACE_DAYS = 7;
@@ -460,6 +465,15 @@ export function assertFrozenPlanContract(
   }
   if (MVP_FEATURE_FLAGS.freeStarterEnabled) {
     throw new Error('BILLING_CONTRACT_FREE_STARTER_FLAG');
+  }
+  if (!MVP_FEATURE_FLAGS.generalFreeTrialEnabled) {
+    throw new Error('BILLING_CONTRACT_GENERAL_TRIAL_FLAG');
+  }
+  if (GENERAL_FREE_TRIAL_DAYS !== 14) {
+    throw new Error('BILLING_CONTRACT_GENERAL_TRIAL_DAYS');
+  }
+  if (GENERAL_FREE_TRIAL_PLAN !== 'pro') {
+    throw new Error('BILLING_CONTRACT_GENERAL_TRIAL_PLAN');
   }
   if (MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled) {
     throw new Error('BILLING_CONTRACT_MULTI_BUSINESS_FLAG');
