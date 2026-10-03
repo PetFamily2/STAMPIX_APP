@@ -359,3 +359,128 @@ export const getBusinessDetail = query({
     };
   },
 });
+
+
+export const getBillingAttention = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireSystemAdmin(ctx);
+    const [pastDue, recentSumit] = await Promise.all([
+      ctx.db
+        .query('businessBillingAccounts')
+        .filter((q: any) => q.eq(q.field('status'), 'past_due'))
+        .take(50),
+      ctx.db
+        .query('businessBillingAccounts')
+        .withIndex('by_provider_lastReconciledAt', (q: any) =>
+          q.eq('provider', 'sumit')
+        )
+        .order('asc')
+        .take(100),
+    ]);
+
+    const rows = new Map<string, any>();
+    for (const account of [...pastDue, ...recentSumit]) {
+      if (
+        account.status !== 'past_due' &&
+        account.lastReconciliationOk !== false
+      ) {
+        continue;
+      }
+      const business = await ctx.db.get(account.businessId);
+      rows.set(String(account.businessId), {
+        businessId: account.businessId,
+        businessName: business?.name ?? 'עסק לא זמין',
+        plan: account.plan ?? account.lastPlan ?? null,
+        status: account.status ?? null,
+        provider: account.provider ?? null,
+        gracePeriodEndAt: account.gracePeriodEndAt ?? null,
+        currentPeriodEndAt: account.currentPeriodEndAt ?? null,
+        lastReconciledAt: account.lastReconciledAt ?? null,
+        lastReconciliationOk: account.lastReconciliationOk ?? null,
+        lastReconciliationCode: account.lastReconciliationCode ?? null,
+        updatedAt: account.updatedAt,
+      });
+    }
+
+    return [...rows.values()]
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 100);
+  },
+});
+
+export const getSupportQueue = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireSystemAdmin(ctx);
+    const [open, handled] = await Promise.all([
+      ctx.db
+        .query('supportRequests')
+        .withIndex('by_status', (q: any) => q.eq('status', 'new'))
+        .order('desc')
+        .take(50),
+      ctx.db
+        .query('supportRequests')
+        .withIndex('by_status', (q: any) => q.eq('status', 'handled'))
+        .order('desc')
+        .take(20),
+    ]);
+
+    return {
+      open: open.map((request: any) => ({
+        requestId: request._id,
+        userId: request.userId,
+        name: request.name,
+        email: request.email ?? null,
+        phone: request.phone ?? null,
+        message: request.message,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt,
+      })),
+      handled: handled.map((request: any) => ({
+        requestId: request._id,
+        userId: request.userId,
+        name: request.name,
+        email: request.email ?? null,
+        phone: request.phone ?? null,
+        message: request.message,
+        closedAt: request.closedAt ?? null,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt,
+      })),
+    };
+  },
+});
+
+export const getDeletionQueue = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireSystemAdmin(ctx);
+    const [open, inReview] = await Promise.all([
+      ctx.db
+        .query('accountDeletionRequests')
+        .withIndex('by_status_createdAt', (q: any) => q.eq('status', 'new'))
+        .order('desc')
+        .take(50),
+      ctx.db
+        .query('accountDeletionRequests')
+        .withIndex('by_status_createdAt', (q: any) =>
+          q.eq('status', 'in_review')
+        )
+        .order('desc')
+        .take(50),
+    ]);
+
+    return [...open, ...inReview]
+      .sort((a: any, b: any) => b.createdAt - a.createdAt)
+      .map((request: any) => ({
+        requestId: request._id,
+        email: request.email,
+        status: request.status,
+        source: request.source,
+        requestReference: request.requestReference,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt,
+      }));
+  },
+});
