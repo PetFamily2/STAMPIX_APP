@@ -7,17 +7,22 @@ import {
   Save,
   Tags,
   X,
-} from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+  } from 'lucide-react-native';
+import { useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { validateProfileFields } from '@/components/business-settings';
