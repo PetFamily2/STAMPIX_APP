@@ -1,4 +1,6 @@
-import { useMutation, useQuery } from 'convex/react';
+import {
+  useMutation,
+  useQuery } from 'convex/react';
 import {
   CalendarClock,
   Check,
@@ -10,17 +12,20 @@ import {
   UserPlus,
   Users,
   UserX,
-} from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { useEffect,
+  useMemo,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import {
   BusinessWebConfirmDialog,
