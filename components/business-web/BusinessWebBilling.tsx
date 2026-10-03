@@ -1,4 +1,6 @@
-import { useAction, useQuery } from 'convex/react';
+import {
+  useAction,
+  useQuery } from 'convex/react';
 import {
   CalendarDays,
   Check,
@@ -7,17 +9,19 @@ import {
   FileText,
   ReceiptText,
   ShieldCheck,
-} from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { useMemo,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
 import { api } from '@/convex/_generated/api';
