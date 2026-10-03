@@ -31,6 +31,9 @@ const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
 const WEB_OAUTH_CALLBACK_PATH = '/oauth-callback';
 const WEB_OAUTH_PRODUCTION_ORIGIN = 'https://business.stampaix.com';
 const WEB_OAUTH_DEVELOPMENT_ORIGIN = 'http://localhost:8081';
+const WEB_OAUTH_PREVIEW_ORIGINS = new Set([
+  'https://stampaix-business--xzgle8lvvv.expo.app',
+]);
 const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 
@@ -473,6 +476,10 @@ function isAllowedWebOAuthCallback(
   }
 
   if (url.origin === WEB_OAUTH_PRODUCTION_ORIGIN) {
+    return true;
+  }
+
+  if (WEB_OAUTH_PREVIEW_ORIGINS.has(url.origin)) {
     return true;
   }
 
