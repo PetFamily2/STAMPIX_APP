@@ -43,27 +43,33 @@ export function isProductionGoogleServicesPath(value: string) {
 
 export function resolveAndroidGoogleServicesFile(options?: {
   appEnvironment?: string;
-  previewServicesPath?: string | null;
+  servicesPath?: string | null;
   fileExists?: (filePath: string) => boolean;
 }): string | undefined {
   const appEnvironment = (options?.appEnvironment ?? getAppEnvironment())
     ?.trim()
     .toLowerCase();
   const fileExists = options?.fileExists ?? existsSync;
+  const configured = normalizeConfigPath(
+    options && 'servicesPath' in options
+      ? (options.servicesPath ?? '')
+      : (process.env.GOOGLE_SERVICES_JSON ?? '')
+  );
 
   if (appEnvironment === 'production') {
-    return PRODUCTION_GOOGLE_SERVICES_FILE;
+    if (configured && fileExists(configured)) {
+      return configured;
+    }
+    if (fileExists(PRODUCTION_GOOGLE_SERVICES_FILE)) {
+      return PRODUCTION_GOOGLE_SERVICES_FILE;
+    }
+    return undefined;
   }
 
   if (appEnvironment !== 'preview') {
     return undefined;
   }
 
-  const configured = normalizeConfigPath(
-    options && 'previewServicesPath' in options
-      ? (options.previewServicesPath ?? '')
-      : (process.env.GOOGLE_SERVICES_JSON ?? '')
-  );
   if (
     configured &&
     !isProductionGoogleServicesPath(configured) &&
@@ -82,8 +88,14 @@ export function resolveAndroidGoogleServicesFile(options?: {
 function withEnvironmentAwareGoogleServicesFile(
   config: ExpoConfig
 ): ExpoConfig {
-  const googleServicesFile = resolveAndroidGoogleServicesFile();
+  const appEnvironment = getAppEnvironment();
+  const googleServicesFile = resolveAndroidGoogleServicesFile({
+    appEnvironment,
+  });
   if (!googleServicesFile) {
+    if (appEnvironment === 'production') {
+      throw new Error('PRODUCTION_GOOGLE_SERVICES_FILE_MISSING');
+    }
     return config;
   }
 
