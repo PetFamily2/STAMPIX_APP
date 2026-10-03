@@ -74,7 +74,7 @@ export function BusinessWebAnalytics({
       key: 'risk',
       label: 'לקוחות בסיכון',
       value: Number(kpis?.atRiskCustomers ?? 0),
-      context: 'כדאי לעקוב אחריהם',
+      context: 'דורשים תשומת לב',
       icon: TriangleAlert,
     },
   ];
@@ -84,7 +84,7 @@ export function BusinessWebAnalytics({
       <View style={styles.header}>
         <Text style={styles.pageTitle}>ניתוחים</Text>
         <Text style={styles.pageSubtitle}>
-          תמונת מצב עסקית של 30 הימים האחרונים מול הפעילות הקודמת.
+          30 הימים האחרונים מול התקופה הקודמת.
         </Text>
       </View>
 
