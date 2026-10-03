@@ -260,7 +260,7 @@ function BusinessWebDashboardContent({
             isMobileComposition ? styles.pageSubtitleMobile : null,
           ]}
         >
-          תמונת המצב העדכנית של {businessName}
+          מה קורה עכשיו ב־{businessName}
         </Text>
       </View>
 
