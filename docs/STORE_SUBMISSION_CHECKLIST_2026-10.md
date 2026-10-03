@@ -105,8 +105,10 @@ Source currently configures:
 External proof still required:
 - [ ] APNs credentials accepted by EAS.
 - [ ] FCM V1 credentials accepted by EAS.
-- [ ] Production Firebase Android client exists locally at build time.
-- [ ] Production client file is not committed as a secret.
+- [ ] Production `GOOGLE_SERVICES_JSON` is configured as an EAS file secret in the Production environment.
+- [ ] Preview uses a separate Firebase client/file secret and cannot reuse the canonical Preview file in Production.
+- [x] Production and Preview Firebase client files are ignored by Git and the previously tracked Production file is removed from this launch branch.
+- [ ] Any credentials or API keys exposed in repository history are rotated or restricted in their provider consoles as applicable.
 - [ ] Real-device delivery succeeds on both platforms.
 
 ## 6. Public web and deep-link gate
