@@ -212,7 +212,7 @@ export function BusinessWebBilling() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>חיוב וחשבוניות</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול המסלול, מחזור החיוב ומסמכי התשלום של {activeBusiness.name}.
+            המנוי, התשלומים והחשבוניות של {activeBusiness.name}.
           </Text>
         </View>
       </View>
@@ -229,7 +229,7 @@ export function BusinessWebBilling() {
       ) : null}
 
       <SectionCard
-        description="המידע מוצג לפי מצב המנוי הקנוני שנשמר ב-StampAix."
+        description="מצב המנוי המעודכן של העסק."
         icon={ShieldCheck}
         title="המנוי הנוכחי"
       >
