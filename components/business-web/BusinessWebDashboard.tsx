@@ -1,4 +1,5 @@
-import { useQuery } from 'convex/react';
+import {
+  useQuery } from 'convex/react';
 import {
   Activity,
   Building2,
@@ -7,17 +8,20 @@ import {
   type LucideIcon,
   Stamp,
   Users,
-} from 'lucide-react-native';
-import { Component, type ReactNode, useState } from 'react';
+  } from 'lucide-react-native';
+import { Component,
+  type ReactNode,
+  useState } from 'react';
 import {
   Pressable,
   type StyleProp,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
