@@ -39,9 +39,9 @@ export const BUSINESS_WEB_TOKENS = {
     pill: 999,
   },
   typography: {
-    pageTitle: { fontSize: 30, lineHeight: 38, fontWeight: '800' as const },
-    sectionTitle: { fontSize: 19, lineHeight: 27, fontWeight: '800' as const },
-    cardTitle: { fontSize: 15, lineHeight: 22, fontWeight: '700' as const },
+    pageTitle: { fontSize: 29, lineHeight: 38, fontWeight: '700' as const },
+    sectionTitle: { fontSize: 19, lineHeight: 27, fontWeight: '700' as const },
+    cardTitle: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
     kpiValue: { fontSize: 32, lineHeight: 40, fontWeight: '800' as const },
     body: { fontSize: 16, lineHeight: 25, fontWeight: '400' as const },
     secondaryBody: {
