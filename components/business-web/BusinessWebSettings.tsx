@@ -383,7 +383,7 @@ export function BusinessWebSettings() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>הגדרות העסק</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול המידע שהלקוחות ו-StampAix משתמשים בו עבור העסק הזה.
+            פרטי העסק, הכתובת ותחומי הפעילות.
           </Text>
         </View>
       </View>
@@ -430,7 +430,7 @@ export function BusinessWebSettings() {
       >
         <View style={styles.mainColumn}>
           <SettingsCard
-            description="הפרטים הבסיסיים שמוצגים ללקוחות ומזהים את העסק."
+            description="המידע הבסיסי של העסק."
             icon={Building2}
             title="פרטי העסק"
           >
@@ -495,7 +495,7 @@ export function BusinessWebSettings() {
           </SettingsCard>
 
           <SettingsCard
-            description="בחירת תחומים ותגיות עוזרת לתאר את השירותים של העסק."
+            description="התחומים והשירותים שהעסק מציע."
             icon={Tags}
             title="תחומי פעילות"
           >
@@ -606,7 +606,7 @@ export function BusinessWebSettings() {
 
         <View style={styles.addressColumn}>
           <SettingsCard
-            description="הכתובת משמשת להצגת העסק ולחיפוש מקומי. לא נבקש מיקום מהמכשיר."
+            description="הכתובת שמוצגת ללקוחות ומשמשת לחיפוש מקומי."
             icon={MapPin}
             title="כתובת העסק"
           >
