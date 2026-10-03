@@ -300,6 +300,9 @@ export const getBusinessDetail = query({
             canceledAt: account.canceledAt ?? null,
             entitlementRevokedAt: account.entitlementRevokedAt ?? null,
             hasProviderEvidence: account.hasProviderEvidence === true,
+            lastReconciledAt: account.lastReconciledAt ?? null,
+            lastReconciliationOk: account.lastReconciliationOk ?? null,
+            lastReconciliationCode: account.lastReconciliationCode ?? null,
             updatedAt: account.updatedAt,
           }
         : null,
