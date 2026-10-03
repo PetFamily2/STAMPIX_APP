@@ -1,15 +1,16 @@
 /**
- * StampAix Business Web extends the mobile brand without changing native UI.
- * New web surfaces use Lucide icons at 16/20/24px with a stroke width of 2.
+ * StampAix Business Web visual system.
+ * Web surfaces extend the existing StampAix blue brand while keeping
+ * green reserved for positive/success states and red for destructive states.
  */
 export const BUSINESS_WEB_TOKENS = {
   colors: {
-    pageBackground: '#F6F8FC',
+    pageBackground: '#F8FAFC',
     elevatedSurface: '#FFFFFF',
-    subtleSurface: '#F8FAFC',
+    subtleSurface: '#FAFCFF',
     primary: '#1230A8',
     primaryHover: '#0E288F',
-    primarySubtle: '#EEF3FF',
+    primarySubtle: '#EEF4FF',
     textPrimary: '#101936',
     textSecondary: '#475569',
     textMuted: '#64748B',
@@ -32,24 +33,24 @@ export const BUSINESS_WEB_TOKENS = {
     xxxl: 40,
   },
   radii: {
-    sm: 8,
-    md: 12,
-    lg: 16,
+    sm: 10,
+    md: 14,
+    lg: 20,
     pill: 999,
   },
   typography: {
-    pageTitle: { fontSize: 28, lineHeight: 36, fontWeight: '700' as const },
-    sectionTitle: { fontSize: 18, lineHeight: 26, fontWeight: '700' as const },
-    cardTitle: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
-    kpiValue: { fontSize: 30, lineHeight: 38, fontWeight: '700' as const },
-    body: { fontSize: 16, lineHeight: 24, fontWeight: '400' as const },
+    pageTitle: { fontSize: 30, lineHeight: 38, fontWeight: '800' as const },
+    sectionTitle: { fontSize: 19, lineHeight: 27, fontWeight: '800' as const },
+    cardTitle: { fontSize: 15, lineHeight: 22, fontWeight: '700' as const },
+    kpiValue: { fontSize: 32, lineHeight: 40, fontWeight: '800' as const },
+    body: { fontSize: 16, lineHeight: 25, fontWeight: '400' as const },
     secondaryBody: {
       fontSize: 14,
-      lineHeight: 21,
+      lineHeight: 22,
       fontWeight: '400' as const,
     },
     metadata: { fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
-    label: { fontSize: 14, lineHeight: 20, fontWeight: '600' as const },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: '700' as const },
   },
   icons: {
     meta: 16,
@@ -61,9 +62,9 @@ export const BUSINESS_WEB_TOKENS = {
   },
   shadow: {
     shadowColor: '#0F172A',
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
+    shadowOpacity: 0.055,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 2,
   },
 } as const;

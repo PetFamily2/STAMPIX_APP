@@ -37,7 +37,7 @@ const CANCELLATION_COPY =
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'פעיל',
-  trialing: 'פעיל',
+  trialing: 'תקופת ניסיון',
   past_due: 'נדרש טיפול בתשלום',
   canceled: 'בוטל — פעיל עד סוף התקופה',
   inactive: 'לא פעיל',
@@ -191,6 +191,7 @@ export function BusinessWebBilling() {
     : null;
   const status = overview?.status ?? 'inactive';
   const hasCurrentPaidAccess = overview?.hasCurrentPaidAccess === true;
+  const isTrialing = overview?.isTrialing === true;
   const currentBillingPeriod: BillingPeriod | null =
     overview?.billingPeriod === 'monthly' ||
     overview?.billingPeriod === 'yearly'
@@ -244,10 +245,19 @@ export function BusinessWebBilling() {
             }
           />
           <Detail
-            label="סוף התקופה ששולמה"
-            value={formatDate(overview?.currentPeriodEndAt)}
+            label={isTrialing ? 'סיום תקופת הניסיון' : 'סוף התקופה ששולמה'}
+            value={formatDate(
+              isTrialing ? overview?.trialEndAt : overview?.currentPeriodEndAt
+            )}
           />
         </View>
+        {isTrialing ? (
+          <Text style={styles.cancellationState}>
+            יש לכם 14 ימי ניסיון במסלול Pro ללא כרטיס מראש. אפשר לבחור מסלול
+            ולהתחיל מנוי בתשלום בכל עת; ללא תשלום, הגישה לתכונות העסק תסתיים
+            בתום הניסיון.
+          </Text>
+        ) : null}
         {overview?.canceledAt ? (
           <Text style={styles.cancellationState}>
             החידוש בוטל בתאריך {formatDate(overview.canceledAt)}. הגישה אינה
@@ -284,7 +294,9 @@ export function BusinessWebBilling() {
           <Text style={styles.sectionDescription}>
             {hasCurrentPaidAccess
               ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
-              : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
+              : isTrialing
+                ? 'תקופת הניסיון פעילה. בחרו מסלול ומחזור חיוב כדי להמשיך ללא הפסקה בסיום 14 הימים.'
+                : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
           </Text>
         </View>
         <View accessibilityLabel="מחזור חיוב" style={styles.cadenceToggle}>
@@ -391,7 +403,9 @@ export function BusinessWebBilling() {
                       ? 'המסלול הנוכחי'
                       : hasCurrentPaidAccess
                         ? 'שינוי מסלול — בקרוב'
-                        : 'המשך לתשלום מאובטח'}
+                        : isTrialing
+                          ? 'בחירת מסלול והמשך לתשלום'
+                          : 'המשך לתשלום מאובטח'}
                 </Text>
               </Pressable>
             </View>

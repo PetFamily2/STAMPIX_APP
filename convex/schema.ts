@@ -2528,19 +2528,51 @@ export default defineSchema({
     currentPeriodStartAt: v.optional(v.union(v.number(), v.null())),
     currentPeriodEndAt: v.optional(v.union(v.number(), v.null())),
     gracePeriodEndAt: v.optional(v.union(v.number(), v.null())),
+    trialStartedAt: v.optional(v.number()),
+    trialEndAt: v.optional(v.number()),
+    trialSource: v.optional(v.literal('business_onboarding')),
     canceledAt: v.optional(v.union(v.number(), v.null())),
     entitlementRevokedAt: v.optional(v.union(v.number(), v.null())),
     revokeReason: v.optional(v.string()),
     providerEnvironment: v.optional(v.string()),
     lastProviderEventAt: v.optional(v.number()),
     lastProviderEventId: v.optional(v.string()),
+    lastReconciledAt: v.optional(v.number()),
+    lastReconciliationOk: v.optional(v.boolean()),
+    lastReconciliationCode: v.optional(v.string()),
     hasProviderEvidence: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_providerAppUserId', ['providerAppUserId'])
-    .index('by_ownerUserId', ['ownerUserId']),
+    .index('by_ownerUserId', ['ownerUserId'])
+    .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt'])
+    .index('by_status_gracePeriodEndAt', ['status', 'gracePeriodEndAt']),
+
+  billingReminderEvents: defineTable({
+    dedupeKey: v.string(),
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    gracePeriodEndAt: v.number(),
+    stageDay: v.union(v.literal(0), v.literal(3), v.literal(6)),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sent'),
+      v.literal('failed')
+    ),
+    attemptCount: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    errorCode: v.optional(v.string()),
+    claimedAt: v.number(),
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_dedupeKey', ['dedupeKey'])
+    .index('by_businessId', ['businessId'])
+    .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_createdAt', ['createdAt']),
 
   payplusCheckoutIntents: defineTable({
     checkoutId: v.string(),

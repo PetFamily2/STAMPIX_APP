@@ -15,6 +15,8 @@ export type CanonicalBillingState = {
   currentPeriodEndAt: number | null;
   gracePeriodEndAt: number | null;
   canceledAt: number | null;
+  trialStartedAt: number | null;
+  trialEndAt: number | null;
   hasProviderEvidence: boolean;
   isSubscriptionActive: boolean;
   operationalAccess: boolean;
@@ -68,17 +70,25 @@ export function hasOperationalAccessFromStatus(args: {
   hasProviderEvidence: boolean;
   currentPeriodEndAt: number | null;
   gracePeriodEndAt: number | null;
+  trialEndAt?: number | null;
   entitlementRevokedAt?: number | null;
   now?: number;
 }): boolean {
   const now = args.now ?? Date.now();
-  if (!args.hasProviderEvidence) {
-    return false;
-  }
   if (typeof args.entitlementRevokedAt === 'number') {
     return false;
   }
   if (args.status === 'inactive') {
+    return false;
+  }
+  if (
+    args.status === 'trialing' &&
+    typeof args.trialEndAt === 'number' &&
+    args.trialEndAt > now
+  ) {
+    return true;
+  }
+  if (!args.hasProviderEvidence) {
     return false;
   }
   if (ACTIVE_LIKE_STATUSES.includes(args.status)) {
@@ -108,6 +118,8 @@ export function resolveCanonicalBillingState(args: {
   currentPeriodEndAt?: number | null;
   gracePeriodEndAt?: number | null;
   canceledAt?: number | null;
+  trialStartedAt?: number | null;
+  trialEndAt?: number | null;
   hasProviderEvidence?: boolean;
   entitlementRevokedAt?: number | null;
   now?: number;
@@ -122,6 +134,7 @@ export function resolveCanonicalBillingState(args: {
     hasProviderEvidence,
     currentPeriodEndAt: args.currentPeriodEndAt ?? null,
     gracePeriodEndAt: args.gracePeriodEndAt ?? null,
+    trialEndAt: args.trialEndAt ?? null,
     entitlementRevokedAt: args.entitlementRevokedAt ?? null,
     now: args.now,
   });
@@ -136,6 +149,8 @@ export function resolveCanonicalBillingState(args: {
     currentPeriodEndAt: args.currentPeriodEndAt ?? null,
     gracePeriodEndAt: args.gracePeriodEndAt ?? null,
     canceledAt: args.canceledAt ?? null,
+    trialStartedAt: args.trialStartedAt ?? null,
+    trialEndAt: args.trialEndAt ?? null,
     hasProviderEvidence,
     isSubscriptionActive: operationalAccess,
     operationalAccess,

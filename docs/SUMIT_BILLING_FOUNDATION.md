@@ -20,9 +20,33 @@ production end-to-end payment has been completed.
 6. The adapter calls the existing `applyVerifiedBillingEvent`. No SUMIT code
    writes an entitlement directly.
 
+## Launch trial contract
+
+A newly activated business receives a first-party 14-day Pro trial. The trial
+starts only when business onboarding is completed, not when a draft business
+record is created. It does not require a card or a SUMIT checkout up front.
+
+Trial access is server-authoritative and is intentionally distinct from paid
+provider evidence:
+
+- `status = trialing`
+- `plan = pro`
+- `trialStartedAt` and `trialEndAt` are persisted on the business billing account
+- `hasProviderEvidence` remains `false`
+- canonical access expires from server time when `trialEndAt <= now`
+- repeating onboarding cannot extend an already-started trial
+- the trial does not replace the 7-day direct-provider renewal grace period,
+  which applies only after a verified paid subscription later fails to renew
+
+A trialing business may create a SUMIT checkout for Starter, Pro, or Premium.
+A verified SUMIT payment transitions the canonical billing state to paid access
+through the existing provider-evidence path. A browser redirect alone still
+never grants access.
+
 Until an explicit provider-verified plan-change lifecycle exists,
 `createSUMITCheckout` rejects businesses that already have canonical paid
-access with `SUMIT_ACTIVE_SUBSCRIPTION_EXISTS`. The guard is server-side and
+access with `SUMIT_ACTIVE_SUBSCRIPTION_EXISTS`. First-party trial access is
+not treated as paid access for this guard. The guard is server-side and
 uses the canonical lifecycle, including valid grace and paid cancellation
 periods; the web UI is not the authority.
 
@@ -33,7 +57,11 @@ configured externally in SUMIT with those redirect destinations.
 
 `reconcileSUMITBilling` provides the owner-authenticated action, while
 `reconcileSUMITBillingInternal` exposes the same server-only reconciliation
-helper to a future cron. No production cron is registered by this change.
+helper. A bounded hourly sweep is now registered: it considers at most 25
+SUMIT billing accounts per run, will not reconcile the same account more often
+than once every six hours, and records the last reconciliation result on the
+canonical billing account. This is code-only readiness; production SUMIT
+remains disabled until the explicit production cutover.
 
 ## Server-only environment contract
 
@@ -112,18 +140,28 @@ as twelve monthly installments. The adapter verifies both the full amount and
   currency, response status, and document type. Recurring status already uses
   the documented numeric mapping above. All parsers fail closed on unknown
   values.
-- Confirm the operational lookback and page ceiling for reconciliation before
-  adding a production cron.
+- Validate the current bounded reconciliation cadence against real test-org
+  recurring volume before production cutover. The sweep is hourly, handles up
+  to 25 candidates, and enforces a six-hour minimum interval per account.
 - Confirm recovery/expiry timing semantics with real recurring lifecycle data.
 - SUMIT's public documentation examined for this change does not publish an
   authenticated recurring webhook/IPN contract. No SUMIT HTTP callback route
   is added.
-- A documented hosted card-update flow was not confirmed. The action returns
-  `SUMIT_CARD_UPDATE_VERIFY_REQUIRED`.
+- SUMIT documents a customer self-service payment-method update link in its UI,
+  and its API exposes payment-method and redirect primitives, but the public
+  API documentation reviewed here does not expose a verified contract for
+  generating that dedicated self-service update link. StampAix therefore does
+  not collect card details and keeps `createSUMITPaymentMethodUpdate` blocked
+  with `SUMIT_CARD_UPDATE_VERIFY_REQUIRED` until that contract is confirmed.
 - A documented full-refund payment endpoint and response contract were not
   confirmed. The public refund action returns
   `SUMIT_REFUND_VERIFY_REQUIRED`; only verified-refund mapping and idempotency
   foundations exist.
+
+SUMIT can also send recurring-charge success/failure notifications according
+to module settings. StampAix's planned D0/D3/D6 failure-reminder cadence must
+be configured and verified as an operational billing setting before launch; no
+native purchase-steering reminder is introduced by this foundation.
 
 Never paste API keys into source, client environment variables, tests, logs, or
 browser responses.

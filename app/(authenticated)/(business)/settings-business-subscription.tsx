@@ -265,14 +265,21 @@ export default function BusinessSettingsSubscriptionScreen() {
       : 'inactive';
   const currentStatusLabel = !entitlements
     ? 'טוענים את מצב המנוי'
-    : displaySubscriptionStatus === 'canceled' &&
+    : displaySubscriptionStatus === 'trialing' &&
         entitlements.isSubscriptionActive
       ? entitlements.subscriptionEndAt
-        ? `המנוי יבוטל בתאריך ${new Date(
+        ? `תקופת ניסיון עד ${new Date(
             entitlements.subscriptionEndAt
           ).toLocaleDateString('he-IL')}`
-        : 'המנוי יבוטל בסוף התקופה ששולמה'
-      : (STATUS_LABELS[displaySubscriptionStatus] ?? 'לא פעיל');
+        : 'תקופת ניסיון פעילה'
+      : displaySubscriptionStatus === 'canceled' &&
+          entitlements.isSubscriptionActive
+        ? entitlements.subscriptionEndAt
+          ? `המנוי יבוטל בתאריך ${new Date(
+              entitlements.subscriptionEndAt
+            ).toLocaleDateString('he-IL')}`
+          : 'המנוי יבוטל בסוף התקופה ששולמה'
+        : (STATUS_LABELS[displaySubscriptionStatus] ?? 'לא פעיל');
   const subscriptionGuideTarget = resolveSubscriptionGuideTarget({
     guideId: guideIdParam,
     subscriptionStatus: entitlements ? displaySubscriptionStatus : undefined,
