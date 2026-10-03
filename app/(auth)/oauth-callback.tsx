@@ -1,13 +1,21 @@
-import { useConvexAuth, useMutation } from 'convex/react';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useConvexAuth,
+  useMutation } from 'convex/react';
+import { type Href,
+  useLocalSearchParams,
+  useRouter } from 'expo-router';
+import { useCallback,
+  useEffect,
+  useRef,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PaintedPressable } from '@/components/ui/PaintedPressable';

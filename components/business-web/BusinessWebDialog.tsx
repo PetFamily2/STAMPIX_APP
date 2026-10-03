@@ -1,12 +1,17 @@
-import { X } from 'lucide-react-native';
-import { type ReactNode, useEffect, useId, useRef } from 'react';
+import {
+  X } from 'lucide-react-native';
+import { type ReactNode,
+  useEffect,
+  useId,
+  useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
@@ -229,7 +234,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.lg,
     borderWidth: 1,
     maxHeight: '92%',
-    padding: TOKENS.space.xl,
+    padding: TOKENS.space.lg,
     width: '100%',
   },
   header: {
@@ -237,7 +242,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
     justifyContent: 'space-between',
-    marginBottom: TOKENS.space.xl,
+    marginBottom: TOKENS.space.lg,
   },
   headerCopy: { flex: 1, gap: TOKENS.space.xs },
   title: {
@@ -255,9 +260,9 @@ const styles = StyleSheet.create({
   closeButton: {
     alignItems: 'center',
     borderRadius: TOKENS.radii.sm,
-    height: 40,
+    height: 36,
     justifyContent: 'center',
-    width: 40,
+    width: 36,
   },
   actions: {
     flexDirection: flexDirection.row,

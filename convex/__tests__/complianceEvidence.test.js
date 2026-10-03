@@ -367,15 +367,15 @@ describe('bounded retention behavior', () => {
 });
 
 describe('compliance backfill safety', () => {
-  test('Terms evidence records the canonical 2026.09.21 version and URL', async () => {
+  test('Terms evidence records the canonical 2026.10.03 version and URL', async () => {
     expect(CANONICAL_TERMS_VERSION).toBe(CANONICAL_LEGAL_VERSION);
-    expect(CANONICAL_LEGAL_VERSION).toBe('2026.09.21');
-    expect(CANONICAL_LEGAL_UPDATED_AT).toBe('21.09.2026');
+    expect(CANONICAL_LEGAL_VERSION).toBe('2026.10.03');
+    expect(CANONICAL_LEGAL_UPDATED_AT).toBe('03.10.2026');
 
     const { ctx, db } = makeCtx();
     await acceptCurrentTerms._handler(ctx, { source: 'signup_email' });
     expect(db.rows('legalAcceptances')[0]).toMatchObject({
-      version: '2026.09.21',
+      version: '2026.10.03',
       canonicalUrl: CANONICAL_TERMS_URL,
     });
   });

@@ -1,5 +1,10 @@
 import type { Id } from '../../_generated/dataModel';
 import { createProviderAppUserId, isUsableProviderAppUserId } from './identity';
+import {
+  GENERAL_FREE_TRIAL_PLAN,
+  MVP_FEATURE_FLAGS,
+  getGeneralFreeTrialEnd,
+} from './productionContract';
 
 export async function getBillingAccountForBusiness(
   ctx: any,
@@ -29,6 +34,7 @@ export async function ensureBusinessBillingAccount(
     businessId: Id<'businesses'>;
     ownerUserId: Id<'users'>;
     preferredProviderAppUserId?: string | null;
+    startGeneralFreeTrial?: boolean;
     now?: number;
   }
 ) {
@@ -44,14 +50,25 @@ export async function ensureBusinessBillingAccount(
     ? String(args.preferredProviderAppUserId)
     : createProviderAppUserId();
 
+  const startsTrial =
+    args.startGeneralFreeTrial === true &&
+    MVP_FEATURE_FLAGS.generalFreeTrialEnabled;
+  const trialEndsAt = startsTrial ? getGeneralFreeTrialEnd(now) : undefined;
+
   const id = await ctx.db.insert('businessBillingAccounts', {
     businessId: args.businessId,
     ownerUserId: args.ownerUserId,
     providerAppUserId,
-    plan: undefined,
-    lastPlan: undefined,
-    status: 'inactive',
+    plan: startsTrial ? GENERAL_FREE_TRIAL_PLAN : undefined,
+    lastPlan: startsTrial ? GENERAL_FREE_TRIAL_PLAN : undefined,
+    status: startsTrial ? 'trialing' : 'inactive',
     billingPeriod: null,
+    subscriptionStartAt: startsTrial ? now : undefined,
+    currentPeriodStartAt: startsTrial ? now : undefined,
+    currentPeriodEndAt: trialEndsAt,
+    trialSource: startsTrial ? 'stampaix' : undefined,
+    trialStartedAt: startsTrial ? now : undefined,
+    trialEndsAt,
     hasProviderEvidence: false,
     createdAt: now,
     updatedAt: now,

@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
@@ -66,6 +67,14 @@ import {
   verifySumitPaymentEvidence,
   verifySumitRefundEvidence,
 } from './lib/billing/sumit/verify';
+import {
+  BILLING_REMINDER_MAX_ATTEMPTS,
+  BILLING_REMINDER_RETRY_MS,
+  type BillingReminderStageDay,
+  billingReminderDedupeKey,
+  buildBillingReminderEmail,
+  resolveBillingReminderStage,
+} from './lib/billing/sumit/reminders';
 import { generateOpaqueToken } from './lib/ids';
 
 const AUTH_ERRORS = new Set([
@@ -1314,5 +1323,400 @@ export const reconcileSUMITBillingInternal = internalAction({
       args
     );
     return await reconcileSUMITBillingServer(ctx, { context });
+  },
+});
+
+
+const SUMIT_RECONCILIATION_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const SUMIT_RECONCILIATION_DEFAULT_LIMIT = 25;
+const SUMIT_RECONCILIATION_MAX_LIMIT = 50;
+
+export const listSUMITReconciliationCandidates = internalQuery({
+  args: { limit: v.optional(v.number()), now: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const limit = Math.max(
+      1,
+      Math.min(
+        Math.floor(args.limit ?? SUMIT_RECONCILIATION_DEFAULT_LIMIT),
+        SUMIT_RECONCILIATION_MAX_LIMIT
+      )
+    );
+    const rows = await ctx.db
+      .query('businessBillingAccounts')
+      .withIndex('by_provider_lastReconciledAt', (q: any) =>
+        q.eq('provider', 'sumit')
+      )
+      .order('asc')
+      .take(limit);
+
+    return rows
+      .filter(
+        (row: any) =>
+          typeof row.lastReconciledAt !== 'number' ||
+          row.lastReconciledAt <= now - SUMIT_RECONCILIATION_MIN_INTERVAL_MS
+      )
+      .map((row: any) => ({
+        businessId: row.businessId,
+        lastReconciledAt: row.lastReconciledAt ?? null,
+      }));
+  },
+});
+
+export const recordSUMITReconciliationResult = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    ok: v.boolean(),
+    code: v.optional(v.union(v.string(), v.null())),
+    reconciledAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const account = await getBillingAccountForBusiness(ctx, args.businessId);
+    if (!account || account.provider !== 'sumit') {
+      return { updated: false as const };
+    }
+    await ctx.db.patch(account._id, {
+      lastReconciledAt: args.reconciledAt,
+      lastReconciliationOk: args.ok,
+      lastReconciliationCode: args.code ?? undefined,
+      updatedAt: Math.max(account.updatedAt, args.reconciledAt),
+    });
+    return { updated: true as const };
+  },
+});
+
+export const reconcileSUMITBillingSweepInternal = internalAction({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<any> => {
+    const startedAt = Date.now();
+    const candidates = await ctx.runQuery(
+      internal.sumitBilling.listSUMITReconciliationCandidates,
+      { limit: args.limit, now: startedAt }
+    );
+    const results = [];
+
+    for (const candidate of candidates) {
+      let ok = false;
+      let code: string | null = null;
+      try {
+        const context = await ctx.runQuery(
+          internal.sumitBilling.getSUMITServerReconciliationContext,
+          { businessId: candidate.businessId }
+        );
+        const result = await reconcileSUMITBillingServer(ctx, { context });
+        ok = result.ok === true;
+        code = ok ? null : String(result.code ?? 'SUMIT_RECONCILIATION_FAILED');
+        results.push({
+          businessId: candidate.businessId,
+          ok,
+          code,
+          discrepancies: Array.isArray(result.discrepancies)
+            ? result.discrepancies.length
+            : 0,
+        });
+      } catch (error) {
+        code = sumitErrorCode(error);
+        results.push({
+          businessId: candidate.businessId,
+          ok: false,
+          code,
+          discrepancies: 0,
+        });
+      }
+
+      await ctx.runMutation(
+        internal.sumitBilling.recordSUMITReconciliationResult,
+        {
+          businessId: candidate.businessId,
+          ok,
+          code,
+          reconciledAt: Date.now(),
+        }
+      );
+    }
+
+    return {
+      ok: true as const,
+      scanned: candidates.length,
+      succeeded: results.filter((result) => result.ok).length,
+      failed: results.filter((result) => !result.ok).length,
+      results,
+    };
+  },
+});
+
+const BILLING_REMINDER_STAGE_VALIDATOR = v.union(
+  v.literal(0),
+  v.literal(3),
+  v.literal(6)
+);
+
+export const getSUMITBillingReminderPage = internalQuery({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('businessBillingAccounts')
+      .withIndex('by_status_gracePeriodEndAt', (q) =>
+        q.eq('status', 'past_due').gt('gracePeriodEndAt', args.now)
+      )
+      .paginate(args.paginationOpts);
+
+    const mapped = [];
+    for (const account of page.page) {
+      if (
+        account.provider !== 'sumit' ||
+        account.hasProviderEvidence !== true ||
+        typeof account.gracePeriodEndAt !== 'number'
+      ) {
+        continue;
+      }
+      const business = await ctx.db.get(account.businessId);
+      const owner = await ctx.db.get(account.ownerUserId);
+      const existing = await ctx.db
+        .query('billingReminderEvents')
+        .withIndex('by_businessId', (q) =>
+          q.eq('businessId', account.businessId)
+        )
+        .collect();
+      const sentStages = existing
+        .filter(
+          (event) =>
+            event.gracePeriodEndAt === account.gracePeriodEndAt &&
+            event.status === 'sent'
+        )
+        .map((event) => event.stageDay);
+
+      mapped.push({
+        businessId: account.businessId,
+        ownerUserId: account.ownerUserId,
+        ownerEmail: owner?.email ?? null,
+        businessName: business?.name ?? 'העסק',
+        gracePeriodEndAt: account.gracePeriodEndAt,
+        sentStages,
+      });
+    }
+
+    return { ...page, page: mapped };
+  },
+});
+
+export const claimSUMITBillingReminder = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    gracePeriodEndAt: v.number(),
+    stageDay: BILLING_REMINDER_STAGE_VALIDATOR,
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const dedupeKey = billingReminderDedupeKey({
+      businessId: String(args.businessId),
+      gracePeriodEndAt: args.gracePeriodEndAt,
+      stageDay: args.stageDay,
+    });
+    const existing = await ctx.db
+      .query('billingReminderEvents')
+      .withIndex('by_dedupeKey', (q) => q.eq('dedupeKey', dedupeKey))
+      .unique();
+
+    if (existing) {
+      if (existing.status === 'sent') {
+        return { claimed: false as const, reason: 'already_sent' as const };
+      }
+      if (
+        existing.status === 'pending' &&
+        existing.updatedAt > now - 15 * 60 * 1000
+      ) {
+        return { claimed: false as const, reason: 'already_pending' as const };
+      }
+      if (
+        existing.attemptCount >= BILLING_REMINDER_MAX_ATTEMPTS ||
+        (typeof existing.nextAttemptAt === 'number' &&
+          existing.nextAttemptAt > now)
+      ) {
+        return { claimed: false as const, reason: 'retry_not_due' as const };
+      }
+      await ctx.db.patch(existing._id, {
+        status: 'pending',
+        attemptCount: existing.attemptCount + 1,
+        nextAttemptAt: undefined,
+        errorCode: undefined,
+        claimedAt: now,
+        updatedAt: now,
+      });
+      return {
+        claimed: true as const,
+        reminderId: existing._id,
+        attemptCount: existing.attemptCount + 1,
+      };
+    }
+
+    const reminderId = await ctx.db.insert('billingReminderEvents', {
+      dedupeKey,
+      businessId: args.businessId,
+      ownerUserId: args.ownerUserId,
+      gracePeriodEndAt: args.gracePeriodEndAt,
+      stageDay: args.stageDay,
+      status: 'pending',
+      attemptCount: 1,
+      claimedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { claimed: true as const, reminderId, attemptCount: 1 };
+  },
+});
+
+export const finishSUMITBillingReminder = internalMutation({
+  args: {
+    reminderId: v.id('billingReminderEvents'),
+    sent: v.boolean(),
+    errorCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const reminder = await ctx.db.get(args.reminderId);
+    if (!reminder) {
+      return { ok: false as const, code: 'REMINDER_NOT_FOUND' };
+    }
+    await ctx.db.patch(reminder._id, {
+      status: args.sent ? 'sent' : 'failed',
+      sentAt: args.sent ? now : undefined,
+      errorCode: args.sent ? undefined : args.errorCode,
+      nextAttemptAt:
+        !args.sent && reminder.attemptCount < BILLING_REMINDER_MAX_ATTEMPTS
+          ? now + BILLING_REMINDER_RETRY_MS
+          : undefined,
+      updatedAt: now,
+    });
+    return { ok: true as const };
+  },
+});
+
+async function sendBillingReminderEmail(args: {
+  to: string;
+  businessName: string;
+  stageDay: BillingReminderStageDay;
+  gracePeriodEndAt: number;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) {
+    return { ok: false as const, code: 'MISSING_EMAIL_CONFIG' };
+  }
+  const copy = buildBillingReminderEmail(args);
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [args.to],
+        subject: copy.subject,
+        html: copy.html,
+      }),
+    });
+    return response.ok
+      ? { ok: true as const }
+      : {
+          ok: false as const,
+          code: `RESEND_${response.status}`,
+        };
+  } catch {
+    return { ok: false as const, code: 'EMAIL_TRANSPORT_FAILED' };
+  }
+}
+
+export const sendSUMITBillingReminderSweepInternal = internalAction({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args): Promise<any> => {
+    const now = Date.now();
+    const page = await ctx.runQuery(
+      internal.sumitBilling.getSUMITBillingReminderPage,
+      {
+        now,
+        paginationOpts: { cursor: args.cursor, numItems: 25 },
+      }
+    );
+    let sent = 0;
+    let failed = 0;
+
+    for (const candidate of page.page) {
+      const stageDay = resolveBillingReminderStage({
+        gracePeriodEndAt: candidate.gracePeriodEndAt,
+        now,
+        sentStages: candidate.sentStages,
+      });
+      if (stageDay === null) {
+        continue;
+      }
+
+      const claim = await ctx.runMutation(
+        internal.sumitBilling.claimSUMITBillingReminder,
+        {
+          businessId: candidate.businessId,
+          ownerUserId: candidate.ownerUserId,
+          gracePeriodEndAt: candidate.gracePeriodEndAt,
+          stageDay,
+        }
+      );
+      if (!claim.claimed) {
+        continue;
+      }
+
+      if (!candidate.ownerEmail) {
+        failed += 1;
+        await ctx.runMutation(
+          internal.sumitBilling.finishSUMITBillingReminder,
+          {
+            reminderId: claim.reminderId,
+            sent: false,
+            errorCode: 'OWNER_EMAIL_MISSING',
+          }
+        );
+        continue;
+      }
+
+      const result = await sendBillingReminderEmail({
+        to: candidate.ownerEmail,
+        businessName: candidate.businessName,
+        stageDay,
+        gracePeriodEndAt: candidate.gracePeriodEndAt,
+      });
+      if (result.ok) {
+        sent += 1;
+      } else {
+        failed += 1;
+      }
+      await ctx.runMutation(
+        internal.sumitBilling.finishSUMITBillingReminder,
+        {
+          reminderId: claim.reminderId,
+          sent: result.ok,
+          errorCode: result.ok ? undefined : result.code,
+        }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        500,
+        internal.sumitBilling.sendSUMITBillingReminderSweepInternal,
+        { cursor: page.continueCursor }
+      );
+    }
+
+    return {
+      ok: true as const,
+      sent,
+      failed,
+      scheduledNextPage: !page.isDone,
+    };
   },
 });

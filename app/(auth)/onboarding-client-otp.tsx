@@ -1,7 +1,15 @@
-import { useAuthActions } from '@convex-dev/auth/react';
-import { useConvexAuth, useMutation } from 'convex/react';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useAuthActions } from '@convex-dev/auth/react';
+import { useConvexAuth,
+  useMutation } from 'convex/react';
+import { type Href,
+  useLocalSearchParams,
+  useRouter } from 'expo-router';
+import { useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -10,11 +18,12 @@ import {
   type NativeSyntheticEvent,
   Platform,
   StyleSheet,
-  Text,
   TextInput,
   type TextInputKeyPressEventData,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';

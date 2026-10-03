@@ -1,6 +1,9 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Gift, Store } from 'lucide-react-native';
+import {
+  useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams,
+  useRouter } from 'expo-router';
+import { Gift,
+  Store } from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
   BackHandler,
@@ -8,10 +11,11 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';

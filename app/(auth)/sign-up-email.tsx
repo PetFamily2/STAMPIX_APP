@@ -1,15 +1,19 @@
-import { useAuthActions } from '@convex-dev/auth/react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import {
+  useAuthActions } from '@convex-dev/auth/react';
+import { useLocalSearchParams,
+  useRouter } from 'expo-router';
+import { useMemo,
+  useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';

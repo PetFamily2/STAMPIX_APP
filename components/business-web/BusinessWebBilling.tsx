@@ -1,4 +1,6 @@
-import { useAction, useQuery } from 'convex/react';
+import {
+  useAction,
+  useQuery } from 'convex/react';
 import {
   CalendarDays,
   Check,
@@ -7,17 +9,19 @@ import {
   FileText,
   ReceiptText,
   ShieldCheck,
-} from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { useMemo,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
 import { api } from '@/convex/_generated/api';
@@ -37,7 +41,7 @@ const CANCELLATION_COPY =
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'פעיל',
-  trialing: 'פעיל',
+  trialing: 'תקופת ניסיון',
   past_due: 'נדרש טיפול בתשלום',
   canceled: 'בוטל — פעיל עד סוף התקופה',
   inactive: 'לא פעיל',
@@ -191,6 +195,7 @@ export function BusinessWebBilling() {
     : null;
   const status = overview?.status ?? 'inactive';
   const hasCurrentPaidAccess = overview?.hasCurrentPaidAccess === true;
+  const isTrialing = overview?.isTrialing === true;
   const currentBillingPeriod: BillingPeriod | null =
     overview?.billingPeriod === 'monthly' ||
     overview?.billingPeriod === 'yearly'
@@ -207,7 +212,7 @@ export function BusinessWebBilling() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>חיוב וחשבוניות</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול המסלול, מחזור החיוב ומסמכי התשלום של {activeBusiness.name}.
+            המנוי, התשלומים והחשבוניות של {activeBusiness.name}.
           </Text>
         </View>
       </View>
@@ -224,7 +229,7 @@ export function BusinessWebBilling() {
       ) : null}
 
       <SectionCard
-        description="המידע מוצג לפי מצב המנוי הקנוני שנשמר ב-StampAix."
+        description="מצב המנוי המעודכן של העסק."
         icon={ShieldCheck}
         title="המנוי הנוכחי"
       >
@@ -244,8 +249,10 @@ export function BusinessWebBilling() {
             }
           />
           <Detail
-            label="סוף התקופה ששולמה"
-            value={formatDate(overview?.currentPeriodEndAt)}
+            label={isTrialing ? 'סיום תקופת הניסיון' : 'סוף התקופה ששולמה'}
+            value={formatDate(
+              isTrialing ? overview?.trialEndsAt : overview?.currentPeriodEndAt
+            )}
           />
         </View>
         {overview?.canceledAt ? (
@@ -284,7 +291,9 @@ export function BusinessWebBilling() {
           <Text style={styles.sectionDescription}>
             {hasCurrentPaidAccess
               ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
-              : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
+              : isTrialing
+                ? '14 ימי הניסיון כוללים את יכולות Pro. אין חיוב אוטומטי בסיום; כדי להמשיך בוחרים מסלול ומשלמים בעמוד המאובטח של SUMIT.'
+                : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
           </Text>
         </View>
         <View accessibilityLabel="מחזור חיוב" style={styles.cadenceToggle}>
@@ -391,7 +400,9 @@ export function BusinessWebBilling() {
                       ? 'המסלול הנוכחי'
                       : hasCurrentPaidAccess
                         ? 'שינוי מסלול — בקרוב'
-                        : 'המשך לתשלום מאובטח'}
+                        : isTrialing
+                          ? 'בחירת מסלול והמשך לתשלום'
+                          : 'המשך לתשלום מאובטח'}
                 </Text>
               </Pressable>
             </View>
@@ -536,8 +547,8 @@ function PageState({
 const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
-    gap: TOKENS.space.xl,
-    maxWidth: 1180,
+    gap: 14,
+    maxWidth: 980,
     width: '100%',
   },
   pageHeader: { flexDirection: flexDirection.row },
@@ -581,29 +592,20 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   card: {
-    ...TOKENS.shadow,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
-    padding: TOKENS.space.xl,
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderTopColor: TOKENS.colors.border,
+    paddingTop: 12,
     width: '100%',
   },
   cardHeader: {
     alignItems: alignItems.start,
-    borderBottomColor: TOKENS.colors.border,
-    borderBottomWidth: 1,
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.md,
-    paddingBottom: TOKENS.space.lg,
+    gap: TOKENS.space.sm,
+    paddingBottom: 8,
   },
   cardIcon: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
+    display: 'none',
   },
   cardHeaderCopy: { flex: 1, gap: 2 },
   cardTitle: {
@@ -618,19 +620,22 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  cardBody: { gap: TOKENS.space.lg, paddingTop: TOKENS.space.xl },
+  cardBody: { gap: 10, paddingTop: 10 },
   detailsGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.md,
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
   },
   detail: {
-    backgroundColor: TOKENS.colors.subtleSurface,
-    borderRadius: TOKENS.radii.md,
     flexGrow: 1,
-    gap: TOKENS.space.xs,
-    minWidth: 190,
-    padding: TOKENS.space.lg,
+    gap: 1,
+    minWidth: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   },
   detailLabel: {
     ...TOKENS.typography.metadata,
@@ -655,15 +660,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.md,
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
   },
   dangerOutlineButton: {
     borderColor: TOKENS.colors.danger,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
-    minHeight: 44,
+    minHeight: 38,
     justifyContent: 'center',
-    paddingHorizontal: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.md,
   },
   dangerOutlineText: {
     ...TOKENS.typography.label,
@@ -677,9 +686,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    minHeight: 44,
+    minHeight: 38,
     opacity: 0.75,
-    paddingHorizontal: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.md,
   },
   disabledButtonText: {
     ...TOKENS.typography.label,
@@ -689,7 +698,11 @@ const styles = StyleSheet.create({
     alignItems: alignItems.start,
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.lg,
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
     justifyContent: 'space-between',
   },
   plansHeaderCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 260 },
@@ -715,8 +728,8 @@ const styles = StyleSheet.create({
   },
   cadenceOption: {
     borderRadius: TOKENS.radii.sm,
-    minWidth: 88,
-    paddingHorizontal: TOKENS.space.lg,
+    minWidth: 78,
+    paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.sm,
   },
   cadenceOptionSelected: { backgroundColor: TOKENS.colors.primary },
@@ -733,7 +746,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.pill,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    paddingHorizontal: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.sm,
   },
   yearlyBannerText: {
@@ -744,19 +757,18 @@ const styles = StyleSheet.create({
   planGrid: {
     alignItems: 'stretch',
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.lg,
+    gap: 10,
   },
   planGridStacked: { flexDirection: 'column' },
   planCard: {
-    ...TOKENS.shadow,
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
+    borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     flex: 1,
-    gap: TOKENS.space.lg,
+    gap: 14,
     minWidth: 0,
-    padding: TOKENS.space.xl,
+    padding: TOKENS.space.lg,
   },
   planCardFeatured: { borderColor: TOKENS.colors.primary, borderWidth: 2 },
   featuredBadge: {
@@ -787,7 +799,7 @@ const styles = StyleSheet.create({
     ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textMuted,
   },
-  planFacts: { flex: 1, gap: TOKENS.space.md },
+  planFacts: { flex: 1, gap: TOKENS.space.sm },
   planFact: {
     alignItems: 'center',
     flexDirection: flexDirection.row,
@@ -805,8 +817,8 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: TOKENS.space.lg,
+    minHeight: 38,
+    paddingHorizontal: TOKENS.space.md,
   },
   checkoutButtonDisabled: { opacity: 0.65 },
   checkoutButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
@@ -817,16 +829,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
-    minHeight: 66,
+    minHeight: 46,
     paddingVertical: TOKENS.space.sm,
   },
   documentIcon: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.sm,
-    height: 38,
+    height: 32,
     justifyContent: 'center',
-    width: 38,
+    width: 32,
   },
   documentCopy: { flex: 1, gap: 2 },
   documentTitle: {
@@ -864,17 +876,17 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.md,
     justifyContent: 'center',
     maxWidth: 520,
-    minHeight: 360,
-    padding: TOKENS.space.xl,
+    minHeight: 160,
+    padding: TOKENS.space.lg,
     width: '100%',
   },
   pageStateIcon: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
-    height: 56,
+    height: 44,
     justifyContent: 'center',
-    width: 56,
+    width: 44,
   },
   pageStateTitle: {
     ...TOKENS.typography.sectionTitle,

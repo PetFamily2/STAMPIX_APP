@@ -1,4 +1,5 @@
-import { useQuery } from 'convex/react';
+import {
+  useQuery } from 'convex/react';
 import {
   Activity,
   Building2,
@@ -7,17 +8,20 @@ import {
   type LucideIcon,
   Stamp,
   Users,
-} from 'lucide-react-native';
-import { Component, type ReactNode, useState } from 'react';
+  } from 'lucide-react-native';
+import { Component,
+  type ReactNode,
+  useState } from 'react';
 import {
   Pressable,
   type StyleProp,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -256,7 +260,7 @@ function BusinessWebDashboardContent({
             isMobileComposition ? styles.pageSubtitleMobile : null,
           ]}
         >
-          תמונת המצב העדכנית של {businessName}
+          מה קורה עכשיו ב־{businessName}
         </Text>
       </View>
 
@@ -635,8 +639,8 @@ export function BusinessWebNoBusiness() {
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', gap: TOKENS.space.xxl },
-  pageMobile: { gap: TOKENS.space.xl },
+  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
+  pageMobile: { gap: 14 },
   pageHeader: { alignItems: alignItems.start, gap: TOKENS.space.xs },
   pageHeaderMobile: { gap: 2 },
   pageTitle: {
@@ -644,19 +648,23 @@ const styles = StyleSheet.create({
     color: TOKENS.colors.textPrimary,
     ...TOKENS.typography.pageTitle,
   },
-  pageTitleMobile: { fontSize: 24, lineHeight: 30 },
+  pageTitleMobile: { fontSize: 20, lineHeight: 26 },
   pageSubtitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textSecondary,
     ...TOKENS.typography.body,
   },
-  pageSubtitleMobile: { fontSize: 14, lineHeight: 20 },
+  pageSubtitleMobile: { fontSize: 13, lineHeight: 18 },
   kpiGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.lg,
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 10,
   },
-  kpiGridMobile: { gap: TOKENS.space.md },
+  kpiGridMobile: { gap: 0 },
   kpiGridSingleColumn: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
@@ -664,21 +672,19 @@ const styles = StyleSheet.create({
   },
   card: {
     minWidth: 0,
-    minHeight: 164,
+    minHeight: 72,
     alignItems: alignItems.start,
-    borderWidth: 1,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    padding: TOKENS.space.lg,
-    ...TOKENS.shadow,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 14,
+    paddingVertical: 2,
   },
   cardMobile: {
-    minHeight: 126,
-    padding: TOKENS.space.md,
+    minHeight: 68,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   },
-  cardDesktop: { flexGrow: 1, flexBasis: 210 },
-  cardTwoColumn: { flexGrow: 1, flexBasis: '48%' },
+  cardDesktop: { flexGrow: 1, flexBasis: 180 },
+  cardTwoColumn: { flexGrow: 1, flexBasis: '48%', minHeight: 66 },
   cardSingleColumn: {
     width: '100%',
     maxWidth: '100%',
@@ -686,12 +692,7 @@ const styles = StyleSheet.create({
     flexBasis: 'auto',
   },
   kpiIcon: {
-    width: TOKENS.icons.container,
-    height: TOKENS.icons.container,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: TOKENS.radii.md,
-    marginBottom: TOKENS.space.md,
+    display: 'none',
   },
   kpiHeadingMobile: {
     width: '100%',
@@ -713,7 +714,7 @@ const styles = StyleSheet.create({
   kpiLabel: {
     ...rtlBaseText,
     color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.cardTitle,
+    ...TOKENS.typography.metadata,
   },
   kpiLabelMobile: {
     flex: 1,
@@ -725,28 +726,28 @@ const styles = StyleSheet.create({
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
     ...TOKENS.typography.kpiValue,
-    marginTop: TOKENS.space.xs,
+    marginTop: 1,
   },
-  kpiValueMobile: { fontSize: 28, lineHeight: 34, marginTop: TOKENS.space.sm },
+  kpiValueMobile: { fontSize: 22, lineHeight: 28, marginTop: 2 },
   kpiContext: {
     ...rtlBaseText,
     color: TOKENS.colors.textMuted,
     ...TOKENS.typography.metadata,
-    marginTop: TOKENS.space.xs,
+    marginTop: 1,
   },
   kpiContextMobile: { fontSize: 12, lineHeight: 17, marginTop: 2 },
-  detailGrid: { flexDirection: 'column', gap: TOKENS.space.lg },
-  detailGridMobile: { gap: TOKENS.space.md },
+  detailGrid: { flexDirection: 'column', gap: 12 },
+  detailGridMobile: { gap: 10 },
   detailGridWide: { flexDirection: flexDirection.row, alignItems: 'stretch' },
   panel: {
     minWidth: 0,
     borderWidth: 1,
     borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
+    borderRadius: TOKENS.radii.md,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    padding: TOKENS.space.xl,
+    padding: 14,
   },
-  panelMobile: { padding: TOKENS.space.lg },
+  panelMobile: { padding: 12 },
   activityPanel: { flex: 2 },
   attentionPanel: { flex: 1 },
   panelHeader: {
@@ -757,8 +758,7 @@ const styles = StyleSheet.create({
   },
   panelHeaderMobile: { gap: TOKENS.space.md },
   panelIcon: {
-    width: 40,
-    height: 40,
+    display: 'none',
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -778,8 +778,8 @@ const styles = StyleSheet.create({
     ...TOKENS.typography.secondaryBody,
     marginTop: 2,
   },
-  activityList: { marginTop: TOKENS.space.xl },
-  activityListMobile: { marginTop: TOKENS.space.lg },
+  activityList: { marginTop: 12 },
+  activityListMobile: { marginTop: TOKENS.space.md },
   activityTableHeader: {
     flexDirection: flexDirection.row,
     borderBottomWidth: 1,
@@ -795,12 +795,12 @@ const styles = StyleSheet.create({
   activityColumn: { flex: 1.7 },
   timeColumn: { width: 116, textAlign: textAlign.end },
   activityRow: {
-    minHeight: 66,
+    minHeight: 46,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.colors.border,
-    paddingVertical: TOKENS.space.sm,
+    paddingVertical: TOKENS.space.xs,
   },
   activityRowMobile: {
     minHeight: 0,
@@ -824,8 +824,8 @@ const styles = StyleSheet.create({
   },
   customerCellMobile: { flex: 1 },
   customerAvatar: {
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
     flexShrink: 0,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
@@ -851,8 +851,8 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.sm,
   },
   activityTypeIcon: {
-    width: 30,
-    height: 30,
+    width: 26,
+    height: 26,
     flexShrink: 0,
     borderRadius: TOKENS.radii.sm,
     alignItems: 'center',
@@ -886,12 +886,12 @@ const styles = StyleSheet.create({
     marginTop: TOKENS.space.xl,
     borderRadius: TOKENS.radii.md,
     backgroundColor: TOKENS.colors.subtleSurface,
-    padding: TOKENS.space.xl,
+    padding: TOKENS.space.lg,
   },
   emptyRegionTitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.cardTitle,
+    ...TOKENS.typography.metadata,
   },
   emptyRegionBody: {
     ...rtlBaseText,
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   },
   attentionBody: {
     alignItems: alignItems.start,
-    marginTop: TOKENS.space.xxl,
+    marginTop: TOKENS.space.lg,
   },
   attentionBodyMobile: { marginTop: TOKENS.space.md },
   attentionValue: {
@@ -912,8 +912,8 @@ const styles = StyleSheet.create({
   attentionTitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.cardTitle,
-    marginTop: TOKENS.space.xs,
+    ...TOKENS.typography.metadata,
+    marginTop: 1,
   },
   attentionCopy: {
     ...rtlBaseText,
@@ -922,14 +922,14 @@ const styles = StyleSheet.create({
     marginTop: TOKENS.space.sm,
   },
   emptyDashboard: {
-    minHeight: 320,
+    minHeight: 160,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.lg,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    padding: TOKENS.space.xxl,
+    padding: 18,
   },
   emptyIcon: {
     width: 52,
@@ -955,14 +955,14 @@ const styles = StyleSheet.create({
     marginTop: TOKENS.space.sm,
   },
   errorState: {
-    minHeight: 360,
+    minHeight: 170,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#FECACA',
     borderRadius: TOKENS.radii.lg,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    padding: TOKENS.space.xxl,
+    padding: 18,
   },
   errorIcon: {
     width: 48,

@@ -13,16 +13,20 @@ import {
   UserRoundCog,
   Users,
   X,
-} from 'lucide-react-native';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { type ReactNode,
+  useEffect,
+  useMemo,
+  useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Id } from '@/convex/_generated/dataModel';
@@ -79,15 +83,30 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     icon: LayoutDashboard,
     href: BUSINESS_WEB_ROUTES.dashboard,
   },
-  { key: 'customers', label: 'לקוחות', icon: Users },
-  { key: 'loyalty', label: 'מועדון והטבות', icon: Gift },
+  {
+    key: 'customers',
+    label: 'לקוחות',
+    icon: Users,
+    href: BUSINESS_WEB_ROUTES.customers,
+  },
+  {
+    key: 'loyalty',
+    label: 'מועדון והטבות',
+    icon: Gift,
+    href: BUSINESS_WEB_ROUTES.loyalty,
+  },
   {
     key: 'team',
     label: 'צוות',
     icon: UserRoundCog,
     href: BUSINESS_WEB_ROUTES.team,
   },
-  { key: 'analytics', label: 'ניתוחים', icon: ChartNoAxesCombined },
+  {
+    key: 'analytics',
+    label: 'ניתוחים',
+    icon: ChartNoAxesCombined,
+    href: BUSINESS_WEB_ROUTES.analytics,
+  },
   {
     key: 'billing',
     label: 'חיוב וחשבוניות',
@@ -389,7 +408,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
     responsiveLayout.composition === 'narrow-mobile';
   const isNarrowSidebar = width < 1200;
   const popoverWidth = responsiveLayout.popoverWidth;
-  const topbarHeight = isMobileComposition ? 58 : 62;
+  const topbarHeight = isMobileComposition ? 50 : 48;
   const drawerWidth = Math.min(360, Math.max(0, width - 16));
   const [activeOverlay, setActiveOverlay] =
     useState<BusinessWebShellOverlay>(null);
@@ -641,15 +660,15 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: flexDirection.row },
   shellCompact: { flexDirection: 'column' },
   sidebar: {
-    width: 264,
-    minWidth: 264,
+    width: 188,
+    minWidth: 188,
     borderLeftWidth: 1,
     borderLeftColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.xl,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.lg,
   },
-  sidebarNarrow: { width: 224, minWidth: 224 },
+  sidebarNarrow: { width: 180, minWidth: 180 },
   brandArea: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -657,18 +676,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: TOKENS.space.sm,
   },
   brandMark: {
-    width: 38,
-    height: 38,
+    width: 26,
+    height: 26,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: TOKENS.colors.primary,
   },
-  brandMarkText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  brandMarkText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   brandCopy: { alignItems: alignItems.start },
   brandName: {
     color: TOKENS.colors.textPrimary,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
   },
   brandProduct: {
@@ -677,11 +696,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sidebarBusiness: {
-    marginTop: TOKENS.space.xl,
-    marginBottom: TOKENS.space.lg,
-    borderRadius: TOKENS.radii.md,
-    backgroundColor: TOKENS.colors.subtleSurface,
-    padding: TOKENS.space.md,
+    marginTop: TOKENS.space.lg,
+    marginBottom: TOKENS.space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: TOKENS.colors.border,
+    paddingHorizontal: TOKENS.space.xs,
+    paddingBottom: TOKENS.space.md,
   },
   sidebarEyebrow: {
     ...rtlBaseText,
@@ -699,22 +719,22 @@ const styles = StyleSheet.create({
   },
   navList: { gap: TOKENS.space.xs },
   navItem: {
-    minHeight: 44,
+    minHeight: 34,
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: TOKENS.space.md,
+    gap: TOKENS.space.sm,
     borderRadius: TOKENS.radii.md,
-    paddingHorizontal: TOKENS.space.md,
+    paddingHorizontal: TOKENS.space.sm,
     opacity: 0.78,
   },
-  navItemActive: { backgroundColor: TOKENS.colors.primarySubtle, opacity: 1 },
+  navItemActive: { backgroundColor: '#F3F6FF', opacity: 1 },
   navItemCompact: { minHeight: 46 },
   navLabel: {
     ...rtlBaseText,
     flex: 1,
     color: TOKENS.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
   },
   navLabelActive: { color: TOKENS.colors.primary, fontWeight: '700' },
@@ -736,16 +756,16 @@ const styles = StyleSheet.create({
   },
   accountBlockCompact: { borderTopWidth: 0, paddingTop: 0 },
   avatar: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
   },
   avatarButton: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -759,8 +779,8 @@ const styles = StyleSheet.create({
   accountName: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
   },
   accountEmail: {
@@ -770,8 +790,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   logoutButton: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -785,7 +805,7 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.pageBackground,
   },
   topbar: {
-    minHeight: 62,
+    minHeight: 48,
     position: 'relative',
     zIndex: 50,
     overflow: 'visible',
@@ -796,18 +816,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    paddingHorizontal: TOKENS.space.xl,
-    paddingVertical: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.xs,
   },
   topbarMobile: {
-    minHeight: 58,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.xs,
+    minHeight: 50,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: 4,
   },
   topbarSpacer: { flex: 1 },
   iconButton: {
-    width: 42,
-    height: 42,
+    width: 34,
+    height: 34,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -819,9 +839,9 @@ const styles = StyleSheet.create({
   switcherWrap: { position: 'relative', zIndex: 70 },
   switcherWrapCompact: { flex: 1, minWidth: 0, maxWidth: 360 },
   switcherButton: {
-    minWidth: 210,
-    maxWidth: 280,
-    minHeight: 48,
+    minWidth: 168,
+    maxWidth: 220,
+    minHeight: 36,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -840,8 +860,8 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
   switcherIcon: {
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
     borderRadius: TOKENS.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -896,8 +916,8 @@ const styles = StyleSheet.create({
   switcherOptionName: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
   },
   switcherOptionNameActive: { color: TOKENS.colors.primary },
@@ -986,11 +1006,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     width: '100%',
-    maxWidth: 1440,
+    maxWidth: 1040,
     alignSelf: 'center',
-    paddingHorizontal: TOKENS.space.xxl,
-    paddingTop: TOKENS.space.xxl,
-    paddingBottom: 56,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingTop: 18,
+    paddingBottom: 28,
   },
   contentCompact: {
     paddingHorizontal: TOKENS.space.lg,

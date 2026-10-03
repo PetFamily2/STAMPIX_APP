@@ -1,6 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
+import {
+  Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';

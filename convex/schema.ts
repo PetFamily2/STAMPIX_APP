@@ -2500,6 +2500,9 @@ export default defineSchema({
     lastPlan: v.optional(
       v.union(v.literal('starter'), v.literal('pro'), v.literal('premium'))
     ),
+    trialSource: v.optional(v.literal('stampaix')),
+    trialStartedAt: v.optional(v.number()),
+    trialEndsAt: v.optional(v.number()),
     status: v.optional(
       v.union(
         v.literal('active'),
@@ -2534,13 +2537,44 @@ export default defineSchema({
     providerEnvironment: v.optional(v.string()),
     lastProviderEventAt: v.optional(v.number()),
     lastProviderEventId: v.optional(v.string()),
+    lastReconciledAt: v.optional(v.number()),
+    lastReconciliationOk: v.optional(v.boolean()),
+    lastReconciliationCode: v.optional(v.string()),
     hasProviderEvidence: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
     .index('by_providerAppUserId', ['providerAppUserId'])
-    .index('by_ownerUserId', ['ownerUserId']),
+    .index('by_ownerUserId', ['ownerUserId'])
+    .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt'])
+    .index('by_status_gracePeriodEndAt', ['status', 'gracePeriodEndAt'])
+    .index('by_trialSource_trialEndsAt', ['trialSource', 'trialEndsAt']),
+
+
+  billingReminderEvents: defineTable({
+    dedupeKey: v.string(),
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    gracePeriodEndAt: v.number(),
+    stageDay: v.union(v.literal(0), v.literal(3), v.literal(6)),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sent'),
+      v.literal('failed')
+    ),
+    attemptCount: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    errorCode: v.optional(v.string()),
+    claimedAt: v.number(),
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_dedupeKey', ['dedupeKey'])
+    .index('by_businessId', ['businessId'])
+    .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_createdAt', ['createdAt']),
 
   payplusCheckoutIntents: defineTable({
     checkoutId: v.string(),

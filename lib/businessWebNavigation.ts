@@ -1,5 +1,8 @@
 export const BUSINESS_WEB_ROUTES = {
   dashboard: '/business',
+  customers: '/business/customers',
+  loyalty: '/business/loyalty',
+  analytics: '/business/analytics',
   team: '/business/team',
   billing: '/business/billing',
   settings: '/business/settings',

@@ -10,6 +10,7 @@
 
 import type * as __tests___helpers_businessBillingFixtures from "../__tests__/helpers/businessBillingFixtures.js";
 import type * as accountDeletionRequests from "../accountDeletionRequests.js";
+import type * as adminWeb from "../adminWeb.js";
 import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
@@ -126,6 +127,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "__tests__/helpers/businessBillingFixtures": typeof __tests___helpers_businessBillingFixtures;
   accountDeletionRequests: typeof accountDeletionRequests;
+  adminWeb: typeof adminWeb;
   aiRecommendations: typeof aiRecommendations;
   analytics: typeof analytics;
   auth: typeof auth;
