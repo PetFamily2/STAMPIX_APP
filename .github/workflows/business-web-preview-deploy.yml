@@ -113,10 +113,13 @@ jobs:
           }
           NODE
 
+      - name: Type-check before Convex DEV sync
+        run: bun run type-check
+
       - name: Sync Convex DEV backend
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
-        run: bun run convex:dev:sync
+        run: bunx convex dev --once --typecheck disable
 
       - name: Export Business Web
         run: EXPO_PUBLIC_APP_ENV=preview bunx expo export --platform web
