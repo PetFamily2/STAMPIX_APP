@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { Activity, Gift, Stamp, TriangleAlert, Users } from 'lucide-react-native';
+
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -41,14 +41,12 @@ export function BusinessWebAnalytics({
       label: 'לקוחות במועדון',
       value: Number(lifetime?.totalCustomersJoinedAllTime ?? 0),
       context: 'סה״כ מאז פתיחת העסק',
-      icon: Users,
     },
     {
       key: 'active',
       label: 'לקוחות פעילים',
       value: Number(kpis?.activeCustomers ?? 0),
       context: 'ב־30 הימים האחרונים',
-      icon: Activity,
     },
     {
       key: 'stamps',
@@ -58,7 +56,6 @@ export function BusinessWebAnalytics({
         Number(kpis?.stamps?.value ?? 0),
         Number(kpis?.stamps?.previousValue ?? 0)
       ),
-      icon: Stamp,
     },
     {
       key: 'redemptions',
@@ -68,14 +65,12 @@ export function BusinessWebAnalytics({
         Number(kpis?.redemptions?.value ?? 0),
         Number(kpis?.redemptions?.previousValue ?? 0)
       ),
-      icon: Gift,
     },
     {
       key: 'risk',
       label: 'לקוחות בסיכון',
       value: Number(kpis?.atRiskCustomers ?? 0),
       context: 'דורשים תשומת לב',
-      icon: TriangleAlert,
     },
   ];
 
@@ -95,19 +90,13 @@ export function BusinessWebAnalytics({
       ) : (
         <>
           <View style={styles.kpiGrid}>
-            {cards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <View key={card.key} style={styles.kpiCard}>
-                  <View style={styles.iconBox}>
-                    <Icon color={TOKENS.colors.primary} size={19} />
-                  </View>
-                  <Text style={styles.kpiLabel}>{card.label}</Text>
-                  <Text style={styles.kpiValue}>{card.value}</Text>
-                  <Text style={styles.kpiContext}>{card.context}</Text>
-                </View>
-              );
-            })}
+            {cards.map((card) => (
+              <View key={card.key} style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>{card.label}</Text>
+                <Text style={styles.kpiValue}>{card.value}</Text>
+                <Text style={styles.kpiContext}>{card.context}</Text>
+              </View>
+            ))}
           </View>
 
           <View style={styles.panel}>
@@ -134,21 +123,20 @@ export function BusinessWebAnalytics({
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', maxWidth: 1080, alignSelf: 'center', gap: 18 },
+  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
   header: { gap: 4 },
   pageTitle: { ...TOKENS.typography.pageTitle, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl' },
   pageSubtitle: { ...TOKENS.typography.body, color: TOKENS.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
-  kpiGrid: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 10 },
-  kpiCard: { flexGrow: 1, flexBasis: 190, minWidth: 190, backgroundColor: TOKENS.colors.elevatedSurface, borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, padding: 14, gap: 4 },
-  iconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: TOKENS.colors.primarySubtle, marginBottom: 4 },
+  kpiGrid: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: TOKENS.colors.border, paddingVertical: 10 },
+  kpiCard: { flexGrow: 1, flexBasis: 150, minWidth: 150, paddingHorizontal: 14, paddingVertical: 2, gap: 1 },
   kpiLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
-  kpiValue: { fontSize: 25, lineHeight: 31, fontWeight: '700', color: TOKENS.colors.textPrimary, ...rtlBaseText },
+  kpiValue: { fontSize: 21, lineHeight: 27, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
   kpiContext: { ...TOKENS.typography.metadata, color: TOKENS.colors.textSecondary, ...rtlBaseText },
-  panel: { backgroundColor: TOKENS.colors.elevatedSurface, borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, padding: 16, gap: 14 },
+  panel: { borderTopWidth: 1, borderTopColor: TOKENS.colors.border, paddingTop: 12, gap: 10 },
   sectionTitle: { ...TOKENS.typography.sectionTitle, color: TOKENS.colors.textPrimary, ...rtlBaseText },
-  activityRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 10 },
-  activityMetric: { flexGrow: 1, flexBasis: 220, borderRadius: TOKENS.radii.md, backgroundColor: TOKENS.colors.subtleSurface, padding: 12, gap: 3 },
-  activityValue: { fontSize: 21, lineHeight: 28, fontWeight: '700', color: TOKENS.colors.textPrimary, ...rtlBaseText },
+  activityRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 24 },
+  activityMetric: { flexGrow: 1, flexBasis: 180, gap: 2 },
+  activityValue: { fontSize: 18, lineHeight: 24, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
   activityLabel: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, ...rtlBaseText },
   emptyText: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, textAlign: 'center' },
 });
