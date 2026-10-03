@@ -7,7 +7,7 @@ import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
-import { flexDirection, rtlBaseText } from '@/lib/rtl';
+import { flexDirection, rtlBaseText, selfStart } from '@/lib/rtl';
 
 type CustomerRow = {
   customerId: string;
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   summaryLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
   summaryValue: { fontSize: 21, lineHeight: 27, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
   panel: { gap: 10 },
-  searchWrap: { width: '100%', maxWidth: 360, alignSelf: 'flex-start', flexDirection: flexDirection.row, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: TOKENS.colors.borderStrong, borderRadius: TOKENS.radii.sm, minHeight: 36, paddingHorizontal: 10 },
+  searchWrap: { width: '100%', maxWidth: 360, alignSelf: selfStart, flexDirection: flexDirection.row, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: TOKENS.colors.borderStrong, borderRadius: TOKENS.radii.sm, minHeight: 36, paddingHorizontal: 10 },
   searchInput: { flex: 1, fontSize: 13, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl', outlineStyle: 'none' } as any,
   list: { gap: 0, borderTopWidth: 1, borderTopColor: TOKENS.colors.border },
   customerRow: { flexDirection: flexDirection.row, alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: TOKENS.colors.border },
