@@ -101,16 +101,26 @@ export const getBusinessBillingOverview = query({
       return null;
     }
     const account = await getBillingAccountForBusiness(ctx, businessId);
-    const hasCurrentPaidAccess = account
-      ? hasOperationalAccessFromStatus({
-          status: account.status ?? 'inactive',
+    const canonical = account
+      ? resolveCanonicalBillingState({
+          plan: account.plan ?? account.lastPlan,
+          lastPlan: account.lastPlan,
+          status: account.status,
+          billingPeriod: account.billingPeriod,
+          subscriptionStartAt: account.subscriptionStartAt,
+          currentPeriodStartAt: account.currentPeriodStartAt,
+          currentPeriodEndAt: account.currentPeriodEndAt,
+          gracePeriodEndAt: account.gracePeriodEndAt,
+          canceledAt: account.canceledAt,
+          trialStartedAt: account.trialStartedAt,
+          trialEndAt: account.trialEndAt,
           hasProviderEvidence: account.hasProviderEvidence === true,
-          currentPeriodEndAt: account.currentPeriodEndAt ?? null,
-          gracePeriodEndAt: account.gracePeriodEndAt ?? null,
-          trialEndAt: account.trialEndAt ?? null,
-          entitlementRevokedAt: account.entitlementRevokedAt ?? null,
+          entitlementRevokedAt: account.entitlementRevokedAt,
         })
-      : false;
+      : null;
+    const hasCurrentOperationalAccess = canonical?.operationalAccess === true;
+    const hasCurrentPaidAccess =
+      hasCurrentOperationalAccess && account?.hasProviderEvidence === true;
     const sumitEvents = await ctx.db
       .query('sumitProviderEvents')
       .withIndex('by_businessId', (q) => q.eq('businessId', businessId))
@@ -141,6 +151,10 @@ export const getBusinessBillingOverview = query({
       currentPeriodEndAt:
         account?.currentPeriodEndAt ?? business.subscriptionEndAt ?? null,
       gracePeriodEndAt: account?.gracePeriodEndAt ?? null,
+      trialStartedAt: account?.trialStartedAt ?? null,
+      trialEndAt: account?.trialEndAt ?? null,
+      isTrialing:
+        canonical?.status === 'trialing' && canonical.operationalAccess === true,
       canceledAt: account?.canceledAt ?? null,
       provider: account?.provider ?? null,
       hasProviderEvidence: account?.hasProviderEvidence === true,
