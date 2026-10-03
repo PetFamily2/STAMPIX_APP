@@ -574,7 +574,7 @@ export function BusinessWebTeam() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>צוות</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול האנשים שיכולים לגשת לעסק והתפקיד של כל אחד מהם.
+            עובדים, תפקידים והרשאות.
           </Text>
         </View>
         {!seatLimitReached ? (
