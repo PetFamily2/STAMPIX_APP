@@ -2548,7 +2548,33 @@ export default defineSchema({
     .index('by_providerAppUserId', ['providerAppUserId'])
     .index('by_ownerUserId', ['ownerUserId'])
     .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt'])
+    .index('by_status_gracePeriodEndAt', ['status', 'gracePeriodEndAt'])
     .index('by_trialSource_trialEndsAt', ['trialSource', 'trialEndsAt']),
+
+
+  billingReminderEvents: defineTable({
+    dedupeKey: v.string(),
+    businessId: v.id('businesses'),
+    ownerUserId: v.id('users'),
+    gracePeriodEndAt: v.number(),
+    stageDay: v.union(v.literal(0), v.literal(3), v.literal(6)),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sent'),
+      v.literal('failed')
+    ),
+    attemptCount: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    errorCode: v.optional(v.string()),
+    claimedAt: v.number(),
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_dedupeKey', ['dedupeKey'])
+    .index('by_businessId', ['businessId'])
+    .index('by_status_nextAttemptAt', ['status', 'nextAttemptAt'])
+    .index('by_createdAt', ['createdAt']),
 
   payplusCheckoutIntents: defineTable({
     checkoutId: v.string(),
