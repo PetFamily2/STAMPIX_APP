@@ -43,21 +43,31 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Load Preview environment
+        run: eas env:pull preview --path .env.local --non-interactive
+
+      - name: Export Business Web
+        run: EXPO_PUBLIC_APP_ENV=preview bunx expo export --platform web
+
       - name: Deploy Business Web preview
         id: deploy
         run: |
-          eas deploy --environment preview --non-interactive --json > eas-deploy.json
+          eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > eas-deploy.json
           node - <<'NODE'
           const fs = require('fs');
           const payload = JSON.parse(fs.readFileSync('eas-deploy.json', 'utf8'));
-          const candidates = [
-            payload.url,
-            payload.deploymentUrl,
-            payload.previewUrl,
-            payload?.deployment?.url,
-            payload?.deployment?.previewUrl,
-          ].filter(Boolean);
-          const url = candidates.find((value) => typeof value === 'string' && value.startsWith('https://'));
+          const records = Array.isArray(payload) ? payload : [payload];
+          const candidates = records.flatMap((record) => [
+            record?.url,
+            record?.deploymentUrl,
+            record?.previewUrl,
+            record?.deployment?.url,
+            record?.deployment?.previewUrl,
+            record?.metadata?.url,
+          ]).filter(Boolean);
+          const url = candidates.find(
+            (value) => typeof value === 'string' && value.startsWith('https://')
+          );
           if (!url) {
             console.error('EAS deployment completed but preview URL was not found in JSON output.');
             console.error(JSON.stringify(payload, null, 2));
@@ -65,6 +75,10 @@ jobs:
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${url}\n`);
           NODE
+
+      - name: Remove pulled environment file
+        if: always()
+        run: rm -f .env.local
 
       - name: Comment preview URL
         uses: actions/github-script@v7
