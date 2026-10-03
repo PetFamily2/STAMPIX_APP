@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap');
+
 /* 
   קובץ העיצוב הגלובלי (Global CSS)
   זהו קובץ הכניסה עבור NativeWind (Tailwind CSS ל-React Native).
@@ -11,6 +13,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Web typography contract:
+ * The public StampAix sales site uses Heebo for Hebrew and Latin.
+ * Expo Web uses the same family so auth and Business Web feel like one product.
+ * This is web-only; native iOS/Android typography is unchanged.
+ */
+html,
+body,
+#root {
+  font-family: 'Heebo', Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body *,
+#root * {
+  font-family: 'Heebo', Arial, sans-serif !important;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
 
 /* Keyboard focus treatment isolated to the Business Web shell. */
 #business-web-shell [role='button']:focus-visible,
