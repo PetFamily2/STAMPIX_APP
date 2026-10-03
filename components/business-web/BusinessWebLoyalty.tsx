@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { Gift, Stamp, Users } from 'lucide-react-native';
+import { Gift } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/ui/AppText';
@@ -40,17 +40,14 @@ export function BusinessWebLoyalty({
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
-          <Stamp color={TOKENS.colors.primary} size={20} />
           <Text style={styles.summaryLabel}>כרטיסיות פעילות</Text>
           <Text style={styles.summaryValue}>{activePrograms.length}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Users color={TOKENS.colors.primary} size={20} />
           <Text style={styles.summaryLabel}>חברים פעילים</Text>
           <Text style={styles.summaryValue}>{totalMembers}</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Gift color={TOKENS.colors.primary} size={20} />
           <Text style={styles.summaryLabel}>כל הכרטיסיות</Text>
           <Text style={styles.summaryValue}>{programs.length}</Text>
         </View>
@@ -111,29 +108,29 @@ export function BusinessWebLoyalty({
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', maxWidth: 1080, alignSelf: 'center', gap: 18 },
+  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
   header: { gap: 4 },
   pageTitle: { ...TOKENS.typography.pageTitle, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl' },
   pageSubtitle: { ...TOKENS.typography.body, color: TOKENS.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
-  summaryRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 10 },
-  summaryCard: { flexGrow: 1, flexBasis: 180, minWidth: 180, backgroundColor: TOKENS.colors.elevatedSurface, borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, padding: 14, gap: 4 },
+  summaryRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: TOKENS.colors.border, paddingVertical: 10 },
+  summaryCard: { flexGrow: 1, flexBasis: 150, minWidth: 150, paddingHorizontal: 14, paddingVertical: 2, gap: 1 },
   summaryLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
-  summaryValue: { fontSize: 24, lineHeight: 30, fontWeight: '700', color: TOKENS.colors.textPrimary, ...rtlBaseText },
-  panel: { backgroundColor: TOKENS.colors.elevatedSurface, borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, padding: 16, gap: 10 },
+  summaryValue: { fontSize: 21, lineHeight: 27, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
+  panel: { gap: 10 },
   panelHeader: { gap: 3 },
   sectionTitle: { ...TOKENS.typography.sectionTitle, color: TOKENS.colors.textPrimary, ...rtlBaseText },
   sectionSubtitle: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, ...rtlBaseText },
-  cards: { gap: 12 },
-  programCard: { borderWidth: 1, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.md, padding: 14, gap: 12, backgroundColor: TOKENS.colors.subtleSurface },
+  cards: { gap: 0, borderTopWidth: 1, borderTopColor: TOKENS.colors.border },
+  programCard: { borderBottomWidth: 1, borderBottomColor: TOKENS.colors.border, paddingVertical: 12, gap: 8 },
   programTop: { flexDirection: flexDirection.row, justifyContent: 'space-between', alignItems: alignItems.start, gap: 14 },
   programCopy: { flex: 1, gap: 4 },
   programTitle: { ...TOKENS.typography.cardTitle, color: TOKENS.colors.textPrimary, ...rtlBaseText },
   rewardName: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, ...rtlBaseText },
-  lifecycleBadge: { borderRadius: TOKENS.radii.pill, backgroundColor: TOKENS.colors.primarySubtle, paddingHorizontal: 10, paddingVertical: 4 },
+  lifecycleBadge: { borderRadius: TOKENS.radii.pill, backgroundColor: TOKENS.colors.primarySubtle, paddingHorizontal: 8, paddingVertical: 2 },
   lifecycleText: { fontSize: 12, fontWeight: '600', color: TOKENS.colors.primary },
-  metricsRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 10 },
-  metric: { minWidth: 130, flexGrow: 1, borderRadius: TOKENS.radii.sm, backgroundColor: TOKENS.colors.elevatedSurface, padding: 10, gap: 2 },
-  metricValue: { fontSize: 18, fontWeight: '700', color: TOKENS.colors.textPrimary, ...rtlBaseText },
+  metricsRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 22 },
+  metric: { minWidth: 110, gap: 1 },
+  metricValue: { fontSize: 16, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
   metricLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
   emptyState: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 28 },
   emptyTitle: { ...TOKENS.typography.cardTitle, color: TOKENS.colors.textPrimary, textAlign: 'center' },
