@@ -8,7 +8,10 @@ import {
   ensureBusinessBillingAccount,
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
-import { hasOperationalAccessFromStatus } from './lib/billing/lifecycle';
+import {
+  hasOperationalAccessFromStatus,
+  resolveCanonicalBillingState,
+} from './lib/billing/lifecycle';
 
 export const getBusinessBillingIdentity = query({
   args: {
@@ -25,26 +28,42 @@ export const getBusinessBillingIdentity = query({
       return null;
     }
     const account = await getBillingAccountForBusiness(ctx, businessId);
-    const hasCurrentPaidAccess = account
-      ? hasOperationalAccessFromStatus({
-          status: account.status ?? 'inactive',
+    const canonical = account
+      ? resolveCanonicalBillingState({
+          plan: account.plan ?? account.lastPlan,
+          lastPlan: account.lastPlan,
+          status: account.status,
+          billingPeriod: account.billingPeriod,
+          subscriptionStartAt: account.subscriptionStartAt,
+          currentPeriodStartAt: account.currentPeriodStartAt,
+          currentPeriodEndAt: account.currentPeriodEndAt,
+          gracePeriodEndAt: account.gracePeriodEndAt,
+          canceledAt: account.canceledAt,
+          trialStartedAt: account.trialStartedAt,
+          trialEndAt: account.trialEndAt,
           hasProviderEvidence: account.hasProviderEvidence === true,
-          currentPeriodEndAt: account.currentPeriodEndAt ?? null,
-          gracePeriodEndAt: account.gracePeriodEndAt ?? null,
-          entitlementRevokedAt: account.entitlementRevokedAt ?? null,
+          entitlementRevokedAt: account.entitlementRevokedAt,
         })
-      : false;
+      : null;
+    const hasCurrentOperationalAccess = canonical?.operationalAccess === true;
+    const hasCurrentPaidAccess =
+      hasCurrentOperationalAccess && account?.hasProviderEvidence === true;
     return {
       businessId,
       providerAppUserId: account?.providerAppUserId ?? null,
       hasProviderEvidence: account?.hasProviderEvidence === true,
-      hasCurrentPaidAccess,
+      hasCurrentPaidAccess:
+        hasCurrentPaidAccess && account?.hasProviderEvidence === true,
       status: account?.status ?? business.subscriptionStatus ?? 'inactive',
       plan: account?.plan ?? business.subscriptionPlan ?? 'starter',
       billingPeriod: account?.billingPeriod ?? business.billingPeriod ?? null,
       currentPeriodEndAt:
         account?.currentPeriodEndAt ?? business.subscriptionEndAt ?? null,
       gracePeriodEndAt: account?.gracePeriodEndAt ?? null,
+      trialStartedAt: account?.trialStartedAt ?? null,
+      trialEndAt: account?.trialEndAt ?? null,
+      isTrialing:
+        canonical?.status === 'trialing' && canonical.operationalAccess === true,
       canceledAt: account?.canceledAt ?? null,
     };
   },
@@ -88,6 +107,7 @@ export const getBusinessBillingOverview = query({
           hasProviderEvidence: account.hasProviderEvidence === true,
           currentPeriodEndAt: account.currentPeriodEndAt ?? null,
           gracePeriodEndAt: account.gracePeriodEndAt ?? null,
+          trialEndAt: account.trialEndAt ?? null,
           entitlementRevokedAt: account.entitlementRevokedAt ?? null,
         })
       : false;
@@ -113,9 +133,9 @@ export const getBusinessBillingOverview = query({
 
     return {
       businessId,
-      plan: account?.plan ?? business.subscriptionPlan ?? null,
-      status: account?.status ?? business.subscriptionStatus ?? 'inactive',
-      billingPeriod: account?.billingPeriod ?? business.billingPeriod ?? null,
+      plan: canonical?.plan ?? account?.plan ?? business.subscriptionPlan ?? null,
+      status: canonical?.status ?? business.subscriptionStatus ?? 'inactive',
+      billingPeriod: canonical?.billingPeriod ?? business.billingPeriod ?? null,
       currentPeriodStartAt:
         account?.currentPeriodStartAt ?? business.subscriptionStartAt ?? null,
       currentPeriodEndAt:
@@ -124,6 +144,7 @@ export const getBusinessBillingOverview = query({
       canceledAt: account?.canceledAt ?? null,
       provider: account?.provider ?? null,
       hasProviderEvidence: account?.hasProviderEvidence === true,
+      hasCurrentOperationalAccess,
       hasCurrentPaidAccess,
       canCancel:
         account?.provider === 'sumit' &&
