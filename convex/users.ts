@@ -38,6 +38,7 @@ import {
   requireActorIsBusinessOwner,
   requireCurrentUser,
 } from './guards';
+import { startBusinessOnboardingTrial } from './lib/billing/accounts';
 import { normalizeEmailAddress } from './lib/email';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
@@ -1443,6 +1444,11 @@ export const completeBusinessOnboarding = mutation({
       source: 'business_activation',
       businessId,
       acceptedAt: now,
+    });
+    await startBusinessOnboardingTrial(ctx, {
+      businessId,
+      ownerUserId: user._id,
+      now,
     });
     await ctx.db.patch(user._id, {
       businessOnboardedAt: user.businessOnboardedAt ?? now,
