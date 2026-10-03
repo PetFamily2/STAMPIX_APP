@@ -25,7 +25,7 @@ jobs:
       - name: Require Expo token
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::EXPO_TOKEN repository secret is missing. Add an Expo access token with access to petfamily2/stampix."
+            echo "::error::EXPO_TOKEN repository secret is missing. Add an Expo access token with access to the StampAix Expo project."
             exit 1
           fi
 
