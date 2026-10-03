@@ -45,8 +45,8 @@ describe('public legal pages', () => {
       expect(html).toContain(legalCase.title);
       expect(html).toContain(legalCase.representativeContent);
       expect(html).toContain('StampAix');
-      expect(html).toContain('21.09.2026');
-      expect(html).toContain('2026.09.21');
+      expect(html).toContain('03.10.2026');
+      expect(html).toContain('2026.10.03');
       expect(html).not.toContain('20.06.2026');
       expect(html).not.toContain('<script');
       expect(html).not.toMatch(
