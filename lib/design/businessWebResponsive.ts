@@ -1,8 +1,8 @@
 export const BUSINESS_WEB_BREAKPOINTS = {
   narrowMobile: 360,
   mobile: 720,
-  fullSidebar: 1080,
-  wideDashboard: 1340,
+  fullSidebar: 1024,
+  wideDashboard: 1260,
 } as const;
 
 export type BusinessWebResponsiveLayout = {
@@ -11,8 +11,8 @@ export type BusinessWebResponsiveLayout = {
   kpiColumns: 1 | 2 | 4;
   detailColumns: 1 | 2;
   activityPresentation: 'feed' | 'table';
-  pagePadding: 16 | 32;
-  pageTopPadding: 16 | 24 | 32;
+  pagePadding: 16 | 24;
+  pageTopPadding: 16 | 20 | 24;
   popoverWidth: number;
 };
 
@@ -56,9 +56,9 @@ export function getBusinessWebResponsiveLayout(
     detailColumns: safeWidth < BUSINESS_WEB_BREAKPOINTS.wideDashboard ? 1 : 2,
     activityPresentation:
       safeWidth < BUSINESS_WEB_BREAKPOINTS.mobile ? 'feed' : 'table',
-    pagePadding: isCompact ? 16 : 32,
+    pagePadding: isCompact ? 16 : 24,
     pageTopPadding:
-      safeWidth < BUSINESS_WEB_BREAKPOINTS.mobile ? 16 : isCompact ? 24 : 32,
+      safeWidth < BUSINESS_WEB_BREAKPOINTS.mobile ? 16 : isCompact ? 20 : 24,
     popoverWidth: Math.min(280, Math.max(0, safeWidth - 32)),
   };
 }
