@@ -7,7 +7,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { flexDirection, rtlBaseText } from '@/lib/rtl';
@@ -22,10 +22,12 @@ const ITEMS = [
 export function AdminWebShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < 900;
 
   return (
-    <View style={styles.page}>
-      <View style={styles.sidebar}>
+    <View style={[styles.page, compact ? styles.pageCompact : null]}>
+      <View style={[styles.sidebar, compact ? styles.sidebarCompact : null]}>
         <View style={styles.brandRow}>
           <View style={styles.brandMark}>
             <Text style={styles.brandMarkText}>S</Text>
@@ -36,7 +38,7 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
           </View>
         </View>
 
-        <View style={styles.nav}>
+        <View style={[styles.nav, compact ? styles.navCompact : null]}>
           {ITEMS.map(({ href, label, icon: Icon }) => {
             const active =
               href === '/admin'
@@ -70,7 +72,7 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
           })}
         </View>
 
-        <View style={styles.sidebarFooter}>
+        <View style={[styles.sidebarFooter, compact ? styles.sidebarFooterCompact : null]}>
           <Building2 color={TOKENS.colors.textMuted} size={17} />
           <Text style={styles.sidebarFooterText}>כלים תפעוליים לקריאה בלבד</Text>
         </View>
@@ -88,6 +90,9 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     minHeight: '100vh' as never,
   },
+  pageCompact: {
+    flexDirection: 'column',
+  },
   sidebar: {
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderLeftColor: TOKENS.colors.border,
@@ -95,6 +100,14 @@ const styles = StyleSheet.create({
     minHeight: '100vh' as never,
     padding: TOKENS.space.xl,
     width: 240,
+  },
+  sidebarCompact: {
+    borderBottomColor: TOKENS.colors.border,
+    borderBottomWidth: 1,
+    borderLeftWidth: 0,
+    minHeight: 0,
+    padding: TOKENS.space.lg,
+    width: '100%',
   },
   brandRow: {
     alignItems: 'center',
@@ -121,6 +134,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   nav: { gap: 6, marginTop: TOKENS.space.xxl },
+  navCompact: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    marginTop: TOKENS.space.lg,
+  },
   navItem: {
     alignItems: 'center',
     borderRadius: TOKENS.radii.md,
@@ -144,6 +162,9 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.sm,
     marginTop: 'auto' as never,
     paddingTop: TOKENS.space.xl,
+  },
+  sidebarFooterCompact: {
+    display: 'none',
   },
   sidebarFooterText: {
     ...rtlBaseText,
