@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.lg,
     borderWidth: 1,
     maxHeight: '92%',
-    padding: TOKENS.space.xl,
+    padding: TOKENS.space.lg,
     width: '100%',
   },
   header: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
     justifyContent: 'space-between',
-    marginBottom: TOKENS.space.xl,
+    marginBottom: TOKENS.space.lg,
   },
   headerCopy: { flex: 1, gap: TOKENS.space.xs },
   title: {
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
   closeButton: {
     alignItems: 'center',
     borderRadius: TOKENS.radii.sm,
-    height: 40,
+    height: 36,
     justifyContent: 'center',
-    width: 40,
+    width: 36,
   },
   actions: {
     flexDirection: flexDirection.row,
