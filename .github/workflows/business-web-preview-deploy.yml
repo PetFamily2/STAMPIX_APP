@@ -89,7 +89,33 @@ jobs:
           fs.appendFileSync(path, `\nCONVEX_DEPLOYMENT=dev:${slug}\n`);
           NODE
 
+      - name: Require matching Convex DEV deploy key
+        env:
+          CONVEX_DEV_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
+        run: |
+          if [ -z "$CONVEX_DEV_DEPLOY_KEY" ]; then
+            echo "::error::CONVEX_DEV_DEPLOY_KEY repository secret is missing."
+            exit 1
+          fi
+          node - <<'NODE'
+          const fs = require('fs');
+          const envFile = fs.readFileSync('.env.local', 'utf8');
+          const deployment = envFile.match(/^CONVEX_DEPLOYMENT=(.*)$/m)?.[1]?.trim();
+          const key = process.env.CONVEX_DEV_DEPLOY_KEY ?? '';
+          if (!deployment?.startsWith('dev:')) {
+            console.error('Resolved Convex target is not DEV.');
+            process.exit(1);
+          }
+          const expectedPrefix = deployment + '|';
+          if (!key.startsWith(expectedPrefix)) {
+            console.error('CONVEX_DEV_DEPLOY_KEY does not match the resolved DEV deployment.');
+            process.exit(1);
+          }
+          NODE
+
       - name: Sync Convex DEV backend
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
         run: bun run convex:dev:sync
 
       - name: Export Business Web
