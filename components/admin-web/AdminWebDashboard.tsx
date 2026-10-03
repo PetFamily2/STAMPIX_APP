@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AdminBusinessSearch } from '@/components/admin-web/AdminBusinessSearch';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
@@ -103,6 +104,8 @@ export function AdminWebDashboard() {
             </Text>
           </View>
         </View>
+
+        <AdminBusinessSearch />
 
         <View style={styles.sectionGrid}>
           <View style={styles.sectionCard}>
