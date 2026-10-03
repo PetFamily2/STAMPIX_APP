@@ -2,6 +2,7 @@ import { useConvexAuth } from 'convex/react';
 import { Redirect, Slot } from 'expo-router';
 import { Platform } from 'react-native';
 
+import { AdminWebShell } from '@/components/admin-web/AdminWebShell';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { NativeCompanionRedirect } from '@/components/navigation/NativeCompanionRedirect';
 import { useSessionContext } from '@/contexts/UserContext';
@@ -31,5 +32,9 @@ function WebAdminGate() {
     return <Redirect href="/business" />;
   }
 
-  return <Slot />;
+  return (
+    <AdminWebShell>
+      <Slot />
+    </AdminWebShell>
+  );
 }
