@@ -1,12 +1,17 @@
-import { X } from 'lucide-react-native';
-import { type ReactNode, useEffect, useId, useRef } from 'react';
+import {
+  X } from 'lucide-react-native';
+import { type ReactNode,
+  useEffect,
+  useId,
+  useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
