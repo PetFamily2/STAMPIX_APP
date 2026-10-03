@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
-import { rtlBaseText } from '@/lib/rtl';
+import { flexDirection, rtlBaseText } from '@/lib/rtl';
 
 function formatDate(value: number | null | undefined) {
   return value
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   title: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 32, fontWeight: '900' },
   subtitle: { ...rtlBaseText, color: TOKENS.colors.textSecondary, fontSize: 15, lineHeight: 24 },
   card: { backgroundColor: TOKENS.colors.elevatedSurface, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, borderWidth: 1, marginTop: TOKENS.space.lg, padding: TOKENS.space.xl },
-  header: { alignItems: 'center', flexDirection: 'row-reverse', gap: TOKENS.space.sm },
+  header: { alignItems: 'center', flexDirection: flexDirection.row, gap: TOKENS.space.sm },
   cardTitle: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 18, fontWeight: '800' },
   row: { borderTopColor: TOKENS.colors.border, borderTopWidth: 1, paddingVertical: TOKENS.space.lg },
   name: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 14, fontWeight: '800' },
