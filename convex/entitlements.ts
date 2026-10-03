@@ -402,6 +402,8 @@ function resolveBusinessSubscriptionState(
       currentPeriodEndAt: billingAccount.currentPeriodEndAt,
       gracePeriodEndAt: billingAccount.gracePeriodEndAt,
       canceledAt: billingAccount.canceledAt,
+      trialStartedAt: billingAccount.trialStartedAt,
+      trialEndAt: billingAccount.trialEndAt,
       hasProviderEvidence: billingAccount.hasProviderEvidence === true,
       entitlementRevokedAt: billingAccount.entitlementRevokedAt,
       now: _now,
