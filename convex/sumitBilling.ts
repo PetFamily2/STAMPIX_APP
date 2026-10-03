@@ -1316,3 +1316,122 @@ export const reconcileSUMITBillingInternal = internalAction({
     return await reconcileSUMITBillingServer(ctx, { context });
   },
 });
+
+
+const SUMIT_RECONCILIATION_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const SUMIT_RECONCILIATION_DEFAULT_LIMIT = 25;
+const SUMIT_RECONCILIATION_MAX_LIMIT = 50;
+
+export const listSUMITReconciliationCandidates = internalQuery({
+  args: { limit: v.optional(v.number()), now: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const limit = Math.max(
+      1,
+      Math.min(
+        Math.floor(args.limit ?? SUMIT_RECONCILIATION_DEFAULT_LIMIT),
+        SUMIT_RECONCILIATION_MAX_LIMIT
+      )
+    );
+    const rows = await ctx.db
+      .query('businessBillingAccounts')
+      .withIndex('by_provider_lastReconciledAt', (q: any) =>
+        q.eq('provider', 'sumit')
+      )
+      .order('asc')
+      .take(limit);
+
+    return rows
+      .filter(
+        (row: any) =>
+          typeof row.lastReconciledAt !== 'number' ||
+          row.lastReconciledAt <= now - SUMIT_RECONCILIATION_MIN_INTERVAL_MS
+      )
+      .map((row: any) => ({
+        businessId: row.businessId,
+        lastReconciledAt: row.lastReconciledAt ?? null,
+      }));
+  },
+});
+
+export const recordSUMITReconciliationResult = internalMutation({
+  args: {
+    businessId: v.id('businesses'),
+    ok: v.boolean(),
+    code: v.optional(v.union(v.string(), v.null())),
+    reconciledAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const account = await getBillingAccountForBusiness(ctx, args.businessId);
+    if (!account || account.provider !== 'sumit') {
+      return { updated: false as const };
+    }
+    await ctx.db.patch(account._id, {
+      lastReconciledAt: args.reconciledAt,
+      lastReconciliationOk: args.ok,
+      lastReconciliationCode: args.code ?? undefined,
+      updatedAt: Math.max(account.updatedAt, args.reconciledAt),
+    });
+    return { updated: true as const };
+  },
+});
+
+export const reconcileSUMITBillingSweepInternal = internalAction({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<any> => {
+    const startedAt = Date.now();
+    const candidates = await ctx.runQuery(
+      internal.sumitBilling.listSUMITReconciliationCandidates,
+      { limit: args.limit, now: startedAt }
+    );
+    const results = [];
+
+    for (const candidate of candidates) {
+      let ok = false;
+      let code: string | null = null;
+      try {
+        const context = await ctx.runQuery(
+          internal.sumitBilling.getSUMITServerReconciliationContext,
+          { businessId: candidate.businessId }
+        );
+        const result = await reconcileSUMITBillingServer(ctx, { context });
+        ok = result.ok === true;
+        code = ok ? null : String(result.code ?? 'SUMIT_RECONCILIATION_FAILED');
+        results.push({
+          businessId: candidate.businessId,
+          ok,
+          code,
+          discrepancies: Array.isArray(result.discrepancies)
+            ? result.discrepancies.length
+            : 0,
+        });
+      } catch (error) {
+        code = sumitErrorCode(error);
+        results.push({
+          businessId: candidate.businessId,
+          ok: false,
+          code,
+          discrepancies: 0,
+        });
+      }
+
+      await ctx.runMutation(
+        internal.sumitBilling.recordSUMITReconciliationResult,
+        {
+          businessId: candidate.businessId,
+          ok,
+          code,
+          reconciledAt: Date.now(),
+        }
+      );
+    }
+
+    return {
+      ok: true as const,
+      scanned: candidates.length,
+      succeeded: results.filter((result) => result.ok).length,
+      failed: results.filter((result) => !result.ok).length,
+      results,
+    };
+  },
+});
