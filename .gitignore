@@ -48,6 +48,7 @@ yarn-error.*
 /ios
 /android
 
-# Preview Firebase client file stays outside source. Production keeps its
-# existing google-services.json path and must not be reused for Preview.
+# Firebase client configuration is injected at build time through EAS file
+# secrets. Neither Preview nor Production client files belong in source.
+google-services.json
 google-services.preview.json
