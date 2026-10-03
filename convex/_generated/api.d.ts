@@ -65,6 +65,7 @@ import type * as lib_referrals_copy from "../lib/referrals/copy.js";
 import type * as lib_referrals_qualification from "../lib/referrals/qualification.js";
 import type * as lib_referrals_redemptionProvider from "../lib/referrals/redemptionProvider.js";
 import type * as lib_runRegisteredHandler from "../lib/runRegisteredHandler.js";
+import type * as lib_secureRandom from "../lib/secureRandom.js";
 import type * as lib_smartManagerAuthority from "../lib/smartManagerAuthority.js";
 import type * as lib_smartManagerDelivery from "../lib/smartManagerDelivery.js";
 import type * as lib_smartManagerDirty from "../lib/smartManagerDirty.js";
@@ -180,6 +181,7 @@ declare const fullApi: ApiFromModules<{
   "lib/referrals/qualification": typeof lib_referrals_qualification;
   "lib/referrals/redemptionProvider": typeof lib_referrals_redemptionProvider;
   "lib/runRegisteredHandler": typeof lib_runRegisteredHandler;
+  "lib/secureRandom": typeof lib_secureRandom;
   "lib/smartManagerAuthority": typeof lib_smartManagerAuthority;
   "lib/smartManagerDelivery": typeof lib_smartManagerDelivery;
   "lib/smartManagerDirty": typeof lib_smartManagerDirty;
