@@ -144,6 +144,25 @@ export function AdminBusinessDetail({
             label="ראיית ספק"
             value={detail.billing?.hasProviderEvidence ? 'כן' : 'לא'}
           />
+          <Field
+            label="פיוס אחרון"
+            value={formatDate(detail.billing?.lastReconciledAt)}
+          />
+          <Field
+            label="סטטוס פיוס"
+            value={
+              detail.billing?.lastReconciliationOk === null ||
+              detail.billing?.lastReconciliationOk === undefined
+                ? 'טרם בוצע'
+                : detail.billing.lastReconciliationOk
+                  ? 'תקין'
+                  : 'דורש בדיקה'
+            }
+          />
+          <Field
+            label="קוד פיוס"
+            value={detail.billing?.lastReconciliationCode}
+          />
         </View>
 
         <View style={styles.card}>
