@@ -15,7 +15,7 @@ import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
-import { flexDirection, rtlBaseText } from '@/lib/rtl';
+import { flexDirection, rtlBaseText, selfStart } from '@/lib/rtl';
 
 function formatDate(value: number | null | undefined) {
   if (!value) return '—';
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   backLink: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: selfStart,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     minHeight: 42,
