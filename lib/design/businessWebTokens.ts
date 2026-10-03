@@ -1,20 +1,21 @@
 /**
  * StampAix Business Web visual system.
- * These tokens are isolated to web business/admin surfaces and do not alter native UI.
+ * Web surfaces extend the existing StampAix blue brand while keeping
+ * green reserved for positive/success states and red for destructive states.
  */
 export const BUSINESS_WEB_TOKENS = {
   colors: {
-    pageBackground: '#F6F9F7',
+    pageBackground: '#F8FAFC',
     elevatedSurface: '#FFFFFF',
-    subtleSurface: '#F8FBF9',
-    primary: '#176B46',
-    primaryHover: '#12583A',
-    primarySubtle: '#EAF6EF',
-    textPrimary: '#16231D',
-    textSecondary: '#475A50',
-    textMuted: '#6B7C73',
-    border: '#DFE8E2',
-    borderStrong: '#C9D7CE',
+    subtleSurface: '#FAFCFF',
+    primary: '#1230A8',
+    primaryHover: '#0E288F',
+    primarySubtle: '#EEF4FF',
+    textPrimary: '#101936',
+    textSecondary: '#475569',
+    textMuted: '#64748B',
+    border: '#E2E8F0',
+    borderStrong: '#CBD5E1',
     success: '#047857',
     successSubtle: '#ECFDF5',
     warning: '#B45309',
@@ -60,7 +61,7 @@ export const BUSINESS_WEB_TOKENS = {
     container: 40,
   },
   shadow: {
-    shadowColor: '#102A1E',
+    shadowColor: '#0F172A',
     shadowOpacity: 0.055,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 7 },
