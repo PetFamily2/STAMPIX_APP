@@ -394,6 +394,40 @@ describe('SUMIT server authority and hosted checkout', () => {
     expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
   });
 
+  test('first-party trial can convert through SUMIT checkout', async () => {
+    const trialEndAt = OCCURRED_AT + 14 * 24 * 60 * 60 * 1000;
+    const ctx = createMockCtx({
+      businesses: [
+        business({
+          subscriptionPlan: 'pro',
+          subscriptionStatus: 'trialing',
+          subscriptionStartAt: OCCURRED_AT,
+          subscriptionEndAt: trialEndAt,
+        }),
+      ],
+      businessBillingAccounts: [
+        billingAccount({
+          plan: 'pro',
+          lastPlan: 'pro',
+          status: 'trialing',
+          billingPeriod: null,
+          provider: undefined,
+          providerSubscriptionIdentifier: undefined,
+          currentPeriodStartAt: OCCURRED_AT,
+          currentPeriodEndAt: trialEndAt,
+          trialStartedAt: OCCURRED_AT,
+          trialEndAt,
+          trialSource: 'business_onboarding',
+          hasProviderEvidence: false,
+        }),
+      ],
+    });
+
+    await expect(seedCheckout(ctx)).resolves.toMatchObject({
+      status: 'pending',
+    });
+  });
+
   test('direct public action call returns the stable active-subscription code', async () => {
     const recordCtx = createMockCtx({
       businesses: [business()],
