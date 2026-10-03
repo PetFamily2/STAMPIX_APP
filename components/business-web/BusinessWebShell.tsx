@@ -408,7 +408,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
     responsiveLayout.composition === 'narrow-mobile';
   const isNarrowSidebar = width < 1200;
   const popoverWidth = responsiveLayout.popoverWidth;
-  const topbarHeight = isMobileComposition ? 58 : 62;
+  const topbarHeight = isMobileComposition ? 54 : 56;
   const drawerWidth = Math.min(360, Math.max(0, width - 16));
   const [activeOverlay, setActiveOverlay] =
     useState<BusinessWebShellOverlay>(null);
@@ -660,15 +660,15 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: flexDirection.row },
   shellCompact: { flexDirection: 'column' },
   sidebar: {
-    width: 264,
-    minWidth: 264,
+    width: 220,
+    minWidth: 220,
     borderLeftWidth: 1,
     borderLeftColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.xl,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.lg,
   },
-  sidebarNarrow: { width: 224, minWidth: 224 },
+  sidebarNarrow: { width: 204, minWidth: 204 },
   brandArea: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -676,18 +676,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: TOKENS.space.sm,
   },
   brandMark: {
-    width: 38,
-    height: 38,
+    width: 30,
+    height: 30,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: TOKENS.colors.primary,
   },
-  brandMarkText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  brandMarkText: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
   brandCopy: { alignItems: alignItems.start },
   brandName: {
     color: TOKENS.colors.textPrimary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   brandProduct: {
@@ -696,11 +696,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sidebarBusiness: {
-    marginTop: TOKENS.space.xl,
-    marginBottom: TOKENS.space.lg,
+    marginTop: TOKENS.space.lg,
+    marginBottom: TOKENS.space.md,
     borderRadius: TOKENS.radii.md,
     backgroundColor: TOKENS.colors.subtleSurface,
-    padding: TOKENS.space.md,
+    padding: TOKENS.space.sm,
   },
   sidebarEyebrow: {
     ...rtlBaseText,
@@ -718,12 +718,12 @@ const styles = StyleSheet.create({
   },
   navList: { gap: TOKENS.space.xs },
   navItem: {
-    minHeight: 44,
+    minHeight: 40,
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    gap: TOKENS.space.md,
+    gap: TOKENS.space.sm,
     borderRadius: TOKENS.radii.md,
-    paddingHorizontal: TOKENS.space.md,
+    paddingHorizontal: TOKENS.space.sm,
     opacity: 0.78,
   },
   navItemActive: { backgroundColor: TOKENS.colors.primarySubtle, opacity: 1 },
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.pageBackground,
   },
   topbar: {
-    minHeight: 62,
+    minHeight: 56,
     position: 'relative',
     zIndex: 50,
     overflow: 'visible',
@@ -815,11 +815,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
-    paddingHorizontal: TOKENS.space.xl,
-    paddingVertical: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.xs,
   },
   topbarMobile: {
-    minHeight: 58,
+    minHeight: 54,
     paddingHorizontal: TOKENS.space.lg,
     paddingVertical: TOKENS.space.xs,
   },
@@ -838,9 +838,9 @@ const styles = StyleSheet.create({
   switcherWrap: { position: 'relative', zIndex: 70 },
   switcherWrapCompact: { flex: 1, minWidth: 0, maxWidth: 360 },
   switcherButton: {
-    minWidth: 210,
-    maxWidth: 280,
-    minHeight: 48,
+    minWidth: 190,
+    maxWidth: 250,
+    minHeight: 42,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -1005,11 +1005,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     width: '100%',
-    maxWidth: 1440,
+    maxWidth: 1240,
     alignSelf: 'center',
-    paddingHorizontal: TOKENS.space.xxl,
-    paddingTop: TOKENS.space.xxl,
-    paddingBottom: 56,
+    paddingHorizontal: TOKENS.space.xl,
+    paddingTop: TOKENS.space.xl,
+    paddingBottom: 36,
   },
   contentCompact: {
     paddingHorizontal: TOKENS.space.lg,
