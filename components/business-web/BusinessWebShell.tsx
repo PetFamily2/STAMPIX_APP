@@ -83,15 +83,30 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     icon: LayoutDashboard,
     href: BUSINESS_WEB_ROUTES.dashboard,
   },
-  { key: 'customers', label: 'לקוחות', icon: Users },
-  { key: 'loyalty', label: 'מועדון והטבות', icon: Gift },
+  {
+    key: 'customers',
+    label: 'לקוחות',
+    icon: Users,
+    href: BUSINESS_WEB_ROUTES.customers,
+  },
+  {
+    key: 'loyalty',
+    label: 'מועדון והטבות',
+    icon: Gift,
+    href: BUSINESS_WEB_ROUTES.loyalty,
+  },
   {
     key: 'team',
     label: 'צוות',
     icon: UserRoundCog,
     href: BUSINESS_WEB_ROUTES.team,
   },
-  { key: 'analytics', label: 'ניתוחים', icon: ChartNoAxesCombined },
+  {
+    key: 'analytics',
+    label: 'ניתוחים',
+    icon: ChartNoAxesCombined,
+    href: BUSINESS_WEB_ROUTES.analytics,
+  },
   {
     key: 'billing',
     label: 'חיוב וחשבוניות',
