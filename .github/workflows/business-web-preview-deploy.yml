@@ -46,6 +46,9 @@ jobs:
       - name: Load Preview environment
         run: eas env:pull preview --path .env.local --non-interactive
 
+      - name: Sync Convex DEV backend
+        run: bun run convex:dev:sync
+
       - name: Export Business Web
         run: EXPO_PUBLIC_APP_ENV=preview bunx expo export --platform web
 
