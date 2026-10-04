@@ -17,6 +17,7 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
@@ -33,7 +34,9 @@ export default function AuthRoutesLayout() {
   }>();
 
   const segmentStrings = segments as string[];
-  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
+  const webRoleRoutingEnabled = isWebRoleRoutingEnabled(Platform.OS);
+  const isPreviewMode =
+    !webRoleRoutingEnabled && resolvePreviewModeFromParams({ preview, map });
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
   const isOtpTransitionRoute = segmentStrings.includes('onboarding-client-otp');
@@ -90,6 +93,7 @@ export default function AuthRoutesLayout() {
 
   if (
     Platform.OS === 'web' &&
+    !webRoleRoutingEnabled &&
     platformPostAuthResolution.status === 'route' &&
     routeKind !== 'transition' &&
     routeKind !== 'preview'
