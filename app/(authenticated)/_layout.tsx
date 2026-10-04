@@ -19,10 +19,11 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
-  WEB_BUSINESS_PROOF_HREF,
 } from '@/lib/auth/postAuthRouting';
+import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
 import { resolveAuthenticatedRouteGuard } from '@/lib/navigation/authenticatedRouteGuard';
+import { resolveWebAuthenticatedRouteGuard } from '@/lib/navigation/webAuthenticatedRouteGuard';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlScreenContentStyle } from '@/lib/rtl';
@@ -40,7 +41,11 @@ export default function AuthenticatedLayout() {
       camp?: string;
       flow?: string;
     }>();
-  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
+  const webRoleRoutingEnabled = isWebRoleRoutingEnabled(Platform.OS);
+  // Native preview behavior is unchanged. New Web routes always require auth;
+  // query parameters are never permission or rollout controls.
+  const isPreviewMode =
+    !webRoleRoutingEnabled && resolvePreviewModeFromParams({ preview, map });
   const { appMode, syncAppMode, isLoading: isAppModeLoading } = useAppMode();
   const { activeBusinessId: resolvedActiveBusinessId } = useActiveBusiness();
 
@@ -64,7 +69,7 @@ export default function AuthenticatedLayout() {
     defaultBusinessOnboardingDraft === undefined;
   const hasInProgressBusinessOnboarding =
     defaultBusinessOnboardingDraft?.status === 'in_progress';
-  const routingStatus = resolvePostAuthRoute({
+  const nativeRoutingResolution = resolvePostAuthRoute({
     isAuthLoading: isLoading,
     isAuthenticated,
     user,
@@ -72,7 +77,8 @@ export default function AuthenticatedLayout() {
     activeBusinessId: resolvedActiveBusinessId,
     isBusinessOnboardingLoading,
     hasInProgressBusinessOnboarding,
-  }).status;
+  });
+  const routingStatus = nativeRoutingResolution.status;
   const router = useRouter();
   const segments = useSegments();
   const segmentStrings = (
@@ -144,7 +150,15 @@ export default function AuthenticatedLayout() {
     }
 
     if (Platform.OS === 'web') {
-      safeReplace(resolution.href);
+      const decision = resolveWebAuthenticatedRouteGuard({
+        resolutionHref: resolution.href,
+        segments: currentSegments,
+        activeMode,
+        isAdditionalMerchantOnboarding,
+      });
+      if (decision.action === 'replace') {
+        safeReplace(decision.href);
+      }
       return;
     }
 
@@ -187,8 +201,25 @@ export default function AuthenticatedLayout() {
     return <Redirect href="/(auth)/sign-up" />;
   }
 
-  if (Platform.OS === 'web' && isAuthenticated && routingStatus === 'route') {
-    return <Redirect href={WEB_BUSINESS_PROOF_HREF as Href} />;
+  if (Platform.OS === 'web' && isAuthenticated) {
+    if (webRoleRoutingEnabled && routingStatus === 'loading') {
+      return <FullScreenLoading />;
+    }
+    const resolution = resolvePlatformPostAuthHref(
+      'web',
+      nativeRoutingResolution
+    );
+    if (resolution.status === 'route') {
+      const decision = resolveWebAuthenticatedRouteGuard({
+        resolutionHref: resolution.href,
+        segments: segmentStrings,
+        activeMode: sessionContext?.activeMode ?? 'customer',
+        isAdditionalMerchantOnboarding,
+      });
+      if (decision.action === 'replace') {
+        return <Redirect href={decision.href as Href} />;
+      }
+    }
   }
 
   const shouldShowLoadingScreen =

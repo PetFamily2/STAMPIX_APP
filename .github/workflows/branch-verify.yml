@@ -1,20 +1,38 @@
-name: Branch verification
+name: Verify and Web Preview
 
+# One PR run per revision; no duplicate push run. No backend deployment.
 on:
-  push:
-    branches:
-      - launch/business-web-admin-foundation
   pull_request:
     branches:
       - main
+      - launch/trial-and-launch-hardening
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      EXPO_PUBLIC_APP_ENV: preview
+      EXPO_PUBLIC_CONVEX_URL_DEV: https://phase1-build-only.convex.cloud
+      EXPO_PUBLIC_WEB_ROLE_ROUTING: 'false'
     steps:
-      - name: Checkout
+      - name: Checkout exact PR revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -25,7 +43,67 @@ jobs:
         run: bun test
       - name: Type check
         run: bun run type-check
-      - name: RTL source contract
-        run: bun run verify:rtl-build-source
+      - name: Manual RTL source and native config contracts
+        run: |
+          bun run verify:rtl-build-source
+          bun run verify:rtl-native-config
+      - name: Phase 1 boundaries and Native billing guard
+        if: startsWith(github.head_ref, 'pwa/phase-1-')
+        run: node scripts/verify-web-phase1-boundaries.mjs
+      - name: Export Web, iOS and Android JavaScript with rollout enabled
+        env:
+          EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+        run: bunx expo export --platform all --output-dir ${{ runner.temp }}/phase1-verify-export --max-workers 2
+      - name: Exported client secret patterns
+        run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Diff check
         run: git diff --check
+
+  preview:
+    needs: verify
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'pwa/phase-1-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout verified revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Setup EAS for Preview hosting only
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Read Preview public environment (no Convex sync)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas env:pull preview --path .env.preview-pulled --non-interactive > eas-env-pull.log 2>&1
+          node scripts/prepare-web-preview-env.mjs
+      - name: Export actual Web Preview
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+        run: bunx expo export --platform web --max-workers 2
+      - name: Check Preview client secret patterns
+        run: node scripts/verify-client-secret-patterns.mjs dist
+      - name: Deploy Preview only after verify
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          VERIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > eas-deploy.json
+          node scripts/report-web-preview-url.mjs
+      - name: Remove temporary environment files
+        if: always()
+        run: rm -f .env.local .env.preview-pulled eas-env-pull.log
