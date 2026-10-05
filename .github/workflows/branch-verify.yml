@@ -7,6 +7,7 @@ on:
       - main
       - launch/trial-and-launch-hardening
       - pwa/phase-1-role-routing-20261004
+      - pwa/phase-2-qr-foundation-20261005
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -25,6 +26,7 @@ jobs:
       EXPO_PUBLIC_CONVEX_URL_DEV: https://phase1-build-only.convex.cloud
       EXPO_PUBLIC_WEB_ROLE_ROUTING: 'false'
       EXPO_PUBLIC_WEB_QR_LAB: 'false'
+      EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'false'
     steps:
       - name: Checkout exact PR revision
         uses: actions/checkout@v4
@@ -55,6 +57,9 @@ jobs:
       - name: Phase 2 isolated scanner and Native contracts
         if: startsWith(github.head_ref, 'pwa/phase-2-')
         run: node scripts/verify-web-phase2-boundaries.mjs
+      - name: Phase 3 Web command and unchanged Native contracts
+        if: startsWith(github.head_ref, 'pwa/phase-3-')
+        run: node scripts/verify-web-phase3-boundaries.mjs
       - name: Export Web, iOS and Android JavaScript with rollout enabled
         env:
           EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
@@ -64,6 +69,9 @@ jobs:
         env:
           EXPO_PUBLIC_WEB_QR_LAB: 'true'
         run: bun scripts/export-qr-lab.mjs ${{ runner.temp }}/phase1-verify-export
+      - name: Export Phase 3 Preview worker assets
+        if: startsWith(github.head_ref, 'pwa/phase-3-')
+        run: bun scripts/export-web-scanner-business.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Exported client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Diff check
@@ -71,7 +79,7 @@ jobs:
 
   preview:
     needs: verify
-    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-'))
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-') || startsWith(github.head_ref, 'pwa/phase-3-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -104,6 +112,7 @@ jobs:
         env:
           EXPO_PUBLIC_APP_ENV: preview
           EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+          EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'false'
         run: bunx expo export --platform web --max-workers 2
       - name: Check Preview client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs dist
@@ -115,6 +124,11 @@ jobs:
         run: |
           bun scripts/export-qr-lab.mjs dist
           node scripts/verify-client-secret-patterns.mjs dist
+      - name: Add Phase 3 assets with commands disabled pending isolated backend deployment
+        if: startsWith(github.head_ref, 'pwa/phase-3-')
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+        run: bun scripts/export-web-scanner-business.mjs dist
       - name: Deploy Preview only after verify
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
