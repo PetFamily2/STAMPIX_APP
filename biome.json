@@ -10,9 +10,11 @@
     "includes": [
       "**",
       "!!**/.expo",
+      "!!**/.expo-export-check",
       "!!**/convex/_generated",
       "!!**/components/__tests__",
-      "!!**/global.css"
+      "!!**/global.css",
+      "!!vendor/jsqr"
     ]
   },
   "formatter": {
