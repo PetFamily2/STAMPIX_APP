@@ -1,0 +1,10 @@
+{
+  "package": "jsqr",
+  "version": "1.4.0",
+  "source": "https://registry.npmjs.org/jsqr/-/jsqr-1.4.0.tgz",
+  "npmIntegrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==",
+  "sha256": "d959dcf4acb59d51dbb6d99d5271fdc05918735d43a5c2ca4a42d973c7f9fe30",
+  "license": "Apache-2.0",
+  "upstreamSha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+  "localPatch": "QR version 23 alignment center 74 -> 78; jsQR issue #251; all-version fixture regression"
+}

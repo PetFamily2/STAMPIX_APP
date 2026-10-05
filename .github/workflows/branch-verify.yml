@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - launch/trial-and-launch-hardening
+      - pwa/phase-1-role-routing-20261004
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -23,6 +24,7 @@ jobs:
       EXPO_PUBLIC_APP_ENV: preview
       EXPO_PUBLIC_CONVEX_URL_DEV: https://phase1-build-only.convex.cloud
       EXPO_PUBLIC_WEB_ROLE_ROUTING: 'false'
+      EXPO_PUBLIC_WEB_QR_LAB: 'false'
     steps:
       - name: Checkout exact PR revision
         uses: actions/checkout@v4
@@ -50,10 +52,18 @@ jobs:
       - name: Phase 1 boundaries and Native billing guard
         if: startsWith(github.head_ref, 'pwa/phase-1-')
         run: node scripts/verify-web-phase1-boundaries.mjs
+      - name: Phase 2 isolated scanner and Native contracts
+        if: startsWith(github.head_ref, 'pwa/phase-2-')
+        run: node scripts/verify-web-phase2-boundaries.mjs
       - name: Export Web, iOS and Android JavaScript with rollout enabled
         env:
           EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
         run: bunx expo export --platform all --output-dir ${{ runner.temp }}/phase1-verify-export --max-workers 2
+      - name: Export isolated scanner lab in Preview only
+        if: startsWith(github.head_ref, 'pwa/phase-2-')
+        env:
+          EXPO_PUBLIC_WEB_QR_LAB: 'true'
+        run: bun scripts/export-qr-lab.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Exported client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Diff check
@@ -61,7 +71,7 @@ jobs:
 
   preview:
     needs: verify
-    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'pwa/phase-1-')
+    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -97,6 +107,14 @@ jobs:
         run: bunx expo export --platform web --max-workers 2
       - name: Check Preview client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs dist
+      - name: Add isolated scanner lab for Phase 2 only
+        if: startsWith(github.head_ref, 'pwa/phase-2-')
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_WEB_QR_LAB: 'true'
+        run: |
+          bun scripts/export-qr-lab.mjs dist
+          node scripts/verify-client-secret-patterns.mjs dist
       - name: Deploy Preview only after verify
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
