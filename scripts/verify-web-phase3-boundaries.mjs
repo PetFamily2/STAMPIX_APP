@@ -46,8 +46,11 @@ const exact = new Set([
   'app/(web-staff)/staff/scanner-preview.tsx',
   'app/(web-staff)/staff/scanner-preview.web.tsx',
 ]);
-for (const file of files)
-  if (!exact.has(file)) throw new Error(`Outside Phase 3 boundary: ${file}`);
+for (const file of files) {
+  if (!exact.has(file)) {
+    throw new Error(`Outside Phase 3 boundary: ${file}`);
+  }
+}
 for (const file of [
   'components/QrScanner.tsx',
   'app/(authenticated)/(business)/scanner.tsx',
@@ -62,35 +65,40 @@ for (const file of [
   'lib/subscription/billingGuards.ts',
 ]) {
   const before = execFileSync('git', ['show', `${base}:${file}`]);
-  if (!before.equals(readFileSync(file)))
+  if (!before.equals(readFileSync(file))) {
     throw new Error(`Protected Native/schema/backend source changed: ${file}`);
+  }
 }
 const backend = readFileSync('convex/webScanner.ts', 'utf8');
 if (
   /\b(mutation|action|internalMutation|internalAction)\s*\(|ctx\.db\.(patch|insert|delete|replace)|ctx\.scheduler|\.collect\s*\(/.test(
     backend
   )
-)
+) {
   throw new Error('Only additive bounded read-only queries are approved');
+}
 if (
   !backend.includes('requireActorHasBusinessCapability') ||
   !backend.includes('returns:')
-)
+) {
   throw new Error('Query auth/validators missing');
+}
 for (const file of files) {
   if (
     !/^(lib\/web-scanner|components\/web-scanner|web\/scanner-business)\//.test(
       file
     )
-  )
+  ) {
     continue;
+  }
   const source = readFileSync(file, 'utf8');
   if (
     /useMutation|console\.|AsyncStorage|localStorage|CacheStorage|indexedDB|analytics|errorReporting|navigator\.serviceWorker|\.sync\.register|WebSocket/.test(
       source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
     )
-  )
+  ) {
     throw new Error(`Disallowed business scanner dependency: ${file}`);
+  }
 }
 const workflow = readFileSync('.github/workflows/branch-verify.yml', 'utf8');
 if (
@@ -98,29 +106,43 @@ if (
   !workflow.includes('needs: verify') ||
   !workflow.includes('cancel-in-progress: true') ||
   !workflow.includes("EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'false'")
-)
+) {
   throw new Error(
     'CI must be single verify then disabled-command Preview, no backend deployment'
   );
+}
 if (
-  !workflow.includes('github.run_attempt > 1') ||
-  !workflow.includes('node scripts/phase3c1-dev-audit.mjs --audit') ||
+  !workflow.includes('GITHUB_RUN_ATTEMPT') ||
+  !workflow.includes(
+    "github.head_ref != 'pwa/phase-3-scanner-commands-20261005'"
+  ) ||
+  workflow.includes('CONVEX_DEV_DEPLOY_KEY') ||
   workflow.includes('phase3c1-dev-audit.mjs --sync')
-)
+) {
   throw new Error(
-    'Regular CI may only perform read-only audit on manual re-run'
+    'Phase 3C-1B CI must skip hosting and keep DEV credentials in the manual audit only'
   );
+}
 const manual = readFileSync(
   '.github/workflows/business-web-preview-deploy.yml',
   'utf8'
 );
 if (
   !manual.includes('workflow_dispatch:') ||
-  /^\s+(push|pull_request|workflow_run|schedule):/m.test(manual)
-)
-  throw new Error(
-    'Backend synchronization must only use explicit manual dispatch'
-  );
+  /^\s+(push|pull_request|workflow_run|schedule):/m.test(manual) ||
+  !manual.includes('options: [audit]') ||
+  manual.includes('--sync')
+) {
+  throw new Error('Phase 3C-1B permits manual dry-run audit only');
+}
+const audit = readFileSync('scripts/phase3c1-dev-audit.mjs', 'utf8');
+if (
+  audit.includes('--sync') ||
+  audit.includes('dryRun: false') ||
+  !audit.includes('assertAuditRpc(path, body')
+) {
+  throw new Error('Audit must have no activation path and guard every RPC');
+}
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
   'Phase 3 boundaries pass: original Native/mutations/schema unchanged; backend deployment disabled.'

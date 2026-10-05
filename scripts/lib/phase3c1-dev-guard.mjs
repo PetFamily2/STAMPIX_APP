@@ -12,36 +12,66 @@ export const digest = (value) =>
     .update(JSON.stringify(value) ?? 'undefined')
     .digest('hex');
 
-export function assertRemoteRuntimeConfig(remote, request) {
-  const dependencies = (items) => {
-    if (
-      !Array.isArray(items) ||
-      items.some(
-        (d) => typeof d?.name !== 'string' || typeof d?.version !== 'string'
-      )
-    ) {
-      fail('NODE_DEPENDENCY_METADATA_UNAVAILABLE');
-    }
-    return items
-      .map(({ name, version }) => ({ name, version }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  };
-  if (remote.udfServerVersion !== request.appDefinition.udfServerVersion) {
-    fail('REMOTE_UDF_VERSION_DRIFT');
-  }
-  if (
-    digest(dependencies(remote.nodeDependencies)) !==
-    digest(dependencies(request.nodeDependencies))
-  ) {
-    fail('NODE_DEPENDENCY_DRIFT');
-  }
-  if ((remote.nodeVersion ?? null) !== (request.nodeVersion ?? null)) {
-    fail('NODE_RUNTIME_VERSION_DRIFT');
-  }
+/** Evidence assessment only: absent metadata must NOT prevent baseline dry-run. */
+export function assessRuntimeEvidence(remote, request) {
+  const exposed = Array.isArray(remote.nodeDependencies);
+  const validManifest = (items) =>
+    Array.isArray(items) &&
+    items.every(
+      (item) =>
+        item &&
+        typeof item.name === 'string' &&
+        typeof item.version === 'string' &&
+        Object.keys(item).every((field) => ['name', 'version'].includes(field))
+    ) &&
+    new Set(items.map((item) => item.name)).size === items.length;
+  const manifestMatches =
+    exposed &&
+    validManifest(remote.nodeDependencies) &&
+    validManifest(request.nodeDependencies)
+      ? digest(remote.nodeDependencies) === digest(request.nodeDependencies)
+      : null;
+  const nodeVersionExposed = Object.hasOwn(remote, 'nodeVersion');
+  const nodeVersionMatches = nodeVersionExposed
+    ? (remote.nodeVersion ?? null) === (request.nodeVersion ?? null)
+    : null;
+  const udfVersionMatches =
+    remote.udfServerVersion === request.appDefinition?.udfServerVersion;
   return {
-    dependenciesHash: digest(dependencies(remote.nodeDependencies)),
-    nodeVersion: remote.nodeVersion ?? null,
+    udfVersionMatches,
+    nodeVersionExposed,
+    nodeVersionMatches,
+    externalDependencyManifestExposed: exposed,
+    externalDependencyManifestMatches: manifestMatches,
+    // The pinned finishPushDiff contract has no Node dependency/runtime diff.
+    pinnedFinishDiffCoversNodeConfiguration: false,
+    sufficient:
+      udfVersionMatches &&
+      nodeVersionMatches === true &&
+      manifestMatches === true,
+    missing: [
+      ...(!exposed
+        ? ['REMOTE_EXTERNAL_DEPENDENCY_MANIFEST_OR_AUTHORITATIVE_DIFF']
+        : []),
+      ...(!nodeVersionExposed ? ['REMOTE_NODE_VERSION'] : []),
+    ],
   };
+}
+
+/** There is no activation RPC path in Phase 3C-1B, even if a caller asks for it. */
+export function assertAuditRpc(path, body, key) {
+  const allowed = [
+    '/api/get_config_hashes',
+    '/api/deploy2/start_push',
+    '/api/deploy2/wait_for_schema',
+    '/api/deploy2/finish_push',
+  ];
+  if (!allowed.includes(path) || body?.adminKey !== key || !key) {
+    fail('AUDIT_RPC_NOT_ALLOWED');
+  }
+  if (path !== '/api/get_config_hashes' && body.dryRun !== true) {
+    fail('AUDIT_REQUIRES_DRY_RUN_TRUE');
+  }
 }
 
 export function canonicalDeploymentUrl(raw) {
@@ -161,6 +191,11 @@ export function assertEffectiveDiff(diff, { allowQuery = false } = {}) {
   ) {
     fail('UNKNOWN_COMPONENT_DIFF');
   }
+  // Convex's dry-run finish can return a default empty payload without diffing
+  // existing code/config at all. Empty maps are NOT proof of zero changes.
+  if (!Object.hasOwn(diff.componentDiffs, '')) {
+    fail('DRY_RUN_EFFECTIVE_DIFF_UNAVAILABLE');
+  }
   const additions = [];
   for (const [component, item] of Object.entries(diff.componentDiffs)) {
     if (
@@ -230,6 +265,92 @@ export function assertEffectiveDiff(diff, { allowQuery = false } = {}) {
     schemaChanges: 0,
     authChanges: 0,
     indexChanges: 0,
+    cronChanges: 0,
+    componentTopologyChanges: 0,
+    udfConfigChanges: 0,
+  };
+}
+
+/** Compare the entire local pinned request, permitting only the new root module. */
+export function assertCandidateBundle(baseline, candidate) {
+  const fields = [
+    'adminKey',
+    'dryRun',
+    'functions',
+    'appDefinition',
+    'componentDefinitions',
+    'nodeDependencies',
+  ];
+  for (const request of [baseline, candidate]) {
+    if (
+      !exactKeys(request, fields, ['nodeVersion']) ||
+      request.dryRun !== true
+    ) {
+      fail('UNKNOWN_PUSH_REQUEST_SHAPE');
+    }
+    if (
+      !exactKeys(request.appDefinition, [
+        'definition',
+        'dependencies',
+        'schema',
+        'functions',
+        'udfServerVersion',
+      ])
+    ) {
+      fail('UNKNOWN_APP_DEFINITION_SHAPE');
+    }
+    if (
+      !Array.isArray(request.componentDefinitions) ||
+      !Array.isArray(request.nodeDependencies)
+    ) {
+      fail('UNKNOWN_PUSH_REQUEST_SHAPE');
+    }
+  }
+  const modules = (request) => {
+    const items = request.appDefinition.functions;
+    if (!Array.isArray(items)) {
+      fail('UNKNOWN_BUNDLE_MODULES');
+    }
+    const result = new Map();
+    for (const item of items) {
+      if (
+        !exactKeys(item, ['path', 'source', 'environment'], ['sourceMap']) ||
+        !safeModule(item.path) ||
+        typeof item.source !== 'string' ||
+        !['node', 'isolate'].includes(item.environment) ||
+        result.has(item.path)
+      ) {
+        fail('UNKNOWN_BUNDLE_MODULES');
+      }
+      result.set(item.path, item);
+    }
+    return result;
+  };
+  const oldModules = modules(baseline);
+  const newModules = modules(candidate);
+  if (
+    oldModules.has('webScanner.js') ||
+    newModules.size !== oldModules.size + 1 ||
+    newModules.get('webScanner.js')?.environment !== 'isolate'
+  ) {
+    fail('LOCAL_QUERY_ADDITION_NOT_EXACT');
+  }
+  for (const [path, value] of oldModules) {
+    if (digest(value) !== digest(newModules.get(path))) {
+      fail('LOCAL_EXISTING_MODULE_CHANGED');
+    }
+  }
+  const withoutModules = (request) => ({
+    ...request,
+    appDefinition: { ...request.appDefinition, functions: [] },
+  });
+  if (digest(withoutModules(baseline)) !== digest(withoutModules(candidate))) {
+    fail('LOCAL_COMPONENT_OR_RUNTIME_CONFIG_CHANGED');
+  }
+  return {
+    added: ['webScanner.js'],
+    existingModulesChanged: 0,
+    configurationChanged: false,
   };
 }
 

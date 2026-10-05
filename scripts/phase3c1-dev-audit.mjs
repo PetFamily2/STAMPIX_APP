@@ -11,12 +11,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import { brotliCompressSync } from 'node:zlib';
-import { ConvexHttpClient } from 'convex/browser';
-import { makeFunctionReference } from 'convex/server';
 import {
-  APPROVED_DEV,
+  assertAuditRpc,
+  assertCandidateBundle,
   assertEffectiveDiff,
-  assertRemoteRuntimeConfig,
+  assessRuntimeEvidence,
   digest,
   PHASE3_BASE,
   safeRemoteModules,
@@ -25,10 +24,14 @@ import {
 } from './lib/phase3c1-dev-guard.mjs';
 
 const report = {
-  phase: '3C-1',
+  phase: '3C-1B',
   status: 'BLOCKED',
   synced: false,
   commandsEnabled: false,
+  baselineProven: false,
+  candidateProven: false,
+  safeToApproveSync: false,
+  candidateDryRun: { status: 'NOT_RUN' },
 };
 const mode = process.argv[2];
 const git = (...args) =>
@@ -40,8 +43,11 @@ const fail = (code) => {
   throw new Error(code);
 };
 let privateRequest;
+let auditTarget;
+let initialFingerprint;
 
 async function rpc(target, path, body, compressed = false) {
+  assertAuditRpc(path, body, process.env.CONVEX_DEPLOY_KEY);
   const text = JSON.stringify(body);
   const res = await fetch(`${target.url}${path}`, {
     method: 'POST',
@@ -112,97 +118,83 @@ function bundleRequest(target, dir, name) {
   return request;
 }
 
-async function stage(target, request, dryRun) {
-  if (
-    !dryRun &&
-    (mode !== '--sync' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch')
-  ) {
-    fail('SYNC_REQUIRES_EXPLICIT_WORKFLOW_DISPATCH');
-  }
+async function stage(target, request, progress) {
   const start = await rpc(
     target,
     '/api/deploy2/start_push',
-    { ...request, dryRun },
+    { ...request, dryRun: true },
     true
   );
+  progress.startPushComplete = true;
+  const knownStartFields = [
+    'environmentVariables',
+    'externalDepsId',
+    'componentDefinitionPackages',
+    'appAuth',
+    'analysis',
+    'app',
+    'schemaChange',
+  ];
+  if (
+    !start ||
+    typeof start !== 'object' ||
+    knownStartFields.some((field) => !Object.hasOwn(start, field)) ||
+    Object.keys(start).some((field) => !knownStartFields.includes(field))
+  ) {
+    fail('UNKNOWN_START_PUSH_RESPONSE');
+  }
   // Response includes private deployment environment variables: memory only, never report or log.
   for (let attempt = 0; attempt < 60; attempt++) {
     const status = await rpc(target, '/api/deploy2/wait_for_schema', {
       adminKey: request.adminKey,
       schemaChange: start.schemaChange,
       timeoutMs: 1000,
-      dryRun,
+      dryRun: true,
     });
     if (status.type === 'complete') {
+      if (Object.keys(status).some((field) => field !== 'type')) {
+        fail('UNKNOWN_SCHEMA_STATUS');
+      }
+      progress.schemaValidationComplete = true;
       return start;
     }
     if (status.type !== 'inProgress') {
       fail('SCHEMA_VALIDATION_OR_CONCURRENT_PUSH_FAILED');
     }
+    if (
+      Object.keys(status).some(
+        (field) => !['type', 'components'].includes(field)
+      )
+    ) {
+      fail('UNKNOWN_SCHEMA_STATUS');
+    }
   }
   fail('SCHEMA_VALIDATION_TIMEOUT');
 }
 
-async function finish(target, request, start, dryRun) {
+async function finish(target, request, start) {
   return rpc(
     target,
     '/api/deploy2/finish_push',
-    { adminKey: request.adminKey, startPush: start, dryRun },
+    { adminKey: request.adminKey, startPush: start, dryRun: true },
     true
   );
 }
 
-async function dryDiff(target, request) {
-  const start = await stage(target, request, true);
-  return finish(target, request, start, true);
-}
-
-async function remoteContract(target) {
-  try {
-    const client = new ConvexHttpClient(target.url, {
-      logger: false,
-      fetch: (input, init) =>
-        fetch(input, {
-          ...init,
-          redirect: 'error',
-          cache: 'no-store',
-          signal: AbortSignal.timeout(15000),
-        }),
-    });
-    client.setAdminAuth(process.env.CONVEX_DEPLOY_KEY);
-    const spec = await client.query(
-      makeFunctionReference('_system/cli/modules:apiSpec'),
-      {}
-    );
-    if (!Array.isArray(spec)) {
-      fail('FUNCTION_SPEC_SHAPE');
-    }
-    return {
-      status: 'READ',
-      functions: spec
-        .filter((f) => f.functionType !== 'HttpAction')
-        .map((f) => ({
-          identifier: f.identifier,
-          type: f.functionType,
-          visibility: f.visibility,
-          validatorsHash: digest({ args: f.args, returns: f.returns }),
-        }))
-        .filter(
-          (f) =>
-            typeof f.identifier === 'string' &&
-            /^[a-zA-Z0-9_./:-]+$/.test(f.identifier)
-        ),
-    };
-  } catch {
-    // A deployment-only key may not allow system queries. Never broaden it automatically.
-    return { status: 'NOT_AVAILABLE_WITH_EXISTING_KEY', functions: [] };
-  }
+async function dryDiff(target, request, progress) {
+  progress.status = 'RUNNING';
+  progress.dryRun = true;
+  const start = await stage(target, request, progress);
+  const diff = await finish(target, request, start);
+  progress.finishPushComplete = true;
+  progress.status = 'PROTOCOL_COMPLETED';
+  return diff;
 }
 
 try {
   report.stage = 'LOCAL_SOURCE_CONTRACT';
-  if (!['--audit', '--sync'].includes(mode)) {
-    fail('INVALID_MODE');
+  if (mode !== '--audit') {
+    fail('PHASE3C1B_AUDIT_ONLY');
   }
   if (
     process.env.GITHUB_ACTIONS !== 'true' ||
@@ -219,12 +211,6 @@ try {
     )
   ) {
     fail('AUDIT_REQUIRES_MANUAL_ACTION');
-  }
-  if (
-    mode === '--sync' &&
-    process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch'
-  ) {
-    fail('SYNC_REQUIRES_EXPLICIT_WORKFLOW_DISPATCH');
   }
   const head = git('rev-parse', 'HEAD');
   if (head !== process.env.VERIFIED_HEAD_SHA || !/^[a-f0-9]{40}$/.test(head)) {
@@ -257,6 +243,7 @@ try {
   const pulled = parseEnv(readFileSync('.env.preview-pulled', 'utf8'));
   report.stage = 'DEV_IDENTITY';
   const target = verifyDevTarget(pulled, process.env.CONVEX_DEPLOY_KEY);
+  auditTarget = target;
   Object.assign(report, {
     revision: head,
     target: target.slug,
@@ -270,16 +257,16 @@ try {
   });
   report.stage = 'REMOTE_METADATA';
   const before = await config(target);
+  initialFingerprint = digest(before);
   report.remoteBaseline = {
     modules: safeRemoteModules(before),
     udfServerVersion: before.udfServerVersion,
-    fingerprint: digest(before),
-    nodeDependenciesHash: digest(before.nodeDependencies),
+    fingerprint: initialFingerprint,
+    nodeDependenciesExposed: Object.hasOwn(before, 'nodeDependencies'),
     nodeVersion:
       typeof before.nodeVersion === 'string' && /^\d+$/.test(before.nodeVersion)
         ? before.nodeVersion
         : null,
-    functionContract: await remoteContract(target),
   };
   report.stage = 'BASELINE_BUNDLE';
   const temp = mkdtempSync(join(tmpdir(), 'stampaix-phase3c1-'));
@@ -293,12 +280,15 @@ try {
   } finally {
     renameSync(savedScanner, scannerFile);
   }
-  report.remoteRuntimeConfig = assertRemoteRuntimeConfig(
-    before,
-    baselineRequest
-  );
+  // Record missing Node evidence without preventing the baseline dry-run.
+  report.runtimeEvidence = assessRuntimeEvidence(before, baselineRequest);
   report.stage = 'BASELINE_REMOTE_DIFF';
-  const baselineDiff = await dryDiff(target, baselineRequest);
+  report.baselineDryRun = { status: 'NOT_RUN' };
+  const baselineDiff = await dryDiff(
+    target,
+    baselineRequest,
+    report.baselineDryRun
+  );
   report.baselineDiffHash = digest(baselineDiff);
   report.baselineDiffSummary = summarizeEffectiveDiff(baselineDiff);
   try {
@@ -307,68 +297,25 @@ try {
     report.baselineGuard = error.message;
     fail('REMOTE_BASELINE_DRIFT_OR_UNPROVEN');
   }
+  if (!report.runtimeEvidence.sufficient) {
+    fail('NODE_RUNTIME_EFFECTIVE_DIFF_UNPROVEN');
+  }
+  report.baselineProven = true;
   report.stage = 'CANDIDATE_BUNDLE';
   const candidate = bundleRequest(target, temp, 'candidate');
-  for (const field of [
-    'componentDefinitions',
-    'nodeDependencies',
-    'nodeVersion',
-    'functions',
-  ]) {
-    if (digest(candidate[field]) !== digest(baselineRequest[field])) {
-      fail('LOCAL_COMPONENT_OR_NODE_CONFIG_CHANGED');
-    }
-  }
-  for (const field of [
-    'definition',
-    'dependencies',
-    'schema',
-    'udfServerVersion',
-  ]) {
-    if (
-      digest(candidate.appDefinition[field]) !==
-      digest(baselineRequest.appDefinition[field])
-    ) {
-      fail('LOCAL_APP_CONFIG_CHANGED');
-    }
-  }
+  report.localCandidateDiff = assertCandidateBundle(baselineRequest, candidate);
   report.stage = 'CANDIDATE_REMOTE_DIFF';
-  report.effectiveBackendDiff = assertEffectiveDiff(
-    await dryDiff(target, candidate),
-    { allowQuery: true }
+  const candidateDiff = await dryDiff(
+    target,
+    candidate,
+    report.candidateDryRun
   );
-  if (digest(await config(target)) !== report.remoteBaseline.fingerprint) {
-    fail('REMOTE_CHANGED_DURING_AUDIT');
-  }
+  report.candidateDiffSummary = summarizeEffectiveDiff(candidateDiff);
+  report.effectiveBackendDiff = assertEffectiveDiff(candidateDiff, {
+    allowQuery: true,
+  });
+  report.candidateProven = true;
   report.status = 'PREFLIGHT_PASSED';
-  if (mode === '--sync') {
-    // Revalidate exact EAS/key identity and remote baseline immediately before the real start/finish.
-    verifyDevTarget(
-      parseEnv(readFileSync('.env.preview-pulled', 'utf8')),
-      process.env.CONVEX_DEPLOY_KEY
-    );
-    if (target.slug !== APPROVED_DEV) {
-      fail('UNAPPROVED_DEV_TARGET');
-    }
-    const start = await stage(target, candidate, false);
-    if (digest(await config(target)) !== report.remoteBaseline.fingerprint) {
-      fail('REMOTE_CHANGED_BEFORE_FINISH');
-    }
-    const deployed = await finish(target, candidate, start, false);
-    report.synced = true;
-    report.deployedDiff = assertEffectiveDiff(deployed, { allowQuery: true });
-    const post = await config(target);
-    const modules = safeRemoteModules(post);
-    if (!modules.some((m) => m.path === 'webScanner.js')) {
-      fail('QUERY_MODULE_NOT_PRESENT_AFTER_SYNC');
-    }
-    report.postDeploy = {
-      fingerprint: digest(post),
-      queryModulePresent: true,
-      functionContract: await remoteContract(target),
-    };
-    report.status = 'SYNC_VERIFIED';
-  }
 } catch (error) {
   // Only our own fixed code reaches logs. Never print RPC/CLI exception text or stack.
   report.error = /^[A-Z0-9_]+$/.test(error?.message ?? '')
@@ -376,6 +323,29 @@ try {
     : 'PRIVATE_OPERATION_FAILED';
   process.exitCode = 1;
 } finally {
+  // Read again even when a guard blocks candidate creation. No activation/retry.
+  if (auditTarget && initialFingerprint) {
+    try {
+      const after = await config(auditTarget);
+      report.finalFingerprint = digest(after);
+      report.remoteFingerprintUnchanged =
+        report.finalFingerprint === initialFingerprint;
+      if (!report.remoteFingerprintUnchanged) {
+        report.status = 'BLOCKED';
+        report.error = 'REMOTE_CHANGED_DURING_AUDIT';
+        process.exitCode = 1;
+      }
+    } catch {
+      report.remoteFingerprintUnchanged = null;
+      report.finalFingerprintCheck = 'UNAVAILABLE';
+      report.status = 'BLOCKED';
+      report.error ??= 'FINAL_FINGERPRINT_UNPROVEN';
+      process.exitCode = 1;
+    }
+  }
+  report.safeToApproveSync =
+    report.status === 'PREFLIGHT_PASSED' &&
+    report.remoteFingerprintUnchanged === true;
   if (privateRequest) {
     try {
       unlinkSync(privateRequest);
@@ -384,6 +354,6 @@ try {
   writeFileSync('phase3c1-audit.json', JSON.stringify(report, null, 2));
   // biome-ignore lint/suspicious/noConsole: fixed statuses and verified deployment slug only.
   console.log(
-    `Phase 3C-1: ${report.status}; target=${report.target ?? 'unresolved'}; synced=${report.synced}; error=${report.error ?? 'none'}`
+    `Phase 3C-1B: ${report.status}; target=${report.target ?? 'unresolved'}; synced=${report.synced}; error=${report.error ?? 'none'}`
   );
 }

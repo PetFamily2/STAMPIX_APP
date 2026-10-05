@@ -79,7 +79,8 @@ jobs:
 
   preview:
     needs: verify
-    if: github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-') || startsWith(github.head_ref, 'pwa/phase-3-'))
+    # Phase 3C-1B authorizes audit only, including no new EAS Hosting deployment.
+    if: github.head_ref != 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-') || startsWith(github.head_ref, 'pwa/phase-3-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -109,21 +110,6 @@ jobs:
         run: |
           eas env:pull preview --path .env.preview-pulled --non-interactive > eas-env-pull.log 2>&1
           node scripts/prepare-web-preview-env.mjs
-      # A targeted manual re-run can inspect DEV. A push/PR's first run NEVER syncs Convex.
-      - name: Phase 3C-1 manual read-only DEV preflight
-        if: github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.run_attempt > 1
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
-          VERIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/phase3c1-dev-audit.mjs --audit
-      - name: Upload only sanitized Phase 3C-1 audit evidence
-        if: always() && github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.run_attempt > 1
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase3c1-dev-audit
-          path: phase3c1-audit.json
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Export actual Web Preview
         env:
           EXPO_PUBLIC_APP_ENV: preview

@@ -7,12 +7,16 @@ Target: `pwa/phase-2-qr-foundation-20261005`. No main merge or Production deploy
 ## Status and deployment boundary
 
 Web implementation and automated verification are available for review.
-The additive query has NOT been deployed: this execution context has no
-identified, authenticated Convex deployment whose approved DEV/Preview
-isolation can be established. An EAS environment named Preview or a public
-flag saying verified-dev does not establish that fact. No deployment key was
-used and no Convex sync/deploy is added to CI. Web Preview deploys with
-`EXPO_PUBLIC_WEB_SCANNER_COMMANDS=false`.
+The additive query has NOT been deployed. Phase 3C-1 established authenticated
+Actions access to the exact approved `dev:utmost-fennec-280` using the existing
+repository secret and EAS Preview. Its remote-baseline proof stopped because
+the selected metadata endpoint does not expose Node dependencies. That was
+missing evidence, not demonstrated drift or a proven permission failure.
+Phase 3C-1B is audit-only: sync/activation is removed from the runner and manual
+workflow, and Hosting deployment is skipped for this exact Phase 3 branch.
+The existing Preview remains commands-disabled. The new audit runs baseline
+dry-run before evaluating the missing Node evidence, and fails closed on an
+uninformative default finish diff. No Production/Native change is authorized.
 
 Before activating a test flow, independently verify the approved Convex
 deployment is DEV/Preview (not Production), its URL differs from Production,
@@ -383,3 +387,54 @@ owner-initiated dispatch and all deployment guards. The first audit attempt at
 history checkout fixes that local ancestor check. Node runtime and dependency
 metadata are also compared explicitly, since the component diff alone does not
 cover every external Node configuration field.
+
+## Phase 3C-1B — audit only, no deployment
+
+This section supersedes the previous Phase 3C-1 sync path and metadata gate.
+`--audit` is the runner's only accepted mode. Every deployment-protocol RPC
+requires `dryRun: true`; only `get_config_hashes` and the three pinned dry-run
+protocol endpoints are permitted. HTTP mutations/actions, legacy push and
+activation requests are rejected before fetch. The manual workflow exposes
+only audit mode. No permission or repository secret is changed. Regular verify
+continues once per PR revision with cancel-in-progress; this exact Phase 3 branch
+skips EAS Hosting, so this audit phase creates no new Preview deployment.
+
+Identity guards remain: exact approved DEV, known Production rejection, exact
+DEV key prefix, verified/current SHA, Phase 2 ancestry, only the additive
+webScanner query in the local backend delta, and pinned Convex 1.31.5.
+`get_config_hashes` supplies the module/version snapshot and initial fingerprint.
+Missing Node dependencies are recorded, never used to stop before baseline.
+
+The baseline request excludes `convex/webScanner.ts`, with restoration in
+finally. The complete start/wait/finish dry-run is attempted against the approved
+DEV. The finish diff must be a recognized shape with an explicit root component
+diff; every existing module/schema/index/auth/cron/topology/UDF change is blocked.
+Default empty component maps are explicitly **not proof of zero changes**.
+
+Pinned SDK `src/cli/lib/deployApi/finishPush.ts` defines module, schema, index,
+cron, auth, component and UDF config diffs, but no external Node dependency or
+Node version diff. In the official backend source inspected on 2026-10-05,
+`crates/local_backend/src/deploy_config2.rs::finish_push_internal` returns
+`FinishPushDiff::default()` in dry-run rather than running the effective finish
+calculation. Its normal component finish response also omits the separate
+NodeVersionDiff stored in deployment audit logs. Therefore zero counters in a
+default finish response cannot establish that existing code/config matches.
+Current official source explains the risk; the authenticated Actions response
+must establish what this particular cloud deployment actually returns.
+
+Only after a meaningful zero baseline diff **and** sufficient Node/runtime
+evidence may the candidate be built. The entire local request is compared:
+nodeDependencies, nodeVersion, component definitions/topology, app definition,
+schema, functions directory, UDF version and every existing module/source map.
+Exactly one isolate root module `webScanner.js` may be added. Unknown request
+fields, removals, replacements or configuration changes stop the audit. The
+candidate dry-run must then show only that same addition. Local equality alone
+is not proof of the current remote configuration.
+
+A final `get_config_hashes` read checks the remote fingerprint even after a
+failed baseline guard, including when the candidate is intentionally not built.
+Failed final reads or changed fingerprints remain blocked. The sanitized report
+distinguishes protocol completion, observed diff fields and proven effective
+baseline; it never claims PREFLIGHT_PASSED from missing/default evidence.
+No payload/environment/key/QR/customer data is logged or uploaded. The query,
+Native, schema and existing mutations are unchanged in this phase.

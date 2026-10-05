@@ -1,4 +1,4 @@
-name: Phase 3C-1 manual Convex DEV
+name: Phase 3C-1B manual DEV dry-run audit
 
 # Reuses the historically registered workflow path. No push or PR trigger.
 on:
@@ -6,7 +6,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [audit, sync]
+        options: [audit]
         default: audit
         required: true
       expected_sha:
@@ -22,14 +22,14 @@ permissions:
   contents: read
   actions: read
 
-# Never cancel a backend write halfway through. The regular verify retains cancel-in-progress.
+# Serialize staged dry-run audits. There is no activation path in this phase.
 concurrency:
   group: phase3c1-utmost-fennec-280
   cancel-in-progress: false
 
 jobs:
   guarded-dev:
-    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && (github.actor == 'PetFamily2' || (github.actor == 'github-actions[bot]' && inputs.mode == 'audit')) && inputs.confirm_target == 'dev:utmost-fennec-280'
+    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]') && inputs.mode == 'audit' && inputs.confirm_target == 'dev:utmost-fennec-280'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -80,7 +80,7 @@ jobs:
         run: |
           eas env:pull preview --path .env.preview-pulled --non-interactive > eas-env-pull.log 2>&1
           node scripts/prepare-web-preview-env.mjs
-      - name: Revalidate exact DEV key, remote baseline and whole configuration diff
+      - name: Audit-only DEV baseline and candidate dry-run
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
           VERIFIED_HEAD_SHA: ${{ inputs.expected_sha }}
@@ -88,8 +88,6 @@ jobs:
         run: |
           if [ "$PHASE3C1_MODE" = "audit" ]; then
             node scripts/phase3c1-dev-audit.mjs --audit
-          elif [ "$PHASE3C1_MODE" = "sync" ]; then
-            node scripts/phase3c1-dev-audit.mjs --sync
           else
             exit 1
           fi
