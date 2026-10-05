@@ -200,3 +200,127 @@ Finish Phase 3 first: identify/verify approved isolated DEV + test actor/busines
 deploy the query there, activate allowlisted Preview, and test real authenticated
 HTTP flows and unknown-result recovery. Collect DEVICE VERIFY afterward.
 Do not approve real-user Web scanning or start Phase 4 on this evidence alone.
+
+## Phase 3B verification — 2026-10-05
+
+Phase 3B continues from `93b4414f37ef1a037a586b1482848cf3ecd4ebd2`.
+Only verification tests and this documentation change. Native, Web runtime,
+the additive query, existing mutations, schema, rollout flags and CI remain
+unchanged. No Phase 4 work is authorized or started.
+
+### Deployment and live-test blocker
+
+This session has no Convex deployment key, selected deployment, CLI login or
+EAS login/token. The available Convex connector provides setup/scaling guidance,
+not deployment introspection or execution. The authorized dashboard was opened;
+secure authentication was offered, but subsequent verification at the Convex
+origin still showed its sign-in screen. No approved deployment identity, type,
+URL, Production comparator or authenticated test actor/business was established.
+No deploy, Convex sync, live mutation or commands-enabled Preview was attempted.
+
+Automatic review rejected an attempted post-handoff observation on a Google
+account origin: the handoff did not establish provider authorization. The
+provider was not inspected or bypassed. Verification navigated directly to the
+authorized Convex origin and confirmed the sign-in wall. This is an access
+blocker, not evidence that any known deployment is Production or DEV.
+
+Convex deployment is project-wide (functions, indexes and schema), not a CLI
+single-query upload. Before a future push, prove the exact DEV/Preview target
+and scoped credential, fetch the remote code baseline, compare it with this
+checkout, and review the dry-run/configuration diff. Proceed only if the sole
+effective backend change is `webScanner:getOutcome`, with unchanged schema,
+indexes, auth, components and existing mutation modules. A different remote
+baseline must not be overwritten under the query-only authorization.
+See https://docs.convex.dev/cli/reference/deploy and the actual pinned CLI.
+
+### Reproducible Native verdict
+
+Run `bun test lib/__tests__/webScannerCommands.test.js -t "Phase 3B"`.
+Seventeen added checks execute the pinned SDK RequestManager and original
+transaction-generation helpers. For each of resolveScan, commitStamp,
+commitRedeem, commitCompletedStampRedeem, undoLastScannerAction and
+referrals.redeemReferralBenefit, they prove both NotSent retention and
+Requested-without-acknowledgment replay. The original requestId/arguments are
+retained, with one in-flight mutation, not a new SDK transaction per retry.
+
+The tests also prove generation invalidation can suppress the eventual result
+without cancelling the SDK request, acknowledged success is retained until its
+server timestamp is reflected, and definitive rejection removes the request.
+Source checks bind all six hooks to React mutations and show Staff reuses the
+business scanner. These are executable SDK/protocol reproductions, not physical
+Native or live Convex reproductions. Synthetic acknowledgments do not prove a
+server commit. Account changes do not establish an auth bypass; server auth and
+session-actor checks remain authoritative.
+
+Verdict: high-severity delayed-first-execution risk remains in Native. Recommend
+a separately approved scanner-only online HTTP adapter with UNKNOWN/reconciliation,
+one pending command and scope invalidation, retaining the camera and server
+idempotency. Do not merely add navigator.onLine: it cannot remove an already
+queued React mutation. Do not close the app-wide Convex client to cancel one
+scanner write. No Native fix was implemented.
+
+### Refresh: minimal recommendation, not implemented
+
+For positive reconciliation after reload, a new schema is not initially needed.
+Before sending, atomically persist a versioned **read-only reconciliation
+descriptor** containing operation kind, opaque session/event/reward lookup IDs,
+actor/business/program/runtime/device and uncertainty. Never persist QR, auth,
+mutation arguments, a submit instruction or a serialized request. A restored
+descriptor must feed only queries; it must never reconstruct or dispatch a
+write or enable retry-after-reload. Validate it, bind scope on the server and
+keep UNKNOWN locked until the action-specific existing receipt is confirmed.
+
+Existing scanSession.result, continuation receipt and event reversal provide
+durable positive proofs. Lost resolve can use the existing exact-runtime
+discovery. Missing/ambiguous proof still stays UNKNOWN; a descriptor alone
+cannot establish durable failure or fix eventless referrals. A dedicated durable
+command-receipt design may be needed for fully automatic terminal recovery,
+but a new receipt table/optional schema fields are not prerequisites for this
+minimal positive-recovery option. No descriptor or schema change was made.
+
+Rollback: preserve the existing opaque uncertainty checkpoint; unknown/new
+descriptor versions fail closed and are never deleted to silently unlock.
+Old clients continue using the old conservative recovery. No stored write can
+replay because the restored descriptor has no write path.
+
+### Referral: minimal recommendation, not implemented
+
+Existing executable tests in `convex/__tests__/referralRedemptionSemantics.test.js`
+confirm active-program event creation, inactive/missing-program redemption
+without an event, repeated active redemption reusing one event, and eventless
+repeat rejection. The reconciliation query cannot infer runtime/device identity
+from redeemedAt/redeemedBy alone. This is not fixable by broadening the query to
+accept any redeemed reward as same-operation success.
+
+The smallest preventive fix is to reject an unavailable/missing/mismatched
+target program before changing a granted reward, and atomically create the
+canonical event and redeemed reward together for permitted new redemptions.
+It needs no schema addition, but changes an existing shared mutation's behavior
+(including Native). Phase 3B authorizes neither that mutation change nor Native
+behavior changes, so it is only proposed. Keep legacy eventless rows UNKNOWN
+for authorized manual review; never fabricate historical proof or reopen a
+redeemed reward automatically.
+
+If product semantics must continue permitting eventless redemption, durable
+scoped operation evidence is required. A no-schema candidate is an optional
+scanSessionId argument, validated against actor/business/customer/runtime/device,
+using the already-defined reward.redemptionScanSessionId and session.result
+(v.any) to store a versioned immutable referral receipt in the same transaction.
+This still requires an explicitly approved mutation/query contract change and
+design review; legacy calls remain supported and cannot be retroactively proven.
+Alternatively use an optional reward receipt field or dedicated receipt table;
+that is an additive schema proposal and implementation must stop for approval.
+
+Rollback/backward compatibility: do not delete receipts or rewrite old rows.
+Deploy tolerant receipt readers first, then optional writers; old argument
+shapes remain valid. Rolling writers back means old eventless behavior can
+reappear, so keep Web disabled or require review rather than claiming safety.
+No retroactive receipt, migration, mutation or schema implementation occurred.
+
+### A/B recommendation
+
+A. Phase 3 Web is **not closed**: no approved target, query deployment or live
+authenticated all-action/network E2E evidence. Commands remain disabled.
+B. Recommend a separate approved Native reconnect fix before Phase 4; its
+delayed-execution risk is verified at SDK level and the fallback remains affected.
+Do not approve Phase 4 or real-user Web rollout on the current evidence.
