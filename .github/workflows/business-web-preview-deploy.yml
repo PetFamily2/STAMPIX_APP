@@ -1,0 +1,103 @@
+name: Phase 3C-1 manual Convex DEV
+
+# Reuses the historically registered workflow path. No push or PR trigger.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [audit, sync]
+        default: audit
+        required: true
+      expected_sha:
+        description: Exact already-verified Phase 3 revision
+        type: string
+        required: true
+      confirm_target:
+        description: Must equal dev:utmost-fennec-280
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+# Never cancel a backend write halfway through. The regular verify retains cancel-in-progress.
+concurrency:
+  group: phase3c1-utmost-fennec-280
+  cancel-in-progress: false
+
+jobs:
+  guarded-dev:
+    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && github.actor == 'PetFamily2' && inputs.confirm_target == 'dev:utmost-fennec-280'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Require exact current branch and previously successful verify job
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        with:
+          script: |
+            const sha = process.env.EXPECTED_SHA;
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid expected revision');
+            const { data: branch } = await github.rest.repos.getBranch({
+              ...context.repo, branch: 'pwa/phase-3-scanner-commands-20261005'
+            });
+            if (branch.commit.sha !== sha || context.sha !== sha) throw new Error('Stale revision');
+            const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+              ...context.repo, head_sha: sha, event: 'pull_request', per_page: 20
+            });
+            let verified = false;
+            for (const run of data.workflow_runs.filter(r => r.path === '.github/workflows/branch-verify.yml')) {
+              const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+                ...context.repo, run_id: run.id
+              });
+              if (jobs.jobs.some(j => j.name === 'verify' && j.conclusion === 'success')) verified = true;
+            }
+            if (!verified) throw new Error('No successful verify job for this exact revision');
+      - name: Checkout verified revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - name: Install pinned dependencies
+        run: bun install --frozen-lockfile
+      - name: Setup EAS for Preview environment only
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Pull Preview environment without printing its values
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas env:pull preview --path .env.preview-pulled --non-interactive > eas-env-pull.log 2>&1
+          node scripts/prepare-web-preview-env.mjs
+      - name: Revalidate exact DEV key, remote baseline and whole configuration diff
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
+          VERIFIED_HEAD_SHA: ${{ inputs.expected_sha }}
+          PHASE3C1_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$PHASE3C1_MODE" = "audit" ]; then
+            node scripts/phase3c1-dev-audit.mjs --audit
+          elif [ "$PHASE3C1_MODE" = "sync" ]; then
+            node scripts/phase3c1-dev-audit.mjs --sync
+          else
+            exit 1
+          fi
+      - name: Upload sanitized evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3c1-dev-audit
+          path: phase3c1-audit.json
+          if-no-files-found: ignore
+          retention-days: 7

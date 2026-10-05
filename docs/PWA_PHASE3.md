@@ -324,3 +324,52 @@ authenticated all-action/network E2E evidence. Commands remain disabled.
 B. Recommend a separate approved Native reconnect fix before Phase 4; its
 delayed-execution risk is verified at SDK level and the fallback remains affected.
 Do not approve Phase 4 or real-user Web rollout on the current evidence.
+
+
+## Phase 3C-1 — guarded GitHub Actions DEV audit
+
+Authorized scope: use the existing `CONVEX_DEV_DEPLOY_KEY` repository secret only
+inside Actions, with EAS Preview public DEV configuration. No local credential
+transfer, Native fix, Production deploy, main merge, schema or mutation changes.
+
+The known dashboard Development deployment is `utmost-fennec-280`; the separate
+Production deployment is `aware-llama-850`. `dev/brq-prts` is its dashboard
+reference. Hostname alone does not establish deployment kind: the exact existing
+key must match `dev:utmost-fennec-280|…`, with a nonempty secret suffix. Neither
+the key nor any environment/CLI RPC response is printed.
+
+`business-web-preview-deploy.yml` now contains only `workflow_dispatch`. It
+requires the exact current Phase 3 branch/SHA, existing successful verify job,
+repository owner, and explicit known DEV confirmation. It does not create a
+duplicate verify or automatic push/PR backend deployment. Because no workflow
+currently exists on main, the first remote audit can also be invoked by a
+targeted manual rerun of the existing Preview job. That path permits **audit
+only**, never sync. Initial PR runs still build commands-disabled Preview.
+
+Preflight fails closed for malformed/ambiguous URLs, paths, query strings,
+userinfo, ports, other deployment targets, Production equality, stale selectors
+and any key mismatch. It reads remote module/config hashes and attempts the
+read-only function-spec contract using the existing key. If its least-privilege
+permissions do not allow that query, it records the limitation without expanding
+access.
+
+Before sync, the pinned 1.31.5 CLI privately bundles a baseline with the sole new
+query excluded. A complete dry-run finish diff must show zero existing backend,
+schema, index, auth, cron, runtime or component changes. The candidate must add
+exactly `webScanner.js`, with no removal or replacement, while component, Node
+and app configuration bundles remain identical. Unknown RPC fields fail closed.
+Any drift stops the phase; no baseline is overwritten to force deployment.
+
+The pinned CLI's `start_push`/`wait_for_schema`/`finish_push` protocol is used with
+`dryRun: true` for the audit. These requests evaluate staged configuration without
+activating it; they are not business writes. Actual activation is allowed only
+for `workflow_dispatch` sync mode, after rechecking target/key and remote hashes
+immediately before activation. Private start-push payloads contain credentials
+and deployment environment values: they are memory-only; the temporary generated
+request is kept in a 0700 directory, chmod 0600, then deleted. The only uploaded
+artifact is sanitized status, identifiers, hashes and contract metadata.
+
+Commands stay false until the guarded query deployment and approved synthetic
+test actor/business access are established. Live E2E, network fault injection and
+physical device verification must never be inferred from passing unit tests or
+from successful configuration inspection. Phase 3C-2 / Phase 4 have not started.

@@ -17,6 +17,10 @@ const files = new Set(
 );
 const exact = new Set([
   '.github/workflows/branch-verify.yml',
+  '.github/workflows/business-web-preview-deploy.yml',
+  'scripts/phase3c1-dev-audit.mjs',
+  'scripts/lib/phase3c1-dev-guard.mjs',
+  'lib/__tests__/phase3c1DevGuard.test.js',
   'convex/webScanner.ts',
   'convex/__tests__/scannerFlow.test.js',
   'convex/__tests__/helpers/scannerFixtures.js',
@@ -90,13 +94,32 @@ for (const file of files) {
 }
 const workflow = readFileSync('.github/workflows/branch-verify.yml', 'utf8');
 if (
-  /^\s+push:|convex\s+(?:dev|deploy)|CONVEX_DEPLOY_KEY/m.test(workflow) ||
+  /^\s+push:|convex\s+(?:dev|deploy)/m.test(workflow) ||
   !workflow.includes('needs: verify') ||
   !workflow.includes('cancel-in-progress: true') ||
   !workflow.includes("EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'false'")
 )
   throw new Error(
     'CI must be single verify then disabled-command Preview, no backend deployment'
+  );
+if (
+  !workflow.includes('github.run_attempt > 1') ||
+  !workflow.includes('node scripts/phase3c1-dev-audit.mjs --audit') ||
+  workflow.includes('phase3c1-dev-audit.mjs --sync')
+)
+  throw new Error(
+    'Regular CI may only perform read-only audit on manual re-run'
+  );
+const manual = readFileSync(
+  '.github/workflows/business-web-preview-deploy.yml',
+  'utf8'
+);
+if (
+  !manual.includes('workflow_dispatch:') ||
+  /^\s+(push|pull_request|workflow_run|schedule):/m.test(manual)
+)
+  throw new Error(
+    'Backend synchronization must only use explicit manual dispatch'
   );
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
