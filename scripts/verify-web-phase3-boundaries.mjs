@@ -119,7 +119,8 @@ if (
   );
 }
 if (
-  !workflow.includes('GITHUB_RUN_ATTEMPT') ||
+  workflow.includes('phase3c1-manual-dispatch') ||
+  workflow.includes('createWorkflowDispatch') ||
   !workflow.includes(
     "github.head_ref != 'pwa/phase-3-scanner-commands-20261005'"
   ) ||
