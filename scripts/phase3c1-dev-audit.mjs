@@ -16,6 +16,7 @@ import { makeFunctionReference } from 'convex/server';
 import {
   APPROVED_DEV,
   assertEffectiveDiff,
+  assertRemoteRuntimeConfig,
   digest,
   PHASE3_BASE,
   safeRemoteModules,
@@ -199,6 +200,7 @@ async function remoteContract(target) {
 }
 
 try {
+  report.stage = 'LOCAL_SOURCE_CONTRACT';
   if (!['--audit', '--sync'].includes(mode)) {
     fail('INVALID_MODE');
   }
@@ -253,6 +255,7 @@ try {
     fail('CLI_VERSION_MISMATCH');
   }
   const pulled = parseEnv(readFileSync('.env.preview-pulled', 'utf8'));
+  report.stage = 'DEV_IDENTITY';
   const target = verifyDevTarget(pulled, process.env.CONVEX_DEPLOY_KEY);
   Object.assign(report, {
     revision: head,
@@ -265,13 +268,20 @@ try {
     base: PHASE3_BASE,
     localBackendDelta: ['webScanner:getOutcome'],
   });
+  report.stage = 'REMOTE_METADATA';
   const before = await config(target);
   report.remoteBaseline = {
     modules: safeRemoteModules(before),
     udfServerVersion: before.udfServerVersion,
     fingerprint: digest(before),
+    nodeDependenciesHash: digest(before.nodeDependencies),
+    nodeVersion:
+      typeof before.nodeVersion === 'string' && /^\d+$/.test(before.nodeVersion)
+        ? before.nodeVersion
+        : null,
     functionContract: await remoteContract(target),
   };
+  report.stage = 'BASELINE_BUNDLE';
   const temp = mkdtempSync(join(tmpdir(), 'stampaix-phase3c1-'));
   chmodSync(temp, 0o700);
   const scannerFile = 'convex/webScanner.ts';
@@ -283,6 +293,11 @@ try {
   } finally {
     renameSync(savedScanner, scannerFile);
   }
+  report.remoteRuntimeConfig = assertRemoteRuntimeConfig(
+    before,
+    baselineRequest
+  );
+  report.stage = 'BASELINE_REMOTE_DIFF';
   const baselineDiff = await dryDiff(target, baselineRequest);
   report.baselineDiffHash = digest(baselineDiff);
   report.baselineDiffSummary = summarizeEffectiveDiff(baselineDiff);
@@ -292,6 +307,7 @@ try {
     report.baselineGuard = error.message;
     fail('REMOTE_BASELINE_DRIFT_OR_UNPROVEN');
   }
+  report.stage = 'CANDIDATE_BUNDLE';
   const candidate = bundleRequest(target, temp, 'candidate');
   for (const field of [
     'componentDefinitions',
@@ -316,6 +332,7 @@ try {
       fail('LOCAL_APP_CONFIG_CHANGED');
     }
   }
+  report.stage = 'CANDIDATE_REMOTE_DIFF';
   report.effectiveBackendDiff = assertEffectiveDiff(
     await dryDiff(target, candidate),
     { allowQuery: true }

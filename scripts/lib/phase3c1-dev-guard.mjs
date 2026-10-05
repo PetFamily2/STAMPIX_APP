@@ -12,6 +12,38 @@ export const digest = (value) =>
     .update(JSON.stringify(value) ?? 'undefined')
     .digest('hex');
 
+export function assertRemoteRuntimeConfig(remote, request) {
+  const dependencies = (items) => {
+    if (
+      !Array.isArray(items) ||
+      items.some(
+        (d) => typeof d?.name !== 'string' || typeof d?.version !== 'string'
+      )
+    ) {
+      fail('NODE_DEPENDENCY_METADATA_UNAVAILABLE');
+    }
+    return items
+      .map(({ name, version }) => ({ name, version }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+  if (remote.udfServerVersion !== request.appDefinition.udfServerVersion) {
+    fail('REMOTE_UDF_VERSION_DRIFT');
+  }
+  if (
+    digest(dependencies(remote.nodeDependencies)) !==
+    digest(dependencies(request.nodeDependencies))
+  ) {
+    fail('NODE_DEPENDENCY_DRIFT');
+  }
+  if ((remote.nodeVersion ?? null) !== (request.nodeVersion ?? null)) {
+    fail('NODE_RUNTIME_VERSION_DRIFT');
+  }
+  return {
+    dependenciesHash: digest(dependencies(remote.nodeDependencies)),
+    nodeVersion: remote.nodeVersion ?? null,
+  };
+}
+
 export function canonicalDeploymentUrl(raw) {
   if (
     typeof raw !== 'string' ||

@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   guarded-dev:
-    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && github.actor == 'PetFamily2' && inputs.confirm_target == 'dev:utmost-fennec-280'
+    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && (github.actor == 'PetFamily2' || (github.actor == 'github-actions[bot]' && inputs.mode == 'audit')) && inputs.confirm_target == 'dev:utmost-fennec-280'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

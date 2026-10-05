@@ -373,3 +373,13 @@ Commands stay false until the guarded query deployment and approved synthetic
 test actor/business access are established. Live E2E, network fault injection and
 physical device verification must never be inferred from passing unit tests or
 from successful configuration inspection. Phase 3C-2 / Phase 4 have not started.
+
+The Actions-only manual audit launcher has no Convex/Expo credentials. Its first
+PR run is a no-op; a targeted owner-initiated rerun can dispatch the historically
+registered workflow against the exact verified/current branch revision. The bot
+is allowed only to dispatch audit mode, never sync. Real sync still requires an
+owner-initiated dispatch and all deployment guards. The first audit attempt at
+79065a0 stopped before remote access because Preview checkout was shallow. Full
+history checkout fixes that local ancestor check. Node runtime and dependency
+metadata are also compared explicitly, since the component diff alone does not
+cover every external Node configuration field.
