@@ -11,7 +11,7 @@ import path from 'node:path';
 const output = path.resolve(process.argv[2] || 'dist');
 const assets = path.join(output, 'scanner-business-assets');
 if (existsSync(assets)) rmSync(assets, { recursive: true });
-// Assets alone authorize nothing; commands remain off unless a verified DEV and test identities are configured.
+// Assets alone authorize nothing; commands remain off unless the verified isolated Preview and test identities are configured.
 if (process.env.EXPO_PUBLIC_APP_ENV !== 'preview') process.exit(0);
 const decoder = 'vendor/jsqr/jsqr-1.4.0.js';
 const provenance = JSON.parse(

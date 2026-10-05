@@ -438,3 +438,21 @@ distinguishes protocol completion, observed diff fields and proven effective
 baseline; it never claims PREFLIGHT_PASSED from missing/default evidence.
 No payload/environment/key/QR/customer data is logged or uploaded. The query,
 Native, schema and existing mutations are unchanged in this phase.
+
+## Phase 3C-1C — dedicated synthetic Preview
+
+The manual workflow at `business-web-preview-deploy.yml` supersedes the DEV audit as the execution path for this phase. Normal PR verification does not create a backend. An owner-initiated targeted rerun of the dispatch controller launches this workflow with the exact successfully verified branch SHA and fixed identifier `stampaix-pwa-phase3-e2e`.
+
+Only `CONVEX_PREVIEW_DEPLOY_KEY` is available to the backend step. Before creation, the pinned Convex 1.31.5 CLI must recognize it as a project Preview key in a private dry-run. Creation uses the same `claim_preview_deployment` request as that CLI's `deploy --preview-create`. The separate `deployment/authorize_preview` response must prove type `preview`, exact deployment name, canonical HTTPS cloud URL, and matching concrete `preview:<deployment>|…` key. Both historical DEV and Production slugs are explicitly denied. If claiming the fixed identifier does not produce empty application tables, execution stops before signup or seed; it never imports or deletes source deployment data.
+
+The claimed Preview's custom environment is cleared and replaced with fresh RSA auth keys, QR signing keys, and fixture guards. No external provider credentials are copied. A private `git archive` checkout of the verified SHA receives an internal-only `phase3Fixtures.ts`, materialized from `scripts/phase3-preview/fixtures.ts.template`. Ordinary backend source and Production builds never include this module. Schema, scanner/referral mutations, auth providers, billing source and Native remain byte-identical to Phase 2.
+
+Three synthetic accounts use the existing Password provider for real signup and sign-in; scanner commands never use administrator auth or identity impersonation. The admin client only configures this isolated Preview and operates its internal fixture functions. Fixtures use reserved `example.invalid` addresses, two synthetic businesses, one active program and membership, and a synthetic referral benefit. Temporary state arrangement is confined to these fixtures, so independent tests avoid the legitimate 30-second stamp rate limit.
+
+The live harness uses `WebScannerCommands` and `createHttpTransport` over actual Convex HTTP. Fault injection drops replies after real server commits, interrupts the client while a real request is in flight, or drops a request before server delivery. It asserts UNKNOWN_OUTCOME, no success before canonical reconciliation, read-only reconnect, one original session for explicit retry, duplicate suppression, actual server/session expiration, and actor/business isolation. This is command-layer network testing, not physical radio loss or a mobile camera/browser test.
+
+The corresponding EAS Hosting export receives only explicit public Preview selectors. Commands require Preview app environment, exact isolated URL, `verified-preview`, and actor/business test allowlists. No persistent EAS environment or Production configuration is changed. Hosting happens only after live E2E succeeds. Evidence contains fixed result codes, counts, SHA and public Preview URLs; no QR, password, token, deploy key or customer record.
+
+Recreation: manually dispatch the same workflow with the latest verified SHA and fixed identifier. Convex 1.31.5's Preview claim is used; application emptiness is checked on every run. If the service does not recreate an empty deployment, stop and delete only this named synthetic Preview through the supported management interface before rerunning. Do not silently reseed a populated Preview.
+
+Physical Safari iPhone, Chrome Android and Samsung Internet checks remain DEVICE VERIFY. Refresh during a write still retains uncertainty without durable operation identity, and a referral redeemed without an event still cannot be confirmed by the current read-only contract. This phase does not implement the separate schema/receipt design, change Native reconnect behavior, or claim Production readiness.

@@ -9,6 +9,7 @@ export function scannerPreviewEnabled(input: {
   backend?: string;
   url?: string;
   prodUrl?: string;
+  previewUrl?: string;
 }) {
   const listed = (list: string | undefined, id: string | undefined) =>
     !!id &&
@@ -21,8 +22,12 @@ export function scannerPreviewEnabled(input: {
     input.platform === 'web' &&
     input.environment === 'preview' &&
     input.flag === 'true' &&
-    input.backend === 'verified-dev' &&
+    input.backend === 'verified-preview' &&
     !!input.url &&
+    input.url === input.previewUrl &&
+    !/^https:\/\/(utmost-fennec-280|aware-llama-850)\.convex\.cloud$/.test(
+      input.url
+    ) &&
     input.url !== input.prodUrl &&
     /^https:\/\/[a-z0-9-]+\.convex\.cloud$/.test(input.url) &&
     listed(input.actors, input.actorId) &&

@@ -19,6 +19,13 @@ const exact = new Set([
   '.github/workflows/branch-verify.yml',
   '.github/workflows/business-web-preview-deploy.yml',
   'scripts/phase3c1-dev-audit.mjs',
+  'scripts/phase3c1-preview-e2e.mjs',
+  'scripts/lib/phase3c1-preview-guard.mjs',
+  'scripts/phase3-preview/fixtures.ts.template',
+  'scripts/phase3-preview/live-e2e.mjs',
+  'scripts/phase3-preview/verify-export.mjs',
+  'scripts/phase3-preview/report-hosting.mjs',
+  'lib/__tests__/phase3c1PreviewGuard.test.js',
   'scripts/lib/phase3c1-dev-guard.mjs',
   'lib/__tests__/phase3c1DevGuard.test.js',
   'convex/webScanner.ts',
@@ -120,7 +127,7 @@ if (
   workflow.includes('phase3c1-dev-audit.mjs --sync')
 ) {
   throw new Error(
-    'Phase 3C-1B CI must skip hosting and keep DEV credentials in the manual audit only'
+    'Phase 3C-1C ordinary CI must not deploy backend or automatic hosting'
   );
 }
 const manual = readFileSync(
@@ -130,10 +137,18 @@ const manual = readFileSync(
 if (
   !manual.includes('workflow_dispatch:') ||
   /^\s+(push|pull_request|workflow_run|schedule):/m.test(manual) ||
-  !manual.includes('options: [audit]') ||
-  manual.includes('--sync')
+  !manual.includes('options: [e2e]') ||
+  !manual.includes('secrets.CONVEX_PREVIEW_DEPLOY_KEY') ||
+  manual.includes('CONVEX_DEV_DEPLOY_KEY') ||
+  manual.includes('utmost-fennec-280') ||
+  manual.includes('aware-llama-850') ||
+  !manual.includes('successful verify job') ||
+  !manual.includes('confirm_target') ||
+  manual.includes('--prod')
 ) {
-  throw new Error('Phase 3C-1B permits manual dry-run audit only');
+  throw new Error(
+    'Phase 3C-1C permits exact-SHA manually guarded isolated Preview only'
+  );
 }
 const audit = readFileSync('scripts/phase3c1-dev-audit.mjs', 'utf8');
 if (
@@ -145,5 +160,23 @@ if (
 }
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
-  'Phase 3 boundaries pass: original Native/mutations/schema unchanged; backend deployment disabled.'
+  'Phase 3 boundaries pass: original Native/mutations/schema unchanged; backend creation restricted to manually verified isolated Preview.'
 );
+
+const seedTemplate = readFileSync(
+  'scripts/phase3-preview/fixtures.ts.template',
+  'utf8'
+);
+if (
+  seedTemplate.includes('export const seed = mutation(') ||
+  !seedTemplate.includes('internalMutation') ||
+  !seedTemplate.includes('PHASE3_FIXTURE_SECRET') ||
+  !seedTemplate.includes('CONVEX_CLOUD_URL') ||
+  execFileSync('git', ['ls-files', 'convex/*phase3Fixtures*'], {
+    encoding: 'utf8',
+  }).trim()
+) {
+  throw new Error(
+    'Synthetic seed must exist only in isolated Preview staging, never regular backend'
+  );
+}

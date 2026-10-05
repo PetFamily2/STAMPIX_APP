@@ -79,7 +79,7 @@ jobs:
 
   preview:
     needs: verify
-    # Phase 3C-1B authorizes audit only, including no new EAS Hosting deployment.
+    # Phase 3 hosting occurs only in the manually dispatched isolated-backend E2E workflow.
     if: github.head_ref != 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-') || startsWith(github.head_ref, 'pwa/phase-3-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -151,21 +151,21 @@ jobs:
       contents: read
       actions: write
     steps:
-      - name: Manual audit launcher only — initial PR runs do nothing
+      - name: Manual Preview E2E launcher only — initial PR runs do nothing
         uses: actions/github-script@v7
         with:
           script: |
             if (Number(process.env.GITHUB_RUN_ATTEMPT) === 1) {
-              core.info('Phase 3C-1 audit requires a targeted manual rerun of this job. No backend request made.');
+              core.info('Phase 3C-1C Preview E2E requires a targeted manual rerun of this job. No backend request made.');
               return;
             }
-            if (!(Number(process.env.GITHUB_RUN_ATTEMPT) > 1) || process.env.GITHUB_TRIGGERING_ACTOR !== 'PetFamily2') throw new Error('Repository owner must initiate manual audit');
+            if (!(Number(process.env.GITHUB_RUN_ATTEMPT) > 1) || process.env.GITHUB_TRIGGERING_ACTOR !== 'PetFamily2') throw new Error('Repository owner must initiate manual Preview E2E');
             const sha = context.payload.pull_request.head.sha;
             const branchName = 'pwa/phase-3-scanner-commands-20261005';
             const { data: branch } = await github.rest.repos.getBranch({ ...context.repo, branch: branchName });
             if (branch.commit.sha !== sha) throw new Error('Stale manually selected run');
             await github.rest.actions.createWorkflowDispatch({
               ...context.repo, workflow_id: 374058049, ref: branchName,
-              inputs: { mode: 'audit', expected_sha: sha, confirm_target: 'dev:utmost-fennec-280' }
+              inputs: { mode: 'e2e', expected_sha: sha, confirm_target: 'stampaix-pwa-phase3-e2e' }
             });
-            core.info('Dispatched exact-revision read-only Phase 3C-1 DEV audit.');
+            core.info('Dispatched exact-revision Phase 3C-1C isolated Preview E2E.');

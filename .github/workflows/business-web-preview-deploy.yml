@@ -1,4 +1,4 @@
-name: Phase 3C-1B manual DEV dry-run audit
+name: Phase 3C-1C isolated Preview E2E
 
 # Reuses the historically registered workflow path. No push or PR trigger.
 on:
@@ -6,15 +6,15 @@ on:
     inputs:
       mode:
         type: choice
-        options: [audit]
-        default: audit
+        options: [e2e]
+        default: e2e
         required: true
       expected_sha:
         description: Exact already-verified Phase 3 revision
         type: string
         required: true
       confirm_target:
-        description: Must equal dev:utmost-fennec-280
+        description: Must equal stampaix-pwa-phase3-e2e
         type: string
         required: true
 
@@ -22,16 +22,16 @@ permissions:
   contents: read
   actions: read
 
-# Serialize staged dry-run audits. There is no activation path in this phase.
+# Serialize manual destructive recreation of this dedicated synthetic Preview only.
 concurrency:
-  group: phase3c1-utmost-fennec-280
+  group: phase3c1-stampaix-pwa-phase3-e2e
   cancel-in-progress: false
 
 jobs:
-  guarded-dev:
-    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]') && inputs.mode == 'audit' && inputs.confirm_target == 'dev:utmost-fennec-280'
+  isolated-preview:
+    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.ref == 'refs/heads/pwa/phase-3-scanner-commands-20261005' && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]') && inputs.mode == 'e2e' && inputs.confirm_target == 'stampaix-pwa-phase3-e2e'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Require exact current branch and previously successful verify job
         uses: actions/github-script@v7
@@ -74,28 +74,37 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Pull Preview environment without printing its values
+      - name: Pull Preview environment privately
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas env:pull preview --path .env.preview-pulled --non-interactive > eas-env-pull.log 2>&1
-          node scripts/prepare-web-preview-env.mjs
-      - name: Audit-only DEV baseline and candidate dry-run
+        run: eas env:pull preview --path .env.preview-pulled --non-interactive > "${{ runner.temp }}/eas-env-pull.log" 2>&1
+      - name: Create verified isolated Preview, seed synthetic actors and run live E2E
         env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           VERIFIED_HEAD_SHA: ${{ inputs.expected_sha }}
-          PHASE3C1_MODE: ${{ inputs.mode }}
+          PHASE3_PREVIEW_NAME: ${{ inputs.confirm_target }}
+        run: bun scripts/phase3c1-preview-e2e.mjs
+      - name: Export exact corresponding Preview client
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          if [ "$PHASE3C1_MODE" = "audit" ]; then
-            node scripts/phase3c1-dev-audit.mjs --audit
-          else
-            exit 1
-          fi
+          bunx expo export --platform web --max-workers 2 > "${{ runner.temp }}/phase3-web-export.log" 2>&1
+          bun scripts/export-web-scanner-business.mjs dist
+          node scripts/verify-client-secret-patterns.mjs dist
+          node scripts/phase3-preview/verify-export.mjs dist
+      - name: Deploy EAS Hosting Preview only after live E2E
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          VERIFIED_HEAD_SHA: ${{ inputs.expected_sha }}
+        run: |
+          eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > eas-deploy.json 2> "${{ runner.temp }}/phase3-eas-deploy.log"
+          node scripts/phase3-preview/report-hosting.mjs
       - name: Upload sanitized evidence only
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase3c1-dev-audit
-          path: phase3c1-audit.json
+          name: phase3c1-preview-evidence
+          path: phase3c1-preview-evidence.json
           if-no-files-found: ignore
           retention-days: 7

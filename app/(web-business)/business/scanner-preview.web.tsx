@@ -27,6 +27,7 @@ export default function ScannerPreviewRoute() {
       actorId: user?._id,
       businessId: activeBusinessId ?? undefined,
       url,
+      previewUrl: process.env.EXPO_PUBLIC_WEB_SCANNER_PREVIEW_URL,
       prodUrl: process.env.EXPO_PUBLIC_CONVEX_URL_PROD,
     });
   const programs = useQuery(
