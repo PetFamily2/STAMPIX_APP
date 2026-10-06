@@ -51,7 +51,11 @@ export function requirePreviewTarget(claim, authorized) {
     authorized?.deploymentType !== 'preview' ||
     authorized.deploymentName !== name ||
     authorized.url !== claim.instanceUrl ||
-    authorized.adminKey !== claim.adminKey ||
+    typeof authorized.adminKey !== 'string' ||
+    !authorized.adminKey.startsWith(`preview:${name}|`) ||
+    authorized.adminKey.split('|').length !== 2 ||
+    !authorized.adminKey.split('|')[1] ||
+    /\s/.test(authorized.adminKey) ||
     typeof claim.adminKey !== 'string' ||
     !claim.adminKey.startsWith(`preview:${name}|`) ||
     claim.adminKey.split('|').length !== 2 ||

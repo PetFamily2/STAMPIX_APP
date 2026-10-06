@@ -158,6 +158,29 @@ try {
     projectSelection,
     previewName: PREVIEW_NAME,
   });
+  report.targetDiagnostics = {
+    claimFields: Object.keys(claim ?? {}).filter((k) =>
+      /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)
+    ),
+    authorizationFields: Object.keys(authorized ?? {}).filter((k) =>
+      /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)
+    ),
+    claimNameCanonical:
+      typeof claim?.deploymentName === 'string' &&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(claim.deploymentName),
+    claimUrlMatchesName:
+      claim?.instanceUrl === `https://${claim?.deploymentName}.convex.cloud`,
+    authorizationTypePreview: authorized?.deploymentType === 'preview',
+    authorizationNameMatches:
+      authorized?.deploymentName === claim?.deploymentName,
+    authorizationUrlMatches: authorized?.url === claim?.instanceUrl,
+    claimKeyPreviewScope:
+      typeof claim?.adminKey === 'string' &&
+      claim.adminKey.startsWith(`preview:${claim?.deploymentName}|`),
+    authorizationKeyPreviewScope:
+      typeof authorized?.adminKey === 'string' &&
+      authorized.adminKey.startsWith(`preview:${claim?.deploymentName}|`),
+  };
   target = requirePreviewTarget(claim, authorized);
   report.deploymentName = target.name;
   report.backendUrl = target.url;
