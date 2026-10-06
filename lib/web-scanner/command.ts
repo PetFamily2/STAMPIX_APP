@@ -60,6 +60,7 @@ export class ServerRejected extends Error {
   }
 }
 export type Transport = {
+  supportsOperationReceipt?: boolean;
   probe(scope: Scope): Promise<Outcome>;
   send(
     operation: Operation,
@@ -79,22 +80,35 @@ export class WebScannerCommands {
   private busy = false;
   private blocked = false;
   private generation = 0;
-  private pending: { operation: Operation; args: Record<string, any> } | null =
-    null;
+  private pending: {
+    operation: Operation;
+    args: Record<string, any>;
+    restored?: boolean;
+  } | null = null;
   constructor(
     private readonly deps: {
       scope: Scope;
       transport: Transport;
       online: () => boolean;
       current: () => boolean;
-      checkpoint: (uncertain: boolean) => void;
+      checkpoint: (
+        uncertain: boolean,
+        receipt?: { operation: Operation; operationId: string }
+      ) => void;
       onState: (state: CommandState) => void;
       now?: () => number;
       recovery?: boolean;
+      recoveredOperation?: { operation: Operation; operationId: string };
     }
   ) {
     if (deps.recovery) {
       this.blocked = true;
+      if (deps.recoveredOperation)
+        this.pending = {
+          operation: deps.recoveredOperation.operation,
+          args: { clientOperationId: deps.recoveredOperation.operationId },
+          restored: true,
+        };
       this.state = {
         ...initialCommand,
         phase: 'UNKNOWN_OUTCOME',
@@ -192,7 +206,10 @@ export class WebScannerCommands {
             }
           : { scanSessionId: session.scanSessionId };
     if (operation === 'referral' && !id) return;
-    await this.execute(operation, args);
+    await this.execute(operation, {
+      ...args,
+      scanSessionId: session.scanSessionId,
+    });
   }
   private async execute(operation: Operation, args: Record<string, any>) {
     if (!this.valid()) {
@@ -214,11 +231,18 @@ export class WebScannerCommands {
         throw new NotSent('STALE_OR_OFFLINE');
       if (!this.matches(probe) || probe.status !== 'AUTHORIZED')
         throw new NotSent('PROGRAM_OR_ACTOR_UNAVAILABLE');
-      this.deps.checkpoint(true); // only an uncertainty bit + runtime identity; never arguments.
+      args.clientOperationId = crypto.randomUUID();
+      this.deps.checkpoint(true, {
+        operation,
+        operationId: args.clientOperationId,
+      }); // Receipt identity only, never executable arguments.
       this.blocked = true;
       this.pending = {
         operation,
-        args: operation === 'resolve' ? {} : { ...args },
+        args:
+          operation === 'resolve'
+            ? { clientOperationId: args.clientOperationId }
+            : { ...args },
       };
       sent = true;
       const result = await this.deps.transport.send(
@@ -284,6 +308,10 @@ export class WebScannerCommands {
       return;
     }
     this.clearUncertainty();
+    if (typeof outcome.receipt.commandFailureCode === 'string') {
+      this.emit('ERROR', { code: outcome.receipt.commandFailureCode });
+      return;
+    }
     if (operation === 'resolve')
       this.emit('READY_FOR_ACTION', { session: outcome.receipt });
     else this.emit('SUCCESS', { receipt: outcome.receipt, code: null });
@@ -319,9 +347,11 @@ export class WebScannerCommands {
       this.busy ||
       !this.blocked ||
       !pending ||
+      pending.restored ||
       !this.valid() ||
       pending.operation === 'resolve' ||
-      pending.operation === 'referral' ||
+      (pending.operation === 'referral' &&
+        !this.deps.transport.supportsOperationReceipt) ||
       this.state.phase !== 'UNKNOWN_OUTCOME'
     )
       return;

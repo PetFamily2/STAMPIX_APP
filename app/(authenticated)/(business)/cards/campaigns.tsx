@@ -4,7 +4,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -30,11 +30,13 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -184,7 +186,10 @@ export function CampaignsHubContent() {
       return;
     }
     router.push({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: String(campaignId),
         businessId: String(activeBusinessId),
@@ -267,7 +272,10 @@ export function CampaignsHubContent() {
       return;
     }
     router.push({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: 'new',
         businessId: String(activeBusinessId),
@@ -307,7 +315,12 @@ export function CampaignsHubContent() {
           : 'הקמפיין שמור אך אינו פעיל'
       }
       onPress={() =>
-        router.push('/(authenticated)/(business)/settings-business-referrals')
+        router.push(
+          businessHref(
+            Platform.OS,
+            '/(authenticated)/(business)/settings-business-referrals'
+          )
+        )
       }
     />
   );

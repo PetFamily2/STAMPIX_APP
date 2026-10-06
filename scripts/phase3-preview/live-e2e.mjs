@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
+import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter.ts';
 import { WebScannerCommands } from '../../lib/web-scanner/command.ts';
-import { createHttpTransport } from '../../lib/web-scanner/httpTransport.ts';
 
 const ref = (path) => makeFunctionReference(path);
 const requireThat = (value, code) => {
@@ -66,6 +66,7 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
     },
     { skipQueue: true }
   );
+  report.seedCompleted = true;
   report.fixtures = {
     syntheticOnly: true,
     accounts: 3,
@@ -100,7 +101,8 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       current = true,
       token = actors.staff.token,
       fault = null,
-      checkpoint = false;
+      checkpoint = false,
+      receiptIdentity = null;
     let writes = 0;
     const states = [];
     const scope = {
@@ -110,7 +112,7 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       runtimeId: randomUUID(),
       deviceId: randomUUID(),
     };
-    const transport = createHttpTransport({
+    const transport = createWebReceiptAdapter({
       url: target.url,
       token: () => token,
       valid: () => current,
@@ -155,8 +157,9 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       transport,
       online: () => online,
       current: () => current,
-      checkpoint: (value) => {
+      checkpoint: (value, identity) => {
         checkpoint = value;
+        if (identity) receiptIdentity = identity;
       },
       onState: (state) => {
         states.push(state.phase);
@@ -181,6 +184,7 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       },
       writes: () => writes,
       uncertain: () => checkpoint,
+      receiptIdentity: () => receiptIdentity,
     };
   };
   const decode = async (f) => {
@@ -332,6 +336,59 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
     'OFFLINE_RESOLVE_SENT'
   );
   record('network', 'offline-before-resolve');
+  stage('REFRESH_AFTER_LOST_WRITE_RESPONSE');
+  f = await ready();
+  f.fault('response-lost');
+  await f.engine.action('stamp');
+  const recoveredOperation = f.receiptIdentity();
+  requireThat(
+    recoveredOperation?.operation === 'stamp',
+    'DURABLE_OPERATION_ID_MISSING'
+  );
+  f.engine.invalidate();
+  f.online(true);
+  const refreshed = new WebScannerCommands({
+    scope: f.scope,
+    transport: f.transport,
+    online: () => true,
+    current: () => true,
+    checkpoint: () => {},
+    onState: () => {},
+    recovery: true,
+    recoveredOperation,
+  });
+  const refreshWrites = f.writes();
+  await refreshed.reconcile();
+  requireThat(
+    refreshed.state.phase === 'SUCCESS' &&
+      f.writes() === refreshWrites &&
+      (await evidence(f.scope)).events === 1,
+    'REFRESH_RECEIPT_RECOVERY_FAILED'
+  );
+  record('network', 'refresh-during-write', {
+    sameOperationReceipt: true,
+    automaticWrite: false,
+  });
+
+  stage('EVENTLESS_REFERRAL_RESPONSE_LOST');
+  f = await ready();
+  await f.engine.action('stamp');
+  await arrange(1, { eventlessReward: true });
+  f.fault('response-lost');
+  await f.engine.action('referral', fixtures.rewardId);
+  await reconnect(f);
+  requireThat(
+    f.engine.state.receipt?.status === 'redeemed' &&
+      (await evidence(f.scope)).rewardStatus === 'redeemed' &&
+      (await evidence(f.scope)).events === 1,
+    'EVENTLESS_REFERRAL_RECEIPT_FAILED'
+  );
+  report.fixtures.additionalInactivePrograms = 1;
+  record('network', 'eventless-referral', {
+    durableReceipt: true,
+    lostResponseReconciled: true,
+  });
+
   stage('DISCONNECT_BEFORE_COMMIT');
   f = await ready();
   const before = f.writes();
@@ -590,10 +647,8 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
     'Samsung Internet',
     'physical camera decoding',
   ];
-  report.remaining = [
-    'Refresh during write retains uncertainty but cannot recover operation identity',
-    'Referral redemption without an event cannot be canonically reconciled',
-  ];
+  report.remaining = [];
+  report.durableReceiptRecovery = true;
   // Public IDs are only rollout selectors, never credentials. No passwords or JWTs leave this function.
   return {
     actorIds: [actors.owner.id, actors.staff.id],

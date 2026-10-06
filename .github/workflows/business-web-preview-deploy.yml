@@ -91,6 +91,7 @@ jobs:
         run: |
           bunx expo export --platform web --max-workers 2 > "${{ runner.temp }}/phase3-web-export.log" 2>&1
           bun scripts/export-web-scanner-business.mjs dist
+          node scripts/finalize-web-pwa-export.mjs dist
           node scripts/verify-client-secret-patterns.mjs dist
           node scripts/phase3-preview/verify-export.mjs dist
       - name: Deploy EAS Hosting Preview only after live E2E

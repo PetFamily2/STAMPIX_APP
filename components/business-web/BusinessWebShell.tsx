@@ -13,11 +13,8 @@ import {
   UserRoundCog,
   Users,
   X,
-  } from 'lucide-react-native';
-import { type ReactNode,
-  useEffect,
-  useMemo,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -25,9 +22,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';
 import {
@@ -113,6 +109,34 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     icon: ReceiptText,
     href: BUSINESS_WEB_ROUTES.billing,
   },
+  {
+    key: 'campaigns',
+    label: 'קמפיינים',
+    icon: Gift,
+    href: BUSINESS_WEB_ROUTES.campaigns,
+  },
+  {
+    key: 'referrals',
+    label: 'הזמנת חברים',
+    icon: Users,
+    href: BUSINESS_WEB_ROUTES.referrals,
+  },
+  {
+    key: 'inbox',
+    label: 'תיבת הודעות',
+    icon: ReceiptText,
+    href: BUSINESS_WEB_ROUTES.inbox,
+  },
+  ...(process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+    ? [
+        {
+          key: 'scanner',
+          label: 'סריקה — Preview',
+          icon: Gift,
+          href: BUSINESS_WEB_ROUTES.scanner,
+        },
+      ]
+    : []),
   {
     key: 'settings',
     label: 'הגדרות העסק',

@@ -3,7 +3,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
@@ -24,6 +22,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,

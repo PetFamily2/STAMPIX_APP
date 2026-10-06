@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -30,6 +29,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -37,6 +37,7 @@ import {
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { safeBack } from '@/lib/navigation';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -582,7 +583,9 @@ export default function CampaignDraftEditorScreen() {
   }, [baseUpdatedAt, campaignDraft]);
 
   const goBackToCampaignList = () => {
-    safeBack('/(authenticated)/(business)/campaigns');
+    safeBack(
+      businessHref(Platform.OS, '/(authenticated)/(business)/campaigns')
+    );
   };
 
   const openDraftEditor = (draftCampaignId: Id<'campaigns'>) => {
@@ -590,7 +593,10 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     router.replace({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: String(draftCampaignId),
         businessId: String(selectedBusinessId),
@@ -715,7 +721,12 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     if (type === 'referral') {
-      router.replace('/(authenticated)/(business)/settings-business-referrals');
+      router.replace(
+        businessHref(
+          Platform.OS,
+          '/(authenticated)/(business)/settings-business-referrals'
+        )
+      );
       return;
     }
     setIsCreatingDraft(type);

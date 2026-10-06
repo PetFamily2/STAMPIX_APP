@@ -6,6 +6,7 @@ import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { scannerPreviewEnabled } from '@/lib/web-scanner/previewGate';
+import { pendingProgram } from '@/lib/web-scanner/recovery';
 
 export default function ScannerPreviewRoute() {
   const { user } = useUser();
@@ -44,17 +45,38 @@ export default function ScannerPreviewRoute() {
         </p>
       </div>
     );
-  const program = programs?.find((p: any) => p.loyaltyProgramId === selected);
+  let priorProgram: string | null = null;
+  try {
+    priorProgram = pendingProgram(
+      sessionStorage,
+      String(user._id),
+      String(activeBusinessId)
+    );
+  } catch {
+    return (
+      <p role="alert" dir="rtl">
+        סימון פעולה קודמת דורש בירור. הסורק חסום.
+      </p>
+    );
+  }
+  const scannerProgramId =
+    priorProgram ??
+    programs?.find((p: any) => p.loyaltyProgramId === selected)
+      ?.loyaltyProgramId;
   return (
     <div dir="rtl">
       <label>
         כרטיס לבדיקה{' '}
         <select
-          disabled={busy}
-          value={program ? selected : ''}
+          disabled={busy || !!priorProgram}
+          value={scannerProgramId ?? ''}
           onChange={(event) => setSelected(event.target.value)}
         >
           <option value="">בחרו כרטיס</option>
+          {priorProgram &&
+          !programs?.some((p: any) => p.loyaltyProgramId === priorProgram) ? (
+            <option value={priorProgram}>בירור הפעולה הקודמת</option>
+          ) : null}
           {programs?.map((p: any) => (
             <option key={p.loyaltyProgramId} value={p.loyaltyProgramId}>
               {p.title}
@@ -62,12 +84,12 @@ export default function ScannerPreviewRoute() {
           ))}
         </select>
       </label>
-      {program ? (
+      {scannerProgramId ? (
         <BusinessScanner
-          key={`${user._id}:${activeBusinessId}:${selected}`}
+          key={`${user._id}:${activeBusinessId}:${scannerProgramId}`}
           actorId={user._id}
           businessId={activeBusinessId}
-          programId={selected}
+          programId={scannerProgramId}
           token={token}
           url={url}
           enabled={enabled}

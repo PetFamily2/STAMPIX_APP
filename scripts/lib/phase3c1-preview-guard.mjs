@@ -77,6 +77,8 @@ export function previewPublicEnvironment(_pulled, target, actors, businesses) {
       delete result[key];
   }
   Object.assign(result, {
+    EXPO_PUBLIC_PWA_ENABLED: 'true',
+    EXPO_PUBLIC_SCANNER_RECEIPTS: 'true',
     EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true',
     EXPO_PUBLIC_WEB_QR_LAB: 'false',
     EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'true',

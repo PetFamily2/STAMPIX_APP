@@ -5,7 +5,6 @@ import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -33,6 +32,7 @@ import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import { parseMissingProfileFields } from '@/lib/businessSettings/completion';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { SUBSCRIPTION_PLAN_LABELS } from '@/lib/domain/subscriptions';

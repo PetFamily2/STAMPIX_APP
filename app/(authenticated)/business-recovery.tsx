@@ -4,7 +4,6 @@ import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -15,7 +14,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
@@ -25,6 +23,7 @@ import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import { getBusinessOnboardingEntryRoute } from '@/lib/onboarding/businessOnboardingFlow';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
 

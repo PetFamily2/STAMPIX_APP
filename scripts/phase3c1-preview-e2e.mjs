@@ -30,8 +30,10 @@ const report = {
   commandsEnabled: false,
   productionTouched: false,
   devTouched: false,
-  schemaSourceChanged: false,
-  nativeChanged: false,
+  schemaSourceChanged: true,
+  schemaChange: 'additive-receipts-and-web-push-only',
+  nativeChanged: true,
+  nativeChange: 'command-safety-only-camera-preserved',
   stage: 'LOCAL_GUARDS',
 };
 const stage = (name) => {
@@ -246,6 +248,21 @@ try {
     )
   );
   cliEnv.CONVEX_DEPLOY_KEY = target.key;
+  stage('TYPECHECK_STAGED_BACKEND');
+  const typecheck = spawnSync(
+    'node',
+    [join(dir, 'node_modules/typescript/bin/tsc'), '--noEmit'],
+    {
+      cwd: dir,
+      env: cliEnv,
+      encoding: 'utf8',
+      timeout: 120000,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }
+  );
+  if (typecheck.status !== 0) fail('STAGED_BACKEND_TYPECHECK_FAILED');
+  report.stagedTypecheck = true;
   stage('DEPLOY_PREVIEW');
   const deploy = spawnSync(
     'node',

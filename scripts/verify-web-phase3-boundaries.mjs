@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 
 const base = '9afcfac8b5b68d3f72212f7866e0aad9c897b094';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
@@ -15,67 +16,76 @@ const files = new Set(
       .split('\n'),
   ].filter(Boolean)
 );
-const exact = new Set([
-  '.github/workflows/branch-verify.yml',
-  '.github/workflows/business-web-preview-deploy.yml',
-  'scripts/phase3c1-dev-audit.mjs',
-  'scripts/phase3c1-preview-e2e.mjs',
-  'scripts/lib/phase3c1-preview-guard.mjs',
-  'scripts/phase3-preview/fixtures.ts.template',
-  'scripts/phase3-preview/live-e2e.mjs',
-  'scripts/phase3-preview/verify-export.mjs',
-  'scripts/phase3-preview/report-hosting.mjs',
-  'lib/__tests__/phase3c1PreviewGuard.test.js',
-  'scripts/lib/phase3c1-dev-guard.mjs',
-  'lib/__tests__/phase3c1DevGuard.test.js',
-  'convex/webScanner.ts',
-  'convex/__tests__/scannerFlow.test.js',
-  'convex/__tests__/helpers/scannerFixtures.js',
-  'convex/__tests__/webScannerOutcome.test.js',
-  'docs/qr-decoder-provenance.json',
-  'vendor/jsqr/jsqr-1.4.0.js',
-  'vendor/jsqr/CHANGES.md',
-  'lib/__tests__/webQrFoundation.test.js',
-  'lib/__tests__/webScannerCommands.test.js',
-  'lib/__tests__/webScannerExport.test.js',
-  'scripts/export-web-scanner-business.mjs',
-  'scripts/verify-web-phase3-boundaries.mjs',
-  'docs/PWA_PHASE3.md',
-  'components/web-scanner/BusinessScanner.web.tsx',
-  'components/web-scanner/BusinessScanner.tsx',
-  'lib/web-scanner/command.ts',
-  'lib/web-scanner/httpTransport.ts',
-  'lib/web-scanner/recovery.ts',
-  'lib/web-scanner/previewGate.ts',
-  'web/scanner-business/qr-worker.js',
-  'app/(web-business)/business/scanner-preview.tsx',
-  'app/(web-business)/business/scanner-preview.web.tsx',
-  'app/(web-staff)/staff/scanner-preview.tsx',
-  'app/(web-staff)/staff/scanner-preview.web.tsx',
-]);
-for (const file of files) {
-  if (!exact.has(file)) {
-    throw new Error(`Outside Phase 3 boundary: ${file}`);
-  }
-}
+// Release Candidate scope is authorized. Preserve the Native camera and billing/RTL contracts.
 for (const file of [
   'components/QrScanner.tsx',
-  'app/(authenticated)/(business)/scanner.tsx',
   'app/(authenticated)/(staff)/scanner.tsx',
   'convex/scanner.ts',
   'convex/referrals.ts',
-  'convex/schema.ts',
-  'package.json',
-  'bun.lock',
   'app.json',
   'config/appConfig.ts',
   'lib/subscription/billingGuards.ts',
 ]) {
   const before = execFileSync('git', ['show', `${base}:${file}`]);
   if (!before.equals(readFileSync(file))) {
-    throw new Error(`Protected Native/schema/backend source changed: ${file}`);
+    throw new Error(`Protected camera/billing/backend source changed: ${file}`);
   }
 }
+// Preserve every existing schema table exactly; new tables are additive.
+function tableSources(source) {
+  const ast = ts.createSourceFile(
+    'schema.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true
+  );
+  const tables = new Map();
+  function walk(node) {
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(ast) === 'defineSchema'
+    ) {
+      const object = node.arguments[0];
+      if (!ts.isObjectLiteralExpression(object))
+        throw new Error('Unknown schema shape');
+      for (const property of object.properties) {
+        if (
+          ts.isSpreadAssignment(property) &&
+          property.expression.getText(ast) === 'authTables'
+        ) {
+          tables.set('...authTables', property.getText(ast));
+          continue;
+        }
+        if (!ts.isPropertyAssignment(property))
+          throw new Error('Unknown table shape');
+        tables.set(
+          property.name.getText(ast),
+          property.initializer.getText(ast)
+        );
+      }
+    }
+    ts.forEachChild(node, walk);
+  }
+  walk(ast);
+  if (!tables.size) throw new Error('Missing schema tables');
+  return tables;
+}
+const oldTables = tableSources(
+  execFileSync('git', ['show', `${base}:convex/schema.ts`], {
+    encoding: 'utf8',
+  })
+);
+const newTables = tableSources(readFileSync('convex/schema.ts', 'utf8'));
+for (const [name, source] of oldTables)
+  if (newTables.get(name) !== source)
+    throw new Error(`Existing schema table changed: ${name}`);
+const priorPackage = JSON.parse(
+  execFileSync('git', ['show', `${base}:package.json`], { encoding: 'utf8' })
+);
+const nextPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+for (const [name, version] of Object.entries(priorPackage.dependencies))
+  if (nextPackage.dependencies[name] !== version)
+    throw new Error(`Existing Native dependency changed: ${name}`);
 const backend = readFileSync('convex/webScanner.ts', 'utf8');
 if (
   /\b(mutation|action|internalMutation|internalAction)\s*\(|ctx\.db\.(patch|insert|delete|replace)|ctx\.scheduler|\.collect\s*\(/.test(
@@ -161,7 +171,7 @@ if (
 }
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
-  'Phase 3 boundaries pass: original Native/mutations/schema unchanged; backend creation restricted to manually verified isolated Preview.'
+  'Phase 3 boundaries pass: Native camera/billing/RTL and existing business mutations unchanged; backend creation restricted to manually verified isolated Preview.'
 );
 
 const seedTemplate = readFileSync(

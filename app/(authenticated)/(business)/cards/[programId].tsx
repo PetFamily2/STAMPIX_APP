@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -45,6 +44,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -58,6 +58,7 @@ import {
   loyaltyWriteErrorToHebrewMessage,
 } from '@/lib/loyalty/programErrors';
 import { safeBack } from '@/lib/navigation';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { rtlBaseView, tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -383,7 +384,14 @@ export default function ProgramDetailsScreen() {
             </Text>
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() => safeBack('/(authenticated)/(business)/programs')}
+              onPress={() =>
+                safeBack(
+                  businessHref(
+                    Platform.OS,
+                    '/(authenticated)/(business)/programs'
+                  )
+                )
+              }
               className="mt-2 w-full rounded-2xl bg-[#2F6BFF] px-4 py-3"
             >
               <Text className="text-center text-sm font-bold text-white">
@@ -788,7 +796,10 @@ export default function ProgramDetailsScreen() {
           text: 'אישור',
           onPress: () =>
             router.replace({
-              pathname: '/(authenticated)/(business)/cards',
+              pathname: businessHref(
+                Platform.OS,
+                '/(authenticated)/(business)/cards'
+              ) as any,
               params: { section: 'loyalty' },
             }),
         },

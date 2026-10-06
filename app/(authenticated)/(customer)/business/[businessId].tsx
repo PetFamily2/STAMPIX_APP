@@ -5,10 +5,9 @@ import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
+  Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -17,7 +16,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
@@ -30,6 +28,7 @@ import {
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { safeBack } from '@/lib/navigation';
@@ -43,6 +42,8 @@ import {
   justifyContent,
   rtlBaseView,
 } from '@/lib/rtl';
+import { Share } from '@/lib/share';
+import { shareUrl } from '@/lib/shareUrl';
 
 const TEXT = {
   loading: 'טוען פרטי עסק',
@@ -290,8 +291,8 @@ export default function CustomerBusinessDetailsScreen() {
           : undefined,
         shareSurface: 'business_page',
       });
-      const message = buildInviteMessage(link.url);
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const message = buildInviteMessage(shareUrl(link.url));
+      const whatsappUrl = `${Platform.OS === 'web' ? 'https://wa.me/' : 'whatsapp://send'}?text=${encodeURIComponent(message)}`;
       const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
       if (canOpenWhatsApp) {
         await Linking.openURL(whatsappUrl);
@@ -325,9 +326,10 @@ export default function CustomerBusinessDetailsScreen() {
         };
       };
       if (maybeNavigator.navigator?.clipboard?.writeText) {
-        await maybeNavigator.navigator.clipboard.writeText(link.url);
+        await maybeNavigator.navigator.clipboard.writeText(shareUrl(link.url));
       } else {
-        await Share.share({ message: link.url });
+        await Share.share({ message: shareUrl(link.url) });
+        return;
       }
       Alert.alert('', TEXT.inviteLinkCopied);
     } catch {

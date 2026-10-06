@@ -8,6 +8,9 @@ import { Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
+import PwaRuntime from '@/components/PwaRuntime';
+import WebAlertHost from '@/components/WebAlertHost';
+import WebPushLifecycle from '@/components/WebPushLifecycle';
 import { ActiveBusinessProvider } from '@/contexts/ActiveBusinessContext';
 import { AppModeProvider } from '@/contexts/AppModeContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -98,6 +101,9 @@ export default function RootLayout() {
                 <OnboardingProvider>
                   <RevenueCatProvider>
                     <RootErrorBoundary>
+                      <WebAlertHost />
+                      <WebPushLifecycle />
+                      <PwaRuntime />
                       <Slot />
                     </RootErrorBoundary>
                   </RevenueCatProvider>

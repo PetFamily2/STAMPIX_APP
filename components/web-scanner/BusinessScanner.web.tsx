@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter';
 import {
   type CommandState,
   initialCommand,
@@ -9,11 +10,9 @@ import {
   attachCameraLifecycle,
   WebQrController,
 } from '../../lib/web-scanner/controller';
-import {
-  createFrameCapture,
-  type Decoder,
-} from '../../lib/web-scanner/decoder';
+import { createFrameCapture } from '../../lib/web-scanner/decoder';
 import { createHttpTransport } from '../../lib/web-scanner/httpTransport';
+import { createRawWorkerDecoder } from '../../lib/web-scanner/rawWorker';
 import { recoveryIdentity } from '../../lib/web-scanner/recovery';
 import { initialScannerState } from '../../lib/web-scanner/state';
 
@@ -54,14 +53,16 @@ export default function BusinessScanner(props: {
   >([]);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
-    props.onBusy?.(
-      [
-        'QR_LOCKED',
-        'RESOLVING',
-        'COMMITTING',
-        'UNKNOWN_OUTCOME',
-        'RECONCILING',
-      ].includes(state.phase)
+    const busy = [
+      'QR_LOCKED',
+      'RESOLVING',
+      'COMMITTING',
+      'UNKNOWN_OUTCOME',
+      'RECONCILING',
+    ].includes(state.phase);
+    props.onBusy?.(busy);
+    window.dispatchEvent(
+      new CustomEvent('stampaix:scanner-busy', { detail: busy })
     );
   }, [state.phase, props.onBusy]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: an allowed reset deliberately recreates the runtime via revision.
@@ -110,7 +111,11 @@ export default function BusinessScanner(props: {
       current.current.businessId === scope.businessId &&
       current.current.programId === scope.programId &&
       !!current.current.token;
-    const transport = createHttpTransport({
+    const createTransport =
+      process.env.EXPO_PUBLIC_SCANNER_RECEIPTS === 'true'
+        ? createWebReceiptAdapter
+        : createHttpTransport;
+    const transport = createTransport({
       url: props.url,
       token: () => current.current.token,
       online: () =>
@@ -136,63 +141,23 @@ export default function BusinessScanner(props: {
             current: valid,
             checkpoint: recovery.checkpoint,
             recovery: recovery.identity.uncertain,
+            recoveredOperation:
+              recovery.identity.operation && recovery.identity.operationId
+                ? {
+                    operation: recovery.identity.operation,
+                    operationId: recovery.identity.operationId,
+                  }
+                : undefined,
             onState: (next) => {
               if (!disposed) setState(next);
             },
           });
           commands.current = engine;
           setState(engine.state);
-          const makeDecoder = (): Decoder => {
-            const worker = new Worker('/scanner-business-assets/qr-worker.js');
-            let pending: {
-              resolve: (r: { length: number } | null) => void;
-              reject: (e: Error) => void;
-            } | null = null;
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            worker.onmessage = (event) => {
-              clearTimeout(timer);
-              const operation = pending;
-              pending = null;
-              if (!operation) return;
-              if (event.data?.type === 'error') {
-                operation.reject(new Error('DECODER_ERROR'));
-                return;
-              }
-              const value = event.data?.data;
-              if (
-                typeof value === 'string' &&
-                value.length > 0 &&
-                value.length <= 10000
-              ) {
-                qrReference = value;
-                operation.resolve({ length: value.length });
-              } else operation.resolve(null);
-            };
-            worker.onerror = () => {
-              clearTimeout(timer);
-              worker.terminate();
-              pending?.reject(new Error('DECODER_ERROR'));
-              pending = null;
-            };
-            return {
-              decode: (frame) =>
-                new Promise((resolve, reject) => {
-                  pending = { resolve, reject };
-                  timer = setTimeout(() => {
-                    worker.terminate();
-                    pending?.reject(new Error('DECODER_TIMEOUT'));
-                    pending = null;
-                  }, 4000);
-                  worker.postMessage(frame, [frame.pixels.buffer]);
-                }),
-              destroy: () => {
-                clearTimeout(timer);
-                worker.terminate();
-                pending?.reject(new Error('DECODER_STOPPED'));
-                pending = null;
-              },
-            };
-          };
+          const makeDecoder = () =>
+            createRawWorkerDecoder((value) => {
+              qrReference = value;
+            });
           const capture = new WebQrController({
             video: element,
             media: navigator.mediaDevices,
@@ -324,7 +289,7 @@ export default function BusinessScanner(props: {
       }}
     >
       <h1 style={{ textAlign: 'right' }}>סורק עסקי — Preview למורשים בלבד</h1>
-      <p>בדיקה בסביבת DEV. אין תוצאה מוצלחת לפני אישור מהשרת.</p>
+      <p>בדיקה בסביבת Preview מבודדת. אין תוצאה מוצלחת לפני אישור מהשרת.</p>
       {blocked ? <p role="alert">{blocked}</p> : null}
       <video
         ref={video}

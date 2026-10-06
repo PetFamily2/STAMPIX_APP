@@ -6,6 +6,10 @@ export const BUSINESS_WEB_ROUTES = {
   team: '/business/team',
   billing: '/business/billing',
   settings: '/business/settings',
+  campaigns: '/business/campaigns',
+  referrals: '/business/referrals',
+  inbox: '/business/inbox',
+  scanner: '/business/scanner-preview',
 } as const;
 
 export function isBusinessWebRouteActive(

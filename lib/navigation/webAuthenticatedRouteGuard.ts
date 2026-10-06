@@ -16,12 +16,22 @@ const WEB_CUSTOMER_SHARED_SEGMENTS = new Set([
   'join',
   'accept-invite',
   'settings-legal',
+  'inbox',
 ]);
 
 export function resolveWebAuthenticatedRouteGuard(
   input: AuthenticatedRouteGuardInput
 ): AuthenticatedRouteGuardDecision {
   const { resolutionHref, segments } = input;
+  if (
+    (resolutionHref === WEB_BUSINESS_PROOF_HREF ||
+      resolutionHref === WEB_STAFF_LANDING_HREF) &&
+    (segments.includes('accept-invite') ||
+      segments.includes('settings-legal') ||
+      segments.includes('inbox') ||
+      (input.isAdditionalMerchantOnboarding && segments.includes('merchant')))
+  )
+    return { action: 'stay' };
   if (resolutionHref === POST_AUTH_ROUTES.merchantOnboarding) {
     return segments.includes('merchant') && segments.includes('onboarding')
       ? { action: 'stay' }

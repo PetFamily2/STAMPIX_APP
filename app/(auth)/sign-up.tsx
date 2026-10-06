@@ -1,23 +1,16 @@
-import {
-  useAuthActions } from '@convex-dev/auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams,
-  useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert,
-  Platform,
-  StyleSheet,
-  View,
-} from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
+import { Alert } from '@/lib/alert';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
 import {
   showsAppleOAuthOnSignUp,

@@ -13,7 +13,6 @@ import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Linking,
   Modal,
@@ -27,7 +26,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   SETTINGS_TOKENS,
@@ -42,6 +40,7 @@ import {
   PaintedPressable,
   PaintedPressable as Pressable,
 } from '@/components/ui/PaintedPressable';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { usePushNotifications } from '@/contexts/PushNotificationsContext';
@@ -53,6 +52,7 @@ import {
   type AccountDeletionFlowResult,
   runAccountDeletionWithCleanup,
 } from '@/lib/accountDeletionReset';
+import { Alert } from '@/lib/alert';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
@@ -721,6 +721,7 @@ export default function SettingsScreen() {
             avatarFullName={user?.fullName}
           />
         </StickyScrollHeader>
+        <WebPushSettings />
         <BusinessModeCtaCard
           disabled={deleteBusy}
           forcePromotionalBanner={true}

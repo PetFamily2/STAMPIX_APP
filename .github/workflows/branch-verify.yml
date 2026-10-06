@@ -57,12 +57,14 @@ jobs:
       - name: Phase 2 isolated scanner and Native contracts
         if: startsWith(github.head_ref, 'pwa/phase-2-')
         run: node scripts/verify-web-phase2-boundaries.mjs
-      - name: Phase 3 Web command and unchanged Native contracts
+      - name: Scanner safety and protected camera/billing contracts
         if: startsWith(github.head_ref, 'pwa/phase-3-')
         run: node scripts/verify-web-phase3-boundaries.mjs
       - name: Export Web, iOS and Android JavaScript with rollout enabled
         env:
           EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+          EXPO_PUBLIC_PWA_ENABLED: 'true'
+          EXPO_PUBLIC_SCANNER_RECEIPTS: 'true'
         run: bunx expo export --platform all --output-dir ${{ runner.temp }}/phase1-verify-export --max-workers 2
       - name: Export isolated scanner lab in Preview only
         if: startsWith(github.head_ref, 'pwa/phase-2-')
@@ -72,6 +74,9 @@ jobs:
       - name: Export Phase 3 Preview worker assets
         if: startsWith(github.head_ref, 'pwa/phase-3-')
         run: bun scripts/export-web-scanner-business.mjs ${{ runner.temp }}/phase1-verify-export
+      - name: Verify install manifest and safe PWA artifacts
+        if: startsWith(github.head_ref, 'pwa/phase-3-')
+        run: node scripts/finalize-web-pwa-export.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Exported client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Diff check

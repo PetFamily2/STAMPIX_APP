@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   type StyleProp,
@@ -13,12 +12,12 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';

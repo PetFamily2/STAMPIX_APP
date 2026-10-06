@@ -1,13 +1,13 @@
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
-
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   SETTINGS_TOKENS,
   SettingsPrimaryButton,
 } from '@/components/business-settings';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
 import {
   SUPPORT_CONTACT_COPY,
   SUPPORT_MESSAGE_MAX_LENGTH,

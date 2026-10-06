@@ -1,4 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
@@ -6,6 +7,7 @@ import { useSessionContext } from '@/contexts/UserContext';
 
 export default function WebStaffLanding() {
   const { signOut } = useAuthActions();
+  const router = useRouter();
   const session = useSessionContext();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState('');
@@ -35,8 +37,36 @@ export default function WebStaffLanding() {
         </Text>
         {business ? <Text style={styles.business}>{business.name}</Text> : null}
         <Text style={styles.body}>
-          הסורק אינו זמין בדפדפן כרגע. אפשר להמשיך להשתמש באפליקציה.
+          {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+            ? 'סריקה זמינה למורשי בדיקה בסביבת Preview בלבד.'
+            : 'אפשר להמשיך לסרוק באפליקציה.'}
         </Text>
+        {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
+          <PaintedPressable
+            accessibilityRole="button"
+            accessibilityLabel="פתיחת סורק בדיקה"
+            onPress={() => router.push('/staff/scanner-preview')}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>פתיחת סורק בדיקה</Text>
+          </PaintedPressable>
+        ) : null}
+        <PaintedPressable
+          accessibilityRole="button"
+          accessibilityLabel="תיבת הודעות"
+          onPress={() => router.push('/inbox')}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>תיבת הודעות</Text>
+        </PaintedPressable>
+        <PaintedPressable
+          accessibilityRole="button"
+          accessibilityLabel="הגדרות צוות"
+          onPress={() => router.push('/staff/settings')}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>הגדרות צוות</Text>
+        </PaintedPressable>
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}

@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,7 +14,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { SurfaceCard } from '@/components/business-ui';
 import { UsageProgressBar } from '@/components/business-ui/UsageProgressBar';
@@ -31,6 +29,7 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import {
   formatCustomerCount,
   formatCustomerResultCount,

@@ -1,5 +1,10 @@
 # Phase 3 — Preview Web scanner commands
 
+> Historical phase ledger. Current authorization, implementation and unresolved RC
+> gates are tracked in [PWA_RELEASE_CANDIDATE.md](PWA_RELEASE_CANDIDATE.md).
+> Earlier statements that Native changes or later-phase work are unauthorized are
+> superseded by the user’s continuous Release Candidate authorization.
+
 Base: `9afcfac8b5b68d3f72212f7866e0aad9c897b094`.
 Branch: `pwa/phase-3-scanner-commands-20261005`.
 Target: `pwa/phase-2-qr-foundation-20261005`. No main merge or Production deployment.

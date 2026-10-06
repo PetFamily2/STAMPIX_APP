@@ -1,5 +1,6 @@
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
+import { beginPendingWrite } from '../network/pendingWrites';
 import {
   NotSent,
   type Operation,
@@ -25,7 +26,14 @@ export function createHttpTransport(deps: {
   online: () => boolean;
   fetch?: typeof fetch;
   timeoutMs?: number;
-}): Transport {
+}): Transport & {
+  request: (
+    scope: Scope,
+    kind: 'query' | 'mutation',
+    path: string,
+    args: Record<string, any>
+  ) => Promise<any>;
+} {
   const run = async (
     scope: Scope,
     kind: 'query' | 'mutation',
@@ -69,6 +77,7 @@ export function createHttpTransport(deps: {
         return response;
       },
     });
+    const endWrite = kind === 'mutation' ? beginPendingWrite() : () => {};
     try {
       return kind === 'mutation'
         ? await client.mutation(makeFunctionReference<'mutation'>(path), args, {
@@ -80,6 +89,7 @@ export function createHttpTransport(deps: {
       if (error instanceof NotSent) throw error;
       throw new Error('TRANSPORT_OUTCOME_UNKNOWN');
     } finally {
+      endWrite();
       clearTimeout(timer);
       client.clearAuth();
     }
@@ -99,6 +109,7 @@ export function createHttpTransport(deps: {
     ...(args.rewardId ? { rewardId: args.rewardId } : {}),
   });
   return {
+    request: run,
     probe: (scope) =>
       run(
         scope,
@@ -106,8 +117,12 @@ export function createHttpTransport(deps: {
         'webScanner:getOutcome',
         queryArgs(scope, 'probe')
       ) as Promise<Outcome>,
-    send: (operation, args, scope) =>
-      run(scope, 'mutation', paths[operation], args),
+    send: (operation, args, scope) => {
+      const { clientOperationId, ...legacyArgs } = args;
+      if (operation === 'undo' || operation === 'referral')
+        delete legacyArgs.scanSessionId;
+      return run(scope, 'mutation', paths[operation], legacyArgs);
+    },
     outcome: (operation, args, scope) =>
       run(
         scope,
