@@ -171,6 +171,11 @@ try {
     claimUrlMatchesName:
       claim?.instanceUrl === `https://${claim?.deploymentName}.convex.cloud`,
     authorizationTypePreview: authorized?.deploymentType === 'preview',
+    authorizationReference:
+      typeof authorized?.reference === 'string' &&
+      /^[A-Za-z0-9/_-]{1,150}$/.test(authorized.reference)
+        ? authorized.reference
+        : null,
     authorizationNameMatches:
       authorized?.deploymentName === claim?.deploymentName,
     authorizationUrlMatches: authorized?.url === claim?.instanceUrl,
@@ -186,7 +191,7 @@ try {
   report.backendUrl = target.url;
   report.deploymentType = authorized.deploymentType;
   report.targetProof =
-    'MANAGEMENT_AUTHORIZE_PREVIEW_AND_EXACT_CONCRETE_PREVIEW_KEY_URL';
+    'PROJECT_PREVIEW_KEY_AUTHORIZED_PREVIEW_TYPE_EXACT_URL_AND_ADMIN_READ';
   const admin = new ConvexHttpClient(target.url, { logger: false });
   admin.setAdminAuth(target.key); // Administration only; never a scanner actor or auth impersonation.
 
@@ -200,6 +205,7 @@ try {
     inherited.some((e) => typeof e?.name !== 'string')
   )
     fail('ENVIRONMENT_SHAPE_UNKNOWN');
+  report.derivedAdminReadVerified = true;
   const previous = Object.fromEntries(inherited.map((e) => [e.name, e.value]));
   const owned =
     previous.PHASE3_PREVIEW_NAME === PREVIEW_NAME &&
@@ -356,6 +362,10 @@ try {
     [
       join(dir, 'node_modules/convex/bin/main.js'),
       'deploy',
+      '--url',
+      target.url,
+      '--admin-key',
+      target.key,
       '--yes',
       '--typecheck',
       'disable',

@@ -52,14 +52,12 @@ export function requirePreviewTarget(claim, authorized) {
     authorized.deploymentName !== name ||
     authorized.url !== claim.instanceUrl ||
     typeof authorized.adminKey !== 'string' ||
-    !authorized.adminKey.startsWith(`preview:${name}|`) ||
-    authorized.adminKey.split('|').length !== 2 ||
-    !authorized.adminKey.split('|')[1] ||
+    authorized.adminKey.length < 16 ||
+    authorized.adminKey.length > 4096 ||
     /\s/.test(authorized.adminKey) ||
     typeof claim.adminKey !== 'string' ||
-    !claim.adminKey.startsWith(`preview:${name}|`) ||
-    claim.adminKey.split('|').length !== 2 ||
-    !claim.adminKey.split('|')[1] ||
+    claim.adminKey.length < 16 ||
+    claim.adminKey.length > 4096 ||
     /\s/.test(claim.adminKey)
   )
     throw new Error('PREVIEW_TARGET_NOT_PROVEN');
