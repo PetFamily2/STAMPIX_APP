@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { SOURCE_SHA } from './lib/phase3c1-preview-guard.mjs';
 
 const base = '9afcfac8b5b68d3f72212f7866e0aad9c897b094';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
@@ -156,7 +157,7 @@ if (
 }
 if (
   !workflow.includes('isolated-preview-e2e:') ||
-  !workflow.includes('119c3c58bb7ed085da5ba875f939585edc312ab1') ||
+  !workflow.includes(SOURCE_SHA) ||
   !workflow.includes('secrets.CONVEX_PREVIEW_DEPLOY_KEY') ||
   !workflow.includes("needs.verify.result == 'success'")
 )
