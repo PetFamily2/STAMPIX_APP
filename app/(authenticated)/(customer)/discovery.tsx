@@ -361,6 +361,11 @@ export default function DiscoveryScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{TEXT.permissionTitle}</Text>
             <Text style={styles.cardSubtitle}>{TEXT.permissionSubtitle}</Text>
+            {Platform.OS === 'web' && error ? (
+              <Text accessibilityRole="alert" style={styles.cardTitle}>
+                {locationErrorMessage}
+              </Text>
+            ) : null}
             <PaintedPressable
               accessibilityRole="button"
               accessibilityLabel={TEXT.permissionButton}

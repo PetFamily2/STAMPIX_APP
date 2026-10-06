@@ -31,6 +31,19 @@ for (const file of [
     throw new Error(`Protected camera/billing/backend source changed: ${file}`);
   }
 }
+// Freeze the already approved RC Native maps/location/push implementation as well.
+for (const file of [
+  'components/customer/DiscoveryMap.tsx',
+  'hooks/useCurrentLocation.ts',
+  'contexts/PushNotificationsContext.tsx',
+]) {
+  const approved = execFileSync('git', [
+    'show',
+    `119c3c58bb7ed085da5ba875f939585edc312ab1:${file}`,
+  ]);
+  if (!approved.equals(readFileSync(file)))
+    throw new Error(`Protected Native maps/location/push changed: ${file}`);
+}
 // Preserve every existing schema table exactly; new tables are additive.
 function tableSources(source) {
   const ast = ts.createSourceFile(

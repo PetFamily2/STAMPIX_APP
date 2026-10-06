@@ -26,6 +26,7 @@ const record = async (name, fn) => {
   } catch (e) {
     report.cases[name] = {
       status: 'FAIL',
+      sourceLine: Number(/hosted-qa\.mjs:(\d+)/.exec(e.stack ?? '')?.[1] ?? 0),
       code: /^[A-Z0-9_]+$/.test(e.message ?? '')
         ? e.message
         : 'ASSERTION_FAILED',
@@ -47,6 +48,15 @@ const record = async (name, fn) => {
             'איך תרצו להתחבר?',
             'קוד הצטרפות לעסק',
             'שם הכרטיסייה',
+            'בחרו פעולה',
+            'תוצאת הפעולה עדיין אינה ידועה.',
+            'השרת אישר את הפעולה',
+            'המצלמה כבויה',
+            'גרסה חדשה זמינה',
+            "Couldn't find the bottom tab bar height",
+            'This site can’t be reached',
+            'נדרשת גישה למיקום',
+            'לא הצלחנו לטעון את המיקום שלך.',
           ].filter((label) => document.body.innerText.includes(label)),
         }));
       } catch {}
@@ -173,7 +183,18 @@ try {
         m.type() === 'error' &&
         !/favicon|net::ERR_|Failed to load resource/.test(m.text())
       )
-        errors.push({ role, kind: 'CONSOLE_ERROR' });
+        errors.push({
+          role,
+          kind:
+            [
+              "Couldn't find the bottom tab bar height",
+              'Cannot update a component',
+              'InvalidStateError',
+              'Unhandled',
+              'Failed to register a ServiceWorker',
+              'useBottomTabBarHeight',
+            ].find((family) => m.text().includes(family)) ?? 'CONSOLE_ERROR',
+        });
     });
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     return { page, context };
@@ -282,7 +303,7 @@ try {
     await visit(o.page, '/business', 'Synthetic Phase 3 primary');
     await o.page.getByRole('button', { name: 'בחירת עסק פעיל' }).click();
     await o.page
-      .getByRole('button', { name: 'מעבר אל Synthetic Phase 3 secondary' })
+      .getByRole('menuitem', { name: 'מעבר אל Synthetic Phase 3 secondary' })
       .click();
     await o.page
       .getByText('Synthetic Phase 3 secondary', { exact: true })
@@ -295,7 +316,7 @@ try {
     );
     await o.page.getByRole('button', { name: 'בחירת עסק פעיל' }).click();
     await o.page
-      .getByRole('button', { name: 'מעבר אל Synthetic Phase 3 primary' })
+      .getByRole('menuitem', { name: 'מעבר אל Synthetic Phase 3 primary' })
       .click();
     await o.page
       .getByText('Synthetic Phase 3 primary', { exact: true })
@@ -310,6 +331,9 @@ try {
     await o.page
       .getByLabel('הטבה', { exact: true })
       .fill('Synthetic QA Reward');
+    await o.page
+      .getByRole('button', { name: 'ערכת נושא ירוק יער', exact: true })
+      .click();
     await o.page
       .getByRole('button', { name: 'שמירת טיוטה', exact: true })
       .click();
@@ -358,13 +382,21 @@ try {
     await o.page
       .getByRole('button', { name: 'שמור טיוטה', exact: true })
       .click();
+    await o.page
+      .getByRole('dialog')
+      .getByText('הטיוטה נשמרה בהצלחה.', { exact: true })
+      .waitFor();
+    await o.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'אישור', exact: true })
+      .click();
     requireThat(
       (
         await clients.owner.query(
           ref('campaigns:listManagementCampaignsByBusiness'),
           { businessId: fixtures.businessId }
         )
-      ).some((p) => p.title === 'Synthetic QA Campaign'),
+      ).some((p) => p.messageTitle === 'Synthetic QA Campaign'),
       'CAMPAIGN_UI_WRITE_NOT_CONFIRMED'
     );
   });
@@ -388,8 +420,39 @@ try {
     await s.page.waitForURL((u) => /sign-up|welcome|sign-in/.test(u.pathname));
     await s.context.close();
   });
+  await record('CUSTOMER_DIRECT_OWNER_ROUTE_DENIED', async () => {
+    await c.page.goto(`${url}/business/settings`);
+    await c.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
+    requireThat(
+      new URL(c.page.url()).pathname === '/wallet',
+      'CUSTOMER_OWNER_ROUTE_EXPOSED'
+    );
+  });
   // Real commands and state machine; only camera worker decode input is replaced in this test context.
   const scan = await authenticated('staff');
+  const scannerRequests = [];
+  let lastIdentity;
+  const observeScanner = (page) =>
+    page.on('request', (request) => {
+      if (request.url() !== `${target.url}/api/mutation`) return;
+      const envelope = request.postDataJSON();
+      if (envelope?.path !== 'scannerCommands:execute') return;
+      const args = envelope.args?.[0];
+      if (!args) return;
+      scannerRequests.push(args.operation);
+      if (args.operation === 'stamp')
+        lastIdentity = Object.fromEntries(
+          [
+            'operationId',
+            'operation',
+            'businessId',
+            'programId',
+            'runtimeId',
+            'deviceId',
+          ].map((key) => [key, args[key]])
+        );
+    });
+  observeScanner(scan.page);
   let qr = (
     await clients.customer.mutation(
       ref('scanner:createCustomerScanToken'),
@@ -397,7 +460,7 @@ try {
       { skipQueue: true }
     )
   ).scanToken;
-  await scan.context.addInitScript(() => {
+  const cameraDecodeHarness = () => {
     const Original = window.Worker;
     window.Worker = class extends Original {
       constructor(path, options) {
@@ -421,14 +484,15 @@ try {
         } else super.postMessage(...args);
       }
     };
-  });
-  const scanner = async () => {
-    await visit(scan.page, '/staff/scanner-preview', 'כרטיס לבדיקה');
-    await scan.page.getByLabel('כרטיס לבדיקה').selectOption(fixtures.programId);
-    await scan.page
+  };
+  await scan.context.addInitScript(cameraDecodeHarness);
+  const scanner = async (page = scan.page, path = '/staff/scanner-preview') => {
+    await visit(page, path, 'כרטיס לבדיקה');
+    await page.getByLabel('כרטיס לבדיקה').selectOption(fixtures.programId);
+    await page
       .getByText('סורק עסקי — Preview למורשים בלבד', { exact: true })
       .waitFor();
-    await scan.page
+    await page
       .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
       .waitFor();
   };
@@ -451,12 +515,45 @@ try {
     );
     await scan.page
       .getByRole('button', { name: 'אישור חותמת', exact: true })
-      .click();
+      .dblclick();
     await scan.page.getByText('השרת אישר את הפעולה', { exact: true }).waitFor();
     requireThat(
       (await scan.page.getByText('אישור שרת:', { exact: false }).count()) > 0,
       'CANONICAL_RECEIPT_MISSING'
     );
+    requireThat(
+      scannerRequests.filter((op) => op === 'resolve').length === 1 &&
+        scannerRequests.filter((op) => op === 'stamp').length === 1,
+      'DUPLICATE_DECODE_COMMIT'
+    );
+    const owned = await clients.staff.query(
+      ref('scannerCommands:getReceipt'),
+      lastIdentity
+    );
+    requireThat(owned.status === 'CONFIRMED', 'OWNED_RECEIPT_NOT_CONFIRMED');
+    const otherActor = await clients.owner.query(
+      ref('scannerCommands:getReceipt'),
+      lastIdentity
+    );
+    requireThat(
+      otherActor.status === 'UNKNOWN' && otherActor.receipt === null,
+      'CROSS_ACCOUNT_RECEIPT_LEAK'
+    );
+    let denied = false;
+    try {
+      await clients.staff.query(ref('scannerCommands:getReceipt'), {
+        ...lastIdentity,
+        businessId: fixtures.secondBusinessId,
+      });
+    } catch {
+      denied = true;
+    }
+    requireThat(denied, 'CROSS_BUSINESS_RECEIPT_LEAK');
+    return {
+      duplicateDecode: 'SUPPRESSED',
+      crossAccountReceipt: 'ABSENT',
+      crossBusinessReceipt: 'DENIED',
+    };
   });
   let receiptBlocked = true,
     drop = true,
@@ -583,6 +680,187 @@ try {
     };
   });
   releaseCommit();
+  receiptBlocked = false;
+  const readyWithCamera = async (
+    page = scan.page,
+    path = '/staff/scanner-preview'
+  ) => {
+    await arrange('restore');
+    await scanner(page, path);
+    let value = (
+      await clients.customer.mutation(
+        ref('scanner:createCustomerScanToken'),
+        {},
+        { skipQueue: true }
+      )
+    ).scanToken;
+    await page.evaluate((q) => {
+      window.__qaDecode = q;
+    }, value);
+    value = '';
+    await page
+      .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
+      .click();
+    await page.getByText('בחרו פעולה', { exact: true }).waitFor();
+  };
+  await record('CONNECTED_OFFLINE_BEFORE_COMMIT_RECONNECT', async () => {
+    await readyWithCamera();
+    const before = scannerRequests.length;
+    try {
+      await scan.context.setOffline(true);
+      await scan.page
+        .getByRole('button', { name: 'אישור חותמת', exact: true })
+        .click();
+      await scan.page
+        .getByText('אין חיבור זמין — הפעולה לא נשלחה', { exact: true })
+        .waitFor();
+    } finally {
+      await scan.context.setOffline(false);
+    }
+    await scan.page.waitForTimeout(1000);
+    requireThat(scannerRequests.length === before, 'RECONNECT_AUTO_SUBMIT');
+    return { commitRequests: 0, reconnectAutoSubmit: false };
+  });
+  await record('CONNECTED_SESSION_EXPIRY', async () => {
+    await readyWithCamera();
+    const before = scannerRequests.length;
+    await scan.page.waitForTimeout(31200);
+    await scan.page
+      .getByRole('button', { name: 'אישור חותמת', exact: true })
+      .click();
+    await scan.page
+      .getByText('SCAN_SESSION_EXPIRED', { exact: true })
+      .waitFor();
+    requireThat(scannerRequests.length === before, 'EXPIRED_SESSION_SUBMITTED');
+    return { realClock: true, commitRequests: 0 };
+  });
+  await record('CONNECTED_PARALLEL_TAB_LOCK', async () => {
+    const other = await scan.context.newPage();
+    try {
+      await scanner(other);
+      await other
+        .getByText('סורק אחר פתוח עבור החשבון והעסק.', { exact: true })
+        .waitFor();
+      requireThat(
+        await other
+          .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
+          .isDisabled(),
+        'PARALLEL_SCANNER_ENABLED'
+      );
+      return { sameOriginTabs: 2, secondScanner: 'BLOCKED' };
+    } finally {
+      await other.close();
+    }
+  });
+  await record('CONNECTED_BUSINESS_SCOPE_SWITCH', async () => {
+    await o.context.addInitScript(cameraDecodeHarness);
+    observeScanner(o.page);
+    await readyWithCamera(o.page, '/business/scanner-preview');
+    const before = scannerRequests.length;
+    try {
+      await clients.owner.mutation(
+        ref('users:setActiveBusiness'),
+        { businessId: fixtures.secondBusinessId },
+        { skipQueue: true }
+      );
+      await o.page
+        .getByLabel('כרטיס לבדיקה')
+        .selectOption({ label: 'Synthetic Secondary Card' });
+      requireThat(
+        (await o.page
+          .getByRole('button', { name: 'אישור חותמת', exact: true })
+          .count()) === 0,
+        'STALE_SCOPE_ACTION_VISIBLE'
+      );
+      requireThat(scannerRequests.length === before, 'BUSINESS_SWITCH_WRITE');
+    } finally {
+      await clients.owner.mutation(
+        ref('users:setActiveBusiness'),
+        { businessId: fixtures.businessId },
+        { skipQueue: true }
+      );
+    }
+    return { staleAction: 'INVALIDATED', automaticWrites: 0 };
+  });
+  await record('CONNECTED_ACCOUNT_SWITCH', async () => {
+    await readyWithCamera();
+    const before = scannerRequests.length;
+    await client('customer');
+    await scan.page.evaluate((tokens) => {
+      localStorage.setItem('__convexAuthJWT_stampaixauth', tokens.token);
+      localStorage.setItem(
+        '__convexAuthRefreshToken_stampaixauth',
+        tokens.refreshToken
+      );
+    }, actors.customer.tokens);
+    await scan.page.reload();
+    await scan.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
+    requireThat(
+      (await scan.page
+        .getByRole('button', { name: 'אישור חותמת', exact: true })
+        .count()) === 0 && scannerRequests.length === before,
+      'ACCOUNT_SWITCH_STALE_WRITE'
+    );
+    return {
+      authenticatedActorChanged: true,
+      staleAction: 'INVALIDATED',
+      automaticWrites: 0,
+    };
+  });
+  for (const [status, name] of [
+    ['denied', 'NotAllowedError'],
+    ['no-camera', 'NotFoundError'],
+  ]) {
+    await record(
+      `CAMERA_${status.toUpperCase().replace('-', '_')}_UX`,
+      async () => {
+        const test = await authenticated('staff');
+        try {
+          await test.context.addInitScript((name) => {
+            navigator.mediaDevices.getUserMedia = async () => {
+              throw new DOMException('Synthetic camera boundary', name);
+            };
+          }, name);
+          await scanner(test.page);
+          await test.page
+            .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
+            .click();
+          await test.page
+            .getByText(`המצלמה אינה זמינה (${status})`, { exact: false })
+            .waitFor();
+          requireThat(
+            await test.page
+              .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
+              .isEnabled(),
+            'CAMERA_RETRY_MISSING'
+          );
+          return {
+            boundary: 'SYNTHETIC_MEDIA_ERROR',
+            physicalPermission: 'DEVICE_VERIFY',
+          };
+        } finally {
+          await test.context.close();
+        }
+      }
+    );
+  }
+  await record('CUSTOMER_LOGOUT_LOGIN', async () => {
+    await visit(c.page, '/settings', 'הגדרות');
+    await c.page
+      .getByRole('button', { name: 'יציאה מהחשבון', exact: true })
+      .click();
+    await c.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'יציאה מהחשבון', exact: true })
+      .click();
+    await c.page.waitForURL((u) => /sign-up|welcome|sign-in/.test(u.pathname));
+    await c.context.close();
+    const resumed = await authenticated('customer');
+    c.page = resumed.page;
+    c.context = resumed.context;
+    await visit(c.page, '/wallet', 'הארנק שלי');
+    return { serverSession: 'PASSWORD_PROVIDER', logout: 'CONFIRMED' };
+  });
   await record('PWA_MANIFEST_REGISTRATION_CACHE', async () => {
     await visit(c.page, '/wallet', 'הארנק שלי');
     await c.page.waitForFunction(() => navigator.serviceWorker.controller);
@@ -594,7 +872,12 @@ try {
       for (const key of keys)
         for (const request of await (await caches.open(key)).keys())
           entries.push(new URL(request.url).pathname);
+      const fallback = await caches.match('/pwa/offline.html');
+      const fallbackHtml = fallback ? await fallback.text() : '';
       return {
+        publicFallbackOnly:
+          fallbackHtml.includes('<h1>אין חיבור כרגע</h1>') &&
+          !fallbackHtml.includes('_expo/static/js'),
         controlled: !!navigator.serviceWorker.controller,
         scope: new URL(registration.scope).pathname,
         display: manifest.display,
@@ -603,7 +886,8 @@ try {
       };
     });
     requireThat(
-      result.controlled &&
+      result.publicFallbackOnly &&
+        result.controlled &&
         result.scope === '/' &&
         result.display === 'standalone' &&
         result.icons > 0,
@@ -621,10 +905,39 @@ try {
     );
     return result;
   });
+  await record('PWA_INSTALLABILITY_SIGNALS', async () => {
+    const session = await c.context.newCDPSession(c.page);
+    try {
+      // Chrome DevTools Protocol Page.getAppManifest/getInstallabilityErrors.
+      const manifest = await session.send('Page.getAppManifest');
+      const install = await session.send('Page.getInstallabilityErrors');
+      const errors = install.installabilityErrors.map((e) => e.errorId);
+      requireThat(
+        manifest.errors.length === 0 && errors.length === 0,
+        'INSTALLABILITY_SIGNAL_FAILURE'
+      );
+      return {
+        manifestErrors: 0,
+        installabilityErrors: errors,
+        physicalInstall: 'DEVICE_VERIFY',
+      };
+    } finally {
+      await session.detach();
+    }
+  });
   await record('PWA_OFFLINE_RETURN_ONLINE', async () => {
     try {
       await c.context.setOffline(true);
-      await c.page.reload().catch(() => {});
+      const navigation = await c.page
+        .reload({ waitUntil: 'domcontentloaded' })
+        .catch(() => null);
+      report.offlineProbe = {
+        status: navigation?.status() ?? null,
+        fromServiceWorker: navigation?.fromServiceWorker() ?? null,
+        navigatorOffline: await c.page.evaluate(
+          () => navigator.onLine === false
+        ),
+      };
       await c.page.getByText('אין חיבור כרגע', { exact: true }).waitFor();
     } finally {
       await c.context.setOffline(false);
@@ -814,7 +1127,68 @@ try {
       !targets.some((t) => t.endpoint === endpoint),
       'UNSUBSCRIBE_NOT_REMOVED'
     );
-    return { senderBound: 10, duplicateRows: 1, privateKeyClient: false };
+    const endpoints = Array.from(
+      { length: 10 },
+      (_, i) => `${endpoint}-quota-${i}`
+    );
+    try {
+      for (const endpoint of endpoints)
+        await clients.customer.mutation(
+          ref('webPush:subscribe'),
+          { endpoint, ...keys },
+          { skipQueue: true }
+        );
+      let quotaDenied = false;
+      try {
+        await clients.customer.mutation(
+          ref('webPush:subscribe'),
+          { endpoint: `${endpoint}-over-limit`, ...keys },
+          { skipQueue: true }
+        );
+      } catch {
+        quotaDenied = true;
+      }
+      requireThat(
+        quotaDenied &&
+          (
+            await admin.query(ref('webPush:deliveryTargets'), {
+              userId: actors.customer.id,
+            })
+          ).length === 10,
+        'PUSH_QUOTA_NOT_ENFORCED'
+      );
+    } finally {
+      for (const endpoint of endpoints)
+        await clients.customer.mutation(
+          ref('webPush:unsubscribe'),
+          { endpoint },
+          { skipQueue: true }
+        );
+    }
+    await clients.customer.mutation(
+      ref('webPush:subscribe'),
+      { endpoint, ...keys },
+      { skipQueue: true }
+    );
+    const delivery = await admin.action(ref('webPushDelivery:send'), {
+      userId: actors.customer.id,
+    });
+    requireThat(
+      delivery.sent === 0 && delivery.failed === 1,
+      'INVALID_ENDPOINT_SENDER_RESULT'
+    );
+    await clients.customer.mutation(
+      ref('webPush:unsubscribe'),
+      { endpoint },
+      { skipQueue: true }
+    );
+    return {
+      senderBound: 10,
+      duplicateRows: 1,
+      quotaDenied: true,
+      invalidEndpointSender: 'FAILED_SAFELY',
+      privateKeyClient: false,
+    };
   });
   await record('WEB_PUSH_BROWSER_SUBSCRIBE', async () => {
     await c.context.grantPermissions(['notifications']);
@@ -878,23 +1252,50 @@ try {
     return { liveDelivery: 'DEVICE_VERIFY' };
   });
   await record('A11Y_AUDIT', async () => {
-    await visit(c.page, '/wallet', 'הארנק שלי');
-    const result = await new AxeBuilder({ page: c.page }).analyze();
-    report.accessibility = {
-      violations: result.violations.map((v) => ({
-        id: v.id,
-        impact: v.impact,
-        nodes: v.nodes.length,
-        targets: v.nodes.slice(0, 10).map((n) => n.target),
-      })),
-      passes: result.passes.length,
-    };
-    requireThat(
-      !result.violations.some((v) =>
-        ['critical', 'serious'].includes(v.impact)
-      ),
-      'SERIOUS_A11Y_VIOLATION'
-    );
+    const staffAudit = await authenticated('staff');
+    report.accessibility = {};
+    let serious = false;
+    try {
+      for (const [name, page, path, label] of [
+        ['customer-wallet', c.page, '/wallet', 'הארנק שלי'],
+        ['customer-settings', c.page, '/settings', 'הגדרות'],
+        ['owner-dashboard', o.page, '/business', 'Synthetic Phase 3 primary'],
+        ['owner-loyalty', o.page, '/business/loyalty', 'כרטיסיות'],
+        ['manager-dashboard', m.page, '/business', 'Synthetic Phase 3 primary'],
+        ['staff-landing', staffAudit.page, '/staff', 'אזור הצוות'],
+        [
+          'staff-scanner',
+          staffAudit.page,
+          '/staff/scanner-preview',
+          'כרטיס לבדיקה',
+        ],
+      ]) {
+        await visit(page, path, label);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await layout(page);
+        const result = await new AxeBuilder({ page }).analyze();
+        report.accessibility[name] = {
+          violations: result.violations.map((v) => ({
+            id: v.id,
+            impact: v.impact,
+            nodes: v.nodes.length,
+            targets: v.nodes.slice(0, 10).map((n) => n.target),
+          })),
+          passes: result.passes.length,
+        };
+        serious ||= result.violations.some((v) =>
+          ['critical', 'serious'].includes(v.impact)
+        );
+        await page.keyboard.press('Tab');
+        requireThat(
+          await page.evaluate(() => document.activeElement !== document.body),
+          'ROLE_KEYBOARD_FOCUS_MISSING'
+        );
+      }
+    } finally {
+      await staffAudit.context.close();
+    }
+    requireThat(!serious, 'SERIOUS_A11Y_VIOLATION');
   });
   await record('PERFORMANCE_LIGHTHOUSE', async () => {
     const { pathToFileURL } = await import('node:url');
@@ -921,6 +1322,20 @@ try {
         'LIGHTHOUSE_RUNTIME_FAILURE'
       );
       return {
+        diagnostics: Object.fromEntries(
+          [
+            'unused-javascript',
+            'render-blocking-resources',
+            'modern-image-formats',
+            'font-display',
+          ].map((id) => [
+            id,
+            {
+              score: result.lhr.audits[id]?.score ?? null,
+              numericValue: result.lhr.audits[id]?.numericValue ?? null,
+            },
+          ])
+        ),
         scores: Object.fromEntries(
           Object.entries(result.lhr.categories).map(([id, v]) => [id, v.score])
         ),
@@ -953,11 +1368,29 @@ try {
         tag: 'rc-test',
       });
       if (!notifications.length) throw new Error('NOTIFICATION_UNAVAILABLE');
-      self.dispatchEvent(
-        new self.NotificationEvent('notificationclick', {
-          notification: notifications[0],
-        })
-      );
+      // Only the OS event envelope is synthetic; the served worker's real handler runs.
+      let pending;
+      const event = new Event('notificationclick');
+      Object.defineProperties(event, {
+        notification: { value: notifications[0] },
+        waitUntil: {
+          value: (promise) => {
+            pending = promise;
+          },
+        },
+      });
+      self.dispatchEvent(event);
+      if (!pending) throw new Error('WORKER_HANDLER_NOT_INVOKED');
+      try {
+        await pending;
+      } catch (error) {
+        // Headless synthetic events cannot grant the OS user-activation needed for focus.
+        if (
+          error.name !== 'InvalidAccessError' &&
+          error.name !== 'NotAllowedError'
+        )
+          throw error;
+      }
     });
     await c.page.waitForURL((u) => u.pathname === '/inbox');
     return {
@@ -989,10 +1422,13 @@ try {
       duplicateDenied = true;
     }
     requireThat(duplicateDenied, 'PASSWORD_DUPLICATE_ACCOUNT_LINKED');
+    await client('owner');
     const callback = await browser.newContext();
     const page = await callback.newPage();
     await page.goto(`${url}/oauth-callback`);
-    await page.getByText('לא הצלחנו להשלים את ההתחברות. נסו שוב.', { exact: true }).waitFor({ timeout: 15000 });
+    await page
+      .getByText('לא הצלחנו להשלים את ההתחברות. נסו שוב.', { exact: true })
+      .waitFor({ timeout: 15000 });
     await page.getByText('חזרה להרשמה', { exact: true }).click();
     await page.getByText('איך תרצו להתחבר?', { exact: true }).waitFor();
     await callback.close();

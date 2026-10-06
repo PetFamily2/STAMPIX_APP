@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { Tabs, useSegments } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
@@ -23,7 +30,8 @@ const TAB_BAR_CONTENT_HEIGHT = 56;
 const DISCOVERY_TAB_ICON_SIZE = 30;
 const STANDARD_TAB_ACTIVE_BACKGROUND = '#E7F0FF';
 const STANDARD_TAB_ACTIVE_COLOR = '#111827';
-const STANDARD_TAB_INACTIVE_COLOR = '#9AA4B8';
+const STANDARD_TAB_INACTIVE_COLOR =
+  Platform.OS === 'web' ? '#64748B' : '#9AA4B8';
 const SETTINGS_ROUTE_NAMES = new Set([
   'settings',
   'account-details',
@@ -62,7 +70,9 @@ function StandardTabButton({
   return (
     <Pressable
       accessibilityLabel={props.accessibilityLabel ?? title}
-      accessibilityRole={props.accessibilityRole}
+      accessibilityRole={
+        Platform.OS === 'web' ? 'tab' : props.accessibilityRole
+      }
       accessibilityState={{ ...props.accessibilityState, selected: isActive }}
       onLongPress={props.onLongPress}
       onPress={props.onPress}
@@ -182,7 +192,9 @@ export default function CustomerTabsLayout() {
             return (
               <Pressable
                 accessibilityLabel={props.accessibilityLabel ?? TEXT.showQr}
-                accessibilityRole={props.accessibilityRole}
+                accessibilityRole={
+                  Platform.OS === 'web' ? 'tab' : props.accessibilityRole
+                }
                 accessibilityState={{
                   ...props.accessibilityState,
                   selected: isActive,
