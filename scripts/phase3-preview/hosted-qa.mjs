@@ -4,9 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
-import {
-  SOURCE_SHA,
-} from '../lib/phase3c1-preview-guard.mjs';
+import { SOURCE_SHA } from '../lib/phase3c1-preview-guard.mjs';
 
 const report = {
   revision: SOURCE_SHA,
@@ -20,7 +18,7 @@ const save = () =>
 const requireThat = (v, code) => {
   if (!v) throw new Error(code);
 };
-let browser;
+let browser, observedPage;
 const record = async (name, fn) => {
   try {
     const detail = await fn();
@@ -33,6 +31,26 @@ const record = async (name, fn) => {
         : 'ASSERTION_FAILED',
     };
     report.errors.push(name);
+    if (observedPage && !observedPage.isClosed()) {
+      try {
+        report.cases[name].observation = await observedPage.evaluate(() => ({
+          pathGroup: location.pathname.split('/').slice(0, 2).join('/'),
+          online: navigator.onLine,
+          controlled: !!navigator.serviceWorker.controller,
+          signals: [
+            'הארנק שלי',
+            'אזור הצוות',
+            'סורק Web עדיין אינו זמין',
+            'מכינים סביבת בדיקה',
+            'כרטיס לבדיקה',
+            'אין חיבור כרגע',
+            'איך תרצו להתחבר?',
+            'קוד הצטרפות לעסק',
+            'שם הכרטיסייה',
+          ].filter((label) => document.body.innerText.includes(label)),
+        }));
+      } catch {}
+    }
   }
   save();
   console.info(`RC QA ${name}: ${report.cases[name].status}`);
@@ -109,7 +127,7 @@ try {
     ],
   });
   const errors = [];
-  const states = [];
+
   const authenticated = async (
     role,
     { width = 390, location = 'denied' } = {}
@@ -140,26 +158,38 @@ try {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
-    page.on('pageerror', () => errors.push(role));
+    page.on('pageerror', (error) =>
+      errors.push({
+        role,
+        kind:
+          /Minified React error #(\d+)/.exec(error.message)?.[0] ??
+          /\[CONVEX [A-Z]\([^)]{1,120}\)\]/.exec(error.message)?.[0] ??
+          error.name ??
+          'RUNTIME_ERROR',
+      })
+    );
     page.on('console', (m) => {
       if (
         m.type() === 'error' &&
         !/favicon|net::ERR_|Failed to load resource/.test(m.text())
       )
-        errors.push(role);
+        errors.push({ role, kind: 'CONSOLE_ERROR' });
     });
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     return { page, context };
   };
   const visit = async (page, path, expected) => {
+    observedPage = page;
     await page.goto(`${url}${path}`, { waitUntil: 'domcontentloaded' });
     await page
       .getByText(expected, { exact: false })
       .first()
       .waitFor({ state: 'visible', timeout: 20000 });
+    const observed = new URL(page.url()).pathname;
     requireThat(
-      !/\/sign-up|\/sign-in|\/welcome$/.test(new URL(page.url()).pathname),
-      'SIGNED_OUT_ROUTE'
+      observed === path ||
+        (path.startsWith('/customer-card/') && observed.startsWith('/card/')),
+      'WRONG_AUTHENTICATED_ROUTE'
     );
   };
   const layout = async (page) => {
@@ -189,7 +219,11 @@ try {
       `/customer-card/${fixtures.membershipId}`,
       'Synthetic Test Card'
     );
-    requireThat((await c.page.locator('svg').count()) > 0, 'QR_SVG_MISSING');
+    await c.page.getByText('קוד QR לקוח', { exact: true }).waitFor();
+    requireThat(
+      (await c.page.locator('svg[width="200"]').count()) > 0,
+      'QR_SVG_MISSING'
+    );
   });
   await record('CUSTOMER_REWARD_STATE', async () => {
     await arrange('reward');
@@ -198,11 +232,22 @@ try {
   });
   await record('CUSTOMER_JOIN', async () => {
     await visit(c.page, '/join', 'הצטרפות למועדון');
-    await c.page.getByPlaceholder('קוד הצטרפות').fill('P3PRIMARY');
+    await c.page.getByPlaceholder('קוד הצטרפות').fill('P3EFGH');
     await c.page.getByText('הצטרף', { exact: true }).click();
-    await c.page.waitForURL((u) => !u.pathname.startsWith('/join'), {
-      timeout: 20000,
-    });
+    await c.page
+      .getByRole('button', {
+        name: 'בחירת Synthetic Secondary Card',
+        exact: true,
+      })
+      .click();
+    await c.page.getByText('הצטרפות לכרטיסיות שנבחרו', { exact: true }).click();
+    await c.page.getByText('ההצטרפות בוצעה בהצלחה', { exact: true }).waitFor();
+    requireThat(
+      (await clients.customer.query(ref('memberships:byCustomer'), {})).some(
+        (row) => row.businessId === fixtures.secondBusinessId
+      ),
+      'JOIN_MEMBERSHIP_NOT_CONFIRMED'
+    );
   });
   await record('CUSTOMER_ONBOARDING', async () => {
     await arrange('onboarding');
@@ -223,7 +268,7 @@ try {
     ['/business/customers', 'לקוחות'],
     ['/business/loyalty', 'כרטיסיות'],
     ['/business/campaigns', 'קמפיינים'],
-    ['/business/referrals', 'הזמנות'],
+    ['/business/referrals', 'קמפיין חבר מביא חבר'],
     ['/business/inbox', 'הודעות'],
     ['/business/settings', 'הגדרות'],
     ['/business/qr', 'קוד הצטרפות לעסק'],
@@ -233,6 +278,96 @@ try {
       await layout(o.page);
     });
   }
+  await record('OWNER_BUSINESS_SCOPE_SWITCH', async () => {
+    await visit(o.page, '/business', 'Synthetic Phase 3 primary');
+    await o.page.getByRole('button', { name: 'בחירת עסק פעיל' }).click();
+    await o.page
+      .getByRole('button', { name: 'מעבר אל Synthetic Phase 3 secondary' })
+      .click();
+    await o.page
+      .getByText('Synthetic Phase 3 secondary', { exact: true })
+      .first()
+      .waitFor();
+    requireThat(
+      (await clients.owner.query(ref('users:getCurrentUser'), {}))
+        .activeBusinessId === fixtures.secondBusinessId,
+      'BUSINESS_SCOPE_NOT_CHANGED'
+    );
+    await o.page.getByRole('button', { name: 'בחירת עסק פעיל' }).click();
+    await o.page
+      .getByRole('button', { name: 'מעבר אל Synthetic Phase 3 primary' })
+      .click();
+    await o.page
+      .getByText('Synthetic Phase 3 primary', { exact: true })
+      .first()
+      .waitFor();
+  });
+  await record('OWNER_LOYALTY_CREATE_EDIT_ARCHIVE', async () => {
+    await visit(o.page, '/business/cards/new', 'שם הכרטיסייה');
+    await o.page
+      .getByLabel('שם הכרטיסייה', { exact: true })
+      .fill('Synthetic QA Card');
+    await o.page
+      .getByLabel('הטבה', { exact: true })
+      .fill('Synthetic QA Reward');
+    await o.page
+      .getByRole('button', { name: 'שמירת טיוטה', exact: true })
+      .click();
+    await o.page.getByPlaceholder('שם הכרטיסיה', { exact: true }).waitFor();
+    await o.page
+      .getByPlaceholder('שם הכרטיסיה', { exact: true })
+      .fill('Synthetic QA Updated');
+    await o.page
+      .getByRole('button', { name: 'שמור שינויים', exact: true })
+      .click();
+    const ok = o.page.getByRole('button', { name: 'אישור', exact: true });
+    if (await ok.count()) await ok.click();
+    await o.page
+      .getByRole('button', { name: 'פרסם כרטיסיה', exact: true })
+      .click();
+    if (await ok.count()) await ok.click();
+    await o.page
+      .getByRole('button', { name: 'העבר לארכיון', exact: true })
+      .click();
+    await o.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'העבר לארכיון', exact: true })
+      .click();
+    if (await ok.count()) await ok.click();
+    const programs = await clients.owner.query(
+      ref('loyaltyPrograms:listManagementByBusiness'),
+      { businessId: fixtures.businessId }
+    );
+    requireThat(
+      programs.some(
+        (p) => p.title === 'Synthetic QA Updated' && p.lifecycle === 'archived'
+      ),
+      'LOYALTY_UI_WRITE_NOT_CONFIRMED'
+    );
+  });
+  await record('OWNER_CAMPAIGN_DRAFT', async () => {
+    await visit(o.page, '/business/campaigns', 'קמפיינים');
+    await o.page
+      .getByRole('button', { name: 'צור קמפיין', exact: true })
+      .click();
+    await o.page.getByText('קמפיין כללי', { exact: true }).first().click();
+    await o.page.getByPlaceholder('כותרת ההודעה').fill('Synthetic QA Campaign');
+    await o.page
+      .getByPlaceholder('מה המתנה? כתבו כאן את תוכן ההטבה ללקוח')
+      .fill('Synthetic Preview only');
+    await o.page
+      .getByRole('button', { name: 'שמור טיוטה', exact: true })
+      .click();
+    requireThat(
+      (
+        await clients.owner.query(
+          ref('campaigns:listManagementCampaignsByBusiness'),
+          { businessId: fixtures.businessId }
+        )
+      ).some((p) => p.title === 'Synthetic QA Campaign'),
+      'CAMPAIGN_UI_WRITE_NOT_CONFIRMED'
+    );
+  });
   await record('MANAGER_DASHBOARD', async () => {
     await visit(m.page, '/business', 'Synthetic Phase 3 primary');
   });
@@ -275,11 +410,14 @@ try {
         if (this.qa && window.__qaDecode) {
           const value = window.__qaDecode;
           window.__qaDecode = null;
-          queueMicrotask(() =>
+          queueMicrotask(() => {
             this.dispatchEvent(
               new MessageEvent('message', { data: { data: value } })
-            )
-          );
+            );
+            this.dispatchEvent(
+              new MessageEvent('message', { data: { data: value } })
+            );
+          });
         } else super.postMessage(...args);
       }
     };
@@ -323,6 +461,10 @@ try {
   let receiptBlocked = true,
     drop = true,
     commitCount = 0;
+  let releaseCommit;
+  const commitGate = new Promise((resolve) => {
+    releaseCommit = resolve;
+  });
   await scan.page.route(`${target.url}/api/query`, async (route) => {
     const d = route.request().postDataJSON();
     if (receiptBlocked && d?.path === 'scannerCommands:getReceipt')
@@ -339,6 +481,7 @@ try {
       if (drop) {
         drop = false;
         await route.fetch();
+        await commitGate;
         await route.abort('failed');
         return;
       }
@@ -366,6 +509,33 @@ try {
       .getByRole('button', { name: 'אישור חותמת', exact: true })
       .click();
     await scan.page
+      .getByText('הפעולה נשלחה — ממתינים לאישור', { exact: true })
+      .waitFor();
+    await scan.page.evaluate(async () => {
+      await navigator.serviceWorker.register('/service-worker.js?rc-update=1', {
+        scope: '/',
+        updateViaCache: 'none',
+      });
+    });
+    await scan.page
+      .getByRole('button', {
+        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+      })
+      .waitFor();
+    await scan.page
+      .getByRole('button', {
+        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+      })
+      .click();
+    requireThat(
+      await scan.page.evaluate(
+        async () =>
+          !!(await navigator.serviceWorker.getRegistration('/')).waiting
+      ),
+      'PENDING_WRITE_UPDATE_ACTIVATED'
+    );
+    releaseCommit();
+    await scan.page
       .getByText('תוצאת הפעולה עדיין אינה ידועה.', { exact: false })
       .waitFor();
     requireThat(
@@ -373,6 +543,18 @@ try {
         .getByRole('button', { name: 'איפוס וסריקה חדשה' })
         .isDisabled(),
       'UNKNOWN_RESET_ENABLED'
+    );
+    await scan.page
+      .getByRole('button', {
+        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+      })
+      .click();
+    requireThat(
+      await scan.page.evaluate(
+        async () =>
+          !!(await navigator.serviceWorker.getRegistration('/')).waiting
+      ),
+      'UNKNOWN_UPDATE_ACTIVATED'
     );
     const prior = commitCount;
     await scan.page.reload();
@@ -384,8 +566,23 @@ try {
     await scan.page.getByRole('button', { name: 'בירור תוצאה בלבד' }).click();
     await scan.page.getByText('השרת אישר את הפעולה', { exact: true }).waitFor();
     requireThat(commitCount === prior, 'RECONCILIATION_WROTE');
-    return { automaticWrites: 0 };
+    await scan.page
+      .getByRole('button', {
+        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+      })
+      .click();
+    await scan.page.waitForFunction(
+      async () => !(await navigator.serviceWorker.getRegistration('/')).waiting
+    );
+    requireThat(commitCount === prior, 'SAFE_UPDATE_WRITE_REPLAY');
+    return {
+      automaticWrites: 0,
+      pendingWriteBlockedUpdate: true,
+      unknownBlockedUpdate: true,
+      safeUpdateActivated: true,
+    };
   });
+  releaseCommit();
   await record('PWA_MANIFEST_REGISTRATION_CACHE', async () => {
     await visit(c.page, '/wallet', 'הארנק שלי');
     await c.page.waitForFunction(() => navigator.serviceWorker.controller);
@@ -425,10 +622,13 @@ try {
     return result;
   });
   await record('PWA_OFFLINE_RETURN_ONLINE', async () => {
-    await c.context.setOffline(true);
-    await c.page.goto(`${url}/wallet`).catch(() => {});
-    await c.page.getByText('אין חיבור כרגע', { exact: true }).waitFor();
-    await c.context.setOffline(false);
+    try {
+      await c.context.setOffline(true);
+      await c.page.reload().catch(() => {});
+      await c.page.getByText('אין חיבור כרגע', { exact: true }).waitFor();
+    } finally {
+      await c.context.setOffline(false);
+    }
     await c.page.getByRole('link', { name: 'ניסיון להתחבר מחדש' }).click();
     await c.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
   });
@@ -446,16 +646,52 @@ try {
   });
   await record('MAP_ALLOWED', async () => {
     const map = await authenticated('customer', { location: 'allowed' });
+    await arrange('marker');
     await visit(map.page, '/discovery', 'עסקים');
-    await map.page.getByText('מפה', {exact:true}).click();
+    await map.page.getByText('מפה', { exact: true }).click();
     await map.page.locator('.leaflet-container').waitFor({ timeout: 20000 });
     await layout(map.page);
+    await map.page.locator('.leaflet-marker-icon[title]').first().click();
+    const popup = map.page.locator('.leaflet-popup-content button');
+    await popup.waitFor();
+    requireThat(
+      (await popup.innerText()) === '<strong data-rc-marker>synthetic</strong>',
+      'MARKER_TEXT_CHANGED'
+    );
+    requireThat(
+      (await map.page.locator('[data-rc-marker]').count()) === 0,
+      'MARKER_HTML_INJECTION'
+    );
+    await popup.click();
+    await map.page.waitForURL((u) => u.pathname.includes('/business/'));
     await map.context.close();
+    await arrange('restore');
   });
   await record('MAP_DENIED_LIST_FALLBACK', async () => {
     await visit(c.page, '/discovery', 'עסקים');
     await layout(c.page);
-    requireThat(await c.page.locator('body').innerText(), 'DISCOVERY_BLANK');
+    await c.page.getByText('אישור מיקום', { exact: true }).click();
+    await c.page
+      .getByText('לא הצלחנו לטעון את המיקום שלך.', { exact: true })
+      .waitFor();
+    requireThat(
+      (await c.page.getByText('עסקים שמורים', { exact: true }).count()) > 0,
+      'DISCOVERY_LIST_FALLBACK_MISSING'
+    );
+  });
+  await record('MAP_LOCATION_UNAVAILABLE', async () => {
+    const unavailable = await authenticated('customer');
+    await unavailable.context.addInitScript(() => {
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: (_, failure) => failure({ code: 2 }) },
+      });
+    });
+    await visit(unavailable.page, '/discovery', 'עסקים');
+    await unavailable.page.getByText('אישור מיקום', { exact: true }).click();
+    await unavailable.page
+      .getByText('לא הצלחנו לטעון את המיקום שלך.', { exact: true })
+      .waitFor();
+    await unavailable.context.close();
   });
   await record('SECURITY_PERMISSION_MATRIX', async () => {
     const denied = async (c, path, args) => {
@@ -470,9 +706,23 @@ try {
     await denied(clients.customer, 'loyaltyPrograms:listManagementByBusiness', {
       businessId: fixtures.businessId,
     });
-    await denied(clients.staff, 'loyaltyPrograms:listManagementByBusiness', {
-      businessId: fixtures.businessId,
-    });
+    let staffWriteDenied = false;
+    try {
+      await clients.staff.mutation(
+        ref('loyaltyPrograms:createLoyaltyProgram'),
+        {
+          businessId: fixtures.businessId,
+          title: 'Synthetic forbidden',
+          rewardName: 'Synthetic',
+          maxStamps: 3,
+          stampIcon: 'coffee',
+        },
+        { skipQueue: true }
+      );
+    } catch {
+      staffWriteDenied = true;
+    }
+    requireThat(staffWriteDenied, 'STAFF_OWNER_WRITE_ALLOWED');
     await denied(clients.manager, 'loyaltyPrograms:listManagementByBusiness', {
       businessId: fixtures.secondBusinessId,
     });
@@ -483,6 +733,10 @@ try {
       ref('loyaltyPrograms:listManagementByBusiness'),
       { businessId: fixtures.businessId }
     );
+    const unauth = new ConvexHttpClient(target.url, { logger: false });
+    await denied(unauth, 'loyaltyPrograms:listManagementByBusiness', {
+      businessId: fixtures.businessId,
+    });
     return {
       roles: ['customer', 'owner', 'manager', 'staff'],
       crossBusinessDenied: true,
@@ -571,12 +825,39 @@ try {
         atob(key.replace(/-/g, '+').replace(/_/g, '/')),
         (c) => c.charCodeAt(0)
       );
-      const s = await r.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: bytes,
-      });
-      return s.toJSON();
+      try {
+        const s = await Promise.race([
+          r.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: bytes,
+          }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('PUSH_SERVICE_UNAVAILABLE')),
+              15000
+            )
+          ),
+        ]);
+        return s.toJSON();
+      } catch (error) {
+        return {
+          blocked:
+            ['AbortError', 'NotAllowedError', 'NotSupportedError'].includes(
+              error.name
+            ) || error.message === 'PUSH_SERVICE_UNAVAILABLE',
+          kind: error.name,
+        };
+      }
     }, cfg.publicKey);
+    if (subscription.blocked)
+      return {
+        status: 'LIVE_DELIVERY_DEVICE_BLOCKED',
+        reason: subscription.kind,
+      };
+    requireThat(
+      subscription.endpoint && subscription.keys,
+      'BROWSER_PUSH_REGISTRATION_FAILED'
+    );
     await clients.customer.mutation(
       ref('webPush:subscribe'),
       { endpoint: subscription.endpoint, ...subscription.keys },
@@ -596,14 +877,6 @@ try {
     });
     return { liveDelivery: 'DEVICE_VERIFY' };
   });
-  if (report.cases.WEB_PUSH_BROWSER_SUBSCRIBE.status === 'FAIL') {
-    report.cases.WEB_PUSH_BROWSER_SUBSCRIBE = {
-      status: 'LIVE_DELIVERY_DEVICE_BLOCKED',
-    };
-    report.errors = report.errors.filter(
-      (n) => n !== 'WEB_PUSH_BROWSER_SUBSCRIBE'
-    );
-  }
   await record('A11Y_AUDIT', async () => {
     await visit(c.page, '/wallet', 'הארנק שלי');
     const result = await new AxeBuilder({ page: c.page }).analyze();
@@ -612,6 +885,7 @@ try {
         id: v.id,
         impact: v.impact,
         nodes: v.nodes.length,
+        targets: v.nodes.slice(0, 10).map((n) => n.target),
       })),
       passes: result.passes.length,
     };
@@ -622,9 +896,156 @@ try {
       'SERIOUS_A11Y_VIOLATION'
     );
   });
+  await record('PERFORMANCE_LIGHTHOUSE', async () => {
+    const { pathToFileURL } = await import('node:url');
+    const lighthouse = (
+      await import(pathToFileURL(modules.resolve('lighthouse')).href)
+    ).default;
+    const launcher = await import(
+      pathToFileURL(modules.resolve('chrome-launcher')).href
+    );
+    const chrome = await launcher.launch({
+      chromePath: chromium.executablePath(),
+      chromeFlags: ['--headless', '--no-sandbox'],
+    });
+    try {
+      const result = await lighthouse(`${url}/welcome`, {
+        port: chrome.port,
+        output: 'json',
+        logLevel: 'silent',
+        onlyCategories: ['performance', 'accessibility', 'best-practices'],
+        chromeFlags: ['--headless', '--no-sandbox'],
+      });
+      requireThat(
+        result?.lhr && !result.lhr.runtimeError,
+        'LIGHTHOUSE_RUNTIME_FAILURE'
+      );
+      return {
+        scores: Object.fromEntries(
+          Object.entries(result.lhr.categories).map(([id, v]) => [id, v.score])
+        ),
+        metrics: Object.fromEntries(
+          [
+            'first-contentful-paint',
+            'largest-contentful-paint',
+            'total-blocking-time',
+            'cumulative-layout-shift',
+          ].map((id) => [id, result.lhr.audits[id]?.numericValue])
+        ),
+      };
+    } finally {
+      await chrome.kill();
+    }
+  });
+  await record('WEB_PUSH_NOTIFICATION_ROUTING_INTEGRATION', async () => {
+    await c.context.grantPermissions(['notifications']);
+    await c.page.goto(`${url}/wallet`);
+    await c.page.waitForFunction(() => navigator.serviceWorker.controller);
+    const worker = c.context.serviceWorkers()[0];
+    requireThat(worker, 'SERVICE_WORKER_NOT_FOUND');
+    await worker.evaluate(async () => {
+      await self.registration.showNotification('StampAix', {
+        body: 'Synthetic Preview',
+        tag: 'rc-test',
+        data: { href: '/inbox' },
+      });
+      const notifications = await self.registration.getNotifications({
+        tag: 'rc-test',
+      });
+      if (!notifications.length) throw new Error('NOTIFICATION_UNAVAILABLE');
+      self.dispatchEvent(
+        new self.NotificationEvent('notificationclick', {
+          notification: notifications[0],
+        })
+      );
+    });
+    await c.page.waitForURL((u) => u.pathname === '/inbox');
+    return {
+      event: 'SYNTHETIC_NOTIFICATIONCLICK',
+      osDelivery: 'DEVICE_VERIFY',
+    };
+  });
+  await record('AUTH_REDIRECT_LINKING_BOUNDARIES', async () => {
+    const policy = await admin.query(ref('phase3Fixtures:authPolicy'), {
+      secret,
+      origin,
+    });
+    requireThat(
+      Object.values(policy).every(Boolean),
+      'AUTH_REDIRECT_BOUNDARY_FAILED'
+    );
+    let duplicateDenied = false;
+    const unauth = new ConvexHttpClient(target.url, { logger: false });
+    try {
+      await unauth.action(ref('auth:signIn'), {
+        provider: 'password',
+        params: {
+          flow: 'signUp',
+          email: 'phase3-owner@example.invalid',
+          password: randomBytes(32).toString('base64url'),
+        },
+      });
+    } catch {
+      duplicateDenied = true;
+    }
+    requireThat(duplicateDenied, 'PASSWORD_DUPLICATE_ACCOUNT_LINKED');
+    const callback = await browser.newContext();
+    const page = await callback.newPage();
+    await page.goto(`${url}/oauth-callback`);
+    await page.getByText('לא הצלחנו להשלים את ההתחברות. נסו שוב.', { exact: true }).waitFor({ timeout: 15000 });
+    await page.getByText('חזרה להרשמה', { exact: true }).click();
+    await page.getByText('איך תרצו להתחבר?', { exact: true }).waitFor();
+    await callback.close();
+    return {
+      ...policy,
+      duplicateSignupDenied: true,
+      providers: 'EXTERNAL_CONFIGURATION_REQUIRED',
+    };
+  });
   await record('RUNTIME_ERRORS', async () => {
     report.runtimeErrorCount = errors.length;
+    report.runtimeErrors = errors;
     requireThat(errors.length === 0, 'HOSTED_RUNTIME_ERRORS');
+  });
+  await record('ACCOUNT_DELETION_PUSH_CLEANUP', async () => {
+    const deletionClient = new ConvexHttpClient(target.url, { logger: false });
+    const registration = await deletionClient.action(ref('auth:signIn'), {
+      provider: 'password',
+      params: {
+        flow: 'signUp',
+        email: 'phase3-deletion@example.invalid',
+        password: randomBytes(32).toString('base64url'),
+      },
+    });
+    requireThat(registration.tokens?.token, 'SYNTHETIC_DELETION_AUTH_FAILED');
+    deletionClient.setAuth(registration.tokens.token);
+    const actor = await deletionClient.query(ref('users:getCurrentUser'), {});
+    const ecdh = createECDH('prime256v1');
+    ecdh.generateKeys();
+    await deletionClient.mutation(
+      ref('webPush:subscribe'),
+      {
+        endpoint: 'https://fcm.googleapis.com/fcm/send/synthetic-deletion',
+        p256dh: ecdh.getPublicKey().toString('base64url'),
+        auth: randomBytes(16).toString('base64url'),
+      },
+      { skipQueue: true }
+    );
+    const deleted = await deletionClient.mutation(
+      ref('users:deleteMyAccountHard'),
+      {},
+      { skipQueue: true }
+    );
+    requireThat(deleted.success, 'SYNTHETIC_ACCOUNT_NOT_DELETED');
+    requireThat(
+      (await admin.query(ref('webPush:deliveryTargets'), { userId: actor._id }))
+        .length === 0,
+      'DELETED_ACCOUNT_PUSH_REMAINS'
+    );
+    requireThat(
+      (await deletionClient.query(ref('users:getCurrentUser'), {})) === null,
+      'DELETED_ACCOUNT_AUTHORIZATION_REMAINS'
+    );
   });
   await browser.close();
   browser = null;

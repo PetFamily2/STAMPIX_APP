@@ -72,6 +72,18 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
     },
     { skipQueue: true }
   );
+  for (const [role, actor] of Object.entries(actors)) {
+    const session = await actor.client.query(
+      ref('users:getSessionContext'),
+      {}
+    );
+    requireThat(
+      session?.activeMode === (role === 'customer' ? 'customer' : 'business') &&
+        (role === 'customer' ||
+          session.activeBusinessId === fixtures.businessId),
+      'SYNTHETIC_ROLE_SCOPE_INVALID'
+    );
+  }
   report.seedCompleted = true;
   report.fixtures = {
     syntheticOnly: true,
@@ -655,7 +667,7 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
   ];
   report.remaining = [];
   report.durableReceiptRecovery = true;
-  // Public IDs are only rollout selectors, never credentials. No passwords or JWTs leave this function.
+  // Actor credentials go only to the parent's private runner file, never public env or evidence.
   return {
     actors,
     fixtures,
