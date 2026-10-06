@@ -16,10 +16,10 @@ const waitFor = async (predicate) => {
 };
 export async function liveE2e({ target, admin, secret, report, stage }) {
   const actors = {};
-  for (const role of ['owner', 'staff', 'customer']) {
+  for (const role of ['owner', 'staff', 'customer', 'manager']) {
     stage(`AUTH_${role.toUpperCase()}`);
     const publicClient = new ConvexHttpClient(target.url, { logger: false });
-    let password = randomBytes(32).toString('base64url');
+    const password = randomBytes(32).toString('base64url');
     const signUp = await publicClient.action(ref('auth:signIn'), {
       provider: 'password',
       params: {
@@ -41,7 +41,6 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
         password,
       },
     });
-    password = '';
     const token = signIn?.tokens?.token;
     requireThat(typeof token === 'string', 'NORMAL_PASSWORD_SIGN_IN_FAILED');
     const client = new ConvexHttpClient(target.url, {
@@ -53,7 +52,13 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       user?.email === `phase3-${role}@example.invalid` && user?.isActive,
       'AUTHENTICATED_ACTOR_NOT_PROVEN'
     );
-    actors[role] = { token, id: user._id, client };
+    actors[role] = {
+      token,
+      tokens: signIn.tokens,
+      password,
+      id: user._id,
+      client,
+    };
   }
   stage('SEED');
   const fixtures = await admin.mutation(
@@ -63,13 +68,14 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
       owner: actors.owner.id,
       staff: actors.staff.id,
       customer: actors.customer.id,
+      manager: actors.manager.id,
     },
     { skipQueue: true }
   );
   report.seedCompleted = true;
   report.fixtures = {
     syntheticOnly: true,
-    accounts: 3,
+    accounts: 4,
     businesses: 2,
     programs: 1,
     memberships: 1,
@@ -651,7 +657,9 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
   report.durableReceiptRecovery = true;
   // Public IDs are only rollout selectors, never credentials. No passwords or JWTs leave this function.
   return {
-    actorIds: [actors.owner.id, actors.staff.id],
+    actors,
+    fixtures,
+    actorIds: [actors.owner.id, actors.staff.id, actors.manager.id],
     businessIds: [fixtures.businessId, fixtures.secondBusinessId],
   };
 }

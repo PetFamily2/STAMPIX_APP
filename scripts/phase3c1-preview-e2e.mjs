@@ -13,6 +13,7 @@ import { parseEnv } from 'node:util';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
 import { exportJWK, exportPKCS8, generateKeyPair } from 'jose';
+import webpush from 'web-push';
 import {
   PREVIEW_NAME,
   previewPublicEnvironment,
@@ -271,7 +272,28 @@ try {
   const secret = owned
     ? previous.PHASE3_FIXTURE_SECRET
     : randomBytes(32).toString('base64url');
+  const vapid =
+    previous.WEB_PUSH_VAPID_PUBLIC_KEY && previous.WEB_PUSH_VAPID_PRIVATE_KEY
+      ? {
+          publicKey: previous.WEB_PUSH_VAPID_PUBLIC_KEY,
+          privateKey: previous.WEB_PUSH_VAPID_PRIVATE_KEY,
+        }
+      : webpush.generateVAPIDKeys();
+  report.externalProviders = Object.fromEntries(
+    [
+      'RESEND_API_KEY',
+      'RESEND_FROM_EMAIL',
+      'AUTH_GOOGLE_ID',
+      'AUTH_GOOGLE_SECRET',
+      'AUTH_APPLE_ID',
+      'AUTH_APPLE_SECRET',
+    ].map((name) => [name, Boolean(previous[name])])
+  );
   Object.assign(values, {
+    WEB_PUSH_ENABLED: 'true',
+    WEB_PUSH_VAPID_PUBLIC_KEY: vapid.publicKey,
+    WEB_PUSH_VAPID_PRIVATE_KEY: vapid.privateKey,
+    WEB_PUSH_VAPID_SUBJECT: 'https://stampaix.com',
     STAMPAIX_ENV: 'preview',
     AUTH_LOG_LEVEL: 'ERROR',
     SITE_URL: target.url.replace('.cloud', '.site'),
@@ -411,6 +433,30 @@ try {
   report.emptyBeforeAuthAndSeed = true;
   const selectors = await liveE2e({ target, admin, secret, report, stage });
   report.seedCompleted = true;
+  await admin.mutation(
+    makeFunctionReference('phase3Fixtures:qaArrange'),
+    { secret, fixtures: selectors.fixtures, kind: 'restore' },
+    { skipQueue: true }
+  );
+  const privateQaPath = join(
+    process.env.RUNNER_TEMP,
+    'stampaix-rc-private.json'
+  );
+  writeFileSync(
+    privateQaPath,
+    JSON.stringify({
+      target,
+      secret,
+      fixtures: selectors.fixtures,
+      actors: Object.fromEntries(
+        Object.entries(selectors.actors).map(([role, actor]) => [
+          role,
+          { id: actor.id, password: actor.password, tokens: actor.tokens },
+        ])
+      ),
+    }),
+    { mode: 0o600 }
+  );
   stage('PREPARE_PUBLIC_WEB_ENVIRONMENT');
   const pulled = parseEnv(readFileSync('.env.preview-pulled', 'utf8'));
   const publicEnv = previewPublicEnvironment(

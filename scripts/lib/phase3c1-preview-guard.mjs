@@ -11,6 +11,8 @@ export const CONTROL_PATHS = new Set([
   'scripts/verify-web-phase3-boundaries.mjs',
   'lib/__tests__/phase3c1PreviewGuard.test.js',
   'docs/PWA_RELEASE_CANDIDATE.md',
+  'scripts/phase3-preview/hosted-qa.mjs',
+  'scripts/phase3-preview/install-qa.mjs',
 ]);
 export function requireControlDelta(paths) {
   if (!paths.length || paths.some((path) => !CONTROL_PATHS.has(path)))

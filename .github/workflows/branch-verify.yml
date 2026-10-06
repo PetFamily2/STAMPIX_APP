@@ -157,7 +157,7 @@ jobs:
       group: phase3-stampaix-pwa-phase3-e2e
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     steps:
       - name: Checkout verified control revision
         uses: actions/checkout@v4
@@ -227,11 +227,20 @@ jobs:
           eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > ../eas-deploy.json 2> "${{ runner.temp }}/phase3-eas-deploy.log"
           cd ..
           node scripts/phase3-preview/report-hosting.mjs
+      - name: Install isolated browser QA tools
+        run: bun scripts/phase3-preview/install-qa.mjs
+      - name: Hosted authenticated RC QA
+        run: bun scripts/phase3-preview/hosted-qa.mjs
       - name: Upload sanitized evidence only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase3c1-preview-evidence
-          path: phase3c1-preview-evidence.json
+          path: |
+            phase3c1-preview-evidence.json
+            rc-hosted-evidence.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Remove private automation state
+        if: always()
+        run: rm -f "$RUNNER_TEMP/stampaix-rc-private.json"
