@@ -17,8 +17,10 @@ import {
   PREVIEW_NAME,
   previewPublicEnvironment,
   requireActionsRevision,
+  requireControlDelta,
   requirePreviewTarget,
   requireProjectPreviewKey,
+  SOURCE_SHA,
 } from './lib/phase3c1-preview-guard.mjs';
 import { liveE2e } from './phase3-preview/live-e2e.mjs';
 
@@ -97,6 +99,10 @@ try {
     sha,
     JSON.parse(readFileSync('node_modules/convex/package.json')).version
   );
+  git('merge-base', '--is-ancestor', SOURCE_SHA, sha);
+  requireControlDelta(
+    git('diff', '--name-only', SOURCE_SHA, sha).split('\n').filter(Boolean)
+  );
   const projectSelection = requireProjectPreviewKey(projectKey);
   if (
     process.env.CONVEX_DEV_DEPLOY_KEY ||
@@ -137,7 +143,8 @@ try {
     )
   )
     fail('PINNED_CLI_DID_NOT_RECOGNIZE_PREVIEW_KEY');
-  report.sha = sha;
+  report.sha = SOURCE_SHA;
+  report.controlSha = sha;
   report.previewName = PREVIEW_NAME;
   report.sdkVersion = '1.31.5';
   report.projectKeyRecognizedByPinnedSdk = true;
@@ -170,26 +177,82 @@ try {
     inherited.some((e) => typeof e?.name !== 'string')
   )
     fail('ENVIRONMENT_SHAPE_UNKNOWN');
-  const { privateKey, publicKey } = await generateKeyPair('RS256', {
-    extractable: true,
-  });
-  const jwk = await exportJWK(publicKey);
-  const secret = randomBytes(32).toString('base64url');
-  const changes = inherited
-    .filter((e) => !['CONVEX_CLOUD_URL', 'CONVEX_SITE_URL'].includes(e.name))
-    .map((e) => ({ name: e.name }));
-  const values = {
-    JWT_PRIVATE_KEY: await exportPKCS8(privateKey),
-    JWKS: JSON.stringify({ keys: [{ ...jwk, use: 'sig', alg: 'RS256' }] }),
-    SCAN_TOKEN_SECRET: randomBytes(32).toString('base64url'),
-    SCAN_TOKEN_KID: 'phase3-preview',
+  const previous = Object.fromEntries(inherited.map((e) => [e.name, e.value]));
+  const owned =
+    previous.PHASE3_PREVIEW_NAME === PREVIEW_NAME &&
+    previous.PHASE3_PREVIEW_URL === target.url &&
+    typeof previous.PHASE3_FIXTURE_SECRET === 'string' &&
+    previous.PHASE3_FIXTURE_SECRET.length >= 32;
+  // Read the pinned SDK's paginated system endpoints before any mutation of a reused target.
+  let cursor = null,
+    hasData = false;
+  for (let page = 0; page < 10; page++) {
+    const tables = await admin.query(
+      makeFunctionReference('_system/cli/tables'),
+      { paginationOpts: { cursor, numItems: 100 } }
+    );
+    if (!Array.isArray(tables?.page) || typeof tables.isDone !== 'boolean')
+      fail('TABLE_METADATA_SHAPE_UNKNOWN');
+    for (const table of tables.page) {
+      if (typeof table.name !== 'string') fail('TABLE_METADATA_SHAPE_UNKNOWN');
+      const rows = await admin.query(
+        makeFunctionReference('_system/cli/tableData'),
+        {
+          table: table.name,
+          order: 'asc',
+          paginationOpts: { cursor: null, numItems: 1 },
+        }
+      );
+      if (!Array.isArray(rows?.page)) fail('TABLE_DATA_SHAPE_UNKNOWN');
+      hasData ||= rows.page.length > 0;
+    }
+    if (tables.isDone) break;
+    if (page === 9 || typeof tables.continueCursor !== 'string')
+      fail('TABLE_AUDIT_LIMIT');
+    cursor = tables.continueCursor;
+  }
+  if (hasData && !owned) fail('NONEMPTY_PREVIEW_NOT_PROVEN_SYNTHETIC');
+  let values;
+  if (owned) {
+    for (const key of [
+      'JWT_PRIVATE_KEY',
+      'JWKS',
+      'SCAN_TOKEN_SECRET',
+      'SCAN_TOKEN_KID',
+    ])
+      if (typeof previous[key] !== 'string' || !previous[key])
+        fail('OWNED_PREVIEW_KEYS_MISSING');
+    values = Object.fromEntries(
+      ['JWT_PRIVATE_KEY', 'JWKS', 'SCAN_TOKEN_SECRET', 'SCAN_TOKEN_KID'].map(
+        (key) => [key, previous[key]]
+      )
+    );
+  } else {
+    const { privateKey, publicKey } = await generateKeyPair('RS256', {
+      extractable: true,
+    });
+    const jwk = await exportJWK(publicKey);
+    values = {
+      JWT_PRIVATE_KEY: await exportPKCS8(privateKey),
+      JWKS: JSON.stringify({ keys: [{ ...jwk, use: 'sig', alg: 'RS256' }] }),
+      SCAN_TOKEN_SECRET: randomBytes(32).toString('base64url'),
+      SCAN_TOKEN_KID: 'phase3-preview',
+    };
+  }
+  const secret = owned
+    ? previous.PHASE3_FIXTURE_SECRET
+    : randomBytes(32).toString('base64url');
+  Object.assign(values, {
     STAMPAIX_ENV: 'preview',
     AUTH_LOG_LEVEL: 'ERROR',
     SITE_URL: target.url.replace('.cloud', '.site'),
     PHASE3_PREVIEW_NAME: PREVIEW_NAME,
     PHASE3_PREVIEW_URL: target.url,
     PHASE3_FIXTURE_SECRET: secret,
-  };
+  });
+  const changes = inherited
+    .filter((e) => !['CONVEX_CLOUD_URL', 'CONVEX_SITE_URL'].includes(e.name))
+    .map((e) => ({ name: e.name }));
   // De-duplicate names: replacements set only the fresh isolated values, all other custom variables removed.
   const replacements = new Set(Object.keys(values));
   await deploymentRpc('/api/update_environment_variables', {
@@ -216,7 +279,8 @@ try {
     fail('PREVIEW_ENV_NOT_ISOLATED');
   report.environment = {
     inheritedCustomVariablesRemoved: true,
-    freshAuthAndQrKeys: true,
+    freshAuthAndQrKeys: !owned,
+    existingSyntheticKeysPreserved: owned,
     externalProviderCredentialsCopied: false,
     sourceDataImported: false,
   };
@@ -224,7 +288,7 @@ try {
   stage('STAGE_VERIFIED_BACKEND');
   const dir = mkdtempSync(join(tmpdir(), 'stampaix-phase3-preview-'));
   chmodSync(dir, 0o700);
-  const archive = execFileSync('git', ['archive', sha], {
+  const archive = execFileSync('git', ['archive', SOURCE_SHA], {
     maxBuffer: 64 * 1024 * 1024,
   });
   const unpack = spawnSync('tar', ['-x', '-C', dir], {
@@ -289,6 +353,21 @@ try {
   report.deployed = true;
   report.deployedBackend = 'EXACT_VERIFIED_SHA_PLUS_INTERNAL_PREVIEW_FIXTURES';
 
+  if (hasData) {
+    stage('RESET_VERIFIED_SYNTHETIC_PREVIEW');
+    const reset = await admin.mutation(
+      makeFunctionReference('phase3Fixtures:reset'),
+      { secret },
+      { skipQueue: true }
+    );
+    if (reset?.syntheticOnly !== true || !Number.isSafeInteger(reset.deleted))
+      fail('SYNTHETIC_RESET_NOT_CONFIRMED');
+    report.syntheticReset = {
+      verified: true,
+      deleted: reset.deleted,
+      existingKeysPreserved: true,
+    };
+  }
   stage('PROVE_EMPTY_APPLICATION_TABLES');
   if (
     (await admin.query(makeFunctionReference('phase3Fixtures:empty'), {

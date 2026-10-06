@@ -1,4 +1,21 @@
 export const PREVIEW_NAME = 'stampaix-pwa-phase3-e2e';
+export const SOURCE_SHA = '119c3c58bb7ed085da5ba875f939585edc312ab1';
+export const CONTROL_PATHS = new Set([
+  '.github/workflows/branch-verify.yml',
+  '.github/workflows/business-web-preview-deploy.yml',
+  'scripts/phase3c1-preview-e2e.mjs',
+  'scripts/lib/phase3c1-preview-guard.mjs',
+  'scripts/phase3-preview/fixtures.ts.template',
+  'scripts/phase3-preview/report-hosting.mjs',
+  'scripts/phase3-preview/live-e2e.mjs',
+  'scripts/verify-web-phase3-boundaries.mjs',
+  'lib/__tests__/phase3c1PreviewGuard.test.js',
+  'docs/PWA_RELEASE_CANDIDATE.md',
+]);
+export function requireControlDelta(paths) {
+  if (!paths.length || paths.some((path) => !CONTROL_PATHS.has(path)))
+    throw new Error('APP_SOURCE_DELTA_NOT_AUTHORIZED');
+}
 export const PHASE3_BRANCH = 'pwa/phase-3-scanner-commands-20261005';
 const denied = new Set(['utmost-fennec-280', 'aware-llama-850']);
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -48,11 +65,12 @@ export function requireActionsRevision(env, head, version) {
   if (
     env.GITHUB_ACTIONS !== 'true' ||
     env.GITHUB_REPOSITORY !== 'PetFamily2/STAMPIX_APP' ||
-    env.GITHUB_EVENT_NAME !== 'workflow_dispatch' ||
-    env.GITHUB_REF !== `refs/heads/${PHASE3_BRANCH}` ||
+    env.GITHUB_EVENT_NAME !== 'pull_request' ||
+    env.GITHUB_HEAD_REF !== PHASE3_BRANCH ||
+    env.PHASE3_SOURCE_SHA !== SOURCE_SHA ||
+    env.PHASE3_PR_HEAD !== head ||
     !/^[a-f0-9]{40}$/.test(env.VERIFIED_HEAD_SHA ?? '') ||
     env.VERIFIED_HEAD_SHA !== head ||
-    env.GITHUB_SHA !== head ||
     env.PHASE3_PREVIEW_NAME !== PREVIEW_NAME ||
     version !== '1.31.5'
   )

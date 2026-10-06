@@ -126,3 +126,18 @@ Do not infer device success from emulation or an exported bundle.
 - Changed code has zero Biome error-level diagnostics. Whole-repository `bun run check`
   reports 223 errors, including baseline debt; it is not green.
 - No physical scan, live Convex E2E, hosted browser flow or Web Push delivery was tested.
+
+## Exact-source PR execution amendment
+
+The user authorized a direct `isolated-preview-e2e` PR job after verify. It has no
+launcher or workflow_dispatch dependency. Application/backend source remains pinned to
+`119c3c58bb7ed085da5ba875f939585edc312ab1`; orchestration changes are independently
+verified and restricted to CI/test harness files. Other branches/forks and superseded
+revisions cannot provision. Web export uses a separate checkout of the immutable SHA.
+
+An existing nonempty Preview must have the matching ownership markers and fixture secret.
+Only the internal staged reset may clear it, after checking every root table within bounded
+limits, all actors against the three synthetic emails and all business/actor scopes. Unknown
+rows/scopes stop before deletion. Existing synthetic JWT/QR keys are preserved, not rotated.
+Rate-limiter component entries retain their normal TTL; newly seeded actor IDs are distinct.
+A populated unowned Preview is rejected without modifying its environment or data.

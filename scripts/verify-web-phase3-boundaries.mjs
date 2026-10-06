@@ -138,29 +138,16 @@ if (
   workflow.includes('phase3c1-dev-audit.mjs --sync')
 ) {
   throw new Error(
-    'Phase 3C-1C ordinary CI must not deploy backend or automatic hosting'
+    'Phase 3 ordinary CI must not dispatch a launcher or use DEV credentials'
   );
 }
-const manual = readFileSync(
-  '.github/workflows/business-web-preview-deploy.yml',
-  'utf8'
-);
 if (
-  !manual.includes('workflow_dispatch:') ||
-  /^\s+(push|pull_request|workflow_run|schedule):/m.test(manual) ||
-  !manual.includes('options: [e2e]') ||
-  !manual.includes('secrets.CONVEX_PREVIEW_DEPLOY_KEY') ||
-  manual.includes('CONVEX_DEV_DEPLOY_KEY') ||
-  manual.includes('utmost-fennec-280') ||
-  manual.includes('aware-llama-850') ||
-  !manual.includes('successful verify job') ||
-  !manual.includes('confirm_target') ||
-  manual.includes('--prod')
-) {
-  throw new Error(
-    'Phase 3C-1C permits exact-SHA manually guarded isolated Preview only'
-  );
-}
+  !workflow.includes('isolated-preview-e2e:') ||
+  !workflow.includes('119c3c58bb7ed085da5ba875f939585edc312ab1') ||
+  !workflow.includes('secrets.CONVEX_PREVIEW_DEPLOY_KEY') ||
+  !workflow.includes("needs.verify.result == 'success'")
+)
+  throw new Error('Pinned PR Preview guards missing');
 const audit = readFileSync('scripts/phase3c1-dev-audit.mjs', 'utf8');
 if (
   audit.includes('--sync') ||
@@ -171,7 +158,7 @@ if (
 }
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
-  'Phase 3 boundaries pass: Native camera/billing/RTL and existing business mutations unchanged; backend creation restricted to manually verified isolated Preview.'
+  'Phase 3 boundaries pass: Native camera/billing/RTL and existing business mutations unchanged; backend creation restricted to exact-source PR verified isolated Preview.'
 );
 
 const seedTemplate = readFileSync(

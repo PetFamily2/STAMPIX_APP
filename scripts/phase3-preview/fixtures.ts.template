@@ -21,6 +21,35 @@ export const empty = internalQuery({
     return true;
   },
 });
+// Bounded atomic reset. Never deployed to ordinary backend; requires prior owned Preview markers.
+export const reset = internalMutation({
+  args: { secret: v.string() }, returns: v.object({ syntheticOnly: v.boolean(), deleted: v.number() }),
+  handler: async (ctx, args) => {
+    guard(args.secret);
+    const all = new Map<string, any[]>();
+    let total = 0;
+    for (const table of Object.keys(schema.tables)) {
+      const rows = await ctx.db.query(table as any).take(201);
+      if (rows.length > 200 || (total += rows.length) > 4000) throw new Error('SYNTHETIC_RESET_LIMIT');
+      all.set(table, rows);
+    }
+    const users = all.get('users') ?? [];
+    const allowedEmails = new Set(['phase3-owner@example.invalid', 'phase3-staff@example.invalid', 'phase3-customer@example.invalid']);
+    if (!users.length || users.some(user => !allowedEmails.has(user.email))) throw new Error('RESET_NON_SYNTHETIC_ACTOR');
+    const actors = new Set(users.map(user => user._id));
+    const businesses = all.get('businesses') ?? [];
+    if (businesses.some(business => !['phase3-primary', 'phase3-secondary'].includes(business.externalId) || !actors.has(business.ownerUserId))) throw new Error('RESET_NON_SYNTHETIC_BUSINESS');
+    const scopes = new Set(businesses.map(business => business._id));
+    for (const rows of all.values()) for (const row of rows) {
+      if (row.businessId !== undefined && !scopes.has(row.businessId)) throw new Error('RESET_UNKNOWN_BUSINESS_SCOPE');
+      for (const key of ['userId', 'actorId', 'customerId', 'actorUserId', 'ownerUserId', 'recipientUserId', 'referrerUserId', 'referredUserId', 'toUserId']) {
+        if (row[key] !== undefined && !actors.has(row[key])) throw new Error('RESET_UNKNOWN_ACTOR_SCOPE');
+      }
+    }
+    for (const rows of all.values()) for (const row of rows) await ctx.db.delete(row._id);
+    return { syntheticOnly: true, deleted: total };
+  },
+});
 const fixtureValidator = v.object({
   businessId: v.id('businesses'), secondBusinessId: v.id('businesses'),
   programId: v.id('loyaltyPrograms'), membershipId: v.id('memberships'),

@@ -1,6 +1,6 @@
 name: Verify and Web Preview
 
-# One PR run per revision; no duplicate push run. No backend deployment.
+# One PR run per revision. Only the explicitly pinned Phase 3 source may provision synthetic Preview.
 on:
   pull_request:
     branches:
@@ -84,7 +84,7 @@ jobs:
 
   preview:
     needs: verify
-    # Phase 3 hosting occurs only in the manually dispatched isolated-backend E2E workflow.
+    # This exact Phase 3 branch hosts only after its isolated backend E2E job succeeds.
     if: github.head_ref != 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'pwa/phase-1-') || startsWith(github.head_ref, 'pwa/phase-2-') || startsWith(github.head_ref, 'pwa/phase-3-'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -146,3 +146,92 @@ jobs:
       - name: Remove temporary environment files
         if: always()
         run: rm -f .env.local .env.preview-pulled eas-env-pull.log
+
+  isolated-preview-e2e:
+    needs: verify
+    if: needs.verify.result == 'success' && github.repository == 'PetFamily2/STAMPIX_APP' && github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]')
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: phase3-stampaix-pwa-phase3-e2e
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout verified control revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Reject superseded branch revision before reading credentials
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const { data: branch } = await github.rest.repos.getBranch({ ...context.repo, branch: 'pwa/phase-3-scanner-commands-20261005' });
+            if (branch.commit.sha !== process.env.EXPECTED_HEAD) throw new Error('Superseded revision');
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - name: Install pinned dependencies
+        run: bun install --frozen-lockfile
+      - name: Setup EAS for Preview environment only
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Pull Preview environment privately
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas env:pull preview --path .env.preview-pulled --non-interactive > "${{ runner.temp }}/eas-env-pull.log" 2>&1
+      - name: Create verified isolated Preview, seed synthetic actors and run live E2E
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          PHASE3_SOURCE_SHA: 119c3c58bb7ed085da5ba875f939585edc312ab1
+          PHASE3_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          VERIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PHASE3_PREVIEW_NAME: stampaix-pwa-phase3-e2e
+        run: bun scripts/phase3c1-preview-e2e.mjs
+      - name: Checkout immutable approved application source
+        uses: actions/checkout@v4
+        with:
+          ref: 119c3c58bb7ed085da5ba875f939585edc312ab1
+          path: phase3-source
+      - name: Prepare immutable client checkout
+        run: |
+          cp .env.local phase3-source/.env.local
+          ln -s "$GITHUB_WORKSPACE/node_modules" phase3-source/node_modules
+      - name: Export exact corresponding Preview client
+        working-directory: phase3-source
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          bunx expo export --platform web --max-workers 2 > "${{ runner.temp }}/phase3-web-export.log" 2>&1
+          bun scripts/export-web-scanner-business.mjs dist
+          node scripts/finalize-web-pwa-export.mjs dist
+          node scripts/verify-client-secret-patterns.mjs dist
+          cd ..
+          node scripts/phase3-preview/verify-export.mjs phase3-source/dist
+      - name: Deploy EAS Hosting Preview only after live E2E
+        working-directory: phase3-source
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          VERIFIED_HEAD_SHA: 119c3c58bb7ed085da5ba875f939585edc312ab1
+        run: |
+          eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > ../eas-deploy.json 2> "${{ runner.temp }}/phase3-eas-deploy.log"
+          cd ..
+          node scripts/phase3-preview/report-hosting.mjs
+      - name: Upload sanitized evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3c1-preview-evidence
+          path: phase3c1-preview-evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
