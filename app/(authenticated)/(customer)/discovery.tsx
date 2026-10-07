@@ -199,56 +199,1040 @@ function shortenAddress(value: string) {
 
 function openBusinessDirections(lat: number, lng: number, name: string) {
   const query = encodeURIComponent(name.trim() || 'destination');
-  const u…17035 tokens truncated…ind (Tailwind CSS ל-React Native).
-  
-  הפקודות הבאות מייבאות את רכיבי הבסיס של Tailwind:
-  - base: איפוסים בסיסיים (פחות רלוונטי ב-Native אבל נדרש)
-  - components: רכיבים ומחלקות מותאמות אישית
-  - utilities: מחלקות העזר (Utility Classes) שבהן נשתמש ברוב הזמן
-*/
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/*
- * Web typography contract:
- * The public StampAix sales site uses Heebo for Hebrew and Latin.
- * Expo Web uses the same family so auth and Business Web feel like one product.
- * This is web-only; native iOS/Android typography is unchanged.
- */
-html,
-body,
-#root {
-  font-family: 'Heebo', Arial, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  const url =
+    Platform.OS === 'ios'
+      ? `http://maps.apple.com/?daddr=${lat},${lng}&q=${query}`
+      : Platform.OS === 'android'
+        ? `geo:${lat},${lng}?q=${lat},${lng}(${query})`
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  void Linking.openURL(url);
 }
 
-input,
-button,
-textarea,
-select {
-  font-family: 'Heebo', Arial, sans-serif;
+export default function DiscoveryScreen() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
+  const [radiusKm, setRadiusKm] = useState(3);
+  const [serviceTypeFilters, setServiceTypeFilters] = useState<
+    BusinessServiceType[]
+  >([]);
+  const [sortBy, setSortBy] = useState<DiscoverySortBy>('distance');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const deferredRadiusKm = useDeferredValue(radiusKm);
+  const deferredServiceTypeFilters = useDeferredValue(serviceTypeFilters);
+  const deferredSortBy = useDeferredValue(sortBy);
+
+  const {
+    coords,
+    isLoading: isLocationLoading,
+    needsPermission,
+    showSettingsAction,
+    error,
+    requestPermission,
+    refreshLocation,
+  } = useCurrentLocation();
+
+  const nearbyBusinessesQuery = useQuery(
+    api.business.getBusinessesNearby,
+    coords && isAuthenticated
+      ? {
+          userLat: coords.latitude,
+          userLng: coords.longitude,
+          radiusKm: deferredRadiusKm,
+          serviceTypeFilters:
+            deferredServiceTypeFilters.length > 0
+              ? deferredServiceTypeFilters
+              : undefined,
+          sortBy: deferredSortBy,
+        }
+      : 'skip'
+  );
+  const savedBusinessesQuery = useQuery(
+    api.memberships.byCustomerBusinesses,
+    isAuthenticated ? {} : 'skip'
+  );
+
+  const nearbyBusinesses = useMemo(
+    () =>
+      ((nearbyBusinessesQuery ?? []) as NearbyBusinessQuery[]).map(
+        (business) => ({
+          businessId: business.businessId,
+          name: business.name,
+          distanceKm: business.distanceKm,
+          lat: business.lat,
+          lng: business.lng,
+          formattedAddress: business.formattedAddress,
+          serviceTypes: sanitizeServiceTypes(business.serviceTypes),
+          serviceTags: sanitizeServiceTags(business.serviceTags),
+        })
+      ),
+    [nearbyBusinessesQuery]
+  );
+  const savedBusinesses = useMemo(
+    () => (savedBusinessesQuery ?? []) as SavedBusinessQuery[],
+    [savedBusinessesQuery]
+  );
+  const savedBusinessById = useMemo(() => {
+    const map = new Map<string, SavedBusinessQuery>();
+    for (const business of savedBusinesses) {
+      map.set(String(business.businessId), business);
+    }
+    return map;
+  }, [savedBusinesses]);
+
+  const visibleBusinesses = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) {
+      return nearbyBusinesses;
+    }
+    return nearbyBusinesses.filter((business) => {
+      const name = business.name.toLocaleLowerCase();
+      const address = business.formattedAddress.toLocaleLowerCase();
+      return name.includes(query) || address.includes(query);
+    });
+  }, [nearbyBusinesses, searchQuery]);
+
+  const isBusinessesLoading =
+    Boolean(coords && isAuthenticated) && nearbyBusinessesQuery === undefined;
+  const isSavedBusinessesLoading =
+    isAuthenticated && savedBusinessesQuery === undefined;
+  const isLoadingState =
+    (isLocationLoading && !coords && !needsPermission) || isBusinessesLoading;
+  const mapDelta = getMapDelta(deferredRadiusKm);
+  const locationErrorMessage = toLocationErrorMessage(error);
+  const hasActiveFilters =
+    serviceTypeFilters.length > 0 ||
+    searchQuery.trim().length > 0 ||
+    sortBy !== 'distance' ||
+    radiusKm !== 3;
+
+  const toggleServiceTypeFilter = (serviceType: BusinessServiceType) => {
+    setServiceTypeFilters((current) => {
+      if (current.includes(serviceType)) {
+        return current.filter((item) => item !== serviceType);
+      }
+      return [...current, serviceType];
+    });
+  };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setServiceTypeFilters([]);
+    setSortBy('distance');
+    setRadiusKm(3);
+    setShowAdvancedFilters(false);
+  };
+
+  const increaseRadius = () => {
+    setRadiusKm((current) => Math.min(10, current + 2));
+    setShowAdvancedFilters(true);
+  };
+
+  const openBusinessPage = (businessId: string) => {
+    router.push(customerBusinessRoute(String(businessId)) as Href);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <ScrollView
+        stickyHeaderIndices={[0]}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          styles.contentContainer,
+          {
+            paddingBottom: tabBarHeight + 24,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <StickyScrollHeader
+          topPadding={(insets.top || 0) + 12}
+          backgroundColor="#E9F0FF"
+        >
+          <View style={styles.headerRow}>
+            <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
+          </View>
+        </StickyScrollHeader>
+
+        {needsPermission ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>{TEXT.permissionTitle}</Text>
+            <Text style={styles.cardSubtitle}>{TEXT.permissionSubtitle}</Text>
+            {Platform.OS === 'web' && error ? (
+              <Text accessibilityRole="alert" style={styles.cardTitle}>
+                {locationErrorMessage}
+              </Text>
+            ) : null}
+            <PaintedPressable
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.permissionButton}
+              onPress={() => {
+                void requestPermission();
+              }}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {TEXT.permissionButton}
+              </Text>
+            </PaintedPressable>
+            {showSettingsAction ? (
+              <PaintedPressable
+                accessibilityRole="button"
+                accessibilityLabel={TEXT.openSettings}
+                onPress={() => {
+                  void Linking.openSettings();
+                }}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {TEXT.openSettings}
+                </Text>
+              </PaintedPressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        {!needsPermission && !coords && isLoadingState ? (
+          <View style={styles.infoCard}>
+            <ActivityIndicator color="#2F6BFF" />
+            <Text style={styles.statusText}>{TEXT.loadingLocation}</Text>
+          </View>
+        ) : null}
+
+        {!needsPermission &&
+        !coords &&
+        !isLoadingState &&
+        locationErrorMessage ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>{locationErrorMessage}</Text>
+            <PaintedPressable
+              accessibilityRole="button"
+              accessibilityLabel={TEXT.retry}
+              onPress={() => {
+                void refreshLocation();
+              }}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>{TEXT.retry}</Text>
+            </PaintedPressable>
+          </View>
+        ) : null}
+
+        {coords ? (
+          <>
+            <View style={styles.controlsCard}>
+              <View style={styles.searchShell}>
+                <Ionicons name="search-outline" size={18} color="#64748B" />
+                <TextInput
+                  accessibilityLabel={TEXT.searchPlaceholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={TEXT.searchPlaceholder}
+                  placeholderTextColor="#94A3B8"
+                  style={styles.searchInput}
+                  textAlign="right"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                />
+              </View>
+
+              <ScrollView
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+              >
+                {BUSINESS_SERVICE_TYPE_OPTIONS.map((option) => {
+                  const isSelected = serviceTypeFilters.includes(option.id);
+                  return (
+                    <Pressable
+                      key={option.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.label}
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => toggleServiceTypeFilter(option.id)}
+                      style={({ pressed }) => [
+                        styles.filterChip,
+                        isSelected ? styles.filterChipActive : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isSelected ? styles.filterChipTextActive : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.toolsRow}>
+                <Pressable
+                  onPress={() => setShowAdvancedFilters((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.toolButton,
+                    showAdvancedFilters ? styles.toolButtonActive : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={TEXT.filterButton}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={16}
+                    color={showAdvancedFilters ? '#1D4ED8' : '#334155'}
+                  />
+                  <Text
+                    style={[
+                      styles.toolButtonText,
+                      showAdvancedFilters ? styles.toolButtonTextActive : null,
+                    ]}
+                  >
+                    {`${radiusKm} ק״מ`}
+                  </Text>
+                </Pressable>
+
+                {serviceTypeFilters.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={TEXT.filtersClear}
+                    onPress={() => setServiceTypeFilters([])}
+                    style={({ pressed }) => [
+                      styles.toolButton,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={styles.toolButtonText}>
+                      {TEXT.filtersClear}
+                    </Text>
+                  </Pressable>
+                ) : null}
+
+                <Pressable
+                  onPress={() => setIsMapOpen((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.mapButton,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isMapOpen ? TEXT.listButton : TEXT.mapButton
+                  }
+                >
+                  <Ionicons
+                    name={isMapOpen ? 'list-outline' : 'map-outline'}
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.mapButtonText}>
+                    {isMapOpen ? TEXT.listButton : TEXT.mapButton}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {showAdvancedFilters ? (
+                <View style={styles.advancedFilters}>
+                  <View style={styles.panelHeader}>
+                    <Text style={styles.radiusValue}>{radiusKm} km</Text>
+                    <Text style={styles.panelTitle}>{TEXT.radiusTitle}</Text>
+                  </View>
+                  <Slider
+                    accessibilityLabel={TEXT.radiusTitle}
+                    accessibilityValue={{
+                      min: 1,
+                      max: 10,
+                      now: radiusKm,
+                      text: `${radiusKm} קילומטר`,
+                    }}
+                    value={radiusKm}
+                    onValueChange={(value) => {
+                      setRadiusKm(Math.round(value));
+                    }}
+                    minimumValue={1}
+                    maximumValue={10}
+                    step={1}
+                    minimumTrackTintColor="#2F6BFF"
+                    maximumTrackTintColor="#C7D6FF"
+                    thumbTintColor="#2F6BFF"
+                  />
+                  <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
+                  <View style={styles.sortButtonsRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.sortDistance}
+                      accessibilityState={{ selected: sortBy === 'distance' }}
+                      onPress={() => setSortBy('distance')}
+                      style={({ pressed }) => [
+                        styles.sortButton,
+                        sortBy === 'distance' ? styles.sortButtonActive : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          sortBy === 'distance'
+                            ? styles.sortButtonTextActive
+                            : null,
+                        ]}
+                      >
+                        {TEXT.sortDistance}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={TEXT.sortServiceType}
+                      accessibilityState={{
+                        selected: sortBy === 'service_type',
+                      }}
+                      onPress={() => setSortBy('service_type')}
+                      style={({ pressed }) => [
+                        styles.sortButton,
+                        sortBy === 'service_type'
+                          ? styles.sortButtonActive
+                          : null,
+                        pressed ? styles.pressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortButtonText,
+                          sortBy === 'service_type'
+                            ? styles.sortButtonTextActive
+                            : null,
+                        ]}
+                      >
+                        {TEXT.sortServiceType}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            {isMapOpen ? (
+              <View style={styles.mapCard}>
+                <View style={styles.mapShell}>
+                  <DiscoveryMap
+                    userLatitude={coords.latitude}
+                    userLongitude={coords.longitude}
+                    latitudeDelta={mapDelta}
+                    longitudeDelta={mapDelta}
+                    businesses={visibleBusinesses}
+                    onBusinessPress={openBusinessPage}
+                    myLocationLabel={TEXT.myLocation}
+                    addressFallback={TEXT.addressFallback}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.listCard}>
+                <View style={styles.panelHeader}>
+                  <Text style={styles.radiusValue}>
+                    {visibleBusinesses.length}
+                  </Text>
+                  <Text style={styles.panelTitle}>{TEXT.nearbyTitle}</Text>
+                </View>
+
+                {isBusinessesLoading ? (
+                  <View style={styles.loadingState}>
+                    <ActivityIndicator color="#2F6BFF" />
+                    <Text style={styles.statusText}>{TEXT.loadingNearby}</Text>
+                  </View>
+                ) : null}
+
+                {!isBusinessesLoading && visibleBusinesses.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.cardTitle}>{TEXT.emptyTitle}</Text>
+                    <Text style={styles.cardSubtitle}>
+                      {TEXT.emptySubtitle}
+                    </Text>
+                    <View style={styles.emptyActions}>
+                      <PaintedPressable
+                        onPress={increaseRadius}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          pressed ? styles.pressed : null,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={TEXT.increaseRadius}
+                      >
+                        <Text style={styles.primaryButtonText}>
+                          {TEXT.increaseRadius}
+                        </Text>
+                      </PaintedPressable>
+                      {hasActiveFilters ? (
+                        <PaintedPressable
+                          onPress={resetFilters}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            pressed ? styles.pressed : null,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={TEXT.resetFilters}
+                        >
+                          <Text style={styles.secondaryButtonText}>
+                            {TEXT.resetFilters}
+                          </Text>
+                        </PaintedPressable>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
+
+                {!isBusinessesLoading && visibleBusinesses.length > 0 ? (
+                  <View style={styles.resultsList}>
+                    {visibleBusinesses.map((business) => {
+                      const saved = savedBusinessById.get(
+                        String(business.businessId)
+                      );
+                      const logoUrl = saved?.businessLogoUrl ?? null;
+                      const categoryLabel = getPrimaryCategoryLabel(
+                        business.serviceTypes
+                      );
+
+                      return (
+                        <Pressable
+                          key={business.businessId}
+                          onPress={() => openBusinessPage(business.businessId)}
+                          style={({ pressed }) => [
+                            styles.businessCard,
+                            pressed ? styles.pressed : null,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={business.name}
+                        >
+                          <View style={styles.businessRow}>
+                            <View style={styles.logoShell}>
+                              {logoUrl ? (
+                                <Image
+                                  source={{ uri: logoUrl }}
+                                  style={styles.logoImage}
+                                  resizeMode="cover"
+                                  accessible={false}
+                                />
+                              ) : (
+                                <Text style={styles.logoMonogram}>
+                                  {getBusinessMonogram(business.name)}
+                                </Text>
+                              )}
+                            </View>
+
+                            <View style={styles.businessCopy}>
+                              <Text
+                                style={styles.businessName}
+                                numberOfLines={1}
+                              >
+                                {business.name}
+                              </Text>
+                              <Text
+                                style={styles.businessMeta}
+                                numberOfLines={1}
+                              >
+                                {categoryLabel}
+                              </Text>
+                              <Text
+                                style={styles.businessAddress}
+                                numberOfLines={1}
+                              >
+                                {shortenAddress(business.formattedAddress)}
+                              </Text>
+                            </View>
+
+                            <View style={styles.businessActions}>
+                              <Text style={styles.distanceText}>
+                                {formatDistance(business.distanceKm)}
+                              </Text>
+                              <Pressable
+                                onPress={() =>
+                                  openBusinessDirections(
+                                    business.lat,
+                                    business.lng,
+                                    business.name
+                                  )
+                                }
+                                style={({ pressed }) => [
+                                  styles.directionsButton,
+                                  pressed ? styles.pressed : null,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${TEXT.directions} ${business.name}`}
+                                hitSlop={8}
+                              >
+                                <Ionicons
+                                  name="navigate-outline"
+                                  size={14}
+                                  color="#1D4ED8"
+                                />
+                                <Text style={styles.directionsText}>
+                                  {TEXT.directions}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </View>
+            )}
+          </>
+        ) : null}
+
+        {(coords || Platform.OS === 'web') &&
+        !isSavedBusinessesLoading &&
+        savedBusinesses.length > 0 ? (
+          <View style={styles.listCard}>
+            <Text style={styles.panelTitle}>{TEXT.savedTitle}</Text>
+            <View style={styles.resultsList}>
+              {savedBusinesses.map((business) => (
+                <Pressable
+                  key={String(business.businessId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={business.businessName}
+                  onPress={() => openBusinessPage(String(business.businessId))}
+                  style={({ pressed }) => [
+                    styles.businessCard,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <View style={styles.businessRow}>
+                    <View style={styles.logoShell}>
+                      {business.businessLogoUrl ? (
+                        <Image
+                          source={{ uri: business.businessLogoUrl }}
+                          style={styles.logoImage}
+                          resizeMode="cover"
+                          accessible={false}
+                        />
+                      ) : (
+                        <Text style={styles.logoMonogram}>
+                          {getBusinessMonogram(business.businessName)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.businessCopy}>
+                      <Text style={styles.businessName} numberOfLines={1}>
+                        {business.businessName}
+                      </Text>
+                      <Text style={styles.businessMeta} numberOfLines={1}>
+                        {`כרטיסיות: ${business.joinedProgramCount}`}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <BusinessModeCtaCard
+          style={styles.ctaCard}
+          forcePromotionalBanner={true}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
-/* Keyboard focus treatment isolated to the Business Web shell. */
-#business-web-shell [role='button']:focus-visible,
-#business-web-shell [role='menuitem']:focus-visible {
-  outline: 3px solid rgba(18, 48, 168, 0.28);
-  outline-offset: 2px;
-}
-
-#business-web-shell [role='button']:not([aria-disabled='true']),
-#business-web-shell [role='menuitem']:not([aria-disabled='true']) {
-  transition:
-    filter 140ms ease,
-    opacity 140ms ease;
-}
-
-#business-web-shell [role='button']:not([aria-disabled='true']):hover,
-#business-web-shell [role='menuitem']:not([aria-disabled='true']):hover {
-  filter: brightness(0.97);
-}
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E9F0FF',
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
+  headerRow: {
+    alignItems: 'stretch',
+    marginBottom: 4,
+  },
+  controlsCard: {
+    marginTop: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D8E4FF',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+  },
+  searchShell: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7DEEA',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    ...rtlBaseView,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#12203A',
+    writingDirection: 'rtl',
+    paddingVertical: 8,
+  },
+  chipsRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  toolsRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    ...rtlBaseView,
+  },
+  toolButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7DEEA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 6,
+    ...rtlBaseView,
+  },
+  toolButtonActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EEF3FF',
+  },
+  toolButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  toolButtonTextActive: {
+    color: '#1D4ED8',
+  },
+  mapButton: {
+    minHeight: 44,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 14,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 6,
+    ...rtlBaseView,
+  },
+  mapButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  advancedFilters: {
+    gap: 8,
+  },
+  listCard: {
+    marginTop: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D8E4FF',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  mapCard: {
+    marginTop: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D8E4FF',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+  },
+  panelHeader: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  panelTitle: {
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
+  },
+  radiusValue: {
+    minWidth: 58,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#DCE7FF',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2F6BFF',
+    textAlign: 'center',
+    overflow: 'hidden',
+  },
+  filterChip: {
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#DCE6F7',
+    backgroundColor: '#F8FAFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterChipActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EAF1FF',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  filterChipTextActive: {
+    color: '#1D4ED8',
+  },
+  sortTitle: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+    textAlign: 'right',
+  },
+  sortButtonsRow: {
+    alignSelf: 'stretch',
+    flexDirection: flexDirection.row,
+    gap: 8,
+  },
+  sortButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#DCE6F7',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  sortButtonActive: {
+    borderColor: '#2F6BFF',
+    backgroundColor: '#EAF1FF',
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  sortButtonTextActive: {
+    color: '#1D4ED8',
+  },
+  mapShell: {
+    height: 360,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  resultsList: {
+    marginTop: 10,
+  },
+  businessCard: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6EAF2',
+    paddingVertical: 12,
+  },
+  businessRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 12,
+    ...rtlBaseView,
+  },
+  logoShell: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E6EAF2',
+    backgroundColor: '#EEF3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoMonogram: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  businessCopy: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: alignItems.start,
+    gap: 2,
+  },
+  businessName: {
+    width: '100%',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
+  },
+  businessMeta: {
+    width: '100%',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  businessAddress: {
+    width: '100%',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#5B6475',
+    textAlign: 'right',
+  },
+  businessActions: {
+    alignItems: alignItems.start,
+    gap: 6,
+    flexShrink: 0,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2F6BFF',
+    textAlign: 'right',
+  },
+  directionsButton: {
+    minHeight: 32,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#C9D8FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 4,
+    ...rtlBaseView,
+  },
+  directionsText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  infoCard: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D8E4FF',
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    alignItems: alignItems.start,
+    gap: 10,
+  },
+  loadingState: {
+    marginTop: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  emptyState: {
+    marginTop: 14,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFF',
+    padding: 16,
+    alignItems: alignItems.start,
+    gap: 8,
+  },
+  emptyActions: {
+    width: '100%',
+    marginTop: 4,
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0B1220',
+    textAlign: 'right',
+    lineHeight: 22,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#5B6475',
+    textAlign: 'right',
+    lineHeight: 19,
+  },
+  statusText: {
+    width: '100%',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2F6BFF',
+    textAlign: 'right',
+  },
+  primaryButton: {
+    alignSelf: 'stretch',
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#2F6BFF',
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    alignSelf: 'stretch',
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#2F6BFF',
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2F6BFF',
+    textAlign: 'center',
+  },
+  ctaCard: {
+    marginTop: 14,
+  },
+  pressed: {
+    opacity: 0.88,
+  },
+});
