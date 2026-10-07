@@ -1,9 +1,6 @@
-import {
-  useFocusEffect } from '@react-navigation/native';
-import { useLocalSearchParams,
-  useRouter } from 'expo-router';
-import { Gift,
-  Store } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Gift, Store } from 'lucide-react-native';
 import { useCallback } from 'react';
 import {
   BackHandler,
@@ -14,16 +11,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/BackButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
+import { AppText as Text } from '@/components/ui/AppText';
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
-import { rtlBaseText, rtlCenterText, tw } from '@/lib/rtl';
+import { flexDirection, rtlBaseText, rtlCenterText, tw } from '@/lib/rtl';
 
 const TEXT = {
   titleLine1: 'העסק והלקוחות',
@@ -187,6 +183,7 @@ export default function WelcomeScreen() {
 
           <View className="mt-8">
             <TouchableOpacity
+              accessibilityRole={Platform.OS === 'web' ? 'button' : undefined}
               className="bg-blue-600 rounded-2xl px-8 py-[15px] items-center mb-4"
               onPress={handleGetStarted}
               activeOpacity={0.8}
@@ -200,15 +197,42 @@ export default function WelcomeScreen() {
             </TouchableOpacity>
 
             <View className="items-center">
-              <Text className="text-gray-500 text-base" style={rtlCenterText}>
-                {TEXT.emailEntryHint}{' '}
-                <Text
-                  className="text-blue-600 font-semibold"
-                  onPress={() => router.push('/(auth)/sign-in')}
+              {Platform.OS === 'web' ? (
+                <View
+                  style={{
+                    flexDirection: flexDirection.row,
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
                 >
-                  {TEXT.emailEntry}
+                  <Text
+                    className="text-gray-500 text-base"
+                    style={rtlCenterText}
+                  >
+                    {TEXT.emailEntryHint}
+                  </Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => router.push('/(auth)/sign-in')}
+                  >
+                    <Text className="text-blue-600 font-semibold text-base">
+                      {TEXT.emailEntry}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text className="text-gray-500 text-base" style={rtlCenterText}>
+                  {TEXT.emailEntryHint}{' '}
+                  <Text
+                    className="text-blue-600 font-semibold"
+                    onPress={() => router.push('/(auth)/sign-in')}
+                  >
+                    {TEXT.emailEntry}
+                  </Text>
                 </Text>
-              </Text>
+              )}
             </View>
           </View>
         </View>

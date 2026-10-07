@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -26,8 +27,22 @@ if (
   !manifest.icons.some((icon) => icon.src === '/pwa/icon.png')
 )
   throw new Error('PWA_MANIFEST_INVALID');
-for (const path of ['pwa/icon.png', 'pwa/offline.html', 'pwa/leaflet.css'])
+for (const path of [
+  'pwa/icon.png',
+  'pwa/offline.html',
+  'pwa/leaflet.css',
+  'pwa/fonts/Heebo-Variable.ttf',
+  'pwa/fonts/Heebo-OFL.txt',
+])
   if (!existsSync(join(directory, path))) throw new Error('PWA_ASSET_MISSING');
+if (
+  !html.includes('/pwa/fonts/Heebo-Variable.ttf') ||
+  createHash('sha256')
+    .update(readFileSync(join(directory, 'pwa/fonts/Heebo-Variable.ttf')))
+    .digest('hex') !==
+    '18f930b583fa8fe6b40b2f8263b7ac6afbac07adc91a12467874e7467d3ace30'
+)
+  throw new Error('UPSTREAM_WEB_FONT_NOT_PROVEN');
 const workerPath = join(directory, 'service-worker.js');
 const worker = readFileSync(workerPath, 'utf8');
 if (!worker.includes("const CACHE = 'stampaix-public-rc-v1';"))

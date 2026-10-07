@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'web' ? '#475569' : '#64748B',
     ...rtlBaseText,
   },
 });

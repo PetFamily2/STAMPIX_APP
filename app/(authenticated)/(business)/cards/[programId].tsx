@@ -1179,6 +1179,9 @@ export default function ProgramDetailsScreen() {
                       onPress={() => {
                         void handlePublish();
                       }}
+                      accessibilityRole={
+                        Platform.OS === 'web' ? 'button' : undefined
+                      }
                       className={`rounded-2xl border px-4 py-3 ${
                         canManage && !isSubmitting && !conflictLocked
                           ? 'border-[#2563EB] bg-white'
@@ -1202,6 +1205,9 @@ export default function ProgramDetailsScreen() {
                     <TouchableOpacity
                       disabled={!canManage || isSubmitting || conflictLocked}
                       onPress={handleArchive}
+                      accessibilityRole={
+                        Platform.OS === 'web' ? 'button' : undefined
+                      }
                       className="min-h-[48px] items-center justify-center rounded-2xl border border-[#FCA5A5] bg-white px-4 py-3"
                     >
                       <Text className="text-center text-sm font-bold text-[#B91C1C]">

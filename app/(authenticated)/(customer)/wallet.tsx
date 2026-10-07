@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   referralCardSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'web' ? '#475569' : '#64748B',
     textAlign: 'right',
     lineHeight: 18,
   },

@@ -8,6 +8,7 @@ import type {
   AuthenticatedRouteGuardInput,
 } from './authenticatedRouteGuard';
 import { resolveAuthenticatedRouteGuard } from './authenticatedRouteGuard';
+import { CUSTOMER_ROUTES } from './customerRoutes';
 
 // Existing customer destinations only. Native management/scanner groups must
 // not become accessible just because their shared layout can render on Web.
@@ -45,6 +46,13 @@ export function resolveWebAuthenticatedRouteGuard(
   }
 
   if (resolutionHref === POST_AUTH_ROUTES.customerWallet) {
+    // /settings is shared by Native route groups. A cold Web URL may select
+    // the business/staff group first; choose the customer screen explicitly.
+    if (
+      segments.at(-1) === 'settings' &&
+      (segments.includes('(business)') || segments.includes('(staff)'))
+    )
+      return { action: 'replace', href: CUSTOMER_ROUTES.settings };
     if (
       !segments.includes('(business)') &&
       !segments.includes('(staff)') &&

@@ -485,6 +485,7 @@ export default function CustomerBusinessDetailsScreen() {
           )}
 
           <PaintedPressable
+            accessibilityRole={Platform.OS === 'web' ? 'button' : undefined}
             onPress={handleJoinSelected}
             disabled={!canSubmitSelection}
             style={({ pressed }) => [
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',

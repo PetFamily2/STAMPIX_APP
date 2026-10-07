@@ -185,7 +185,7 @@ function withUiSoundEffects(config: ExpoConfig): ExpoConfig {
 }
 
 /** Production build mode here means bundled export, not deployment to Production. */
-export function withWebRouteSplitting(config: ExpoConfig): ExpoConfig {
+export function withSafeWebRouteLoading(config: ExpoConfig): ExpoConfig {
   return {
     ...config,
     plugins: config.plugins?.map((plugin): ExpoPlugin => {
@@ -201,14 +201,14 @@ export function withWebRouteSplitting(config: ExpoConfig): ExpoConfig {
             : {};
       return [
         name,
-        { ...options, asyncRoutes: { ...asyncRoutes, web: 'production' } },
+        { ...options, asyncRoutes: { ...asyncRoutes, web: false } },
       ];
     }),
   };
 }
 
 export default function defineConfig(_context: ConfigContext): ExpoConfig {
-  return withWebRouteSplitting(
+  return withSafeWebRouteLoading(
     withUiSoundEffects(
       withGoogleMapsNativeKeys(
         withEnvironmentAwareNotifications(

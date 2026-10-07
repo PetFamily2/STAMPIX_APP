@@ -140,6 +140,8 @@ try {
   const modules = createRequire(
     join(process.env.RUNNER_TEMP, 'stampaix-rc-tools/package.json')
   );
+  // Pinned Playwright 1.56.1 crServiceWorker.ts gates SW offline emulation/routing behind this flag.
+  process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
   const { chromium } = modules('playwright');
   const AxeBuilder = modules('@axe-core/playwright').default;
   browser = await chromium.launch({
@@ -284,7 +286,9 @@ try {
         exact: true,
       })
       .click();
-    await c.page.getByText('הצטרפות לכרטיסיות שנבחרו', { exact: true }).click();
+    await c.page
+      .getByRole('button', { name: 'הצטרפות לכרטיסיות שנבחרו', exact: true })
+      .click();
     await c.page.getByText('ההצטרפות בוצעה בהצלחה', { exact: true }).waitFor();
     requireThat(
       (await clients.customer.query(ref('memberships:byCustomer'), {})).some(
@@ -602,8 +606,18 @@ try {
       denied = true;
     }
     requireThat(denied, 'CROSS_BUSINESS_RECEIPT_LEAK');
+    await scan.page
+      .getByRole('button', { name: 'איפוס וסריקה חדשה', exact: true })
+      .click();
+    await scan.page.waitForFunction(() =>
+      [...document.querySelectorAll('button')].some(
+        (button) =>
+          button.textContent.trim() === 'הפעלת מצלמה' && !button.disabled
+      )
+    );
     return {
       duplicateDecode: 'SUPPRESSED',
+      sameTabResetLease: 'READY',
       crossAccountReceipt: 'ABSENT',
       crossBusinessReceipt: 'DENIED',
     };
@@ -617,7 +631,11 @@ try {
   });
   await scan.page.route(`${target.url}/api/query`, async (route) => {
     const d = route.request().postDataJSON();
-    if (receiptBlocked && d?.path === 'scannerCommands:getReceipt')
+    if (
+      receiptBlocked &&
+      d?.path === 'scannerCommands:getReceipt' &&
+      d?.args?.[0]?.operation === 'stamp'
+    )
       await route.abort('failed');
     else await route.continue();
   });
@@ -639,22 +657,7 @@ try {
     await route.continue();
   });
   await record('CONNECTED_UNKNOWN_REFRESH_RECONCILIATION', async () => {
-    await arrange('restore');
-    await scan.page.getByRole('button', { name: 'איפוס וסריקה חדשה' }).click();
-    let value = (
-      await clients.customer.mutation(
-        ref('scanner:createCustomerScanToken'),
-        {},
-        { skipQueue: true }
-      )
-    ).scanToken;
-    await scan.page.evaluate((q) => {
-      window.__qaDecode = q;
-    }, value);
-    value = '';
-    await scan.page
-      .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
-      .click();
+    await readyWithCamera();
     await scan.page
       .getByRole('button', { name: 'אישור חותמת', exact: true })
       .click();
@@ -734,6 +737,8 @@ try {
   });
   releaseCommit();
   receiptBlocked = false;
+  await scan.page.unroute(`${target.url}/api/query`);
+  await scan.page.unroute(`${target.url}/api/mutation`);
   // Restore a readable receipt after any failed assertion, keeping that failure in the ledger.
   if (report.cases.CONNECTED_UNKNOWN_REFRESH_RECONCILIATION.status === 'FAIL') {
     await scan.page.waitForTimeout(500);
@@ -748,11 +753,11 @@ try {
         .catch(() => {});
     }
   }
-  const readyWithCamera = async (
+  async function readyWithCamera(
     page = scan.page,
     path = '/staff/scanner-preview',
     stamps = 0
-  ) => {
+  ) {
     await arrange('restore');
     if (stamps)
       await admin.mutation(
@@ -776,7 +781,7 @@ try {
       .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
       .click();
     await page.getByText('בחרו פעולה', { exact: true }).waitFor();
-  };
+  }
   const canonicalAction = async (name, operation, eventType) => {
     const before = scannerRequests.filter((op) => op === operation).length;
     const request = scan.page.waitForRequest(
@@ -1094,6 +1099,11 @@ try {
         ),
         workerNetworkFailures,
       };
+      requireThat(
+        report.offlineProbe.fromServiceWorker &&
+          report.offlineProbe.navigatorOffline,
+        'OFFLINE_WORKER_PROOF_MISSING'
+      );
       await c.page.getByText('אין חיבור כרגע', { exact: true }).waitFor();
     } finally {
       await c.context.setOffline(false);
@@ -1511,11 +1521,25 @@ try {
             'render-blocking-resources',
             'modern-image-formats',
             'font-display',
+            'lcp-discovery-insight',
+            'lcp-phases-insight',
+            'largest-contentful-paint-element',
+            'bootup-time',
+            'mainthread-work-breakdown',
           ].map((id) => [
             id,
             {
               score: result.lhr.audits[id]?.score ?? null,
               numericValue: result.lhr.audits[id]?.numericValue ?? null,
+              numericDetails: (result.lhr.audits[id]?.details?.items ?? []).map(
+                (item) =>
+                  Object.fromEntries(
+                    Object.entries(item).filter(
+                      ([, value]) =>
+                        typeof value === 'number' || typeof value === 'boolean'
+                    )
+                  )
+              ),
             },
           ])
         ),
@@ -1536,26 +1560,16 @@ try {
     }
   });
   await record('WEB_PUSH_NOTIFICATION_ROUTING_INTEGRATION', async () => {
-    await c.context.grantPermissions(['notifications']);
     await c.page.goto(`${url}/wallet`);
     await c.page.waitForFunction(() => navigator.serviceWorker.controller);
     const worker = c.context.serviceWorkers()[0];
     requireThat(worker, 'SERVICE_WORKER_NOT_FOUND');
     await worker.evaluate(async () => {
-      await self.registration.showNotification('StampAix', {
-        body: 'Synthetic Preview',
-        tag: 'rc-test',
-        data: { href: '/inbox' },
-      });
-      const notifications = await self.registration.getNotifications({
-        tag: 'rc-test',
-      });
-      if (!notifications.length) throw new Error('NOTIFICATION_UNAVAILABLE');
-      // Only the OS event envelope is synthetic; the served worker's real handler runs.
+      // A headless runner has no OS notification center. Only the event/notification envelope is synthetic.
       let pending;
       const event = new Event('notificationclick');
       Object.defineProperties(event, {
-        notification: { value: notifications[0] },
+        notification: { value: { data: { href: '/inbox' }, close() {} } },
         waitUntil: {
           value: (promise) => {
             pending = promise;
@@ -1578,6 +1592,7 @@ try {
     await c.page.waitForURL((u) => u.pathname === '/inbox');
     return {
       event: 'SYNTHETIC_NOTIFICATIONCLICK',
+      notificationEnvelope: 'SYNTHETIC_OS_BOUNDARY',
       osDelivery: 'DEVICE_VERIFY',
     };
   });

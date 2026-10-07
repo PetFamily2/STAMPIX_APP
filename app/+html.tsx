@@ -16,6 +16,13 @@ export default function Html({ children }: PropsWithChildren) {
         <link rel="stylesheet" href="/pwa/leaflet.css" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/pwa/icon.png" />
+        <link
+          rel="preload"
+          href="/pwa/fonts/Heebo-Variable.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
+        />
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
