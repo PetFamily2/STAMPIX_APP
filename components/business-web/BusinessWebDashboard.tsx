@@ -1,5 +1,4 @@
-import {
-  useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import {
   Activity,
   Building2,
@@ -8,10 +7,8 @@ import {
   type LucideIcon,
   Stamp,
   Users,
-  } from 'lucide-react-native';
-import { Component,
-  type ReactNode,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { Component, type ReactNode, useState } from 'react';
 import {
   Pressable,
   type StyleProp,
@@ -247,6 +244,8 @@ function BusinessWebDashboardContent({
         ]}
       >
         <Text
+          accessibilityRole="header"
+          aria-level={1}
           style={[
             styles.pageTitle,
             isMobileComposition ? styles.pageTitleMobile : null,

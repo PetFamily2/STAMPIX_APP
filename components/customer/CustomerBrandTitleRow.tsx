@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: 22,
     lineHeight: 26,
-    color: '#2F6BFF',
+    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     fontWeight: '900',
     ...ltrBaseText,
   },
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 26,
     fontWeight: '900',
-    color: '#2F6BFF',
+    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
   },
   titleZone: {
     flex: 1,

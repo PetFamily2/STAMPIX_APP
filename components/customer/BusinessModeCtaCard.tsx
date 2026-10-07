@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Platform,
   type StyleProp,
   StyleSheet,
   Text,
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   hostButtonAccent: {
     minWidth: 168,
     paddingHorizontal: 20,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     shadowColor: '#2F6BFF',
     shadowOpacity: 0.4,
     shadowRadius: 12,

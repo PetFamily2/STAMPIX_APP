@@ -669,6 +669,9 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               { paddingTop: responsiveLayout.pageTopPadding },
             ]}
             keyboardShouldPersistTaps="handled"
+            role="main"
+            tabIndex={0}
+            accessibilityLabel="תוכן ראשי של העסק"
             style={styles.scroll}
           >
             {props.children}

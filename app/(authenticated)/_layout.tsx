@@ -237,7 +237,14 @@ export default function AuthenticatedLayout() {
   }
 
   return (
-    <View style={styles.shell}>
+    <View
+      style={styles.shell}
+      {...(Platform.OS === 'web' &&
+      nativeRoutingResolution.status === 'route' &&
+      nativeRoutingResolution.href === '/(authenticated)/(customer)/wallet'
+        ? { role: 'main' as const }
+        : {})}
+    >
       <Stack
         screenOptions={{
           headerShown: false,

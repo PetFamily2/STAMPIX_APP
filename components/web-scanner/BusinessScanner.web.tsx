@@ -282,7 +282,9 @@ export default function BusinessScanner(props: {
     'RECONCILING',
   ].includes(state.phase);
   return (
-    <div
+    <main
+      data-scanner-phase={state.phase}
+      data-scanner-code={state.code ?? ''}
       dir="rtl"
       style={{
         width: '100%',
@@ -432,6 +434,6 @@ export default function BusinessScanner(props: {
         תוכן QR עובר בזיכרון בלבד לצורך resolve. אין queue או retry אוטומטי של
         פעולה.
       </p>
-    </div>
+    </main>
   );
 }

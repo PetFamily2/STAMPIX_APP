@@ -39,7 +39,13 @@ export function BusinessWebLoyalty({
   return (
     <View style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>מועדון והטבות</Text>
+        <Text
+          accessibilityRole="header"
+          aria-level={1}
+          style={styles.pageTitle}
+        >
+          מועדון והטבות
+        </Text>
         <Text style={styles.pageSubtitle}>
           כרטיסיות, חברים והטבות במקום אחד.
         </Text>

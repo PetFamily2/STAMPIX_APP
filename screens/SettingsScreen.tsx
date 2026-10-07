@@ -16,6 +16,7 @@ import {
   AppState,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -253,6 +254,7 @@ function NotificationToggleRow({
       accessibilityLabel={title}
       accessibilityHint={subtitle}
       accessibilityState={{ checked: enabled, disabled }}
+      {...(Platform.OS === 'web' ? { 'aria-checked': enabled } : {})}
       style={({ pressed }) => [
         styles.notificationToggleRow,
         isLast ? styles.rowLast : null,
@@ -1002,7 +1004,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 52,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1018,7 +1020,7 @@ const styles = StyleSheet.create({
   staffRowActionPill: {
     minHeight: 32,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1105,7 +1107,7 @@ const styles = StyleSheet.create({
     borderRadius: 10.5,
   },
   notificationSwitchThumbEnabled: {
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
   },
   notificationSwitchThumbDisabled: {
     backgroundColor: '#A1A1AA',

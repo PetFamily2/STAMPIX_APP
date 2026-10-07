@@ -10,11 +10,11 @@ RC cloud acceptance is still in progress. Six live scanner actions and seventeen
 scenarios passed, but the hosted browser suite has identified issues that are being
 fixed and rerun. Do not infer RC completion from the backend suite or unit tests alone.
 
-Latest completed evidence: https://github.com/PetFamily2/STAMPIX_APP/actions/runs/37565414433.
+Latest completed evidence: https://github.com/PetFamily2/STAMPIX_APP/actions/runs/37567132723.
 Its normal verify passed, including Web/iOS/Android exports. Its hosted QA did not pass.
-The corresponding application source was `7e3f1a745f8892488a6dcd6c8b07035c31f44c92`.
-Preview backend: `valuable-ant-605`, type `preview`, logical name `stampaix-pwa-phase3-e2e`.
-Web: https://stampaix-business--gkovlo696d.expo.app.
+The corresponding application source was `98575fd1cbf4805db2666553dd262cb17e42fb67`.
+Preview backend: `oceanic-anteater-42`, type `preview`, logical name `stampaix-pwa-phase3-e2e`.
+Web: https://stampaix-business--rsboup5d0c.expo.app.
 Later fixture resets invalidate older exports' actor allowlists; use the latest paired
 backend/export and its sanitized Actions artifacts for acceptance.
 
@@ -23,7 +23,10 @@ backend/export and its sanitized Actions artifacts for acceptance.
 Expo Router retains iOS and Android alongside platform-specific Web adapters. Native
 camera, maps, push, billing and manual RTL configurations are protected. Web uses stable synchronous route loading after async chunks produced live AsyncRequireError.
 Web has a smaller brand image, an unmodified local Heebo font with OFL license, and does
-not block rendering on SpaceMono. No runtime font CDN is required.
+not block rendering on SpaceMono. No runtime font CDN is required. A Web-only Metro
+resolver loads 41 identical pinned Lucide glyphs instead of the full catalog; Native
+requests delegate unchanged to the existing resolver. Local Web JS fell from 6,596,756
+to 4,732,907 bytes; hosted performance must still be measured.
 The direct customer business route uses an optional Web tab-height context while Native
 still calls its original hook. Web scanner reset awaits release of its previous browser
 lock before acquiring a new lease.
@@ -110,7 +113,10 @@ unavailable program; real-clock session expiry.
 
 Hosted roles, connected UI, safe updates/offline, maps, live Push limits/sender, redirect
 policy, account deletion and accessibility are rerun after fixes. Their complete suite is
-not yet green. Latest Lighthouse performance was 50, accessibility 100, best practices 100;
+not yet green. All six connected UI actions, offline/reconnect, expiry, scope switches,
+permission/no-camera UX, maps allowed/denied/unavailable, offline fallback, push ownership/
+limits/sender and served-worker notification routing passed in that run. Unknown refresh,
+join/logout locators and complete a11y acceptance still require reruns. Latest Lighthouse performance was 55, accessibility 100, best practices 100;
 performance fixes must be measured, not inferred from bundle size. Physical scans are not
 claimed by fake camera/decode-boundary tests.
 
@@ -120,9 +126,9 @@ were absent. These providers are EXTERNAL_CONFIGURATION_REQUIRED. Password autom
 allows other hosted journeys to continue. Real provider callbacks/linking/email delivery
 remain external configuration gates; no Production credentials are copied.
 
-Local revised batch: 2,286 tests / 0 failures / 10,805 assertions; TypeScript and protected
+Local revised batch: 2,288 tests / 0 failures / 10,936 assertions; TypeScript and protected
 Native/backend boundaries passed. CI repeats full tests and all-platform exports. Global
-Biome still has historical debt (205 errors in the latest run); changed files have no
+Biome still has historical debt (204 errors in the latest run); changed files have no
 error-level diagnostics. Do not call the global formatting check green or open a general
 refactor to hide historical debt.
 

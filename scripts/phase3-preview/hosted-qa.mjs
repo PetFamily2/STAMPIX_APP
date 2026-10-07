@@ -36,6 +36,11 @@ const record = async (name, fn) => {
           'ArgumentValidationError',
           'ReturnsValidationError',
           'PREVIEW_FIXTURES_DISABLED',
+          'strict mode violation',
+          'intercepts pointer events',
+          'element is outside of the viewport',
+          'element is not enabled',
+          'element is not visible',
           'Timeout',
           'Execution context was destroyed',
           'Notification',
@@ -51,6 +56,15 @@ const record = async (name, fn) => {
         report.cases[name].observation = await observedPage.evaluate(() => ({
           pathGroup: location.pathname.split('/').slice(0, 2).join('/'),
           online: navigator.onLine,
+          visible: document.visibilityState === 'visible',
+          scannerPhase:
+            document
+              .querySelector('[data-scanner-phase]')
+              ?.getAttribute('data-scanner-phase') ?? null,
+          scannerCode:
+            document
+              .querySelector('[data-scanner-code]')
+              ?.getAttribute('data-scanner-code') ?? null,
           controlled: !!navigator.serviceWorker.controller,
           signals: [
             'הארנק שלי',
@@ -64,6 +78,11 @@ const record = async (name, fn) => {
             'שם הכרטיסייה',
             'בחרו פעולה',
             'תוצאת הפעולה עדיין אינה ידועה.',
+            'מבררים את התוצאה בשרת',
+            'הפעולה לא אושרה',
+            'RECONCILIATION_UNAVAILABLE',
+            'NOT_AUTHORIZED',
+            'SCOPE_CHANGED',
             'השרת אישר את הפעולה',
             'המצלמה כבויה',
             'גרסה חדשה זמינה',
@@ -209,6 +228,10 @@ try {
               'Unhandled',
               'Failed to register a ServiceWorker',
               'useBottomTabBarHeight',
+              'useInsertionEffect must not schedule updates',
+              'useNativeDriver',
+              'aria-hidden',
+              'Cannot read properties',
             ].find((family) => m.text().includes(family)) ??
             /Minified React error #\d+/.exec(m.text())?.[0] ??
             /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
@@ -289,7 +312,10 @@ try {
     await c.page
       .getByRole('button', { name: 'הצטרפות לכרטיסיות שנבחרו', exact: true })
       .click();
-    await c.page.getByText('ההצטרפות בוצעה בהצלחה', { exact: true }).waitFor();
+    await c.page
+      .getByText('ההצטרפות בוצעה בהצלחה', { exact: true })
+      .first()
+      .waitFor();
     requireThat(
       (await clients.customer.query(ref('memberships:byCustomer'), {})).some(
         (row) => row.businessId === fixtures.secondBusinessId
@@ -460,6 +486,22 @@ try {
   await record('MANAGER_DASHBOARD', async () => {
     await visit(m.page, '/business', 'Synthetic Phase 3 primary');
   });
+  await record('MANAGER_AUTHENTICATED_JOURNEY', async () => {
+    for (const [path, label] of [
+      ['/business/customers', 'לקוחות'],
+      ['/business/loyalty', 'כרטיסיות'],
+      ['/business/campaigns', 'קמפיינים'],
+      ['/business/referrals', 'קמפיין חבר מביא חבר'],
+      ['/business/inbox', 'הודעות'],
+      ['/business/settings', 'הגדרות'],
+      ['/business/qr', 'קוד הצטרפות לעסק'],
+    ]) {
+      await visit(m.page, path, label);
+      await layout(m.page);
+    }
+    await visit(m.page, '/business/billing', 'החיוב זמין לבעלי העסק');
+    return { destinations: 7, ownerBillingDenied: true };
+  });
   await record('STAFF_LANDING', async () => {
     await visit(s.page, '/staff', 'אזור הצוות');
     await layout(s.page);
@@ -622,9 +664,32 @@ try {
       crossBusinessReceipt: 'DENIED',
     };
   });
+  const receiptReads = [];
+  scan.page.on('response', async (response) => {
+    try {
+      const request = response.request().postDataJSON();
+      if (
+        request?.path !== 'scannerCommands:getReceipt' ||
+        request.args?.[0]?.operation !== 'stamp'
+      )
+        return;
+      const envelope = await response.json();
+      receiptReads.push({
+        status: response.status(),
+        outcome: ['CONFIRMED', 'UNKNOWN'].includes(envelope.value?.status)
+          ? envelope.value.status
+          : 'UNAVAILABLE',
+        hasReceipt: !!envelope.value?.receipt,
+        terminalFailure: !!envelope.value?.receipt?.commandFailureCode,
+      });
+    } catch {
+      /* Transport failures contain no canonical evidence. */
+    }
+  });
   let receiptBlocked = true,
     drop = true,
     commitCount = 0;
+  let forwardedStamp = { confirmed: false, terminalFailure: false };
   let releaseCommit;
   const commitGate = new Promise((resolve) => {
     releaseCommit = resolve;
@@ -648,7 +713,17 @@ try {
       commitCount++;
       if (drop) {
         drop = false;
-        await route.fetch();
+        const committed = await route.fetch();
+        const envelope = await committed.json();
+        const value = envelope.value;
+        forwardedStamp = {
+          confirmed:
+            committed.ok() &&
+            envelope.status === 'success' &&
+            !!value?.eventId &&
+            !value?.commandFailureCode,
+          terminalFailure: !!value?.commandFailureCode,
+        };
         await commitGate;
         await route.abort('failed');
         return;
@@ -709,6 +784,10 @@ try {
       ),
       'UNKNOWN_UPDATE_ACTIVATED'
     );
+    requireThat(
+      forwardedStamp.confirmed && !forwardedStamp.terminalFailure,
+      'LOST_RESPONSE_SERVER_DID_NOT_COMMIT'
+    );
     const prior = commitCount;
     await scan.page.reload();
     await scan.page
@@ -735,6 +814,10 @@ try {
       safeUpdateActivated: true,
     };
   });
+  report.cases.CONNECTED_UNKNOWN_REFRESH_RECONCILIATION.receiptReads =
+    receiptReads.slice();
+  report.cases.CONNECTED_UNKNOWN_REFRESH_RECONCILIATION.forwardedStamp =
+    forwardedStamp;
   releaseCommit();
   receiptBlocked = false;
   await scan.page.unroute(`${target.url}/api/query`);
@@ -1013,6 +1096,26 @@ try {
     await visit(c.page, '/wallet', 'הארנק שלי');
     return { serverSession: 'PASSWORD_PROVIDER', logout: 'CONFIRMED' };
   });
+  if (report.cases.CUSTOMER_LOGOUT_LOGIN.status === 'FAIL') {
+    report.cases.CUSTOMER_LOGOUT_LOGIN.control = await c.page
+      .getByRole('button', { name: 'יציאה מהחשבון', exact: true })
+      .evaluate((element) => {
+        const r = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          r.x + r.width / 2,
+          r.y + r.height / 2
+        );
+        return {
+          disabled: element.getAttribute('aria-disabled'),
+          height: r.height,
+          top: r.top,
+          viewport: innerHeight,
+          hitInside: !!hit && element.contains(hit),
+          coveringRole: hit?.getAttribute('role') ?? null,
+        };
+      })
+      .catch(() => ({ found: false }));
+  }
   await record('PWA_MANIFEST_REGISTRATION_CACHE', async () => {
     await visit(c.page, '/wallet', 'הארנק שלי');
     await c.page.waitForFunction(() => navigator.serviceWorker.controller);
@@ -1636,24 +1739,68 @@ try {
       providers: 'EXTERNAL_CONFIGURATION_REQUIRED',
     };
   });
-  await record('RUNTIME_ERRORS', async () => {
-    report.runtimeErrorCount = errors.length;
-    report.runtimeErrors = errors;
-    requireThat(errors.length === 0, 'HOSTED_RUNTIME_ERRORS');
-  });
   await record('ACCOUNT_DELETION_PUSH_CLEANUP', async () => {
     const deletionClient = new ConvexHttpClient(target.url, { logger: false });
+    const deletionPassword = randomBytes(32).toString('base64url');
     const registration = await deletionClient.action(ref('auth:signIn'), {
       provider: 'password',
       params: {
         flow: 'signUp',
         email: 'phase3-deletion@example.invalid',
-        password: randomBytes(32).toString('base64url'),
+        password: deletionPassword,
       },
     });
     requireThat(registration.tokens?.token, 'SYNTHETIC_DELETION_AUTH_FAILED');
     deletionClient.setAuth(registration.tokens.token);
     const actor = await deletionClient.query(ref('users:getCurrentUser'), {});
+    actors.deletion = { id: actor._id, password: deletionPassword };
+    const invited = await authenticated('deletion');
+    try {
+      await invited.page.getByLabel('שדה שם פרטי').fill('Synthetic');
+      await invited.page.getByLabel('שדה שם משפחה').fill('Disposable');
+      await invited.page.getByText('המשך', { exact: true }).click();
+      await invited.page.getByText('קפה ומאפים', { exact: true }).click();
+      await invited.page
+        .getByText('מתנה אחרי כמה ביקורים', { exact: true })
+        .click();
+      await invited.page.getByText('המשך', { exact: true }).click();
+      await invited.page.getByText('כניסה לארנק', { exact: true }).click();
+      await invited.page
+        .getByText('הארנק שלי', { exact: true })
+        .first()
+        .waitFor();
+      await clients.owner.mutation(
+        ref('business:inviteBusinessStaff'),
+        {
+          businessId: fixtures.businessId,
+          email: 'phase3-deletion@example.invalid',
+          role: 'staff',
+        },
+        { skipQueue: true }
+      );
+      await visit(invited.page, '/accept-invite', 'הצטרפות כעובד');
+      await invited.page
+        .getByRole('button', { name: 'אשר הצטרפות', exact: true })
+        .click();
+      await invited.page.getByText('אזור הצוות', { exact: true }).waitFor();
+      const scope = await deletionClient.query(
+        ref('users:getSessionContext'),
+        {}
+      );
+      requireThat(
+        scope.businesses.some(
+          (b) => b.id === fixtures.businessId && b.staffRole === 'staff'
+        ),
+        'STAFF_INVITE_NOT_CANONICAL'
+      );
+      report.cases.STAFF_INVITE_ACCEPTANCE = {
+        status: 'PASS',
+        authenticated: true,
+        synthetic: true,
+      };
+    } finally {
+      await invited.context.close();
+    }
     const ecdh = createECDH('prime256v1');
     ecdh.generateKeys();
     await deletionClient.mutation(
@@ -1680,6 +1827,11 @@ try {
       (await deletionClient.query(ref('users:getCurrentUser'), {})) === null,
       'DELETED_ACCOUNT_AUTHORIZATION_REMAINS'
     );
+  });
+  await record('RUNTIME_ERRORS', async () => {
+    report.runtimeErrorCount = errors.length;
+    report.runtimeErrors = errors;
+    requireThat(errors.length === 0, 'HOSTED_RUNTIME_ERRORS');
   });
   await browser.close();
   browser = null;

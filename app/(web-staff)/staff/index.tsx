@@ -1,7 +1,7 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 
@@ -30,9 +30,16 @@ export default function WebStaffLanding() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={styles.screen}
+      {...(Platform.OS === 'web' ? { role: 'main' as const } : {})}
+    >
       <View style={styles.card}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <Text
+          accessibilityRole="header"
+          {...(Platform.OS === 'web' ? { 'aria-level': 1 } : {})}
+          style={styles.title}
+        >
           אזור הצוות
         </Text>
         {business ? <Text style={styles.business}>{business.name}</Text> : null}
@@ -135,7 +142,7 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 48,
     borderRadius: 12,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
