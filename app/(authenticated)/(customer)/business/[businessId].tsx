@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,6 +27,7 @@ import {
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useCustomerTabBarHeight } from '@/hooks/useCustomerTabBarHeight';
 import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
@@ -118,7 +118,7 @@ function formatProgress(currentStamps: number, maxStamps: number) {
 
 export default function CustomerBusinessDetailsScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useCustomerTabBarHeight();
   const params = useLocalSearchParams<{
     businessId?: string;
     join?: string;

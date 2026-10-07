@@ -45,6 +45,7 @@ export default function BusinessScanner(props: {
   const video = useRef<HTMLVideoElement>(null);
   const camera = useRef<WebQrController | null>(null);
   const commands = useRef<WebScannerCommands | null>(null);
+  const lockLease = useRef<Promise<void>>(Promise.resolve());
   const [state, setState] = useState(initialCommand);
   const [cameraState, setCameraState] = useState(initialScannerState);
   const [blocked, setBlocked] = useState<string | null>('מכינים סביבת בדיקה');
@@ -122,72 +123,77 @@ export default function BusinessScanner(props: {
         navigator.onLine !== false && document.visibilityState === 'visible',
       valid,
     });
-    void navigator.locks
-      .request(
-        `stampaix:web-scanner:${scope.actorId}:${scope.businessId}`,
-        { ifAvailable: true },
-        async (lock) => {
-          if (!lock || disposed) {
-            if (!disposed) setBlocked('סורק אחר פתוח עבור החשבון והעסק.');
-            return;
-          }
-          setBlocked(null);
-          const engine = new WebScannerCommands({
-            scope,
-            transport,
-            online: () =>
-              navigator.onLine !== false &&
-              document.visibilityState === 'visible',
-            current: valid,
-            checkpoint: recovery.checkpoint,
-            recovery: recovery.identity.uncertain,
-            recoveredOperation:
-              recovery.identity.operation && recovery.identity.operationId
-                ? {
-                    operation: recovery.identity.operation,
-                    operationId: recovery.identity.operationId,
-                  }
-                : undefined,
-            onState: (next) => {
-              if (!disposed) setState(next);
-            },
-          });
-          commands.current = engine;
-          setState(engine.state);
-          const makeDecoder = () =>
-            createRawWorkerDecoder((value) => {
-              qrReference = value;
+    const previousLease = lockLease.current;
+    lockLease.current = previousLease
+      .then(async () => {
+        // Cleanup resolves the previous lease; wait for the browser to release it before reset acquires again.
+        if (disposed) return;
+        await navigator.locks.request(
+          `stampaix:web-scanner:${scope.actorId}:${scope.businessId}`,
+          { ifAvailable: true },
+          async (lock) => {
+            if (!lock || disposed) {
+              if (!disposed) setBlocked('סורק אחר פתוח עבור החשבון והעסק.');
+              return;
+            }
+            setBlocked(null);
+            const engine = new WebScannerCommands({
+              scope,
+              transport,
+              online: () =>
+                navigator.onLine !== false &&
+                document.visibilityState === 'visible',
+              current: valid,
+              checkpoint: recovery.checkpoint,
+              recovery: recovery.identity.uncertain,
+              recoveredOperation:
+                recovery.identity.operation && recovery.identity.operationId
+                  ? {
+                      operation: recovery.identity.operation,
+                      operationId: recovery.identity.operationId,
+                    }
+                  : undefined,
+              onState: (next) => {
+                if (!disposed) setState(next);
+              },
             });
-          const capture = new WebQrController({
-            video: element,
-            media: navigator.mediaDevices,
-            secure: isSecureContext && location.protocol === 'https:',
-            isVisible: () => document.visibilityState === 'visible',
-            capture: createFrameCapture(element),
-            createDecoder: makeDecoder,
-            onState: (next) => {
-              if (disposed) return;
-              setCameraState(next);
-              if (next.status === 'scanning') engine.cameraReady();
-              if (next.status === 'locked' && qrReference) {
-                const data = qrReference;
-                qrReference = null;
-                void engine.decode(data);
-              }
-            },
-          });
-          camera.current = capture;
-          detachCamera = attachCameraLifecycle(capture, document, window);
-          window.addEventListener('online', onNetwork);
-          window.addEventListener('offline', onNetwork);
-          window.addEventListener('pagehide', onPageHide);
-          window.addEventListener('pageshow', onPageShow);
-          await new Promise<void>((resolve) => {
-            releaseLock = resolve;
-            if (disposed) resolve();
-          });
-        }
-      )
+            commands.current = engine;
+            setState(engine.state);
+            const makeDecoder = () =>
+              createRawWorkerDecoder((value) => {
+                qrReference = value;
+              });
+            const capture = new WebQrController({
+              video: element,
+              media: navigator.mediaDevices,
+              secure: isSecureContext && location.protocol === 'https:',
+              isVisible: () => document.visibilityState === 'visible',
+              capture: createFrameCapture(element),
+              createDecoder: makeDecoder,
+              onState: (next) => {
+                if (disposed) return;
+                setCameraState(next);
+                if (next.status === 'scanning') engine.cameraReady();
+                if (next.status === 'locked' && qrReference) {
+                  const data = qrReference;
+                  qrReference = null;
+                  void engine.decode(data);
+                }
+              },
+            });
+            camera.current = capture;
+            detachCamera = attachCameraLifecycle(capture, document, window);
+            window.addEventListener('online', onNetwork);
+            window.addEventListener('offline', onNetwork);
+            window.addEventListener('pagehide', onPageHide);
+            window.addEventListener('pageshow', onPageShow);
+            await new Promise<void>((resolve) => {
+              releaseLock = resolve;
+              if (disposed) resolve();
+            });
+          }
+        );
+      })
       .catch(() => {
         if (!disposed) setBlocked('נעילת הסורק לא זמינה; הפעולות חסומות.');
       });

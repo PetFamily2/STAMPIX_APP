@@ -30,6 +30,20 @@ const record = async (name, fn) => {
       code: /^[A-Z0-9_]+$/.test(e.message ?? '')
         ? e.message
         : 'ASSERTION_FAILED',
+      failureKind:
+        [
+          'Could not find',
+          'ArgumentValidationError',
+          'ReturnsValidationError',
+          'PREVIEW_FIXTURES_DISABLED',
+          'Timeout',
+          'Execution context was destroyed',
+          'Notification',
+          'InvalidAccessError',
+          'NotAllowedError',
+        ].find((kind) => String(e.message ?? '').includes(kind)) ??
+        e.name ??
+        'ERROR',
     };
     report.errors.push(name);
     if (observedPage && !observedPage.isClosed()) {
@@ -193,7 +207,10 @@ try {
               'Unhandled',
               'Failed to register a ServiceWorker',
               'useBottomTabBarHeight',
-            ].find((family) => m.text().includes(family)) ?? 'CONSOLE_ERROR',
+            ].find((family) => m.text().includes(family)) ??
+            /Minified React error #\d+/.exec(m.text())?.[0] ??
+            /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
+            'CONSOLE_ERROR',
         });
     });
     await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -202,6 +219,12 @@ try {
   const visit = async (page, path, expected) => {
     observedPage = page;
     await page.goto(`${url}${path}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForURL(
+      (u) =>
+        u.pathname === path ||
+        (path.startsWith('/customer-card/') && u.pathname.startsWith('/card/')),
+      { timeout: 20000 }
+    );
     await page
       .getByText(expected, { exact: false })
       .first()
@@ -309,6 +332,14 @@ try {
       .getByText('Synthetic Phase 3 secondary', { exact: true })
       .first()
       .waitFor();
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (
+        (await clients.owner.query(ref('users:getCurrentUser'), {}))
+          .activeBusinessId === fixtures.secondBusinessId
+      )
+        break;
+      await o.page.waitForTimeout(100);
+    }
     requireThat(
       (await clients.owner.query(ref('users:getCurrentUser'), {}))
         .activeBusinessId === fixtures.secondBusinessId,
@@ -322,6 +353,14 @@ try {
       .getByText('Synthetic Phase 3 primary', { exact: true })
       .first()
       .waitFor();
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (
+        (await clients.owner.query(ref('users:getCurrentUser'), {}))
+          .activeBusinessId === fixtures.businessId
+      )
+        break;
+      await o.page.waitForTimeout(100);
+    }
   });
   await record('OWNER_LOYALTY_CREATE_EDIT_ARCHIVE', async () => {
     await visit(o.page, '/business/cards/new', 'שם הכרטיסייה');
@@ -344,12 +383,22 @@ try {
     await o.page
       .getByRole('button', { name: 'שמור שינויים', exact: true })
       .click();
-    const ok = o.page.getByRole('button', { name: 'אישור', exact: true });
-    if (await ok.count()) await ok.click();
+    const ok = o.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'אישור', exact: true });
+    await o.page
+      .getByRole('dialog')
+      .getByText('השינויים נשמרו בהצלחה.', { exact: true })
+      .waitFor();
+    await ok.click();
     await o.page
       .getByRole('button', { name: 'פרסם כרטיסיה', exact: true })
       .click();
-    if (await ok.count()) await ok.click();
+    await o.page
+      .getByRole('dialog')
+      .getByText('הכרטיסיה פעילה ללקוחות.', { exact: true })
+      .waitFor();
+    await ok.click();
     await o.page
       .getByRole('button', { name: 'העבר לארכיון', exact: true })
       .click();
@@ -357,7 +406,11 @@ try {
       .getByRole('dialog')
       .getByRole('button', { name: 'העבר לארכיון', exact: true })
       .click();
-    if (await ok.count()) await ok.click();
+    await o.page
+      .getByRole('dialog')
+      .getByText('הכרטיסיה אינה זמינה עוד לצבירה או למימוש.', { exact: true })
+      .waitFor();
+    await ok.click();
     const programs = await clients.owner.query(
       ref('loyaltyPrograms:listManagementByBusiness'),
       { businessId: fixtures.businessId }
@@ -440,7 +493,7 @@ try {
       const args = envelope.args?.[0];
       if (!args) return;
       scannerRequests.push(args.operation);
-      if (args.operation === 'stamp')
+      if (args.operation !== 'resolve')
         lastIdentity = Object.fromEntries(
           [
             'operationId',
@@ -681,11 +734,32 @@ try {
   });
   releaseCommit();
   receiptBlocked = false;
+  // Restore a readable receipt after any failed assertion, keeping that failure in the ledger.
+  if (report.cases.CONNECTED_UNKNOWN_REFRESH_RECONCILIATION.status === 'FAIL') {
+    await scan.page.waitForTimeout(500);
+    const reconcile = scan.page.getByRole('button', {
+      name: 'בירור תוצאה בלבד',
+    });
+    if (await reconcile.count()) {
+      await reconcile.click();
+      await scan.page
+        .getByText('השרת אישר את הפעולה', { exact: true })
+        .waitFor()
+        .catch(() => {});
+    }
+  }
   const readyWithCamera = async (
     page = scan.page,
-    path = '/staff/scanner-preview'
+    path = '/staff/scanner-preview',
+    stamps = 0
   ) => {
     await arrange('restore');
+    if (stamps)
+      await admin.mutation(
+        ref('phase3Fixtures:arrange'),
+        { secret, fixtures, stamps },
+        { skipQueue: true }
+      );
     await scanner(page, path);
     let value = (
       await clients.customer.mutation(
@@ -703,17 +777,90 @@ try {
       .click();
     await page.getByText('בחרו פעולה', { exact: true }).waitFor();
   };
+  const canonicalAction = async (name, operation, eventType) => {
+    const before = scannerRequests.filter((op) => op === operation).length;
+    const request = scan.page.waitForRequest(
+      (r) =>
+        r.url() === `${target.url}/api/mutation` &&
+        r.postDataJSON()?.path === 'scannerCommands:execute' &&
+        r.postDataJSON()?.args?.[0]?.operation === operation
+    );
+    await scan.page.getByRole('button', { name, exact: true }).click();
+    await request;
+    requireThat(
+      scannerRequests.filter((op) => op === operation).length === before + 1,
+      'ACTION_DUPLICATE_WRITE'
+    );
+    requireThat(
+      lastIdentity.operation === operation,
+      'ACTION_IDENTITY_MISSING'
+    );
+    let result;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      result = await clients.staff.query(
+        ref('scannerCommands:getReceipt'),
+        lastIdentity
+      );
+      if (result.status === 'CONFIRMED') break;
+      await scan.page.waitForTimeout(100);
+    }
+    requireThat(result.status === 'CONFIRMED', 'ACTION_RECEIPT_UNCONFIRMED');
+    if (eventType)
+      requireThat(
+        result.receipt?.eventType === eventType,
+        'ACTION_RECEIPT_TYPE_MISMATCH'
+      );
+    await scan.page.getByText('השרת אישר את הפעולה', { exact: true }).waitFor();
+    await scan.page
+      .getByText(
+        `אישור שרת: ${result.receipt.eventType ?? result.receipt.status ?? 'הטבה מומשה'}`,
+        { exact: true }
+      )
+      .waitFor();
+    requireThat(
+      (await scan.page.getByText('אישור שרת:', { exact: false }).count()) > 0,
+      'ACTION_UI_RECEIPT_MISSING'
+    );
+    return { canonical: true, requests: 1 };
+  };
+  await record('CONNECTED_REDEEM_CANONICAL', async () => {
+    await readyWithCamera(scan.page, '/staff/scanner-preview', 3);
+    return canonicalAction('אישור מימוש', 'redeem', 'REWARD_REDEEMED');
+  });
+  await record('CONNECTED_COMPLETED_STAMP_REDEEM_CANONICAL', async () => {
+    await readyWithCamera(scan.page, '/staff/scanner-preview', 2);
+    await canonicalAction('אישור חותמת', 'stamp', 'STAMP_ADDED');
+    return canonicalAction(
+      'מימוש הכרטיס שהושלם',
+      'continuation',
+      'REWARD_REDEEMED'
+    );
+  });
+  await record('CONNECTED_UNDO_CANONICAL', async () => {
+    await readyWithCamera();
+    await canonicalAction('אישור חותמת', 'stamp', 'STAMP_ADDED');
+    return canonicalAction('ביטול הפעולה', 'undo');
+  });
+  await record('CONNECTED_REFERRAL_CANONICAL', async () => {
+    await readyWithCamera();
+    await arrange('referral');
+    await canonicalAction('אישור חותמת', 'stamp', 'STAMP_ADDED');
+    return canonicalAction('Synthetic Benefit', 'referral');
+  });
   await record('CONNECTED_OFFLINE_BEFORE_COMMIT_RECONNECT', async () => {
     await readyWithCamera();
     const before = scannerRequests.length;
     try {
       await scan.context.setOffline(true);
       await scan.page
-        .getByRole('button', { name: 'אישור חותמת', exact: true })
-        .click();
-      await scan.page
         .getByText('אין חיבור זמין — הפעולה לא נשלחה', { exact: true })
         .waitFor();
+      requireThat(
+        (await scan.page
+          .getByRole('button', { name: 'אישור חותמת', exact: true })
+          .count()) === 0,
+        'OFFLINE_COMMIT_UI_ENABLED'
+      );
     } finally {
       await scan.context.setOffline(false);
     }
@@ -926,6 +1073,14 @@ try {
     }
   });
   await record('PWA_OFFLINE_RETURN_ONLINE', async () => {
+    let workerNetworkFailures = 0;
+    const blockWorkerNetwork = async (route) => {
+      if (route.request().serviceWorker()) {
+        workerNetworkFailures++;
+        await route.abort('internetdisconnected');
+      } else await route.continue();
+    };
+    await c.context.route(`${origin}/wallet`, blockWorkerNetwork);
     try {
       await c.context.setOffline(true);
       const navigation = await c.page
@@ -937,15 +1092,18 @@ try {
         navigatorOffline: await c.page.evaluate(
           () => navigator.onLine === false
         ),
+        workerNetworkFailures,
       };
       await c.page.getByText('אין חיבור כרגע', { exact: true }).waitFor();
     } finally {
       await c.context.setOffline(false);
+      await c.context.unroute(`${origin}/wallet`, blockWorkerNetwork);
     }
     await c.page.getByRole('link', { name: 'ניסיון להתחבר מחדש' }).click();
     await c.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
   });
   await record('RESPONSIVE_RTL_KEYBOARD', async () => {
+    await visit(c.page, '/wallet', 'הארנק שלי');
     for (const width of [320, 360, 390, 768, 1280]) {
       await c.page.setViewportSize({ width, height: 844 });
       await layout(c.page);
@@ -987,10 +1145,7 @@ try {
     await c.page
       .getByText('לא הצלחנו לטעון את המיקום שלך.', { exact: true })
       .waitFor();
-    requireThat(
-      (await c.page.getByText('עסקים שמורים', { exact: true }).count()) > 0,
-      'DISCOVERY_LIST_FALLBACK_MISSING'
-    );
+    await c.page.getByText('עסקים שמורים', { exact: true }).waitFor();
   });
   await record('MAP_LOCATION_UNAVAILABLE', async () => {
     const unavailable = await authenticated('customer');
@@ -1283,6 +1438,34 @@ try {
           })),
           passes: result.passes.length,
         };
+        report.accessibility[name].contrastStyles = [];
+        for (const node of result.violations.find(
+          (v) => v.id === 'color-contrast'
+        )?.nodes ?? []) {
+          if (node.target.length !== 1 || typeof node.target[0] !== 'string')
+            continue;
+          const style = await page
+            .locator(node.target[0])
+            .first()
+            .evaluate((element) => {
+              const s = getComputedStyle(element);
+              const parents = [];
+              for (
+                let p = element.parentElement;
+                p && parents.length < 3;
+                p = p.parentElement
+              )
+                parents.push(getComputedStyle(p).backgroundColor);
+              return {
+                color: s.color,
+                background: s.backgroundColor,
+                fontSize: s.fontSize,
+                parents,
+              };
+            })
+            .catch(() => null);
+          report.accessibility[name].contrastStyles.push(style);
+        }
         serious ||= result.violations.some((v) =>
           ['critical', 'serious'].includes(v.impact)
         );

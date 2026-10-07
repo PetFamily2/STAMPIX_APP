@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 
@@ -80,7 +80,8 @@ export default function RootLayout() {
     []
   );
 
-  if (!fontsLoaded) {
+  // Web screens use a CSS fallback while fonts load; keep Native's existing font gate.
+  if (!fontsLoaded && Platform.OS !== 'web') {
     return null;
   }
 
