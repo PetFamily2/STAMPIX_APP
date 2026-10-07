@@ -41,10 +41,39 @@ export const reset = internalMutation({
     const businesses = all.get('businesses') ?? [];
     if (businesses.some(business => !['phase3-primary', 'phase3-secondary'].includes(business.externalId) || !actors.has(business.ownerUserId))) throw new Error('RESET_NON_SYNTHETIC_BUSINESS');
     const scopes = new Set(businesses.map(business => business._id));
-    for (const rows of all.values()) for (const row of rows) {
+    // A normal account-deletion test leaves a team acceptance audit record.
+    // Prove its deleted actor from the existing accepted synthetic invitation;
+    // never allow an unknown actor merely because it belongs to this business.
+    const deletedStaffInvites = new Map<string, any>();
+    const deletedStaffEvents = new Set<string>();
+    for (const invite of all.get('staffInvites') ?? []) {
+      const business = businesses.find(row => row._id === invite.businessId);
+      if (invite.invitedEmail !== 'phase3-deletion@example.invalid' ||
+          invite.status !== 'accepted' || invite.targetRole !== 'staff' ||
+          !business || invite.invitedByUserId !== business.ownerUserId ||
+          !invite.acceptedByUserId || actors.has(invite.acceptedByUserId) ||
+          invite.invitedUserId !== invite.acceptedByUserId ||
+          typeof invite.acceptedAt !== 'number') continue;
+      for (const event of all.get('staffEvents') ?? []) {
+        if (event.targetInviteId === invite._id && event.businessId === invite.businessId &&
+            event.eventType === 'invite_accepted' && event.toRole === 'staff' &&
+            event.toStatus === 'active' && event.createdAt === invite.acceptedAt &&
+            event.actorUserId === invite.acceptedByUserId &&
+            event.targetUserId === invite.acceptedByUserId) {
+          deletedStaffInvites.set(invite._id, invite);
+          deletedStaffEvents.add(event._id);
+        }
+      }
+    }
+    for (const [table, rows] of all) for (const row of rows) {
       if (row.businessId !== undefined && !scopes.has(row.businessId)) throw new Error('RESET_UNKNOWN_BUSINESS_SCOPE');
-      for (const key of ['userId', 'actorId', 'customerId', 'actorUserId', 'ownerUserId', 'recipientUserId', 'referrerUserId', 'referredUserId', 'toUserId']) {
-        if (row[key] !== undefined && !actors.has(row[key])) throw new Error('RESET_UNKNOWN_ACTOR_SCOPE');
+      for (const key of ['userId', 'actorId', 'customerId', 'customerUserId', 'actorUserId', 'ownerUserId', 'recipientUserId', 'referrerUserId', 'referredUserId', 'toUserId', 'targetUserId', 'invitedUserId', 'acceptedByUserId', 'invitedByUserId']) {
+        if (row[key] === undefined || actors.has(row[key])) continue;
+        const provenDeletedInvite = table === 'staffInvites' &&
+          ['invitedUserId', 'acceptedByUserId'].includes(key) && deletedStaffInvites.has(row._id);
+        const provenDeletedEvent = table === 'staffEvents' &&
+          ['actorUserId', 'targetUserId'].includes(key) && deletedStaffEvents.has(row._id);
+        if (!provenDeletedInvite && !provenDeletedEvent) throw new Error('RESET_UNKNOWN_ACTOR_SCOPE');
       }
     }
     for (const rows of all.values()) for (const row of rows) await ctx.db.delete(row._id);
