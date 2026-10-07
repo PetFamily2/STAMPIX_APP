@@ -214,6 +214,7 @@ try {
   const errorDetails = [];
   const fontEvents = [];
   const failedResourceEvents = [];
+  const resourceHttpErrors = [];
 
   const authenticated = async (
     role,
@@ -260,12 +261,12 @@ try {
       });
     });
     await context.addInitScript(() => {
-      if (typeof FontFace === 'undefined') return;
-      const original = FontFace.prototype.load;
+      if (typeof FontFaceSet === 'undefined') return;
+      const original = FontFaceSet.prototype.load;
       let nextId = 0;
-      FontFace.prototype.load = function (...args) {
+      FontFaceSet.prototype.load = function (...args) {
         const id = ++nextId;
-        const family = /ionicons/i.test(this.family) ? 'IONICONS' : 'OTHER';
+        const family = /ionicons/i.test(String(args[0])) ? 'IONICONS' : 'OTHER';
         const observe = (phase, error) => {
           void window.__qaFontObservation({
             at: Date.now(), id, family, phase,
@@ -289,6 +290,16 @@ try {
         lastNavigationAt = Date.now();
         observedPage = page;
       }
+    });
+    page.on('response', (response) => {
+      if (response.status() < 400 || resourceHttpErrors.length >= 100) return;
+      const request = response.request();
+      resourceHttpErrors.push({
+        role, during: currentCase, at: Date.now(),
+        type: request.resourceType(), status: response.status(),
+        destination: response.url().startsWith(origin + '/') ? 'WEB_PREVIEW'
+          : response.url().startsWith(target.url + '/') ? 'CONVEX_PREVIEW' : 'EXTERNAL',
+      });
     });
     page.on('requestfailed', (request) => {
       const type = request.resourceType();
@@ -420,6 +431,7 @@ try {
             '500',
           ].filter((term) => m.text().includes(term)),
           messageLength: m.text().length,
+          fetchRateLimited: /fetch/i.test(m.text()) && m.text().includes('429'),
           duringNavigation: Date.now() - lastNavigationAt < 1500,
           source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
           kind: m
@@ -2166,6 +2178,20 @@ try {
           })),
           passes: result.passes.length,
         };
+        report.accessibility[name].attributeDiagnostics = [];
+        for (const node of result.violations.find(
+          (v) => v.id === 'aria-prohibited-attr'
+        )?.nodes ?? []) {
+          if (node.target.length !== 1 || typeof node.target[0] !== 'string') continue;
+          const detail = await page.locator(node.target[0]).first().evaluate((element) => ({
+            tag: element.tagName,
+            role: element.getAttribute('role'),
+            attributes: element.getAttributeNames().filter((name) => name.startsWith('aria-')),
+            hasHref: element.hasAttribute('href'),
+            hasOnClick: !!element.onclick,
+          })).catch(() => null);
+          report.accessibility[name].attributeDiagnostics.push(detail);
+        }
         report.accessibility[name].contrastStyles = [];
         for (const node of result.violations.find(
           (v) => v.id === 'color-contrast'
@@ -2570,6 +2596,7 @@ try {
     report.runtimeErrors = errors;
     report.fontEvents = fontEvents;
     report.failedResourceEvents = failedResourceEvents;
+    report.resourceHttpErrors = resourceHttpErrors;
     const pushUnavailable =
       report.cases.WEB_PUSH_BROWSER_SUBSCRIBE?.status ===
         'LIVE_DELIVERY_DEVICE_BLOCKED' &&
@@ -2620,6 +2647,7 @@ try {
       runtimeErrors: report.runtimeErrors,
       fontEvents: report.fontEvents,
       failedResourceEvents: report.failedResourceEvents,
+      resourceHttpErrors: report.resourceHttpErrors,
       browserMessages: report.browserMessages,
       celebrationEvidence: report.celebrationEvidence,
       backendUrl: report.backendUrl,
@@ -2629,11 +2657,8 @@ try {
         Object.entries(report.accessibility ?? {}).map(([name, value]) => [
           name,
           {
-            violations: value.violations.map(({ id, impact, nodes }) => ({
-              id,
-              impact,
-              nodes,
-            })),
+            violations: value.violations,
+            attributeDiagnostics: value.attributeDiagnostics,
           },
         ])
       ),
