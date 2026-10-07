@@ -22,7 +22,9 @@ import {
   requireControlDelta,
   requireProjectPreviewKey,
   SOURCE_SHA,
+  sanitizedPreviewFailure,
   selectPreviewDeployment,
+  summarizeSyntheticResetScope,
 } from './lib/phase3c1-preview-guard.mjs';
 import { liveE2e } from './phase3-preview/live-e2e.mjs';
 
@@ -217,6 +219,7 @@ try {
   // Read the pinned SDK's paginated system endpoints before any mutation of a reused target.
   let cursor = null,
     hasData = false;
+  const resetAuditTables = new Map();
   for (let page = 0; page < 10; page++) {
     const tables = await admin.query(
       makeFunctionReference('_system/cli/tables'),
@@ -231,17 +234,20 @@ try {
         {
           table: table.name,
           order: 'asc',
-          paginationOpts: { cursor: null, numItems: 1 },
+          paginationOpts: { cursor: null, numItems: 201 },
         }
       );
       if (!Array.isArray(rows?.page)) fail('TABLE_DATA_SHAPE_UNKNOWN');
       hasData ||= rows.page.length > 0;
+      resetAuditTables.set(table.name, rows.page);
     }
     if (tables.isDone) break;
     if (page === 9 || typeof tables.continueCursor !== 'string')
       fail('TABLE_AUDIT_LIMIT');
     cursor = tables.continueCursor;
   }
+  report.syntheticResetAudit = summarizeSyntheticResetScope(resetAuditTables);
+  resetAuditTables.clear();
   if (hasData && !owned) fail('NONEMPTY_PREVIEW_NOT_PROVEN_SYNTHETIC');
   let values;
   if (owned) {
@@ -503,10 +509,7 @@ try {
   admin.clearAuth();
 } catch (error) {
   // Only our own fixed uppercase codes; never remote error text/stack/payload/QR/identity.
-  const code = String(error?.message ?? '');
-  report.failureCode = /^[A-Z][A-Z0-9_]{3,100}$/.test(code)
-    ? code
-    : 'PRIVATE_ERROR_DETAILS_WITHHELD';
+  report.failureCode = sanitizedPreviewFailure(error);
   report.status = 'BLOCKED';
   process.exitCode = 1;
 } finally {

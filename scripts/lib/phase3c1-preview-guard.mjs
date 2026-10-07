@@ -180,3 +180,84 @@ export function previewPublicEnvironment(_pulled, target, actors, businesses) {
   });
   return result;
 }
+
+// Diagnostic evidence only. Never return IDs, field values, emails or row payloads.
+export function summarizeSyntheticResetScope(tables) {
+  const users = tables.get('users') ?? [];
+  const businesses = tables.get('businesses') ?? [];
+  const allowedEmails = new Set([
+    'phase3-owner@example.invalid',
+    'phase3-staff@example.invalid',
+    'phase3-customer@example.invalid',
+    'phase3-manager@example.invalid',
+    'phase3-deletion@example.invalid',
+  ]);
+  const actors = new Set(users.map((user) => user._id));
+  const scopes = new Set(businesses.map((business) => business._id));
+  const actorFields = [
+    'userId',
+    'actorId',
+    'customerId',
+    'actorUserId',
+    'ownerUserId',
+    'recipientUserId',
+    'referrerUserId',
+    'referredUserId',
+    'toUserId',
+  ];
+  const unknownActors = Object.fromEntries(
+    actorFields.map((field) => [field, 0])
+  );
+  let unknownBusinessScopes = 0;
+  for (const rows of tables.values()) {
+    for (const row of rows) {
+      if (row.businessId !== undefined && !scopes.has(row.businessId)) {
+        unknownBusinessScopes++;
+      }
+      for (const field of actorFields) {
+        if (row[field] !== undefined && !actors.has(row[field])) {
+          unknownActors[field]++;
+        }
+      }
+    }
+  }
+  return {
+    actorCount: users.length,
+    nonSyntheticActorCount: users.filter(
+      (user) => !allowedEmails.has(user.email)
+    ).length,
+    businessCount: businesses.length,
+    nonSyntheticBusinessCount: businesses.filter(
+      (business) =>
+        !['phase3-primary', 'phase3-secondary'].includes(business.externalId) ||
+        !actors.has(business.ownerUserId)
+    ).length,
+    unknownBusinessScopes,
+    unknownActors,
+    oversizedTableCount: [...tables.values()].filter(
+      (rows) => rows.length > 200
+    ).length,
+    totalRows: [...tables.values()].reduce(
+      (count, rows) => count + rows.length,
+      0
+    ),
+  };
+}
+export function sanitizedPreviewFailure(error) {
+  const text = String(error?.message ?? '');
+  if (/^[A-Z][A-Z0-9_]{3,100}$/.test(text)) {
+    return text;
+  }
+  const known = [
+    'SYNTHETIC_RESET_LIMIT',
+    'RESET_NON_SYNTHETIC_ACTOR',
+    'RESET_NON_SYNTHETIC_BUSINESS',
+    'RESET_UNKNOWN_BUSINESS_SCOPE',
+    'RESET_UNKNOWN_ACTOR_SCOPE',
+    'PREVIEW_FIXTURES_DISABLED',
+  ];
+  const matches = known.filter((code) =>
+    new RegExp(`\\b${code}\\b`).test(text)
+  );
+  return matches.length === 1 ? matches[0] : 'PRIVATE_ERROR_DETAILS_WITHHELD';
+}
