@@ -223,8 +223,9 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           VERIFIED_HEAD_SHA: 55dc893019577062f9342c664e8976dfc9398ebe
+          EXPO_PUBLIC_APP_ENV: preview
         run: |
-          eas deploy --environment preview --non-interactive --dev-domain stampaix-business --json > ../eas-deploy.json 2> "${{ runner.temp }}/phase3-eas-deploy.log"
+          node ../scripts/phase3-preview/deploy-hosting.mjs
           cd ..
           node scripts/phase3-preview/report-hosting.mjs
       - name: Install isolated browser QA tools

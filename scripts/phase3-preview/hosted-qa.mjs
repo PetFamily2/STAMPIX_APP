@@ -286,6 +286,20 @@ try {
     );
     return dims.width;
   };
+  const closeCelebrations = async (page) => {
+    const close = page.getByRole('button', {
+      name: 'סגירת חגיגת המימוש',
+      exact: true,
+    });
+    let closed = 0;
+    while (closed < 5 && (await close.isVisible())) {
+      await close.click();
+      closed++;
+      await page.waitForTimeout(350);
+    }
+    requireThat(!(await close.isVisible()), 'REDEMPTION_MODAL_NOT_DISMISSED');
+    return closed;
+  };
   const c = await authenticated('customer');
   const o = await authenticated('owner');
   const s = await authenticated('staff');
@@ -464,6 +478,28 @@ try {
       'LOYALTY_UI_WRITE_NOT_CONFIRMED'
     );
   });
+  await record('CUSTOMER_MARKETING_CONSENT', async () => {
+    await visit(c.page, '/settings', 'הגדרות');
+    await closeCelebrations(c.page);
+    const consent = c.page.getByRole('switch', {
+      name: 'דיוור שיווקי',
+      exact: true,
+    });
+    if ((await consent.getAttribute('aria-checked')) !== 'true')
+      await consent.click();
+    await c.page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role=switch][aria-label="דיוור שיווקי"]')
+          ?.getAttribute('aria-checked') === 'true'
+    );
+    requireThat(
+      (await clients.customer.query(ref('users:getCurrentUser'), {}))
+        .marketingOptIn === true,
+      'MARKETING_CONSENT_NOT_CONFIRMED'
+    );
+  });
+  let hostedCampaignId;
   await record('OWNER_CAMPAIGN_DRAFT', async () => {
     await visit(o.page, '/business/campaigns', 'קמפיינים');
     await o.page
@@ -494,6 +530,67 @@ try {
       ).some((p) => p.messageTitle === 'Synthetic QA Campaign'),
       'CAMPAIGN_UI_WRITE_NOT_CONFIRMED'
     );
+  });
+  await record('OWNER_CAMPAIGN_SEND_CUSTOMER_INBOX', async () => {
+    const rows = await clients.owner.query(
+      ref('campaigns:listManagementCampaignsByBusiness'),
+      { businessId: fixtures.businessId }
+    );
+    hostedCampaignId = rows.find(
+      (p) => p.messageTitle === 'Synthetic QA Campaign'
+    )?.campaignId;
+    requireThat(!!hostedCampaignId, 'HOSTED_CAMPAIGN_MISSING');
+    await o.page
+      .getByRole('button', { name: 'שמור ושלח עכשיו', exact: true })
+      .click();
+    await o.page
+      .getByRole('dialog')
+      .getByText('אישור שליחה', { exact: true })
+      .waitFor();
+    await o.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'שלח עכשיו', exact: true })
+      .click();
+    await o.page
+      .getByRole('dialog')
+      .getByText('נשלח', { exact: true })
+      .waitFor();
+    await o.page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'אישור', exact: true })
+      .click();
+    const messages = await clients.customer.query(ref('webInbox:list'), {});
+    requireThat(
+      messages.some((m) => m.title === 'Synthetic QA Campaign'),
+      'CAMPAIGN_INBOX_NOT_CANONICAL'
+    );
+    await visit(c.page, '/inbox', 'תיבת הודעות');
+    await c.page.getByText('Synthetic QA Campaign', { exact: true }).waitFor();
+    await c.page
+      .getByRole('button', { name: 'סימון כנקרא', exact: true })
+      .first()
+      .click();
+    const read = await clients.customer.query(ref('webInbox:list'), {});
+    requireThat(
+      read.some((m) => m.title === 'Synthetic QA Campaign' && m.readAt),
+      'INBOX_READ_NOT_CONFIRMED'
+    );
+    let denied = false;
+    try {
+      await clients.staff.mutation(
+        ref('webInbox:markRead'),
+        { id: messages.find((m) => m.title === 'Synthetic QA Campaign').id },
+        { skipQueue: true }
+      );
+    } catch {
+      denied = true;
+    }
+    requireThat(denied, 'INBOX_CROSS_ACCOUNT_ALLOWED');
+    return {
+      syntheticRecipientsOnly: true,
+      canonicalInbox: true,
+      crossAccountDenied: true,
+    };
   });
   await record('MANAGER_DASHBOARD', async () => {
     await visit(m.page, '/business', 'Synthetic Phase 3 primary');
@@ -539,6 +636,7 @@ try {
       'CUSTOMER_OWNER_ROUTE_EXPOSED'
     );
   });
+  await closeCelebrations(c.page);
   // Real commands and state machine; only camera worker decode input is replaced in this test context.
   const scan = await authenticated('staff');
   const scannerRequests = [];
@@ -944,6 +1042,39 @@ try {
     await readyWithCamera(scan.page, '/staff/scanner-preview', 3);
     return canonicalAction('אישור מימוש', 'redeem', 'REWARD_REDEEMED');
   });
+  await record('CUSTOMER_REDEMPTION_CELEBRATION_SHARE', async () => {
+    await visit(c.page, '/wallet', 'הארנק שלי');
+    await c.page
+      .getByRole('button', { name: 'סגירת חגיגת המימוש', exact: true })
+      .waitFor();
+    const download = c.page.waitForEvent('download');
+    await c.page.getByRole('button', { name: /^שיתוף( הרגע)?$/ }).click();
+    const image = await download;
+    requireThat(
+      image.suggestedFilename() === 'stampaix-reward.png',
+      'REWARD_IMAGE_FILENAME'
+    );
+    const bytes = readFileSync(await image.path());
+    requireThat(
+      bytes
+        .subarray(0, 8)
+        .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) &&
+        bytes.readUInt32BE(16) === 1080 &&
+        bytes.readUInt32BE(20) === 1920,
+      'REWARD_IMAGE_INVALID'
+    );
+    await c.page
+      .getByText('תמונת המימוש הורדה. אפשר לשתף אותה מהמכשיר.', { exact: true })
+      .waitFor();
+    await closeCelebrations(c.page);
+    return {
+      actualPng: true,
+      width: 1080,
+      height: 1920,
+      downloadFallback: true,
+      physicalShareSheet: 'DEVICE_VERIFY',
+    };
+  });
   await record('CONNECTED_COMPLETED_STAMP_REDEEM_CANONICAL', async () => {
     await readyWithCamera(scan.page, '/staff/scanner-preview', 2);
     await canonicalAction('אישור חותמת', 'stamp', 'STAMP_ADDED');
@@ -1109,6 +1240,7 @@ try {
     );
   }
   await record('CUSTOMER_LOGOUT_LOGIN', async () => {
+    await closeCelebrations(c.page);
     await visit(c.page, '/settings', 'הגדרות');
     await c.page
       .getByRole('button', { name: 'יציאה מהחשבון', exact: true })
