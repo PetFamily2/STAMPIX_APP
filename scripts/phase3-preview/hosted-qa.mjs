@@ -11,6 +11,7 @@ import {
 import {
   canRestartSyntheticCamera,
   documentReadRetryDelay,
+  hostedDocumentPause,
   SOURCE_SHA,
   syntheticCameraY4m,
 } from '../lib/phase3c1-preview-guard.mjs';
@@ -533,7 +534,11 @@ try {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     return { page, context };
   };
+  let lastDocumentReadAt = null;
   const visit = async (page, path, expected) => {
+    const pause = hostedDocumentPause(lastDocumentReadAt);
+    if (pause) await page.waitForTimeout(pause);
+    lastDocumentReadAt = Date.now();
     observedPage = page;
     await page.bringToFront();
     let response = await page.goto(`${url}${path}`, {
@@ -561,6 +566,7 @@ try {
       response?.ok(),
       `AUTHENTICATED_DOCUMENT_HTTP_${response?.status() ?? 0}`
     );
+    await page.waitForLoadState('load', { timeout: 20000 });
     await page.waitForURL(
       (u) =>
         u.pathname === path ||

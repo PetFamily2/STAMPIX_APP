@@ -1,5 +1,5 @@
 export const PREVIEW_NAME = 'stampaix-pwa-phase3-e2e';
-export const SOURCE_SHA = '611c27a648772ba0f02d70928d4511289168226d';
+export const SOURCE_SHA = '89a6615ca07fcbc2b6e26fdcf33f19324e8eb5b0';
 export const CONTROL_PATHS = new Set([
   '.github/workflows/branch-verify.yml',
   '.github/workflows/business-web-preview-deploy.yml',
@@ -279,7 +279,7 @@ export function canRestartSyntheticCamera(evidence) {
 // authorization failures, app runtime failures or unknown response statuses.
 export function documentReadRetryDelay(status, retryAfter, now = Date.now()) {
   if (![429, 502, 503, 504].includes(status)) return null;
-  if (retryAfter === null || retryAfter === '') return 3000;
+  if (retryAfter === null || retryAfter === '') return status === 429 ? 15000 : 3000;
   const delay = /^\d+$/.test(retryAfter)
     ? Number(retryAfter) * 1000
     : Date.parse(retryAfter) - now;
@@ -303,4 +303,12 @@ export function syntheticCameraY4m() {
     );
   }
   return Buffer.concat(chunks);
+}
+
+// CI document reads are paced like navigation, never business-command retries.
+export function hostedDocumentPause(previousAt, now = Date.now()) {
+  if (previousAt == null) return 0;
+  if (!Number.isFinite(previousAt) || !Number.isFinite(now) || previousAt < 0 || now < 0)
+    throw new Error('INVALID_DOCUMENT_READ_CLOCK');
+  return Math.max(0, 2000 - Math.max(0, now - previousAt));
 }
