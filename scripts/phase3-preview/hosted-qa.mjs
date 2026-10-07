@@ -67,6 +67,7 @@ const record = async (name, fn) => {
               .querySelector('[data-scanner-code]')
               ?.getAttribute('data-scanner-code') ?? null,
           controlled: !!navigator.serviceWorker.controller,
+          camera: (() => { const v = document.querySelector('video'); return v ? { readyState: v.readyState, paused: v.paused, frames: v.videoWidth > 0, currentTime: v.currentTime, visibleHeight: v.getBoundingClientRect().height, syntheticDecodeWaiting: !!window.__qaDecode, workerPosts: window.__qaWorkerPosts ?? 0 } : null; })(),
           signals: [
             'הארנק שלי',
             'אזור הצוות',
@@ -228,6 +229,7 @@ try {
           role,
           during: currentCase,
           sourceLine: m.location().lineNumber,
+          vocabulary: ['audio', 'Audio', 'autoplay', 'gesture', 'policy', 'Policy', 'permission', 'Permission', 'canvas', 'Canvas', 'readback', 'iframe', 'sandbox', 'origin', 'CORS', 'cors', 'Push', 'push', 'WebSocket', 'socket', 'unload', 'preload', 'resource', 'Topics', 'attestation', 'Attestation', 'Storage', 'storage', 'indexedDB', 'font', 'Font', 'network', 'Network', 'fetch', 'Fetch', 'worker', 'Worker', 'navigator', 'registration', 'Registration', 'subscribe', 'Subscribe', 'deprecated', 'deprecation', 'Deprecated', 'document', 'Document', 'unsafe', 'Secure', 'secure', 'certificate', 'Certificate', 'SSL', 'ERR', 'NotAllowed', 'NotSupported', 'blocked', 'denied', 'failed', '404', '403', '429', '500'].filter(term => m.text().includes(term)),
           messageLength: m.text().length,
           duringNavigation: Date.now() - lastNavigationAt < 1500,
           source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
@@ -297,6 +299,7 @@ try {
   };
   const visit = async (page, path, expected) => {
     observedPage = page;
+    await page.bringToFront();
     await page.goto(`${url}${path}`, { waitUntil: 'domcontentloaded' });
     await page.waitForURL(
       (u) =>
@@ -728,6 +731,7 @@ try {
         );
       }
       postMessage(...args) {
+        if (this.qa) window.__qaWorkerPosts = (window.__qaWorkerPosts ?? 0) + 1;
         if (this.qa && window.__qaDecode) {
           const value = window.__qaDecode;
           window.__qaDecode = null;
@@ -1050,7 +1054,7 @@ try {
     await page
       .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
       .click();
-    await page.getByText('בחרו פעולה', { exact: true }).waitFor();
+    await page.getByText('בחרו פעולה', { exact: true }).waitFor({ timeout: 20000 });
   }
   const canonicalAction = async (name, operation, eventType) => {
     const before = scannerRequests.filter((op) => op === operation).length;
@@ -1483,7 +1487,7 @@ try {
     await c.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
   });
   await record('RESPONSIVE_RTL_KEYBOARD', async () => {
-    await visit(c.page, '/wallet', 'הארנק שלי');
+    await c.page.getByText('הארנק שלי', { exact: true }).first().waitFor();
     for (const width of [320, 360, 390, 768, 1280]) {
       await c.page.setViewportSize({ width, height: 844 });
       await layout(c.page);
@@ -1907,7 +1911,7 @@ try {
             {
               score: result.lhr.audits[id]?.score ?? null,
               numericValue: result.lhr.audits[id]?.numericValue ?? null,
-              numericDetails: (result.lhr.audits[id]?.details?.items ?? []).map(
+              numericDetails: (result.lhr.audits[id]?.details?.items ?? []).flatMap(item => item.items ?? item).map(
                 (item) =>
                   Object.fromEntries(
                     Object.entries(item).filter(

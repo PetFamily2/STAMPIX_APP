@@ -92,14 +92,16 @@ export default function WelcomeScreen() {
 
           <View className="items-center mb-2 -mt-3">
             <View className="items-center justify-center">
+              {Platform.OS === 'web' ? (
+                <img src="/pwa/welcome-logo.webp" alt="StampAix logo" width={128} height={128} fetchPriority="high" style={{ objectFit: 'contain', alignSelf: 'center' }} />
+              ) : (
               <Image
                 source={BRAND_IMAGE_LOGO}
-                {...(Platform.OS === 'web'
-                  ? { style: styles.webLogo }
-                  : { className: 'w-36 h-36' })}
+                className="w-36 h-36"
                 resizeMode="contain"
                 accessibilityLabel="StampAix logo"
               />
+              )}
             </View>
           </View>
 
