@@ -121,6 +121,7 @@ export default function PwaRuntime() {
       {waiting ? (
         <button
           type="button"
+          style={{ minHeight: 44, padding: '8px 12px' }}
           onClick={() => {
             if (
               !busy.current &&

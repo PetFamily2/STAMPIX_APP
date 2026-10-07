@@ -61,3 +61,11 @@ select {
 #business-web-shell [role='menuitem']:not([aria-disabled='true']):hover {
   filter: brightness(0.97);
 }
+
+/* Explicit touch targets for the isolated HTML scanner controls. */
+main[data-scanner-phase] button,
+main[data-scanner-phase] select {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
+}

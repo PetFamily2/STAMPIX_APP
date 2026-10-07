@@ -82,11 +82,12 @@ export default function ScannerPreviewRoute() {
     (programs ?? []).map((p: any) => p.loyaltyProgramId)
   );
   return (
-    <div dir="rtl" {...(!scannerProgramId ? { role: 'main' } : {})}>
+    <div dir="rtl" style={{ height: '100%', minHeight: 0, overflowY: 'auto' }} {...(!scannerProgramId ? { role: 'main' } : {})}>
       {!scannerProgramId ? <h1>סריקת QR</h1> : null}
       <label>
         {preview ? 'כרטיס לבדיקה' : 'כרטיסייה'}{' '}
         <select
+          style={{ minHeight: 44, padding: '8px 12px', maxWidth: '100%' }}
           disabled={busy || !!priorProgram}
           value={scannerProgramId ?? ''}
           onChange={(event) =>

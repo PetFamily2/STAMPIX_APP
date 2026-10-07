@@ -206,6 +206,8 @@ try {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
+    let lastNavigationAt = Date.now();
+    page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) lastNavigationAt = Date.now(); });
     page.on('pageerror', (error) =>
       errors.push({
         role,
@@ -226,6 +228,8 @@ try {
           role,
           during: currentCase,
           sourceLine: m.location().lineNumber,
+          messageLength: m.text().length,
+          duringNavigation: Date.now() - lastNavigationAt < 1500,
           source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
           kind:
             [
@@ -244,6 +248,10 @@ try {
               'navigation object hasn',
               'was not handled by any navigator',
               'Invalid prop',
+              'WebSocket is closed before the connection is established',
+              'WebSocket connection',
+              'ERR_CONNECTION_CLOSED',
+              'ERR_ABORTED',
               'Registration failed - push service error',
               'Registration failed - push service not available',
               'Push subscription failed',
@@ -881,6 +889,17 @@ try {
       }
     }
     await route.continue();
+  });
+  await record('SCANNER_TOUCH_KEYBOARD_LAYOUT', async () => {
+    const controls = await scan.page.locator('main[data-scanner-phase] button, main[data-scanner-phase] select').evaluateAll((elements) =>
+      elements.map((element) => ({ height: element.getBoundingClientRect().height, width: element.getBoundingClientRect().width }))
+    );
+    requireThat(controls.length > 0 && controls.every(r => r.height >= 44 && r.width >= 44), 'SCANNER_TOUCH_TARGET_TOO_SMALL');
+    const reset = scan.page.getByRole('button', { name: 'איפוס וסריקה חדשה' });
+    await reset.scrollIntoViewIfNeeded();
+    await reset.focus();
+    requireThat(await reset.evaluate(e => e === document.activeElement), 'SCANNER_KEYBOARD_FOCUS_MISSING');
+    return { minimumTarget: 44, keyboardFocus: true };
   });
   await record('CONNECTED_UNKNOWN_REFRESH_RECONCILIATION', async () => {
     await readyWithCamera();
@@ -1865,7 +1884,7 @@ try {
         result?.lhr && !result.lhr.runtimeError,
         'LIGHTHOUSE_RUNTIME_FAILURE'
       );
-      return {
+      const measurement = {
         // Public welcome page only: retain the LCP selector and asset path, never authenticated content.
         lcp: (result.lhr.audits['largest-contentful-paint-element']?.details?.items ?? []).flatMap(item => item.items ?? []).map(item => ({
           selector: item.node?.selector ?? null,
@@ -1912,6 +1931,14 @@ try {
           ].map((id) => [id, result.lhr.audits[id]?.numericValue])
         ),
       };
+      report.performanceMeasurement = measurement;
+      requireThat(measurement.metrics['largest-contentful-paint'] <= 4000 &&
+        measurement.metrics['total-blocking-time'] <= 750 &&
+        measurement.metrics['cumulative-layout-shift'] <= 0.1 &&
+        measurement.scores.accessibility === 1 &&
+        measurement.scores['best-practices'] >= 0.9,
+        'PUBLIC_LOAD_BUDGET_EXCEEDED');
+      return measurement;
     } finally {
       await chrome.kill();
     }
@@ -2092,6 +2119,9 @@ try {
       'Registration failed - push service error',
       'Registration failed - push service not available',
     ].includes(e.kind));
+    const navigationClosures = errors.filter(e => e.kind === 'WebSocket is closed before the connection is established' &&
+      e.duringNavigation && e.during === 'A11Y_AUDIT');
+    report.browserMessages.push(...navigationClosures);
     const unexpected = errors.filter(e => !report.browserMessages.includes(e));
     requireThat(unexpected.length === 0, 'HOSTED_RUNTIME_ERRORS');
   });
@@ -2119,7 +2149,7 @@ try {
     browserMessages: report.browserMessages,
     celebrationEvidence: report.celebrationEvidence,
     backendUrl: report.backendUrl,
-    performance: report.cases.PERFORMANCE_LIGHTHOUSE,
+    performance: report.performanceMeasurement ?? report.cases.PERFORMANCE_LIGHTHOUSE,
     accessibility: Object.fromEntries(Object.entries(report.accessibility ?? {}).map(([name, value]) => [name, { violations: value.violations.map(({ id, impact, nodes }) => ({ id, impact, nodes })) }])),
   })}`);
 }

@@ -59,7 +59,7 @@ class RootErrorBoundary extends React.Component<
           }}
         >
           <Text style={{ color: 'red', fontSize: 16 }}>
-            {this.state.error?.message ?? 'שגיאה לא ידועה'}
+            {Platform.OS === 'web' ? 'לא הצלחנו לטעון את המסך. אפשר לרענן כשאין פעולה ממתינה.' : (this.state.error?.message ?? 'שגיאה לא ידועה')}
           </Text>
         </View>
       );

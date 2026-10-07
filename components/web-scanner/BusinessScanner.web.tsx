@@ -294,7 +294,7 @@ export default function BusinessScanner(props: {
         margin: '0 auto',
         padding: 16,
         boxSizing: 'border-box',
-        fontFamily: 'sans-serif',
+        fontFamily: 'Heebo, Arial, sans-serif',
         color: '#172033',
       }}
     >
