@@ -298,8 +298,14 @@ export default function BusinessScanner(props: {
         color: '#172033',
       }}
     >
-      <h1 style={{ textAlign: 'right' }}>{process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? 'סורק עסקי — Preview למורשים בלבד' : 'סריקת QR'}</h1>
-      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? <p>בדיקה בסביבת Preview מבודדת. אין תוצאה מוצלחת לפני אישור מהשרת.</p> : null}
+      <h1 style={{ textAlign: 'right' }}>
+        {process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+          ? 'סורק עסקי — Preview למורשים בלבד'
+          : 'סריקת QR'}
+      </h1>
+      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? (
+        <p>בדיקה בסביבת Preview מבודדת. אין תוצאה מוצלחת לפני אישור מהשרת.</p>
+      ) : null}
       {blocked ? <p role="alert">{blocked}</p> : null}
       <video
         ref={video}
@@ -445,7 +451,12 @@ export default function BusinessScanner(props: {
           </select>
         </label>
       ) : null}
-      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? <p>תוכן QR עובר בזיכרון בלבד לצורך resolve. אין queue או retry אוטומטי של פעולה.</p> : null}
+      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? (
+        <p>
+          תוכן QR עובר בזיכרון בלבד לצורך resolve. אין queue או retry אוטומטי של
+          פעולה.
+        </p>
+      ) : null}
     </main>
   );
 }

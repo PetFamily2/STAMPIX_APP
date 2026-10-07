@@ -20,7 +20,10 @@ export default function ScannerPreviewRoute() {
   const scopeKey = `${user?._id ?? ''}:${activeBusinessId ?? ''}`;
   const [busy, setBusy] = useState(false);
   const preview = process.env.EXPO_PUBLIC_APP_ENV === 'preview';
-  const url = (preview ? process.env.EXPO_PUBLIC_CONVEX_URL_DEV : process.env.EXPO_PUBLIC_CONVEX_URL_PROD) ?? '';
+  const url =
+    (preview
+      ? process.env.EXPO_PUBLIC_CONVEX_URL_DEV
+      : process.env.EXPO_PUBLIC_CONVEX_URL_PROD) ?? '';
   const enabled =
     !!token &&
     activeBusiness?.capabilities?.scanner_access === true &&
@@ -29,8 +32,12 @@ export default function ScannerPreviewRoute() {
       environment: process.env.EXPO_PUBLIC_APP_ENV,
       flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
       releaseGate: process.env.EXPO_PUBLIC_PWA_RELEASE_GATE,
-      actors: preview ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_ACTORS,
-      businesses: preview ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_BUSINESSES,
+      actors: preview
+        ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS
+        : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_ACTORS,
+      businesses: preview
+        ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES
+        : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_BUSINESSES,
       backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
       actorId: user?._id,
       businessId: activeBusinessId ?? undefined,
@@ -64,9 +71,7 @@ export default function ScannerPreviewRoute() {
     return (
       <main dir="rtl" style={{ padding: 24 }}>
         <h1>סורק Web עדיין אינו זמין</h1>
-        <p>
-          אפשר להמשיך לסרוק באפליקציה.
-        </p>
+        <p>אפשר להמשיך לסרוק באפליקציה.</p>
       </main>
     );
   if (recoveryUnavailable)
@@ -82,7 +87,11 @@ export default function ScannerPreviewRoute() {
     (programs ?? []).map((p: any) => p.loyaltyProgramId)
   );
   return (
-    <div dir="rtl" style={{ height: '100%', minHeight: 0, overflowY: 'auto' }} {...(!scannerProgramId ? { role: 'main' } : {})}>
+    <div
+      dir="rtl"
+      style={{ height: '100%', minHeight: 0, overflowY: 'auto' }}
+      {...(!scannerProgramId ? { role: 'main' } : {})}
+    >
       {!scannerProgramId ? <h1>סריקת QR</h1> : null}
       <label>
         {preview ? 'כרטיס לבדיקה' : 'כרטיסייה'}{' '}
@@ -96,7 +105,9 @@ export default function ScannerPreviewRoute() {
         >
           <option value="">בחרו כרטיס</option>
           {scannerProgramId &&
-          !programs?.some((p: any) => p.loyaltyProgramId === scannerProgramId) ? (
+          !programs?.some(
+            (p: any) => p.loyaltyProgramId === scannerProgramId
+          ) ? (
             <option value={scannerProgramId}>בירור הפעולה הקודמת</option>
           ) : null}
           {programs?.map((p: any) => (

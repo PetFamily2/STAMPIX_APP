@@ -67,7 +67,20 @@ const record = async (name, fn) => {
               .querySelector('[data-scanner-code]')
               ?.getAttribute('data-scanner-code') ?? null,
           controlled: !!navigator.serviceWorker.controller,
-          camera: (() => { const v = document.querySelector('video'); return v ? { readyState: v.readyState, paused: v.paused, frames: v.videoWidth > 0, currentTime: v.currentTime, visibleHeight: v.getBoundingClientRect().height, syntheticDecodeWaiting: !!window.__qaDecode, workerPosts: window.__qaWorkerPosts ?? 0 } : null; })(),
+          camera: (() => {
+            const v = document.querySelector('video');
+            return v
+              ? {
+                  readyState: v.readyState,
+                  paused: v.paused,
+                  frames: v.videoWidth > 0,
+                  currentTime: v.currentTime,
+                  visibleHeight: v.getBoundingClientRect().height,
+                  syntheticDecodeWaiting: !!window.__qaDecode,
+                  workerPosts: window.__qaWorkerPosts ?? 0,
+                }
+              : null;
+          })(),
           signals: [
             'הארנק שלי',
             'אזור הצוות',
@@ -208,7 +221,9 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
     let lastNavigationAt = Date.now();
-    page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) lastNavigationAt = Date.now(); });
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame()) lastNavigationAt = Date.now();
+    });
     page.on('pageerror', (error) =>
       errors.push({
         role,
@@ -223,13 +238,84 @@ try {
       if (
         m.type() === 'error' &&
         !/favicon|net::ERR_|Failed to load resource/.test(m.text())
-      )
-      {
+      ) {
         const entry = {
           role,
           during: currentCase,
           sourceLine: m.location().lineNumber,
-          vocabulary: ['audio', 'Audio', 'autoplay', 'gesture', 'policy', 'Policy', 'permission', 'Permission', 'canvas', 'Canvas', 'readback', 'iframe', 'sandbox', 'origin', 'CORS', 'cors', 'Push', 'push', 'WebSocket', 'socket', 'unload', 'preload', 'resource', 'Topics', 'attestation', 'Attestation', 'Storage', 'storage', 'indexedDB', 'font', 'Font', 'network', 'Network', 'fetch', 'Fetch', 'worker', 'Worker', 'navigator', 'registration', 'Registration', 'subscribe', 'Subscribe', 'deprecated', 'deprecation', 'Deprecated', 'document', 'Document', 'unsafe', 'Secure', 'secure', 'certificate', 'Certificate', 'SSL', 'ERR', 'NotAllowed', 'NotSupported', 'blocked', 'denied', 'failed', '404', '403', '429', '500'].filter(term => m.text().includes(term)),
+          vocabulary: [
+            'audio',
+            'Audio',
+            'autoplay',
+            'gesture',
+            'policy',
+            'Policy',
+            'permission',
+            'Permission',
+            'canvas',
+            'Canvas',
+            'readback',
+            'WebGL',
+            'OpenGL',
+            'GPU',
+            'ReadPixels',
+            'GroupMarkerNotSet',
+            'SwiftShader',
+            'swiftshader',
+            'kFatalFailure',
+            'iframe',
+            'sandbox',
+            'origin',
+            'CORS',
+            'cors',
+            'Push',
+            'push',
+            'WebSocket',
+            'socket',
+            'unload',
+            'preload',
+            'resource',
+            'Topics',
+            'attestation',
+            'Attestation',
+            'Storage',
+            'storage',
+            'indexedDB',
+            'font',
+            'Font',
+            'network',
+            'Network',
+            'fetch',
+            'Fetch',
+            'worker',
+            'Worker',
+            'navigator',
+            'registration',
+            'Registration',
+            'subscribe',
+            'Subscribe',
+            'deprecated',
+            'deprecation',
+            'Deprecated',
+            'document',
+            'Document',
+            'unsafe',
+            'Secure',
+            'secure',
+            'certificate',
+            'Certificate',
+            'SSL',
+            'ERR',
+            'NotAllowed',
+            'NotSupported',
+            'blocked',
+            'denied',
+            'failed',
+            '404',
+            '403',
+            '429',
+            '500',
+          ].filter((term) => m.text().includes(term)),
           messageLength: m.text().length,
           duringNavigation: Date.now() - lastNavigationAt < 1500,
           source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
@@ -280,17 +366,47 @@ try {
         };
         errors.push(entry);
         errorDetails.push(
-          Promise.all(m.args().map((arg) =>
-            arg.evaluate((value) => {
-              if (!(value instanceof Error)) return { type: typeof value };
-              return {
-                type: 'error',
-                name: ['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'DOMException'].includes(value.name) ? value.name : 'OTHER_ERROR',
-                reactCode: /Minified React error #(\d+)/.exec(value.message)?.[1] ?? null,
-                family: ['findNodeHandle', 'Cannot read properties', 'not a function', 'Invalid hook call', 'useFocusEffect', 'navigation object', 'was not handled', 'capture', 'font', 'Image'].find((family) => value.message.includes(family)) ?? null,
-              };
-            }).catch(() => ({ type: 'UNAVAILABLE' }))
-          )).then((args) => { entry.arguments = args; })
+          Promise.all(
+            m.args().map((arg) =>
+              arg
+                .evaluate((value) => {
+                  if (!(value instanceof Error)) return { type: typeof value };
+                  return {
+                    type: 'error',
+                    name: [
+                      'Error',
+                      'TypeError',
+                      'ReferenceError',
+                      'RangeError',
+                      'SyntaxError',
+                      'DOMException',
+                    ].includes(value.name)
+                      ? value.name
+                      : 'OTHER_ERROR',
+                    reactCode:
+                      /Minified React error #(\d+)/.exec(value.message)?.[1] ??
+                      null,
+                    family:
+                      [
+                        'findNodeHandle',
+                        'Cannot read properties',
+                        'not a function',
+                        'Invalid hook call',
+                        'useFocusEffect',
+                        'navigation object',
+                        'was not handled',
+                        'capture',
+                        'font',
+                        'Image',
+                      ].find((family) => value.message.includes(family)) ??
+                      null,
+                  };
+                })
+                .catch(() => ({ type: 'UNAVAILABLE' }))
+            )
+          ).then((args) => {
+            entry.arguments = args;
+          })
         );
       }
     });
@@ -541,7 +657,9 @@ try {
     );
     let confirmed = false;
     for (let attempt = 0; attempt < 50; attempt++) {
-      confirmed = (await clients.customer.query(ref('users:getCurrentUser'), {})).marketingOptIn === true;
+      confirmed =
+        (await clients.customer.query(ref('users:getCurrentUser'), {}))
+          .marketingOptIn === true;
       if (confirmed) break;
       await c.page.waitForTimeout(100);
     }
@@ -616,11 +734,15 @@ try {
     await visit(c.page, '/inbox', 'תיבת הודעות');
     await c.page.getByText('Synthetic QA Campaign', { exact: true }).waitFor();
     const title = c.page.getByText('Synthetic QA Campaign', { exact: true });
-    await title.locator('..').getByRole('button', { name: 'סימון כנקרא', exact: true }).click();
+    await title
+      .locator('..')
+      .getByRole('button', { name: 'סימון כנקרא', exact: true })
+      .click();
     let read = [];
     for (let attempt = 0; attempt < 50; attempt++) {
       read = await clients.customer.query(ref('webInbox:list'), {});
-      if (read.some((m) => m.title === 'Synthetic QA Campaign' && m.readAt)) break;
+      if (read.some((m) => m.title === 'Synthetic QA Campaign' && m.readAt))
+        break;
       await c.page.waitForTimeout(100);
     }
     requireThat(
@@ -895,14 +1017,28 @@ try {
     await route.continue();
   });
   await record('SCANNER_TOUCH_KEYBOARD_LAYOUT', async () => {
-    const controls = await scan.page.locator('main[data-scanner-phase] button, main[data-scanner-phase] select').evaluateAll((elements) =>
-      elements.map((element) => ({ height: element.getBoundingClientRect().height, width: element.getBoundingClientRect().width }))
+    const controls = await scan.page
+      .locator(
+        'main[data-scanner-phase] button, main[data-scanner-phase] select'
+      )
+      .evaluateAll((elements) =>
+        elements.map((element) => ({
+          height: element.getBoundingClientRect().height,
+          width: element.getBoundingClientRect().width,
+        }))
+      );
+    requireThat(
+      controls.length > 0 &&
+        controls.every((r) => r.height >= 44 && r.width >= 44),
+      'SCANNER_TOUCH_TARGET_TOO_SMALL'
     );
-    requireThat(controls.length > 0 && controls.every(r => r.height >= 44 && r.width >= 44), 'SCANNER_TOUCH_TARGET_TOO_SMALL');
     const reset = scan.page.getByRole('button', { name: 'איפוס וסריקה חדשה' });
     await reset.scrollIntoViewIfNeeded();
     await reset.focus();
-    requireThat(await reset.evaluate(e => e === document.activeElement), 'SCANNER_KEYBOARD_FOCUS_MISSING');
+    requireThat(
+      await reset.evaluate((e) => e === document.activeElement),
+      'SCANNER_KEYBOARD_FOCUS_MISSING'
+    );
     return { minimumTarget: 44, keyboardFocus: true };
   });
   await record('CONNECTED_UNKNOWN_REFRESH_RECONCILIATION', async () => {
@@ -1054,7 +1190,9 @@ try {
     await page
       .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
       .click();
-    await page.getByText('בחרו פעולה', { exact: true }).waitFor({ timeout: 20000 });
+    await page
+      .getByText('בחרו פעולה', { exact: true })
+      .waitFor({ timeout: 20000 });
   }
   const canonicalAction = async (name, operation, eventType) => {
     const before = scannerRequests.filter((op) => op === operation).length;
@@ -1113,20 +1251,44 @@ try {
     observedPage = c.page;
     await c.page.bringToFront();
     report.celebrationEvidence = {
-      server: await admin.query(ref('phase3Fixtures:qaCelebrationEvidence'), { secret, fixtures }),
-      signal: (await clients.customer.query(ref('redemptionReceipts:hasPendingRedemptionCelebration'), {})).pending === true,
-      customerMode: (await clients.customer.query(ref('users:getCurrentUser'), {})).activeMode,
-      visible: await c.page.evaluate(() => document.visibilityState === 'visible'),
+      server: await admin.query(ref('phase3Fixtures:qaCelebrationEvidence'), {
+        secret,
+        fixtures,
+      }),
+      signal:
+        (
+          await clients.customer.query(
+            ref('redemptionReceipts:hasPendingRedemptionCelebration'),
+            {}
+          )
+        ).pending === true,
+      customerMode: (
+        await clients.customer.query(ref('users:getCurrentUser'), {})
+      ).activeMode,
+      visible: await c.page.evaluate(
+        () => document.visibilityState === 'visible'
+      ),
       modal: await c.page.evaluate(() => {
-        const close = document.querySelector('[aria-label="סגירת חגיגת המימוש"]');
+        const close = document.querySelector(
+          '[aria-label="סגירת חגיגת המימוש"]'
+        );
         return {
-          host: document.querySelector('[data-redemption-phase]')?.getAttribute('data-redemption-phase') ?? null,
-          appState: document.querySelector('[data-redemption-app-state]')?.getAttribute('data-redemption-app-state') ?? null,
+          host:
+            document
+              .querySelector('[data-redemption-phase]')
+              ?.getAttribute('data-redemption-phase') ?? null,
+          appState:
+            document
+              .querySelector('[data-redemption-app-state]')
+              ?.getAttribute('data-redemption-app-state') ?? null,
           exists: !!close,
           hidden: !!close?.closest('[aria-hidden="true"]'),
           width: close?.getBoundingClientRect().width ?? 0,
           height: close?.getBoundingClientRect().height ?? 0,
-          error: document.querySelector('[data-redemption-error]')?.getAttribute('data-redemption-error') ?? null,
+          error:
+            document
+              .querySelector('[data-redemption-error]')
+              ?.getAttribute('data-redemption-error') ?? null,
         };
       }),
     };
@@ -1890,11 +2052,19 @@ try {
       );
       const measurement = {
         // Public welcome page only: retain the LCP selector and asset path, never authenticated content.
-        lcp: (result.lhr.audits['largest-contentful-paint-element']?.details?.items ?? []).flatMap(item => item.items ?? []).map(item => ({
-          selector: item.node?.selector ?? null,
-          tag: /<([a-z]+)/i.exec(item.node?.snippet ?? '')?.[1] ?? null,
-          asset: /(?:src|url)[=(:\s'"]+([^'"\s)>]+)/i.exec(item.node?.snippet ?? '')?.[1]?.split('?')[0] ?? null,
-        })),
+        lcp: (
+          result.lhr.audits['largest-contentful-paint-element']?.details
+            ?.items ?? []
+        )
+          .flatMap((item) => item.items ?? [])
+          .map((item) => ({
+            selector: item.node?.selector ?? null,
+            tag: /<([a-z]+)/i.exec(item.node?.snippet ?? '')?.[1] ?? null,
+            asset:
+              /(?:src|url)[=(:\s'"]+([^'"\s)>]+)/i
+                .exec(item.node?.snippet ?? '')?.[1]
+                ?.split('?')[0] ?? null,
+          })),
         diagnostics: Object.fromEntries(
           [
             'unused-javascript',
@@ -1911,15 +2081,16 @@ try {
             {
               score: result.lhr.audits[id]?.score ?? null,
               numericValue: result.lhr.audits[id]?.numericValue ?? null,
-              numericDetails: (result.lhr.audits[id]?.details?.items ?? []).flatMap(item => item.items ?? item).map(
-                (item) =>
+              numericDetails: (result.lhr.audits[id]?.details?.items ?? [])
+                .flatMap((item) => item.items ?? item)
+                .map((item) =>
                   Object.fromEntries(
                     Object.entries(item).filter(
                       ([, value]) =>
                         typeof value === 'number' || typeof value === 'boolean'
                     )
                   )
-              ),
+                ),
             },
           ])
         ),
@@ -1936,12 +2107,14 @@ try {
         ),
       };
       report.performanceMeasurement = measurement;
-      requireThat(measurement.metrics['largest-contentful-paint'] <= 4000 &&
-        measurement.metrics['total-blocking-time'] <= 750 &&
-        measurement.metrics['cumulative-layout-shift'] <= 0.1 &&
-        measurement.scores.accessibility === 1 &&
-        measurement.scores['best-practices'] >= 0.9,
-        'PUBLIC_LOAD_BUDGET_EXCEEDED');
+      requireThat(
+        measurement.metrics['largest-contentful-paint'] <= 4000 &&
+          measurement.metrics['total-blocking-time'] <= 750 &&
+          measurement.metrics['cumulative-layout-shift'] <= 0.1 &&
+          measurement.scores.accessibility === 1 &&
+          measurement.scores['best-practices'] >= 0.9,
+        'PUBLIC_LOAD_BUDGET_EXCEEDED'
+      );
       return measurement;
     } finally {
       await chrome.kill();
@@ -2117,16 +2290,30 @@ try {
     await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
     report.runtimeErrors = errors;
-    const pushUnavailable = report.cases.WEB_PUSH_BROWSER_SUBSCRIBE?.status === 'LIVE_DELIVERY_DEVICE_BLOCKED' &&
-      ['AbortError', 'NotAllowedError', 'NotSupportedError'].includes(report.cases.WEB_PUSH_BROWSER_SUBSCRIBE.reason);
-    report.browserMessages = errors.filter(e => pushUnavailable && [
-      'Registration failed - push service error',
-      'Registration failed - push service not available',
-    ].includes(e.kind));
-    const navigationClosures = errors.filter(e => e.kind === 'WebSocket is closed before the connection is established' &&
-      e.duringNavigation && e.during === 'A11Y_AUDIT');
+    const pushUnavailable =
+      report.cases.WEB_PUSH_BROWSER_SUBSCRIBE?.status ===
+        'LIVE_DELIVERY_DEVICE_BLOCKED' &&
+      ['AbortError', 'NotAllowedError', 'NotSupportedError'].includes(
+        report.cases.WEB_PUSH_BROWSER_SUBSCRIBE.reason
+      );
+    report.browserMessages = errors.filter(
+      (e) =>
+        pushUnavailable &&
+        [
+          'Registration failed - push service error',
+          'Registration failed - push service not available',
+        ].includes(e.kind)
+    );
+    const navigationClosures = errors.filter(
+      (e) =>
+        e.kind === 'WebSocket is closed before the connection is established' &&
+        e.duringNavigation &&
+        e.during === 'A11Y_AUDIT'
+    );
     report.browserMessages.push(...navigationClosures);
-    const unexpected = errors.filter(e => !report.browserMessages.includes(e));
+    const unexpected = errors.filter(
+      (e) => !report.browserMessages.includes(e)
+    );
     requireThat(unexpected.length === 0, 'HOSTED_RUNTIME_ERRORS');
   });
   await browser.close();
@@ -2147,13 +2334,29 @@ try {
 } finally {
   await browser?.close();
   console.info(`RC hosted result: ${report.status}`);
-  console.info(`RC_DIAGNOSTICS ${JSON.stringify({
-    failures: Object.fromEntries(Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')),
-    runtimeErrors: report.runtimeErrors,
-    browserMessages: report.browserMessages,
-    celebrationEvidence: report.celebrationEvidence,
-    backendUrl: report.backendUrl,
-    performance: report.performanceMeasurement ?? report.cases.PERFORMANCE_LIGHTHOUSE,
-    accessibility: Object.fromEntries(Object.entries(report.accessibility ?? {}).map(([name, value]) => [name, { violations: value.violations.map(({ id, impact, nodes }) => ({ id, impact, nodes })) }])),
-  })}`);
+  console.info(
+    `RC_DIAGNOSTICS ${JSON.stringify({
+      failures: Object.fromEntries(
+        Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')
+      ),
+      runtimeErrors: report.runtimeErrors,
+      browserMessages: report.browserMessages,
+      celebrationEvidence: report.celebrationEvidence,
+      backendUrl: report.backendUrl,
+      performance:
+        report.performanceMeasurement ?? report.cases.PERFORMANCE_LIGHTHOUSE,
+      accessibility: Object.fromEntries(
+        Object.entries(report.accessibility ?? {}).map(([name, value]) => [
+          name,
+          {
+            violations: value.violations.map(({ id, impact, nodes }) => ({
+              id,
+              impact,
+              nodes,
+            })),
+          },
+        ])
+      ),
+    })}`
+  );
 }

@@ -107,7 +107,11 @@ export default function AuthRoutesLayout() {
   if (disposition.status === 'loading') {
     // Welcome contains only public copy. Do not hold its first paint behind a network session lookup.
     if (canPaintPublicWelcome(Platform.OS, pathname))
-      return <View style={styles.rtlRouteGroup}><Slot /></View>;
+      return (
+        <View style={styles.rtlRouteGroup}>
+          <Slot />
+        </View>
+      );
     return <FullScreenLoading />;
   }
 
