@@ -173,6 +173,7 @@ try {
     ],
   });
   const errors = [];
+  const errorDetails = [];
 
   const authenticated = async (
     role,
@@ -219,7 +220,8 @@ try {
         m.type() === 'error' &&
         !/favicon|net::ERR_|Failed to load resource/.test(m.text())
       )
-        errors.push({
+      {
+        const entry = {
           role,
           during: currentCase,
           sourceLine: m.location().lineNumber,
@@ -248,7 +250,22 @@ try {
             /Minified React error #\d+/.exec(m.text())?.[0] ??
             /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
             'CONSOLE_ERROR',
-        });
+        };
+        errors.push(entry);
+        errorDetails.push(
+          Promise.all(m.args().map((arg) =>
+            arg.evaluate((value) => {
+              if (!(value instanceof Error)) return { type: typeof value };
+              return {
+                type: 'error',
+                name: ['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'DOMException'].includes(value.name) ? value.name : 'OTHER_ERROR',
+                reactCode: /Minified React error #(\d+)/.exec(value.message)?.[1] ?? null,
+                family: ['findNodeHandle', 'Cannot read properties', 'not a function', 'Invalid hook call', 'useFocusEffect', 'navigation object', 'was not handled', 'capture', 'font', 'Image'].find((family) => value.message.includes(family)) ?? null,
+              };
+            }).catch(() => ({ type: 'UNAVAILABLE' }))
+          )).then((args) => { entry.arguments = args; })
+        );
+      }
     });
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     return { page, context };
@@ -315,6 +332,7 @@ try {
       'Synthetic Test Card'
     );
     await c.page.getByText('קוד QR לקוח', { exact: true }).waitFor();
+    await c.page.locator('svg[width="200"]').first().waitFor();
     requireThat(
       (await c.page.locator('svg[width="200"]').count()) > 0,
       'QR_SVG_MISSING'
@@ -540,6 +558,7 @@ try {
       (p) => p.messageTitle === 'Synthetic QA Campaign'
     )?.campaignId;
     requireThat(!!hostedCampaignId, 'HOSTED_CAMPAIGN_MISSING');
+    await o.page.goto(`${url}/business/campaign/${hostedCampaignId}`);
     await o.page
       .getByRole('button', { name: 'שמור ושלח עכשיו', exact: true })
       .click();
@@ -1043,7 +1062,7 @@ try {
     return canonicalAction('אישור מימוש', 'redeem', 'REWARD_REDEEMED');
   });
   await record('CUSTOMER_REDEMPTION_CELEBRATION_SHARE', async () => {
-    await visit(c.page, '/wallet', 'הארנק שלי');
+    // Keep the authenticated reactive page: reloading here discards its presentation claim lease.
     await c.page
       .getByRole('button', { name: 'סגירת חגיגת המימוש', exact: true })
       .waitFor();
@@ -2013,6 +2032,7 @@ try {
     );
   });
   await record('RUNTIME_ERRORS', async () => {
+    await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
     report.runtimeErrors = errors;
     requireThat(errors.length === 0, 'HOSTED_RUNTIME_ERRORS');
@@ -2035,4 +2055,10 @@ try {
 } finally {
   await browser?.close();
   console.info(`RC hosted result: ${report.status}`);
+  console.info(`RC_DIAGNOSTICS ${JSON.stringify({
+    failures: Object.fromEntries(Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')),
+    runtimeErrors: report.runtimeErrors,
+    performance: report.cases.PERFORMANCE_LIGHTHOUSE,
+    accessibility: Object.fromEntries(Object.entries(report.accessibility ?? {}).map(([name, value]) => [name, { violations: value.violations.map(({ id, impact, nodes }) => ({ id, impact, nodes })) }])),
+  })}`);
 }
