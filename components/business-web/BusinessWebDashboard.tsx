@@ -49,6 +49,7 @@ type KpiCardProps = {
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
+const DASHBOARD_TITLE = 'דף הבית';
 
 function DashboardSkeleton() {
   const { width } = useWindowDimensions();
@@ -79,7 +80,7 @@ function DashboardSkeleton() {
           isMobileComposition ? styles.pageTitleMobile : null,
         ]}
       >
-        דף הבית
+        {DASHBOARD_TITLE}
       </Text>
       <View
         style={[
@@ -262,7 +263,7 @@ function BusinessWebDashboardContent({
             isMobileComposition ? styles.pageTitleMobile : null,
           ]}
         >
-          דף הבית
+          {DASHBOARD_TITLE}
         </Text>
         <Text
           style={[
