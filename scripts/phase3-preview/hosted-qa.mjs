@@ -60,6 +60,12 @@ const record = async (name, fn) => {
       try {
         report.cases[name].observation = await observedPage.evaluate(() => ({
           pathGroup: location.pathname.split('/').slice(0, 2).join('/'),
+          scannerRoute: location.pathname === '/staff/scanner-preview',
+          documentReady: document.readyState,
+          appRootChildren:
+            document.getElementById('root')?.childElementCount ?? null,
+          bodyTextLength: document.body.innerText.length,
+          documentScriptCount: document.scripts.length,
           online: navigator.onLine,
           visible: document.visibilityState === 'visible',
           scannerPhase:
@@ -436,7 +442,14 @@ try {
   const visit = async (page, path, expected) => {
     observedPage = page;
     await page.bringToFront();
-    await page.goto(`${url}${path}`, { waitUntil: 'domcontentloaded' });
+    const response = await page.goto(`${url}${path}`, {
+      waitUntil: 'domcontentloaded',
+    });
+    report.lastNavigation = {
+      status: response?.status() ?? null,
+      documentOk: response?.ok() ?? false,
+    };
+    requireThat(response?.ok(), 'AUTHENTICATED_DOCUMENT_HTTP_FAILURE');
     await page.waitForURL(
       (u) =>
         u.pathname === path ||

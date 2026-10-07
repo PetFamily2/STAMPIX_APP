@@ -11,6 +11,7 @@ export const CONTROL_PATHS = new Set([
   'scripts/verify-web-phase3-boundaries.mjs',
   'lib/__tests__/phase3c1PreviewGuard.test.js',
   'docs/PWA_RELEASE_CANDIDATE.md',
+  'docs/PREVIEW_GOOGLE_AUTH.md',
   'scripts/phase3-preview/hosted-qa.mjs',
   'scripts/phase3-preview/install-qa.mjs',
 ]);
@@ -44,6 +45,51 @@ export function approvedPreviewGoogleEnvironment(previous, target, owned) {
 }
 const denied = new Set(['utmost-fennec-280', 'aware-llama-850']);
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export function requireAuthorizedPreviewTarget(authorized) {
+  const name = authorized?.deploymentName;
+  if (
+    authorized?.deploymentType !== 'preview' ||
+    authorized?.reference !== `preview/${PREVIEW_NAME}` ||
+    typeof name !== 'string' ||
+    !slug.test(name) ||
+    denied.has(name) ||
+    authorized.url !== `https://${name}.convex.cloud` ||
+    typeof authorized.adminKey !== 'string' ||
+    authorized.adminKey.length < 16 ||
+    authorized.adminKey.length > 4096 ||
+    /\s/.test(authorized.adminKey)
+  )
+    throw new Error('PREVIEW_TARGET_NOT_PROVEN');
+  return { name, url: authorized.url, key: authorized.adminKey };
+}
+
+export async function selectPreviewDeployment(management, projectSelection) {
+  const body = { projectSelection, previewName: PREVIEW_NAME };
+  let authorized;
+  try {
+    authorized = await management('deployment/authorize_preview', body);
+  } catch (error) {
+    // Never replace an existing target on a transient/authentication/unknown error.
+    if (error?.message !== 'PREVIEW_MANAGEMENT_HTTP_404') throw error;
+    const claim = await management('claim_preview_deployment', {
+      projectSelection,
+      identifier: PREVIEW_NAME,
+    });
+    authorized = await management('deployment/authorize_preview', body);
+    return {
+      claim,
+      authorized,
+      reused: false,
+      target: requirePreviewTarget(claim, authorized),
+    };
+  }
+  return {
+    claim: null,
+    authorized,
+    reused: true,
+    target: requireAuthorizedPreviewTarget(authorized),
+  };
+}
 export function requireProjectPreviewKey(key) {
   if (
     typeof key !== 'string' ||

@@ -20,9 +20,9 @@ import {
   previewPublicEnvironment,
   requireActionsRevision,
   requireControlDelta,
-  requirePreviewTarget,
   requireProjectPreviewKey,
   SOURCE_SHA,
+  selectPreviewDeployment,
 } from './lib/phase3c1-preview-guard.mjs';
 import { liveE2e } from './phase3-preview/live-e2e.mjs';
 
@@ -150,16 +150,16 @@ try {
   report.previewName = PREVIEW_NAME;
   report.sdkVersion = '1.31.5';
   report.projectKeyRecognizedByPinnedSdk = true;
-  // This is exactly the claim used by deployPreview in Convex 1.31.5, rather than a newer CLI/API.
-  stage('CREATE_PREVIEW');
-  const claim = await management('claim_preview_deployment', {
-    projectSelection,
-    identifier: PREVIEW_NAME,
-  });
-  const authorized = await management('deployment/authorize_preview', {
-    projectSelection,
-    previewName: PREVIEW_NAME,
-  });
+  stage('AUTHORIZE_FIXED_PREVIEW');
+  // Reusing the authorized named Preview keeps Google's registered callback stable.
+  // Creation occurs only after an authoritative not-found response, never an auth failure.
+  const {
+    claim,
+    authorized,
+    reused,
+    target: selectedTarget,
+  } = await selectPreviewDeployment(management, projectSelection);
+  report.previewReused = reused;
   report.targetDiagnostics = {
     claimFields: Object.keys(claim ?? {}).filter((k) =>
       /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)
@@ -188,7 +188,7 @@ try {
       typeof authorized?.adminKey === 'string' &&
       authorized.adminKey.startsWith(`preview:${claim?.deploymentName}|`),
   };
-  target = requirePreviewTarget(claim, authorized);
+  target = selectedTarget;
   report.deploymentName = target.name;
   report.backendUrl = target.url;
   report.deploymentType = authorized.deploymentType;

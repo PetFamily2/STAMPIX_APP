@@ -12,11 +12,12 @@ does not prove that Google accepts a configured client.
 
 ## External configuration still required
 
-Use a dedicated **Web application** OAuth test client, not a Production client.
-For the currently verified isolated Preview `youthful-mosquito-228`, configure:
+Use a dedicated **non-Production Google Cloud project** and a **Web application**
+OAuth test client. Do not change the audience/consent settings of a Production project.
+For the currently verified isolated Preview `dazzling-hound-780`, configure:
 
 - Google authorized redirect URI:
-  `https://youthful-mosquito-228.convex.site/api/auth/callback/google`
+  `https://dazzling-hound-780.convex.site/api/auth/callback/google`
 - Authorized JavaScript origin: the exact current EAS Preview origin.
 - Google audience: Testing, with explicitly approved test accounts.
 
@@ -25,11 +26,14 @@ Set these **server-only** environment variables on that exact Convex Preview:
 - `AUTH_GOOGLE_ID`: the test Web client's ID.
 - `AUTH_GOOGLE_SECRET`: its matching secret.
 - `PHASE3_GOOGLE_AUTH_PREVIEW_URL`:
-  `https://youthful-mosquito-228.convex.cloud`
+  `https://dazzling-hound-780.convex.cloud`
 
 Do not send the secret in chat or put it in any `EXPO_PUBLIC_` variable, source,
 URL, client export, logs, or artifacts. Do not change DEV/Production settings.
 
+The Actions runner first authorizes and reuses the named Preview; it does not
+claim a replacement on every test run. Creation is permitted only after an
+authoritative not-found response; authentication/transient errors stop the run.
 The isolated Actions runner retains these credentials only when the existing
 deployment is proven owned/synthetic and the binding URL matches its verified
 Preview URL exactly. Unmarked inherited credentials are removed. A mismatch or
