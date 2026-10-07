@@ -10,7 +10,9 @@ import {
 } from '../lib/browser-runtime-evidence.mjs';
 import {
   canRestartSyntheticCamera,
+  documentReadRetryDelay,
   SOURCE_SHA,
+  syntheticCameraY4m,
 } from '../lib/phase3c1-preview-guard.mjs';
 
 const report = {
@@ -192,12 +194,20 @@ try {
   process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
   const { chromium } = modules('playwright');
   const AxeBuilder = modules('@axe-core/playwright').default;
+  const cameraFile = join(process.env.RUNNER_TEMP, 'stampaix-blank-camera.y4m');
+  writeFileSync(cameraFile, syntheticCameraY4m(), { mode: 0o600 });
+  report.cameraBoundary = {
+    media: 'CHROMIUM_BLANK_Y4M_FAKE_WEBCAM',
+    qr: 'WORKER_DECODE_RESULT_INJECTION',
+    physicalCameraVerified: false,
+  };
   browser = await chromium.launch({
     headless: true,
     args: [
       '--no-sandbox',
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
+      `--use-file-for-fake-video-capture=${cameraFile}`,
     ],
   });
   const errors = [];
@@ -457,14 +467,31 @@ try {
   const visit = async (page, path, expected) => {
     observedPage = page;
     await page.bringToFront();
-    const response = await page.goto(`${url}${path}`, {
+    let response = await page.goto(`${url}${path}`, {
       waitUntil: 'domcontentloaded',
     });
+    if (response && !response.ok()) {
+      const status = response.status();
+      const delay = documentReadRetryDelay(
+        status,
+        response.headers()['retry-after'] ?? null
+      );
+      if (delay !== null) {
+        (report.documentReadRetries ??= []).push({ status, delayMs: delay });
+        await page.waitForTimeout(delay);
+        response = await page.goto(`${url}${path}`, {
+          waitUntil: 'domcontentloaded',
+        });
+      }
+    }
     report.lastNavigation = {
       status: response?.status() ?? null,
       documentOk: response?.ok() ?? false,
     };
-    requireThat(response?.ok(), 'AUTHENTICATED_DOCUMENT_HTTP_FAILURE');
+    requireThat(
+      response?.ok(),
+      `AUTHENTICATED_DOCUMENT_HTTP_${response?.status() ?? 0}`
+    );
     await page.waitForURL(
       (u) =>
         u.pathname === path ||
@@ -1587,6 +1614,8 @@ try {
   await record('CUSTOMER_LOGOUT_LOGIN', async () => {
     await closeCelebrations(c.page);
     await visit(c.page, '/settings', 'הגדרות');
+    // A previous scanner receipt may first present after this navigation.
+    await closeCelebrations(c.page);
     await c.page
       .getByRole('button', { name: 'יציאה מהחשבון', exact: true })
       .click();

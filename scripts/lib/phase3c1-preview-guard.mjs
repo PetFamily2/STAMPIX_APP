@@ -274,3 +274,33 @@ export function canRestartSyntheticCamera(evidence) {
     evidence.currentWriteCount === evidence.beforeWriteCount
   );
 }
+
+// At most one ordinary retry of a document GET. Never applies to API commands,
+// authorization failures, app runtime failures or unknown response statuses.
+export function documentReadRetryDelay(status, retryAfter, now = Date.now()) {
+  if (![429, 502, 503, 504].includes(status)) return null;
+  if (retryAfter === null || retryAfter === '') return 3000;
+  const delay = /^\d+$/.test(retryAfter)
+    ? Number(retryAfter) * 1000
+    : Date.parse(retryAfter) - now;
+  return Number.isFinite(delay) && delay >= 0 && delay <= 30000 ? delay : null;
+}
+
+// CI-only blank media, without QR or identities. Chromium supplies this fixture
+// as its fake webcam; application MediaDevices, lifecycle and worker stay real.
+export function syntheticCameraY4m() {
+  const width = 320;
+  const height = 240;
+  const count = 20;
+  const chunks = [
+    Buffer.from('YUV4MPEG2 W320 H240 F10:1 Ip A1:1 C420jpeg\n'),
+  ];
+  for (let frame = 0; frame < count; frame++) {
+    chunks.push(
+      Buffer.from('FRAME\n'),
+      Buffer.alloc(width * height, 64 + frame),
+      Buffer.alloc((width * height) / 2, 128)
+    );
+  }
+  return Buffer.concat(chunks);
+}
