@@ -8,7 +8,8 @@ const {
 const config = getDefaultConfig(__dirname);
 config.resolver.resolveRequest = createWebIconResolver(
   config.resolver.resolveRequest,
-  require.resolve('./lib/web-icons/lucide.web.js')
+  require.resolve('./lib/web-icons/lucide.web.js'),
+  require.resolve('./lib/web-icons/expo.web.js')
 );
 
 module.exports = withNativeWind(config, { input: './global.css' });

@@ -8,6 +8,7 @@ export default function NativeScannerPreviewFallback(_props: {
   token: string;
   url: string;
   enabled: boolean;
+  canStartScan?: boolean;
   onBusy?: (busy: boolean) => void;
 }) {
   return <NativeCompanionRedirect />;

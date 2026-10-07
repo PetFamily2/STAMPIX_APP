@@ -38,6 +38,7 @@ export default function BusinessScanner(props: {
   token: string;
   url: string;
   enabled: boolean;
+  canStartScan?: boolean;
   onBusy?: (busy: boolean) => void;
 }) {
   const current = useRef(props);
@@ -177,7 +178,8 @@ export default function BusinessScanner(props: {
                 if (next.status === 'locked' && qrReference) {
                   const data = qrReference;
                   qrReference = null;
-                  void engine.decode(data);
+                  if (current.current.canStartScan !== false)
+                    void engine.decode(data);
                 }
               },
             });
@@ -321,6 +323,9 @@ export default function BusinessScanner(props: {
           מחדש.
         </p>
       ) : null}
+      {props.canStartScan === false ? (
+        <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
+      ) : null}
       {state.session ? <p>{state.session.customerDisplayName}</p> : null}
       {state.receipt && success ? (
         <p>
@@ -331,7 +336,13 @@ export default function BusinessScanner(props: {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         <button
           type="button"
-          disabled={!!blocked || busy || ready || success}
+          disabled={
+            props.canStartScan === false ||
+            !!blocked ||
+            busy ||
+            ready ||
+            success
+          }
           onClick={() => void camera.current?.start()}
         >
           הפעלת מצלמה
@@ -415,7 +426,11 @@ export default function BusinessScanner(props: {
           איפוס וסריקה חדשה
         </button>
       </div>
-      {cameraState.cameras.length > 1 && !busy && !ready && !success ? (
+      {cameraState.cameras.length > 1 &&
+      props.canStartScan !== false &&
+      !busy &&
+      !ready &&
+      !success ? (
         <label>
           בחירת מצלמה{' '}
           <select

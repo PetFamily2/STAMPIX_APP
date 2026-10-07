@@ -70,7 +70,9 @@ class RootErrorBoundary extends React.Component<
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    ...(Platform.OS !== 'web'
+      ? { SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf') }
+      : {}),
   });
 
   React.useEffect(

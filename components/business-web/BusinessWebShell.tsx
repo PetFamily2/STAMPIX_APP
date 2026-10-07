@@ -510,6 +510,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
 
         <View style={styles.mainColumn}>
           <View
+            role="banner"
             style={[
               styles.topbar,
               isMobileComposition ? styles.topbarMobile : null,

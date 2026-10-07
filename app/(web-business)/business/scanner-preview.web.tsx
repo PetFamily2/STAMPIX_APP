@@ -1,18 +1,23 @@
 import { useAuthToken } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import BusinessScanner from '@/components/web-scanner/BusinessScanner';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { scannerPreviewEnabled } from '@/lib/web-scanner/previewGate';
+import {
+  retainRecoverySelection,
+  selectedScannerProgram,
+} from '@/lib/web-scanner/programSelection';
 import { pendingProgram } from '@/lib/web-scanner/recovery';
 
 export default function ScannerPreviewRoute() {
   const { user } = useUser();
   const token = useAuthToken();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const [selected, setSelected] = useState('');
+  const [selection, setSelection] = useState({ scopeKey: '', programId: '' });
+  const scopeKey = `${user?._id ?? ''}:${activeBusinessId ?? ''}`;
   const [busy, setBusy] = useState(false);
   const url = process.env.EXPO_PUBLIC_CONVEX_URL_DEV ?? '';
   const enabled =
@@ -35,42 +40,57 @@ export default function ScannerPreviewRoute() {
     api.loyaltyPrograms.listScannerPrograms,
     enabled && activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
+  let priorProgram: string | null = null;
+  let recoveryUnavailable = false;
+  try {
+    if (enabled && user && activeBusinessId)
+      priorProgram = pendingProgram(
+        sessionStorage,
+        String(user._id),
+        String(activeBusinessId)
+      );
+  } catch {
+    recoveryUnavailable = true;
+  }
+  useEffect(() => {
+    if (priorProgram)
+      setSelection((previous) =>
+        retainRecoverySelection(previous, scopeKey, priorProgram)
+      );
+  }, [scopeKey, priorProgram]);
   if (!enabled || !user || !activeBusinessId || !token)
     return (
-      <div dir="rtl" style={{ padding: 24 }}>
+      <main dir="rtl" style={{ padding: 24 }}>
         <h1>סורק Web עדיין אינו זמין</h1>
         <p>
           בדיקת Phase 3 מיועדת למורשים בסביבת Preview מבודדת בלבד. Native נשאר
           זמין.
         </p>
-      </div>
+      </main>
     );
-  let priorProgram: string | null = null;
-  try {
-    priorProgram = pendingProgram(
-      sessionStorage,
-      String(user._id),
-      String(activeBusinessId)
-    );
-  } catch {
+  if (recoveryUnavailable)
     return (
       <p role="alert" dir="rtl">
         סימון פעולה קודמת דורש בירור. הסורק חסום.
       </p>
     );
-  }
-  const scannerProgramId =
-    priorProgram ??
-    programs?.find((p: any) => p.loyaltyProgramId === selected)
-      ?.loyaltyProgramId;
+  const scannerProgramId = selectedScannerProgram(
+    selection,
+    scopeKey,
+    priorProgram,
+    (programs ?? []).map((p: any) => p.loyaltyProgramId)
+  );
   return (
-    <div dir="rtl">
+    <div dir="rtl" {...(!scannerProgramId ? { role: 'main' } : {})}>
+      {!scannerProgramId ? <h1>סריקת QR</h1> : null}
       <label>
         כרטיס לבדיקה{' '}
         <select
           disabled={busy || !!priorProgram}
           value={scannerProgramId ?? ''}
-          onChange={(event) => setSelected(event.target.value)}
+          onChange={(event) =>
+            setSelection({ scopeKey, programId: event.target.value })
+          }
         >
           <option value="">בחרו כרטיס</option>
           {priorProgram &&
@@ -93,6 +113,11 @@ export default function ScannerPreviewRoute() {
           token={token}
           url={url}
           enabled={enabled}
+          canStartScan={
+            programs?.some(
+              (p: any) => p.loyaltyProgramId === scannerProgramId
+            ) === true
+          }
           onBusy={setBusy}
         />
       ) : null}

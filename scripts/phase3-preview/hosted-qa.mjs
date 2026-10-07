@@ -18,8 +18,9 @@ const save = () =>
 const requireThat = (v, code) => {
   if (!v) throw new Error(code);
 };
-let browser, observedPage;
+let browser, observedPage, currentCase;
 const record = async (name, fn) => {
+  currentCase = name;
   try {
     const detail = await fn();
     report.cases[name] = { status: 'PASS', ...(detail ?? {}) };
@@ -220,6 +221,9 @@ try {
       )
         errors.push({
           role,
+          during: currentCase,
+          sourceLine: m.location().lineNumber,
+          source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
           kind:
             [
               "Couldn't find the bottom tab bar height",
@@ -232,6 +236,14 @@ try {
               'useNativeDriver',
               'aria-hidden',
               'Cannot read properties',
+              'Touch object is missing identifier',
+              'Cannot find single active touch',
+              'navigation object hasn',
+              'was not handled by any navigator',
+              'Invalid prop',
+              'Animated',
+              'Error',
+              'Warning',
             ].find((family) => m.text().includes(family)) ??
             /Minified React error #\d+/.exec(m.text())?.[0] ??
             /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
@@ -788,6 +800,11 @@ try {
       forwardedStamp.confirmed && !forwardedStamp.terminalFailure,
       'LOST_RESPONSE_SERVER_DID_NOT_COMMIT'
     );
+    await admin.mutation(
+      ref('phase3Fixtures:arrange'),
+      { secret, fixtures, stamps: 1, programActive: false },
+      { skipQueue: true }
+    );
     const prior = commitCount;
     await scan.page.reload();
     await scan.page
@@ -798,6 +815,17 @@ try {
     await scan.page.getByRole('button', { name: 'בירור תוצאה בלבד' }).click();
     await scan.page.getByText('השרת אישר את הפעולה', { exact: true }).waitFor();
     requireThat(commitCount === prior, 'RECONCILIATION_WROTE');
+    await scan.page
+      .getByText('הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.', {
+        exact: true,
+      })
+      .waitFor();
+    requireThat(
+      await scan.page
+        .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
+        .isDisabled(),
+      'UNAVAILABLE_PROGRAM_NEW_SCAN_ENABLED'
+    );
     await scan.page
       .getByRole('button', {
         name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
@@ -812,6 +840,7 @@ try {
       pendingWriteBlockedUpdate: true,
       unknownBlockedUpdate: true,
       safeUpdateActivated: true,
+      unavailableProgramReceiptVisible: true,
     };
   });
   report.cases.CONNECTED_UNKNOWN_REFRESH_RECONCILIATION.receiptReads =
@@ -1112,6 +1141,29 @@ try {
           viewport: innerHeight,
           hitInside: !!hit && element.contains(hit),
           coveringRole: hit?.getAttribute('role') ?? null,
+          dialogCount: document.querySelectorAll('[role=dialog]').length,
+          coveringAncestors: (() => {
+            const result = [];
+            for (
+              let node = hit;
+              node && result.length < 6;
+              node = node.parentElement
+            ) {
+              const s = getComputedStyle(node),
+                r = node.getBoundingClientRect();
+              result.push({
+                tag: node.tagName,
+                role: node.getAttribute('role'),
+                position: s.position,
+                zIndex: s.zIndex,
+                pointerEvents: s.pointerEvents,
+                top: r.top,
+                height: r.height,
+                width: r.width,
+              });
+            }
+            return result;
+          })(),
         };
       })
       .catch(() => ({ found: false }));
