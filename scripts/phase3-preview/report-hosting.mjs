@@ -31,7 +31,7 @@ if (!response.ok) throw new Error('PREVIEW_ROUTE_SMOKE_FAILED');
 report.webPreviewUrl = url;
 report.webRouteHttpSmoke = 'PASS';
 report.status = 'LIVE_E2E_AND_WEB_PREVIEW_PASS';
-report.phase3FullyClosed = false; // Physical devices and the documented refresh/referral limitations remain.
+report.phase3FullyClosed = false; // Hosted acceptance and physical camera/device gates are reported separately.
 writeFileSync(
   'phase3c1-preview-evidence.json',
   JSON.stringify(report, null, 2)
@@ -39,7 +39,7 @@ writeFileSync(
 if (process.env.GITHUB_STEP_SUMMARY)
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,
-    `\nPhase 3C-1C isolated Preview\n\nRevision: ${report.sha}\n\nBackend: ${report.backendUrl} (${report.deploymentType})\n\nWeb: ${url}\n\nLive six-action E2E: passed. DEVICE VERIFY and refresh/eventless-referral limits remain.\n`
+    `\nIsolated Preview RC verification\n\nRevision: ${report.sha}\n\nBackend: ${report.backendUrl} (${report.deploymentType})\n\nWeb: ${url}\n\nLive six-action E2E: passed, including refresh receipt recovery and eventless-referral reconciliation. Hosted acceptance and DEVICE VERIFY are separate gates.\n`
   );
 // biome-ignore lint/suspicious/noConsole: public Preview URL only.
 console.log(`Web Preview URL: ${url}`);
