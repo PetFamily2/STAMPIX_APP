@@ -20,19 +20,26 @@ export const list = query({
       .withIndex('by_toUserId', (q) => q.eq('toUserId', user._id))
       .order('desc')
       .take(100);
-    return rows.map((row) => ({
+    return Promise.all(
+      rows.map(async (row) => {
+      const campaign = row.campaignId ? await ctx.db.get(row.campaignId) : null;
+      // A campaign log may predate inboxPayload. Match the existing customer inbox contract.
+      const ownedCampaign = campaign?.businessId === row.businessId ? campaign : null;
+        return {
       id: row._id,
       title:
         typeof row.inboxPayload?.title === 'string'
           ? row.inboxPayload.title
-          : 'עדכון חדש',
+          : ownedCampaign?.messageTitle ?? ownedCampaign?.title ?? 'עדכון חדש',
       body:
         typeof row.inboxPayload?.body === 'string'
           ? row.inboxPayload.body
-          : 'יש עדכון חדש עבורך',
+          : ownedCampaign?.messageBody ?? 'יש עדכון חדש עבורך',
       createdAt: row.createdAt,
       readAt: row.readAt ?? null,
-    }));
+        };
+      })
+    );
   },
 });
 export const markRead = mutation({

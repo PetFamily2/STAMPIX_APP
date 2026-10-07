@@ -5,6 +5,7 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Platform,
   StyleSheet,
   Text,
   Vibration,
@@ -198,18 +199,25 @@ export default function CustomerStampCelebrationHost() {
   }, [visiblePresentation]);
 
   useEffect(() => {
+    // Browsers reject unsolicited vibration before any user activation.
+    // Native keeps its existing haptic behavior.
+    const vibrate = (duration: number) => {
+      if (Platform.OS !== 'web' || (typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === true)) {
+        Vibration.vibrate(duration);
+      }
+    };
     const feedback = takeCustomerStampPresentationFeedback(visiblePresentation);
     if (!feedback || !visiblePresentation) {
       return;
     }
     if (feedback === 'CARD_COMPLETED') {
-      Vibration.vibrate(200);
+      vibrate(200);
       AccessibilityInfo.announceForAccessibility(
         `${CUSTOMER_CARD_COMPLETED_TITLE} ${CUSTOMER_CARD_COMPLETED_SUBTITLE}`
       );
       return;
     }
-    Vibration.vibrate(120);
+    vibrate(120);
     AccessibilityInfo.announceForAccessibility(
       buildCustomerStampAddedMessage(
         visiblePresentation.celebration.progressLine

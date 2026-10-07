@@ -201,3 +201,16 @@ export const authPolicy = internalQuery({
     return { previewCallback: resolveAuthRedirectUrl(`${args.origin}/oauth-callback`) === `${args.origin}/oauth-callback`, foreignRejected: denied('https://example.invalid/oauth-callback'), pathRejected: denied(`${args.origin}/wallet`), credentialsRejected: denied(args.origin.replace('https://', 'https://synthetic@') + '/oauth-callback'), fragmentRejected: denied(`${args.origin}/oauth-callback#synthetic`) };
   },
 });
+
+export const qaCelebrationEvidence = internalQuery({
+  args: { secret: v.string(), fixtures: fixtureValidator },
+  returns: v.object({ available: v.number(), claimed: v.number(), presented: v.number(), revoked: v.number(), expired: v.number(), newestStatus: v.string() }),
+  handler: async (ctx, args) => {
+    guard(args.secret);
+    const membership = await ctx.db.get(args.fixtures.membershipId);
+    const customer = membership ? await ctx.db.get(membership.userId) : null;
+    if (customer?.email !== 'phase3-customer@example.invalid' || membership?.businessId !== args.fixtures.businessId) throw new Error('SYNTHETIC_SCOPE_REQUIRED');
+    const rows = await ctx.db.query('redemptionCelebrationReceipts').withIndex('by_ownerUserId', q => q.eq('ownerUserId', customer._id)).order('desc').take(30);
+    return { available: rows.filter(r => r.status === 'available').length, claimed: rows.filter(r => r.status === 'claimed').length, presented: rows.filter(r => r.status === 'presented').length, revoked: rows.filter(r => r.status === 'revoked').length, expired: rows.filter(r => r.status === 'expired').length, newestStatus: rows[0]?.status ?? 'none' };
+  },
+});

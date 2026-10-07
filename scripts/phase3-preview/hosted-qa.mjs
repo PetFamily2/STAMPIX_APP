@@ -114,6 +114,7 @@ try {
       hosting.sha === SOURCE_SHA,
     'VERIFIED_HOSTING_REQUIRED'
   );
+  report.backendUrl = hosting.backendUrl;
   const url = hosting.webPreviewUrl,
     origin = new URL(url).origin;
   requireThat(
@@ -243,6 +244,11 @@ try {
               'navigation object hasn',
               'was not handled by any navigator',
               'Invalid prop',
+              'Blocked call to navigator.vibrate',
+              'Permissions policy violation',
+              'vibrate',
+              'Refused to',
+              'Cross-Origin',
               'Animated',
               'Error',
               'Warning',
@@ -1058,10 +1064,21 @@ try {
     return { canonical: true, requests: 1 };
   };
   await record('CONNECTED_REDEEM_CANONICAL', async () => {
+    await visit(c.page, '/wallet', 'הארנק שלי');
+    await c.page.bringToFront();
+    await closeCelebrations(c.page);
     await readyWithCamera(scan.page, '/staff/scanner-preview', 3);
     return canonicalAction('אישור מימוש', 'redeem', 'REWARD_REDEEMED');
   });
   await record('CUSTOMER_REDEMPTION_CELEBRATION_SHARE', async () => {
+    observedPage = c.page;
+    await c.page.bringToFront();
+    report.celebrationEvidence = {
+      server: await admin.query(ref('phase3Fixtures:qaCelebrationEvidence'), { secret, fixtures }),
+      signal: (await clients.customer.query(ref('redemptionReceipts:hasPendingRedemptionCelebration'), {})).pending === true,
+      customerMode: (await clients.customer.query(ref('users:getCurrentUser'), {})).activeMode,
+      visible: await c.page.evaluate(() => document.visibilityState === 'visible'),
+    };
     // Keep the authenticated reactive page: reloading here discards its presentation claim lease.
     await c.page
       .getByRole('button', { name: 'סגירת חגיגת המימוש', exact: true })
@@ -1821,6 +1838,12 @@ try {
         'LIGHTHOUSE_RUNTIME_FAILURE'
       );
       return {
+        // Public welcome page only: retain the LCP selector and asset path, never authenticated content.
+        lcp: (result.lhr.audits['largest-contentful-paint-element']?.details?.items ?? []).flatMap(item => item.items ?? []).map(item => ({
+          selector: item.node?.selector ?? null,
+          tag: /<([a-z]+)/i.exec(item.node?.snippet ?? '')?.[1] ?? null,
+          asset: /(?:src|url)[=(:\s'"]+([^'"\s)>]+)/i.exec(item.node?.snippet ?? '')?.[1]?.split('?')[0] ?? null,
+        })),
         diagnostics: Object.fromEntries(
           [
             'unused-javascript',
@@ -2058,6 +2081,8 @@ try {
   console.info(`RC_DIAGNOSTICS ${JSON.stringify({
     failures: Object.fromEntries(Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')),
     runtimeErrors: report.runtimeErrors,
+    celebrationEvidence: report.celebrationEvidence,
+    backendUrl: report.backendUrl,
     performance: report.cases.PERFORMANCE_LIGHTHOUSE,
     accessibility: Object.fromEntries(Object.entries(report.accessibility ?? {}).map(([name, value]) => [name, { violations: value.violations.map(({ id, impact, nodes }) => ({ id, impact, nodes })) }])),
   })}`);
