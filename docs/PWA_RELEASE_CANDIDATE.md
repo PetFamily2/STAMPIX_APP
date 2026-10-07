@@ -29,8 +29,9 @@ glyphs, delegates Native unchanged, and local Heebo is bundled with its OFL lice
 The public `/welcome` entry is exported as a usable HTML document with real sign-in
 and registration links. Its markup is shared with the Web client route, and application
 JavaScript loads on navigation into the app. The public document contains no account
-data or authentication code. Its optional worker registration never activates an update
-or acknowledges another client's pending writes. Protected routes still wait for
+data or authentication code. Its optional worker registration never activates an update;
+its own consent is denied when receipt metadata is unknown or unreadable. Each other
+client must independently consent to an update. Protected routes still wait for
 authenticated role/scope resolution; Native's original welcome/image/font gates remain.
 
 Web QR decoding uses upstream jsQR 1.4.0 in a same-origin worker, with no runtime CDN or

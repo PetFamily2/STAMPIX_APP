@@ -4,7 +4,10 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
-import { isUnavailableBrowserPushDiagnostic } from '../lib/browser-runtime-evidence.mjs';
+import {
+  isBrowserBeforeUnloadIntervention,
+  isUnavailableBrowserPushDiagnostic,
+} from '../lib/browser-runtime-evidence.mjs';
 import { SOURCE_SHA } from '../lib/phase3c1-preview-guard.mjs';
 
 const report = {
@@ -246,9 +249,15 @@ try {
           sourceLine: m.location().lineNumber,
           sourceKind: !m.location().url
             ? 'BROWSER'
-            : m.location().url.startsWith(url)
-              ? 'APPLICATION'
-              : 'OTHER',
+            : (m.location().url === origin ||
+                  m.location().url.startsWith(origin + '/')) &&
+                !/\.[a-z0-9]+$/i.test(new URL(m.location().url).pathname) &&
+                m.location().lineNumber === 0 &&
+                m.args().length === 0
+              ? 'DOCUMENT'
+              : m.location().url.startsWith(url)
+                ? 'APPLICATION'
+                : 'OTHER',
           vocabulary: [
             'audio',
             'Audio',
@@ -325,50 +334,55 @@ try {
           messageLength: m.text().length,
           duringNavigation: Date.now() - lastNavigationAt < 1500,
           source: /\/([^/?]+\.js)$/.exec(m.location().url)?.[1] ?? null,
-          kind:
-            [
-              "Couldn't find the bottom tab bar height",
-              'Cannot update a component',
-              'InvalidStateError',
-              'Unhandled',
-              'Failed to register a ServiceWorker',
-              'useBottomTabBarHeight',
-              'useInsertionEffect must not schedule updates',
-              'useNativeDriver',
-              'aria-hidden',
-              'Cannot read properties',
-              'Touch object is missing identifier',
-              'Cannot find single active touch',
-              'navigation object hasn',
-              'was not handled by any navigator',
-              'Invalid prop',
-              'WebSocket is closed before the connection is established',
-              'WebSocket connection',
-              'ERR_CONNECTION_CLOSED',
-              'ERR_ABORTED',
-              'Registration failed - push service error',
-              'Registration failed - push service not available',
-              'Push subscription failed',
-              'Blocked',
-              'Autofocus',
-              'The resource',
-              'An invalid form control',
-              'A negative value',
-              'SVG',
-              'Failed',
-              'Uncaught',
-              'Blocked call to navigator.vibrate',
-              'Permissions policy violation',
-              'vibrate',
-              'Refused to',
-              'Cross-Origin',
-              'Animated',
-              'Error',
-              'Warning',
-            ].find((family) => m.text().includes(family)) ??
-            /Minified React error #\d+/.exec(m.text())?.[0] ??
-            /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
-            'CONSOLE_ERROR',
+          kind: m
+            .text()
+            .includes(
+              "Blocked attempt to show a 'beforeunload' confirmation panel for a frame that never had a user gesture since its load."
+            )
+            ? 'BROWSER_BEFOREUNLOAD_NO_GESTURE'
+            : ([
+                "Couldn't find the bottom tab bar height",
+                'Cannot update a component',
+                'InvalidStateError',
+                'Unhandled',
+                'Failed to register a ServiceWorker',
+                'useBottomTabBarHeight',
+                'useInsertionEffect must not schedule updates',
+                'useNativeDriver',
+                'aria-hidden',
+                'Cannot read properties',
+                'Touch object is missing identifier',
+                'Cannot find single active touch',
+                'navigation object hasn',
+                'was not handled by any navigator',
+                'Invalid prop',
+                'WebSocket is closed before the connection is established',
+                'WebSocket connection',
+                'ERR_CONNECTION_CLOSED',
+                'ERR_ABORTED',
+                'Registration failed - push service error',
+                'Registration failed - push service not available',
+                'Push subscription failed',
+                'Blocked',
+                'Autofocus',
+                'The resource',
+                'An invalid form control',
+                'A negative value',
+                'SVG',
+                'Failed',
+                'Uncaught',
+                'Blocked call to navigator.vibrate',
+                'Permissions policy violation',
+                'vibrate',
+                'Refused to',
+                'Cross-Origin',
+                'Animated',
+                'Error',
+                'Warning',
+              ].find((family) => m.text().includes(family)) ??
+              /Minified React error #\d+/.exec(m.text())?.[0] ??
+              /\[CONVEX [A-Z]\([a-zA-Z0-9_:]+\)\]/.exec(m.text())?.[0] ??
+              'CONSOLE_ERROR'),
         };
         errors.push(entry);
         errorDetails.push(
@@ -1048,6 +1062,9 @@ try {
     return { minimumTarget: 44, keyboardFocus: true };
   });
   await record('CONNECTED_UNKNOWN_REFRESH_RECONCILIATION', async () => {
+    const publicCompanion = await scan.context.newPage();
+    await publicCompanion.goto(`${url}/welcome`);
+    await publicCompanion.locator('main[data-public-welcome]').waitFor();
     await readyWithCamera();
     await scan.page
       .getByRole('button', { name: 'אישור חותמת', exact: true })
@@ -1139,7 +1156,9 @@ try {
       async () => !(await navigator.serviceWorker.getRegistration('/')).waiting
     );
     requireThat(commitCount === prior, 'SAFE_UPDATE_WRITE_REPLAY');
+    await publicCompanion.close();
     return {
+      publicClientSafeConsent: true,
       automaticWrites: 0,
       pendingWriteBlockedUpdate: true,
       unknownBlockedUpdate: true,
@@ -2064,9 +2083,13 @@ try {
       await page
         .getByRole('link', { name: 'כניסה או הרשמה באימייל', exact: true })
         .click();
-      await page.waitForURL((value) => value.pathname === '/sign-in');
-      await page.waitForFunction(
-        () => !!document.querySelector('#root')?.textContent?.includes('כניסה')
+      await page.waitForURL((value) => value.pathname === '/sign-up');
+      await page.getByText('איך תרצו להתחבר?', { exact: true }).waitFor();
+      requireThat(
+        await page
+          .getByRole('button', { name: 'אימייל', exact: true })
+          .isVisible(),
+        'PUBLIC_ENTRY_AUTH_METHODS_MISSING'
       );
       return {
         publicDocument: true,
@@ -2358,6 +2381,9 @@ try {
         e.during === 'A11Y_AUDIT'
     );
     report.browserMessages.push(...navigationClosures);
+    report.browserMessages.push(
+      ...errors.filter(isBrowserBeforeUnloadIntervention)
+    );
     const unexpected = errors.filter(
       (e) => !report.browserMessages.includes(e)
     );
