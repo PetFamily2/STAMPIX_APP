@@ -1,5 +1,5 @@
 export const PREVIEW_NAME = 'stampaix-pwa-phase3-e2e';
-export const SOURCE_SHA = '3dd346296820c406cf3ee775314aa91e1dade29c';
+export const SOURCE_SHA = 'efe7aa128f1815bd9c39fa0d694fc67a77d41b86';
 export const CONTROL_PATHS = new Set([
   '.github/workflows/branch-verify.yml',
   '.github/workflows/business-web-preview-deploy.yml',
