@@ -131,7 +131,10 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     ? [
         {
           key: 'scanner',
-          label: process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? 'סריקה — Preview' : 'סריקה',
+          label:
+            process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+              ? 'סריקה — Preview'
+              : 'סריקה',
           icon: Gift,
           href: BUSINESS_WEB_ROUTES.scanner,
         },

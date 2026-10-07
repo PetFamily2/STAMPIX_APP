@@ -22,21 +22,26 @@ export const list = query({
       .take(100);
     return Promise.all(
       rows.map(async (row) => {
-      const campaign = row.campaignId ? await ctx.db.get(row.campaignId) : null;
-      // A campaign log may predate inboxPayload. Match the existing customer inbox contract.
-      const ownedCampaign = campaign?.businessId === row.businessId ? campaign : null;
+        const campaign = row.campaignId
+          ? await ctx.db.get(row.campaignId)
+          : null;
+        // A campaign log may predate inboxPayload. Match the existing customer inbox contract.
+        const ownedCampaign =
+          campaign?.businessId === row.businessId ? campaign : null;
         return {
-      id: row._id,
-      title:
-        typeof row.inboxPayload?.title === 'string'
-          ? row.inboxPayload.title
-          : ownedCampaign?.messageTitle ?? ownedCampaign?.title ?? 'עדכון חדש',
-      body:
-        typeof row.inboxPayload?.body === 'string'
-          ? row.inboxPayload.body
-          : ownedCampaign?.messageBody ?? 'יש עדכון חדש עבורך',
-      createdAt: row.createdAt,
-      readAt: row.readAt ?? null,
+          id: row._id,
+          title:
+            typeof row.inboxPayload?.title === 'string'
+              ? row.inboxPayload.title
+              : (ownedCampaign?.messageTitle ??
+                ownedCampaign?.title ??
+                'עדכון חדש'),
+          body:
+            typeof row.inboxPayload?.body === 'string'
+              ? row.inboxPayload.body
+              : (ownedCampaign?.messageBody ?? 'יש עדכון חדש עבורך'),
+          createdAt: row.createdAt,
+          readAt: row.readAt ?? null,
         };
       })
     );

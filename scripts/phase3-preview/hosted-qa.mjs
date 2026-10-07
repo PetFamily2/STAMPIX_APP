@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
+import { isUnavailableBrowserPushDiagnostic } from '../lib/browser-runtime-evidence.mjs';
 import { SOURCE_SHA } from '../lib/phase3c1-preview-guard.mjs';
 
 const report = {
@@ -243,6 +244,11 @@ try {
           role,
           during: currentCase,
           sourceLine: m.location().lineNumber,
+          sourceKind: !m.location().url
+            ? 'BROWSER'
+            : m.location().url.startsWith(url)
+              ? 'APPLICATION'
+              : 'OTHER',
           vocabulary: [
             'audio',
             'Audio',
@@ -2026,6 +2032,52 @@ try {
     }
     requireThat(!serious, 'SERIOUS_A11Y_VIOLATION');
   });
+  await record('PUBLIC_ENTRY_PROGRESSIVE_NAVIGATION', async () => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    try {
+      const page = await context.newPage();
+      const response = await page.goto(`${url}/welcome`);
+      const html = await response.text();
+      requireThat(
+        response.ok() &&
+          html.includes('data-public-welcome="true"') &&
+          !html.includes('_expo/static'),
+        'PUBLIC_ENTRY_NOT_PRERENDERED'
+      );
+      requireThat(
+        await page.locator('main').isVisible(),
+        'PUBLIC_ENTRY_NOT_VISIBLE'
+      );
+      for (const width of [320, 375, 390, 768, 1366]) {
+        await page.setViewportSize({ width, height: 844 });
+        requireThat(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth
+          ),
+          'PUBLIC_ENTRY_OVERFLOW'
+        );
+      }
+      const audit = await new AxeBuilder({ page }).analyze();
+      requireThat(audit.violations.length === 0, 'PUBLIC_ENTRY_A11Y_VIOLATION');
+      await page
+        .getByRole('link', { name: 'כניסה או הרשמה באימייל', exact: true })
+        .click();
+      await page.waitForURL((value) => value.pathname === '/sign-in');
+      await page.waitForFunction(
+        () => !!document.querySelector('#root')?.textContent?.includes('כניסה')
+      );
+      return {
+        publicDocument: true,
+        appLoadsOnNavigation: true,
+        responsiveWidths: 5,
+        accessibilityViolations: 0,
+      };
+    } finally {
+      await context.close();
+    }
+  });
   await record('PERFORMANCE_LIGHTHOUSE', async () => {
     const { pathToFileURL } = await import('node:url');
     const lighthouse = (
@@ -2296,13 +2348,8 @@ try {
       ['AbortError', 'NotAllowedError', 'NotSupportedError'].includes(
         report.cases.WEB_PUSH_BROWSER_SUBSCRIBE.reason
       );
-    report.browserMessages = errors.filter(
-      (e) =>
-        pushUnavailable &&
-        [
-          'Registration failed - push service error',
-          'Registration failed - push service not available',
-        ].includes(e.kind)
+    report.browserMessages = errors.filter((e) =>
+      isUnavailableBrowserPushDiagnostic(e, pushUnavailable)
     );
     const navigationClosures = errors.filter(
       (e) =>

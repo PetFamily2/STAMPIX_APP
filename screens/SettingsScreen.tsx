@@ -799,13 +799,15 @@ export default function SettingsScreen() {
               icon="settings-outline"
               onPress={openAccountDetails}
             />
-            {Platform.OS !== 'web' ? <NotificationToggleRow
-              title={TEXT.notificationsToggleTitle}
-              subtitle={TEXT.notificationsToggleSubtitle}
-              enabled={notificationsEnabled}
-              disabled={notificationBusy}
-              onPress={toggleNotifications}
-            /> : null}
+            {Platform.OS !== 'web' ? (
+              <NotificationToggleRow
+                title={TEXT.notificationsToggleTitle}
+                subtitle={TEXT.notificationsToggleSubtitle}
+                enabled={notificationsEnabled}
+                disabled={notificationBusy}
+                onPress={toggleNotifications}
+              />
+            ) : null}
             <NotificationToggleRow
               title={TEXT.marketingToggleTitle}
               subtitle={TEXT.marketingToggleSubtitle}

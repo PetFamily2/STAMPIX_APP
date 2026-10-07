@@ -14,7 +14,13 @@ export default function Html({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="StampAix" />
         <link rel="stylesheet" href="/pwa/leaflet.css" />
-        <link rel="preload" as="image" href="/pwa/welcome-logo.webp" type="image/webp" fetchPriority="high" />
+        <link
+          rel="preload"
+          as="image"
+          href="/pwa/welcome-logo.webp"
+          type="image/webp"
+          fetchPriority="high"
+        />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/pwa/icon.png" />
         <link

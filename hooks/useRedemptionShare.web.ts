@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { View } from 'react-native';
-import { captureRedemptionArtboard } from '@/lib/webRedemptionCapture';
 import { useUser } from '@/contexts/UserContext';
 import type { RedemptionShareError } from '@/lib/redemptionShare';
+import { captureRedemptionArtboard } from '@/lib/webRedemptionCapture';
 import { shareRedemptionImage } from '@/lib/webRedemptionShare';
 
 export function useRedemptionShare(options: {

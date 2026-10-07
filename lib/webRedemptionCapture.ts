@@ -1,6 +1,12 @@
 /** Web DOM adapter. Native retains react-native-view-shot and its native capture path. */
-export async function captureRedemptionArtboard(element: unknown): Promise<string> {
-  if (typeof HTMLElement === 'undefined' || !(element instanceof HTMLElement) || !element.isConnected)
+export async function captureRedemptionArtboard(
+  element: unknown
+): Promise<string> {
+  if (
+    typeof HTMLElement === 'undefined' ||
+    !(element instanceof HTMLElement) ||
+    !element.isConnected
+  )
     throw new Error('CAPTURE_UNAVAILABLE');
   const bounds = element.getBoundingClientRect();
   if (!Number.isFinite(bounds.width) || bounds.width < 1 || bounds.height < 1)

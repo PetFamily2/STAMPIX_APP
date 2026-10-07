@@ -26,9 +26,12 @@ push, billing and manual RTL configurations are protected by source contracts.
 Web uses stable synchronous route loading; async route chunks had a reproduced hosted
 loading error and were not retained. The Web-only icon resolver uses identical pinned
 glyphs, delegates Native unchanged, and local Heebo is bundled with its OFL license.
-The public welcome page can paint without a network session; protected routes still
-wait for authenticated role/scope resolution. A direct Web image avoids React Native
-image-loading state on the public logo. Native's original image/font gates remain.
+The public `/welcome` entry is exported as a usable HTML document with real sign-in
+and registration links. Its markup is shared with the Web client route, and application
+JavaScript loads on navigation into the app. The public document contains no account
+data or authentication code. Its optional worker registration never activates an update
+or acknowledges another client's pending writes. Protected routes still wait for
+authenticated role/scope resolution; Native's original welcome/image/font gates remain.
 
 Web QR decoding uses upstream jsQR 1.4.0 in a same-origin worker, with no runtime CDN or
 unproved decoder patch. MediaDevices lifecycle includes HTTPS, rear-camera preference,

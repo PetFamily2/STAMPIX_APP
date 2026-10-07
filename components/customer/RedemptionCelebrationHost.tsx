@@ -8,7 +8,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  AppState,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import RedemptionCelebration from '@/components/customer/RedemptionCelebration';
@@ -54,7 +61,17 @@ class RedemptionCelebrationHostBoundary extends Component<
 
   static getDerivedStateFromError(error: unknown) {
     const message = error instanceof Error ? error.message : '';
-    const family = ['useUser', 'findNodeHandle', 'not a function', 'Cannot read properties', 'Invalid hook call', 'captureRef', 'useBottomTabBarHeight', 'navigation object'].find((label) => message.includes(label)) ?? 'RENDER_FAILED';
+    const family =
+      [
+        'useUser',
+        'findNodeHandle',
+        'not a function',
+        'Cannot read properties',
+        'Invalid hook call',
+        'captureRef',
+        'useBottomTabBarHeight',
+        'navigation object',
+      ].find((label) => message.includes(label)) ?? 'RENDER_FAILED';
     return { failed: true, family };
   }
 
@@ -425,49 +442,57 @@ function RedemptionCelebrationHostContent() {
     }
   }, [authorizeShare, claimedReceipt, presentation?.state]);
 
-  const webStatus = Platform.OS === 'web' ? (
-    <View
-      data-redemption-phase={claimedReceipt ? 'claimed' : pending ? 'pending' : 'idle'}
-      data-redemption-app-state={appState ?? 'unknown'}
-      aria-hidden={true}
-      style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
-    />
-  ) : null;
+  const webStatus =
+    Platform.OS === 'web' ? (
+      <View
+        data-redemption-phase={
+          claimedReceipt ? 'claimed' : pending ? 'pending' : 'idle'
+        }
+        data-redemption-app-state={appState ?? 'unknown'}
+        aria-hidden={true}
+        style={{
+          position: 'absolute',
+          width: 0,
+          height: 0,
+          overflow: 'hidden',
+        }}
+      />
+    ) : null;
   if (!claimedReceipt || !presentation) {
     return webStatus;
   }
 
   return (
     <>
-    {webStatus}
-    <Modal
-      visible={true}
-      animationType="fade"
-      presentationStyle="fullScreen"
-      onRequestClose={handleClose}
-      statusBarTranslucent={true}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="סגירת חגיגת המימוש"
-            onPress={handleClose}
-            style={({ pressed }) => [
-              styles.closeButton,
-              pressed ? styles.closeButtonPressed : null,
-            ]}
-          >
-            <Ionicons name="close" size={24} color="#172554" />
-          </Pressable>
-        </View>
-        <RedemptionCelebration
-          source={presentation}
-          authorizeShare={handleAuthorizeShare}
-          style={styles.celebration}
-        />
-      </SafeAreaView>
-    </Modal>
+      {webStatus}
+      <Modal
+        visible={true}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClose}
+        statusBarTranslucent={true}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="סגירת חגיגת המימוש"
+              onPress={handleClose}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed ? styles.closeButtonPressed : null,
+              ]}
+            >
+              <Ionicons name="close" size={24} color="#172554" />
+            </Pressable>
+          </View>
+          <RedemptionCelebration
+            source={presentation}
+            authorizeShare={handleAuthorizeShare}
+            style={styles.celebration}
+          />
+        </SafeAreaView>
+      </Modal>
     </>
   );
 }

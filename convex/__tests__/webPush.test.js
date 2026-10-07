@@ -67,13 +67,17 @@ describe('Web Push server ownership and safe provider targets', () => {
     enable();
     process.env.STAMPAIX_ENV = 'production';
     process.env.PWA_RELEASE_GATE = 'DEVICE_VERIFY';
-    await expect(subscribe._handler(buildCtx(baseTables()), input)).rejects.toThrow('DISABLED');
+    await expect(
+      subscribe._handler(buildCtx(baseTables()), input)
+    ).rejects.toThrow('DISABLED');
     process.env.PWA_RELEASE_GATE = 'device-verified-pilot-v1';
     const tables = baseTables();
     await subscribe._handler(buildCtx(tables), input);
     expect(tables.webPushSubscriptions).toHaveLength(1);
     process.env.WEB_PUSH_ENABLED = 'false';
-    await expect(subscribe._handler(buildCtx(tables), input)).rejects.toThrow('DISABLED');
+    await expect(subscribe._handler(buildCtx(tables), input)).rejects.toThrow(
+      'DISABLED'
+    );
   });
   test('configuration is disabled unless both server keys and subject exist', async () => {
     enable();

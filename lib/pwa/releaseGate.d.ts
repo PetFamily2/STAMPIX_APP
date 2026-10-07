@@ -1,1 +1,4 @@
-export function productionPilotEnabled(environment: string | undefined, gate: string | undefined): boolean;
+export function productionPilotEnabled(
+  environment: string | undefined,
+  gate: string | undefined
+): boolean;

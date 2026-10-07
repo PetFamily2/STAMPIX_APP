@@ -202,7 +202,11 @@ export default function CustomerStampCelebrationHost() {
     // Browsers reject unsolicited vibration before any user activation.
     // Native keeps its existing haptic behavior.
     const vibrate = (duration: number) => {
-      if (Platform.OS !== 'web' || (typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === true)) {
+      if (
+        Platform.OS !== 'web' ||
+        (typeof navigator !== 'undefined' &&
+          navigator.userActivation?.hasBeenActive === true)
+      ) {
         Vibration.vibrate(duration);
       }
     };

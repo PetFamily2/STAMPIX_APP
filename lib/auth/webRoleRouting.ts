@@ -1,4 +1,5 @@
 import { productionPilotEnabled } from '@/lib/pwa/releaseGate';
+
 type WebRoleRoutingFlagInput = {
   platform: string;
   appEnvironment?: string;
@@ -13,8 +14,12 @@ export function resolveWebRoleRoutingFlag({
   flag,
   releaseGate,
 }: WebRoleRoutingFlagInput): boolean {
-  return platform === 'web' && flag === 'true' &&
-    (appEnvironment === 'preview' || productionPilotEnabled(appEnvironment, releaseGate));
+  return (
+    platform === 'web' &&
+    flag === 'true' &&
+    (appEnvironment === 'preview' ||
+      productionPilotEnabled(appEnvironment, releaseGate))
+  );
 }
 
 export function isWebRoleRoutingEnabled(platform: string): boolean {
