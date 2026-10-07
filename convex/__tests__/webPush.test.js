@@ -12,6 +12,7 @@ const saved = { ...process.env };
 afterEach(() => {
   for (const k of [
     'WEB_PUSH_ENABLED',
+    'PWA_RELEASE_GATE',
     'STAMPAIX_ENV',
     'WEB_PUSH_VAPID_PUBLIC_KEY',
     'WEB_PUSH_VAPID_PRIVATE_KEY',
@@ -61,6 +62,18 @@ describe('Web Push server ownership and safe provider targets', () => {
     process.env.STAMPAIX_ENV = 'production';
     const ctx = buildCtx(baseTables());
     await expect(subscribe._handler(ctx, input)).rejects.toThrow('DISABLED');
+  });
+  test('Production pilot requires physical attestation in addition to its flag', async () => {
+    enable();
+    process.env.STAMPAIX_ENV = 'production';
+    process.env.PWA_RELEASE_GATE = 'DEVICE_VERIFY';
+    await expect(subscribe._handler(buildCtx(baseTables()), input)).rejects.toThrow('DISABLED');
+    process.env.PWA_RELEASE_GATE = 'device-verified-pilot-v1';
+    const tables = baseTables();
+    await subscribe._handler(buildCtx(tables), input);
+    expect(tables.webPushSubscriptions).toHaveLength(1);
+    process.env.WEB_PUSH_ENABLED = 'false';
+    await expect(subscribe._handler(buildCtx(tables), input)).rejects.toThrow('DISABLED');
   });
   test('configuration is disabled unless both server keys and subject exist', async () => {
     enable();

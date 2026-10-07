@@ -5,7 +5,7 @@ import BusinessScanner from '@/components/web-scanner/BusinessScanner';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { scannerPreviewEnabled } from '@/lib/web-scanner/previewGate';
+import { scannerCommandsEnabled } from '@/lib/web-scanner/previewGate';
 import {
   retainRecoverySelection,
   selectedScannerProgram,
@@ -19,16 +19,18 @@ export default function ScannerPreviewRoute() {
   const [selection, setSelection] = useState({ scopeKey: '', programId: '' });
   const scopeKey = `${user?._id ?? ''}:${activeBusinessId ?? ''}`;
   const [busy, setBusy] = useState(false);
-  const url = process.env.EXPO_PUBLIC_CONVEX_URL_DEV ?? '';
+  const preview = process.env.EXPO_PUBLIC_APP_ENV === 'preview';
+  const url = (preview ? process.env.EXPO_PUBLIC_CONVEX_URL_DEV : process.env.EXPO_PUBLIC_CONVEX_URL_PROD) ?? '';
   const enabled =
     !!token &&
     activeBusiness?.capabilities?.scanner_access === true &&
-    scannerPreviewEnabled({
+    scannerCommandsEnabled({
       platform: 'web',
       environment: process.env.EXPO_PUBLIC_APP_ENV,
       flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
-      actors: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS,
-      businesses: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES,
+      releaseGate: process.env.EXPO_PUBLIC_PWA_RELEASE_GATE,
+      actors: preview ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_ACTORS,
+      businesses: preview ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES : process.env.EXPO_PUBLIC_WEB_SCANNER_PILOT_BUSINESSES,
       backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
       actorId: user?._id,
       businessId: activeBusinessId ?? undefined,
@@ -63,8 +65,7 @@ export default function ScannerPreviewRoute() {
       <main dir="rtl" style={{ padding: 24 }}>
         <h1>סורק Web עדיין אינו זמין</h1>
         <p>
-          בדיקת Phase 3 מיועדת למורשים בסביבת Preview מבודדת בלבד. Native נשאר
-          זמין.
+          אפשר להמשיך לסרוק באפליקציה.
         </p>
       </main>
     );
@@ -84,7 +85,7 @@ export default function ScannerPreviewRoute() {
     <div dir="rtl" {...(!scannerProgramId ? { role: 'main' } : {})}>
       {!scannerProgramId ? <h1>סריקת QR</h1> : null}
       <label>
-        כרטיס לבדיקה{' '}
+        {preview ? 'כרטיס לבדיקה' : 'כרטיסייה'}{' '}
         <select
           disabled={busy || !!priorProgram}
           value={scannerProgramId ?? ''}
@@ -93,9 +94,9 @@ export default function ScannerPreviewRoute() {
           }
         >
           <option value="">בחרו כרטיס</option>
-          {priorProgram &&
-          !programs?.some((p: any) => p.loyaltyProgramId === priorProgram) ? (
-            <option value={priorProgram}>בירור הפעולה הקודמת</option>
+          {scannerProgramId &&
+          !programs?.some((p: any) => p.loyaltyProgramId === scannerProgramId) ? (
+            <option value={scannerProgramId}>בירור הפעולה הקודמת</option>
           ) : null}
           {programs?.map((p: any) => (
             <option key={p.loyaltyProgramId} value={p.loyaltyProgramId}>

@@ -45,17 +45,17 @@ export default function WebStaffLanding() {
         {business ? <Text style={styles.business}>{business.name}</Text> : null}
         <Text style={styles.body}>
           {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
-            ? 'סריקה זמינה למורשי בדיקה בסביבת Preview בלבד.'
+            ? (process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? 'סריקה זמינה למורשי בדיקה בסביבת Preview בלבד.' : 'סריקה זמינה למורשי הפיילוט.')
             : 'אפשר להמשיך לסרוק באפליקציה.'}
         </Text>
         {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
           <PaintedPressable
             accessibilityRole="button"
-            accessibilityLabel="פתיחת סורק בדיקה"
+            accessibilityLabel={process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? 'פתיחת סורק בדיקה' : 'פתיחת סורק'}
             onPress={() => router.push('/staff/scanner-preview')}
             style={styles.button}
           >
-            <Text style={styles.buttonText}>פתיחת סורק בדיקה</Text>
+            <Text style={styles.buttonText}>{process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? 'פתיחת סורק בדיקה' : 'פתיחת סורק'}</Text>
           </PaintedPressable>
         ) : null}
         <PaintedPressable

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
+import { captureRedemptionArtboard } from '@/lib/webRedemptionCapture';
 import { useUser } from '@/contexts/UserContext';
 import type { RedemptionShareError } from '@/lib/redemptionShare';
 import { shareRedemptionImage } from '@/lib/webRedemptionShare';
@@ -53,14 +53,7 @@ export function useRedemptionShare(options: {
       const result = await shareRedemptionImage({
         valid,
         authorize: () => authorize?.() ?? Promise.resolve(false),
-        capture: () =>
-          captureRef(artboardRef, {
-            format: 'png',
-            quality: 1,
-            result: 'data-uri',
-            width: 1080,
-            height: 1920,
-          }),
+        capture: () => captureRedemptionArtboard(target),
         canShare: (file) =>
           typeof navigator.share === 'function' &&
           navigator.canShare?.({ files: [file] }) === true,

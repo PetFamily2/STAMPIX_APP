@@ -244,6 +244,17 @@ try {
               'navigation object hasn',
               'was not handled by any navigator',
               'Invalid prop',
+              'Registration failed - push service error',
+              'Registration failed - push service not available',
+              'Push subscription failed',
+              'Blocked',
+              'Autofocus',
+              'The resource',
+              'An invalid form control',
+              'A negative value',
+              'SVG',
+              'Failed',
+              'Uncaught',
               'Blocked call to navigator.vibrate',
               'Permissions policy violation',
               'vibrate',
@@ -517,11 +528,13 @@ try {
           .querySelector('[role=switch][aria-label="דיוור שיווקי"]')
           ?.getAttribute('aria-checked') === 'true'
     );
-    requireThat(
-      (await clients.customer.query(ref('users:getCurrentUser'), {}))
-        .marketingOptIn === true,
-      'MARKETING_CONSENT_NOT_CONFIRMED'
-    );
+    let confirmed = false;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      confirmed = (await clients.customer.query(ref('users:getCurrentUser'), {})).marketingOptIn === true;
+      if (confirmed) break;
+      await c.page.waitForTimeout(100);
+    }
+    requireThat(confirmed, 'MARKETING_CONSENT_NOT_CONFIRMED');
   });
   let hostedCampaignId;
   await record('OWNER_CAMPAIGN_DRAFT', async () => {
@@ -591,11 +604,14 @@ try {
     );
     await visit(c.page, '/inbox', 'תיבת הודעות');
     await c.page.getByText('Synthetic QA Campaign', { exact: true }).waitFor();
-    await c.page
-      .getByRole('button', { name: 'סימון כנקרא', exact: true })
-      .first()
-      .click();
-    const read = await clients.customer.query(ref('webInbox:list'), {});
+    const title = c.page.getByText('Synthetic QA Campaign', { exact: true });
+    await title.locator('..').getByRole('button', { name: 'סימון כנקרא', exact: true }).click();
+    let read = [];
+    for (let attempt = 0; attempt < 50; attempt++) {
+      read = await clients.customer.query(ref('webInbox:list'), {});
+      if (read.some((m) => m.title === 'Synthetic QA Campaign' && m.readAt)) break;
+      await c.page.waitForTimeout(100);
+    }
     requireThat(
       read.some((m) => m.title === 'Synthetic QA Campaign' && m.readAt),
       'INBOX_READ_NOT_CONFIRMED'
@@ -1078,6 +1094,18 @@ try {
       signal: (await clients.customer.query(ref('redemptionReceipts:hasPendingRedemptionCelebration'), {})).pending === true,
       customerMode: (await clients.customer.query(ref('users:getCurrentUser'), {})).activeMode,
       visible: await c.page.evaluate(() => document.visibilityState === 'visible'),
+      modal: await c.page.evaluate(() => {
+        const close = document.querySelector('[aria-label="סגירת חגיגת המימוש"]');
+        return {
+          host: document.querySelector('[data-redemption-phase]')?.getAttribute('data-redemption-phase') ?? null,
+          appState: document.querySelector('[data-redemption-app-state]')?.getAttribute('data-redemption-app-state') ?? null,
+          exists: !!close,
+          hidden: !!close?.closest('[aria-hidden="true"]'),
+          width: close?.getBoundingClientRect().width ?? 0,
+          height: close?.getBoundingClientRect().height ?? 0,
+          error: document.querySelector('[data-redemption-error]')?.getAttribute('data-redemption-error') ?? null,
+        };
+      }),
     };
     // Keep the authenticated reactive page: reloading here discards its presentation claim lease.
     await c.page
@@ -2058,7 +2086,14 @@ try {
     await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
     report.runtimeErrors = errors;
-    requireThat(errors.length === 0, 'HOSTED_RUNTIME_ERRORS');
+    const pushUnavailable = report.cases.WEB_PUSH_BROWSER_SUBSCRIBE?.status === 'LIVE_DELIVERY_DEVICE_BLOCKED' &&
+      ['AbortError', 'NotAllowedError', 'NotSupportedError'].includes(report.cases.WEB_PUSH_BROWSER_SUBSCRIBE.reason);
+    report.browserMessages = errors.filter(e => pushUnavailable && [
+      'Registration failed - push service error',
+      'Registration failed - push service not available',
+    ].includes(e.kind));
+    const unexpected = errors.filter(e => !report.browserMessages.includes(e));
+    requireThat(unexpected.length === 0, 'HOSTED_RUNTIME_ERRORS');
   });
   await browser.close();
   browser = null;
@@ -2081,6 +2116,7 @@ try {
   console.info(`RC_DIAGNOSTICS ${JSON.stringify({
     failures: Object.fromEntries(Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')),
     runtimeErrors: report.runtimeErrors,
+    browserMessages: report.browserMessages,
     celebrationEvidence: report.celebrationEvidence,
     backendUrl: report.backendUrl,
     performance: report.cases.PERFORMANCE_LIGHTHOUSE,

@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState, Modal, StyleSheet, View } from 'react-native';
+import { AppState, Modal, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import RedemptionCelebration from '@/components/customer/RedemptionCelebration';
@@ -48,12 +48,14 @@ type AuthorizeShareResult = {
 
 class RedemptionCelebrationHostBoundary extends Component<
   { children: ReactNode },
-  { failed: boolean }
+  { failed: boolean; family: string }
 > {
-  state = { failed: false };
+  state = { failed: false, family: '' };
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown) {
+    const message = error instanceof Error ? error.message : '';
+    const family = ['useUser', 'findNodeHandle', 'not a function', 'Cannot read properties', 'Invalid hook call', 'captureRef', 'useBottomTabBarHeight', 'navigation object'].find((label) => message.includes(label)) ?? 'RENDER_FAILED';
+    return { failed: true, family };
   }
 
   componentDidCatch() {
@@ -65,7 +67,12 @@ class RedemptionCelebrationHostBoundary extends Component<
   }
 
   render() {
-    return this.state.failed ? null : this.props.children;
+    if (!this.state.failed) return this.props.children;
+    return Platform.OS === 'web' ? (
+      <View role="alert" data-redemption-error={this.state.family}>
+        <Text>רגע המימוש אינו זמין כרגע. ההטבה בארנק נשארת מעודכנת.</Text>
+      </View>
+    ) : null;
   }
 }
 
@@ -418,11 +425,21 @@ function RedemptionCelebrationHostContent() {
     }
   }, [authorizeShare, claimedReceipt, presentation?.state]);
 
+  const webStatus = Platform.OS === 'web' ? (
+    <View
+      data-redemption-phase={claimedReceipt ? 'claimed' : pending ? 'pending' : 'idle'}
+      data-redemption-app-state={appState ?? 'unknown'}
+      aria-hidden={true}
+      style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+    />
+  ) : null;
   if (!claimedReceipt || !presentation) {
-    return null;
+    return webStatus;
   }
 
   return (
+    <>
+    {webStatus}
     <Modal
       visible={true}
       animationType="fade"
@@ -451,6 +468,7 @@ function RedemptionCelebrationHostContent() {
         />
       </SafeAreaView>
     </Modal>
+    </>
   );
 }
 

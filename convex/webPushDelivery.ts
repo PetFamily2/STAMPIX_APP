@@ -1,4 +1,5 @@
 'use node';
+import { productionPilotEnabled } from '../lib/pwa/releaseGate';
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import webpush from 'web-push';
@@ -12,7 +13,7 @@ export const send = internalAction({
   handler: async (ctx, args) => {
     if (
       process.env.WEB_PUSH_ENABLED !== 'true' ||
-      process.env.STAMPAIX_ENV !== 'preview'
+      !(process.env.STAMPAIX_ENV === 'preview' || productionPilotEnabled(process.env.STAMPAIX_ENV, process.env.PWA_RELEASE_GATE))
     )
       return { sent: 0, failed: 0 };
     const publicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY,
