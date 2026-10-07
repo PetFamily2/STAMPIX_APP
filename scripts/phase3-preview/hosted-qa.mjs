@@ -212,6 +212,8 @@ try {
   });
   const errors = [];
   const errorDetails = [];
+  const fontEvents = [];
+  const failedResourceEvents = [];
 
   const authenticated = async (
     role,
@@ -241,6 +243,44 @@ try {
       geolocation: { latitude: 32.7, longitude: 35.1 },
       permissions: location === 'allowed' ? ['geolocation'] : [],
     });
+    // QA-only observation: preserve font errors and capture no URL, token or QR.
+    await context.exposeBinding('__qaFontObservation', (_source, event) => {
+      if (fontEvents.length >= 200) return;
+      fontEvents.push({
+        role,
+        during: currentCase,
+        at: Number.isSafeInteger(event.at) ? event.at : 0,
+        id: Number.isSafeInteger(event.id) ? event.id : 0,
+        family: event.family === 'IONICONS' ? 'IONICONS' : 'OTHER',
+        phase: ['START', 'LOADED', 'ERROR'].includes(event.phase)
+          ? event.phase : 'UNKNOWN',
+        kind: ['NetworkError', 'AbortError'].includes(event.kind)
+          ? event.kind : event.kind ? 'OTHER' : null,
+        standardNetworkMessage: event.standardNetworkMessage === true,
+      });
+    });
+    await context.addInitScript(() => {
+      if (typeof FontFace === 'undefined') return;
+      const original = FontFace.prototype.load;
+      let nextId = 0;
+      FontFace.prototype.load = function (...args) {
+        const id = ++nextId;
+        const family = /ionicons/i.test(this.family) ? 'IONICONS' : 'OTHER';
+        const observe = (phase, error) => {
+          void window.__qaFontObservation({
+            at: Date.now(), id, family, phase,
+            kind: error?.name ?? null,
+            standardNetworkMessage:
+              error?.message === 'A network error occurred.',
+          }).catch(() => {});
+        };
+        observe('START');
+        return Reflect.apply(original, this, args).then(
+          (result) => { observe('LOADED'); return result; },
+          (error) => { observe('ERROR', error); throw error; }
+        );
+      };
+    });
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
     let lastNavigationAt = Date.now();
@@ -250,10 +290,27 @@ try {
         observedPage = page;
       }
     });
+    page.on('requestfailed', (request) => {
+      const type = request.resourceType();
+      if (!['font', 'script', 'stylesheet', 'document'].includes(type) ||
+          failedResourceEvents.length >= 100) return;
+      const failure = request.failure()?.errorText;
+      failedResourceEvents.push({
+        role, during: currentCase, at: Date.now(), type,
+        kind: ['net::ERR_ABORTED', 'net::ERR_FAILED', 'net::ERR_NETWORK_CHANGED',
+          'net::ERR_CONNECTION_CLOSED', 'net::ERR_INTERNET_DISCONNECTED']
+          .includes(failure) ? failure : 'OTHER_NETWORK_FAILURE',
+        duringNavigation: Date.now() - lastNavigationAt < 1500,
+      });
+    });
     page.on('pageerror', (error) =>
       errors.push({
         role,
         during: currentCase,
+        at: Date.now(),
+        duringNavigation: Date.now() - lastNavigationAt < 1500,
+        standardNetworkMessage: error.message === 'A network error occurred.',
+        stackHasFontLoad: /FontFace|loadAsync|componentDidMount/.test(error.stack ?? ''),
         family:
           [
             'Failed to fetch',
@@ -2511,6 +2568,8 @@ try {
     await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
     report.runtimeErrors = errors;
+    report.fontEvents = fontEvents;
+    report.failedResourceEvents = failedResourceEvents;
     const pushUnavailable =
       report.cases.WEB_PUSH_BROWSER_SUBSCRIBE?.status ===
         'LIVE_DELIVERY_DEVICE_BLOCKED' &&
@@ -2559,6 +2618,8 @@ try {
         Object.entries(report.cases).filter(([, c]) => c.status === 'FAIL')
       ),
       runtimeErrors: report.runtimeErrors,
+      fontEvents: report.fontEvents,
+      failedResourceEvents: report.failedResourceEvents,
       browserMessages: report.browserMessages,
       celebrationEvidence: report.celebrationEvidence,
       backendUrl: report.backendUrl,
