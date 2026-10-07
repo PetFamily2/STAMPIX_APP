@@ -8,7 +8,10 @@ import {
   isBrowserBeforeUnloadIntervention,
   isUnavailableBrowserPushDiagnostic,
 } from '../lib/browser-runtime-evidence.mjs';
-import { SOURCE_SHA } from '../lib/phase3c1-preview-guard.mjs';
+import {
+  canRestartSyntheticCamera,
+  SOURCE_SHA,
+} from '../lib/phase3c1-preview-guard.mjs';
 
 const report = {
   revision: SOURCE_SHA,
@@ -232,11 +235,23 @@ try {
     page.setDefaultTimeout(12000);
     let lastNavigationAt = Date.now();
     page.on('framenavigated', (frame) => {
-      if (frame === page.mainFrame()) lastNavigationAt = Date.now();
+      if (frame === page.mainFrame()) {
+        lastNavigationAt = Date.now();
+        observedPage = page;
+      }
     });
     page.on('pageerror', (error) =>
       errors.push({
         role,
+        during: currentCase,
+        family:
+          [
+            'Failed to fetch',
+            'fetch resource',
+            'NetworkError',
+            'network connection',
+            'ServiceWorker',
+          ].find((term) => error.message.includes(term)) ?? null,
         kind:
           /Minified React error #(\d+)/.exec(error.message)?.[0] ??
           /\[CONVEX [A-Z]\([^)]{1,120}\)\]/.exec(error.message)?.[0] ??
@@ -913,6 +928,57 @@ try {
       .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
       .waitFor();
   };
+  const startCameraAndResolve = async (page = scan.page) => {
+    const beforeResolveCount = scannerRequests.filter(
+      (op) => op === 'resolve'
+    ).length;
+    const beforeWriteCount = scannerRequests.filter(
+      (op) => op !== 'resolve'
+    ).length;
+    const button = page.getByRole('button', {
+      name: 'הפעלת מצלמה',
+      exact: true,
+    });
+    await button.click();
+    try {
+      await page
+        .getByText('בחרו פעולה', { exact: true })
+        .waitFor({ timeout: 20000 });
+    } catch (error) {
+      const evidence = await page.evaluate(() => {
+        const video = document.querySelector('video');
+        return {
+          phase: document
+            .querySelector('[data-scanner-phase]')
+            ?.getAttribute('data-scanner-phase'),
+          videoDetached:
+            !!video && video.srcObject === null && video.readyState === 0,
+          cameraError: document.body.innerText.includes(
+            'המצלמה אינה זמינה (error)'
+          ),
+          decodeWaiting: !!window.__qaDecode,
+        };
+      });
+      if (
+        !canRestartSyntheticCamera({
+          ...evidence,
+          beforeResolveCount,
+          beforeWriteCount,
+          currentResolveCount: scannerRequests.filter((op) => op === 'resolve')
+            .length,
+          currentWriteCount: scannerRequests.filter((op) => op !== 'resolve')
+            .length,
+        })
+      )
+        throw error;
+      report.cloudCameraRestarts = (report.cloudCameraRestarts ?? 0) + 1;
+      // One explicit UI restart of media only. Never retry resolve, write or reconciliation.
+      await button.click();
+      await page
+        .getByText('בחרו פעולה', { exact: true })
+        .waitFor({ timeout: 20000 });
+    }
+  };
   await record('CONNECTED_SCANNER_CANONICAL_SUCCESS', async () => {
     await arrange('restore');
     await scanner();
@@ -920,10 +986,7 @@ try {
       window.__qaDecode = value;
     }, qr);
     qr = '';
-    await scan.page
-      .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
-      .click();
-    await scan.page.getByText('בחרו פעולה', { exact: true }).waitFor();
+    await startCameraAndResolve();
     requireThat(
       (await scan.page
         .getByText('השרת אישר את הפעולה', { exact: true })
@@ -1225,12 +1288,7 @@ try {
       window.__qaDecode = q;
     }, value);
     value = '';
-    await page
-      .getByRole('button', { name: 'הפעלת מצלמה', exact: true })
-      .click();
-    await page
-      .getByText('בחרו פעולה', { exact: true })
-      .waitFor({ timeout: 20000 });
+    await startCameraAndResolve(page);
   }
   const canonicalAction = async (name, operation, eventType) => {
     const before = scannerRequests.filter((op) => op === operation).length;

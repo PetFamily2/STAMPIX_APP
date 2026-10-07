@@ -261,3 +261,16 @@ export function sanitizedPreviewFailure(error) {
   );
   return matches.length === 1 ? matches[0] : 'PRIVATE_ERROR_DETAILS_WITHHELD';
 }
+
+// Cloud QA may restart a stalled fake camera through the real UI only before
+// any decode/resolve/write. This cannot authorize retrying a scanner command.
+export function canRestartSyntheticCamera(evidence) {
+  return (
+    evidence.phase === 'CAMERA_READY' &&
+    evidence.videoDetached === true &&
+    evidence.cameraError === true &&
+    evidence.decodeWaiting === true &&
+    evidence.currentResolveCount === evidence.beforeResolveCount &&
+    evidence.currentWriteCount === evidence.beforeWriteCount
+  );
+}

@@ -34,6 +34,12 @@ its own consent is denied when receipt metadata is unknown or unreadable. Each o
 client must independently consent to an update. Protected routes still wait for
 authenticated role/scope resolution; Native's original welcome/image/font gates remain.
 
+Web sign-up checks server-owned provider readiness booleans before starting OAuth or
+email authentication. Missing providers are disabled rather than sent to a broken
+authorization URL; this is not evidence that an external provider accepts the client.
+Native OAuth remains unchanged. Dedicated Preview Google configuration and its exact
+callback binding are described in `PREVIEW_GOOGLE_AUTH.md`.
+
 Web QR decoding uses upstream jsQR 1.4.0 in a same-origin worker, with no runtime CDN or
 unproved decoder patch. MediaDevices lifecycle includes HTTPS, rear-camera preference,
 playsInline, denied/no-camera states, track release, background/foreground recovery,
@@ -82,8 +88,12 @@ logical name **stampaix-pwa-phase3-e2e**, with canonical HTTPS Convex URL. Known
 Production targets are rejected. No data dumps or real actors are imported.
 
 Synthetic fixtures are internal functions materialized only in a private Preview staging
-bundle. Reset verifies a Preview ownership marker, exactly five .invalid test actors and
-two synthetic businesses, bounds deletions and rejects unknown data. Existing synthetic
+bundle. The runner authorizes and reuses the fixed named Preview before attempting
+creation; only authoritative not-found permits creation. Reset verifies ownership,
+the known .invalid test actor names and synthetic businesses, bounds deletions and
+rejects unknown data. A deleted disposable actor's staff acceptance event is accepted
+only with its matching canonical synthetic invitation, business, role, actor and time;
+that proof cannot authorize unrelated actor references. Existing synthetic
 signing/VAPID keys are retained. Password-provider automation uses real authenticated
 sessions and ordinary authorization; no public password login or auth bypass is added.
 Private runner files are restricted and deleted. Artifacts omit QR, tokens, passwords,
