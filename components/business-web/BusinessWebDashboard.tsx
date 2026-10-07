@@ -66,10 +66,21 @@ function DashboardSkeleton() {
 
   return (
     <View
+      role="status"
+      aria-busy={true}
       accessibilityLabel="טוענים את נתוני לוח הבקרה"
       style={[styles.page, isMobileComposition ? styles.pageMobile : null]}
     >
-      <View style={[styles.skeleton, styles.skeletonHeading]} />
+      <Text
+        accessibilityRole="header"
+        aria-level={1}
+        style={[
+          styles.pageTitle,
+          isMobileComposition ? styles.pageTitleMobile : null,
+        ]}
+      >
+        דף הבית
+      </Text>
       <View
         style={[
           styles.kpiGrid,
