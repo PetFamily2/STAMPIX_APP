@@ -2091,9 +2091,55 @@ try {
           .isVisible(),
         'PUBLIC_ENTRY_AUTH_METHODS_MISSING'
       );
+      const availability = await new ConvexHttpClient(target.url, {
+        logger: false,
+      }).query(makeFunctionReference('webAuth:getProviderAvailability'), {});
+      let authWrites = 0;
+      page.on('request', (request) => {
+        if (
+          request.method() !== 'POST' ||
+          !request.url().startsWith(target.url)
+        )
+          return;
+        try {
+          const body = request.postDataJSON();
+          if (body?.path === 'auth:signIn') authWrites++;
+        } catch {}
+      });
+      for (const [method, label] of [
+        ['google', 'Google'],
+        ['apple', 'Apple'],
+        ['email', 'אימייל'],
+      ]) {
+        const button = page.getByRole('button', { name: label, exact: true });
+        await button.waitFor();
+        requireThat(
+          (await button.isEnabled()) === availability[method],
+          'AUTH_PROVIDER_READINESS_NOT_ENFORCED'
+        );
+        if (!availability[method]) {
+          await button.evaluate((element) => element.click());
+          requireThat(
+            new URL(page.url()).pathname === '/sign-up',
+            'UNCONFIGURED_PROVIDER_REDIRECTED'
+          );
+        }
+      }
+      requireThat(authWrites === 0, 'UNCONFIGURED_PROVIDER_AUTH_WRITE');
+      if (!Object.values(availability).some(Boolean)) {
+        await page
+          .getByText(
+            'הכניסה בסביבת הבדיקה עדיין לא הוגדרה. אפשר לחזור ולנסות בהמשך.',
+            { exact: true }
+          )
+          .waitFor();
+      }
       return {
         publicDocument: true,
         appLoadsOnNavigation: true,
+        unconfiguredProvidersBlocked: true,
+        unconfiguredAuthWrites: authWrites,
+        externalProviderAvailability: availability,
         responsiveWidths: 5,
         accessibilityViolations: 0,
       };

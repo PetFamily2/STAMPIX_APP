@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
+  approvedPreviewGoogleEnvironment,
   chmodSync,
   mkdtempSync,
   readFileSync,
@@ -272,6 +273,16 @@ try {
   const secret = owned
     ? previous.PHASE3_FIXTURE_SECRET
     : randomBytes(32).toString('base64url');
+  Object.assign(
+    values,
+    approvedPreviewGoogleEnvironment(previous, target, owned)
+  );
+  // New dedicated Preview-only encryption key, or retain the existing owned key.
+  // OAuth token capture/revocation must never fail after a successful provider login.
+  values.AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY =
+    owned && previous.AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY
+      ? previous.AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY
+      : randomBytes(32).toString('base64url');
   const vapid =
     previous.WEB_PUSH_VAPID_PUBLIC_KEY && previous.WEB_PUSH_VAPID_PRIVATE_KEY
       ? {
@@ -289,6 +300,13 @@ try {
       'AUTH_APPLE_SECRET',
     ].map((name) => [name, Boolean(previous[name])])
   );
+  report.googlePreviewConfigurationPreserved = Boolean(values.AUTH_GOOGLE_ID);
+  const easPreview = parseEnv(readFileSync('.env.preview-pulled', 'utf8'));
+  report.easPreviewGoogleConfiguration = {
+    clientIdPresent: Boolean(easPreview.AUTH_GOOGLE_ID),
+    clientSecretPresent: Boolean(easPreview.AUTH_GOOGLE_SECRET),
+    copied: false,
+  };
   Object.assign(values, {
     WEB_PUSH_ENABLED: 'true',
     WEB_PUSH_VAPID_PUBLIC_KEY: vapid.publicKey,

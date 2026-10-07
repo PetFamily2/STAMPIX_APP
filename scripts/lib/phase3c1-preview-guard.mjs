@@ -19,6 +19,29 @@ export function requireControlDelta(paths) {
     throw new Error('APP_SOURCE_DELTA_NOT_AUTHORIZED');
 }
 export const PHASE3_BRANCH = 'pwa/phase-3-scanner-commands-20261005';
+// An operator must explicitly bind a dedicated Google test client to this exact
+// owned Preview. Unmarked inherited/provider credentials are never copied.
+export function approvedPreviewGoogleEnvironment(previous, target, owned) {
+  const binding = previous.PHASE3_GOOGLE_AUTH_PREVIEW_URL;
+  if (!binding) return {};
+  if (!owned || binding !== target.url)
+    throw new Error('GOOGLE_AUTH_PREVIEW_BINDING_MISMATCH');
+  if (
+    !/^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(
+      previous.AUTH_GOOGLE_ID ?? ''
+    ) ||
+    typeof previous.AUTH_GOOGLE_SECRET !== 'string' ||
+    !previous.AUTH_GOOGLE_SECRET ||
+    previous.AUTH_GOOGLE_SECRET !== previous.AUTH_GOOGLE_SECRET.trim() ||
+    /^(undefined|null|placeholder)$/i.test(previous.AUTH_GOOGLE_SECRET)
+  )
+    throw new Error('GOOGLE_AUTH_PREVIEW_CONFIGURATION_INVALID');
+  return {
+    PHASE3_GOOGLE_AUTH_PREVIEW_URL: binding,
+    AUTH_GOOGLE_ID: previous.AUTH_GOOGLE_ID,
+    AUTH_GOOGLE_SECRET: previous.AUTH_GOOGLE_SECRET,
+  };
+}
 const denied = new Set(['utmost-fennec-280', 'aware-llama-850']);
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export function requireProjectPreviewKey(key) {
