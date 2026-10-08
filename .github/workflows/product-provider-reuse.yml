@@ -53,6 +53,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Reuse authorized existing server credentials only
         env:
+          PRODUCT_EXISTING_WEB_PREVIEW_URL: https://stampaix-business--ou777y2zcv.expo.app
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CONVEX_PREVIEW_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           SOURCE_CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

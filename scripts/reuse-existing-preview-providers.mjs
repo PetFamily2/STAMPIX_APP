@@ -345,140 +345,155 @@ try {
   }
   // Rebuild only the already tested immutable application. The former export had
   // reused Metro transforms carrying the synthetic backend URL. No backend code changes.
-  const source = join(directory, 'verified-web-source');
   const sourceSha = report.applicationSourceSha;
-  const command = (program, args, cwd, env, code, timeout = 180000) => {
-    const result = spawnSync(program, args, {
-      cwd,
-      env,
-      encoding: 'utf8',
-      timeout,
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    if (result.status !== 0) {
-      fail(code);
+  let previewUrl = process.env.PRODUCT_EXISTING_WEB_PREVIEW_URL;
+  if (previewUrl) {
+    if (
+      !/^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(previewUrl)
+    ) {
+      fail('EXISTING_PREVIEW_URL_INVALID');
     }
-    return result.stdout;
-  };
-  command(
-    'git',
-    ['worktree', 'add', '--detach', source, sourceSha],
-    process.cwd(),
-    process.env,
-    'VERIFIED_SOURCE_CHECKOUT_FAILED'
-  );
-  chmodSync(source, 0o700);
-  symlinkSync(resolve('node_modules'), join(source, 'node_modules'), 'dir');
-  const publicEnv = productPreviewPublicEnvironment(target);
-  const buildEnv = {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(
-        ([name]) =>
-          !/^(EXPO_PUBLIC_|CONVEX_|SOURCE_|AUTH_|JWT_|RESEND_|SUMIT_|GOOGLE_|SCAN_|PHASE3_)/.test(
-            name
-          )
-      )
-    ),
-    ...publicEnv,
-    EXPO_NO_DOTENV: '1',
-  };
-  command(
-    'bunx',
-    [
-      'expo',
-      'export',
-      '--platform',
-      'web',
-      '--clear',
-      '--output-dir',
-      'product-dist',
-      '--max-workers',
-      '2',
-    ],
-    source,
-    buildEnv,
-    'VERIFIED_WEB_EXPORT_FAILED',
-    600000
-  );
-  command(
-    'bun',
-    ['scripts/export-web-scanner-business.mjs', 'product-dist'],
-    source,
-    buildEnv,
-    'VERIFIED_WEB_ASSETS_FAILED'
-  );
-  command(
-    'node',
-    ['scripts/finalize-web-pwa-export.mjs', 'product-dist'],
-    source,
-    buildEnv,
-    'VERIFIED_PWA_ARTIFACTS_FAILED'
-  );
-  command(
-    'node',
-    ['scripts/verify-client-secret-patterns.mjs', 'product-dist'],
-    source,
-    buildEnv,
-    'VERIFIED_WEB_SECRET_CHECK_FAILED'
-  );
-  const jsFolder = join(source, 'product-dist/_expo/static/js/web');
-  const bundles = readdirSync(jsFolder)
-    .filter((name) => name.endsWith('.js'))
-    .map((name) => readFileSync(join(jsFolder, name), 'utf8'))
-    .join('\n');
-  if (
-    !bundles.includes(BACKEND) ||
-    bundles.includes('https://dazzling-hound-780.convex.cloud')
-  ) {
-    fail('EXPORTED_BACKEND_BINDING_NOT_PROVEN');
-  }
-  report.exportedBackendBindingVerified = true;
-  const deployed = JSON.parse(
+    report.reusedHostedDeployment = true;
+  } else {
+    const source = join(directory, 'verified-web-source');
+    const command = (program, args, cwd, env, code, timeout = 180000) => {
+      const result = spawnSync(program, args, {
+        cwd,
+        env,
+        encoding: 'utf8',
+        timeout,
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (result.status !== 0) {
+        fail(code);
+      }
+      return result.stdout;
+    };
     command(
-      'eas',
+      'git',
+      ['worktree', 'add', '--detach', source, sourceSha],
+      process.cwd(),
+      process.env,
+      'VERIFIED_SOURCE_CHECKOUT_FAILED'
+    );
+    chmodSync(source, 0o700);
+    symlinkSync(resolve('node_modules'), join(source, 'node_modules'), 'dir');
+    const publicEnv = productPreviewPublicEnvironment(target);
+    const buildEnv = {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) =>
+            !/^(EXPO_PUBLIC_|CONVEX_|SOURCE_|AUTH_|JWT_|RESEND_|SUMIT_|GOOGLE_|SCAN_|PHASE3_)/.test(
+              name
+            )
+        )
+      ),
+      ...publicEnv,
+      EXPO_NO_DOTENV: '1',
+    };
+    command(
+      'bunx',
       [
-        'deploy',
-        '--environment',
-        'preview',
-        '--non-interactive',
-        '--dev-domain',
-        'stampaix-business',
-        '--export-dir',
+        'expo',
+        'export',
+        '--platform',
+        'web',
+        '--clear',
+        '--output-dir',
         'product-dist',
-        '--json',
+        '--max-workers',
+        '2',
       ],
       source,
-      { ...buildEnv, EXPO_TOKEN: process.env.EXPO_TOKEN },
-      'VERIFIED_WEB_HOSTING_FAILED'
-    )
-  );
-  const candidates = (Array.isArray(deployed) ? deployed : [deployed]).flatMap(
-    (r) => [
+      buildEnv,
+      'VERIFIED_WEB_EXPORT_FAILED',
+      600000
+    );
+    command(
+      'bun',
+      ['scripts/export-web-scanner-business.mjs', 'product-dist'],
+      source,
+      buildEnv,
+      'VERIFIED_WEB_ASSETS_FAILED'
+    );
+    command(
+      'node',
+      ['scripts/finalize-web-pwa-export.mjs', 'product-dist'],
+      source,
+      buildEnv,
+      'VERIFIED_PWA_ARTIFACTS_FAILED'
+    );
+    command(
+      'node',
+      ['scripts/verify-client-secret-patterns.mjs', 'product-dist'],
+      source,
+      buildEnv,
+      'VERIFIED_WEB_SECRET_CHECK_FAILED'
+    );
+    const jsFolder = join(source, 'product-dist/_expo/static/js/web');
+    const bundles = readdirSync(jsFolder)
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => readFileSync(join(jsFolder, name), 'utf8'))
+      .join('\n');
+    if (
+      !bundles.includes(BACKEND) ||
+      bundles.includes('https://dazzling-hound-780.convex.cloud')
+    ) {
+      fail('EXPORTED_BACKEND_BINDING_NOT_PROVEN');
+    }
+    report.exportedBackendBindingVerified = true;
+    const deployed = JSON.parse(
+      command(
+        'eas',
+        [
+          'deploy',
+          '--environment',
+          'preview',
+          '--non-interactive',
+          '--dev-domain',
+          'stampaix-business',
+          '--export-dir',
+          'product-dist',
+          '--json',
+        ],
+        source,
+        { ...buildEnv, EXPO_TOKEN: process.env.EXPO_TOKEN },
+        'VERIFIED_WEB_HOSTING_FAILED'
+      )
+    );
+    const candidates = (
+      Array.isArray(deployed) ? deployed : [deployed]
+    ).flatMap((r) => [
       r.url,
       r.deploymentUrl,
       r.previewUrl,
       r.deployment?.url,
       r.deployment?.previewUrl,
       r.metadata?.url,
-    ]
-  );
-  const previewUrl = candidates.find(
-    (url) =>
-      typeof url === 'string' &&
-      /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(url)
-  );
-  if (!previewUrl) {
-    fail('NEW_PREVIEW_URL_NOT_PROVEN');
+    ]);
+    previewUrl = candidates.find(
+      (url) =>
+        typeof url === 'string' &&
+        /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(url)
+    );
+    if (!previewUrl) {
+      fail('NEW_PREVIEW_URL_NOT_PROVEN');
+    }
+    report.webPreviewRebuilt = true;
+    report.appOrBackendDeployed = true;
   }
   report.webPreviewUrl = previewUrl;
-  report.webPreviewRebuilt = true;
-  report.appOrBackendDeployed = true;
   const htmlResponse = await request(`${previewUrl}/welcome`);
   if (!htmlResponse.ok) {
     fail('HOSTED_WELCOME_UNAVAILABLE');
   }
-  const html = await htmlResponse.text();
+  report.hostedWelcomeAvailable = true;
+  const signupResponse = await request(`${previewUrl}/sign-up`);
+  if (!signupResponse.ok) {
+    fail('HOSTED_SIGNUP_UNAVAILABLE');
+  }
+  const html = await signupResponse.text();
   const scriptPath = html.match(/src="([^"\s]+\/index-[a-f0-9]+\.js)"/i)?.[1];
   if (!scriptPath) {
     fail('HOSTED_BUNDLE_PATH_NOT_PROVEN');

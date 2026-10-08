@@ -4,6 +4,8 @@ The operator explicitly authorized reusing existing Resend, Google OAuth and Pla
 
 Previous Web Preview: https://stampaix-business--ebwtbuf8vy.expo.app/welcome (superseded: its JavaScript bundle retained a synthetic backend URL from the export cache).
 
+Current corrected Web Preview: https://stampaix-business--ou777y2zcv.expo.app/welcome
+
 Current backend: https://dependable-squirrel-701.convex.cloud
 
 The provider-only Action reads already authorized EAS environments and repository secrets privately, and existing Convex environments where the available credentials permit read access. It copies only missing provider values to the exact current, owned Product Preview. Source environment values, existing Preview secrets and Production callbacks are retained. SUMIT is copied only from an explicitly existing test configuration. No backend deployment, fixture reset, new credential, payment or account creation occurs in this Action.
@@ -17,3 +19,5 @@ The same verified application source is rebuilt on a fresh detached checkout wit
 The existing successful application run 37800829087 is retained; provider-only changes do not require repeating its synthetic tests or exports. Evidence reports variable names and status only. Email configuration availability is not OTP delivery or real-account acceptance; those require the ordinary Web UI and a reachable mailbox. OAuth client registration and Places restrictions are separate provider-side checks.
 
 Real acceptance remains through ordinary UI: Customer/Owner onboarding, business/program creation, customer join, Manager/Staff invitations and permissions, QR/scanner, stamps/redemption/undo, campaigns/referrals/inbox/settings/location. No seeded identity or database mutation may substitute for these flows.
+
+The corrected hosted deployment is retained after export and hosting succeeded. The follow-up Action verifies its signup SPA bundle and release identity instead of repeating the successful build or publishing another URL. The welcome route is a standalone static page, so its absence of the SPA index bundle is expected. Normal signup visibly enables Email and Google; OTP delivery and new-account acceptance are still pending user authentication.
