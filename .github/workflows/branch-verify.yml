@@ -192,7 +192,7 @@ jobs:
       - name: Create verified isolated Preview, seed synthetic actors and run live E2E
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
-          PHASE3_SOURCE_SHA: 2c9a329387b3021f8d5fedaaaa7a188a2bc76500
+          PHASE3_SOURCE_SHA: acde88e1980c7cdc20519eab01e85e8c17f29f6e
           PHASE3_PR_HEAD: ${{ github.event.pull_request.head.sha }}
           VERIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PHASE3_PREVIEW_NAME: stampaix-pwa-phase3-e2e
@@ -200,7 +200,7 @@ jobs:
       - name: Checkout immutable approved application source
         uses: actions/checkout@v4
         with:
-          ref: 2c9a329387b3021f8d5fedaaaa7a188a2bc76500
+          ref: acde88e1980c7cdc20519eab01e85e8c17f29f6e
           path: phase3-source
       - name: Prepare immutable client checkout
         run: |
@@ -222,7 +222,7 @@ jobs:
         working-directory: phase3-source
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          VERIFIED_HEAD_SHA: 2c9a329387b3021f8d5fedaaaa7a188a2bc76500
+          VERIFIED_HEAD_SHA: acde88e1980c7cdc20519eab01e85e8c17f29f6e
           EXPO_PUBLIC_APP_ENV: preview
         run: |
           node ../scripts/phase3-preview/deploy-hosting.mjs
