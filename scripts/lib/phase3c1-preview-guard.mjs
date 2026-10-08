@@ -268,9 +268,15 @@ export function sanitizedPreviewFailure(error) {
 // any decode/resolve/write. This cannot authorize retrying a scanner command.
 export function canRestartSyntheticCamera(evidence) {
   return (
+    [
+      evidence.beforeResolveCount,
+      evidence.currentResolveCount,
+      evidence.beforeWriteCount,
+      evidence.currentWriteCount,
+    ].every((count) => Number.isSafeInteger(count) && count >= 0) &&
     evidence.phase === 'CAMERA_READY' &&
-    evidence.videoDetached === true &&
-    evidence.cameraError === true &&
+    ((evidence.videoDetached === true && evidence.cameraError === true) ||
+      (evidence.videoStalled === true && evidence.liveVideoTracks === 1)) &&
     evidence.decodeWaiting === true &&
     evidence.currentResolveCount === evidence.beforeResolveCount &&
     evidence.currentWriteCount === evidence.beforeWriteCount
@@ -316,5 +322,5 @@ export function hostedDocumentPause(previousAt, now = Date.now()) {
     now < 0
   )
     throw new Error('INVALID_DOCUMENT_READ_CLOCK');
-  return Math.max(0, 2000 - Math.max(0, now - previousAt));
+  return Math.max(0, 10000 - Math.max(0, now - previousAt));
 }

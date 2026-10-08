@@ -450,6 +450,21 @@ try {
       )
         fail('PRODUCT_AUTH_OVERFLOW');
       if (errors.length) fail('PRODUCT_RUNTIME_ERRORS');
+      await page.getByRole('link', { name: 'מסמך משפטי', exact: true }).click();
+      await page.getByText('תנאי שימוש', { exact: true }).waitFor();
+      await page
+        .getByText(
+          'המנוי העסקי מנוהל בנפרד מהתקנת האפליקציה, והחיוב נעשה באמצעות SUMIT. ביטול מנוי אינו מוחק חשבון או עסק.',
+          { exact: true }
+        )
+        .waitFor();
+      if (
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth + 1
+        )
+      )
+        fail('PRODUCT_LEGAL_OVERFLOW');
+      if (errors.length) fail('PRODUCT_RUNTIME_ERRORS');
       report.cases[`PUBLIC_WEB_${width}`] = 'PASS';
       await context.close();
     }

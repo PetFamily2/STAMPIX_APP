@@ -612,6 +612,16 @@ try {
       .getByText(expected, { exact: false })
       .first()
       .waitFor({ state: 'visible', timeout: 20000 });
+    await page.evaluate(() => document.fonts.ready);
+    requireThat(
+      await page.evaluate(() =>
+        [...document.fonts].every(
+          (font) =>
+            !/heebo|ionicons/i.test(font.family) || font.status !== 'error'
+        )
+      ),
+      'HOSTED_FONT_ASSET_FAILED'
+    );
     const observed = new URL(page.url()).pathname;
     requireThat(
       observed === path ||
@@ -1090,6 +1100,16 @@ try {
             ?.getAttribute('data-scanner-phase'),
           videoDetached:
             !!video && video.srcObject === null && video.readyState === 0,
+          videoStalled:
+            !!video &&
+            video.readyState === 0 &&
+            video.paused &&
+            video.videoWidth === 0 &&
+            video.srcObject !== null,
+          liveVideoTracks:
+            video?.srcObject
+              ?.getVideoTracks?.()
+              .filter((track) => track.readyState === 'live').length ?? 0,
           cameraError: document.body.innerText.includes(
             'המצלמה אינה זמינה (error)'
           ),
