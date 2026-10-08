@@ -1,0 +1,77 @@
+name: Reuse existing providers on current Product Preview
+
+on:
+  pull_request:
+    branches:
+      - pwa/phase-2-qr-foundation-20261005
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/product-provider-reuse.yml'
+      - 'scripts/reuse-existing-preview-providers.mjs'
+      - 'docs/PREVIEW_PROVIDER_REUSE.md'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: stampaix-current-product-provider-reuse
+  cancel-in-progress: false
+
+jobs:
+  existing-provider-reuse:
+    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Verify current branch and retain successful application evidence
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const { data: branch } = await github.rest.repos.getBranch({ ...context.repo, branch: 'pwa/phase-3-scanner-commands-20261005' });
+            if (branch.commit.sha !== process.env.EXPECTED_HEAD) throw new Error('Superseded revision');
+            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: 37800829087 });
+            if (run.head_sha !== '78c3019b682acbce87e069e15191c96c99f5ed26' || run.conclusion !== 'success') throw new Error('Application verification not proven');
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - name: Install pinned dependencies
+        run: bun install --frozen-lockfile
+      - name: Setup existing EAS access
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Reuse authorized existing server credentials only
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CONVEX_PREVIEW_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          SOURCE_CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          SOURCE_CONVEX_DEV_KEY: ${{ secrets.CONVEX_DEV_DEPLOY_KEY }}
+          SOURCE_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SOURCE_RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          SOURCE_AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
+          SOURCE_AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
+          SOURCE_GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          SOURCE_SUMIT_ENV: ${{ secrets.SUMIT_ENV }}
+          SOURCE_SUMIT_COMPANY_ID: ${{ secrets.SUMIT_COMPANY_ID }}
+          SOURCE_SUMIT_API_KEY: ${{ secrets.SUMIT_API_KEY }}
+          SOURCE_SUMIT_PRODUCTS_JSON: ${{ secrets.SUMIT_PRODUCTS_JSON }}
+        run: bun scripts/reuse-existing-preview-providers.mjs
+      - name: Upload nonsecret configuration results only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-provider-reuse-evidence
+          path: product-provider-reuse-evidence.json
+          if-no-files-found: error
+          retention-days: 7

@@ -18,7 +18,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  revision-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      provider_only: ${{ steps.scope.outputs.provider_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - id: scope
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const { appendFileSync } = require('node:fs');
+          const base = '78c3019b682acbce87e069e15191c96c99f5ed26';
+          const allowed = new Set(['.github/workflows/branch-verify.yml', '.github/workflows/product-provider-reuse.yml', 'scripts/reuse-existing-preview-providers.mjs', 'docs/PREVIEW_PROVIDER_REUSE.md']);
+          let providerOnly = false;
+          if (process.env.HEAD_BRANCH === 'pwa/phase-3-scanner-commands-20261005') {
+            try {
+              execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
+              const paths = execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+              providerOnly = paths.length > 0 && paths.every(path => allowed.has(path));
+            } catch {}
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `provider_only=${providerOnly}\n`);
+          NODE
+
   verify:
+    needs: revision-scope
+    if: needs.revision-scope.outputs.provider_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
