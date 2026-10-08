@@ -22,7 +22,7 @@ jobs:
   existing-provider-reuse:
     if: github.repository == 'PetFamily2/STAMPIX_APP' && github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:

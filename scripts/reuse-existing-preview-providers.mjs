@@ -1,13 +1,23 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
 import { resolveSumitConfig } from '../convex/lib/billing/sumit/config.ts';
 import { requireProjectPreviewKey } from './lib/phase3c1-preview-guard.mjs';
-import { requireProductPreviewTarget } from './lib/product-preview-guard.mjs';
+import {
+  productPreviewPublicEnvironment,
+  requireProductPreviewTarget,
+} from './lib/product-preview-guard.mjs';
 
 const BASE = '78c3019b682acbce87e069e15191c96c99f5ed26';
 const ORIGIN = 'https://stampaix-business--ebwtbuf8vy.expo.app';
@@ -29,6 +39,8 @@ const report = {
   newKeysCreated: false,
   sourceEnvironmentsModified: false,
   appOrBackendDeployed: false,
+  backendDeployed: false,
+  webPreviewRebuilt: false,
   fixturesUsed: false,
   paymentAttempted: false,
 };
@@ -131,86 +143,92 @@ try {
   addSource('current-convex-preview', current);
   const directory = mkdtempSync(join(tmpdir(), 'stampaix-existing-providers-'));
   chmodSync(directory, 0o700);
-  // EAS is already authorized for this repository. Pull privately; never echo CLI output.
-  for (const environment of ['preview', 'development', 'production']) {
-    const path = join(directory, `${environment}.env`);
-    const result = spawnSync(
-      'eas',
-      ['env:pull', environment, '--path', path, '--non-interactive'],
-      { encoding: 'utf8', timeout: 90000, stdio: ['ignore', 'pipe', 'pipe'] }
+  if (names.some((name) => !present(current[name]))) {
+    // EAS is already authorized for this repository. Pull privately; never echo CLI output.
+    for (const environment of ['preview', 'development', 'production']) {
+      const path = join(directory, `${environment}.env`);
+      const result = spawnSync(
+        'eas',
+        ['env:pull', environment, '--path', path, '--non-interactive'],
+        { encoding: 'utf8', timeout: 90000, stdio: ['ignore', 'pipe', 'pipe'] }
+      );
+      if (result.status !== 0) {
+        report.sources.push({
+          source: `eas-${environment}`,
+          status: 'READ_UNAVAILABLE',
+        });
+        continue;
+      }
+      chmodSync(path, 0o600);
+      addSource(`eas-${environment}`, parseEnv(readFileSync(path, 'utf8')));
+    }
+    const repository = Object.fromEntries(
+      names.map((name) => [name, process.env[`SOURCE_${name}`]])
     );
-    if (result.status !== 0) {
-      report.sources.push({
-        source: `eas-${environment}`,
-        status: 'READ_UNAVAILABLE',
-      });
-      continue;
+    repository.CONVEX_DEPLOY_KEY = process.env.SOURCE_CONVEX_DEPLOY_KEY;
+    addSource('github-repository-secrets', repository);
+    const deploymentSources = new Map();
+    for (const source of sources) {
+      for (const key of [
+        source.env.CONVEX_DEPLOY_KEY,
+        source.env.CONVEX_DEV_DEPLOY_KEY,
+        process.env.SOURCE_CONVEX_DEV_KEY,
+      ]) {
+        const match = /^(?:dev|prod):([a-z0-9]+(?:-[a-z0-9]+)*)\|[^\s]+$/.exec(
+          key ?? ''
+        );
+        if (match && match[1] !== target.name) {
+          deploymentSources.set(match[1], key);
+        }
+      }
     }
-    chmodSync(path, 0o600);
-    addSource(`eas-${environment}`, parseEnv(readFileSync(path, 'utf8')));
-  }
-  const repository = Object.fromEntries(
-    names.map((name) => [name, process.env[`SOURCE_${name}`]])
-  );
-  repository.CONVEX_DEPLOY_KEY = process.env.SOURCE_CONVEX_DEPLOY_KEY;
-  addSource('github-repository-secrets', repository);
-  const deploymentSources = new Map();
-  for (const source of sources) {
-    for (const key of [
-      source.env.CONVEX_DEPLOY_KEY,
-      source.env.CONVEX_DEV_DEPLOY_KEY,
-      process.env.SOURCE_CONVEX_DEV_KEY,
+    // Authorization calls select existing deployments only. No claim/provision/deploy call.
+    for (const deploymentName of [
+      'utmost-fennec-280',
+      'aware-llama-850',
+      ...deploymentSources.keys(),
     ]) {
-      const match = /^(?:dev|prod):([a-z0-9]+(?:-[a-z0-9]+)*)\|[^\s]+$/.exec(
-        key ?? ''
-      );
-      if (match && match[1] !== target.name) {
-        deploymentSources.set(match[1], key);
-      }
-    }
-  }
-  // Authorization calls select existing deployments only. No claim/provision/deploy call.
-  for (const deploymentName of [
-    'utmost-fennec-280',
-    'aware-llama-850',
-    ...deploymentSources.keys(),
-  ]) {
-    if (sources.some((source) => source.label === `convex-${deploymentName}`)) {
-      continue;
-    }
-    let key = deploymentSources.get(deploymentName);
-    try {
-      const credentials = await management(
-        'deployment/authorize_within_current_project',
-        { projectSelection, selectedDeploymentName: deploymentName }
-      );
       if (
-        credentials.deploymentName !== deploymentName ||
-        credentials.url !== `https://${deploymentName}.convex.cloud`
+        sources.some((source) => source.label === `convex-${deploymentName}`)
       ) {
-        fail('SOURCE_TARGET_MISMATCH');
+        continue;
       }
-      key = credentials.adminKey;
-    } catch {
-      if (!key) {
+      let key = deploymentSources.get(deploymentName);
+      try {
+        const credentials = await management(
+          'deployment/authorize_within_current_project',
+          { projectSelection, selectedDeploymentName: deploymentName }
+        );
+        if (
+          credentials.deploymentName !== deploymentName ||
+          credentials.url !== `https://${deploymentName}.convex.cloud`
+        ) {
+          fail('SOURCE_TARGET_MISMATCH');
+        }
+        key = credentials.adminKey;
+      } catch {
+        if (!key) {
+          report.sources.push({
+            source: `convex-${deploymentName}`,
+            status: 'READ_UNAUTHORIZED',
+          });
+          continue;
+        }
+      }
+      try {
+        addSource(
+          `convex-${deploymentName}`,
+          await readEnvironment(`https://${deploymentName}.convex.cloud`, key)
+        );
+      } catch {
         report.sources.push({
           source: `convex-${deploymentName}`,
           status: 'READ_UNAUTHORIZED',
         });
-        continue;
       }
     }
-    try {
-      addSource(
-        `convex-${deploymentName}`,
-        await readEnvironment(`https://${deploymentName}.convex.cloud`, key)
-      );
-    } catch {
-      report.sources.push({
-        source: `convex-${deploymentName}`,
-        status: 'READ_UNAUTHORIZED',
-      });
-    }
+  } else {
+    report.sourceDiscoveryRetained = true;
   }
   const changes = [];
   const next = { ...current };
@@ -308,12 +326,205 @@ try {
     report.placesProviderStatus = response.status;
     report.placesProviderAvailable = response.ok;
   }
-  const sumit = resolveSumitConfig(actual);
-  report.sumit = {
-    environment: sumit.environment,
-    configured: sumit.environment === 'test' && sumit.liveCheckoutEnabled,
-    paymentAttempted: false,
+  try {
+    const sumit = resolveSumitConfig(actual);
+    report.sumit = {
+      environment: sumit.environment,
+      configured: sumit.environment === 'test' && sumit.liveCheckoutEnabled,
+      paymentAttempted: false,
+    };
+  } catch {
+    // Existing test product configuration is invalid. Do not invent provider products
+    // or let a billing blocker prevent ordinary Email authentication.
+    report.sumit = {
+      environment: actual.SUMIT_ENV === 'test' ? 'test' : null,
+      configured: false,
+      configurationStatus: 'EXTERNAL_CONFIGURATION_REQUIRED',
+      paymentAttempted: false,
+    };
+  }
+  // Rebuild only the already tested immutable application. The former export had
+  // reused Metro transforms carrying the synthetic backend URL. No backend code changes.
+  const source = join(directory, 'verified-web-source');
+  const sourceSha = report.applicationSourceSha;
+  const command = (program, args, cwd, env, code, timeout = 180000) => {
+    const result = spawnSync(program, args, {
+      cwd,
+      env,
+      encoding: 'utf8',
+      timeout,
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (result.status !== 0) {
+      fail(code);
+    }
+    return result.stdout;
   };
+  command(
+    'git',
+    ['worktree', 'add', '--detach', source, sourceSha],
+    process.cwd(),
+    process.env,
+    'VERIFIED_SOURCE_CHECKOUT_FAILED'
+  );
+  chmodSync(source, 0o700);
+  symlinkSync(resolve('node_modules'), join(source, 'node_modules'), 'dir');
+  const publicEnv = productPreviewPublicEnvironment(target);
+  const buildEnv = {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) =>
+          !/^(EXPO_PUBLIC_|CONVEX_|SOURCE_|AUTH_|JWT_|RESEND_|SUMIT_|GOOGLE_|SCAN_|PHASE3_)/.test(
+            name
+          )
+      )
+    ),
+    ...publicEnv,
+    EXPO_NO_DOTENV: '1',
+  };
+  command(
+    'bunx',
+    [
+      'expo',
+      'export',
+      '--platform',
+      'web',
+      '--clear',
+      '--output-dir',
+      'product-dist',
+      '--max-workers',
+      '2',
+    ],
+    source,
+    buildEnv,
+    'VERIFIED_WEB_EXPORT_FAILED',
+    600000
+  );
+  command(
+    'bun',
+    ['scripts/export-web-scanner-business.mjs', 'product-dist'],
+    source,
+    buildEnv,
+    'VERIFIED_WEB_ASSETS_FAILED'
+  );
+  command(
+    'node',
+    ['scripts/finalize-web-pwa-export.mjs', 'product-dist'],
+    source,
+    buildEnv,
+    'VERIFIED_PWA_ARTIFACTS_FAILED'
+  );
+  command(
+    'node',
+    ['scripts/verify-client-secret-patterns.mjs', 'product-dist'],
+    source,
+    buildEnv,
+    'VERIFIED_WEB_SECRET_CHECK_FAILED'
+  );
+  const jsFolder = join(source, 'product-dist/_expo/static/js/web');
+  const bundles = readdirSync(jsFolder)
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => readFileSync(join(jsFolder, name), 'utf8'))
+    .join('\n');
+  if (
+    !bundles.includes(BACKEND) ||
+    bundles.includes('https://dazzling-hound-780.convex.cloud')
+  ) {
+    fail('EXPORTED_BACKEND_BINDING_NOT_PROVEN');
+  }
+  report.exportedBackendBindingVerified = true;
+  const deployed = JSON.parse(
+    command(
+      'eas',
+      [
+        'deploy',
+        '--environment',
+        'preview',
+        '--non-interactive',
+        '--dev-domain',
+        'stampaix-business',
+        '--export-dir',
+        'product-dist',
+        '--json',
+      ],
+      source,
+      { ...buildEnv, EXPO_TOKEN: process.env.EXPO_TOKEN },
+      'VERIFIED_WEB_HOSTING_FAILED'
+    )
+  );
+  const candidates = (Array.isArray(deployed) ? deployed : [deployed]).flatMap(
+    (r) => [
+      r.url,
+      r.deploymentUrl,
+      r.previewUrl,
+      r.deployment?.url,
+      r.deployment?.previewUrl,
+      r.metadata?.url,
+    ]
+  );
+  const previewUrl = candidates.find(
+    (url) =>
+      typeof url === 'string' &&
+      /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(url)
+  );
+  if (!previewUrl) {
+    fail('NEW_PREVIEW_URL_NOT_PROVEN');
+  }
+  report.webPreviewUrl = previewUrl;
+  report.webPreviewRebuilt = true;
+  report.appOrBackendDeployed = true;
+  const htmlResponse = await request(`${previewUrl}/welcome`);
+  if (!htmlResponse.ok) {
+    fail('HOSTED_WELCOME_UNAVAILABLE');
+  }
+  const html = await htmlResponse.text();
+  const scriptPath = html.match(/src="([^"\s]+\/index-[a-f0-9]+\.js)"/i)?.[1];
+  if (!scriptPath) {
+    fail('HOSTED_BUNDLE_PATH_NOT_PROVEN');
+  }
+  const scriptUrl = new URL(scriptPath, previewUrl);
+  if (scriptUrl.origin !== new URL(previewUrl).origin) {
+    fail('HOSTED_BUNDLE_ORIGIN_NOT_PROVEN');
+  }
+  const bundleResponse = await request(scriptUrl.toString());
+  if (!bundleResponse.ok) {
+    fail('HOSTED_BUNDLE_UNAVAILABLE');
+  }
+  const servedBundle = await bundleResponse.text();
+  if (
+    !servedBundle.includes(BACKEND) ||
+    servedBundle.includes('https://dazzling-hound-780.convex.cloud')
+  ) {
+    fail('HOSTED_BACKEND_BINDING_NOT_PROVEN');
+  }
+  report.hostedBackendBindingVerified = true;
+  const releaseResponse = await request(`${previewUrl}/pwa/release.json`);
+  if (
+    !releaseResponse.ok ||
+    (await releaseResponse.json()).revision !== sourceSha
+  ) {
+    fail('HOSTED_SOURCE_REVISION_NOT_PROVEN');
+  }
+  report.hostedSourceRevisionVerified = true;
+  if (actual.SUMIT_ENV === 'test') {
+    const response = await request(
+      `${BACKEND}/api/update_environment_variables`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Convex ${target.key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          changes: [{ name: 'SUMIT_WEB_ORIGIN', value: previewUrl }],
+        }),
+      }
+    );
+    if (!response.ok) {
+      fail('PREVIEW_SUMIT_RETURN_ORIGIN_UPDATE_FAILED');
+    }
+  }
   report.googleCallbackUrl = `${BACKEND.replace('.cloud', '.site')}/api/auth/callback/google`;
   report.googleProviderRegistration = 'NOT_VERIFIED';
   report.status = report.auth.email
