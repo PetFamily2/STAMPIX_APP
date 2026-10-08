@@ -243,3 +243,68 @@ export const qaCelebrationEvidence = internalQuery({
     return { available: rows.filter(r => r.status === 'available').length, claimed: rows.filter(r => r.status === 'claimed').length, presented: rows.filter(r => r.status === 'presented').length, revoked: rows.filter(r => r.status === 'revoked').length, expired: rows.filter(r => r.status === 'expired').length, newestStatus: rows[0]?.status ?? 'none' };
   },
 });
+
+// Leave usable data after destructive cloud QA, instead of handing testers its final fault state.
+export const manualRestore = internalMutation({
+  args: { secret: v.string(), fixtures: fixtureValidator },
+  returns: v.object({ syntheticOnly: v.boolean(), actors: v.number(), stamps: v.number(), readyReward: v.boolean(), inboxMessages: v.number() }),
+  handler: async (ctx, args) => {
+    guard(args.secret);
+    if (process.env.STAMPAIX_ENV !== 'preview' || process.env.MANUAL_QA_ENABLED !== 'true' || process.env.MANUAL_QA_DEPLOYMENT_TYPE !== 'preview') throw new Error('MANUAL_QA_DISABLED');
+    const business = await ctx.db.get(args.fixtures.businessId);
+    const member = await ctx.db.get(args.fixtures.membershipId);
+    if (business?.externalId !== 'phase3-primary' || member?.businessId !== business._id) throw new Error('SYNTHETIC_SCOPE_REQUIRED');
+    const now = Date.now();
+    const actors = [];
+    for (const role of ['customer', 'owner', 'manager', 'staff'] as const) {
+      const rows = await ctx.db.query('users').withIndex('by_email', q => q.eq('email', `phase3-${role}@example.invalid`)).take(2);
+      if (rows.length !== 1 || !rows[0].isActive) throw new Error('SYNTHETIC_ACTOR_REQUIRED');
+      const actor = rows[0];
+      if ((role === 'owner' && actor._id !== business.ownerUserId) || (role === 'customer' && actor._id !== member.userId)) throw new Error('SYNTHETIC_SCOPE_REQUIRED');
+      await ctx.db.patch(actor._id, { fullName: `Synthetic ${role}`, firstName: 'Synthetic', lastName: role,
+        customerOnboardedAt: now, businessOnboardedAt: ['owner', 'manager'].includes(role) ? now : undefined,
+        activeMode: role === 'customer' ? 'customer' : 'business', activeBusinessId: role === 'customer' ? undefined : business._id,
+        marketingOptIn: true, marketingOptInAt: now, updatedAt: now });
+      actors.push(actor);
+    }
+    await ctx.db.patch(business._id, { name: 'Synthetic Phase 3 primary', isActive: true,
+      shortDescription: 'סביבת בדיקה סינתטית בלבד', businessPhone: '0000000000', serviceTypes: ['food_drink'], serviceTags: ['synthetic'],
+      location: { lat: 32.7005, lng: 35.1005 }, subscriptionEndAt: now + 30 * 86400000, updatedAt: now });
+    await ctx.db.patch(args.fixtures.programId, { isActive: true, isArchived: false, status: 'active', updatedAt: now });
+    await ctx.db.patch(args.fixtures.staffEntryId, { isActive: true, status: 'active', updatedAt: now });
+    await ctx.db.patch(member._id, { currentStamps: 2, isActive: true, lastStampAt: undefined, updatedAt: now });
+    await ctx.db.patch(args.fixtures.rewardId, { status: 'granted', targetProgramId: args.fixtures.programId,
+      targetMembershipId: member._id, redeemedAt: undefined, redeemedByUserId: undefined, redeemedEventId: undefined,
+      expiresAt: now + 30 * 86400000, updatedAt: now });
+    const programs = await ctx.db.query('loyaltyPrograms').withIndex('by_businessId', q => q.eq('businessId', business._id)).take(50);
+    let rewardProgram = programs.find(row => row.title === 'Synthetic Ready Reward');
+    if (!rewardProgram) {
+      const id = await ctx.db.insert('loyaltyPrograms', { businessId: business._id, title: 'Synthetic Ready Reward',
+        rewardName: 'הטבת בדיקה מוכנה למימוש', maxStamps: 3, stampIcon: 'coffee', isActive: true, isArchived: false,
+        status: 'active', createdAt: now, updatedAt: now });
+      rewardProgram = (await ctx.db.get(id))!;
+    }
+    const memberships = await ctx.db.query('memberships').withIndex('by_userId', q => q.eq('userId', member.userId)).take(50);
+    const rewardMembership = memberships.find(row => row.programId === rewardProgram!._id);
+    if (rewardMembership) await ctx.db.patch(rewardMembership._id, { currentStamps: 3, isActive: true, lastStampAt: undefined, updatedAt: now });
+    else await ctx.db.insert('memberships', { userId: member.userId, businessId: business._id, programId: rewardProgram._id,
+      currentStamps: 3, isActive: true, createdAt: now, updatedAt: now });
+    const campaigns = await ctx.db.query('campaigns').withIndex('by_businessId', q => q.eq('businessId', business._id)).take(50);
+    let campaign = campaigns.find(row => row.title === 'Synthetic Manual QA Campaign');
+    if (!campaign) {
+      const id = await ctx.db.insert('campaigns', { businessId: business._id, programId: args.fixtures.programId,
+        type: 'general_promo', title: 'Synthetic Manual QA Campaign', messageTitle: 'ברוכים הבאים לבדיקות StampAix',
+        messageBody: 'הודעה סינתטית לבדיקת תיבת ההודעות והקמפיינים.', status: 'active', activationStatus: 'active',
+        family: 'promo', source: 'manual', channels: ['in_app'], automationEnabled: false, isActive: true,
+        createdAt: now, updatedAt: now });
+      campaign = (await ctx.db.get(id))!;
+    }
+    for (const actor of actors) {
+      const existing = await ctx.db.query('messageLog').withIndex('by_campaignId_toUserId', q => q.eq('campaignId', campaign!._id).eq('toUserId', actor._id)).take(1);
+      if (!existing.length) await ctx.db.insert('messageLog', { businessId: business._id, campaignId: campaign._id,
+        toUserId: actor._id, channel: 'in_app', status: 'sent',
+        inboxPayload: { title: 'ברוכים הבאים לבדיקות StampAix', body: 'הודעת בדיקה סינתטית — אפשר לסמן כנקראה.' }, createdAt: now });
+    }
+    return { syntheticOnly: true, actors: actors.length, stamps: 2, readyReward: true, inboxMessages: actors.length };
+  },
+});

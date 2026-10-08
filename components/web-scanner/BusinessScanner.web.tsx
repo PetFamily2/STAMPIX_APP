@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { createManualQaCustomerQr } from '../../lib/auth/manualQaQr';
+import { useManualQaAccess } from '../../lib/auth/useManualQaAccess';
 import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter';
 import {
   type CommandState,
@@ -42,6 +44,9 @@ export default function BusinessScanner(props: {
   onBusy?: (busy: boolean) => void;
 }) {
   const current = useRef(props);
+  const manualQa = useManualQaAccess();
+  const [injecting, setInjecting] = useState(false);
+  const [injectionError, setInjectionError] = useState(false);
   current.current = props;
   const video = useRef<HTMLVideoElement>(null);
   const camera = useRef<WebQrController | null>(null);
@@ -456,6 +461,68 @@ export default function BusinessScanner(props: {
           תוכן QR עובר בזיכרון בלבד לצורך resolve. אין queue או retry אוטומטי של
           פעולה.
         </p>
+      ) : null}
+      {manualQa.enabled && manualQa.access ? (
+        <section
+          aria-label="בדיקת סורק ללא מצלמה"
+          style={{
+            marginTop: 20,
+            padding: 16,
+            border: '2px solid #2459c5',
+            borderRadius: 16,
+          }}
+        >
+          <h2>בדיקת סורק ללא מצלמה</h2>
+          <p>
+            סריקת הלקוח הסינתטי דרך הסורק והשרת הרגילים. לאחר הקריאה בחרו פעולה.
+          </p>
+          <button
+            type="button"
+            style={{ minHeight: 44, padding: '10px 16px' }}
+            disabled={
+              injecting ||
+              busy ||
+              ready ||
+              success ||
+              !!blocked ||
+              props.canStartScan === false
+            }
+            onClick={async () => {
+              const engine = commands.current;
+              if (
+                !engine ||
+                injecting ||
+                busy ||
+                ready ||
+                success ||
+                blocked ||
+                props.canStartScan === false
+              )
+                return;
+              setInjecting(true);
+              setInjectionError(false);
+              let qr = '';
+              try {
+                qr = await createManualQaCustomerQr(props.url);
+                if (commands.current !== engine) return;
+                camera.current?.stop();
+                await engine.decode(qr);
+              } catch {
+                setInjectionError(true);
+              } finally {
+                qr = '';
+                setInjecting(false);
+              }
+            }}
+          >
+            {injecting ? 'מכינים QR לבדיקה…' : 'סריקת לקוח הבדיקה'}
+          </button>
+          {injectionError ? (
+            <p role="alert">
+              לא ניתן לקרוא את קוד הבדיקה כרגע. בדקו חיבור ונסו שוב.
+            </p>
+          ) : null}
+        </section>
       ) : null}
     </main>
   );

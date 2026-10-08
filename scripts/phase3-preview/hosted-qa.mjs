@@ -255,9 +255,13 @@ try {
         id: Number.isSafeInteger(event.id) ? event.id : 0,
         family: event.family === 'IONICONS' ? 'IONICONS' : 'OTHER',
         phase: ['START', 'LOADED', 'ERROR'].includes(event.phase)
-          ? event.phase : 'UNKNOWN',
+          ? event.phase
+          : 'UNKNOWN',
         kind: ['NetworkError', 'AbortError'].includes(event.kind)
-          ? event.kind : event.kind ? 'OTHER' : null,
+          ? event.kind
+          : event.kind
+            ? 'OTHER'
+            : null,
         standardNetworkMessage: event.standardNetworkMessage === true,
       });
     });
@@ -269,17 +273,28 @@ try {
         const id = ++nextId;
         const family = /ionicons/i.test(String(args[0])) ? 'IONICONS' : 'OTHER';
         const observe = (phase, error) => {
-          void window.__qaFontObservation({
-            at: Date.now(), id, family, phase,
-            kind: error?.name ?? null,
-            standardNetworkMessage:
-              error?.message === 'A network error occurred.',
-          }).catch(() => {});
+          void window
+            .__qaFontObservation({
+              at: Date.now(),
+              id,
+              family,
+              phase,
+              kind: error?.name ?? null,
+              standardNetworkMessage:
+                error?.message === 'A network error occurred.',
+            })
+            .catch(() => {});
         };
         observe('START');
         return Reflect.apply(original, this, args).then(
-          (result) => { observe('LOADED'); return result; },
-          (error) => { observe('ERROR', error); throw error; }
+          (result) => {
+            observe('LOADED');
+            return result;
+          },
+          (error) => {
+            observe('ERROR', error);
+            throw error;
+          }
         );
       };
     });
@@ -296,22 +311,40 @@ try {
       if (response.status() < 400 || resourceHttpErrors.length >= 100) return;
       const request = response.request();
       resourceHttpErrors.push({
-        role, during: currentCase, at: Date.now(),
-        type: request.resourceType(), status: response.status(),
-        destination: response.url().startsWith(origin + '/') ? 'WEB_PREVIEW'
-          : response.url().startsWith(target.url + '/') ? 'CONVEX_PREVIEW' : 'EXTERNAL',
+        role,
+        during: currentCase,
+        at: Date.now(),
+        type: request.resourceType(),
+        status: response.status(),
+        destination: response.url().startsWith(origin + '/')
+          ? 'WEB_PREVIEW'
+          : response.url().startsWith(target.url + '/')
+            ? 'CONVEX_PREVIEW'
+            : 'EXTERNAL',
       });
     });
     page.on('requestfailed', (request) => {
       const type = request.resourceType();
-      if (!['font', 'script', 'stylesheet', 'document'].includes(type) ||
-          failedResourceEvents.length >= 100) return;
+      if (
+        !['font', 'script', 'stylesheet', 'document'].includes(type) ||
+        failedResourceEvents.length >= 100
+      )
+        return;
       const failure = request.failure()?.errorText;
       failedResourceEvents.push({
-        role, during: currentCase, at: Date.now(), type,
-        kind: ['net::ERR_ABORTED', 'net::ERR_FAILED', 'net::ERR_NETWORK_CHANGED',
-          'net::ERR_CONNECTION_CLOSED', 'net::ERR_INTERNET_DISCONNECTED']
-          .includes(failure) ? failure : 'OTHER_NETWORK_FAILURE',
+        role,
+        during: currentCase,
+        at: Date.now(),
+        type,
+        kind: [
+          'net::ERR_ABORTED',
+          'net::ERR_FAILED',
+          'net::ERR_NETWORK_CHANGED',
+          'net::ERR_CONNECTION_CLOSED',
+          'net::ERR_INTERNET_DISCONNECTED',
+        ].includes(failure)
+          ? failure
+          : 'OTHER_NETWORK_FAILURE',
         duringNavigation: Date.now() - lastNavigationAt < 1500,
       });
     });
@@ -322,7 +355,9 @@ try {
         at: Date.now(),
         duringNavigation: Date.now() - lastNavigationAt < 1500,
         standardNetworkMessage: error.message === 'A network error occurred.',
-        stackHasFontLoad: /FontFace|loadAsync|componentDidMount/.test(error.stack ?? ''),
+        stackHasFontLoad: /FontFace|loadAsync|componentDidMount/.test(
+          error.stack ?? ''
+        ),
         family:
           [
             'Failed to fetch',
@@ -2188,14 +2223,21 @@ try {
         for (const node of result.violations.find(
           (v) => v.id === 'aria-prohibited-attr'
         )?.nodes ?? []) {
-          if (node.target.length !== 1 || typeof node.target[0] !== 'string') continue;
-          const detail = await page.locator(node.target[0]).first().evaluate((element) => ({
-            tag: element.tagName,
-            role: element.getAttribute('role'),
-            attributes: element.getAttributeNames().filter((name) => name.startsWith('aria-')),
-            hasHref: element.hasAttribute('href'),
-            hasOnClick: !!element.onclick,
-          })).catch(() => null);
+          if (node.target.length !== 1 || typeof node.target[0] !== 'string')
+            continue;
+          const detail = await page
+            .locator(node.target[0])
+            .first()
+            .evaluate((element) => ({
+              tag: element.tagName,
+              role: element.getAttribute('role'),
+              attributes: element
+                .getAttributeNames()
+                .filter((name) => name.startsWith('aria-')),
+              hasHref: element.hasAttribute('href'),
+              hasOnClick: !!element.onclick,
+            }))
+            .catch(() => null);
           report.accessibility[name].attributeDiagnostics.push(detail);
         }
         report.accessibility[name].contrastStyles = [];
@@ -2485,6 +2527,7 @@ try {
           flow: 'signUp',
           email: 'phase3-owner@example.invalid',
           password: randomBytes(32).toString('base64url'),
+          qaProvisioningSecret: secret,
         },
       });
     } catch {
@@ -2516,6 +2559,7 @@ try {
         flow: 'signUp',
         email: 'phase3-deletion@example.invalid',
         password: deletionPassword,
+        qaProvisioningSecret: secret,
       },
     });
     requireThat(registration.tokens?.token, 'SYNTHETIC_DELETION_AUTH_FAILED');
@@ -2596,6 +2640,263 @@ try {
       'DELETED_ACCOUNT_AUTHORIZATION_REMAINS'
     );
   });
+  const restoreManualFixtures = () =>
+    admin.mutation(
+      ref('phase3Fixtures:manualRestore'),
+      { secret, fixtures },
+      { skipQueue: true }
+    );
+  await record('MANUAL_QA_FIXTURES', async () => {
+    const summary = await restoreManualFixtures();
+    requireThat(
+      summary.syntheticOnly &&
+        summary.actors === 4 &&
+        summary.readyReward &&
+        summary.stamps === 2,
+      'MANUAL_QA_FIXTURES_INCOMPLETE'
+    );
+    const access = await new ConvexHttpClient(target.url, {
+      logger: false,
+    }).query(ref('manualQa:getAccess'), {});
+    requireThat(
+      access?.backendUrl === target.url && access.accounts.length === 4,
+      'MANUAL_QA_ACCESS_NOT_READY'
+    );
+    const unauth = new ConvexHttpClient(target.url, { logger: false });
+    for (const params of [
+      {
+        flow: 'signIn',
+        email: 'phase3-owner@example.invalid',
+        password: 'invalid-synthetic-password',
+      },
+      {
+        flow: 'signUp',
+        email: 'real-person@example.com',
+        password: access.password,
+      },
+      {
+        flow: 'signUp',
+        email: 'phase3-owner@example.invalid',
+        password: access.password,
+      },
+    ]) {
+      let denied = false;
+      try {
+        await unauth.action(ref('auth:signIn'), {
+          provider: 'password',
+          params,
+        });
+      } catch {
+        denied = true;
+      }
+      requireThat(denied, 'MANUAL_QA_PASSWORD_BOUNDARY_FAILED');
+    }
+    return {
+      ...summary,
+      realAccountsDenied: true,
+      publicProvisioningDenied: true,
+      wrongPasswordDenied: true,
+    };
+  });
+  const manualLabels = {
+    customer: 'כניסה כלקוח',
+    owner: 'כניסה כבעל עסק',
+    manager: 'כניסה כמנהל',
+    staff: 'כניסה כעובד',
+  };
+  for (const role of ['customer', 'owner', 'manager', 'staff']) {
+    await record(`MANUAL_QA_LOGIN_${role.toUpperCase()}`, async () => {
+      const context = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+      });
+      const page = await context.newPage();
+      observedPage = page;
+      page.on('pageerror', () =>
+        errors.push({
+          role,
+          during: currentCase,
+          kind: 'MANUAL_QA_RUNTIME_ERROR',
+        })
+      );
+      try {
+        await visit(page, '/welcome', 'העסק והלקוחות');
+        await page
+          .getByRole('link', { name: 'כניסה לבדיקות', exact: true })
+          .click();
+        await page
+          .getByRole('heading', { name: 'כניסה לבדיקות', exact: true })
+          .waitFor();
+        const audit = await new AxeBuilder({ page }).analyze();
+        requireThat(
+          audit.violations.length === 0,
+          'MANUAL_QA_ACCESSIBILITY_FAILED'
+        );
+        await page
+          .getByRole('button', { name: new RegExp('^' + manualLabels[role]) })
+          .click();
+        const path =
+          role === 'customer'
+            ? '/wallet'
+            : role === 'staff'
+              ? '/staff'
+              : '/business';
+        await page.waitForURL((value) => value.pathname === path, {
+          timeout: 30000,
+        });
+        await page
+          .getByText(
+            role === 'customer'
+              ? 'הארנק שלי'
+              : role === 'staff'
+                ? 'אזור הצוות'
+                : 'Synthetic Phase 3 primary',
+            { exact: true }
+          )
+          .first()
+          .waitFor();
+        const token = await page.evaluate(() =>
+          localStorage.getItem('__convexAuthJWT_stampaixauth')
+        );
+        requireThat(
+          typeof token === 'string' && token.length > 0,
+          'MANUAL_QA_SESSION_MISSING'
+        );
+        const actual = new ConvexHttpClient(target.url, {
+          logger: false,
+          auth: token,
+        });
+        const actor = await actual.query(ref('users:getCurrentUser'), {});
+        requireThat(
+          actor?._id === actors[role].id &&
+            actor.email === `phase3-${role}@example.invalid`,
+          'MANUAL_QA_WRONG_IDENTITY'
+        );
+        const session = await actual.query(ref('users:getSessionContext'), {});
+        if (role !== 'customer')
+          requireThat(
+            session.businesses.some(
+              (row) => row.id === fixtures.businessId && row.staffRole === role
+            ),
+            'MANUAL_QA_WRONG_PERMISSIONS'
+          );
+        await page.reload();
+        await page
+          .getByText(
+            role === 'customer'
+              ? 'הארנק שלי'
+              : role === 'staff'
+                ? 'אזור הצוות'
+                : 'Synthetic Phase 3 primary',
+            { exact: true }
+          )
+          .first()
+          .waitFor();
+        if (role === 'staff') {
+          await visit(page, '/staff/scanner-preview', 'כרטיס לבדיקה');
+          await page
+            .getByLabel('כרטיס לבדיקה')
+            .selectOption(fixtures.programId);
+          await page
+            .getByRole('button', { name: 'סריקת לקוח הבדיקה', exact: true })
+            .click();
+          await page
+            .locator('[data-scanner-phase="READY_FOR_ACTION"]')
+            .waitFor({ timeout: 30000 });
+          await page
+            .getByRole('button', { name: 'אישור חותמת', exact: true })
+            .click();
+          await page
+            .locator('[data-scanner-phase="SUCCESS"]')
+            .waitFor({ timeout: 30000 });
+          requireThat(
+            (await clients.customer.query(ref('users:getCurrentUser'), {}))
+              ._id === actors.customer.id,
+            'MANUAL_QA_CUSTOMER_IDENTITY_CHANGED'
+          );
+          await page.goto(`${url}/business/settings`);
+          await page.getByText('אזור הצוות', { exact: true }).waitFor();
+          requireThat(
+            new URL(page.url()).pathname === '/staff',
+            'MANUAL_QA_STAFF_OWNER_EXPOSED'
+          );
+        }
+        return {
+          realPasswordSession: true,
+          uiClickLogin: true,
+          refreshedSession: true,
+          canonicalRole: role,
+          ...(role === 'staff'
+            ? { scannerInjectionCanonicalCommit: true, ownerRoutesDenied: true }
+            : {}),
+        };
+      } finally {
+        await context.close();
+      }
+    });
+  }
+  await record('MANUAL_QA_ONBOARDING_ENTRY', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    observedPage = page;
+    try {
+      await visit(page, '/preview-qa', 'כניסה לבדיקות');
+      await page.getByRole('checkbox').check();
+      await page.getByRole('button', { name: /^כניסה כלקוח/ }).click();
+      await page.waitForURL((value) => value.pathname === '/name-capture', {
+        timeout: 30000,
+      });
+      await page.locator('input').first().waitFor();
+      requireThat(
+        (await page.locator('input').count()) > 0,
+        'MANUAL_QA_ONBOARDING_MISSING'
+      );
+      return { ordinaryOnboarding: true, originalIdentity: true };
+    } finally {
+      await context.close();
+    }
+  });
+  await record('MANUAL_QA_OWNER_ONBOARDING_ENTRY', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    observedPage = page;
+    try {
+      await visit(page, '/preview-qa', 'כניסה לבדיקות');
+      await page.getByRole('checkbox').check();
+      await page.getByRole('button', { name: /^כניסה כבעל עסק/ }).click();
+      await page.waitForURL((value) => value.pathname === '/name-capture', {
+        timeout: 30000,
+      });
+      await page.locator('input').first().waitFor();
+      requireThat(
+        (await page.locator('input').count()) > 0,
+        'MANUAL_QA_ONBOARDING_MISSING'
+      );
+      return { ordinaryOnboarding: true, originalIdentity: true };
+    } finally {
+      await context.close();
+    }
+  });
+  await record('MANUAL_QA_READY_FOR_HANDOFF', async () => {
+    const summary = await restoreManualFixtures();
+    report.manualQa = {
+      url: `${url}/preview-qa`,
+      syntheticOnly: true,
+      fixtures: summary,
+      logins: Object.fromEntries(
+        ['customer', 'owner', 'manager', 'staff'].map((role) => [
+          role,
+          report.cases[`MANUAL_QA_LOGIN_${role.toUpperCase()}`]?.status,
+        ])
+      ),
+    };
+    requireThat(
+      Object.values(report.manualQa.logins).every(
+        (status) => status === 'PASS'
+      ),
+      'MANUAL_QA_LOGIN_GATE_FAILED'
+    );
+    return report.manualQa;
+  });
   await record('RUNTIME_ERRORS', async () => {
     await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
@@ -2657,6 +2958,7 @@ try {
       browserMessages: report.browserMessages,
       celebrationEvidence: report.celebrationEvidence,
       backendUrl: report.backendUrl,
+      manualQa: report.manualQa,
       performance:
         report.performanceMeasurement ?? report.cases.PERFORMANCE_LIGHTHOUSE,
       accessibility: Object.fromEntries(

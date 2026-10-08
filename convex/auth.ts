@@ -4,6 +4,7 @@ import { Email } from '@convex-dev/auth/providers/Email';
 import { Password } from '@convex-dev/auth/providers/Password';
 import { convexAuth, getAuthUserId } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
+import { manualQaPasswordProfile } from '../lib/auth/manualQaPolicy';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
@@ -672,7 +673,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         );
       },
     }),
-    Password,
+    Password({ profile: (params) => manualQaPasswordProfile(params) }),
     Google({
       allowDangerousEmailAccountLinking: false,
       async profile(rawProfile, tokenSet: OAuthTokenSetLike) {

@@ -10,13 +10,14 @@ export const welcomeStyles = `
 `;
 
 type Props = {
+  manualQa?: boolean;
   onNavigate?: (
     event: MouseEvent<HTMLAnchorElement>,
-    href: '/sign-in' | '/sign-up'
+    href: '/sign-in' | '/sign-up' | '/preview-qa'
   ) => void;
 };
 
-export function WelcomeContent({ onNavigate }: Props) {
+export function WelcomeContent({ onNavigate, manualQa = false }: Props) {
   return (
     <>
       <style>{welcomeStyles}</style>
@@ -75,6 +76,15 @@ export function WelcomeContent({ onNavigate }: Props) {
           </section>
         </div>
         <nav aria-label="כניסה והרשמה">
+          {manualQa ? (
+            <a
+              className="start"
+              href="/preview-qa"
+              onClick={(event) => onNavigate?.(event, '/preview-qa')}
+            >
+              כניסה לבדיקות
+            </a>
+          ) : null}
           <a
             className="start"
             href="/sign-up"

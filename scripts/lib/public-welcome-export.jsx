@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { WelcomeContent } from '../../components/public-web/WelcomeContent';
+import { manualQaClientEnabled } from '../../lib/auth/manualQaPolicy';
 
 /** A real public entry page with working links before the application is downloaded. */
 export function exportPublicWelcome(output, pwaEnabled) {
@@ -32,7 +33,16 @@ export function exportPublicWelcome(output, pwaEnabled) {
         </style>
       </head>
       <body>
-        <WelcomeContent />
+        <WelcomeContent
+          manualQa={manualQaClientEnabled({
+            platform: 'web',
+            environment: process.env.EXPO_PUBLIC_APP_ENV,
+            flag: process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED,
+            url: process.env.EXPO_PUBLIC_CONVEX_URL,
+            previewUrl: process.env.EXPO_PUBLIC_MANUAL_QA_PREVIEW_URL,
+            backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
+          })}
+        />
         {pwaEnabled && <script src="/pwa/welcome.js" defer />}
       </body>
     </html>

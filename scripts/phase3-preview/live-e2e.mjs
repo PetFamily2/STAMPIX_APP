@@ -1,6 +1,7 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
+import { MANUAL_QA_PASSWORD } from '../../lib/auth/manualQaPolicy.ts';
 import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter.ts';
 import { WebScannerCommands } from '../../lib/web-scanner/command.ts';
 
@@ -19,13 +20,14 @@ export async function liveE2e({ target, admin, secret, report, stage }) {
   for (const role of ['owner', 'staff', 'customer', 'manager']) {
     stage(`AUTH_${role.toUpperCase()}`);
     const publicClient = new ConvexHttpClient(target.url, { logger: false });
-    const password = randomBytes(32).toString('base64url');
+    const password = MANUAL_QA_PASSWORD;
     const signUp = await publicClient.action(ref('auth:signIn'), {
       provider: 'password',
       params: {
         flow: 'signUp',
         email: `phase3-${role}@example.invalid`,
         password,
+        qaProvisioningSecret: secret,
       },
     });
     requireThat(

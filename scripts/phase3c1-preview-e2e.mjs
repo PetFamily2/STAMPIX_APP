@@ -15,6 +15,10 @@ import { makeFunctionReference } from 'convex/server';
 import { exportJWK, exportPKCS8, generateKeyPair } from 'jose';
 import webpush from 'web-push';
 import {
+  MANUAL_QA_BRANCH,
+  MANUAL_QA_PASSWORD,
+} from '../lib/auth/manualQaPolicy.ts';
+import {
   approvedPreviewGoogleEnvironment,
   PREVIEW_NAME,
   previewPublicEnvironment,
@@ -319,6 +323,10 @@ try {
     WEB_PUSH_VAPID_PRIVATE_KEY: vapid.privateKey,
     WEB_PUSH_VAPID_SUBJECT: 'https://stampaix.com',
     STAMPAIX_ENV: 'preview',
+    MANUAL_QA_ENABLED: 'true',
+    MANUAL_QA_DEPLOYMENT_TYPE: authorized.deploymentType,
+    MANUAL_QA_SOURCE_BRANCH: MANUAL_QA_BRANCH,
+    MANUAL_QA_PASSWORD,
     AUTH_LOG_LEVEL: 'ERROR',
     SITE_URL: target.url.replace('.cloud', '.site'),
     PHASE3_PREVIEW_NAME: PREVIEW_NAME,

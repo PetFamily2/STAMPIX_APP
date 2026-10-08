@@ -95,7 +95,7 @@ rejects unknown data. A deleted disposable actor's staff acceptance event is acc
 only with its matching canonical synthetic invitation, business, role, actor and time;
 that proof cannot authorize unrelated actor references. Existing synthetic
 signing/VAPID keys are retained. Password-provider automation uses real authenticated
-sessions and ordinary authorization; no public password login or auth bypass is added.
+sessions and ordinary authorization; manual Password login is exposed only by the separately guarded synthetic Preview QA entry, never as Production login or an auth bypass.
 Private runner files are restricted and deleted. Artifacts omit QR, tokens, passwords,
 deploy keys, private VAPID material, customer payloads and authenticated traces.
 
@@ -136,7 +136,7 @@ AUTH_GOOGLE_SECRET, AUTH_APPLE_ID and AUTH_APPLE_SECRET. Missing providers are
 EXTERNAL_CONFIGURATION_REQUIRED. Configure approved Preview credentials/origins, then
 verify real email delivery, Google/Apple callback/logout/linking and recovery. Existing
 redirect allowlists and account-linking boundaries must remain fail closed.
-Password automation permits other hosted journeys to run without these providers.
+The manual Preview QA entry permits real Password sessions and functional testing without these providers; provider acceptance remains separate.
 
 ## Rollout and rollback
 
@@ -173,3 +173,43 @@ Native iOS; Native Android:
 
 Cloud readiness plus provider/device gates is a candidate for final acceptance, not a
 Production-readiness claim. Production rollout requires those gates and explicit approval.
+
+## Manual Preview QA — October 8, 2026
+
+Open the current paired EAS Preview `/welcome`, select **כניסה לבדיקות**, or open
+`/preview-qa` directly. Four buttons authenticate the synthetic Customer, Owner,
+Manager and Staff with the existing Password provider and normal Convex Auth sessions.
+No credentials need to be typed. Return to this URL to switch accounts.
+An optional checkbox replays ordinary Customer/Owner onboarding for the same identity.
+
+Client gating requires Web, `EXPO_PUBLIC_APP_ENV=preview`,
+`EXPO_PUBLIC_MANUAL_QA_ENABLED=true`, verified Preview backend and exact
+`EXPO_PUBLIC_MANUAL_QA_PREVIEW_URL` binding. Native renders the ordinary welcome
+redirect. The server independently requires `STAMPAIX_ENV=preview`,
+`MANUAL_QA_ENABLED=true`, the Actions-proven `MANUAL_QA_DEPLOYMENT_TYPE=preview`,
+the exact Phase 3 branch marker, the owned named synthetic Preview and matching
+cloud/site URLs. Missing or mismatched gates deny access. These gates are provisioned
+only after the existing Preview authorization proves deployment type and scope.
+
+The dedicated QA password is deliberately public synthetic test material, not a
+Production credential. Only four fixed `.invalid` accounts appear in the entry.
+The Password provider still verifies its Scrypt credentials; the server denies
+non-synthetic Password identities in manual QA, and reserved QA identities in
+DEV/Production. Synthetic signup additionally needs the private fixture provisioning
+secret, which is absent from client exports, queries and logs. No generic auth bypass,
+new provider, session impersonation, schema migration or Production rollout is added.
+
+After hosted QA the internal fixture arranger restores each role, active programs,
+a card with two stamps, a completed reward card, a granted referral benefit,
+a sample campaign, inbox messages and map location. Scanner actor/business allowlists
+remain enabled only for that paired Preview. The no-camera test button obtains
+a real customer QR using a separate genuine synthetic Customer session, then passes
+it to the same `WebScannerCommands.decode` path. Commit, receipts, uncertainty and
+read-only reconciliation are unchanged. QR stays volatile and the temporary
+Customer session is signed out. Physical camera and real OS Push still need devices.
+
+Hosted acceptance clicks all four buttons in fresh browser contexts, verifies the
+canonical server identity and staff role, verifies reload/session persistence, tests
+onboarding and the no-camera scanner through an actual canonical commit, rejects
+wrong passwords/non-synthetic signup/public provisioning and restores usable fixtures
+for handoff. External OAuth/email acceptance is not required for these manual tests.

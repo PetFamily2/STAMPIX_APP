@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { WelcomeContent } from '@/components/public-web/WelcomeContent';
+import { isManualQaClientEnabled } from '@/lib/auth/useManualQaAccess';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 export default function WebWelcomeScreen() {
@@ -9,6 +10,7 @@ export default function WebWelcomeScreen() {
   });
   return (
     <WelcomeContent
+      manualQa={isManualQaClientEnabled()}
       onNavigate={(event, href) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
           return;

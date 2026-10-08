@@ -169,6 +169,8 @@ export function previewPublicEnvironment(_pulled, target, actors, businesses) {
   }
   Object.assign(result, {
     EXPO_PUBLIC_PWA_ENABLED: 'true',
+    EXPO_PUBLIC_MANUAL_QA_ENABLED: 'true',
+    EXPO_PUBLIC_MANUAL_QA_PREVIEW_URL: target.url,
     EXPO_PUBLIC_SCANNER_RECEIPTS: 'true',
     EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true',
     EXPO_PUBLIC_WEB_QR_LAB: 'false',
@@ -279,7 +281,8 @@ export function canRestartSyntheticCamera(evidence) {
 // authorization failures, app runtime failures or unknown response statuses.
 export function documentReadRetryDelay(status, retryAfter, now = Date.now()) {
   if (![429, 502, 503, 504].includes(status)) return null;
-  if (retryAfter === null || retryAfter === '') return status === 429 ? 15000 : 3000;
+  if (retryAfter === null || retryAfter === '')
+    return status === 429 ? 15000 : 3000;
   const delay = /^\d+$/.test(retryAfter)
     ? Number(retryAfter) * 1000
     : Date.parse(retryAfter) - now;
@@ -292,9 +295,7 @@ export function syntheticCameraY4m() {
   const width = 320;
   const height = 240;
   const count = 20;
-  const chunks = [
-    Buffer.from('YUV4MPEG2 W320 H240 F10:1 Ip A1:1 C420jpeg\n'),
-  ];
+  const chunks = [Buffer.from('YUV4MPEG2 W320 H240 F10:1 Ip A1:1 C420jpeg\n')];
   for (let frame = 0; frame < count; frame++) {
     chunks.push(
       Buffer.from('FRAME\n'),
@@ -308,7 +309,12 @@ export function syntheticCameraY4m() {
 // CI document reads are paced like navigation, never business-command retries.
 export function hostedDocumentPause(previousAt, now = Date.now()) {
   if (previousAt == null) return 0;
-  if (!Number.isFinite(previousAt) || !Number.isFinite(now) || previousAt < 0 || now < 0)
+  if (
+    !Number.isFinite(previousAt) ||
+    !Number.isFinite(now) ||
+    previousAt < 0 ||
+    now < 0
+  )
     throw new Error('INVALID_DOCUMENT_READ_CLOCK');
   return Math.max(0, 2000 - Math.max(0, now - previousAt));
 }
