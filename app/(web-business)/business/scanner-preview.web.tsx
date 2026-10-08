@@ -31,6 +31,7 @@ export default function ScannerPreviewRoute() {
       platform: 'web',
       environment: process.env.EXPO_PUBLIC_APP_ENV,
       flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
+      productPreview: process.env.EXPO_PUBLIC_WEB_SCANNER_PRODUCT_PREVIEW,
       releaseGate: process.env.EXPO_PUBLIC_PWA_RELEASE_GATE,
       actors: preview
         ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS
@@ -94,7 +95,9 @@ export default function ScannerPreviewRoute() {
     >
       {!scannerProgramId ? <h1>סריקת QR</h1> : null}
       <label>
-        {preview ? 'כרטיס לבדיקה' : 'כרטיסייה'}{' '}
+        {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
+          ? 'כרטיס לבדיקה'
+          : 'כרטיסייה'}{' '}
         <select
           style={{ minHeight: 44, padding: '8px 12px', maxWidth: '100%' }}
           disabled={busy || !!priorProgram}

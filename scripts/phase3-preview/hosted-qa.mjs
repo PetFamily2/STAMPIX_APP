@@ -1955,6 +1955,23 @@ try {
     await denied(clients.customer, 'loyaltyPrograms:listManagementByBusiness', {
       businessId: fixtures.businessId,
     });
+    const checkoutAvailability = await clients.owner.query(
+      ref('businessBilling:getCheckoutAvailability'),
+      { businessId: fixtures.businessId }
+    );
+    requireThat(
+      checkoutAvailability.available === false,
+      'UNCONFIGURED_CHECKOUT_ENABLED'
+    );
+    for (const role of ['customer', 'manager', 'staff'])
+      await denied(clients[role], 'businessBilling:getCheckoutAvailability', {
+        businessId: fixtures.businessId,
+      });
+    await denied(
+      new ConvexHttpClient(target.url, { logger: false }),
+      'businessBilling:getCheckoutAvailability',
+      { businessId: fixtures.businessId }
+    );
     let staffWriteDenied = false;
     try {
       await clients.staff.mutation(
@@ -2897,6 +2914,97 @@ try {
     );
     return report.manualQa;
   });
+  await record('PRODUCT_LAYOUT_REGRESSION', async () => {
+    // Read-only regression on the existing CI fixtures. This is not acceptance
+    // of ordinary account creation, invitations, payments or physical scanning.
+    const surfaces = {
+      customer: [
+        ['/wallet', 'הארנק שלי'],
+        ['/rewards', 'הטבות והודעות'],
+        ['/show-qr', 'ה-QR שלי'],
+        ['/discovery', 'עסקים'],
+        ['/referrals', 'ההזמנות שלי'],
+        ['/settings', 'הגדרות'],
+        ['/account-details', 'פרטי החשבון'],
+        ['/help-support', 'עזרה ותמיכה'],
+      ],
+      owner: [
+        ['/business', 'Synthetic Phase 3 primary'],
+        ['/business/customers', 'לקוחות'],
+        ['/business/loyalty', 'כרטיסיות'],
+        ['/business/cards/new', 'שם הכרטיסייה'],
+        ['/business/team', 'צוות'],
+        ['/business/analytics', 'ניתוחים'],
+        ['/business/billing', 'חיוב וחשבוניות'],
+        ['/business/campaigns', 'קמפיינים'],
+        ['/business/referrals', 'קמפיין חבר מביא חבר'],
+        ['/business/inbox', 'הודעות'],
+        ['/business/settings', 'הגדרות'],
+        ['/business/qr', 'קוד הצטרפות לעסק'],
+      ],
+      manager: [
+        ['/business', 'Synthetic Phase 3 primary'],
+        ['/business/billing', 'החיוב זמין לבעלי העסק'],
+      ],
+      staff: [
+        ['/staff', 'אזור הצוות'],
+        ['/staff/settings', 'הגדרות'],
+        ['/staff/scanner-preview', 'כרטיס לבדיקה'],
+      ],
+    };
+    const observations = [];
+    for (const [role, routes] of Object.entries(surfaces)) {
+      const session = await authenticated(role);
+      try {
+        for (const width of [320, 390, 1440]) {
+          await session.page.setViewportSize({ width, height: 900 });
+          for (const [path, label] of routes) {
+            await visit(session.page, path, label);
+            await closeCelebrations(session.page);
+            await layout(session.page);
+            requireThat(
+              await session.page
+                .locator('#stampaix-product-frame')
+                .evaluate((el) => getComputedStyle(el).direction === 'ltr'),
+              'PRODUCT_MANUAL_RTL_BASELINE'
+            );
+            if (path === '/wallet') {
+              const wallet = await session.page
+                .getByRole('tab', { name: 'ארנק', exact: true })
+                .boundingBox();
+              const settings = await session.page
+                .getByRole('tab', { name: 'הגדרות', exact: true })
+                .boundingBox();
+              requireThat(
+                wallet && settings && wallet.x > settings.x,
+                'PRODUCT_CUSTOMER_TAB_ORDER'
+              );
+            }
+            if (path === '/business' && width === 1440) {
+              const navigation = await session.page
+                .getByLabel('ניווט עסקי', { exact: true })
+                .boundingBox();
+              const main = await session.page
+                .getByLabel('תוכן ראשי של העסק', { exact: true })
+                .boundingBox();
+              requireThat(
+                navigation && main && navigation.x > main.x,
+                'PRODUCT_BUSINESS_SIDEBAR_ORDER'
+              );
+            }
+            observations.push({ role, path, width, status: 'PASS' });
+          }
+        }
+      } finally {
+        await session.context.close();
+      }
+    }
+    return {
+      classification: 'SYNTHETIC_READ_ONLY_REGRESSION',
+      ordinaryJourneyAcceptance: false,
+      observations,
+    };
+  });
   await record('RUNTIME_ERRORS', async () => {
     await Promise.allSettled(errorDetails);
     report.runtimeErrorCount = errors.length;
@@ -2917,7 +3025,7 @@ try {
       (e) =>
         e.kind === 'WebSocket is closed before the connection is established' &&
         e.duringNavigation &&
-        e.during === 'A11Y_AUDIT'
+        ['A11Y_AUDIT', 'PRODUCT_LAYOUT_REGRESSION'].includes(e.during)
     );
     report.browserMessages.push(...navigationClosures);
     report.browserMessages.push(

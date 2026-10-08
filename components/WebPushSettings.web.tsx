@@ -125,12 +125,40 @@ export default function WebPushSettings() {
     }
   };
   return (
-    <section dir="rtl" style={{ padding: 16 }}>
-      <h2>התראות בדפדפן</h2>
-      <button type="button" disabled={busy} onClick={() => void toggle()}>
+    <section
+      dir="rtl"
+      style={{
+        padding: 16,
+        marginTop: 16,
+        background: '#fff',
+        border: '1px solid #dbe3ef',
+        borderRadius: 16,
+      }}
+    >
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px' }}>
+        התראות בדפדפן
+      </h2>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void toggle()}
+        style={{
+          minHeight: 44,
+          padding: '10px 18px',
+          borderRadius: 12,
+          background: '#2563eb',
+          color: '#fff',
+          cursor: busy ? 'wait' : 'pointer',
+          opacity: busy ? 0.65 : 1,
+        }}
+      >
         {busy ? 'מעדכנים…' : enabled ? 'כיבוי התראות' : 'הפעלת התראות'}
       </button>
-      {message ? <output>{message}</output> : null}
+      {message ? (
+        <output style={{ display: 'block', marginTop: 12, lineHeight: 1.6 }}>
+          {message}
+        </output>
+      ) : null}
     </section>
   );
 }

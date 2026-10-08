@@ -45,16 +45,16 @@ export default function WebStaffLanding() {
         {business ? <Text style={styles.business}>{business.name}</Text> : null}
         <Text style={styles.body}>
           {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
-            ? process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+            ? process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
               ? 'סריקה זמינה למורשי בדיקה בסביבת Preview בלבד.'
-              : 'סריקה זמינה למורשי הפיילוט.'
+              : 'סרקו את קוד הלקוח כדי להוסיף חותמת או לממש הטבה.'
             : 'אפשר להמשיך לסרוק באפליקציה.'}
         </Text>
         {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
           <PaintedPressable
             accessibilityRole="button"
             accessibilityLabel={
-              process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+              process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
                 ? 'פתיחת סורק בדיקה'
                 : 'פתיחת סורק'
             }
@@ -62,7 +62,7 @@ export default function WebStaffLanding() {
             style={styles.button}
           >
             <Text style={styles.buttonText}>
-              {process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+              {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
                 ? 'פתיחת סורק בדיקה'
                 : 'פתיחת סורק'}
             </Text>

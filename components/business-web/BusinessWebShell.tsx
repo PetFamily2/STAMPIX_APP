@@ -132,7 +132,7 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
         {
           key: 'scanner',
           label:
-            process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+            process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
               ? 'סריקה — Preview'
               : 'סריקה',
           icon: Gift,
@@ -177,7 +177,7 @@ function NavList({
 }) {
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
-      {BUSINESS_WEB_NAV_ITEMS.map((item) => {
+      {BUSINESS_WEB_NAV_ITEMS.filter((item) => item.href).map((item) => {
         const Icon = item.icon;
         const isDisabled = !item.href;
         const isActive = isBusinessWebRouteActive(
@@ -186,9 +186,7 @@ function NavList({
         );
         return (
           <Pressable
-            accessibilityLabel={
-              isDisabled ? `${item.label}, בקרוב` : item.label
-            }
+            accessibilityLabel={item.label}
             accessibilityRole="link"
             accessibilityState={{ disabled: isDisabled, selected: isActive }}
             disabled={isDisabled}
@@ -211,7 +209,6 @@ function NavList({
             >
               {item.label}
             </Text>
-            {isDisabled ? <Text style={styles.soonLabel}>בקרוב</Text> : null}
           </Pressable>
         );
       })}
@@ -750,7 +747,7 @@ const styles = StyleSheet.create({
   },
   navList: { gap: TOKENS.space.xs },
   navItem: {
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -795,8 +792,8 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.primarySubtle,
   },
   avatarButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -821,8 +818,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   logoutButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -857,8 +854,8 @@ const styles = StyleSheet.create({
   },
   topbarSpacer: { flex: 1 },
   iconButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -872,7 +869,7 @@ const styles = StyleSheet.create({
   switcherButton: {
     minWidth: 168,
     maxWidth: 220,
-    minHeight: 36,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -888,7 +885,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
     maxWidth: 360,
-    minHeight: 42,
+    minHeight: 44,
   },
   switcherIcon: {
     width: 28,

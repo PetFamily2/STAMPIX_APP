@@ -232,6 +232,15 @@ jobs:
         run: bun scripts/phase3-preview/install-qa.mjs
       - name: Hosted authenticated RC QA
         run: bun scripts/phase3-preview/hosted-qa.mjs
+      - name: Deploy ordinary product Preview without fixtures or data reset
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PHASE3_SOURCE_SHA: acde88e1980c7cdc20519eab01e85e8c17f29f6e
+          PHASE3_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          VERIFIED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PHASE3_PREVIEW_NAME: stampaix-pwa-phase3-e2e
+        run: bun scripts/product-preview.mjs
       - name: Upload sanitized evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -240,6 +249,7 @@ jobs:
           path: |
             phase3c1-preview-evidence.json
             rc-hosted-evidence.json
+            product-preview-evidence.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Remove private automation state

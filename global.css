@@ -43,6 +43,42 @@ select {
   font-family: 'Heebo', Arial, sans-serif;
 }
 
+/* The app uses explicit manual RTL rows. A RTL flex baseline would invert them
+ * twice. Hebrew document semantics and HTML islands retain their own dir=rtl. */
+#root, body > div { direction: ltr; }
+#stampaix-product-frame {
+  direction: ltr;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  background: #f5f7fb;
+}
+#stampaix-product-frame[data-layout='onboarding'] {
+  max-width: 640px;
+  align-self: center;
+  background: #fff;
+}
+#stampaix-product-frame[data-layout='customer'] {
+  max-width: 960px;
+  align-self: center;
+}
+html, body { background: #f5f7fb; }
+button, input, textarea, select { font-size: 16px; }
+button:focus-visible, a:focus-visible, input:focus-visible,
+[role='button']:focus-visible, [role='tab']:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+@media (min-width: 960px) {
+  #stampaix-product-frame[data-layout='customer'],
+  #stampaix-product-frame[data-layout='onboarding'] {
+    border-inline: 1px solid #e2e8f0;
+  }
+}
+
 /* Keyboard focus treatment isolated to the Business Web shell. */
 #business-web-shell [role='button']:focus-visible,
 #business-web-shell [role='menuitem']:focus-visible {

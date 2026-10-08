@@ -73,7 +73,39 @@ export function scannerProductionPilotEnabled(input: {
   );
 }
 export function scannerCommandsEnabled(
-  input: Parameters<typeof scannerProductionPilotEnabled>[0]
+  input: Parameters<typeof scannerProductionPilotEnabled>[0] & {
+    productPreview?: string;
+  }
 ) {
-  return scannerPreviewEnabled(input) || scannerProductionPilotEnabled(input);
+  return (
+    scannerPreviewEnabled(input) ||
+    scannerProductPreviewEnabled(input) ||
+    scannerProductionPilotEnabled(input)
+  );
+}
+
+/** Product Preview accounts use normal backend RBAC, rather than fixture ID allowlists.
+ * This gate changes availability only; every resolve/commit still authenticates and
+ * verifies the actor's business capability and program on the server. */
+export function scannerProductPreviewEnabled(
+  input: Parameters<typeof scannerProductionPilotEnabled>[0] & {
+    productPreview?: string;
+  }
+) {
+  return (
+    input.platform === 'web' &&
+    input.environment === 'preview' &&
+    input.productPreview === 'true' &&
+    input.flag === 'true' &&
+    input.backend === 'verified-preview' &&
+    !!input.actorId &&
+    !!input.businessId &&
+    !!input.url &&
+    input.url === input.previewUrl &&
+    input.url !== input.prodUrl &&
+    /^https:\/\/[a-z0-9]+(?:-[a-z0-9]+)*\.convex\.cloud$/.test(input.url) &&
+    !/^https:\/\/(utmost-fennec-280|aware-llama-850)\.convex\.cloud$/.test(
+      input.url
+    )
+  );
 }

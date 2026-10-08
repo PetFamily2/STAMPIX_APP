@@ -10,6 +10,7 @@ import '../global.css';
 
 import PwaRuntime from '@/components/PwaRuntime';
 import WebAlertHost from '@/components/WebAlertHost';
+import WebProductFrame from '@/components/WebProductFrame';
 import WebPushLifecycle from '@/components/WebPushLifecycle';
 import { ActiveBusinessProvider } from '@/contexts/ActiveBusinessContext';
 import { AppModeProvider } from '@/contexts/AppModeContext';
@@ -55,10 +56,20 @@ class RootErrorBoundary extends React.Component<
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: 'black',
+            backgroundColor: Platform.OS === 'web' ? '#F5F7FB' : 'black',
+            padding: Platform.OS === 'web' ? 24 : 0,
           }}
         >
-          <Text style={{ color: 'red', fontSize: 16 }}>
+          <Text
+            accessibilityRole="alert"
+            style={{
+              color: Platform.OS === 'web' ? '#172033' : 'red',
+              fontSize: 16,
+              textAlign: 'center',
+              maxWidth: 480,
+              lineHeight: 26,
+            }}
+          >
             {Platform.OS === 'web'
               ? 'לא הצלחנו לטעון את המסך. אפשר לרענן כשאין פעולה ממתינה.'
               : (this.state.error?.message ?? 'שגיאה לא ידועה')}
@@ -109,7 +120,9 @@ export default function RootLayout() {
                       <WebAlertHost />
                       <WebPushLifecycle />
                       <PwaRuntime />
-                      <Slot />
+                      <WebProductFrame>
+                        <Slot />
+                      </WebProductFrame>
                     </RootErrorBoundary>
                   </RevenueCatProvider>
                 </OnboardingProvider>

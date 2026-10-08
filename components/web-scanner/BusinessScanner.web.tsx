@@ -304,11 +304,9 @@ export default function BusinessScanner(props: {
       }}
     >
       <h1 style={{ textAlign: 'right' }}>
-        {process.env.EXPO_PUBLIC_APP_ENV === 'preview'
-          ? 'סורק עסקי — Preview למורשים בלבד'
-          : 'סריקת QR'}
+        {manualQa.enabled ? 'סורק עסקי — Preview למורשים בלבד' : 'סריקת QR'}
       </h1>
-      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? (
+      {manualQa.enabled ? (
         <p>בדיקה בסביבת Preview מבודדת. אין תוצאה מוצלחת לפני אישור מהשרת.</p>
       ) : null}
       {blocked ? <p role="alert">{blocked}</p> : null}
@@ -456,7 +454,7 @@ export default function BusinessScanner(props: {
           </select>
         </label>
       ) : null}
-      {process.env.EXPO_PUBLIC_APP_ENV === 'preview' ? (
+      {manualQa.enabled ? (
         <p>
           תוכן QR עובר בזיכרון בלבד לצורך resolve. אין queue או retry אוטומטי של
           פעולה.
