@@ -19,8 +19,13 @@ Production deployment and merging to main remain outside authorization.
 - CI provisions no database and seeds no synthetic accounts. It verifies the changed
   application and Native contracts, selects only the exact existing DEV database using
   existing deployment access, validates its schema, syncs the backend and hosts the same source.
-- Existing user, membership and event IDs are verified before and after backend sync.
-  Keys, table documents, QR payloads and sessions are not included in CI evidence.
+- The existing integration key is scoped to backend deployment. Its permissions are
+  preserved; server provider values and table data are not read with that key. Existing
+  signing/provider variable names were checked in the original Convex dashboard on
+  2026-10-10. No environment value is changed. The schema dry run validates compatibility
+  with existing records before backend sync. Original wallet/history preservation remains
+  ordinary sign-in acceptance, never a claimed scripted PASS.
+- Keys, table documents, QR payloads and sessions are not included in CI evidence.
 
 ## Install banner
 

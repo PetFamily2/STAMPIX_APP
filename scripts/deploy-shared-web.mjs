@@ -223,146 +223,13 @@ try {
     }
   }
   if (!key) fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
-  report.stage = 'EXISTING_ENVIRONMENT_READ';
-  const deploymentEnv = Object.fromEntries(
-    Object.entries(process.env).filter(
-      ([name]) => !/^(CONVEX_|EXPO_PUBLIC_)/.test(name)
-    )
-  );
-  deploymentEnv.CONVEX_DEPLOY_KEY = key;
-  // Use the documented Deployment Platform API; the deployment's system env
-  // operation is unavailable over the pinned CLI WebSocket transport.
-  const readExistingEnvironment = async () => {
-    const response = await fetch(`${URL}/api/v1/list_environment_variables`, {
-      headers: { Authorization: `Convex ${key}` },
-      redirect: 'error',
-      signal: AbortSignal.timeout(45000),
-    });
-    report.environmentReadHttp = response.status;
-    if (!response.ok) fail('SHARED_ENVIRONMENT_HTTP_READ_FAILED');
-    const result = await response.json();
-    const rows = Array.isArray(result)
-      ? result
-      : (result.variables ?? result.environmentVariables);
-    if (
-      !Array.isArray(rows) ||
-      rows.some(
-        (row) => typeof row.name !== 'string' || typeof row.value !== 'string'
-      )
-    )
-      fail('SHARED_ENVIRONMENT_RESPONSE_INVALID');
-    return Object.fromEntries(rows.map(({ name, value }) => [name, value]));
-  };
-  let existing;
-  try {
-    existing = await readExistingEnvironment();
-  } catch {
-    // A read-only deployment dry run distinguishes a system-query transport limit
-    // from unusable deploy access. Never continue to a push without all preflights.
-    const environmentReadFailure = report.cliFailure;
-    report.stage = 'READ_ONLY_DEPLOY_ACCESS_DIAGNOSTIC';
-    try {
-      run(
-        'node',
-        [
-          'node_modules/convex/bin/main.js',
-          'deploy',
-          '--url',
-          URL,
-          '--admin-key',
-          key,
-          '--yes',
-          '--typecheck',
-          'disable',
-          '--codegen',
-          'disable',
-          '--dry-run',
-        ],
-        deploymentEnv,
-        600000
-      );
-      report.readOnlyDeployDiagnostic = 'PASS';
-    } catch {
-      report.readOnlyDeployDiagnostic = 'FAILED';
-      report.readOnlyDeployFailure = report.cliFailure;
-    }
-    report.cliFailure = environmentReadFailure;
-    report.stage = 'EXISTING_ENVIRONMENT_READ';
-    if (!process.env.EXISTING_PROJECT_KEY)
-      fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
-    const projectSelection = requireProjectPreviewKey(
-      process.env.EXISTING_PROJECT_KEY
-    );
-    const response = await fetch(
-      'https://api.convex.dev/api/deployment/authorize_within_current_project',
-      {
-        method: 'POST',
-        redirect: 'error',
-        signal: AbortSignal.timeout(45000),
-        headers: {
-          Authorization: `Bearer ${process.env.EXISTING_PROJECT_KEY}`,
-          'Content-Type': 'application/json',
-          'Convex-Client': 'npm-cli-1.31.5',
-        },
-        body: JSON.stringify({
-          projectSelection,
-          selectedDeploymentName: NAME,
-        }),
-      }
-    );
-    report.existingProjectAuthorizationHttp = response.status;
-    if (!response.ok) fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
-    const target = await response.json();
-    if (
-      target.url !== URL ||
-      target.deploymentName !== NAME ||
-      target.deploymentType !== 'dev'
-    )
-      fail('SHARED_TARGET_MISMATCH');
-    key = target.adminKey;
-    try {
-      existing = await readExistingEnvironment();
-    } catch {
-      fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
-    }
-    delete report.cliFailure;
-    report.existingAccessRefreshed = true;
-  }
-  deploymentEnv.CONVEX_DEPLOY_KEY = key;
-  if (existing.CONVEX_CLOUD_URL && existing.CONVEX_CLOUD_URL !== URL)
-    fail('SHARED_TARGET_MISMATCH');
-  if (
-    existing.STAMPAIX_ENV &&
-    !['dev', 'development'].includes(existing.STAMPAIX_ENV)
-  )
-    fail('SHARED_ENVIRONMENT_MISMATCH');
-  if (
-    !existing.JWT_PRIVATE_KEY ||
-    !existing.JWKS ||
-    !existing.SCAN_TOKEN_SECRET
-  )
-    fail('SHARED_EXISTING_SIGNING_CONFIGURATION_REQUIRED');
-  const admin = new ConvexHttpClient(URL, { logger: false });
-  admin.setAdminAuth(key);
-  const dataIds = async (table) => {
-    let cursor = null;
-    const ids = [];
-    for (let page = 0; page < 20; page++) {
-      const rows = await admin.query(
-        makeFunctionReference('_system/cli/tableData'),
-        { table, order: 'asc', paginationOpts: { cursor, numItems: 100 } }
-      );
-      if (!Array.isArray(rows.page)) fail('SHARED_DATA_RESPONSE_INVALID');
-      ids.push(...rows.page.map((row) => row._id));
-      if (rows.isDone) return ids;
-      cursor = rows.continueCursor;
-    }
-    fail('SHARED_DATA_VERIFICATION_LIMIT');
-  };
-  report.stage = 'EXISTING_DATA_READ';
-  const before = {};
-  for (const table of ['users', 'memberships', 'events'])
-    before[table] = await dataIds(table);
+  // The existing integration key has deploy permissions, not environment/data
+  // read permissions. Preserve that scope: backend sync never needs provider
+  // values, and deployment validation checks the schema against existing records.
+  // Environment name presence was verified on this exact dashboard on 2026-10-10.
+  report.existingConfigurationEvidence = 'Convex dashboard, 2026-10-10';
+  report.privateEnvironmentRead = false;
+  report.deployKeyPermissionsExpanded = false;
   const clean = Object.fromEntries(
     Object.entries(process.env).filter(
       ([name]) =>
@@ -413,12 +280,9 @@ try {
     600000
   );
   report.backendDeployed = true;
-  report.stage = 'DATA_PRESERVATION';
-  for (const [table, ids] of Object.entries(before)) {
-    const after = new Set(await dataIds(table));
-    if (ids.some((id) => !after.has(id))) fail('SHARED_EXISTING_DATA_MISSING');
-  }
-  report.existingRecordsPreserved = true;
+  // No import, seed, reset, table clear or record mutation is performed. Exact
+  // wallet/history preservation is verified via ordinary sign-in after hosting.
+  report.existingDataAcceptance = 'ORDINARY_SIGN_IN_PENDING';
   report.stage = 'AUTH_AVAILABILITY';
   report.auth = await new ConvexHttpClient(URL, { logger: false }).query(
     makeFunctionReference('webAuth:getProviderAvailability'),
