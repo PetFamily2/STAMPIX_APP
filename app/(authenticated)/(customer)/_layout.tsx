@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
-import { Tabs, useSegments } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Tabs, usePathname, useSegments } from 'expo-router';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
@@ -23,7 +30,8 @@ const TAB_BAR_CONTENT_HEIGHT = 56;
 const DISCOVERY_TAB_ICON_SIZE = 30;
 const STANDARD_TAB_ACTIVE_BACKGROUND = '#E7F0FF';
 const STANDARD_TAB_ACTIVE_COLOR = '#111827';
-const STANDARD_TAB_INACTIVE_COLOR = '#9AA4B8';
+const STANDARD_TAB_INACTIVE_COLOR =
+  Platform.OS === 'web' ? '#64748B' : '#9AA4B8';
 const SETTINGS_ROUTE_NAMES = new Set([
   'settings',
   'account-details',
@@ -62,7 +70,9 @@ function StandardTabButton({
   return (
     <Pressable
       accessibilityLabel={props.accessibilityLabel ?? title}
-      accessibilityRole={props.accessibilityRole}
+      accessibilityRole={
+        Platform.OS === 'web' ? 'tab' : props.accessibilityRole
+      }
       accessibilityState={{ ...props.accessibilityState, selected: isActive }}
       onLongPress={props.onLongPress}
       onPress={props.onPress}
@@ -99,11 +109,14 @@ function StandardTabButton({
 export default function CustomerTabsLayout() {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
+  const pathname = usePathname();
   const segmentStrings = (
     Array.isArray(segments) ? segments.filter(Boolean) : []
   ) as string[];
   const currentLeafSegment =
-    segmentStrings[segmentStrings.length - 1] ?? 'wallet';
+    Platform.OS === 'web'
+      ? (pathname.split('/').filter(Boolean).at(-1) ?? 'wallet')
+      : (segmentStrings[segmentStrings.length - 1] ?? 'wallet');
   const activeTabName = SETTINGS_ROUTE_NAMES.has(currentLeafSegment)
     ? 'settings'
     : currentLeafSegment;
@@ -182,7 +195,9 @@ export default function CustomerTabsLayout() {
             return (
               <Pressable
                 accessibilityLabel={props.accessibilityLabel ?? TEXT.showQr}
-                accessibilityRole={props.accessibilityRole}
+                accessibilityRole={
+                  Platform.OS === 'web' ? 'tab' : props.accessibilityRole
+                }
                 accessibilityState={{
                   ...props.accessibilityState,
                   selected: isActive,
@@ -204,12 +219,20 @@ export default function CustomerTabsLayout() {
                     ]}
                   >
                     <View style={styles.qrTabBubble}>
-                      <Image
-                        source={BRAND_IMAGE_LOGO}
-                        style={styles.qrTabLogo}
-                        resizeMode="cover"
-                        accessibilityLabel="StampAix logo"
-                      />
+                      {Platform.OS === 'web' ? (
+                        <Ionicons
+                          name="qr-code-outline"
+                          size={28}
+                          color="#FFFFFF"
+                        />
+                      ) : (
+                        <Image
+                          source={BRAND_IMAGE_LOGO}
+                          style={styles.qrTabLogo}
+                          resizeMode="cover"
+                          accessibilityLabel="StampAix logo"
+                        />
+                      )}
                     </View>
                   </View>
                   <Text
@@ -366,9 +389,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrTabBubbleShadow: {
-    marginTop: -38,
-    width: 68,
-    height: 76,
+    marginTop: Platform.OS === 'web' ? 0 : -38,
+    width: Platform.OS === 'web' ? 52 : 68,
+    height: Platform.OS === 'web' ? 34 : 76,
     alignItems: 'center',
     justifyContent: justifyContent.start,
     alignSelf: 'center',
@@ -383,13 +406,13 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   qrTabBubble: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: Platform.OS === 'web' ? 52 : 64,
+    height: Platform.OS === 'web' ? 34 : 64,
+    borderRadius: Platform.OS === 'web' ? 17 : 32,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D5E3FF',
     shadowColor: '#1B4FD6',

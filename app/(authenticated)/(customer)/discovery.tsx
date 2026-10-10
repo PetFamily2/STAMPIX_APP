@@ -361,6 +361,11 @@ export default function DiscoveryScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.cardTitle}>{TEXT.permissionTitle}</Text>
             <Text style={styles.cardSubtitle}>{TEXT.permissionSubtitle}</Text>
+            {Platform.OS === 'web' && error ? (
+              <Text accessibilityRole="alert" style={styles.cardTitle}>
+                {locationErrorMessage}
+              </Text>
+            ) : null}
             <PaintedPressable
               accessibilityRole="button"
               accessibilityLabel={TEXT.permissionButton}
@@ -788,54 +793,54 @@ export default function DiscoveryScreen() {
                 ) : null}
               </View>
             )}
-
-            {!isSavedBusinessesLoading && savedBusinesses.length > 0 ? (
-              <View style={styles.listCard}>
-                <Text style={styles.panelTitle}>{TEXT.savedTitle}</Text>
-                <View style={styles.resultsList}>
-                  {savedBusinesses.map((business) => (
-                    <Pressable
-                      key={String(business.businessId)}
-                      accessibilityRole="button"
-                      accessibilityLabel={business.businessName}
-                      onPress={() =>
-                        openBusinessPage(String(business.businessId))
-                      }
-                      style={({ pressed }) => [
-                        styles.businessCard,
-                        pressed ? styles.pressed : null,
-                      ]}
-                    >
-                      <View style={styles.businessRow}>
-                        <View style={styles.logoShell}>
-                          {business.businessLogoUrl ? (
-                            <Image
-                              source={{ uri: business.businessLogoUrl }}
-                              style={styles.logoImage}
-                              resizeMode="cover"
-                              accessible={false}
-                            />
-                          ) : (
-                            <Text style={styles.logoMonogram}>
-                              {getBusinessMonogram(business.businessName)}
-                            </Text>
-                          )}
-                        </View>
-                        <View style={styles.businessCopy}>
-                          <Text style={styles.businessName} numberOfLines={1}>
-                            {business.businessName}
-                          </Text>
-                          <Text style={styles.businessMeta} numberOfLines={1}>
-                            {`כרטיסיות: ${business.joinedProgramCount}`}
-                          </Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ) : null}
           </>
+        ) : null}
+
+        {(coords || Platform.OS === 'web') &&
+        !isSavedBusinessesLoading &&
+        savedBusinesses.length > 0 ? (
+          <View style={styles.listCard}>
+            <Text style={styles.panelTitle}>{TEXT.savedTitle}</Text>
+            <View style={styles.resultsList}>
+              {savedBusinesses.map((business) => (
+                <Pressable
+                  key={String(business.businessId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={business.businessName}
+                  onPress={() => openBusinessPage(String(business.businessId))}
+                  style={({ pressed }) => [
+                    styles.businessCard,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <View style={styles.businessRow}>
+                    <View style={styles.logoShell}>
+                      {business.businessLogoUrl ? (
+                        <Image
+                          source={{ uri: business.businessLogoUrl }}
+                          style={styles.logoImage}
+                          resizeMode="cover"
+                          accessible={false}
+                        />
+                      ) : (
+                        <Text style={styles.logoMonogram}>
+                          {getBusinessMonogram(business.businessName)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.businessCopy}>
+                      <Text style={styles.businessName} numberOfLines={1}>
+                        {business.businessName}
+                      </Text>
+                      <Text style={styles.businessMeta} numberOfLines={1}>
+                        {`כרטיסיות: ${business.joinedProgramCount}`}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         ) : null}
 
         <BusinessModeCtaCard

@@ -1,5 +1,4 @@
-import {
-  useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import {
   Activity,
   Building2,
@@ -8,10 +7,8 @@ import {
   type LucideIcon,
   Stamp,
   Users,
-  } from 'lucide-react-native';
-import { Component,
-  type ReactNode,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { Component, type ReactNode, useState } from 'react';
 import {
   Pressable,
   type StyleProp,
@@ -52,6 +49,7 @@ type KpiCardProps = {
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
+const DASHBOARD_TITLE = 'דף הבית';
 
 function DashboardSkeleton() {
   const { width } = useWindowDimensions();
@@ -69,10 +67,21 @@ function DashboardSkeleton() {
 
   return (
     <View
+      role="status"
+      aria-busy={true}
       accessibilityLabel="טוענים את נתוני לוח הבקרה"
       style={[styles.page, isMobileComposition ? styles.pageMobile : null]}
     >
-      <View style={[styles.skeleton, styles.skeletonHeading]} />
+      <Text
+        accessibilityRole="header"
+        aria-level={1}
+        style={[
+          styles.pageTitle,
+          isMobileComposition ? styles.pageTitleMobile : null,
+        ]}
+      >
+        {DASHBOARD_TITLE}
+      </Text>
       <View
         style={[
           styles.kpiGrid,
@@ -247,12 +256,14 @@ function BusinessWebDashboardContent({
         ]}
       >
         <Text
+          accessibilityRole="header"
+          aria-level={1}
           style={[
             styles.pageTitle,
             isMobileComposition ? styles.pageTitleMobile : null,
           ]}
         >
-          דף הבית
+          {DASHBOARD_TITLE}
         </Text>
         <Text
           style={[

@@ -1,8 +1,7 @@
 import { useMutation } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
-
+import { ActivityIndicator, Text, View } from 'react-native';
 import {
   BusinessSettingsSubpageHeader,
   SETTINGS_TOKENS,
@@ -13,6 +12,7 @@ import {
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 
 export default function BusinessSettingsAccountDataScreen() {

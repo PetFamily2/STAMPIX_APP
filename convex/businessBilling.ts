@@ -9,6 +9,26 @@ import {
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
 import { resolveCanonicalBillingState } from './lib/billing/lifecycle';
+import { resolveSumitConfig } from './lib/billing/sumit/config';
+
+// Only non-sensitive readiness reaches the authenticated billing screen.
+// Missing/malformed provider configuration never renders an actionable checkout.
+export const getCheckoutAvailability = query({
+  args: { businessId: v.id('businesses') },
+  returns: v.object({ available: v.boolean() }),
+  handler: async (ctx, { businessId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'manage_subscription'
+    );
+    try {
+      return { available: resolveSumitConfig(process.env).liveCheckoutEnabled };
+    } catch {
+      return { available: false };
+    }
+  },
+});
 
 export const getBusinessBillingIdentity = query({
   args: {

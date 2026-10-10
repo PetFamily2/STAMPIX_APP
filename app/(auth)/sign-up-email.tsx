@@ -1,9 +1,6 @@
-import {
-  useAuthActions } from '@convex-dev/auth/react';
-import { useLocalSearchParams,
-  useRouter } from 'expo-router';
-import { useMemo,
-  useState } from 'react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,12 +9,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
+import { useWebAuthAvailability } from '@/lib/auth/useWebAuthAvailability';
 import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 
@@ -43,6 +39,7 @@ function isValidEmail(value: string) {
 export default function SignUpEmailScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
+  const webAuth = useWebAuthAvailability();
   const { preview, map, entry } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -53,7 +50,12 @@ export default function SignUpEmailScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit = useMemo(() => isValidEmail(email), [email]);
+  const emailEnabled =
+    Platform.OS !== 'web' || webAuth.providers?.email === true;
+  const canSubmit = useMemo(
+    () => isValidEmail(email) && emailEnabled,
+    [email, emailEnabled]
+  );
 
   const handleBack = () => {
     if (entry === 'sign-in') {
@@ -95,6 +97,7 @@ export default function SignUpEmailScreen() {
     setBusy(true);
 
     try {
+      if (Platform.OS === 'web') await webAuth.requireProvider('email');
       await signIn('email', {
         email: normalizedEmail,
       });
@@ -145,6 +148,13 @@ export default function SignUpEmailScreen() {
         </View>
 
         <View style={styles.footer}>
+          {Platform.OS === 'web' && !emailEnabled ? (
+            <Text style={styles.errorText} accessibilityRole="alert">
+              {webAuth.providers === null && !webAuth.failed
+                ? 'בודקים את זמינות ההתחברות…'
+                : 'התחברות באימייל אינה זמינה כרגע. יש להגדיר את ספק האימייל לפני הרשמה.'}
+            </Text>
+          ) : null}
           <Pressable
             onPress={() => {
               void handleSendCode();

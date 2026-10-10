@@ -13,10 +13,10 @@ import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,7 +27,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   SETTINGS_TOKENS,
@@ -42,6 +41,7 @@ import {
   PaintedPressable,
   PaintedPressable as Pressable,
 } from '@/components/ui/PaintedPressable';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { usePushNotifications } from '@/contexts/PushNotificationsContext';
@@ -53,6 +53,7 @@ import {
   type AccountDeletionFlowResult,
   runAccountDeletionWithCleanup,
 } from '@/lib/accountDeletionReset';
+import { Alert } from '@/lib/alert';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
 import { safePush } from '@/lib/navigation';
@@ -253,6 +254,7 @@ function NotificationToggleRow({
       accessibilityLabel={title}
       accessibilityHint={subtitle}
       accessibilityState={{ checked: enabled, disabled }}
+      {...(Platform.OS === 'web' ? { 'aria-checked': enabled } : {})}
       style={({ pressed }) => [
         styles.notificationToggleRow,
         isLast ? styles.rowLast : null,
@@ -721,6 +723,7 @@ export default function SettingsScreen() {
             avatarFullName={user?.fullName}
           />
         </StickyScrollHeader>
+        <WebPushSettings />
         <BusinessModeCtaCard
           disabled={deleteBusy}
           forcePromotionalBanner={true}
@@ -796,13 +799,15 @@ export default function SettingsScreen() {
               icon="settings-outline"
               onPress={openAccountDetails}
             />
-            <NotificationToggleRow
-              title={TEXT.notificationsToggleTitle}
-              subtitle={TEXT.notificationsToggleSubtitle}
-              enabled={notificationsEnabled}
-              disabled={notificationBusy}
-              onPress={toggleNotifications}
-            />
+            {Platform.OS !== 'web' ? (
+              <NotificationToggleRow
+                title={TEXT.notificationsToggleTitle}
+                subtitle={TEXT.notificationsToggleSubtitle}
+                enabled={notificationsEnabled}
+                disabled={notificationBusy}
+                onPress={toggleNotifications}
+              />
+            ) : null}
             <NotificationToggleRow
               title={TEXT.marketingToggleTitle}
               subtitle={TEXT.marketingToggleSubtitle}
@@ -1001,7 +1006,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 52,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1017,7 +1022,7 @@ const styles = StyleSheet.create({
   staffRowActionPill: {
     minHeight: 32,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1104,7 +1109,7 @@ const styles = StyleSheet.create({
     borderRadius: 10.5,
   },
   notificationSwitchThumbEnabled: {
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
   },
   notificationSwitchThumbDisabled: {
     backgroundColor: '#A1A1AA',

@@ -49,5 +49,5 @@ export function showsGoogleOAuthOnSignUp(platform: string): boolean {
 }
 
 export function showsAppleOAuthOnSignUp(platform: string): boolean {
-  return platform !== 'web';
+  return platform === 'web' || platform === 'ios' || platform === 'android';
 }

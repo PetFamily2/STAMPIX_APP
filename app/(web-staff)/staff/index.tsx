@@ -1,11 +1,13 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 
 export default function WebStaffLanding() {
   const { signOut } = useAuthActions();
+  const router = useRouter();
   const session = useSessionContext();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState('');
@@ -28,15 +30,60 @@ export default function WebStaffLanding() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={styles.screen}
+      {...(Platform.OS === 'web' ? { role: 'main' as const } : {})}
+    >
       <View style={styles.card}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <Text
+          accessibilityRole="header"
+          {...(Platform.OS === 'web' ? { 'aria-level': 1 } : {})}
+          style={styles.title}
+        >
           אזור הצוות
         </Text>
         {business ? <Text style={styles.business}>{business.name}</Text> : null}
         <Text style={styles.body}>
-          הסורק אינו זמין בדפדפן כרגע. אפשר להמשיך להשתמש באפליקציה.
+          {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+            ? process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
+              ? 'סריקה זמינה למורשי בדיקה בסביבת Preview בלבד.'
+              : 'סרקו את קוד הלקוח כדי להוסיף חותמת או לממש הטבה.'
+            : 'אפשר להמשיך לסרוק באפליקציה.'}
         </Text>
+        {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
+          <PaintedPressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
+                ? 'פתיחת סורק בדיקה'
+                : 'פתיחת סורק'
+            }
+            onPress={() => router.push('/staff/scanner-preview')}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>
+              {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
+                ? 'פתיחת סורק בדיקה'
+                : 'פתיחת סורק'}
+            </Text>
+          </PaintedPressable>
+        ) : null}
+        <PaintedPressable
+          accessibilityRole="button"
+          accessibilityLabel="תיבת הודעות"
+          onPress={() => router.push('/inbox')}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>תיבת הודעות</Text>
+        </PaintedPressable>
+        <PaintedPressable
+          accessibilityRole="button"
+          accessibilityLabel="הגדרות צוות"
+          onPress={() => router.push('/staff/settings')}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>הגדרות צוות</Text>
+        </PaintedPressable>
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
@@ -105,7 +152,7 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 48,
     borderRadius: 12,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     justifyContent: 'center',
     alignItems: 'center',
   },

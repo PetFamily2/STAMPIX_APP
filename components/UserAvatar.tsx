@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 
 type UserAvatarProps = {
   avatarUrl?: string | null;
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fallback: {
-    color: '#2F6BFF',
+    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     fontWeight: '900',
     textAlign: 'center',
   },

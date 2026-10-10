@@ -3,7 +3,6 @@ import { useMutation } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +26,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';

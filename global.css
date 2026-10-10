@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap');
+@font-face {
+  font-family: 'Heebo';
+  src: url('/pwa/fonts/Heebo-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* 
   קובץ העיצוב הגלובלי (Global CSS)
@@ -37,6 +43,42 @@ select {
   font-family: 'Heebo', Arial, sans-serif;
 }
 
+/* The app uses explicit manual RTL rows. A RTL flex baseline would invert them
+ * twice. Hebrew document semantics and HTML islands retain their own dir=rtl. */
+#root, body > div { direction: ltr; }
+#stampaix-product-frame {
+  direction: ltr;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  background: #f5f7fb;
+}
+#stampaix-product-frame[data-layout='onboarding'] {
+  max-width: 640px;
+  align-self: center;
+  background: #fff;
+}
+#stampaix-product-frame[data-layout='customer'] {
+  max-width: 960px;
+  align-self: center;
+}
+html, body { background: #f5f7fb; }
+button, input, textarea, select { font-size: 16px; }
+button:focus-visible, a:focus-visible, input:focus-visible,
+[role='button']:focus-visible, [role='tab']:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+@media (min-width: 960px) {
+  #stampaix-product-frame[data-layout='customer'],
+  #stampaix-product-frame[data-layout='onboarding'] {
+    border-inline: 1px solid #e2e8f0;
+  }
+}
+
 /* Keyboard focus treatment isolated to the Business Web shell. */
 #business-web-shell [role='button']:focus-visible,
 #business-web-shell [role='menuitem']:focus-visible {
@@ -54,4 +96,12 @@ select {
 #business-web-shell [role='button']:not([aria-disabled='true']):hover,
 #business-web-shell [role='menuitem']:not([aria-disabled='true']):hover {
   filter: brightness(0.97);
+}
+
+/* Explicit touch targets for the isolated HTML scanner controls. */
+main[data-scanner-phase] button,
+main[data-scanner-phase] select {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
 }

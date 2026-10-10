@@ -4,21 +4,21 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
+  Platform,
   type StyleProp,
   StyleSheet,
   Text,
   View,
   type ViewStyle,
 } from 'react-native';
-
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   hostButtonAccent: {
     minWidth: 168,
     paddingHorizontal: 20,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     shadowColor: '#2F6BFF',
     shadowOpacity: 0.4,
     shadowRadius: 12,

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -80,6 +81,9 @@ export function ActionButton({
           styles.surface,
           fullWidth ? styles.fullWidth : null,
           styles[variant],
+          Platform.OS === 'web' && variant === 'primary'
+            ? styles.primaryWeb
+            : null,
           muted ? styles[`${variant}Disabled`] : null,
         ]}
       >
@@ -135,6 +139,10 @@ const styles = StyleSheet.create({
   primary: {
     borderColor: '#2F6BFF',
     backgroundColor: '#2F6BFF',
+  },
+  primaryWeb: {
+    borderColor: '#2563EB',
+    backgroundColor: '#2563EB',
   },
   primaryDisabled: {
     borderColor: '#B7C3D6',

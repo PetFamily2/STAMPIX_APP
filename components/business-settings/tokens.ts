@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { DASHBOARD_TOKENS } from '@/lib/design/dashboardTokens';
 
 export const SETTINGS_TOKENS = {
@@ -7,9 +8,9 @@ export const SETTINGS_TOKENS = {
   border: '#E6EAF2',
   borderStrong: '#D7DEEA',
   textPrimary: '#12203A',
-  textSecondary: '#64748B',
+  textSecondary: Platform.OS === 'web' ? '#475569' : '#64748B',
   textTertiary: '#94A3B8',
-  accent: '#2F6BFF',
+  accent: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
   accentSoft: '#EEF3FF',
   accentText: '#1D4ED8',
   warningBg: '#FFF8EE',

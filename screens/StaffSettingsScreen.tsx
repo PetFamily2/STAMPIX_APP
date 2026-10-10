@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -14,13 +14,14 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import { tw } from '@/lib/rtl';
 
 const ROLE_LABEL: Record<'owner' | 'manager' | 'staff', string> = {
@@ -100,7 +101,11 @@ export default function StaffSettingsScreen() {
     router.replace('/(authenticated)/(customer)/wallet');
     void setActiveMode({ mode: 'customer' }).catch(async () => {
       await setAppMode('business');
-      router.replace('/(authenticated)/(staff)/settings');
+      router.replace(
+        Platform.OS === 'web'
+          ? '/staff/settings'
+          : '/(authenticated)/(staff)/settings'
+      );
       Alert.alert('שגיאה', 'לא הצלחנו לעדכן את מצב המשתמש. נסו שוב.');
     });
   };
@@ -154,6 +159,7 @@ export default function StaffSettingsScreen() {
           <BusinessScreenHeader title="הגדרות עובד" />
         </StickyScrollHeader>
 
+        <WebPushSettings />
         <TouchableOpacity
           onPress={() => void goToPrivateArea()}
           accessibilityRole="button"
@@ -162,16 +168,16 @@ export default function StaffSettingsScreen() {
         >
           <View className={`${tw.flexRow} items-center gap-3`}>
             <Ionicons name="wallet-outline" size={20} color="#2F6BFF" />
-            <Text className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}>
+            <Text
+              className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+            >
               חזרה לארנק האישי
             </Text>
           </View>
         </TouchableOpacity>
 
         <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
-          <Text
-            className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-          >
+          <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
             הגישה שלי
           </Text>
           {profile === undefined ? (
@@ -204,10 +210,7 @@ export default function StaffSettingsScreen() {
               </Text>
             ) : (
               permissionLabels.map((permission) => (
-                <View
-                  key={permission}
-                  className={`${tw.flexRow} gap-2`}
-                >
+                <View key={permission} className={`${tw.flexRow} gap-2`}>
                   <Ionicons
                     name="checkmark-circle-outline"
                     size={17}
@@ -225,9 +228,7 @@ export default function StaffSettingsScreen() {
         </View>
 
         <View className="rounded-3xl border border-[#DCE6FF] bg-white p-4">
-          <Text
-            className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}
-          >
+          <Text className={`text-sm font-black text-[#1A2B4A] ${tw.textStart}`}>
             העסק הפעיל
           </Text>
           <View className="mt-3 gap-2">

@@ -4,6 +4,7 @@ import {
   Redirect,
   Slot,
   useLocalSearchParams,
+  usePathname,
   useSegments,
 } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -17,6 +18,7 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { canPaintPublicWelcome } from '@/lib/auth/publicWelcome';
 import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -27,6 +29,7 @@ export default function AuthRoutesLayout() {
   const { user, isLoading: isUserLoading } = useUser();
   const sessionContext = useSessionContext();
   const segments = useSegments();
+  const pathname = usePathname();
   const { preview, map, flow } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -102,6 +105,13 @@ export default function AuthRoutesLayout() {
   }
 
   if (disposition.status === 'loading') {
+    // Welcome contains only public copy. Do not hold its first paint behind a network session lookup.
+    if (canPaintPublicWelcome(Platform.OS, pathname))
+      return (
+        <View style={styles.rtlRouteGroup}>
+          <Slot />
+        </View>
+      );
     return <FullScreenLoading />;
   }
 

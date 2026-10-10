@@ -4,6 +4,7 @@ import { useConvexAuth, useQuery } from 'convex/react';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
   },
   joinBusinessButton: {
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     minHeight: 48,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
   referralCardSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'web' ? '#475569' : '#64748B',
     textAlign: 'right',
     lineHeight: 18,
   },
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
   emptyPrimaryButton: {
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
@@ -584,7 +585,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',

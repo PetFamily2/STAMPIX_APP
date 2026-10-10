@@ -3,14 +3,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   type ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import {
   BusinessSettingsSubpageHeader,
@@ -30,6 +28,7 @@ import {
   type BusinessSettingsSnapshot,
   useBusinessSettingsProfile,
 } from '@/hooks/useBusinessSettingsProfile';
+import { Alert } from '@/lib/alert';
 import {
   isValidSelectedBusinessAddress,
   type SelectedBusinessAddress,

@@ -171,6 +171,8 @@ function buildCtx(tables, subject, options) {
 describe('wipeAllDataHardImpl', () => {
   test('wipes all tables and returns detailed delete stats', async () => {
     const tables = {
+      scannerCommandReceipts: [{ _id: 'receipt_1', actorId: 'u_admin' }],
+      webPushSubscriptions: [{ _id: 'webpush_1', userId: 'u_admin' }],
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
       apiClients: [{ _id: 'ac_1', businessId: 'b_1' }],
       providerRevocationJobs: [
@@ -243,9 +245,7 @@ describe('wipeAllDataHardImpl', () => {
       smartManagerPreparedActionCopies: [
         { _id: 'smpac_1', preparedActionId: 'smpa_1', businessId: 'b_1' },
       ],
-      smartManagerPreparedActions: [
-        { _id: 'smpa_1', businessId: 'b_1' },
-      ],
+      smartManagerPreparedActions: [{ _id: 'smpa_1', businessId: 'b_1' }],
       smartManagerAuditEvents: [{ _id: 'sma_1', businessId: 'b_1' }],
       smartManagerShadowComparisons: [{ _id: 'sms_1', businessId: 'b_1' }],
       smartManagerDecisions: [{ _id: 'smd_1', businessId: 'b_1' }],
@@ -325,6 +325,8 @@ describe('wipeAllDataHardImpl', () => {
       smartManagerFactSnapshots: 1,
       smartManagerEvaluationStates: 1,
       smartManagerPolicyVersions: 1,
+      scannerCommandReceipts: 1,
+      webPushSubscriptions: 1,
       pushTokens: 0,
       pushDeliveryLog: 0,
       referralAdminAuditLog: 0,
@@ -362,9 +364,7 @@ describe('wipeAllDataHardImpl', () => {
       'other-delete@example.com',
     ]);
     expect(JSON.stringify(result)).not.toContain('delete@example.com');
-    expect(JSON.stringify(result)).not.toContain(
-      'other-delete@example.com'
-    );
+    expect(JSON.stringify(result)).not.toContain('other-delete@example.com');
 
     for (const tableName of WIPE_TABLE_ORDER) {
       expect(ctx.db.rows(tableName)).toHaveLength(0);
@@ -373,6 +373,8 @@ describe('wipeAllDataHardImpl', () => {
 
   test('throws on delete failure and never returns success payload', async () => {
     const tables = {
+      scannerCommandReceipts: [{ _id: 'receipt_1', actorId: 'u_admin' }],
+      webPushSubscriptions: [{ _id: 'webpush_1', userId: 'u_admin' }],
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
       smartManagerPreparedActionCopies: [
         {

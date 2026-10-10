@@ -13,11 +13,8 @@ import {
   UserRoundCog,
   Users,
   X,
-  } from 'lucide-react-native';
-import { type ReactNode,
-  useEffect,
-  useMemo,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -25,9 +22,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';
 import {
@@ -114,6 +110,37 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     href: BUSINESS_WEB_ROUTES.billing,
   },
   {
+    key: 'campaigns',
+    label: 'קמפיינים',
+    icon: Gift,
+    href: BUSINESS_WEB_ROUTES.campaigns,
+  },
+  {
+    key: 'referrals',
+    label: 'הזמנת חברים',
+    icon: Users,
+    href: BUSINESS_WEB_ROUTES.referrals,
+  },
+  {
+    key: 'inbox',
+    label: 'תיבת הודעות',
+    icon: ReceiptText,
+    href: BUSINESS_WEB_ROUTES.inbox,
+  },
+  ...(process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+    ? [
+        {
+          key: 'scanner',
+          label:
+            process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
+              ? 'סריקה — Preview'
+              : 'סריקה',
+          icon: Gift,
+          href: BUSINESS_WEB_ROUTES.scanner,
+        },
+      ]
+    : []),
+  {
     key: 'settings',
     label: 'הגדרות העסק',
     icon: Settings,
@@ -150,7 +177,7 @@ function NavList({
 }) {
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
-      {BUSINESS_WEB_NAV_ITEMS.map((item) => {
+      {BUSINESS_WEB_NAV_ITEMS.filter((item) => item.href).map((item) => {
         const Icon = item.icon;
         const isDisabled = !item.href;
         const isActive = isBusinessWebRouteActive(
@@ -159,9 +186,7 @@ function NavList({
         );
         return (
           <Pressable
-            accessibilityLabel={
-              isDisabled ? `${item.label}, בקרוב` : item.label
-            }
+            accessibilityLabel={item.label}
             accessibilityRole="link"
             accessibilityState={{ disabled: isDisabled, selected: isActive }}
             disabled={isDisabled}
@@ -184,7 +209,6 @@ function NavList({
             >
               {item.label}
             </Text>
-            {isDisabled ? <Text style={styles.soonLabel}>בקרוב</Text> : null}
           </Pressable>
         );
       })}
@@ -486,6 +510,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
 
         <View style={styles.mainColumn}>
           <View
+            role="banner"
             style={[
               styles.topbar,
               isMobileComposition ? styles.topbarMobile : null,
@@ -645,6 +670,9 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               { paddingTop: responsiveLayout.pageTopPadding },
             ]}
             keyboardShouldPersistTaps="handled"
+            role="main"
+            tabIndex={0}
+            accessibilityLabel="תוכן ראשי של העסק"
             style={styles.scroll}
           >
             {props.children}
@@ -719,7 +747,7 @@ const styles = StyleSheet.create({
   },
   navList: { gap: TOKENS.space.xs },
   navItem: {
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -764,8 +792,8 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.primarySubtle,
   },
   avatarButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -790,8 +818,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   logoutButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -826,8 +854,8 @@ const styles = StyleSheet.create({
   },
   topbarSpacer: { flex: 1 },
   iconButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -841,7 +869,7 @@ const styles = StyleSheet.create({
   switcherButton: {
     minWidth: 168,
     maxWidth: 220,
-    minHeight: 36,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -857,7 +885,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
     maxWidth: 360,
-    minHeight: 42,
+    minHeight: 44,
   },
   switcherIcon: {
     width: 28,

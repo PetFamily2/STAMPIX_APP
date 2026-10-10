@@ -1,30 +1,22 @@
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  useConvexAuth,
-  useMutation,
-  useQuery } from 'convex/react';
-import { useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState } from 'react';
-import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,

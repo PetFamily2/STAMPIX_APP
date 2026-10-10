@@ -14,7 +14,8 @@
       "!!**/convex/_generated",
       "!!**/components/__tests__",
       "!!**/global.css",
-      "!!vendor/jsqr"
+      "!!vendor/jsqr",
+      "!!public/pwa/leaflet.css"
     ]
   },
   "formatter": {

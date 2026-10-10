@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: 22,
     lineHeight: 26,
-    color: '#2F6BFF',
+    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
     fontWeight: '900',
     ...ltrBaseText,
   },
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 26,
     fontWeight: '900',
-    color: '#2F6BFF',
+    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
   },
   titleZone: {
     flex: 1,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'web' ? '#475569' : '#64748B',
     ...rtlBaseText,
   },
 });
