@@ -31,8 +31,31 @@ const run = (command, args, env = process.env, timeout = 180000) => {
     maxBuffer: 64 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  if (result.status !== 0)
+  if (result.status !== 0) {
+    const diagnostic = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+    const categories = {
+      accessDenied:
+        /unauthorized|authentication|unauthenticated|access denied|not authorized|invalid.*(?:key|token)|401|403/i,
+      missingLogin: /not logged in|log in|login|authentication is required/i,
+      unsupportedArgument:
+        /unknown option|unknown argument|unexpected argument|unrecognized option/i,
+      wrongDeployment:
+        /deployment.*not found|does not exist|cannot find.*deployment|deployment.*mismatch/i,
+      networkFailure:
+        /fetch failed|ECONN|ENOTFOUND|timeout|timed out|network error/i,
+      moduleFailure: /Cannot find module|Cannot find package|MODULE_NOT_FOUND/i,
+      convexSelection:
+        /CONVEX_DEPLOYMENT|CONVEX_DEPLOY_KEY|configure.*project/i,
+    };
+    report.cliFailure = {
+      exitCode: result.status,
+      spawnError: result.error?.code ?? null,
+      categories: Object.entries(categories)
+        .filter(([, pattern]) => pattern.test(diagnostic))
+        .map(([name]) => name),
+    };
     fail(`SHARED_${command.toUpperCase().replace(/[^A-Z]/g, '')}_FAILED`);
+  }
   return result.stdout;
 };
 try {
