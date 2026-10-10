@@ -12,13 +12,14 @@ Repository: `PetFamily2/STAMPIX_APP`
 
 ### Active work branch
 - Branch: `pwa/phase-3-scanner-commands-20261005`
-- Latest verified HEAD at this handoff: `f19c497744455211fa7c6e9fbdad1d87435dd351`
+- Latest verified application/backend source: `f19c497744455211fa7c6e9fbdad1d87435dd351`
+- Repository baseline immediately before this handoff update: `13de347ddfda29833fb40b445c145740272fbf39` (documentation-only handoff commit)
 - PR: #10 — Draft
 - PR base: `pwa/phase-2-qr-foundation-20261005`
 - Do **not** merge to `main` without explicit user approval.
 
 ### Latest verified CI
-- GitHub Actions run: `38041562924`
+- Latest successful GitHub Actions run before this handoff update: `38056762672`
 - Result: SUCCESS
 - 2,404 tests across 169 files
 - TypeScript passed
@@ -31,6 +32,7 @@ Repository: `PetFamily2/STAMPIX_APP`
 ### Current live Web/PWA Preview
 - Web: `https://stampaix-business--2wcjl53ie8.expo.app/welcome`
 - Shared non-production backend: `https://utmost-fennec-280.convex.cloud`
+- Current acceptance entry point: ordinary sign-in/sign-up only; `/preview-qa` is not an acceptance path
 
 ### Critical architecture decision — supersedes older Preview isolation work
 As of 2026-10-10 the operator explicitly rejected isolated Preview databases/provider copies.
@@ -194,7 +196,7 @@ Still required:
 Use existing configuration whenever possible. Minimize user intervention.
 
 Current rules:
-- Resend: use existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; do not create a new account/key merely for Preview
+- Resend: use existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; do not create a new account/key merely for Preview. If server readiness already reports Email available, do not ask the user to reconfigure Resend first — verify the ordinary sign-in/sign-up flow against the existing configuration.
 - Google: use existing OAuth client unless technically impossible; add required current origin/callback only
 - Places: use existing key and allowed origin/restrictions
 - Apple: do not block current Web acceptance if Google/Email already work
@@ -687,11 +689,13 @@ Important:
 - a replacement Work task must first read current GitHub HEAD and PR #10 and continue from there
 - GitHub is authoritative over old Work summaries
 
-At this handoff the last verified repository activity is:
-- HEAD `f19c497744455211fa7c6e9fbdad1d87435dd351`
-- latest successful main verification/deployment run: `38041562924`
+Baseline inspected immediately before this handoff update:
+- repository HEAD: `13de347ddfda29833fb40b445c145740272fbf39`
+- latest verified application/backend source: `f19c497744455211fa7c6e9fbdad1d87435dd351`
+- latest successful verification/deployment run: `38056762672`
+- no later branch commit or Actions run was visible at that inspection point
 
-If either has changed, refresh this handoff before continuing.
+The handoff update itself creates a newer docs-only commit, so every next agent must refresh the branch HEAD before implementation. A Work UI that still says “running” after GitHub has stopped changing is not evidence that code work is continuing.
 
 ---
 
