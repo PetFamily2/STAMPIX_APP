@@ -16,9 +16,12 @@ function configured(value: string | undefined): boolean {
 }
 
 function validEncryptionKey(value: string | undefined): boolean {
-  if (typeof value !== 'string' || !configured(value)) return false;
+  if (typeof value !== 'string') return false;
+  // Match providerCredentials.importEncryptionKey's existing normalization.
+  const encodedKey = value.trim();
+  if (!configured(encodedKey)) return false;
   try {
-    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const base64 = encodedKey.replace(/-/g, '+').replace(/_/g, '/');
     return (
       atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')).length === 32
     );

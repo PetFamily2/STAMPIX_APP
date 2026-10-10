@@ -12,7 +12,7 @@ const configured = {
 };
 
 describe('public Web auth configuration readiness', () => {
-  test('missing isolated Preview credentials cannot enable a provider', () => {
+  test('missing server credentials cannot enable a provider', () => {
     expect(readWebAuthProviderAvailability({})).toEqual({
       google: false,
       apple: false,
@@ -64,6 +64,20 @@ describe('public Web auth configuration readiness', () => {
       readWebAuthProviderAvailability({
         ...configured,
         AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: value,
+      })
+    ).toEqual({ google: false, apple: false, email: true });
+  });
+  test('existing encryption keys use the same whitespace normalization as token storage', () => {
+    expect(
+      readWebAuthProviderAvailability({
+        ...configured,
+        AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: ` \n${configured.AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY}\r\n `,
+      })
+    ).toEqual({ google: true, apple: true, email: true });
+    expect(
+      readWebAuthProviderAvailability({
+        ...configured,
+        AUTH_PROVIDER_TOKEN_ENCRYPTION_KEY: ' \r\n ',
       })
     ).toEqual({ google: false, apple: false, email: true });
   });
