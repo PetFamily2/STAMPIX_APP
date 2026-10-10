@@ -47,6 +47,7 @@ try {
     process.env.VERIFIED_HEAD_SHA !== sha
   )
     fail('SHARED_VERIFIED_REVISION_REQUIRED');
+  report.stage = 'EXISTING_DEPLOY_ACCESS';
   // Existing deployment keys only; reject all keys scoped to another database.
   let key = [
     process.env.SHARED_CONVEX_DEV_KEY,
@@ -105,6 +106,7 @@ try {
     }
   }
   if (!key) fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
+  report.stage = 'EXISTING_ENVIRONMENT_READ';
   const admin = new ConvexHttpClient(URL, { logger: false });
   admin.setAdminAuth(key);
   const envRows = await admin.query(
@@ -145,6 +147,7 @@ try {
     }
     fail('SHARED_DATA_VERIFICATION_LIMIT');
   };
+  report.stage = 'EXISTING_DATA_READ';
   const before = {};
   for (const table of ['users', 'memberships', 'events'])
     before[table] = await dataIds(table);
@@ -156,6 +159,7 @@ try {
         )
     )
   );
+  report.stage = 'BACKEND_DRY_RUN';
   // No new schema columns, imports, seed function, auth key or provider change.
   run(
     'node',
@@ -177,6 +181,7 @@ try {
     600000
   );
   report.backendDryRun = 'PASS';
+  report.stage = 'BACKEND_SYNC';
   run(
     'node',
     [
@@ -196,11 +201,13 @@ try {
     600000
   );
   report.backendDeployed = true;
+  report.stage = 'DATA_PRESERVATION';
   for (const [table, ids] of Object.entries(before)) {
     const after = new Set(await dataIds(table));
     if (ids.some((id) => !after.has(id))) fail('SHARED_EXISTING_DATA_MISSING');
   }
   report.existingRecordsPreserved = true;
+  report.stage = 'AUTH_AVAILABILITY';
   report.auth = await new ConvexHttpClient(URL, { logger: false }).query(
     makeFunctionReference('webAuth:getProviderAvailability'),
     {}
@@ -228,6 +235,7 @@ try {
       .join('\n') + '\n',
     { mode: 0o600 }
   );
+  report.stage = 'WEB_EXPORT';
   run(
     'bunx',
     [
@@ -247,6 +255,7 @@ try {
   run('bun', ['scripts/export-web-scanner-business.mjs', 'dist'], clientEnv);
   run('node', ['scripts/finalize-web-pwa-export.mjs', 'dist'], clientEnv);
   run('node', ['scripts/verify-client-secret-patterns.mjs', 'dist'], clientEnv);
+  report.stage = 'WEB_HOSTING';
   const hosted = JSON.parse(
     run(
       'eas',
@@ -301,6 +310,20 @@ try {
   // This result is deployment evidence, never synthetic-flow acceptance.
 } catch (error) {
   report.status = 'FAILED';
+  report.failureKind = /ArgumentValidationError/.test(error.message ?? '')
+    ? 'ARGUMENT_VALIDATION'
+    : /Could not find public function/.test(error.message ?? '')
+      ? 'SYSTEM_QUERY_UNAVAILABLE'
+      : /401|Unauthorized|Access denied|unauthenticated/i.test(
+            error.message ?? ''
+          )
+        ? 'EXISTING_DEPLOY_ACCESS_DENIED'
+        : /not a function|Cannot read properties/.test(error.message ?? '')
+          ? 'RUNTIME_TYPE'
+          : 'PRIVATE_DETAILS_WITHHELD';
+  report.errorType = /^[A-Za-z]+$/.test(error.name ?? '')
+    ? error.name
+    : 'Error';
   report.failureCode = /^[A-Z0-9_]+$/.test(error.message ?? '')
     ? error.message
     : 'SHARED_PRIVATE_DETAILS_WITHHELD';
