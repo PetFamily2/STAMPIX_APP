@@ -35,7 +35,7 @@ const run = (command, args, env = process.env, timeout = 180000) => {
     const diagnostic = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
     const categories = {
       accessDenied:
-        /unauthorized|authentication|unauthenticated|access denied|not authorized|invalid.*(?:key|token)|401|403/i,
+        /unauthorized|authentication|unauthenticated|access denied|not authorized|invalid.*(?:key|token)|BadAdminKey|admin key.*(?:wrong|bad)|401|403/i,
       missingLogin: /not logged in|log in|login|authentication is required/i,
       unsupportedArgument:
         /unknown option|unknown argument|unexpected argument|unrecognized option/i,
@@ -53,6 +53,65 @@ const run = (command, args, env = process.env, timeout = 180000) => {
       categories: Object.entries(categories)
         .filter(([, pattern]) => pattern.test(diagnostic))
         .map(([name]) => name),
+      diagnosticCodes: [
+        ...new Set(
+          diagnostic.match(
+            /BadAdminKey|UdfNotFound|InvalidAdminKey|SyntaxError|TypeError|ReferenceError|SystemQuery[^ :\n]*|UnexpectedResponse|WebSocket|NotAuthenticated/g
+          ) ?? []
+        ),
+      ],
+      diagnosticWords: [
+        ...new Set(
+          (diagnostic.match(/[A-Za-z]+/g) ?? []).filter((word) =>
+            new Set([
+              'Error',
+              'error',
+              'Failed',
+              'failed',
+              'system',
+              'query',
+              'queries',
+              'available',
+              'supported',
+              'unsupported',
+              'version',
+              'function',
+              'admin',
+              'key',
+              'bad',
+              'wrong',
+              'invalid',
+              'Invalid',
+              'missing',
+              'Missing',
+              'server',
+              'response',
+              'Unexpected',
+              'HTTP',
+              'WebSocket',
+              'status',
+              'code',
+              'command',
+              'environment',
+              'file',
+              'project',
+              'deployment',
+              'Deployment',
+              'found',
+              'exist',
+              'valid',
+              'token',
+              'authorization',
+              'ArgumentValidationError',
+              'operation',
+              'transport',
+              'terminate',
+              'closed',
+              'connection',
+            ]).has(word)
+          )
+        ),
+      ],
     };
     fail(`SHARED_${command.toUpperCase().replace(/[^A-Z]/g, '')}_FAILED`);
   }
@@ -145,8 +204,10 @@ try {
       'node_modules/convex/bin/main.js',
       'env',
       'list',
-      '--env-file',
-      selectionPath,
+      '--url',
+      URL,
+      '--admin-key',
+      key,
     ],
     deploymentEnv
   );
@@ -177,8 +238,10 @@ try {
         'asc',
         '--format',
         'json',
-        '--env-file',
-        selectionPath,
+        '--url',
+        URL,
+        '--admin-key',
+        key,
       ],
       deploymentEnv
     );
