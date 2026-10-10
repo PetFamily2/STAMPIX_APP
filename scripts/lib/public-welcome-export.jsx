@@ -43,7 +43,8 @@ export function exportPublicWelcome(output, pwaEnabled) {
             backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
           })}
         />
-        {pwaEnabled && <script src="/pwa/welcome.js" defer />}
+        {pwaEnabled && <script src="/pwa/welcome.js" defer={true} />}
+        {pwaEnabled && <script src="/pwa/install.js" defer={true} />}
       </body>
     </html>
   );

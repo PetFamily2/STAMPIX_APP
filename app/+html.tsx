@@ -31,6 +31,9 @@ export default function Html({ children }: PropsWithChildren) {
           crossOrigin="anonymous"
         />
         <ScrollViewStyleReset />
+        {process.env.EXPO_PUBLIC_PWA_ENABLED === 'true' ? (
+          <script src="/pwa/install.js" defer={true} />
+        ) : null}
       </head>
       <body>{children}</body>
     </html>

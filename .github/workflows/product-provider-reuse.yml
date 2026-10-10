@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   existing-provider-reuse:
-    if: github.repository == 'PetFamily2/STAMPIX_APP' && github.head_ref == 'pwa/phase-3-scanner-commands-20261005' && github.event.pull_request.head.repo.full_name == github.repository && (github.actor == 'PetFamily2' || github.actor == 'github-actions[bot]')
+    if: false # Retired: one existing database, no isolated provider copies.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type StyleProp, View, type ViewStyle } from 'react-native';
+import { sharedBackendEnabled } from '@/config/sharedBackend';
 import { useUser } from '@/contexts/UserContext';
 import {
   attachCameraLifecycle,
@@ -40,22 +41,29 @@ export default function QrScanner(props: Props) {
   const video = useRef<HTMLVideoElement>(null),
     controller = useRef<WebQrController | null>(null);
   const [state, setState] = useState(initialScannerState);
-  const enabled = scannerPreviewEnabled({
-    platform: 'web',
-    environment: process.env.EXPO_PUBLIC_APP_ENV,
-    flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
-    backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
-    url: getConvexUrl(),
-    previewUrl: process.env.EXPO_PUBLIC_WEB_SCANNER_PREVIEW_URL,
-    prodUrl: process.env.EXPO_PUBLIC_CONVEX_URL_PROD,
-    actors: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS,
-    businesses: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES,
-    actorId: user?._id,
-    businessId:
-      process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES?.split(
-        ','
-      )[0]?.trim(),
-  });
+  const enabled =
+    (!!user &&
+      sharedBackendEnabled({
+        environment: process.env.EXPO_PUBLIC_APP_ENV,
+        flag: process.env.EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND,
+        url: getConvexUrl(),
+      })) ||
+    scannerPreviewEnabled({
+      platform: 'web',
+      environment: process.env.EXPO_PUBLIC_APP_ENV,
+      flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
+      backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
+      url: getConvexUrl(),
+      previewUrl: process.env.EXPO_PUBLIC_WEB_SCANNER_PREVIEW_URL,
+      prodUrl: process.env.EXPO_PUBLIC_CONVEX_URL_PROD,
+      actors: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS,
+      businesses: process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES,
+      actorId: user?._id,
+      businessId:
+        process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_BUSINESSES?.split(
+          ','
+        )[0]?.trim(),
+    });
   useEffect(() => {
     void props.resetKey; // A parent reset creates a fresh camera lifecycle.
     const element = video.current;
@@ -95,10 +103,7 @@ export default function QrScanner(props: Props) {
   if (!enabled)
     return (
       <View style={props.style}>
-        <p dir="rtl">
-          סריקה בדפדפן זמינה כרגע למורשי Preview בלבד. אפשר להזין קוד הצטרפות
-          ידנית.
-        </p>
+        <p dir="rtl">הסריקה אינה זמינה כרגע. אפשר להזין קוד הצטרפות ידנית.</p>
       </View>
     );
   return (

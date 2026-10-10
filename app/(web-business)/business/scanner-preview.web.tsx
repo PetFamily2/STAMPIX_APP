@@ -11,6 +11,7 @@ import {
   selectedScannerProgram,
 } from '@/lib/web-scanner/programSelection';
 import { pendingProgram } from '@/lib/web-scanner/recovery';
+import { getConvexUrl } from '@/utils/convexConfig';
 
 export default function ScannerPreviewRoute() {
   const { user } = useUser();
@@ -20,10 +21,7 @@ export default function ScannerPreviewRoute() {
   const scopeKey = `${user?._id ?? ''}:${activeBusinessId ?? ''}`;
   const [busy, setBusy] = useState(false);
   const preview = process.env.EXPO_PUBLIC_APP_ENV === 'preview';
-  const url =
-    (preview
-      ? process.env.EXPO_PUBLIC_CONVEX_URL_DEV
-      : process.env.EXPO_PUBLIC_CONVEX_URL_PROD) ?? '';
+  const url = getConvexUrl();
   const enabled =
     !!token &&
     activeBusiness?.capabilities?.scanner_access === true &&
@@ -32,6 +30,7 @@ export default function ScannerPreviewRoute() {
       environment: process.env.EXPO_PUBLIC_APP_ENV,
       flag: process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS,
       productPreview: process.env.EXPO_PUBLIC_WEB_SCANNER_PRODUCT_PREVIEW,
+      sharedBackend: process.env.EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND,
       releaseGate: process.env.EXPO_PUBLIC_PWA_RELEASE_GATE,
       actors: preview
         ? process.env.EXPO_PUBLIC_WEB_SCANNER_TEST_ACTORS

@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { SOURCE_SHA } from './lib/phase3c1-preview-guard.mjs';
 
 const base = '9afcfac8b5b68d3f72212f7866e0aad9c897b094';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
@@ -133,35 +132,19 @@ for (const file of files) {
 }
 const workflow = readFileSync('.github/workflows/branch-verify.yml', 'utf8');
 if (
-  /^\s+push:|convex\s+(?:dev|deploy)/m.test(workflow) ||
+  !workflow.includes('shared-web:') ||
   !workflow.includes('needs: verify') ||
+  !workflow.includes("needs.verify.result == 'success'") ||
   !workflow.includes('cancel-in-progress: true') ||
-  !workflow.includes("EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'false'")
-) {
-  throw new Error(
-    'CI must be single verify then disabled-command Preview, no backend deployment'
-  );
-}
-if (
-  workflow.includes('phase3c1-manual-dispatch') ||
-  workflow.includes('createWorkflowDispatch') ||
-  !workflow.includes(
-    "github.head_ref != 'pwa/phase-3-scanner-commands-20261005'"
-  ) ||
-  workflow.includes('CONVEX_DEV_DEPLOY_KEY') ||
-  workflow.includes('phase3c1-dev-audit.mjs --sync')
-) {
-  throw new Error(
-    'Phase 3 ordinary CI must not dispatch a launcher or use DEV credentials'
-  );
-}
-if (
-  !workflow.includes('isolated-preview-e2e:') ||
-  !workflow.includes(SOURCE_SHA) ||
-  !workflow.includes('secrets.CONVEX_PREVIEW_DEPLOY_KEY') ||
-  !workflow.includes("needs.verify.result == 'success'")
+  !workflow.includes('EXPECTED_HEAD:') ||
+  workflow.includes('phase3c1-preview-e2e.mjs') ||
+  workflow.includes('product-preview.mjs') ||
+  workflow.includes('seed synthetic') ||
+  /^\s+(push|schedule|workflow_dispatch):/m.test(workflow)
 )
-  throw new Error('Pinned PR Preview guards missing');
+  throw new Error(
+    'Verified exact-head shared backend workflow required; no fixtures'
+  );
 const audit = readFileSync('scripts/phase3c1-dev-audit.mjs', 'utf8');
 if (
   audit.includes('--sync') ||
@@ -172,7 +155,7 @@ if (
 }
 // biome-ignore lint/suspicious/noConsole: safe verification summary only.
 console.log(
-  'Phase 3 boundaries pass: Native camera/billing/RTL and existing business mutations unchanged; backend creation restricted to exact-source PR verified isolated Preview.'
+  'Phase 3 boundaries pass: Native camera/billing/RTL and existing business mutations unchanged; existing shared backend selected only after exact-head verification; no fixtures.'
 );
 
 const seedTemplate = readFileSync(

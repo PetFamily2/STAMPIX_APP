@@ -1,3 +1,4 @@
+import { sharedBackendEnabled } from '@/config/sharedBackend';
 import { productionPilotEnabled } from '@/lib/pwa/releaseGate';
 export function scannerPreviewEnabled(input: {
   platform: string;
@@ -75,11 +76,21 @@ export function scannerProductionPilotEnabled(input: {
 export function scannerCommandsEnabled(
   input: Parameters<typeof scannerProductionPilotEnabled>[0] & {
     productPreview?: string;
+    sharedBackend?: string;
   }
 ) {
   return (
     scannerPreviewEnabled(input) ||
     scannerProductPreviewEnabled(input) ||
+    (input.platform === 'web' &&
+      input.flag === 'true' &&
+      !!input.actorId &&
+      !!input.businessId &&
+      sharedBackendEnabled({
+        environment: input.environment,
+        flag: input.sharedBackend,
+        url: input.url,
+      })) ||
     scannerProductionPilotEnabled(input)
   );
 }

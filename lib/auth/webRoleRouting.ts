@@ -18,6 +18,7 @@ export function resolveWebRoleRoutingFlag({
     platform === 'web' &&
     flag === 'true' &&
     (appEnvironment === 'preview' ||
+      appEnvironment === 'development' ||
       productionPilotEnabled(appEnvironment, releaseGate))
   );
 }
