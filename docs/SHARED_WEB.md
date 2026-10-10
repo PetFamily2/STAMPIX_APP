@@ -48,3 +48,9 @@ backend and hosted revision. The original account's wallet/history and each role
 flows require ordinary sign-in; no seeded journey may be reported as PASS. Real camera,
 QR between devices, installation, background recovery and push require DEVICE VERIFY.
 Payment must use an existing TEST configuration only; no real charge is authorized.
+
+## Approved three-stage launch plan (2026-10-10)
+
+The prior two-stage framing is superseded by **Stage 1 functional product completion**, **Stage 2 device/QA/integrations**, **Stage 3 pilot and controlled commercial launch**. Canonical tracker: `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`. No new database, isolation, synthetic acceptance or server secrets.
+
+Stage 1 first active task: **S1-01**, ordinary existing-account sign-in and original wallet/history continuity. Separate newly approved **14-day trial in the business-selected Starter/Pro/Premium tier** and customer caps **30/2,000/10,000** remain **product/code gaps** until implemented and acceptance-tested. Trial/limits contract: `docs/GENERAL_FREE_TRIAL_LAUNCH_CONTRACT.md`.

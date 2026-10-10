@@ -1,6 +1,14 @@
 # Web + operations launch checklist
 
-Last updated: 2026-10-03
+Last updated: 2026-10-10 — three-stage plan sync
+
+## Current execution control
+
+- Three stages: **(1) complete all ordinary Customer/Owner/Manager/Staff product paths; (2) device QA, security, SUMIT TEST and reliability; (3) pilot, public landing, Production and stores under separate approvals**.
+- Canonical task tracker: `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`.
+- **Approved but not implemented:** 14-day no-card/no-commitment/no-autocharge trial in *selected* Starter/Pro/Premium tier, for both monthly/annual options; customer limits 30/2,000/10,000. Current code still Pro-only trial and 250/3,000/10,000 limits. Requires Stage 1 implementation and both app/landing copy QA.
+- Original shared non-production Convex DB remains sole ordinary-product acceptance source; Native preserved.
+- Do not open isolated Preview DB, create fake acceptance accounts, promote Production, activate paid billing or submit stores without proper approvals.
 
 ## Implemented on the launch branches
 

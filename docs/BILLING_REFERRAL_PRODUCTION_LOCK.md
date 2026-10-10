@@ -1,8 +1,10 @@
+> **2026-10-10 SUPERSESSION NOTICE — HISTORICAL DOCUMENT FOR REFERRAL/LEGACY BILLING.** This document contains obsolete claims about **no trial**, **Pro-only trial**, **250/3,000** customer limits and active Native/RevenueCat purchases. These are NOT the approved launch rules. Current approved rules: **14 days per newly selected Starter/Pro/Premium tier**, no card/commitment/autocharge, customer limits **30/2,000/10,000**, **SUMIT web-only hosted checkout**, Native purchases dormant. The current code has NOT yet been brought into alignment. For implementation and acceptance follow `docs/GENERAL_FREE_TRIAL_LAUNCH_CONTRACT.md`, `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md` and current code. Historical referral safety rules remain reference-only pending reconciliation with the current server implementation. Do not treat the 'Frozen' plan table or Store purchase section below as authoritative.
+
 # StampAix Billing + Referral Production Lock
 
 Canonical launch contract for StampAix MVP store launch.
 Version: 1.0.0
-Frozen product decisions. Do not reopen pricing, free Starter, Referral, or multi-business billing.
+Historical 2026 billing/referral baseline. Later 2026-10-10 product trial and customer-quota decisions supersede conflicting sections below.
 
 Stale docs that previously described free Starter or old prices must defer to this file.
 
@@ -16,9 +18,9 @@ Convex is the canonical entitlement authority.
 
 RevenueCat purchase UI is dormant rollback infrastructure. Provider mapping, webhook history, and this file's RevenueCat identity rules stay in place for rollback. They are not the launch purchase path. Store `priceString` checkout applies only to that dormant path. Web checkout uses the canonical SUMIT amounts in this contract.
 
-## Frozen plan table
+## Historical plan table (NOT the current approved trial/customer-limit contract)
 
-Currency: ILS. No free plan. No general free trial.
+Currency: ILS. No permanent free plan. A 14-day free trial in the selected tier **IS approved**; current code still needs updating.
 
 | Plan | Monthly | Yearly | Cards | Customers | Campaigns | Retention | AI / month | Team seats |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -100,7 +102,7 @@ If Store succeeds and webhook lags, show **מאמתים את המנוי**. Allow
 
 ## Lifecycle
 
-States: `active`, `past_due`, `canceled`, `inactive` (`trialing` compatibility only; no trial sold).
+States: `active`, `past_due`, `canceled`, `inactive` (`trialing` applies to selected-tier 14-day free trial per the 2026-10-10 product decision (this paragraph's detailed lifecycle is historical)).
 
 - Canceled with `currentPeriodEndAt > now`: full access until period end. Copy: "המנוי יבוטל בתאריך …"
 - Past due during verified provider grace: access until `gracePeriodEndAt`

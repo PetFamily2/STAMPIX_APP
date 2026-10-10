@@ -1,3 +1,5 @@
+> **LATEST OPERATOR DECISION 2026-10-10:** three-stage launch plan and free 14-day trial for the **selected** Starter/Pro/Premium tier (monthly or annual), no card/commitment/autocharge. This is not yet implemented. See `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md` and `docs/GENERAL_FREE_TRIAL_LAUNCH_CONTRACT.md`. App/Backend shared original data; do not reintroduce isolated QA.
+
 # StampAix — Project Handoff / Single Source of Truth
 
 Last updated: 2026-10-10  
@@ -104,56 +106,23 @@ The original account's wallet/history and the full role journeys still require s
 
 ---
 
-## 4. Current launch plan — only 2 stages
+## 4. Current launch plan — THREE stages (operator decision 2026-10-10)
 
-### Stage 1 — make Web/PWA a complete ordinary product
-Finish and accept:
-- ordinary sign-in/sign-up
-- customer onboarding
-- business onboarding
-- original-data continuity
-- Customer flows
-- Owner flows
-- Manager flows
-- Staff flows
-- loyalty program lifecycle
-- QR
-- scanner
-- customers
-- campaigns
-- referrals
-- inbox
-- settings
-- maps/location
-- billing UI/test path
-- RTL/responsive/visual quality
-- PWA install/update/offline behavior
+**Canonical execution tracker:** `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`.
 
-Stage 1 is complete only when these are testable through normal UI with ordinary accounts and the shared backend.
+- **Stage 1 — complete the ordinary product:** shared Convex original-account sign-in and data continuity, Customer/Owner/Manager/Staff, onboarding, wallet/cards/QR/stamp/redeem/undo, campaigns, AI quotas, referrals/inbox/maps/settings, Admin read-only, full responsive/RTL acceptance. Implement **14-day trial in each selected tier** and **customer limits 30/2,000/10,000**; both are NEW product decisions, not implemented in current code.
+- **Stage 2 — reliability, devices, integrations:** Android/iPhone and installed PWAs, real camera/scans/push, offline/network recovery, SUMIT TEST full lifecycle, security/performance/monitoring/rollback and P0/P1-free release candidate.
+- **Stage 3 — pilot and commercial launch:** controlled pilot, fixes, landing/domain/SEO/legal/support, approved Production configuration and billing activation, separately approved store submissions, real paying-user operations and monitoring.
 
-### Stage 2 — physical verification + release readiness
-Verify on:
-- Android Chrome
-- Samsung Internet
-- iPhone Safari
-- installed Android PWA
-- installed iPhone PWA
-- Native Android
-- Native iOS
+Do not treat existing regression tests as user acceptance. Do not merge, deploy Production, migrate, rotate credentials, activate SUMIT Production or submit stores without separate explicit approvals.
 
-Then close:
-- real camera / QR between devices
-- background/foreground
-- weak network / lost response / reconciliation
-- PWA install/update
-- real Push receive/click
-- touch / keyboard / RTL
-- Native regression
-- final provider configuration
-- SUMIT test then explicit Production cutover
-- observability/security/rollback
-- Pilot approval
-- Production only after explicit approval
+### Trial & quota product/code discrepancy — must close
+
+**New product decision (not yet code):** one free 14-day trial per new business in **Starter/Pro/Premium**, selected monthly/yearly, with that tier's features/limits, no card, no commitment, no autocharge, no renewal of trial by tier switch, data retained after expiry. Current `GENERAL_FREE_TRIAL_PLAN = 'pro'` is now outdated. Current maxCustomers values **250/3,000/10,000** must be changed to **30/2,000/10,000** with tests and visible copy updates.
+
+### User-interaction policy
+
+ChatGPT coordinates tasks *when invoked*, checks GitHub and evidence, names one active work item at a time, and asks the operator only for actions impossible without personal accounts, physical devices or authorization. No asynchronous/background work is implied. The initial active item is **S1-01: ordinary existing-account login and original wallet/history verification**.
 
 ---
 
@@ -501,7 +470,7 @@ Sharing/referrals:
 
 ---
 
-## 15. Billing / plans — code is source of truth
+## 15. Billing / plans — code state vs NEW approved product decisions
 
 Canonical code:
 `convex/lib/billing/productionContract.ts`
@@ -509,7 +478,7 @@ Canonical code:
 Current contract version:
 `1.1.0`
 
-Current plan table:
+Current *code* plan table, NOT the final approved customer limits:
 
 | Plan | Monthly | Yearly | Cards | Customers | Campaigns | Retention | AI/mo | Team |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -527,7 +496,7 @@ Current code also has:
 - store grace policy constant: 16 days
 
 Important documentation inconsistency:
-some older billing prose still says “No general free trial” while current canonical code explicitly enables a 14-day Pro trial. **Use the code contract unless the user explicitly changes the product decision, and clean stale docs when touching this area.**
+The user has explicitly changed the product decision: 14 days **in the selected Starter/Pro/Premium tier**. Current code still enables a 14-day **Pro** trial and must be updated; old 'no trial' or 'Pro only' copy is superseded. Product-approved customer limits are 30/2,000/10,000 vs present code 250/3,000/10,000.
 
 Billing launch direction:
 - Business Web = purchase/billing surface
@@ -720,7 +689,7 @@ Continue from the shared-Web state described in `docs/SHARED_WEB.md`.
 
 ---
 
-## 24. Current “do next” order
+## 24. Current “do next” order (three-stage plan)
 
 1. Sign into the latest ordinary Web Preview with the existing normal account.
 2. Verify original wallet/cards/history continuity.
@@ -730,10 +699,10 @@ Continue from the shared-Web state described in `docs/SHARED_WEB.md`.
 6. Invite/accept Manager and Staff through normal UI.
 7. Verify real UI QR/scanner between ordinary accounts.
 8. Complete physical-device PWA/camera/push acceptance.
-9. Verify SUMIT TEST flow.
-10. Final release/security/rollback review.
-11. Pilot.
-12. Production only after explicit approval.
+9. Implement/test 14-day trial by selected tier and customer limits 30/2,000/10,000 (Stage 1).
+10. Device Verify + SUMIT TEST + security/monitoring/rollback (Stage 2).
+11. Pilot, landing/domain/legal/support/store preparation (Stage 3).
+12. Production, billing and stores only after their separate explicit approvals.
 
 No new isolation layer. No new synthetic acceptance system.
 
@@ -783,4 +752,4 @@ When there is a choice between:
 
 choose the ordinary real user flow, while keeping existing regression tests intact.
 
-The project is close to launch, but it is **not yet Pilot-ready** until ordinary shared-backend acceptance and physical-device verification are complete.
+The project is close to launch, but it is **not yet Pilot-ready** until ordinary shared-backend acceptance, the selected-tier-trial/limits corrections, physical-device verification and SUMIT TEST acceptance are complete.

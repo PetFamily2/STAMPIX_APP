@@ -1,3 +1,5 @@
+> **Current 2026-10-10 operator decisions supersede historical isolated/synthetic-preview wording below.** Ordinary product acceptance runs against the EXISTING `utmost-fennec-280` backend with original accounts, not synthetic Preview; `/preview-qa` is not an acceptance path. Three-stage release plan: `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`. Approved 14-day trial is per selected Starter/Pro/Premium tier (code change pending), not Pro-only. This document retains historical regression/incident context only.
+
 # StampAix PWA Release Candidate — acceptance and operations
 
 Branch: `pwa/phase-3-scanner-commands-20261005`.
