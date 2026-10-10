@@ -108,6 +108,41 @@ const run = (command, args, env = process.env, timeout = 180000) => {
               'terminate',
               'closed',
               'connection',
+              'not',
+              'cannot',
+              'Not',
+              'Unsupported',
+              'System',
+              'Websocket',
+              'websocket',
+              'denied',
+              'allowed',
+              'forbidden',
+              'Forbidden',
+              'enabled',
+              'implemented',
+              'implement',
+              'supports',
+              'support',
+              'on',
+              'over',
+              'is',
+              'this',
+              'requires',
+              'authorization',
+              'read',
+              'reading',
+              'Unable',
+              'unable',
+              'Disabled',
+              'disabled',
+              'reject',
+              'rejected',
+              'proxy',
+              'restricted',
+              'queryEnvironmentVariables',
+              'env',
+              'list',
             ]).has(word)
           )
         ),
@@ -219,6 +254,37 @@ try {
   try {
     existing = readExistingEnvironment();
   } catch {
+    // A read-only deployment dry run distinguishes a system-query transport limit
+    // from unusable deploy access. Never continue to a push without all preflights.
+    const environmentReadFailure = report.cliFailure;
+    report.stage = 'READ_ONLY_DEPLOY_ACCESS_DIAGNOSTIC';
+    try {
+      run(
+        'node',
+        [
+          'node_modules/convex/bin/main.js',
+          'deploy',
+          '--url',
+          URL,
+          '--admin-key',
+          key,
+          '--yes',
+          '--typecheck',
+          'disable',
+          '--codegen',
+          'disable',
+          '--dry-run',
+        ],
+        deploymentEnv,
+        600000
+      );
+      report.readOnlyDeployDiagnostic = 'PASS';
+    } catch {
+      report.readOnlyDeployDiagnostic = 'FAILED';
+      report.readOnlyDeployFailure = report.cliFailure;
+    }
+    report.cliFailure = environmentReadFailure;
+    report.stage = 'EXISTING_ENVIRONMENT_READ';
     if (!process.env.EXISTING_PROJECT_KEY)
       fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
     const projectSelection = requireProjectPreviewKey(
