@@ -107,15 +107,27 @@ try {
   }
   if (!key) fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
   report.stage = 'EXISTING_ENVIRONMENT_READ';
-  const admin = new ConvexHttpClient(URL, { logger: false });
-  admin.setAdminAuth(key);
-  const envRows = await admin.query(
-    makeFunctionReference('_system/cli/queryEnvironmentVariables'),
-    {}
+  const deploymentEnv = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name]) => !/^(CONVEX_|EXPO_PUBLIC_)/.test(name)
+    )
   );
-  const existing = Object.fromEntries(
-    envRows.map(({ name, value }) => [name, value])
+  deploymentEnv.CONVEX_DEPLOY_KEY = key;
+  const selectionPath = join(privateDir, 'existing-deployment.env');
+  writeFileSync(selectionPath, `CONVEX_DEPLOY_KEY=${key}\n`, { mode: 0o600 });
+  // System queries use the pinned CLI's WebSocket transport, not the public HTTP query endpoint.
+  const environmentText = run(
+    'node',
+    [
+      'node_modules/convex/bin/main.js',
+      'env',
+      'list',
+      '--env-file',
+      selectionPath,
+    ],
+    deploymentEnv
   );
+  const existing = parseEnv(environmentText);
   if (existing.CONVEX_CLOUD_URL && existing.CONVEX_CLOUD_URL !== URL)
     fail('SHARED_TARGET_MISMATCH');
   if (
@@ -130,22 +142,26 @@ try {
   )
     fail('SHARED_EXISTING_SIGNING_CONFIGURATION_REQUIRED');
   const dataIds = async (table) => {
-    let cursor = null;
-    const ids = [];
-    for (let page = 0; page < 20; page++) {
-      const rows = await admin.query(
-        makeFunctionReference('_system/cli/tableData'),
-        {
-          table,
-          order: 'asc',
-          paginationOpts: { cursor, numItems: 100 },
-        }
-      );
-      ids.push(...rows.page.map((row) => row._id));
-      if (rows.isDone) return ids;
-      cursor = rows.continueCursor;
-    }
-    fail('SHARED_DATA_VERIFICATION_LIMIT');
+    const text = run(
+      'node',
+      [
+        'node_modules/convex/bin/main.js',
+        'data',
+        table,
+        '--limit',
+        '2001',
+        '--order',
+        'asc',
+        '--format',
+        'json',
+        '--env-file',
+        selectionPath,
+      ],
+      deploymentEnv
+    );
+    const rows = text.trim() ? JSON.parse(text) : [];
+    if (rows.length > 2000) fail('SHARED_DATA_VERIFICATION_LIMIT');
+    return rows.map((row) => row._id);
   };
   report.stage = 'EXISTING_DATA_READ';
   const before = {};
