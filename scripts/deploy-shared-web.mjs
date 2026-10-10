@@ -230,29 +230,32 @@ try {
     )
   );
   deploymentEnv.CONVEX_DEPLOY_KEY = key;
-  const selectionPath = join(privateDir, 'existing-deployment.env');
-  writeFileSync(selectionPath, `CONVEX_DEPLOY_KEY=${key}\n`, { mode: 0o600 });
-  // System queries require the pinned CLI WebSocket transport. Verify actual access,
-  // then try authorization of the same existing deployment if an inherited key is stale.
-  const readExistingEnvironment = () =>
-    parseEnv(
-      run(
-        'node',
-        [
-          'node_modules/convex/bin/main.js',
-          'env',
-          'list',
-          '--url',
-          URL,
-          '--admin-key',
-          key,
-        ],
-        { ...deploymentEnv, CONVEX_DEPLOY_KEY: key }
+  // Use the documented Deployment Platform API; the deployment's system env
+  // operation is unavailable over the pinned CLI WebSocket transport.
+  const readExistingEnvironment = async () => {
+    const response = await fetch(`${URL}/api/v1/list_environment_variables`, {
+      headers: { Authorization: `Convex ${key}` },
+      redirect: 'error',
+      signal: AbortSignal.timeout(45000),
+    });
+    report.environmentReadHttp = response.status;
+    if (!response.ok) fail('SHARED_ENVIRONMENT_HTTP_READ_FAILED');
+    const result = await response.json();
+    const rows = Array.isArray(result)
+      ? result
+      : (result.variables ?? result.environmentVariables);
+    if (
+      !Array.isArray(rows) ||
+      rows.some(
+        (row) => typeof row.name !== 'string' || typeof row.value !== 'string'
       )
-    );
+    )
+      fail('SHARED_ENVIRONMENT_RESPONSE_INVALID');
+    return Object.fromEntries(rows.map(({ name, value }) => [name, value]));
+  };
   let existing;
   try {
-    existing = readExistingEnvironment();
+    existing = await readExistingEnvironment();
   } catch {
     // A read-only deployment dry run distinguishes a system-query transport limit
     // from unusable deploy access. Never continue to a push without all preflights.
@@ -318,7 +321,7 @@ try {
       fail('SHARED_TARGET_MISMATCH');
     key = target.adminKey;
     try {
-      existing = readExistingEnvironment();
+      existing = await readExistingEnvironment();
     } catch {
       fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
     }
@@ -339,29 +342,22 @@ try {
     !existing.SCAN_TOKEN_SECRET
   )
     fail('SHARED_EXISTING_SIGNING_CONFIGURATION_REQUIRED');
+  const admin = new ConvexHttpClient(URL, { logger: false });
+  admin.setAdminAuth(key);
   const dataIds = async (table) => {
-    const text = run(
-      'node',
-      [
-        'node_modules/convex/bin/main.js',
-        'data',
-        table,
-        '--limit',
-        '2001',
-        '--order',
-        'asc',
-        '--format',
-        'json',
-        '--url',
-        URL,
-        '--admin-key',
-        key,
-      ],
-      deploymentEnv
-    );
-    const rows = text.trim() ? JSON.parse(text) : [];
-    if (rows.length > 2000) fail('SHARED_DATA_VERIFICATION_LIMIT');
-    return rows.map((row) => row._id);
+    let cursor = null;
+    const ids = [];
+    for (let page = 0; page < 20; page++) {
+      const rows = await admin.query(
+        makeFunctionReference('_system/cli/tableData'),
+        { table, order: 'asc', paginationOpts: { cursor, numItems: 100 } }
+      );
+      if (!Array.isArray(rows.page)) fail('SHARED_DATA_RESPONSE_INVALID');
+      ids.push(...rows.page.map((row) => row._id));
+      if (rows.isDone) return ids;
+      cursor = rows.continueCursor;
+    }
+    fail('SHARED_DATA_VERIFICATION_LIMIT');
   };
   report.stage = 'EXISTING_DATA_READ';
   const before = {};
