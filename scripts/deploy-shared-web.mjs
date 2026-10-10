@@ -197,21 +197,69 @@ try {
   deploymentEnv.CONVEX_DEPLOY_KEY = key;
   const selectionPath = join(privateDir, 'existing-deployment.env');
   writeFileSync(selectionPath, `CONVEX_DEPLOY_KEY=${key}\n`, { mode: 0o600 });
-  // System queries use the pinned CLI's WebSocket transport, not the public HTTP query endpoint.
-  const environmentText = run(
-    'node',
-    [
-      'node_modules/convex/bin/main.js',
-      'env',
-      'list',
-      '--url',
-      URL,
-      '--admin-key',
-      key,
-    ],
-    deploymentEnv
-  );
-  const existing = parseEnv(environmentText);
+  // System queries require the pinned CLI WebSocket transport. Verify actual access,
+  // then try authorization of the same existing deployment if an inherited key is stale.
+  const readExistingEnvironment = () =>
+    parseEnv(
+      run(
+        'node',
+        [
+          'node_modules/convex/bin/main.js',
+          'env',
+          'list',
+          '--url',
+          URL,
+          '--admin-key',
+          key,
+        ],
+        { ...deploymentEnv, CONVEX_DEPLOY_KEY: key }
+      )
+    );
+  let existing;
+  try {
+    existing = readExistingEnvironment();
+  } catch {
+    if (!process.env.EXISTING_PROJECT_KEY)
+      fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
+    const projectSelection = requireProjectPreviewKey(
+      process.env.EXISTING_PROJECT_KEY
+    );
+    const response = await fetch(
+      'https://api.convex.dev/api/deployment/authorize_within_current_project',
+      {
+        method: 'POST',
+        redirect: 'error',
+        signal: AbortSignal.timeout(45000),
+        headers: {
+          Authorization: `Bearer ${process.env.EXISTING_PROJECT_KEY}`,
+          'Content-Type': 'application/json',
+          'Convex-Client': 'npm-cli-1.31.5',
+        },
+        body: JSON.stringify({
+          projectSelection,
+          selectedDeploymentName: NAME,
+        }),
+      }
+    );
+    report.existingProjectAuthorizationHttp = response.status;
+    if (!response.ok) fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
+    const target = await response.json();
+    if (
+      target.url !== URL ||
+      target.deploymentName !== NAME ||
+      target.deploymentType !== 'dev'
+    )
+      fail('SHARED_TARGET_MISMATCH');
+    key = target.adminKey;
+    try {
+      existing = readExistingEnvironment();
+    } catch {
+      fail('SHARED_EXISTING_DEV_DEPLOY_ACCESS_REQUIRED');
+    }
+    delete report.cliFailure;
+    report.existingAccessRefreshed = true;
+  }
+  deploymentEnv.CONVEX_DEPLOY_KEY = key;
   if (existing.CONVEX_CLOUD_URL && existing.CONVEX_CLOUD_URL !== URL)
     fail('SHARED_TARGET_MISMATCH');
   if (
