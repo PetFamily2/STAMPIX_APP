@@ -1,152 +1,61 @@
 import { useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
-import {
-  Building2,
-  CircleAlert,
-  Gift,
-  QrCode,
-  Stamp,
-} from 'lucide-react-native';
+import { Building2, CircleAlert } from 'lucide-react-native';
 import { Component, type ReactNode, useState } from 'react';
-import {
-  Pressable,
-  type StyleProp,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { PwaButton } from '@/components/pwa-ui/PwaButton';
+import { BusinessWebRecommendation } from '@/components/business-web/BusinessWebRecommendation';
 import { AppText as Text } from '@/components/ui/AppText';
-
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { getBusinessWebResponsiveLayout } from '@/lib/design/businessWebResponsive';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
-  alignItems,
-  flexDirection,
   ltrIslandText,
+  alignItems as rtlAlign,
   rtlBaseText,
-  selfStart,
-  textAlign,
+  flexDirection as rtlFlex,
+  justifyContent as rtlJustify,
 } from '@/lib/rtl';
 
 type BusinessWebDashboardProps = {
   activeBusinessId: Id<'businesses'>;
   businessName: string;
-};
-
-type KpiCardProps = {
-  cardStyle: StyleProp<ViewStyle>;
-  compact: boolean;
-  label: string;
-  value: number;
-  context: string;
+  isInteractionCurrent: (businessId: string) => boolean;
+  isSwitchingBusiness: boolean;
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
 const DASHBOARD_TITLE = 'היום';
+const STAMP_PERIOD_LABEL = 'חותמות ב־30 הימים האחרונים';
+const REDEMPTION_PERIOD_LABEL = 'ב־30 הימים האחרונים';
+const ACTIVE_CUSTOMERS_PERIOD = 'פעילים ב־30 הימים האחרונים';
+const AT_RISK_PERIOD = 'לפי דפוס הפעילות';
+const MEMBER_PERIOD_LABEL = 'הצטרפו עד היום';
+const SHELL_CONTENT_PADDING = 16;
+const SHELL_CONTENT_BOTTOM = 28;
+
+function activityLabel(type: string, detail: string) {
+  if (type === 'reward') {
+    return 'מימוש';
+  }
+  if (type === 'punch') {
+    return 'חותמת';
+  }
+  return detail;
+}
 
 function DashboardSkeleton() {
-  const { width } = useWindowDimensions();
-  const responsiveLayout = getBusinessWebResponsiveLayout(width);
-  const isMobileComposition =
-    responsiveLayout.composition === 'mobile' ||
-    responsiveLayout.composition === 'narrow-mobile';
-  const isSingleColumn = responsiveLayout.kpiColumns === 1;
-  const isTwoColumn = responsiveLayout.kpiColumns === 2;
-  const cardStyle = isSingleColumn
-    ? styles.cardSingleColumn
-    : isTwoColumn
-      ? styles.cardTwoColumn
-      : styles.cardDesktop;
-
   return (
     <View
-      role="status"
-      aria-busy={true}
       accessibilityLabel="טוענים את נתוני לוח הבקרה"
-      style={[styles.page, isMobileComposition ? styles.pageMobile : null]}
+      aria-busy={true}
+      role="status"
+      style={styles.page}
     >
-      <Text
-        accessibilityRole="header"
-        aria-level={1}
-        style={[
-          styles.pageTitle,
-          isMobileComposition ? styles.pageTitleMobile : null,
-        ]}
-      >
-        {DASHBOARD_TITLE}
-      </Text>
-      <View
-        style={[
-          styles.kpiGrid,
-          isMobileComposition ? styles.kpiGridMobile : null,
-          isSingleColumn ? styles.kpiGridSingleColumn : null,
-        ]}
-      >
-        {[0, 1, 2, 3].map((item) => (
-          <View
-            key={item}
-            style={[
-              styles.card,
-              cardStyle,
-              isMobileComposition ? styles.cardMobile : null,
-              styles.skeletonCard,
-            ]}
-          >
-            <View style={[styles.skeleton, styles.skeletonIcon]} />
-            <View style={[styles.skeleton, styles.skeletonLabel]} />
-            <View style={[styles.skeleton, styles.skeletonValue]} />
-          </View>
-        ))}
+      <View style={styles.hero}>
+        <View style={[styles.skeleton, styles.skeletonLine]} />
+        <View style={[styles.skeleton, styles.skeletonNumber]} />
       </View>
-    </View>
-  );
-}
-
-function KpiCard({
-  cardStyle,
-  compact,
-  label,
-  value,
-  context,
-}: KpiCardProps) {
-  return (
-    <View style={[styles.card, cardStyle, compact ? styles.cardMobile : null]}>
-      <Text style={[styles.kpiLabel, compact ? styles.kpiLabelMobile : null]}>
-        {label}
-      </Text>
-      <Text style={[styles.kpiValue, compact ? styles.kpiValueMobile : null]}>
-        {NUMBER_FORMATTER.format(value)}
-      </Text>
-      <Text
-        numberOfLines={2}
-        style={[styles.kpiContext, compact ? styles.kpiContextMobile : null]}
-      >
-        {context}
-      </Text>
-    </View>
-  );
-}
-
-function EmptyDashboard({ businessName }: { businessName: string }) {
-  return (
-    <View style={styles.emptyDashboard}>
-      <View style={styles.emptyIcon}>
-        <Building2
-          color={TOKENS.colors.primary}
-          size={TOKENS.icons.prominent}
-          strokeWidth={TOKENS.icons.strokeWidth}
-        />
-      </View>
-      <Text style={styles.emptyTitle}>הפעילות של {businessName} תופיע כאן</Text>
-      <Text style={styles.emptyBody}>
-        אחרי שלקוחות יצטרפו ויתחילו לצבור חותמות, יוצגו כאן תמונת מצב ופעילות
-        אחרונה.
-      </Text>
     </View>
   );
 }
@@ -154,22 +63,15 @@ function EmptyDashboard({ businessName }: { businessName: string }) {
 function BusinessWebDashboardContent({
   activeBusinessId,
   businessName,
+  isInteractionCurrent,
+  isSwitchingBusiness,
 }: BusinessWebDashboardProps) {
   const { width } = useWindowDimensions();
-  const responsiveLayout = getBusinessWebResponsiveLayout(width);
-  const isWide = responsiveLayout.detailColumns === 2;
-  const isSingleColumn = responsiveLayout.kpiColumns === 1;
-  const isTwoColumn = responsiveLayout.kpiColumns === 2;
-  const isMobileComposition =
-    responsiveLayout.composition === 'mobile' ||
-    responsiveLayout.composition === 'narrow-mobile';
-  const isMobileActivity = responsiveLayout.activityPresentation === 'feed';
-  const router = useRouter();
-  const kpiCardStyle = isSingleColumn
-    ? styles.cardSingleColumn
-    : isTwoColumn
-      ? styles.cardTwoColumn
-      : styles.cardDesktop;
+  const layout = getBusinessWebResponsiveLayout(width);
+  const isDesktop = layout.composition === 'desktop';
+  const narrow = layout.composition === 'narrow-mobile';
+  const metricsInOneRow =
+    layout.composition === 'tablet' || layout.composition === 'desktop';
   const [periodAnchor] = useState(() => Date.now());
   const dashboardSummary = useQuery(api.dashboard.getBusinessDashboardSummary, {
     businessId: activeBusinessId,
@@ -185,6 +87,7 @@ function BusinessWebDashboardContent({
   });
 
   if (
+    isSwitchingBusiness ||
     dashboardSummary === undefined ||
     dashboardPeriod === undefined ||
     recentActivity === undefined
@@ -192,261 +95,196 @@ function BusinessWebDashboardContent({
     return <DashboardSkeleton />;
   }
 
-  const hasMatchingSummary =
+  const summaryMatches =
     dashboardSummary !== null &&
     dashboardSummary.businessId === activeBusinessId;
-  const hasMatchingPeriod =
+  const periodMatches =
     dashboardPeriod !== null && dashboardPeriod.businessId === activeBusinessId;
-  const summary = hasMatchingSummary ? dashboardSummary : null;
-  const period = hasMatchingPeriod ? dashboardPeriod : null;
-  const metrics = summary?.lifetimeMetrics;
-  const kpis = period?.kpis;
-  const hasMeasuredActivity =
-    (metrics?.totalCustomersJoinedAllTime ?? 0) > 0 ||
-    (metrics?.totalStampsAllTime ?? 0) > 0 ||
-    (metrics?.totalRedemptionsAllTime ?? 0) > 0 ||
-    recentActivity.length > 0;
-
-  return (
-    <View style={[styles.page, isMobileComposition ? styles.pageMobile : null]}>
-      <View
-        style={[
-          styles.pageHeader,
-          isMobileComposition ? styles.pageHeaderMobile : null,
-        ]}
-      >
-        <View style={styles.titleRow}>
-          <Text
-            accessibilityRole="header"
-            aria-level={1}
-            numberOfLines={1}
-            style={[
-              styles.pageTitle,
-              styles.titleText,
-              isMobileComposition ? styles.pageTitleMobile : null,
-            ]}
-          >
-            {DASHBOARD_TITLE}
-          </Text>
-          <PwaButton
-            icon={<QrCode color="#FFFFFF" size={18} strokeWidth={1.75} />}
-            label="סריקה"
-            onPress={() => router.push('/business/scanner-preview')}
-            style={styles.scanAction}
-          />
-        </View>
-        <Text
-          style={[
-            styles.pageSubtitle,
-            isMobileComposition ? styles.pageSubtitleMobile : null,
-          ]}
-        >
-          מה קורה עכשיו ב־{businessName}
-        </Text>
+  if (!summaryMatches || !periodMatches) {
+    return (
+      <View style={styles.page}>
+        <Text style={styles.mismatch}>הנתונים אינם תואמים לעסק הפעיל.</Text>
       </View>
+    );
+  }
 
-      {!hasMeasuredActivity ? (
-        <EmptyDashboard businessName={businessName} />
+  const inset = isDesktop ? 20 : narrow ? 10 : 12;
+  const metrics = (
+    <View style={[styles.metrics, { marginHorizontal: inset }]}>
+      <Metric
+        bottomBorder={!metricsInOneRow}
+        endBorder={true}
+        label="מימושים"
+        oneRow={metricsInOneRow}
+        period={REDEMPTION_PERIOD_LABEL}
+        value={dashboardPeriod.kpis.redemptions.value}
+      />
+      <Metric
+        bottomBorder={!metricsInOneRow}
+        endBorder={metricsInOneRow}
+        label="לקוחות פעילים"
+        oneRow={metricsInOneRow}
+        period={ACTIVE_CUSTOMERS_PERIOD}
+        value={dashboardPeriod.kpis.activeCustomers}
+      />
+      <Metric
+        endBorder={true}
+        label="חברי מועדון"
+        oneRow={metricsInOneRow}
+        period={MEMBER_PERIOD_LABEL}
+        value={dashboardSummary.lifetimeMetrics.totalCustomersJoinedAllTime}
+      />
+      <Metric
+        label="דורשים תשומת לב"
+        oneRow={metricsInOneRow}
+        period={AT_RISK_PERIOD}
+        value={dashboardPeriod.kpis.atRiskCustomers}
+      />
+    </View>
+  );
+  const recommendation = (
+    <View
+      style={
+        isDesktop
+          ? styles.desktopPrimary
+          : { marginHorizontal: inset, marginTop: -16 }
+      }
+    >
+      <BusinessWebRecommendation
+        activeBusinessId={activeBusinessId}
+        isInteractionCurrent={isInteractionCurrent}
+        narrow={narrow}
+      />
+    </View>
+  );
+  const activity = (
+    <View
+      style={[
+        styles.activity,
+        isDesktop ? styles.activityDesktop : { marginHorizontal: inset },
+      ]}
+    >
+      <Text style={styles.sectionTitle}>פעילות אחרונה</Text>
+      {recentActivity.length === 0 ? (
+        <Text style={styles.emptyActivity}>עדיין אין פעילות להצגה</Text>
       ) : (
-        <>
-          <View
-            style={[
-              styles.kpiGrid,
-              isMobileComposition ? styles.kpiGridMobile : null,
-              isSingleColumn ? styles.kpiGridSingleColumn : null,
-            ]}
-          >
-            <KpiCard
-              cardStyle={kpiCardStyle}
-              compact={isMobileComposition}
-              context="ב־30 הימים האחרונים"
-              label="חותמות"
-              value={kpis?.stamps.value ?? 0}
-            />
-            <KpiCard
-              cardStyle={kpiCardStyle}
-              compact={isMobileComposition}
-              context="ב־30 הימים האחרונים"
-              label="מימושי הטבות"
-              value={kpis?.redemptions.value ?? 0}
-            />
-            <KpiCard
-              cardStyle={kpiCardStyle}
-              compact={isMobileComposition}
-              context="פעילים ב־30 הימים האחרונים"
-              label="לקוחות פעילים"
-              value={kpis?.activeCustomers ?? 0}
-            />
-            <KpiCard
-              cardStyle={kpiCardStyle}
-              compact={isMobileComposition}
-              context="סה״כ לקוחות שהצטרפו"
-              label="לקוחות במועדון"
-              value={metrics?.totalCustomersJoinedAllTime ?? 0}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.detailGrid,
-              isMobileComposition ? styles.detailGridMobile : null,
-              isWide ? styles.detailGridWide : null,
-            ]}
-          >
-            <View
-              style={[
-                styles.panel,
-                styles.activityPanel,
-                isMobileComposition ? styles.panelMobile : null,
-              ]}
-            >
-              <View
-                style={[
-                  styles.panelHeader,
-                  isMobileComposition ? styles.panelHeaderMobile : null,
-                ]}
-              >
-                <View>
-                  <Text style={styles.sectionTitle}>פעילות אחרונה</Text>
-                  <Text style={styles.sectionSubtitle}>
-                    החותמות והמימושים האחרונים בעסק
-                  </Text>
-                </View>
-              </View>
-
-              {recentActivity.length === 0 ? (
-                <View style={styles.emptyRegion}>
-                  <Text style={styles.emptyRegionTitle}>
-                    עדיין אין פעילות להצגה
-                  </Text>
-                  <Text style={styles.emptyRegionBody}>
-                    פעילות חדשה תופיע כאן באופן אוטומטי.
-                  </Text>
-                </View>
-              ) : (
-                <View
-                  style={[
-                    styles.activityList,
-                    isMobileComposition ? styles.activityListMobile : null,
-                  ]}
-                >
-                  {!isMobileActivity ? (
-                    <View style={styles.activityTableHeader}>
-                      <Text
-                        style={[styles.tableHeaderText, styles.customerColumn]}
-                      >
-                        לקוח
-                      </Text>
-                      <Text
-                        style={[styles.tableHeaderText, styles.activityColumn]}
-                      >
-                        פעילות
-                      </Text>
-                      <Text style={[styles.tableHeaderText, styles.timeColumn]}>
-                        מועד
-                      </Text>
-                    </View>
-                  ) : null}
-                  {recentActivity.map((item) => (
-                    <View
-                      key={String(item.id)}
-                      style={[
-                        styles.activityRow,
-                        isMobileActivity ? styles.activityRowMobile : null,
-                      ]}
-                    >
-                      {isMobileActivity ? (
-                        <>
-                          <View style={styles.activityMetaRowMobile}>
-                            <Text numberOfLines={1} style={styles.customerName}>
-                              {String(item.customer || 'לקוח')}
-                            </Text>
-                            <Text style={styles.activityTimeMobile}>
-                              {String(item.time || '')}
-                            </Text>
-                          </View>
-                          <Text numberOfLines={1} style={styles.activityDetail}>
-                            {String(item.detail || '')}
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <View style={styles.customerCell}>
-                            <View style={styles.customerAvatar}>
-                              <Text style={styles.customerAvatarText}>
-                                {String(item.customer || 'ל').charAt(0)}
-                              </Text>
-                            </View>
-                            <Text numberOfLines={1} style={styles.customerName}>
-                              {String(item.customer || 'לקוח')}
-                            </Text>
-                          </View>
-                          <View style={styles.activityCell}>
-                            <View
-                              style={[
-                                styles.activityTypeIcon,
-                                item.type === 'reward'
-                                  ? styles.rewardTypeIcon
-                                  : styles.stampTypeIcon,
-                              ]}
-                            >
-                              {item.type === 'reward' ? (
-                                <Gift color={TOKENS.colors.warning} size={16} />
-                              ) : (
-                                <Stamp
-                                  color={TOKENS.colors.primary}
-                                  size={16}
-                                />
-                              )}
-                            </View>
-                            <Text
-                              numberOfLines={2}
-                              style={styles.activityDetail}
-                            >
-                              {String(item.detail || '')}
-                            </Text>
-                          </View>
-                          <Text style={styles.activityTime}>
-                            {String(item.time || '')}
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <View
-              style={[
-                styles.panel,
-                styles.attentionPanel,
-                isWide ? styles.attentionPanelWide : null,
-                isMobileComposition ? styles.panelMobile : null,
-              ]}
-            >
-              <View
-                style={[
-                  styles.panelHeader,
-                  isMobileComposition ? styles.panelHeaderMobile : null,
-                ]}
-              >
-                <View>
-                  <Text style={styles.sectionTitle}>דורש תשומת לב</Text>
-                  <Text style={styles.sectionSubtitle}>
-                    לקוחות שכדאי לעקוב אחריהם
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.attentionCopy}>
-                {(kpis?.atRiskCustomers ?? 0) > 0
-                  ? `${NUMBER_FORMATTER.format(kpis?.atRiskCustomers ?? 0)} לקוחות לא חזרו לפי דפוס הפעילות של העסק.`
-                  : 'אין כרגע לקוחות שמסומנים כמי שדורשים תשומת לב.'}
+        recentActivity.map((item) => (
+          <View key={String(item.id)} style={styles.activityRow}>
+            <View style={styles.activityMain}>
+              <Text numberOfLines={1} style={styles.activityName}>
+                {item.customer}
+              </Text>
+              <Text numberOfLines={1} style={styles.activityKind}>
+                {activityLabel(item.type, item.detail)}
               </Text>
             </View>
+            <Text style={styles.activityTime}>{item.time}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  return (
+    <View
+      style={[
+        styles.page,
+        {
+          marginTop: -layout.pageTopPadding,
+          marginHorizontal: -SHELL_CONTENT_PADDING,
+          marginBottom: -SHELL_CONTENT_BOTTOM,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.hero,
+          narrow ? styles.heroNarrow : null,
+          metricsInOneRow && !isDesktop ? styles.heroWide : null,
+          isDesktop ? styles.heroDesktop : null,
+        ]}
+      >
+        <Text numberOfLines={2} style={styles.kicker}>
+          {businessName}
+        </Text>
+        <Text
+          accessibilityRole="header"
+          aria-level={1}
+          style={[styles.pageTitle, narrow ? styles.pageTitleNarrow : null]}
+        >
+          {DASHBOARD_TITLE}
+        </Text>
+        <View style={styles.heroRow}>
+          <View style={styles.heroCopy}>
+            <Text
+              style={[
+                styles.heroNumber,
+                narrow ? styles.heroNumberNarrow : null,
+                metricsInOneRow ? styles.heroNumberWide : null,
+              ]}
+            >
+              {NUMBER_FORMATTER.format(dashboardPeriod.kpis.stamps.value)}
+            </Text>
+            <Text style={styles.heroCaption}>{STAMP_PERIOD_LABEL}</Text>
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            style={styles.motif}
+          >
+            <View style={styles.motifDot} />
+            <View style={styles.motifDot} />
+            <View style={styles.motifDot} />
+            <View style={styles.motifDot} />
+          </View>
+        </View>
+      </View>
+      {isDesktop ? (
+        <>
+          {metrics}
+          <View style={styles.desktopSplit}>
+            {recommendation}
+            {activity}
           </View>
         </>
+      ) : (
+        <>
+          {recommendation}
+          {metrics}
+          {activity}
+        </>
       )}
+    </View>
+  );
+}
+
+function Metric({
+  bottomBorder = false,
+  endBorder = false,
+  label,
+  oneRow,
+  period,
+  value,
+}: {
+  bottomBorder?: boolean;
+  endBorder?: boolean;
+  label: string;
+  oneRow: boolean;
+  period: string;
+  value: number;
+}) {
+  return (
+    <View
+      style={[
+        styles.metric,
+        oneRow ? styles.metricRow : styles.metricPair,
+        endBorder ? styles.metricEnd : null,
+        bottomBorder ? styles.metricBottom : null,
+      ]}
+    >
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{NUMBER_FORMATTER.format(value)}</Text>
+      <Text style={styles.metricPeriod}>{period}</Text>
     </View>
   );
 }
@@ -465,22 +303,16 @@ class DashboardErrorBoundary extends Component<
     if (!this.state.error) {
       return this.props.children;
     }
-
     return (
       <View style={styles.errorState}>
-        <View style={styles.errorIcon}>
-          <CircleAlert color={TOKENS.colors.danger} size={24} />
-        </View>
+        <CircleAlert color={TOKENS.colors.danger} size={24} />
         <Text style={styles.errorTitle}>לא הצלחנו לטעון את לוח הבקרה</Text>
         <Text style={styles.errorBody}>בדקו את החיבור ונסו שוב בעוד רגע.</Text>
         <Pressable
           accessibilityLabel="ניסיון טעינה מחדש"
           accessibilityRole="button"
           onPress={() => this.setState({ error: null })}
-          style={({ pressed }) => [
-            styles.retryButton,
-            pressed ? styles.retryButtonPressed : null,
-          ]}
+          style={styles.retryButton}
         >
           <Text style={styles.retryButtonText}>לנסות שוב</Text>
         </Pressable>
@@ -500,13 +332,7 @@ export function BusinessWebDashboard(props: BusinessWebDashboardProps) {
 export function BusinessWebNoBusiness() {
   return (
     <View style={styles.emptyDashboard}>
-      <View style={styles.emptyIcon}>
-        <Building2
-          color={TOKENS.colors.primary}
-          size={TOKENS.icons.prominent}
-          strokeWidth={TOKENS.icons.strokeWidth}
-        />
-      </View>
+      <Building2 color={TOKENS.colors.primary} size={24} strokeWidth={1.75} />
       <Text style={styles.emptyTitle}>אין עסק מחובר לחשבון</Text>
       <Text style={styles.emptyBody}>
         לאחר שיוך החשבון לעסק, נתוני לוח הבקרה יופיעו כאן.
@@ -516,368 +342,203 @@ export function BusinessWebNoBusiness() {
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
-  pageMobile: { gap: 14 },
-  pageHeader: { alignItems: 'stretch', gap: TOKENS.space.sm },
-  titleRow: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: TOKENS.space.md,
-    flexWrap: 'nowrap',
+  page: {
+    width: '100%',
+    minHeight: 72,
+    backgroundColor: '#F4F6FA',
+    paddingBottom: 20,
   },
-  titleText: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
-  scanAction: { flexGrow: 0, flexShrink: 0 },
-  pageHeaderMobile: { gap: 4 },
+  hero: {
+    backgroundColor: '#101936',
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 26,
+  },
+  heroNarrow: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 22 },
+  heroWide: { paddingHorizontal: 24, paddingTop: 22, paddingBottom: 28 },
+  heroDesktop: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 18,
+  },
+  kicker: { ...rtlBaseText, color: '#C5CEDD', fontSize: 12, fontWeight: '500' },
   pageTitle: {
     ...rtlBaseText,
-    color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.pageTitle,
+    color: '#F4F1E8',
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 28,
   },
-  pageTitleMobile: { fontSize: 20, lineHeight: 26 },
-  pageSubtitle: {
+  pageTitleNarrow: { fontSize: 20, lineHeight: 26 },
+  heroRow: {
+    alignItems: rtlAlign.start,
+    flexDirection: rtlFlex.row,
+    justifyContent: rtlJustify.between,
+    marginTop: 10,
+    gap: 12,
+  },
+  heroCopy: { flex: 1, minWidth: 0 },
+  heroNumber: {
     ...rtlBaseText,
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.body,
+    color: '#F4F1E8',
+    fontSize: 52,
+    fontWeight: '600',
+    lineHeight: 52,
   },
-  pageSubtitleMobile: { fontSize: 13, lineHeight: 18 },
-  kpiGrid: {
-    flexDirection: flexDirection.row,
+  heroNumberNarrow: { fontSize: 44, lineHeight: 44 },
+  heroNumberWide: { fontSize: 64, lineHeight: 64 },
+  heroCaption: {
+    ...rtlBaseText,
+    color: '#D5DCEC',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  motif: {
+    alignItems: 'center',
+    flexDirection: rtlFlex.row,
+    gap: 6,
+    paddingBottom: 8,
+  },
+  motifDot: {
+    borderColor: '#8EA0C8',
+    borderRadius: 999,
+    borderWidth: 1.5,
+    height: 10,
+    width: 10,
+  },
+  metrics: {
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: '#E3E8F0',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: rtlFlex.row,
     flexWrap: 'wrap',
-    gap: 8,
+    marginTop: 14,
+    overflow: 'hidden',
   },
-  kpiGridMobile: { gap: 8 },
-  kpiGridSingleColumn: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
-    alignItems: 'stretch',
-  },
-  card: {
-    minWidth: 0,
-    minHeight: 72,
-    alignItems: alignItems.start,
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderWidth: 1,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 2,
-  },
-  cardMobile: {
-    minHeight: 72,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  cardDesktop: { flexGrow: 1, flexBasis: 180 },
-  cardTwoColumn: { flexGrow: 1, flexBasis: '47%', minHeight: 72 },
-  cardSingleColumn: {
-    width: '100%',
-    maxWidth: '100%',
-    flexGrow: 0,
-    flexBasis: 'auto',
-  },
-  kpiIcon: {
-    display: 'none',
-  },
-  kpiHeadingMobile: {
-    width: '100%',
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: TOKENS.space.sm,
-  },
-  kpiIconMobile: {
-    width: 32,
-    height: 32,
-    flexShrink: 0,
-    borderRadius: TOKENS.radii.sm,
-    marginBottom: 0,
-  },
-  kpiIcon_primary: { backgroundColor: TOKENS.colors.primarySubtle },
-  kpiIcon_success: { backgroundColor: TOKENS.colors.successSubtle },
-  kpiIcon_warning: { backgroundColor: TOKENS.colors.warningSubtle },
-  kpiIcon_neutral: { backgroundColor: '#F1F5F9' },
-  kpiLabel: {
+  metric: { minWidth: 0, padding: 12 },
+  metricPair: { flexBasis: '50%', flexGrow: 1 },
+  metricRow: { flexBasis: '25%', flexGrow: 1 },
+  metricEnd: { borderLeftWidth: 1, borderLeftColor: '#E3E8F0' },
+  metricBottom: { borderBottomWidth: 1, borderBottomColor: '#E3E8F0' },
+  metricLabel: {
     ...rtlBaseText,
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.metadata,
+    color: '#5C6778',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
   },
-  kpiLabelMobile: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  kpiValue: {
+  metricValue: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.kpiValue,
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 28,
   },
-  kpiValueMobile: { fontSize: 22, lineHeight: 28 },
-  kpiContext: {
+  metricPeriod: {
     ...rtlBaseText,
-    color: TOKENS.colors.textMuted,
-    ...TOKENS.typography.metadata,
-    marginTop: 1,
+    color: '#7B8798',
+    fontSize: 11,
+    lineHeight: 15,
   },
-  kpiContextMobile: { fontSize: 12, lineHeight: 17, marginTop: 2 },
-  detailGrid: { flexDirection: 'column', gap: 12 },
-  detailGridMobile: { gap: 10 },
-  detailGridWide: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-  },
-  panel: {
-    minWidth: 0,
-    borderWidth: 1,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.md,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    padding: 14,
-  },
-  panelMobile: { padding: 12 },
-  activityPanel: { flexGrow: 1, flexBasis: 280 },
-  attentionPanel: { flexGrow: 0, width: '100%' },
-  attentionPanelWide: { width: 320, maxWidth: '100%' },
-  panelHeader: {
-    flexDirection: flexDirection.row,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: TOKENS.space.lg,
-  },
-  panelHeaderMobile: { gap: TOKENS.space.md },
-  panelIcon: {
-    display: 'none',
-    borderRadius: TOKENS.radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-  },
-  panelIconMobile: { width: 36, height: 36 },
-  panelIconWarning: { backgroundColor: TOKENS.colors.warningSubtle },
-  panelIconSuccess: { backgroundColor: TOKENS.colors.successSubtle },
+  activity: { marginTop: 16, marginBottom: 20 },
+  activityDesktop: { flex: 0.85, marginTop: 0, marginBottom: 0, minWidth: 0 },
   sectionTitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.sectionTitle,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginBottom: 4,
   },
-  sectionSubtitle: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textMuted,
-    ...TOKENS.typography.secondaryBody,
-    marginTop: 2,
-  },
-  activityList: { marginTop: 12 },
-  activityListMobile: { marginTop: TOKENS.space.md },
-  activityTableHeader: {
-    flexDirection: flexDirection.row,
-    borderBottomWidth: 1,
-    borderBottomColor: TOKENS.colors.border,
-    paddingBottom: TOKENS.space.sm,
-  },
-  tableHeaderText: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textMuted,
-    ...TOKENS.typography.metadata,
-  },
-  customerColumn: { flex: 1.1 },
-  activityColumn: { flex: 1.7 },
-  timeColumn: { width: 116, textAlign: textAlign.end },
   activityRow: {
-    minHeight: 46,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: TOKENS.colors.border,
-    paddingVertical: TOKENS.space.xs,
+    alignItems: 'baseline',
+    borderTopColor: '#E3E8F0',
+    borderTopWidth: 1,
+    flexDirection: rtlFlex.row,
+    gap: 10,
+    justifyContent: rtlJustify.between,
+    paddingVertical: 9,
   },
-  activityRowMobile: {
-    minHeight: 0,
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: 2,
-    paddingVertical: 8,
-  },
-  activityMetaRowMobile: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: TOKENS.space.sm,
-  },
-  customerCell: {
-    flex: 1.1,
-    minWidth: 0,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: TOKENS.space.sm,
-  },
-  customerCellMobile: { flex: 1 },
-  customerAvatar: {
-    width: 28,
-    height: 28,
-    flexShrink: 0,
-    borderRadius: TOKENS.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.subtleSurface,
-  },
-  customerAvatarText: {
-    color: TOKENS.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  customerName: {
-    ...rtlBaseText,
+  activityMain: {
+    alignItems: 'baseline',
+    flexDirection: rtlFlex.row,
     flex: 1,
+    gap: 6,
+    minWidth: 0,
+  },
+  activityName: {
+    ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.label,
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  activityCell: {
-    flex: 1.7,
-    minWidth: 0,
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
-    gap: TOKENS.space.sm,
-  },
-  activityTypeIcon: {
-    width: 26,
-    height: 26,
-    flexShrink: 0,
-    borderRadius: TOKENS.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rewardTypeIcon: { backgroundColor: TOKENS.colors.warningSubtle },
-  stampTypeIcon: { backgroundColor: TOKENS.colors.primarySubtle },
-  activityDetail: {
+  activityKind: {
     ...rtlBaseText,
-    flex: 1,
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.secondaryBody,
+    color: '#5C6778',
+    flexShrink: 0,
+    fontSize: 13,
   },
   activityTime: {
     ...ltrIslandText,
-    width: 116,
-    color: TOKENS.colors.textMuted,
-    ...TOKENS.typography.metadata,
-  },
-  activityTimeMobile: {
-    ...ltrIslandText,
+    color: '#7B8798',
     flexShrink: 0,
-    color: TOKENS.colors.textMuted,
     fontSize: 12,
-    lineHeight: 17,
   },
-  cellMobile: { width: '100%', flex: 0 },
-  emptyRegion: {
-    alignItems: alignItems.start,
-    gap: TOKENS.space.xs,
-    marginTop: TOKENS.space.xl,
-    borderRadius: TOKENS.radii.md,
-    backgroundColor: TOKENS.colors.subtleSurface,
-    padding: TOKENS.space.lg,
+  emptyActivity: { ...rtlBaseText, color: '#5C6778', fontSize: 14 },
+  desktopSplit: {
+    alignItems: rtlAlign.end,
+    flexDirection: rtlFlex.row,
+    gap: 16,
+    marginHorizontal: 20,
+    marginTop: 16,
   },
-  emptyRegionTitle: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.metadata,
-  },
-  emptyRegionBody: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textMuted,
-    ...TOKENS.typography.secondaryBody,
-  },
-  attentionCopy: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.body,
-    marginTop: 8,
-  },
+  desktopPrimary: { flex: 1.15, minWidth: 0 },
+  skeleton: { backgroundColor: '#243056', borderRadius: 8 },
+  skeletonLine: { height: 16, width: 120 },
+  skeletonNumber: { height: 48, marginTop: 12, width: 80 },
+  mismatch: { ...rtlBaseText, color: '#5C6778', fontSize: 14, margin: 16 },
   emptyDashboard: {
-    minHeight: 160,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
     backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: '#E3E8F0',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    margin: 16,
     padding: 18,
-  },
-  emptyIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: TOKENS.radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    marginBottom: TOKENS.space.lg,
   },
   emptyTitle: {
     ...rtlBaseText,
-    textAlign: 'center',
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.sectionTitle,
+    fontSize: 16,
+    fontWeight: '600',
   },
-  emptyBody: {
-    ...rtlBaseText,
-    maxWidth: 520,
-    textAlign: 'center',
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.body,
-    marginTop: TOKENS.space.sm,
-  },
+  emptyBody: { ...rtlBaseText, color: '#5C6778', fontSize: 14, lineHeight: 21 },
   errorState: {
-    minHeight: 170,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: TOKENS.radii.lg,
     backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: '#FECACA',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    margin: 16,
     padding: 18,
-  },
-  errorIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: TOKENS.radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.dangerSubtle,
-    marginBottom: TOKENS.space.lg,
   },
   errorTitle: {
     ...rtlBaseText,
-    textAlign: 'center',
     color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.sectionTitle,
+    fontSize: 16,
+    fontWeight: '600',
   },
-  errorBody: {
-    ...rtlBaseText,
-    textAlign: 'center',
-    color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.body,
-    marginTop: TOKENS.space.sm,
-  },
+  errorBody: { ...rtlBaseText, color: '#5C6778', fontSize: 14 },
   retryButton: {
+    backgroundColor: TOKENS.colors.primary,
+    borderRadius: 12,
     minHeight: 44,
     justifyContent: 'center',
-    borderRadius: TOKENS.radii.md,
-    backgroundColor: TOKENS.colors.primary,
-    paddingHorizontal: TOKENS.space.xl,
-    marginTop: TOKENS.space.xl,
-    cursor: 'pointer',
+    paddingHorizontal: 16,
   },
-  retryButtonPressed: { backgroundColor: TOKENS.colors.primaryHover },
-  retryButtonText: {
-    ...rtlBaseText,
-    color: '#FFFFFF',
-    ...TOKENS.typography.label,
-  },
-  skeleton: { backgroundColor: '#E9EEF5', borderRadius: TOKENS.radii.sm },
-  skeletonHeading: { width: 220, height: 34, alignSelf: selfStart },
-  skeletonCard: {},
-  skeletonIcon: { width: 40, height: 40, marginBottom: TOKENS.space.md },
-  skeletonLabel: { width: 96, height: 16, marginBottom: TOKENS.space.md },
-  skeletonValue: { width: 72, height: 30 },
+  retryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
