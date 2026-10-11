@@ -1,6 +1,6 @@
 # StampAix — תוכנית עבודה להשקה מסחרית מלאה בשלושה שלבים
 
-**החלטת מוצר ותוכנית ניהול:** 10.10.2026  
+**החלטת מוצר ותוכנית ניהול:** 10.10.2026; עדכון דרישות QA/השקת PWA: 11.10.2026  
 **סטטוס:** APPROVED PLAN / NOT YET IMPLEMENTED  
 **אחראי לניהול ומעקב בצ'אט:** ChatGPT, בהתאם לכלים ולהרשאות הזמינים בכל מפגש.  
 **מקורות אמת טכניים:** הענף הפעיל, הקוד, GitHub Actions, ראיות בדיקות מכשירים וחשבונות ספק. אין להכריז על PASS ללא ראיה.
@@ -29,7 +29,7 @@
 4. **מכסות רצויות:** כרטיסיות 1/5/10; לקוחות 30/2,000/10,000; קמפיינים פעילים 1/5/10; פעולות שימור 0/5/15; AI ‏0/100/300 בחודש; מושבי צוות 0/5/20. קמפייני B2B אינם נמנים במכסת C2C.
 5. **פער קוד מפורש:** `convex/lib/billing/productionContract.ts` עדיין מגדיר ניסיון Pro לכולם ו־250/3,000/10,000 לקוחות. החלטת המוצר החדשה **אינה שינוי קוד שבוצע**. חובה לתקן שרת, UI, אתרי שיווק, חוזי בדיקה וכל הטקסטים; לא לשנות מחיר או הגדרות אחרות ללא אישור.
 6. **מקור נתונים יחיד:** Web/PWA והאפליקציה הפנימית/פיתוח משתמשים באותו Convex הלא־ייצורי הקיים. אין מאגר Preview חדש, העתקה, seed/reset, חשבונות דמה בקבלת מוצר או QR injection. מבחני רגרסיה סינתטיים אינם הוכחת מוצר.
-7. רכישת מנוי עסקי היא בווב באמצעות SUMIT; Convex מאמת תשלום ומחזיק הרשאות מנוי. Native נשאר מוצר נלווה ללא רכישה. RevenueCat/PayPlus קיימים לצורכי תאימות וחזרה לאחור בלבד.
+7. **יעד ההשקה הנוכחי הוא Web/PWA בלבד.** רכישת מנוי עסקי בווב באמצעות SUMIT; Convex מאמת תשלום ומחזיק הרשאות מנוי. אין חובה להוציא Native לחנויות לצורך השקת PWA. קוד Native קיים נשמר ולא נמחק, וחזרה לפרסום חנויות היא החלטה נפרדת. RevenueCat/PayPlus נשמרים לצורכי תאימות וחזרה לאחור.
 8. יכולות 2.0 (דוחות מתקדמים, גיימיפיקציה חדשה, שיווק AI תזמור מלא, שינוי עיצוב Native עמוק) **מחוץ להשקה**, אלא אם נמצאה תלות חוסמת בתכולת ה־MVP הקיים.
 
 ## שלב 1 — מוצר פונקציונלי מלא
@@ -64,17 +64,17 @@
 
 | מזהה | משימה | מצב התחלתי | קריטריון קבלה |
 |---|---|---|---|
-| S2-01 | מכשירים ודפדפנים | DEVICE VERIFY | Android Chrome, Samsung Internet, iPhone Safari, Android/iPhone PWA מותקנת, Native Android/iOS |
+| S2-01 | מכשירים ודפדפנים | DEVICE VERIFY | Android Chrome, Samsung Internet, iPhone Safari, Android/iPhone PWA מותקנת; בדיקת Native אינה שער להשקת PWA |
 | S2-02 | מצלמה וסורק פיזי | DEVICE VERIFY | QR אמיתי בין מכשירים, הרשאות/פוקוס, stamp/redeem/undo, שכפולים וקוד פג |
 | S2-03 | רשת חלשה והתאוששות | DEVICE VERIFY | timeout, lost response, UNKNOWN_OUTCOME, פיוס קריאה בלבד, מעבר רק לאחר אימות; אין commit כפול |
 | S2-04 | PWA מחזור חיים | DEVICE VERIFY | באנר התקנה, סגירה/פתיחה, offline/online, עדכונים ללא חשיפת מידע פרטי במטמון |
 | S2-05 | Push במכשירים | DEVICE VERIFY | קבלת התראה אמיתית, לחיצה וניווט, סירוב/אישור, התנתקות וניקוי; fallback לפי תמיכה |
-| S2-06 | SUMIT TEST | BLOCKED — E2E חסר | ששת המוצרים, חידוש, כשל, grace, ביטול, Bit, מסמכים, פיוס, D0/D3/D6; אין חיוב ייצור |
+| S2-06 | SUMIT TEST / סליקת דמו מקצה לקצה | BLOCKED — E2E חסר | TEST/Sandbox אמיתי של הספק לששת המוצרים, 14 ימי ניסיון בכל מסלול, חידוש, כשל, grace, ביטול, Bit, מסמכים, פיוס, D0/D3/D6; ללא חיוב ייצור וללא הענקת הרשאות מנוי באמצעות mock |
 | S2-07 | הרשאות ואבטחת מידע | VERIFY | RBAC לכל תפקיד, CSP/Headers, תלות, rate limits, הגנה מ־replay, בדיקות סודות ללא חשיפה |
 | S2-08 | עומס, יציבות וביצועים | VERIFY | מדדים מוסכמים, עימוד ואינדקסים, גודל אוכלוסייה התואם מכסות, פעולות מקבילות ותורי cron |
 | S2-09 | שגיאות, תמיכה וניטור | VERIFY | זיהוי auth/scanner/billing/push failures ללא תוכן רגיש; טיפול בשגיאות ללא spinner אינסופי |
 | S2-10 | התאוששות/חזרה לאחור | VERIFY | גיבוי ושחזור מאומתים, rollback מתועד, שמירת היסטוריה ונתונים |
-| S2-11 | בדיקות רגרסיה וקבלה חוזרות | VERIFY | TypeScript, בדיקות מלאות, export לכל הפלטפורמות, RTL, Native, Visual QA, אפס תקלות P0/P1 |
+| S2-11 | בדיקות רגרסיה וקבלה חוזרות | VERIFY | TypeScript, בדיקות מלאות, ייצוא Web/PWA, RTL, Visual QA ו־E2E עם ראיות; בדיקות Native לשימור תאימות בלבד, אינן חסם PWA; אפס P0/P1 |
 
 **שער סיום 2:** S2-01..S2-11 PASS, ראיות מכשיר אמיתי, תשלומי TEST אמיתיים, אבטחה וניטור מוכנים, אפס תקלות P0/P1. רק אז מוכנות לפיילוט.
 
@@ -89,17 +89,64 @@
 | S3-01 | פיילוט מוגבל | NOT STARTED | לקוחות/עסקים אמיתיים משלימים את כל מסעות הליבה; משוב ותקלות מתועדים |
 | S3-02 | תיקונים לאחר פיילוט | NOT STARTED | אין תקלות P0/P1; בדיקות רגרסיה לאחר תיקונים |
 | S3-03 | אתר ו־SEO | VERIFY | אתר `stampaix.com` מעודכן: ניסיון בכל מסלול, דפי מכירה, Sitemap, Search Console, עיצוב |
-| S3-04 | משפטי, מחיקה ותמיכה | VERIFY | מפעיל משפטי, תנאים, פרטיות, כתובת, support, account deletion, תאימות חנויות |
-| S3-05 | דומיינים וספקים | VERIFY | Origin סופי לעסק, OAuth callbacks, Resend, Places, AASA, assetlinks, APNs/FCM |
+| S3-04 | משפטי, מחיקה ותמיכה | VERIFY | מפעיל משפטי, תנאים, פרטיות, כתובת, support, account deletion ותאימות Web/PWA |
+| S3-05 | דומיינים וספקים | VERIFY | Origin סופי לעסק, OAuth callbacks, Resend, Places, HTTPS, הגדרות PWA ו־Web Push; הגדרות חנויות רק אם יאושרו בהמשך |
 | S3-06 | מוכנות ייצור וקוד שחרור | NOT STARTED | HEAD מאושר, סביבה/מפתחות תקינים, מקור נתונים מוסכם, גיבוי/rollback, ללא נתוני דמה |
-| S3-07 | מעבר Production מבוקר | BLOCKED — explicit approval | merge, deploy, migrations ו־secret rotation: פעולות נפרדות באישור |
+| S3-06K | **החלפת מפתחות וסודות לפני השקה — חובה** | BLOCKED — explicit approval | מיפוי סודות חשופים/בשימוש; רוטציה הדרגתית של מפתחות רלוונטיים בכל שירות; אימות כניסה/תשלום/Push; ביטול ישנים; 0 סודות גלויים ב־Git, לוגים או CI |
+| S3-07 | מעבר Production מבוקר | BLOCKED — explicit approval | merge, deploy, migrations והפעלת סביבת ייצור: פעולות נפרדות באישור, ורק לאחר S3-06K |
 | S3-08 | הפעלת SUMIT Production | BLOCKED — explicit approval | הסכמה מפורשת, אימות ראשון של חיוב, entitlement, חידוש, מסמכים ופיוס |
-| S3-09 | חנויות Android/iOS | BLOCKED — explicit approval | Builds מועמדים, metadata/צילום מסך/הצהרות פרטיות, הגשה נפרדת, אישור ופרסום בפועל |
+| S3-09 | פרסום בחנויות — **מחוץ לשער השקת PWA** | DEFERRED | אין הגשה נדרשת או הפעלה אוטומטית; לא מוחקים קוד Native; יש לפתוח רק בהחלטת מוצר מפורשת בעתיד |
 | S3-10 | ניטור וייצוב השקה | NOT STARTED | בקרה ב־24 שעות, בשבוע ראשון ובחודש ראשון: כניסה, סליקה, סורק, התראות, תמיכה ותקלות |
 
-**שער סיום 3:** האתר והמוצר זמינים עם נתונים נכונים, משתמשים אמיתיים משלמים בתהליך מאומת, תפעול/תמיכה/ניטור פעילים, וחנויות פורסמו כאשר זה חלק מההשקה המאושרת. פרודקשן לעולם אינו אוטומטי.
+**שער סיום 3:** Web/PWA ציבורי אחד בכתובת הקבועה, הנתונים תקינים, משתמשים משלמים בתהליך מאומת, התפעול/תמיכה/ניטור פעילים, **מפתחות הוחלפו ואומתו**; אין חובת פרסום חנויות. Production לעולם אינו אוטומטי.
 
-**נדרש מהמשתמש בשלב 3:** הרשאה מפורשת לפיילוט, בדיקת פרטים משפטיים, פעולות ניהול בחשבונות ספק וחנויות לפי הצורך, ואישור נפרד לכל merge/Production/migration/הפעלת SUMIT/הגשה לחנויות.
+**נדרש מהמשתמש בשלב 3:** הרשאה מפורשת לפיילוט, בדיקת פרטים משפטיים, ופעולות ניהול בחשבונות ספק רק כשאין הרשאת סוכן מתאימה. אישור נפרד ל־merge/Production/migration/רוטציה/הפעלת SUMIT. אין צורך בפעולה בחנויות להשקת PWA.
+
+## נספח מחייב — בדיקת *כל* הפונקציונליות הקיימת לפני השקה (11.10.2026)
+
+**אין להכריז על השקה מלאה על סמך בדיקות יחידה, CI ירוק או מספר מסכי דוגמה.** חובה למפות את כלל מסלולי ה־Web/PWA הקיימים בקוד, כולל מסכי צד, תפריטים, תפקידים, קישורים, תהליכי שגיאה, הודעות, תזמונים, ומשימות שרת, ואז לסמן לכל תכונה PASS עם ראיה או BLOCKED עם תיקון. לא לפסול תכונה קיימת רק משום שהיא אינה בעמוד הראשי. פונקציה שלא פעילה בכוונה במוצר ההשקה תסומן DEFERRED **רק באישור מוצר מפורש**; לא להציג כפתור פעולה שבור.
+
+| תחום נבדק | כיסוי מינימלי (חובה) |
+|---|---|
+| Auth/account | Google, Email OTP, Apple אם מוצג, session recovery, logout, role switch, account linking, תמיכה ומחיקת חשבון |
+| Customer | onboarding, discovery/maps, business join, wallet, cards, progress, QR, history, redemption, celebration, sharing, profile |
+| Business owner | onboarding, plan selection, dashboard, programs/cards draft→active→archived, customers, memberships, team, scanner, analytics, settings, subscription |
+| Manager/staff | invite/accept, scanner, permissions, team revocation, forbidden-action safety |
+| Customer retention | C2C campaigns, scheduling, quotas, automated retention, Smart Manager/AI quotas, inbox, Push, B2B referrals, customer referrals |
+| Scanner | real physical camera, expire/duplicate, stamp/redeem/undo, network failures, UNKNOWN_OUTCOME, reconciliation, restart |
+| PWA/Web | install banner, Safari manual instructions, installed mode, update, offline/online, responsive RTL, keyboard, accessibility, empty/error/loading |
+| Admin/support | authorized read-only overview, support/deletion queues, billing states, no unauthorized destructive writes |
+| Subscription/payment | trial per selected plan, expiry, six products, TEST provider checkout, server-authoritative payment proof, entitlement, renewal/failure/grace/cancel, reconciliation and documents |
+| Cross-cutting | performance, scale, security, privacy, logging, rate limits, protection against replay, backups, recovery, availability, links and URLs |
+
+תוצאה נדרשת: **מטריצת QA מלאה עם route/function, actor, expected result, actual result, evidence, severity, owner, status**, וניהול פערים עד סגירה. אין להסתפק בטבלה כללית; הסוכן יפיק רשימת בדיקה ישירות מקוד ה־routes וה־backend.
+
+### סליקת דמו — פרוטוקול בטוח
+
+- בדיקות תשלום **בחיבור SUMIT TEST/Sandbox הקיים**, מתוך UI הרגיל; עסק וסשן מורשים בלבד, ושום חיוב כסף אמיתי.
+- 14 ימים ללא כרטיס או חיוב ב־Starter/Pro/Premium, כולל חודשי/שנתי, שינוי מסלול בלי הארכת ניסיון ושמירת נתונים בתום הניסיון.
+- להוכיח שכל אחת משש רכישות הבדיקה עוברת: UI → intent מתומחר בשרת → Hosted checkout TEST → **אימות ספק בצד שרת** → entitlement → תצוגה/חשבונית לפי תמיכה.
+- להוכיח מסלולים של נטישה, תשלום שנכשל, webhook כפול/מאוחר, חידוש, ביטול, grace ופיוס; לא לייצר הצלחה על סמך redirect, feature flag או mock payment.
+- לא להחליף את סביבה העסקית הפעילה ב־DB מבודד או להזריק נתוני QA המוצגים כאמיתיים. תרחיש שמספק הספק לא תומך בו חייב להיות BLOCKED ולא PASS.
+- אין להפעיל SUMIT Production ואין לבצע חיוב אמיתי בלי אישור נפרד.
+
+### החלפת מפתחות לפני ההשקה — שער חובה S3-06K
+
+- לבנות **מלאי סודות לפי שירות והיקף חשיפה**, ללא הדפסת הערכים: Convex deploy/Auth/JWT, Google OAuth, Resend, SUMIT, Google Places, VAPID/Web Push, GitHub Actions, Vercel/EAS וכל מפתח נוסף שהקוד משתמש בו.
+- לזהות מפתחות שנחשפו בעבר, מפתחות ששימשו פיתוח ומפתחות ישנים; לבחור סדר החלפה שלא מנתק התחברות, סליקה או התראות.
+- לכל ספק: אישור מפורש → הנפקת מפתח חלופי בהרשאת מינימום → עדכון Secret Store/Environment → בדיקת תפקוד אמיתית → ביטול מפתח קודם → רישום תאריך וסטטוס (ללא סוד).
+- להפעיל סריקת סודות על repo והיסטוריה רלוונטית, CI, browser bundles ו־logs; להגן על מקור הנתונים וה־OAuth clients.
+- **לא פותחים את המוצר לציבור ולא מפעילים חיוב ייצור** כל עוד S3-06K לא עבר PASS. אין לבקש מהמשתמש להדביק מפתח בצ'אט.
+
+### תחילת S1-01 — סטטוס אבחון ב־11.10.2026
+
+- מקור Web מאומת: `utmost-fennec-280`; הנתונים המקוריים נמצאו ולא נמצאה כפילות Google לפי הדוח.
+- **11 כרטיסיות ו־170 אירועי היסטוריה הן סך כל המסד**, לא מספר הרשומות של המשתמש המדווח.
+- לא נלכד באישור מסודר מזהה המשתמש של סשן התקלה ולכן הסיבה עדיין אינה מוכחת; אין בסיס למיזוג רשומות או להעברת כרטיסיות.
+- Work Cloud Browser קיבל 502 במסלול Google; זו תקלה במסלול הגישה שנבדק שם ולא הוכחה לתקלה באפליקציה.
+- Cursor המקומי נמצא על `main` ב־`e7c2e2d` ולא בענף Web הפעיל `pwa/phase-3-scanner-commands-20261005`; **לא לבצע תיקוני Web על main בטעות**.
+- הצעד המינימלי הבא: המשתמש ייכנס ב־Chrome המקומי ל־Preview הרגיל באמצעות Google, יסיים callback, יציג את הנתיב, נראות כרטיסיות והיסטוריה. אם עדיין ריק, יש לבצע אבחון authenticated self-session מבוקר ללא קריאת cookies/tokens וללא דליפת מידע.
+- הצגת כרטיסיות במסד אינה PASS; חובה ראיית UI רגילה בסשן הנכון.
 
 ## פרוטוקול ניהול מחייב בצ'אט
 

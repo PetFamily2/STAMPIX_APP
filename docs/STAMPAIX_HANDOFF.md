@@ -1,3 +1,5 @@
+> **UPDATE 2026-10-11 — LAUNCH REQUIREMENTS:** Current launch target is **one public Web/PWA product**, not App Store/Google Play submission; Native source is retained but stores are not launch gates. **Every existing in-scope Web/PWA function must pass a complete real-UI/role/edge-case QA matrix**. Full **SUMIT TEST/Sandbox demo payments** are mandatory, never mock-granted access or real charges. **Rotate and validate all relevant exposed/active secrets before commercial launch**, by provider and with separate approval, then revoke old ones. Canonical 3-stage tracker: `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`. Current active issue S1-01 remains unproven until actual Google session identity and membership query are checked. Work cloud browser Google attempt failed with 502; local Cursor still on older main, not PWA branch.
+
 > **LATEST OPERATOR DECISION 2026-10-10:** three-stage launch plan and free 14-day trial for the **selected** Starter/Pro/Premium tier (monthly or annual), no card/commitment/autocharge. This is not yet implemented. See `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md` and `docs/GENERAL_FREE_TRIAL_LAUNCH_CONTRACT.md`. App/Backend shared original data; do not reintroduce isolated QA.
 
 # StampAix — Project Handoff / Single Source of Truth
@@ -111,14 +113,22 @@ The original account's wallet/history and the full role journeys still require s
 **Canonical execution tracker:** `docs/LAUNCH_EXECUTION_PLAN_3_STAGES_2026-10-10.md`.
 
 - **Stage 1 — complete the ordinary product:** shared Convex original-account sign-in and data continuity, Customer/Owner/Manager/Staff, onboarding, wallet/cards/QR/stamp/redeem/undo, campaigns, AI quotas, referrals/inbox/maps/settings, Admin read-only, full responsive/RTL acceptance. Implement **14-day trial in each selected tier** and **customer limits 30/2,000/10,000**; both are NEW product decisions, not implemented in current code.
-- **Stage 2 — reliability, devices, integrations:** Android/iPhone and installed PWAs, real camera/scans/push, offline/network recovery, SUMIT TEST full lifecycle, security/performance/monitoring/rollback and P0/P1-free release candidate.
-- **Stage 3 — pilot and commercial launch:** controlled pilot, fixes, landing/domain/SEO/legal/support, approved Production configuration and billing activation, separately approved store submissions, real paying-user operations and monitoring.
+- **Stage 2 — reliability, devices, integrations:** Android/iPhone and installed PWAs, real camera/scans/push, offline/network recovery, **complete real UI functional matrix and SUMIT TEST/Sandbox demo payment flow**, security/performance/monitoring/rollback and P0/P1-free release candidate.
+- **Stage 3 — pilot and commercial PWA launch:** controlled pilot, fixes, landing/domain/SEO/legal/support, **mandatory pre-launch credential rotation**, approved Production configuration and billing activation, real paying-user operations and monitoring. **Stores deferred / not a PWA launch requirement**.
 
 Do not treat existing regression tests as user acceptance. Do not merge, deploy Production, migrate, rotate credentials, activate SUMIT Production or submit stores without separate explicit approvals.
 
 ### Trial & quota product/code discrepancy — must close
 
 **New product decision (not yet code):** one free 14-day trial per new business in **Starter/Pro/Premium**, selected monthly/yearly, with that tier's features/limits, no card, no commitment, no autocharge, no renewal of trial by tier switch, data retained after expiry. Current `GENERAL_FREE_TRIAL_PLAN = 'pro'` is now outdated. Current maxCustomers values **250/3,000/10,000** must be changed to **30/2,000/10,000** with tests and visible copy updates.
+
+### Functional, payment and security launch blockers added 2026-10-11
+
+- **Complete functional audit:** every existing in-scope Web/PWA route, feature, mutation/query and role requires an explicit real-UI acceptance record; include cards, customers, campaign scheduling, AI, referrals, staff, scanner, history, celebrations, maps, inbox, install/offline/update, admin and all errors. No aggregate CI count is a substitute.
+- **Demo payments mandatory:** use existing SUMIT TEST/Sandbox through normal checkout and real provider verification to validate all six monthly/yearly products, selected-tier 14-day trials, failure/renewal/grace/cancel, invoices and reconciliation. No production charges, no mock-granted subscriptions.
+- **Rotate keys BEFORE production/public release:** inventory and rotate relevant exposed or previously shared active secrets through each provider's secure secret manager, verify full behavior, revoke old credentials, and scan for leaks. Use separate approval per sensitive action. Stage-3 hard release gate **S3-06K**.
+- **One Web/PWA release surface:** public `stampaix.com` and business web as the same product codebase/identity/back-end contract. Keep development testing protected; do not create isolated fake DBs. Native code remains but store release is deferred.
+- **S1-01 next:** Work 502 Google cloud-browser attempt blocked session proof; local Cursor read main e7c2e2d, not active PWA branch. Original dataset counts are global (11/170), not user's. Need normal Chrome login to original Web Preview and route/wallet/history observations, then only if still missing inspect safe authenticated session identity.
 
 ### User-interaction policy
 
@@ -581,6 +591,7 @@ Never expose:
 Never ask the user to paste secrets into chat.
 
 Prefer:
+- reuse existing connected/configured credentials while developing and testing; **rotate active/exposed keys before launch as a mandatory release gate**
 - reuse existing connected/configured credentials
 - inspect presence/status without printing values
 - preserve existing permissions
