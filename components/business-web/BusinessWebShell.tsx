@@ -16,6 +16,7 @@ import {
 } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -57,10 +58,13 @@ type BusinessWebShellProps = {
   currentPathname: string;
   displayName: string;
   email: string;
+  customerSwitchError: string;
   isSigningOut: boolean;
   isSwitchingBusiness: boolean;
+  isSwitchingToCustomer: boolean;
   onLogout: () => void;
   onNavigate: (href: Href) => void;
+  onSwitchToCustomerWallet: () => void;
   onSelectBusiness: (businessId: Id<'businesses'>) => void;
   selectError: string;
 };
@@ -147,6 +151,8 @@ export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
     href: BUSINESS_WEB_ROUTES.settings,
   },
 ];
+
+const CUSTOMER_WALLET_LABEL = 'מעבר לארנק האישי';
 
 const ROLE_LABELS = {
   owner: 'בעלים',
@@ -379,45 +385,78 @@ function AccountBlock({
   displayName,
   email,
   isSigningOut,
+  isSwitchingToCustomer,
   onLogout,
+  onSwitchToCustomerWallet,
   compact = false,
 }: Pick<
   BusinessWebShellProps,
-  'displayName' | 'email' | 'isSigningOut' | 'onLogout'
+  | 'displayName'
+  | 'email'
+  | 'isSigningOut'
+  | 'isSwitchingToCustomer'
+  | 'onLogout'
+  | 'onSwitchToCustomerWallet'
 > & { compact?: boolean }) {
+  const customerSwitchDisabled = isSigningOut || isSwitchingToCustomer;
+
   return (
     <View
       style={[styles.accountBlock, compact ? styles.accountBlockCompact : null]}
     >
-      <View accessibilityLabel={`חשבון ${displayName}`} style={styles.avatar}>
-        <Text style={styles.avatarText}>{initialsForName(displayName)}</Text>
-      </View>
-      <View style={styles.accountCopy}>
-        <Text numberOfLines={1} style={styles.accountName}>
-          {displayName || 'החשבון שלי'}
-        </Text>
-        {email ? (
-          <Text numberOfLines={1} style={styles.accountEmail}>
-            {email}
+      <View style={styles.accountIdentityRow}>
+        <View accessibilityLabel={`חשבון ${displayName}`} style={styles.avatar}>
+          <Text style={styles.avatarText}>{initialsForName(displayName)}</Text>
+        </View>
+        <View style={styles.accountCopy}>
+          <Text numberOfLines={1} style={styles.accountName}>
+            {displayName || 'החשבון שלי'}
           </Text>
-        ) : null}
+          {email ? (
+            <Text numberOfLines={1} style={styles.accountEmail}>
+              {email}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          accessibilityLabel="התנתקות"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: customerSwitchDisabled }}
+          disabled={customerSwitchDisabled}
+          onPress={onLogout}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed ? styles.controlPressed : null,
+          ]}
+        >
+          <LogOut
+            color={TOKENS.colors.textSecondary}
+            size={TOKENS.icons.standard}
+            strokeWidth={TOKENS.icons.strokeWidth}
+          />
+        </Pressable>
       </View>
       <Pressable
-        accessibilityLabel="התנתקות"
+        accessibilityLabel={CUSTOMER_WALLET_LABEL}
         accessibilityRole="button"
-        accessibilityState={{ disabled: isSigningOut }}
-        disabled={isSigningOut}
-        onPress={onLogout}
+        accessibilityState={{
+          busy: isSwitchingToCustomer,
+          disabled: customerSwitchDisabled,
+        }}
+        disabled={customerSwitchDisabled}
+        onPress={onSwitchToCustomerWallet}
         style={({ pressed }) => [
-          styles.logoutButton,
+          styles.customerWalletButton,
           pressed ? styles.controlPressed : null,
+          customerSwitchDisabled ? styles.customerWalletButtonDisabled : null,
         ]}
       >
-        <LogOut
-          color={TOKENS.colors.textSecondary}
-          size={TOKENS.icons.standard}
-          strokeWidth={TOKENS.icons.strokeWidth}
-        />
+        {isSwitchingToCustomer ? (
+          <ActivityIndicator color={TOKENS.colors.primary} />
+        ) : null}
+        <Text style={styles.customerWalletButtonText}>
+          {CUSTOMER_WALLET_LABEL}
+        </Text>
       </Pressable>
     </View>
   );
@@ -461,6 +500,11 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
     }
   }, [activeOverlay, isCompact]);
 
+  function requestCustomerWallet() {
+    setActiveOverlay(null);
+    props.onSwitchToCustomerWallet();
+  }
+
   function toggleOverlay(
     requestedOverlay: Exclude<BusinessWebShellOverlay, null>
   ) {
@@ -503,7 +547,9 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               displayName={props.displayName}
               email={props.email}
               isSigningOut={props.isSigningOut}
+              isSwitchingToCustomer={props.isSwitchingToCustomer}
               onLogout={props.onLogout}
+              onSwitchToCustomerWallet={requestCustomerWallet}
             />
           </View>
         ) : null}
@@ -601,10 +647,12 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                     displayName={props.displayName}
                     email={props.email}
                     isSigningOut={props.isSigningOut}
+                    isSwitchingToCustomer={props.isSwitchingToCustomer}
                     onLogout={() => {
                       setActiveOverlay(null);
                       props.onLogout();
                     }}
+                    onSwitchToCustomerWallet={requestCustomerWallet}
                   />
                 </View>
               ) : null}
@@ -653,13 +701,27 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                     displayName={props.displayName}
                     email={props.email}
                     isSigningOut={props.isSigningOut}
+                    isSwitchingToCustomer={props.isSwitchingToCustomer}
                     onLogout={() => {
                       setActiveOverlay(null);
                       props.onLogout();
                     }}
+                    onSwitchToCustomerWallet={requestCustomerWallet}
                   />
                 </ScrollView>
               </View>
+            </View>
+          ) : null}
+
+          {props.customerSwitchError ? (
+            <View
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+              style={styles.customerSwitchBanner}
+            >
+              <Text style={styles.customerSwitchBannerText}>
+                {props.customerSwitchError}
+              </Text>
             </View>
           ) : null}
 
@@ -775,12 +837,51 @@ const styles = StyleSheet.create({
   },
   sidebarSpacer: { flex: 1, minHeight: TOKENS.space.xl },
   accountBlock: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
     gap: TOKENS.space.sm,
     borderTopWidth: 1,
     borderTopColor: TOKENS.colors.border,
     paddingTop: TOKENS.space.lg,
+  },
+  accountIdentityRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: TOKENS.space.sm,
+  },
+  customerWalletButton: {
+    minHeight: 44,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: TOKENS.space.sm,
+    borderWidth: 1,
+    borderColor: '#D7E1FF',
+    borderRadius: TOKENS.radii.md,
+    backgroundColor: TOKENS.colors.primarySubtle,
+    paddingHorizontal: TOKENS.space.sm,
+    paddingVertical: TOKENS.space.sm,
+    cursor: 'pointer',
+  },
+  customerWalletButtonDisabled: { opacity: 0.6 },
+  customerWalletButtonText: {
+    ...rtlBaseText,
+    color: TOKENS.colors.primary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  customerSwitchBanner: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#FECACA',
+    backgroundColor: TOKENS.colors.dangerSubtle,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingVertical: TOKENS.space.sm,
+  },
+  customerSwitchBannerText: {
+    ...rtlBaseText,
+    color: TOKENS.colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   accountBlockCompact: { borderTopWidth: 0, paddingTop: 0 },
   avatar: {

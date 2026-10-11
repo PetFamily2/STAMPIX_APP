@@ -19,6 +19,8 @@ import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { requiresBusinessOnboardingForRole } from '@/lib/activeBusinessShell';
 import { Alert } from '@/lib/alert';
+import { resolveBusinessModeHomeHref } from '@/lib/auth/postAuthRouting';
+import { waitForObservedSessionMode } from '@/lib/auth/waitForObservedSessionMode';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import { BUSINESS_ONBOARDING_ROUTES } from '@/lib/onboarding/businessOnboardingFlow';
 import { alignItems, flexDirection, rtlBaseView } from '@/lib/rtl';
@@ -77,6 +79,9 @@ export default function BusinessModeCtaCard({
   const setActiveBusiness = useMutation(api.users.setActiveBusiness);
   const { appMode, setAppMode, isLoading: isAppModeLoading } = useAppMode();
   const sessionContext = useSessionContext();
+  const observedModeRef = useRef(sessionContext?.activeMode);
+  observedModeRef.current = sessionContext?.activeMode;
+  const modeSwitchRef = useRef(false);
   const [modeSwitchBusy, setModeSwitchBusy] = useState(false);
   const hostButtonScale = useRef(new Animated.Value(1)).current;
 
@@ -191,7 +196,7 @@ export default function BusinessModeCtaCard({
     const selectedBusiness = showPromotionalBanner
       ? null
       : targetBusinessForBusinessMode;
-    if (hostActionDisabled) {
+    if (hostActionDisabled || modeSwitchRef.current) {
       return;
     }
 
@@ -200,6 +205,7 @@ export default function BusinessModeCtaCard({
       return;
     }
 
+    modeSwitchRef.current = true;
     try {
       setModeSwitchBusy(true);
 
@@ -220,47 +226,55 @@ export default function BusinessModeCtaCard({
         await setAppMode('business');
         if (selectedBusiness) {
           await setActiveMode({ mode: 'business' });
+          await waitForObservedSessionMode(
+            () => observedModeRef.current,
+            'business'
+          );
         }
         router.replace(BUSINESS_ONBOARDING_ROUTES.entry);
         return;
       }
 
       await setActiveMode({ mode: 'business' });
+      await waitForObservedSessionMode(
+        () => observedModeRef.current,
+        'business'
+      );
       await setAppMode('business');
-      router.navigate('/(authenticated)/(business)/dashboard');
+      router.navigate(resolveBusinessModeHomeHref(Platform.OS));
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,
         toErrorMessage(error, TEXT.switchModeFailed)
       );
     } finally {
+      modeSwitchRef.current = false;
       setModeSwitchBusy(false);
     }
   };
 
   const handleSwitchToCustomer = async () => {
-    if (hostActionDisabled) {
+    if (hostActionDisabled || modeSwitchRef.current) {
       return;
     }
 
+    modeSwitchRef.current = true;
     try {
       setModeSwitchBusy(true);
+      await setActiveMode({ mode: 'customer' });
+      await waitForObservedSessionMode(
+        () => observedModeRef.current,
+        'customer'
+      );
       await setAppMode('customer');
       router.replace('/(authenticated)/(customer)/wallet');
-      void setActiveMode({ mode: 'customer' }).catch(async (error) => {
-        await setAppMode('business');
-        router.replace('/(authenticated)/(business)/dashboard');
-        Alert.alert(
-          TEXT.errorTitle,
-          toErrorMessage(error, TEXT.switchModeFailed)
-        );
-      });
     } catch (error) {
       Alert.alert(
         TEXT.errorTitle,
         toErrorMessage(error, TEXT.switchModeFailed)
       );
     } finally {
+      modeSwitchRef.current = false;
       setModeSwitchBusy(false);
     }
   };
