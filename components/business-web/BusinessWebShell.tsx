@@ -84,6 +84,61 @@ function initialsForName(displayName: string) {
   );
 }
 
+const NAV_SECTIONS = [
+  {
+    label: 'תפעול',
+    keys: ['dashboard', 'customers', 'scanner'] as const,
+  },
+  {
+    label: 'מועדון',
+    keys: ['loyalty', 'campaigns', 'referrals'] as const,
+  },
+  {
+    label: 'ניהול',
+    keys: ['team', 'inbox', 'billing', 'settings'] as const,
+  },
+] as const;
+
+function NavItemButton({
+  compact,
+  currentPathname,
+  item,
+  onNavigate,
+}: {
+  compact: boolean;
+  currentPathname: string;
+  item: BusinessWebNavItem;
+  onNavigate: (href: Href) => void;
+}) {
+  const Icon = businessWebNavIcons[item.key];
+  const isDisabled = !item.href;
+  const isActive = isBusinessWebRouteActive(currentPathname, item.href);
+  return (
+    <Pressable
+      accessibilityLabel={item.label}
+      accessibilityRole="link"
+      accessibilityState={{ disabled: isDisabled, selected: isActive }}
+      disabled={isDisabled}
+      onPress={() => item.href && onNavigate(item.href as Href)}
+      style={({ pressed }) => [
+        styles.navItem,
+        isActive ? styles.navItemActive : null,
+        compact ? styles.navItemCompact : null,
+        pressed ? styles.controlPressed : null,
+      ]}
+    >
+      <Icon
+        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
+        size={TOKENS.icons.navigation}
+        strokeWidth={TOKENS.icons.strokeWidth}
+      />
+      <Text style={[styles.navLabel, isActive ? styles.navLabelActive : null]}>
+        {item.label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function NavList({
   items,
   compact = false,
@@ -95,40 +150,47 @@ function NavList({
   currentPathname: string;
   onNavigate: (href: Href) => void;
 }) {
+  if (!compact) {
+    return (
+      <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
+        {NAV_SECTIONS.map((section) => {
+          const sectionItems = section.keys.flatMap((key) => {
+            const item = items.find((entry) => entry.key === key);
+            return item ? [item] : [];
+          });
+          if (sectionItems.length === 0) {
+            return null;
+          }
+          return (
+            <View key={section.label} style={styles.navSection}>
+              <Text style={styles.navSectionLabel}>{section.label}</Text>
+              {sectionItems.map((item) => (
+                <NavItemButton
+                  compact={false}
+                  currentPathname={currentPathname}
+                  item={item}
+                  key={item.key}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
-      {items.map((item) => {
-        const Icon = businessWebNavIcons[item.key];
-        const isDisabled = !item.href;
-        const isActive = isBusinessWebRouteActive(currentPathname, item.href);
-        return (
-          <Pressable
-            accessibilityLabel={item.label}
-            accessibilityRole="link"
-            accessibilityState={{ disabled: isDisabled, selected: isActive }}
-            disabled={isDisabled}
-            key={item.key}
-            onPress={() => item.href && onNavigate(item.href as Href)}
-            style={({ pressed }) => [
-              styles.navItem,
-              isActive ? styles.navItemActive : null,
-              compact ? styles.navItemCompact : null,
-              pressed ? styles.controlPressed : null,
-            ]}
-          >
-            <Icon
-              color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
-              size={TOKENS.icons.navigation}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-            <Text
-              style={[styles.navLabel, isActive ? styles.navLabelActive : null]}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {items.map((item) => (
+        <NavItemButton
+          compact={true}
+          currentPathname={currentPathname}
+          item={item}
+          key={item.key}
+          onNavigate={onNavigate}
+        />
+      ))}
     </View>
   );
 }
@@ -765,8 +827,8 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: flexDirection.row },
   shellCompact: { flexDirection: 'column' },
   sidebar: {
-    width: 188,
-    minWidth: 188,
+    width: 232,
+    minWidth: 232,
     borderLeftWidth: 1,
     borderLeftColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
@@ -832,7 +894,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: TOKENS.space.sm,
     opacity: 0.78,
   },
-  navItemActive: { backgroundColor: '#F3F6FF', opacity: 1 },
+  navItemActive: {
+    backgroundColor: TOKENS.colors.primarySubtle,
+    opacity: 1,
+  },
+  navSection: { gap: TOKENS.space.xs, marginBottom: TOKENS.space.sm },
+  navSectionLabel: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    paddingHorizontal: TOKENS.space.sm,
+    paddingTop: TOKENS.space.sm,
+  },
   navItemCompact: { minHeight: 46 },
   navLabel: {
     ...rtlBaseText,

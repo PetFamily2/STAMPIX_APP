@@ -89,8 +89,8 @@ export function isBusinessWebRouteActive(
 export const BUSINESS_WEB_NAV_CATALOG: readonly BusinessWebNavItem[] = [
   {
     key: 'dashboard',
-    label: 'דף הבית',
-    shortLabel: 'בית',
+    label: 'היום',
+    shortLabel: 'היום',
     href: BUSINESS_WEB_ROUTES.dashboard,
     access: { type: 'capability', capability: 'access_dashboard' },
   },
@@ -103,7 +103,7 @@ export const BUSINESS_WEB_NAV_CATALOG: readonly BusinessWebNavItem[] = [
   },
   {
     key: 'loyalty',
-    label: 'מועדון והטבות',
+    label: 'מועדון',
     shortLabel: 'מועדון',
     href: BUSINESS_WEB_ROUTES.loyalty,
     access: { type: 'capability', capability: 'edit_loyalty_cards' },
@@ -169,13 +169,13 @@ export const BUSINESS_WEB_NAV_CATALOG: readonly BusinessWebNavItem[] = [
 const SIDEBAR_ORDER: readonly BusinessWebNavKey[] = [
   'dashboard',
   'customers',
+  'scanner',
   'loyalty',
-  'team',
-  'analytics',
-  'billing',
   'campaigns',
   'referrals',
+  'team',
   'inbox',
+  'billing',
   'settings',
 ];
 
@@ -185,12 +185,16 @@ const BOTTOM_PRIORITY: readonly BusinessWebNavKey[] = [
   'scanner',
   'loyalty',
   'campaigns',
-  'analytics',
+  'referrals',
   'inbox',
   'settings',
   'team',
-  'referrals',
   'billing',
+];
+
+const STAFF_BOTTOM_PRIMARY: readonly BusinessWebNavKey[] = [
+  'scanner',
+  'customers',
 ];
 
 const MAX_BOTTOM_SLOTS = 5;
@@ -208,10 +212,13 @@ function orderItems(
 function canSeeBusinessNavItem(
   item: BusinessWebNavItem,
   role: StaffRole | null,
-  mode: BusinessNavigationMode,
+  _mode: BusinessNavigationMode,
   scannerEnabled: boolean
 ) {
-  if (item.key === 'scanner' && (mode !== 'bottom' || !scannerEnabled)) {
+  if (item.key === 'scanner' && !scannerEnabled) {
+    return false;
+  }
+  if (item.key === 'analytics') {
     return false;
   }
   if (!role) {
@@ -237,6 +244,17 @@ export function selectBusinessWebNav(input: {
       menu: orderItems(SIDEBAR_ORDER, visible),
       primary: [] as BusinessWebNavItem[],
       overflow: [] as BusinessWebNavItem[],
+    };
+  }
+
+  if (input.role === 'staff') {
+    const ranked = orderItems(BOTTOM_PRIORITY, visible);
+    const primary = orderItems(STAFF_BOTTOM_PRIMARY, ranked);
+    const primaryKeys = new Set(primary.map((item) => item.key));
+    return {
+      menu: [] as BusinessWebNavItem[],
+      primary,
+      overflow: ranked.filter((item) => !primaryKeys.has(item.key)),
     };
   }
 

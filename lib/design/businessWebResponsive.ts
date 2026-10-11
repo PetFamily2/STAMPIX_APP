@@ -54,7 +54,7 @@ export function getBusinessWebResponsiveLayout(
     composition,
     navigation: isCompact ? 'compact' : 'sidebar',
     kpiColumns,
-    detailColumns: safeWidth < BUSINESS_WEB_BREAKPOINTS.wideDashboard ? 1 : 2,
+    detailColumns: safeWidth >= 768 ? 2 : 1,
     activityPresentation:
       safeWidth < BUSINESS_WEB_BREAKPOINTS.mobile ? 'feed' : 'table',
     pagePadding: isCompact ? 16 : 24,

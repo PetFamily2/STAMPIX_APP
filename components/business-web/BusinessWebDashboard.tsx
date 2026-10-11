@@ -1,10 +1,12 @@
 import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import {
   Activity,
   Building2,
   CircleAlert,
   Gift,
   type LucideIcon,
+  QrCode,
   Stamp,
   Users,
 } from 'lucide-react-native';
@@ -18,6 +20,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { PwaButton } from '@/components/pwa-ui/PwaButton';
 import { AppText as Text } from '@/components/ui/AppText';
 
 import { api } from '@/convex/_generated/api';
@@ -49,7 +52,7 @@ type KpiCardProps = {
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
-const DASHBOARD_TITLE = 'דף הבית';
+const DASHBOARD_TITLE = 'היום';
 
 function DashboardSkeleton() {
   const { width } = useWindowDimensions();
@@ -205,6 +208,7 @@ function BusinessWebDashboardContent({
     responsiveLayout.composition === 'mobile' ||
     responsiveLayout.composition === 'narrow-mobile';
   const isMobileActivity = responsiveLayout.activityPresentation === 'feed';
+  const router = useRouter();
   const kpiCardStyle = isSingleColumn
     ? styles.cardSingleColumn
     : isTwoColumn
@@ -255,24 +259,33 @@ function BusinessWebDashboardContent({
           isMobileComposition ? styles.pageHeaderMobile : null,
         ]}
       >
-        <Text
-          accessibilityRole="header"
-          aria-level={1}
-          style={[
-            styles.pageTitle,
-            isMobileComposition ? styles.pageTitleMobile : null,
-          ]}
-        >
-          {DASHBOARD_TITLE}
-        </Text>
-        <Text
-          style={[
-            styles.pageSubtitle,
-            isMobileComposition ? styles.pageSubtitleMobile : null,
-          ]}
-        >
-          מה קורה עכשיו ב־{businessName}
-        </Text>
+        <View style={styles.titleRow}>
+          <View style={styles.titleCopy}>
+            <Text
+              accessibilityRole="header"
+              aria-level={1}
+              style={[
+                styles.pageTitle,
+                isMobileComposition ? styles.pageTitleMobile : null,
+              ]}
+            >
+              {DASHBOARD_TITLE}
+            </Text>
+            <Text
+              style={[
+                styles.pageSubtitle,
+                isMobileComposition ? styles.pageSubtitleMobile : null,
+              ]}
+            >
+              מה קורה עכשיו ב־{businessName}
+            </Text>
+          </View>
+          <PwaButton
+            icon={<QrCode color="#FFFFFF" size={18} strokeWidth={1.75} />}
+            label="סריקה"
+            onPress={() => router.push('/business/scanner-preview')}
+          />
+        </View>
       </View>
 
       {!hasMeasuredActivity ? (
@@ -289,11 +302,20 @@ function BusinessWebDashboardContent({
             <KpiCard
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
-              context="סה״כ לקוחות שהצטרפו"
-              icon={Users}
-              label="לקוחות במועדון"
+              context="ב־30 הימים האחרונים"
+              icon={Stamp}
+              label="חותמות"
               tone="primary"
-              value={metrics?.totalCustomersJoinedAllTime ?? 0}
+              value={kpis?.stamps.value ?? 0}
+            />
+            <KpiCard
+              cardStyle={kpiCardStyle}
+              compact={isMobileComposition}
+              context="ב־30 הימים האחרונים"
+              icon={Gift}
+              label="מימושי הטבות"
+              tone="warning"
+              value={kpis?.redemptions.value ?? 0}
             />
             <KpiCard
               cardStyle={kpiCardStyle}
@@ -307,20 +329,11 @@ function BusinessWebDashboardContent({
             <KpiCard
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
-              context="ב־30 הימים האחרונים"
-              icon={Stamp}
-              label="חותמות"
+              context="סה״כ לקוחות שהצטרפו"
+              icon={Users}
+              label="לקוחות במועדון"
               tone="neutral"
-              value={kpis?.stamps.value ?? 0}
-            />
-            <KpiCard
-              cardStyle={kpiCardStyle}
-              compact={isMobileComposition}
-              context="ב־30 הימים האחרונים"
-              icon={Gift}
-              label="מימושי הטבות"
-              tone="warning"
-              value={kpis?.redemptions.value ?? 0}
+              value={metrics?.totalCustomersJoinedAllTime ?? 0}
             />
           </View>
 
@@ -652,7 +665,15 @@ export function BusinessWebNoBusiness() {
 const styles = StyleSheet.create({
   page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
   pageMobile: { gap: 14 },
-  pageHeader: { alignItems: alignItems.start, gap: TOKENS.space.xs },
+  pageHeader: { alignItems: 'stretch', gap: TOKENS.space.sm },
+  titleRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: TOKENS.space.md,
+    flexWrap: 'wrap',
+  },
+  titleCopy: { flexGrow: 1, flexShrink: 1, gap: TOKENS.space.xs },
   pageHeaderMobile: { gap: 2 },
   pageTitle: {
     ...rtlBaseText,

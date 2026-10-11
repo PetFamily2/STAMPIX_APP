@@ -5,7 +5,7 @@
  */
 export const BUSINESS_WEB_TOKENS = {
   colors: {
-    pageBackground: '#FCFCFD',
+    pageBackground: '#F3F5F9',
     elevatedSurface: '#FFFFFF',
     subtleSurface: '#F7F8FA',
     primary: '#1230A8',
@@ -14,8 +14,8 @@ export const BUSINESS_WEB_TOKENS = {
     textPrimary: '#101936',
     textSecondary: '#475569',
     textMuted: '#64748B',
-    border: '#ECEEF2',
-    borderStrong: '#D9DDE5',
+    border: '#E6EAF2',
+    borderStrong: '#D5DBE6',
     success: '#047857',
     successSubtle: '#ECFDF5',
     warning: '#B45309',
@@ -31,18 +31,24 @@ export const BUSINESS_WEB_TOKENS = {
     xl: 20,
     xxl: 24,
     xxxl: 32,
+    huge: 48,
   },
   radii: {
-    sm: 6,
-    md: 8,
-    lg: 10,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    art: 20,
     pill: 999,
   },
+  control: {
+    height: 48,
+    quietHeight: 44,
+  },
   typography: {
-    pageTitle: { fontSize: 22, lineHeight: 28, fontWeight: '700' as const },
-    sectionTitle: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
-    cardTitle: { fontSize: 13, lineHeight: 19, fontWeight: '600' as const },
-    kpiValue: { fontSize: 24, lineHeight: 30, fontWeight: '600' as const },
+    pageTitle: { fontSize: 22, lineHeight: 28, fontWeight: '600' as const },
+    sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' as const },
+    cardTitle: { fontSize: 15, lineHeight: 21, fontWeight: '600' as const },
+    kpiValue: { fontSize: 28, lineHeight: 34, fontWeight: '600' as const },
     body: { fontSize: 14, lineHeight: 21, fontWeight: '400' as const },
     secondaryBody: {
       fontSize: 12,

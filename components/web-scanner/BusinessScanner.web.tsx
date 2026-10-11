@@ -285,165 +285,171 @@ export default function BusinessScanner(props: {
   ].includes(state.phase);
   return (
     <main
+      className="sx-scan"
       data-scanner-phase={state.phase}
       data-scanner-code={state.code ?? ''}
       dir="rtl"
-      style={{
-        width: '100%',
-        maxWidth: 560,
-        margin: '0 auto',
-        padding: 16,
-        boxSizing: 'border-box',
-        fontFamily: 'Heebo, Arial, sans-serif',
-        color: '#172033',
-      }}
     >
-      <h1 style={{ textAlign: 'right' }}>סריקת QR</h1>
-      {blocked ? <p role="alert">{blocked}</p> : null}
-      <video
-        ref={video}
-        playsInline={true}
-        muted={true}
-        aria-label="מצלמה"
-        style={{
-          width: '100%',
-          aspectRatio: '4/3',
-          background: '#101828',
-          borderRadius: 16,
-        }}
-      />
-      <p aria-live="polite">{labels[state.phase]}</p>
-      {state.code ? <p>{state.code}</p> : null}
-      {['denied', 'no-camera', 'error', 'insecure', 'unsupported'].includes(
-        cameraState.status
-      ) ? (
-        <p>
-          המצלמה אינה זמינה ({cameraState.status}). בדקו הרשאה וחיבור HTTPS ונסו
-          מחדש.
-        </p>
-      ) : null}
-      {props.canStartScan === false ? (
-        <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
-      ) : null}
-      {state.session ? <p>{state.session.customerDisplayName}</p> : null}
-      {state.receipt && success ? (
-        <p>
-          אישור שרת:{' '}
-          {state.receipt.eventType ?? state.receipt.status ?? 'הטבה מומשה'}
-        </p>
-      ) : null}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-        <button
-          type="button"
-          disabled={
-            props.canStartScan === false ||
-            !!blocked ||
-            busy ||
-            ready ||
-            success
-          }
-          onClick={() => void camera.current?.start()}
-        >
-          הפעלת מצלמה
-        </button>
-        {ready ? (
-          <button
-            type="button"
-            onClick={() =>
-              void commands.current?.action(
-                state.session?.resolution === 'REDEEM_AVAILABLE'
-                  ? 'redeem'
-                  : 'stamp'
-              )
-            }
-          >
-            {state.session?.resolution === 'REDEEM_AVAILABLE'
-              ? 'אישור מימוש'
-              : 'אישור חותמת'}
-          </button>
-        ) : null}
-        {success && state.receipt?.redemptionContinuationAvailableUntil ? (
-          <button
-            type="button"
-            onClick={() => void commands.current?.action('continuation')}
-          >
-            מימוש הכרטיס שהושלם
-          </button>
-        ) : null}
-        {success &&
-        state.receipt?.undoAvailableUntil &&
-        !state.receipt.undoBlockedReason ? (
-          <button
-            type="button"
-            onClick={() => void commands.current?.action('undo')}
-          >
-            ביטול הפעולה
-          </button>
-        ) : null}
-        {success
-          ? benefits.map((benefit) => (
-              <button
-                type="button"
-                key={benefit.rewardId}
-                onClick={() =>
-                  void commands.current?.action('referral', benefit.rewardId)
-                }
-              >
-                {benefit.title}
-              </button>
-            ))
-          : null}
-        {state.phase === 'UNKNOWN_OUTCOME' ? (
-          <button
-            type="button"
-            onClick={() => void commands.current?.reconcile()}
-          >
-            בירור תוצאה בלבד
-          </button>
-        ) : null}
-        {state.phase === 'UNKNOWN_OUTCOME' &&
-        ['stamp', 'redeem', 'continuation', 'undo'].includes(
-          state.operation ?? ''
+      <style>{SCANNER_CHROME}</style>
+      <video ref={video} playsInline={true} muted={true} aria-label="מצלמה" />
+      <section className="sx-copy">
+        <h1>סריקה</h1>
+        {blocked ? <p role="alert">{blocked}</p> : null}
+        <p aria-live="polite">{labels[state.phase]}</p>
+        {state.code ? <p>{state.code}</p> : null}
+        {['denied', 'no-camera', 'error', 'insecure', 'unsupported'].includes(
+          cameraState.status
         ) ? (
+          <p>
+            המצלמה אינה זמינה ({cameraState.status}). בדקו הרשאה וחיבור HTTPS
+            ונסו מחדש.
+          </p>
+        ) : null}
+        {props.canStartScan === false ? (
+          <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
+        ) : null}
+        {state.session ? <p>{state.session.customerDisplayName}</p> : null}
+        {state.receipt && success ? (
+          <p>
+            אישור שרת:{' '}
+            {state.receipt.eventType ?? state.receipt.status ?? 'הטבה מומשה'}
+          </p>
+        ) : null}
+        <div className="sx-actions">
+          <button
+            className="secondary"
+            type="button"
+            disabled={
+              props.canStartScan === false ||
+              !!blocked ||
+              busy ||
+              ready ||
+              success
+            }
+            onClick={() => void camera.current?.start()}
+          >
+            הפעלת מצלמה
+          </button>
+          {ready ? (
+            <button
+              className="primary"
+              type="button"
+              onClick={() =>
+                void commands.current?.action(
+                  state.session?.resolution === 'REDEEM_AVAILABLE'
+                    ? 'redeem'
+                    : 'stamp'
+                )
+              }
+            >
+              {state.session?.resolution === 'REDEEM_AVAILABLE'
+                ? 'אישור מימוש'
+                : 'אישור חותמת'}
+            </button>
+          ) : null}
+          {success && state.receipt?.redemptionContinuationAvailableUntil ? (
+            <button
+              type="button"
+              onClick={() => void commands.current?.action('continuation')}
+            >
+              מימוש הכרטיס שהושלם
+            </button>
+          ) : null}
+          {success &&
+          state.receipt?.undoAvailableUntil &&
+          !state.receipt.undoBlockedReason ? (
+            <button
+              type="button"
+              onClick={() => void commands.current?.action('undo')}
+            >
+              ביטול הפעולה
+            </button>
+          ) : null}
+          {success
+            ? benefits.map((benefit) => (
+                <button
+                  type="button"
+                  key={benefit.rewardId}
+                  onClick={() =>
+                    void commands.current?.action('referral', benefit.rewardId)
+                  }
+                >
+                  {benefit.title}
+                </button>
+              ))
+            : null}
+          {state.phase === 'UNKNOWN_OUTCOME' ? (
+            <button
+              type="button"
+              onClick={() => void commands.current?.reconcile()}
+            >
+              בירור תוצאה בלבד
+            </button>
+          ) : null}
+          {state.phase === 'UNKNOWN_OUTCOME' &&
+          ['stamp', 'redeem', 'continuation', 'undo'].includes(
+            state.operation ?? ''
+          ) ? (
+            <button
+              type="button"
+              onClick={() => void commands.current?.retrySameSession()}
+            >
+              ניסיון מפורש באותה פעולה ובאותו מזהה
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={() => void commands.current?.retrySameSession()}
+            disabled={busy || !!blocked}
+            onClick={() => {
+              if (commands.current?.reset()) {
+                camera.current?.reset();
+                setRevision((r) => r + 1);
+              }
+            }}
           >
-            ניסיון מפורש באותה פעולה ובאותו מזהה
+            איפוס וסריקה חדשה
           </button>
+        </div>
+        {cameraState.cameras.length > 1 &&
+        props.canStartScan !== false &&
+        !busy &&
+        !ready &&
+        !success ? (
+          <label>
+            בחירת מצלמה{' '}
+            <select
+              value={cameraState.selectedCamera}
+              onChange={(event) =>
+                void camera.current?.start(event.target.value)
+              }
+            >
+              {cameraState.cameras.map((c) => (
+                <option value={c.id} key={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : null}
-        <button
-          type="button"
-          disabled={busy || !!blocked}
-          onClick={() => {
-            if (commands.current?.reset()) {
-              camera.current?.reset();
-              setRevision((r) => r + 1);
-            }
-          }}
-        >
-          איפוס וסריקה חדשה
-        </button>
-      </div>
-      {cameraState.cameras.length > 1 &&
-      props.canStartScan !== false &&
-      !busy &&
-      !ready &&
-      !success ? (
-        <label>
-          בחירת מצלמה{' '}
-          <select
-            value={cameraState.selectedCamera}
-            onChange={(event) => void camera.current?.start(event.target.value)}
-          >
-            {cameraState.cameras.map((c) => (
-              <option value={c.id} key={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+      </section>
     </main>
   );
 }
+
+const SCANNER_CHROME = `
+.sx-scan{width:100%;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;padding:16px;font-family:Heebo,Arial,sans-serif;color:#101936}
+.sx-scan h1{margin:0;font-size:22px;line-height:28px;font-weight:600;text-align:right}
+.sx-scan p{margin:0;text-align:right;color:#475569}
+.sx-scan video{width:100%;min-height:280px;aspect-ratio:4/3;background:#0B1220;border-radius:20px;object-fit:cover}
+.sx-copy{display:flex;flex-direction:column;gap:12px}
+.sx-actions{display:flex;flex-direction:column;gap:8px}
+.sx-scan button{height:48px;border-radius:12px;border:1.5px solid #1230A8;background:#fff;color:#1230A8;font:600 16px/1 Heebo,Arial,sans-serif;cursor:pointer}
+.sx-scan button.primary{background:#1230A8;color:#fff}
+.sx-scan button:disabled{opacity:.45;cursor:default}
+.sx-scan select{height:48px;border-radius:12px;border:1px solid #D5DBE6;font:400 16px Heebo,Arial,sans-serif}
+@media (min-width:1024px){
+  .sx-scan{display:grid;grid-template-columns:minmax(280px,1fr) 340px;align-items:start;padding:28px}
+  .sx-scan video{grid-column:1;grid-row:1;min-height:460px}
+  .sx-copy{grid-column:2;grid-row:1}
+}
+`;

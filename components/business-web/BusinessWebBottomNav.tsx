@@ -22,7 +22,7 @@ import { isBusinessWebRouteActive } from '@/lib/businessWebNavigation';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { flexDirection, rtlCenterText } from '@/lib/rtl';
 
-export const BUSINESS_WEB_BOTTOM_NAV_HEIGHT = 64;
+export const BUSINESS_WEB_BOTTOM_NAV_HEIGHT = 68;
 
 export const businessWebNavIcons: Record<BusinessWebNavKey, LucideIcon> = {
   dashboard: LayoutDashboard,
@@ -89,16 +89,25 @@ export function BusinessWebBottomNav({
             onPress={() => onNavigate(item.href as Href)}
             style={({ pressed }) => [
               styles.tab,
+              item.key === 'scanner' ? styles.scanTab : null,
               width < 360 ? styles.tabNarrow : null,
               pressed ? styles.tabPressed : null,
             ]}
           >
             <View
-              style={[styles.iconSlot, isActive ? styles.iconSlotActive : null]}
+              style={[
+                styles.iconSlot,
+                isActive ? styles.iconSlotActive : null,
+                item.key === 'scanner' ? styles.scanSlot : null,
+              ]}
             >
               <Icon
                 color={
-                  isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted
+                  item.key === 'scanner'
+                    ? '#FFFFFF'
+                    : isActive
+                      ? TOKENS.colors.primary
+                      : TOKENS.colors.textMuted
                 }
                 size={22}
                 strokeWidth={TOKENS.icons.strokeWidth}
@@ -106,7 +115,11 @@ export function BusinessWebBottomNav({
             </View>
             <Text
               numberOfLines={1}
-              style={[labelStyle, isActive ? styles.labelActive : null]}
+              style={[
+                labelStyle,
+                isActive ? styles.labelActive : null,
+                item.key === 'scanner' ? styles.scanLabel : null,
+              ]}
             >
               {item.shortLabel}
             </Text>
@@ -175,7 +188,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   tabNarrow: { paddingHorizontal: 0 },
-  tabPressed: { opacity: 0.72 },
+  tabPressed: { opacity: 0.92 },
+  scanTab: {
+    backgroundColor: TOKENS.colors.primary,
+    borderRadius: 14,
+    marginVertical: 4,
+  },
+  scanSlot: { backgroundColor: 'transparent' },
+  scanLabel: { color: '#FFFFFF', fontWeight: '600' },
   iconSlot: {
     minWidth: 44,
     height: 28,
