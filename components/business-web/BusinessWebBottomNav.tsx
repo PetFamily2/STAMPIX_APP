@@ -89,25 +89,16 @@ export function BusinessWebBottomNav({
             onPress={() => onNavigate(item.href as Href)}
             style={({ pressed }) => [
               styles.tab,
-              item.key === 'scanner' ? styles.scanTab : null,
               width < 360 ? styles.tabNarrow : null,
               pressed ? styles.tabPressed : null,
             ]}
           >
             <View
-              style={[
-                styles.iconSlot,
-                isActive ? styles.iconSlotActive : null,
-                item.key === 'scanner' ? styles.scanSlot : null,
-              ]}
+              style={[styles.iconSlot, isActive ? styles.iconSlotActive : null]}
             >
               <Icon
                 color={
-                  item.key === 'scanner'
-                    ? '#FFFFFF'
-                    : isActive
-                      ? TOKENS.colors.primary
-                      : TOKENS.colors.textMuted
+                  isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted
                 }
                 size={22}
                 strokeWidth={TOKENS.icons.strokeWidth}
@@ -115,11 +106,7 @@ export function BusinessWebBottomNav({
             </View>
             <Text
               numberOfLines={1}
-              style={[
-                labelStyle,
-                isActive ? styles.labelActive : null,
-                item.key === 'scanner' ? styles.scanLabel : null,
-              ]}
+              style={[labelStyle, isActive ? styles.labelActive : null]}
             >
               {item.shortLabel}
             </Text>
@@ -189,13 +176,6 @@ const styles = StyleSheet.create({
   },
   tabNarrow: { paddingHorizontal: 0 },
   tabPressed: { opacity: 0.92 },
-  scanTab: {
-    backgroundColor: TOKENS.colors.primary,
-    borderRadius: 14,
-    marginVertical: 4,
-  },
-  scanSlot: { backgroundColor: 'transparent' },
-  scanLabel: { color: '#FFFFFF', fontWeight: '600' },
   iconSlot: {
     minWidth: 44,
     height: 28,
@@ -211,7 +191,7 @@ const styles = StyleSheet.create({
     color: TOKENS.colors.textSecondary,
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: '700',
+    fontWeight: '500',
     textAlign: 'center',
   },
   labelNarrow: {
@@ -220,8 +200,8 @@ const styles = StyleSheet.create({
     color: TOKENS.colors.textSecondary,
     fontSize: 10,
     lineHeight: 13,
-    fontWeight: '700',
+    fontWeight: '500',
     textAlign: 'center',
   },
-  labelActive: { color: TOKENS.colors.primary },
+  labelActive: { color: TOKENS.colors.primary, fontWeight: '600' },
 });

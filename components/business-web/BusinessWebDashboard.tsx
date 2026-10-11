@@ -1,14 +1,11 @@
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import {
-  Activity,
   Building2,
   CircleAlert,
   Gift,
-  type LucideIcon,
   QrCode,
   Stamp,
-  Users,
 } from 'lucide-react-native';
 import { Component, type ReactNode, useState } from 'react';
 import {
@@ -44,11 +41,9 @@ type BusinessWebDashboardProps = {
 type KpiCardProps = {
   cardStyle: StyleProp<ViewStyle>;
   compact: boolean;
-  icon: LucideIcon;
   label: string;
   value: number;
   context: string;
-  tone: 'primary' | 'success' | 'warning' | 'neutral';
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
@@ -115,59 +110,20 @@ function DashboardSkeleton() {
 function KpiCard({
   cardStyle,
   compact,
-  icon: Icon,
   label,
   value,
   context,
-  tone,
 }: KpiCardProps) {
   return (
     <View style={[styles.card, cardStyle, compact ? styles.cardMobile : null]}>
-      {compact ? (
-        <View style={styles.kpiHeadingMobile}>
-          <View
-            style={[
-              styles.kpiIcon,
-              styles[`kpiIcon_${tone}`],
-              styles.kpiIconMobile,
-            ]}
-          >
-            <Icon
-              color={
-                tone === 'warning'
-                  ? TOKENS.colors.warning
-                  : tone === 'success'
-                    ? TOKENS.colors.success
-                    : TOKENS.colors.primary
-              }
-              size={18}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-          </View>
-          <Text style={[styles.kpiLabel, styles.kpiLabelMobile]}>{label}</Text>
-        </View>
-      ) : (
-        <>
-          <View style={[styles.kpiIcon, styles[`kpiIcon_${tone}`]]}>
-            <Icon
-              color={
-                tone === 'warning'
-                  ? TOKENS.colors.warning
-                  : tone === 'success'
-                    ? TOKENS.colors.success
-                    : TOKENS.colors.primary
-              }
-              size={TOKENS.icons.standard}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-          </View>
-          <Text style={styles.kpiLabel}>{label}</Text>
-        </>
-      )}
+      <Text style={[styles.kpiLabel, compact ? styles.kpiLabelMobile : null]}>
+        {label}
+      </Text>
       <Text style={[styles.kpiValue, compact ? styles.kpiValueMobile : null]}>
         {NUMBER_FORMATTER.format(value)}
       </Text>
       <Text
+        numberOfLines={2}
         style={[styles.kpiContext, compact ? styles.kpiContextMobile : null]}
       >
         {context}
@@ -260,32 +216,33 @@ function BusinessWebDashboardContent({
         ]}
       >
         <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <Text
-              accessibilityRole="header"
-              aria-level={1}
-              style={[
-                styles.pageTitle,
-                isMobileComposition ? styles.pageTitleMobile : null,
-              ]}
-            >
-              {DASHBOARD_TITLE}
-            </Text>
-            <Text
-              style={[
-                styles.pageSubtitle,
-                isMobileComposition ? styles.pageSubtitleMobile : null,
-              ]}
-            >
-              מה קורה עכשיו ב־{businessName}
-            </Text>
-          </View>
+          <Text
+            accessibilityRole="header"
+            aria-level={1}
+            numberOfLines={1}
+            style={[
+              styles.pageTitle,
+              styles.titleText,
+              isMobileComposition ? styles.pageTitleMobile : null,
+            ]}
+          >
+            {DASHBOARD_TITLE}
+          </Text>
           <PwaButton
             icon={<QrCode color="#FFFFFF" size={18} strokeWidth={1.75} />}
             label="סריקה"
             onPress={() => router.push('/business/scanner-preview')}
+            style={styles.scanAction}
           />
         </View>
+        <Text
+          style={[
+            styles.pageSubtitle,
+            isMobileComposition ? styles.pageSubtitleMobile : null,
+          ]}
+        >
+          מה קורה עכשיו ב־{businessName}
+        </Text>
       </View>
 
       {!hasMeasuredActivity ? (
@@ -303,36 +260,28 @@ function BusinessWebDashboardContent({
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
               context="ב־30 הימים האחרונים"
-              icon={Stamp}
               label="חותמות"
-              tone="primary"
               value={kpis?.stamps.value ?? 0}
             />
             <KpiCard
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
               context="ב־30 הימים האחרונים"
-              icon={Gift}
               label="מימושי הטבות"
-              tone="warning"
               value={kpis?.redemptions.value ?? 0}
             />
             <KpiCard
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
               context="פעילים ב־30 הימים האחרונים"
-              icon={Activity}
               label="לקוחות פעילים"
-              tone="success"
               value={kpis?.activeCustomers ?? 0}
             />
             <KpiCard
               cardStyle={kpiCardStyle}
               compact={isMobileComposition}
               context="סה״כ לקוחות שהצטרפו"
-              icon={Users}
               label="לקוחות במועדון"
-              tone="neutral"
               value={metrics?.totalCustomersJoinedAllTime ?? 0}
             />
           </View>
@@ -362,18 +311,6 @@ function BusinessWebDashboardContent({
                   <Text style={styles.sectionSubtitle}>
                     החותמות והמימושים האחרונים בעסק
                   </Text>
-                </View>
-                <View
-                  style={[
-                    styles.panelIcon,
-                    isMobileComposition ? styles.panelIconMobile : null,
-                  ]}
-                >
-                  <Activity
-                    color={TOKENS.colors.primary}
-                    size={TOKENS.icons.standard}
-                    strokeWidth={TOKENS.icons.strokeWidth}
-                  />
                 </View>
               </View>
 
@@ -421,55 +358,16 @@ function BusinessWebDashboardContent({
                       {isMobileActivity ? (
                         <>
                           <View style={styles.activityMetaRowMobile}>
-                            <View
-                              style={[
-                                styles.customerCell,
-                                styles.customerCellMobile,
-                              ]}
-                            >
-                              <View style={styles.customerAvatar}>
-                                <Text style={styles.customerAvatarText}>
-                                  {String(item.customer || 'ל').charAt(0)}
-                                </Text>
-                              </View>
-                              <Text
-                                numberOfLines={1}
-                                style={styles.customerName}
-                              >
-                                {String(item.customer || 'לקוח')}
-                              </Text>
-                            </View>
+                            <Text numberOfLines={1} style={styles.customerName}>
+                              {String(item.customer || 'לקוח')}
+                            </Text>
                             <Text style={styles.activityTimeMobile}>
                               {String(item.time || '')}
                             </Text>
                           </View>
-                          <View
-                            style={[styles.activityCell, styles.cellMobile]}
-                          >
-                            <View
-                              style={[
-                                styles.activityTypeIcon,
-                                item.type === 'reward'
-                                  ? styles.rewardTypeIcon
-                                  : styles.stampTypeIcon,
-                              ]}
-                            >
-                              {item.type === 'reward' ? (
-                                <Gift color={TOKENS.colors.warning} size={16} />
-                              ) : (
-                                <Stamp
-                                  color={TOKENS.colors.primary}
-                                  size={16}
-                                />
-                              )}
-                            </View>
-                            <Text
-                              numberOfLines={2}
-                              style={styles.activityDetail}
-                            >
-                              {String(item.detail || '')}
-                            </Text>
-                          </View>
+                          <Text numberOfLines={1} style={styles.activityDetail}>
+                            {String(item.detail || '')}
+                          </Text>
                         </>
                       ) : (
                         <>
@@ -523,6 +421,7 @@ function BusinessWebDashboardContent({
               style={[
                 styles.panel,
                 styles.attentionPanel,
+                isWide ? styles.attentionPanelWide : null,
                 isMobileComposition ? styles.panelMobile : null,
               ]}
             >
@@ -538,58 +437,12 @@ function BusinessWebDashboardContent({
                     לקוחות שכדאי לעקוב אחריהם
                   </Text>
                 </View>
-                <View
-                  style={[
-                    styles.panelIcon,
-                    isMobileComposition ? styles.panelIconMobile : null,
-                    (kpis?.atRiskCustomers ?? 0) > 0
-                      ? styles.panelIconWarning
-                      : styles.panelIconSuccess,
-                  ]}
-                >
-                  <CircleAlert
-                    color={
-                      (kpis?.atRiskCustomers ?? 0) > 0
-                        ? TOKENS.colors.warning
-                        : TOKENS.colors.success
-                    }
-                    size={TOKENS.icons.standard}
-                    strokeWidth={TOKENS.icons.strokeWidth}
-                  />
-                </View>
               </View>
-              <View
-                style={[
-                  styles.attentionBody,
-                  isMobileComposition ? styles.attentionBodyMobile : null,
-                ]}
-              >
-                {(kpis?.atRiskCustomers ?? 0) > 0 ? (
-                  <>
-                    <Text
-                      style={[
-                        styles.attentionValue,
-                        isMobileComposition
-                          ? styles.attentionValueMobile
-                          : null,
-                      ]}
-                    >
-                      {NUMBER_FORMATTER.format(kpis?.atRiskCustomers ?? 0)}
-                    </Text>
-                    <Text style={styles.attentionTitle}>לקוחות בסיכון</Text>
-                    <Text style={styles.attentionCopy}>
-                      לקוחות שלא חזרו בהתאם לדפוס הפעילות שנמדד בעסק.
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.attentionTitle}>הכול נראה תקין</Text>
-                    <Text style={styles.attentionCopy}>
-                      אין כרגע לקוחות שמסומנים כמי שדורשים תשומת לב.
-                    </Text>
-                  </>
-                )}
-              </View>
+              <Text style={styles.attentionCopy}>
+                {(kpis?.atRiskCustomers ?? 0) > 0
+                  ? `${NUMBER_FORMATTER.format(kpis?.atRiskCustomers ?? 0)} לקוחות לא חזרו לפי דפוס הפעילות של העסק.`
+                  : 'אין כרגע לקוחות שמסומנים כמי שדורשים תשומת לב.'}
+              </Text>
             </View>
           </View>
         </>
@@ -671,10 +524,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: TOKENS.space.md,
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
   },
-  titleCopy: { flexGrow: 1, flexShrink: 1, gap: TOKENS.space.xs },
-  pageHeaderMobile: { gap: 2 },
+  titleText: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
+  scanAction: { flexGrow: 0, flexShrink: 0 },
+  pageHeaderMobile: { gap: 4 },
   pageTitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
@@ -690,13 +544,9 @@ const styles = StyleSheet.create({
   kpiGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: TOKENS.colors.border,
-    paddingVertical: 10,
+    gap: 8,
   },
-  kpiGridMobile: { gap: 0 },
+  kpiGridMobile: { gap: 8 },
   kpiGridSingleColumn: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
@@ -706,17 +556,22 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 72,
     alignItems: alignItems.start,
-    backgroundColor: 'transparent',
-    paddingHorizontal: 14,
-    paddingVertical: 2,
+    justifyContent: 'center',
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderWidth: 1,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
   },
   cardMobile: {
-    minHeight: 68,
+    minHeight: 72,
     paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingVertical: 10,
   },
   cardDesktop: { flexGrow: 1, flexBasis: 180 },
-  cardTwoColumn: { flexGrow: 1, flexBasis: '48%', minHeight: 66 },
+  cardTwoColumn: { flexGrow: 1, flexBasis: '47%', minHeight: 72 },
   cardSingleColumn: {
     width: '100%',
     maxWidth: '100%',
@@ -758,9 +613,8 @@ const styles = StyleSheet.create({
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
     ...TOKENS.typography.kpiValue,
-    marginTop: 1,
   },
-  kpiValueMobile: { fontSize: 22, lineHeight: 28, marginTop: 2 },
+  kpiValueMobile: { fontSize: 22, lineHeight: 28 },
   kpiContext: {
     ...rtlBaseText,
     color: TOKENS.colors.textMuted,
@@ -770,7 +624,10 @@ const styles = StyleSheet.create({
   kpiContextMobile: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   detailGrid: { flexDirection: 'column', gap: 12 },
   detailGridMobile: { gap: 10 },
-  detailGridWide: { flexDirection: flexDirection.row, alignItems: 'stretch' },
+  detailGridWide: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+  },
   panel: {
     minWidth: 0,
     borderWidth: 1,
@@ -780,8 +637,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   panelMobile: { padding: 12 },
-  activityPanel: { flex: 2 },
-  attentionPanel: { flex: 1 },
+  activityPanel: { flexGrow: 1, flexBasis: 280 },
+  attentionPanel: { flexGrow: 0, width: '100%' },
+  attentionPanelWide: { width: 320, maxWidth: '100%' },
   panelHeader: {
     flexDirection: flexDirection.row,
     justifyContent: 'space-between',
@@ -838,8 +696,8 @@ const styles = StyleSheet.create({
     minHeight: 0,
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: TOKENS.space.sm,
-    paddingVertical: TOKENS.space.md,
+    gap: 2,
+    paddingVertical: 8,
   },
   activityMetaRowMobile: {
     flexDirection: flexDirection.row,
@@ -930,28 +788,11 @@ const styles = StyleSheet.create({
     color: TOKENS.colors.textMuted,
     ...TOKENS.typography.secondaryBody,
   },
-  attentionBody: {
-    alignItems: alignItems.start,
-    marginTop: TOKENS.space.lg,
-  },
-  attentionBodyMobile: { marginTop: TOKENS.space.md },
-  attentionValue: {
-    ...rtlBaseText,
-    color: TOKENS.colors.warning,
-    ...TOKENS.typography.kpiValue,
-  },
-  attentionValueMobile: { fontSize: 26, lineHeight: 32 },
-  attentionTitle: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textPrimary,
-    ...TOKENS.typography.metadata,
-    marginTop: 1,
-  },
   attentionCopy: {
     ...rtlBaseText,
     color: TOKENS.colors.textSecondary,
-    ...TOKENS.typography.secondaryBody,
-    marginTop: TOKENS.space.sm,
+    ...TOKENS.typography.body,
+    marginTop: 8,
   },
   emptyDashboard: {
     minHeight: 160,
