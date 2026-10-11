@@ -1,19 +1,5 @@
 import type { Href } from 'expo-router';
-import {
-  Building2,
-  ChartNoAxesCombined,
-  ChevronDown,
-  Gift,
-  LayoutDashboard,
-  LogOut,
-  type LucideIcon,
-  Menu,
-  ReceiptText,
-  Settings,
-  UserRoundCog,
-  Users,
-  X,
-} from 'lucide-react-native';
+import { Building2, ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,12 +10,18 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BUSINESS_WEB_BOTTOM_NAV_HEIGHT,
+  BusinessWebBottomNav,
+  businessWebNavIcons,
+} from '@/components/business-web/BusinessWebBottomNav';
 import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';
 import {
-  BUSINESS_WEB_ROUTES,
+  type BusinessWebNavItem,
   isBusinessWebRouteActive,
+  selectBusinessWebNav,
 } from '@/lib/businessWebNavigation';
 import {
   type BusinessWebShellOverlay,
@@ -37,6 +29,7 @@ import {
   getNextBusinessWebShellOverlay,
 } from '@/lib/design/businessWebResponsive';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import { useBusinessNavigationMode } from '@/lib/design/useBusinessNavigationMode';
 import {
   alignItems,
   flexDirection,
@@ -48,6 +41,7 @@ type BusinessIdentity = {
   businessId: Id<'businesses'>;
   name: string;
   staffRole: 'owner' | 'manager' | 'staff';
+  capabilities?: { scanner_access?: boolean } | null;
 };
 
 type BusinessWebShellProps = {
@@ -58,6 +52,7 @@ type BusinessWebShellProps = {
   currentPathname: string;
   displayName: string;
   email: string;
+  scannerEnabled: boolean;
   customerSwitchError: string;
   isSigningOut: boolean;
   isSwitchingBusiness: boolean;
@@ -68,89 +63,6 @@ type BusinessWebShellProps = {
   onSelectBusiness: (businessId: Id<'businesses'>) => void;
   selectError: string;
 };
-
-type NavigationItem = {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  href?: Href;
-};
-
-export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
-  {
-    key: 'dashboard',
-    label: 'דף הבית',
-    icon: LayoutDashboard,
-    href: BUSINESS_WEB_ROUTES.dashboard,
-  },
-  {
-    key: 'customers',
-    label: 'לקוחות',
-    icon: Users,
-    href: BUSINESS_WEB_ROUTES.customers,
-  },
-  {
-    key: 'loyalty',
-    label: 'מועדון והטבות',
-    icon: Gift,
-    href: BUSINESS_WEB_ROUTES.loyalty,
-  },
-  {
-    key: 'team',
-    label: 'צוות',
-    icon: UserRoundCog,
-    href: BUSINESS_WEB_ROUTES.team,
-  },
-  {
-    key: 'analytics',
-    label: 'ניתוחים',
-    icon: ChartNoAxesCombined,
-    href: BUSINESS_WEB_ROUTES.analytics,
-  },
-  {
-    key: 'billing',
-    label: 'חיוב וחשבוניות',
-    icon: ReceiptText,
-    href: BUSINESS_WEB_ROUTES.billing,
-  },
-  {
-    key: 'campaigns',
-    label: 'קמפיינים',
-    icon: Gift,
-    href: BUSINESS_WEB_ROUTES.campaigns,
-  },
-  {
-    key: 'referrals',
-    label: 'הזמנת חברים',
-    icon: Users,
-    href: BUSINESS_WEB_ROUTES.referrals,
-  },
-  {
-    key: 'inbox',
-    label: 'תיבת הודעות',
-    icon: ReceiptText,
-    href: BUSINESS_WEB_ROUTES.inbox,
-  },
-  ...(process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
-    ? [
-        {
-          key: 'scanner',
-          label:
-            process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
-              ? 'סריקה — Preview'
-              : 'סריקה',
-          icon: Gift,
-          href: BUSINESS_WEB_ROUTES.scanner,
-        },
-      ]
-    : []),
-  {
-    key: 'settings',
-    label: 'הגדרות העסק',
-    icon: Settings,
-    href: BUSINESS_WEB_ROUTES.settings,
-  },
-];
 
 const CUSTOMER_WALLET_LABEL = 'מעבר לארנק האישי';
 
@@ -173,23 +85,22 @@ function initialsForName(displayName: string) {
 }
 
 function NavList({
+  items,
   compact = false,
   currentPathname,
   onNavigate,
 }: {
+  items: readonly BusinessWebNavItem[];
   compact?: boolean;
   currentPathname: string;
   onNavigate: (href: Href) => void;
 }) {
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
-      {BUSINESS_WEB_NAV_ITEMS.filter((item) => item.href).map((item) => {
-        const Icon = item.icon;
+      {items.map((item) => {
+        const Icon = businessWebNavIcons[item.key];
         const isDisabled = !item.href;
-        const isActive = isBusinessWebRouteActive(
-          currentPathname,
-          item.href ? String(item.href) : null
-        );
+        const isActive = isBusinessWebRouteActive(currentPathname, item.href);
         return (
           <Pressable
             accessibilityLabel={item.label}
@@ -197,7 +108,7 @@ function NavList({
             accessibilityState={{ disabled: isDisabled, selected: isActive }}
             disabled={isDisabled}
             key={item.key}
-            onPress={() => item.href && onNavigate(item.href)}
+            onPress={() => item.href && onNavigate(item.href as Href)}
             style={({ pressed }) => [
               styles.navItem,
               isActive ? styles.navItemActive : null,
@@ -463,9 +374,13 @@ function AccountBlock({
 }
 
 export function BusinessWebShell(props: BusinessWebShellProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const responsiveLayout = getBusinessWebResponsiveLayout(width);
-  const isCompact = responsiveLayout.navigation === 'compact';
+  const navigationMode = useBusinessNavigationMode(width, height);
+  const showSidebar = navigationMode === 'sidebar';
+  const showBottomNav = navigationMode === 'bottom';
+  const showCompactMenu = navigationMode === 'compact';
+  const isCompact = !showSidebar;
   const isMobileComposition =
     responsiveLayout.composition === 'mobile' ||
     responsiveLayout.composition === 'narrow-mobile';
@@ -475,9 +390,29 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
   const drawerWidth = Math.min(360, Math.max(0, width - 16));
   const [activeOverlay, setActiveOverlay] =
     useState<BusinessWebShellOverlay>(null);
+  const [bottomNavHeight, setBottomNavHeight] = useState(
+    BUSINESS_WEB_BOTTOM_NAV_HEIGHT
+  );
   const isMobileMenuOpen = activeOverlay === 'navigation';
+  const isMoreOpen = activeOverlay === 'more';
   const isBusinessMenuOpen = activeOverlay === 'business';
   const isAccountMenuOpen = activeOverlay === 'account';
+  const navigation = useMemo(
+    () =>
+      selectBusinessWebNav({
+        role: props.activeBusiness?.staffRole ?? null,
+        mode: navigationMode,
+        scannerEnabled:
+          props.scannerEnabled &&
+          props.activeBusiness?.capabilities?.scanner_access !== false,
+      }),
+    [
+      navigationMode,
+      props.activeBusiness?.capabilities?.scanner_access,
+      props.activeBusiness?.staffRole,
+      props.scannerEnabled,
+    ]
+  );
   const initials = useMemo(
     () => initialsForName(props.displayName),
     [props.displayName]
@@ -495,10 +430,23 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
   }, []);
 
   useEffect(() => {
-    if (!isCompact && activeOverlay === 'navigation') {
-      setActiveOverlay(null);
+    setActiveOverlay((current) => {
+      if (current === 'navigation' && !showCompactMenu) {
+        return null;
+      }
+      if (current === 'more' && !showBottomNav) {
+        return null;
+      }
+      return current;
+    });
+  }, [showBottomNav, showCompactMenu]);
+
+  useEffect(() => {
+    if (props.currentPathname.length === 0) {
+      return;
     }
-  }, [activeOverlay, isCompact]);
+    setActiveOverlay((current) => (current === 'more' ? null : current));
+  }, [props.currentPathname]);
 
   function requestCustomerWallet() {
     setActiveOverlay(null);
@@ -540,6 +488,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             </View>
             <NavList
               currentPathname={props.currentPathname}
+              items={navigation.menu}
               onNavigate={props.onNavigate}
             />
             <View style={styles.sidebarSpacer} />
@@ -562,7 +511,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               isMobileComposition ? styles.topbarMobile : null,
             ]}
           >
-            {isCompact ? (
+            {showCompactMenu ? (
               <Pressable
                 accessibilityLabel={
                   isMobileMenuOpen ? 'סגירת תפריט' : 'פתיחת תפריט'
@@ -581,7 +530,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                   <Menu color={TOKENS.colors.textPrimary} size={22} />
                 )}
               </Pressable>
-            ) : (
+            ) : showSidebar ? (
               <BusinessSwitcher
                 activeBusiness={props.activeBusiness}
                 activeBusinessId={props.activeBusinessId}
@@ -598,7 +547,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                 showBrandMark={false}
                 showClosedError={activeOverlay === null}
               />
-            )}
+            ) : null}
 
             {isCompact ? (
               <BusinessSwitcher
@@ -668,7 +617,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             />
           ) : null}
 
-          {isCompact && isMobileMenuOpen ? (
+          {showCompactMenu && isMobileMenuOpen ? (
             <View
               accessibilityViewIsModal={true}
               style={[styles.mobileMenuOverlay, { top: topbarHeight }]}
@@ -691,6 +640,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                   <NavList
                     compact={true}
                     currentPathname={props.currentPathname}
+                    items={navigation.menu}
                     onNavigate={(href) => {
                       setActiveOverlay(null);
                       props.onNavigate(href);
@@ -739,6 +689,71 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
           >
             {props.children}
           </ScrollView>
+
+          {showBottomNav && isMoreOpen ? (
+            <View
+              accessibilityViewIsModal={true}
+              style={[
+                styles.moreOverlay,
+                { top: topbarHeight, bottom: bottomNavHeight },
+              ]}
+            >
+              <Pressable
+                accessibilityLabel="סגירת פעולות נוספות"
+                accessibilityRole="button"
+                onPress={() => setActiveOverlay(null)}
+                style={styles.mobileMenuBackdrop}
+              />
+              <View
+                accessibilityLabel="פעולות נוספות"
+                accessibilityRole="menu"
+                style={styles.moreSheet}
+              >
+                <Text style={styles.moreTitle}>פעולות נוספות</Text>
+                <ScrollView
+                  contentContainerStyle={styles.moreScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  style={[
+                    styles.moreScroll,
+                    {
+                      maxHeight: Math.min(
+                        360,
+                        Math.max(
+                          120,
+                          height - topbarHeight - bottomNavHeight - 120
+                        )
+                      ),
+                    },
+                  ]}
+                >
+                  <NavList
+                    compact={true}
+                    currentPathname={props.currentPathname}
+                    items={navigation.overflow}
+                    onNavigate={(href) => {
+                      setActiveOverlay(null);
+                      props.onNavigate(href);
+                    }}
+                  />
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {showBottomNav ? (
+            <BusinessWebBottomNav
+              currentPathname={props.currentPathname}
+              moreOpen={isMoreOpen}
+              onBarHeight={setBottomNavHeight}
+              onNavigate={(href) => {
+                setActiveOverlay(null);
+                props.onNavigate(href);
+              }}
+              onToggleMore={() => toggleOverlay('more')}
+              overflow={navigation.overflow}
+              primary={navigation.primary}
+            />
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
@@ -1132,6 +1147,38 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.lg,
     padding: TOKENS.space.lg,
   },
+  moreOverlay: {
+    position: 'absolute',
+    right: 0,
+    left: 0,
+    zIndex: 36,
+    flexDirection: flexDirection.col,
+  },
+  moreSheet: {
+    marginTop: 'auto',
+    maxHeight: '80%',
+    zIndex: 2,
+    borderTopWidth: 1,
+    borderTopColor: TOKENS.colors.border,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingTop: TOKENS.space.md,
+    paddingBottom: TOKENS.space.sm,
+    ...TOKENS.shadow,
+    elevation: 12,
+  },
+  moreTitle: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+    marginBottom: TOKENS.space.sm,
+  },
+  moreScroll: { flexGrow: 0 },
+  moreScrollContent: { gap: TOKENS.space.xs, paddingBottom: TOKENS.space.sm },
   scroll: { flex: 1 },
   content: {
     width: '100%',

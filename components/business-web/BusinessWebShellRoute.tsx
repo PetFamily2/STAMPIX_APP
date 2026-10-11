@@ -15,6 +15,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { POST_AUTH_ROUTES } from '@/lib/auth/postAuthRouting';
 import { waitForObservedSessionMode } from '@/lib/auth/waitForObservedSessionMode';
+import { isBusinessWebScannerAvailable } from '@/lib/businessWebNavigation';
 
 const TEXT = {
   customerSwitchFailed: 'לא הצלחנו לעבור לארנק האישי. נסו שוב.',
@@ -150,6 +151,10 @@ export function BusinessWebShellRoute({ children }: { children: ReactNode }) {
         isSigningOut={isSigningOut}
         isSwitchingBusiness={isSwitchingBusiness}
         isSwitchingToCustomer={isSwitchingToCustomer}
+        scannerEnabled={isBusinessWebScannerAvailable({
+          userId: user?._id ? String(user._id) : null,
+          businessId: activeBusinessId ? String(activeBusinessId) : null,
+        })}
         onLogout={() => {
           requestGuardedAction(() => {
             void handleLogout();

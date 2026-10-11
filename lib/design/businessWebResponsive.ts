@@ -20,6 +20,7 @@ export type BusinessWebShellOverlay =
   | 'navigation'
   | 'business'
   | 'account'
+  | 'more'
   | null;
 
 export function getNextBusinessWebShellOverlay(
