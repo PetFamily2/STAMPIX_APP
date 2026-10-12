@@ -1,5 +1,11 @@
 import { useQuery } from 'convex/react';
-import { Building2, CircleAlert } from 'lucide-react-native';
+import {
+  Building2,
+  CircleAlert,
+  Gift,
+  Stamp,
+  Users,
+} from 'lucide-react-native';
 import { Component, type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -7,6 +13,7 @@ import { BusinessWebRecommendation } from '@/components/business-web/BusinessWeb
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { readBusinessDashboardCounters } from '@/lib/business-web/dashboardCounters';
 import { getBusinessWebResponsiveLayout } from '@/lib/design/businessWebResponsive';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
@@ -26,12 +33,12 @@ type BusinessWebDashboardProps = {
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
 const DASHBOARD_TITLE = 'היום';
-const STAMP_PERIOD_LABEL = 'חותמות ב־30 הימים האחרונים';
-const REDEMPTION_PERIOD_LABEL = 'ב־30 הימים האחרונים';
+const CUMULATIVE_PERIOD_LABEL = 'במצטבר';
+const STAMP_30_PERIOD_LABEL = 'חותמות ב־30 הימים האחרונים';
 const ACTIVE_CUSTOMERS_PERIOD = 'פעילים ב־30 הימים האחרונים';
 const AT_RISK_PERIOD = 'לפי דפוס הפעילות';
 const MEMBER_PERIOD_LABEL = 'הצטרפו עד היום';
-const SHELL_CONTENT_PADDING = 16;
+const SHELL_CONTENT_PADDING = TOKENS.space.lg;
 const SHELL_CONTENT_BOTTOM = 28;
 
 function activityLabel(type: string, detail: string) {
@@ -44,13 +51,13 @@ function activityLabel(type: string, detail: string) {
   return detail;
 }
 
-function DashboardSkeleton() {
+function DashboardSkeleton({ bleed }: { bleed: object }) {
   return (
     <View
       accessibilityLabel="טוענים את נתוני לוח הבקרה"
       aria-busy={true}
       role="status"
-      style={styles.page}
+      style={[styles.page, bleed]}
     >
       <View style={styles.hero}>
         <View style={[styles.skeleton, styles.skeletonLine]} />
@@ -70,13 +77,18 @@ function BusinessWebDashboardContent({
   const layout = getBusinessWebResponsiveLayout(width);
   const isDesktop = layout.composition === 'desktop';
   const narrow = layout.composition === 'narrow-mobile';
-  const metricsInOneRow =
+  const progressInRow =
     layout.composition === 'tablet' || layout.composition === 'desktop';
   const [periodAnchor] = useState(() => Date.now());
   const dashboardSummary = useQuery(api.dashboard.getBusinessDashboardSummary, {
     businessId: activeBusinessId,
   });
-  const dashboardPeriod = useQuery(api.dashboard.getBusinessDashboardDay, {
+  const dashboardToday = useQuery(api.dashboard.getBusinessDashboardDay, {
+    businessId: activeBusinessId,
+    dayStart: periodAnchor,
+    rangeDays: 1,
+  });
+  const dashboardMonth = useQuery(api.dashboard.getBusinessDashboardDay, {
     businessId: activeBusinessId,
     dayStart: periodAnchor,
     rangeDays: 30,
@@ -85,69 +97,44 @@ function BusinessWebDashboardContent({
     businessId: activeBusinessId,
     limit: 6,
   });
+  const bleed = {
+    marginTop: -layout.pageTopPadding,
+    marginHorizontal: -SHELL_CONTENT_PADDING,
+    marginBottom: -SHELL_CONTENT_BOTTOM,
+  };
 
   if (
     isSwitchingBusiness ||
     dashboardSummary === undefined ||
-    dashboardPeriod === undefined ||
+    dashboardToday === undefined ||
+    dashboardMonth === undefined ||
     recentActivity === undefined
   ) {
-    return <DashboardSkeleton />;
+    return <DashboardSkeleton bleed={bleed} />;
   }
 
-  const summaryMatches =
-    dashboardSummary !== null &&
-    dashboardSummary.businessId === activeBusinessId;
-  const periodMatches =
-    dashboardPeriod !== null && dashboardPeriod.businessId === activeBusinessId;
-  if (!summaryMatches || !periodMatches) {
+  const counters = readBusinessDashboardCounters({
+    activeBusinessId: String(activeBusinessId),
+    isSwitchingBusiness,
+    summary: dashboardSummary,
+    today: dashboardToday,
+    month: dashboardMonth,
+  });
+  if (!counters) {
     return (
-      <View style={styles.page}>
+      <View style={[styles.page, bleed]}>
         <Text style={styles.mismatch}>הנתונים אינם תואמים לעסק הפעיל.</Text>
       </View>
     );
   }
 
-  const inset = isDesktop ? 20 : narrow ? 10 : 12;
-  const metrics = (
-    <View style={[styles.metrics, { marginHorizontal: inset }]}>
-      <Metric
-        bottomBorder={!metricsInOneRow}
-        endBorder={true}
-        label="מימושים"
-        oneRow={metricsInOneRow}
-        period={REDEMPTION_PERIOD_LABEL}
-        value={dashboardPeriod.kpis.redemptions.value}
-      />
-      <Metric
-        bottomBorder={!metricsInOneRow}
-        endBorder={metricsInOneRow}
-        label="לקוחות פעילים"
-        oneRow={metricsInOneRow}
-        period={ACTIVE_CUSTOMERS_PERIOD}
-        value={dashboardPeriod.kpis.activeCustomers}
-      />
-      <Metric
-        endBorder={true}
-        label="חברי מועדון"
-        oneRow={metricsInOneRow}
-        period={MEMBER_PERIOD_LABEL}
-        value={dashboardSummary.lifetimeMetrics.totalCustomersJoinedAllTime}
-      />
-      <Metric
-        label="דורשים תשומת לב"
-        oneRow={metricsInOneRow}
-        period={AT_RISK_PERIOD}
-        value={dashboardPeriod.kpis.atRiskCustomers}
-      />
-    </View>
-  );
+  const inset = isDesktop ? 20 : narrow ? 12 : 16;
   const recommendation = (
     <View
       style={
         isDesktop
           ? styles.desktopPrimary
-          : { marginHorizontal: inset, marginTop: -16 }
+          : { marginHorizontal: inset, marginTop: -18 }
       }
     >
       <BusinessWebRecommendation
@@ -155,6 +142,41 @@ function BusinessWebDashboardContent({
         isInteractionCurrent={isInteractionCurrent}
         narrow={narrow}
       />
+    </View>
+  );
+  const progress = (
+    <View style={[styles.progress, { marginHorizontal: inset }]}>
+      <Text style={styles.sectionTitle}>תמונת מצב</Text>
+      <View
+        style={[styles.progressCard, progressInRow ? styles.progressRow : null]}
+      >
+        <ProgressCell
+          accent={true}
+          icon={Stamp}
+          label="חותמות"
+          last={false}
+          period={STAMP_30_PERIOD_LABEL}
+          row={progressInRow}
+          value={counters.stampsLast30Days}
+        />
+        <ProgressCell
+          icon={Users}
+          label="לקוחות פעילים"
+          last={false}
+          period={ACTIVE_CUSTOMERS_PERIOD}
+          row={progressInRow}
+          value={counters.activeCustomers}
+        />
+        <ProgressCell
+          icon={CircleAlert}
+          label="דורשים תשומת לב"
+          last={true}
+          period={AT_RISK_PERIOD}
+          row={progressInRow}
+          value={counters.atRiskCustomers}
+          warning={counters.atRiskCustomers > 0}
+        />
+      </View>
     </View>
   );
   const activity = (
@@ -186,21 +208,13 @@ function BusinessWebDashboardContent({
   );
 
   return (
-    <View
-      style={[
-        styles.page,
-        {
-          marginTop: -layout.pageTopPadding,
-          marginHorizontal: -SHELL_CONTENT_PADDING,
-          marginBottom: -SHELL_CONTENT_BOTTOM,
-        },
-      ]}
-    >
+    <View style={[styles.page, bleed]}>
       <View
         style={[
           styles.hero,
+          isDesktop ? null : styles.heroFull,
           narrow ? styles.heroNarrow : null,
-          metricsInOneRow && !isDesktop ? styles.heroWide : null,
+          !narrow && !isDesktop ? styles.heroWide : null,
           isDesktop ? styles.heroDesktop : null,
         ]}
       >
@@ -214,34 +228,50 @@ function BusinessWebDashboardContent({
         >
           {DASHBOARD_TITLE}
         </Text>
-        <View style={styles.heroRow}>
-          <View style={styles.heroCopy}>
-            <Text
-              style={[
-                styles.heroNumber,
-                narrow ? styles.heroNumberNarrow : null,
-                metricsInOneRow ? styles.heroNumberWide : null,
-              ]}
-            >
-              {NUMBER_FORMATTER.format(dashboardPeriod.kpis.stamps.value)}
-            </Text>
-            <Text style={styles.heroCaption}>{STAMP_PERIOD_LABEL}</Text>
+        <View
+          style={[styles.heroBody, isDesktop ? styles.heroBodyDesktop : null]}
+        >
+          <View style={styles.todayBlock}>
+            <View style={styles.todayRow}>
+              <NavyStat
+                icon={Stamp}
+                label="חותמות"
+                narrow={narrow}
+                period={DASHBOARD_TITLE}
+                value={counters.stampsToday}
+              />
+              <View style={styles.todayRule} />
+              <NavyStat
+                icon={Gift}
+                label="מימושים"
+                narrow={narrow}
+                period={DASHBOARD_TITLE}
+                value={counters.redemptionsToday}
+              />
+            </View>
           </View>
           <View
-            accessibilityElementsHidden={true}
-            importantForAccessibility="no-hide-descendants"
-            style={styles.motif}
+            style={[
+              styles.lifeBlock,
+              isDesktop ? styles.lifeBlockDesktop : null,
+            ]}
           >
-            <View style={styles.motifDot} />
-            <View style={styles.motifDot} />
-            <View style={styles.motifDot} />
-            <View style={styles.motifDot} />
+            <Text style={styles.lifeKicker}>{CUMULATIVE_PERIOD_LABEL}</Text>
+            <View style={styles.lifeRow}>
+              <LifeStat label="חותמות" value={counters.stampsAllTime} />
+              <LifeStat label="מימושים" value={counters.redemptionsAllTime} />
+              <LifeStat
+                caption={MEMBER_PERIOD_LABEL}
+                label="חברים"
+                value={counters.customersAllTime}
+              />
+            </View>
           </View>
         </View>
       </View>
       {isDesktop ? (
         <>
-          {metrics}
+          {progress}
           <View style={styles.desktopSplit}>
             {recommendation}
             {activity}
@@ -250,7 +280,7 @@ function BusinessWebDashboardContent({
       ) : (
         <>
           {recommendation}
-          {metrics}
+          {progress}
           {activity}
         </>
       )}
@@ -258,33 +288,132 @@ function BusinessWebDashboardContent({
   );
 }
 
-function Metric({
-  bottomBorder = false,
-  endBorder = false,
+function NavyStat({
+  icon: Icon,
   label,
-  oneRow,
+  narrow,
   period,
   value,
 }: {
-  bottomBorder?: boolean;
-  endBorder?: boolean;
+  icon: typeof Stamp;
   label: string;
-  oneRow: boolean;
+  narrow: boolean;
   period: string;
   value: number;
 }) {
   return (
+    <View style={styles.navyStat}>
+      <View style={styles.navyStatLabel}>
+        <Icon color="#D5DCEC" size={15} strokeWidth={1.75} />
+        <Text numberOfLines={1} style={styles.navyStatName}>
+          {label}
+        </Text>
+      </View>
+      <Text
+        adjustsFontSizeToFit={true}
+        minimumFontScale={0.65}
+        numberOfLines={1}
+        style={[
+          styles.navyStatValue,
+          narrow ? styles.navyStatValueNarrow : null,
+        ]}
+      >
+        {NUMBER_FORMATTER.format(value)}
+      </Text>
+      <Text style={styles.navyStatPeriod}>{period}</Text>
+    </View>
+  );
+}
+
+function LifeStat({
+  caption,
+  label,
+  value,
+}: {
+  caption?: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <View style={styles.lifeStat}>
+      <Text numberOfLines={1} style={styles.lifeLabel}>
+        {label}
+      </Text>
+      <Text
+        adjustsFontSizeToFit={true}
+        minimumFontScale={0.7}
+        numberOfLines={1}
+        style={styles.lifeValue}
+      >
+        {NUMBER_FORMATTER.format(value)}
+      </Text>
+      {caption ? (
+        <Text numberOfLines={2} style={styles.lifeCaption}>
+          {caption}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function ProgressCell({
+  accent = false,
+  icon: Icon,
+  label,
+  last,
+  period,
+  row,
+  value,
+  warning = false,
+}: {
+  accent?: boolean;
+  icon: typeof Stamp;
+  label: string;
+  last: boolean;
+  period: string;
+  row: boolean;
+  value: number;
+  warning?: boolean;
+}) {
+  return (
     <View
       style={[
-        styles.metric,
-        oneRow ? styles.metricRow : styles.metricPair,
-        endBorder ? styles.metricEnd : null,
-        bottomBorder ? styles.metricBottom : null,
+        styles.progressCell,
+        row ? styles.progressCellRow : null,
+        !last && row ? styles.progressEnd : null,
+        !last && !row ? styles.progressBottom : null,
       ]}
     >
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{NUMBER_FORMATTER.format(value)}</Text>
-      <Text style={styles.metricPeriod}>{period}</Text>
+      <View style={styles.progressCopy}>
+        <View style={styles.progressLabelRow}>
+          <Icon
+            color={
+              warning
+                ? TOKENS.colors.warning
+                : accent
+                  ? TOKENS.colors.primary
+                  : TOKENS.colors.textMuted
+            }
+            size={15}
+            strokeWidth={1.75}
+          />
+          <Text numberOfLines={1} style={styles.progressLabel}>
+            {label}
+          </Text>
+        </View>
+        <Text numberOfLines={2} style={styles.progressPeriod}>
+          {period}
+        </Text>
+      </View>
+      <Text
+        style={[
+          styles.progressValue,
+          accent ? styles.progressValueAccent : null,
+          warning ? styles.progressValueWarning : null,
+        ]}
+      >
+        {NUMBER_FORMATTER.format(value)}
+      </Text>
     </View>
   );
 }
@@ -343,23 +472,27 @@ export function BusinessWebNoBusiness() {
 
 const styles = StyleSheet.create({
   page: {
-    width: '100%',
+    alignSelf: 'stretch',
     minHeight: 72,
     backgroundColor: '#F4F6FA',
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   hero: {
+    alignSelf: 'stretch',
     backgroundColor: '#101936',
     paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 26,
+    paddingBottom: 28,
   },
-  heroNarrow: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 22 },
+  heroFull: { width: '100%' },
+  heroNarrow: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 24 },
   heroWide: { paddingHorizontal: 24, paddingTop: 22, paddingBottom: 28 },
   heroDesktop: {
     marginHorizontal: 20,
     marginTop: 16,
     borderRadius: 18,
+    paddingHorizontal: 24,
+    paddingBottom: 22,
   },
   kicker: { ...rtlBaseText, color: '#C5CEDD', fontSize: 12, fontWeight: '500' },
   pageTitle: {
@@ -370,78 +503,139 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   pageTitleNarrow: { fontSize: 20, lineHeight: 26 },
-  heroRow: {
-    alignItems: rtlAlign.start,
+  heroBody: { marginTop: 12, gap: 16 },
+  heroBodyDesktop: {
+    alignItems: rtlAlign.end,
     flexDirection: rtlFlex.row,
-    justifyContent: rtlJustify.between,
-    marginTop: 10,
-    gap: 12,
+    gap: 20,
   },
-  heroCopy: { flex: 1, minWidth: 0 },
-  heroNumber: {
-    ...rtlBaseText,
-    color: '#F4F1E8',
-    fontSize: 52,
-    fontWeight: '600',
-    lineHeight: 52,
+  todayBlock: { flex: 1.2, minWidth: 0 },
+  todayRow: { flexDirection: rtlFlex.row, gap: 12 },
+  todayRule: {
+    alignSelf: 'stretch',
+    backgroundColor: '#2A3A5C',
+    width: 1,
   },
-  heroNumberNarrow: { fontSize: 44, lineHeight: 44 },
-  heroNumberWide: { fontSize: 64, lineHeight: 64 },
-  heroCaption: {
-    ...rtlBaseText,
-    color: '#D5DCEC',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  motif: {
+  navyStat: { flex: 1, minWidth: 0, gap: 2 },
+  navyStatLabel: {
     alignItems: 'center',
     flexDirection: rtlFlex.row,
     gap: 6,
-    paddingBottom: 8,
   },
-  motifDot: {
-    borderColor: '#8EA0C8',
-    borderRadius: 999,
-    borderWidth: 1.5,
-    height: 10,
-    width: 10,
+  navyStatName: {
+    ...rtlBaseText,
+    color: '#D5DCEC',
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '500',
   },
-  metrics: {
+  navyStatValue: {
+    ...rtlBaseText,
+    color: '#F4F1E8',
+    fontSize: 44,
+    fontWeight: '600',
+    lineHeight: 48,
+  },
+  navyStatValueNarrow: { fontSize: 36, lineHeight: 40 },
+  navyStatPeriod: {
+    ...rtlBaseText,
+    color: '#9AABC8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  lifeBlock: {
+    borderTopColor: '#2A3A5C',
+    borderTopWidth: 1,
+    gap: 8,
+    paddingTop: 12,
+  },
+  lifeBlockDesktop: {
+    flex: 0.9,
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  lifeKicker: {
+    ...rtlBaseText,
+    color: '#9AABC8',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 15,
+  },
+  lifeRow: { flexDirection: rtlFlex.row, gap: 8 },
+  lifeStat: { flex: 1, minWidth: 0, gap: 1 },
+  lifeLabel: {
+    ...rtlBaseText,
+    color: '#C5CEDD',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  lifeValue: {
+    ...rtlBaseText,
+    color: '#F4F1E8',
+    fontSize: 20,
+    fontWeight: '600',
+    lineHeight: 26,
+  },
+  lifeCaption: {
+    ...rtlBaseText,
+    color: '#9AABC8',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  progress: { marginTop: 16 },
+  progressCard: {
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: '#E3E8F0',
     borderRadius: 16,
     borderWidth: 1,
-    flexDirection: rtlFlex.row,
-    flexWrap: 'wrap',
-    marginTop: 14,
     overflow: 'hidden',
   },
-  metric: { minWidth: 0, padding: 12 },
-  metricPair: { flexBasis: '50%', flexGrow: 1 },
-  metricRow: { flexBasis: '25%', flexGrow: 1 },
-  metricEnd: { borderLeftWidth: 1, borderLeftColor: '#E3E8F0' },
-  metricBottom: { borderBottomWidth: 1, borderBottomColor: '#E3E8F0' },
-  metricLabel: {
+  progressRow: { flexDirection: rtlFlex.row },
+  progressCell: {
+    alignItems: 'center',
+    flexDirection: rtlFlex.row,
+    gap: 12,
+    justifyContent: rtlJustify.between,
+    minWidth: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  progressCellRow: {
+    flex: 1,
+    alignItems: 'stretch',
+    flexDirection: rtlFlex.col,
+  },
+  progressEnd: { borderLeftColor: '#E3E8F0', borderLeftWidth: 1 },
+  progressBottom: { borderBottomColor: '#E3E8F0', borderBottomWidth: 1 },
+  progressCopy: { flex: 1, gap: 2, minWidth: 0 },
+  progressLabelRow: {
+    alignItems: 'center',
+    flexDirection: rtlFlex.row,
+    gap: 6,
+  },
+  progressLabel: {
     ...rtlBaseText,
     color: '#5C6778',
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 16,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  metricValue: {
+  progressPeriod: {
+    ...rtlBaseText,
+    color: '#7B8798',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  progressValue: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
     fontSize: 22,
     fontWeight: '600',
     lineHeight: 28,
   },
-  metricPeriod: {
-    ...rtlBaseText,
-    color: '#7B8798',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  activity: { marginTop: 16, marginBottom: 20 },
+  progressValueAccent: { color: TOKENS.colors.primary },
+  progressValueWarning: { color: TOKENS.colors.warning },
+  activity: { marginTop: 16, marginBottom: 8 },
   activityDesktop: { flex: 0.85, marginTop: 0, marginBottom: 0, minWidth: 0 },
   sectionTitle: {
     ...rtlBaseText,
@@ -449,7 +643,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   activityRow: {
     alignItems: 'baseline',
