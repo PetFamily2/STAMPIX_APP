@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import { Stamp } from 'lucide-react-native';
+import { CircleAlert, Stamp } from 'lucide-react-native';
 import {
   Component,
   type ReactNode,
@@ -38,6 +38,7 @@ import { getRecommendationVisualCtaLabel } from '@/lib/recommendations/presentat
 import {
   claimRecommendationAction,
   EMPTY_RECOMMENDATION_LABEL,
+  isSubscriptionBlockerRecommendation,
   isUrgentRuleRecommendation,
   selectWebDashboardRecommendation,
   type WebDashboardRecommendationChoice,
@@ -421,8 +422,11 @@ function RecommendationBody({
     }
   };
 
+  const subscriptionAlert =
+    choice?.kind === 'rule' && isSubscriptionBlockerRecommendation(rulePrimary);
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, subscriptionAlert ? styles.cardAlert : null]}>
       <QueryBoundary epoch={epoch} onError={reportRuleError}>
         <RuleProbe activeBusinessId={activeBusinessId} onReady={reportRule} />
       </QueryBoundary>
@@ -445,6 +449,7 @@ function RecommendationBody({
         )
       ) : (
         <RecommendationCopy
+          alert={subscriptionAlert}
           busy={pendingKey != null}
           choice={choice}
           narrow={narrow}
@@ -492,6 +497,7 @@ function resolveChoice(
 }
 
 function RecommendationCopy({
+  alert = false,
   busy,
   choice,
   narrow,
@@ -500,6 +506,7 @@ function RecommendationCopy({
   rule,
   stored,
 }: {
+  alert?: boolean;
   busy: boolean;
   choice: WebDashboardRecommendationChoice;
   narrow: boolean;
@@ -522,8 +529,18 @@ function RecommendationCopy({
     <>
       <View style={styles.head}>
         <View style={styles.cue}>
-          <Stamp color={TOKENS.colors.primary} size={14} strokeWidth={1.75} />
-          <Text style={styles.cueText}>StampAix ממליץ</Text>
+          {alert ? (
+            <CircleAlert
+              color={TOKENS.colors.warning}
+              size={14}
+              strokeWidth={1.75}
+            />
+          ) : (
+            <Stamp color={TOKENS.colors.primary} size={14} strokeWidth={1.75} />
+          )}
+          <Text style={[styles.cueText, alert ? styles.cueAlert : null]}>
+            {alert ? 'נדרש טיפול' : 'StampAix ממליץ'}
+          </Text>
         </View>
         {choice.kind === 'empty' ? null : (
           <Text
@@ -699,6 +716,10 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 14,
   },
+  cardAlert: {
+    backgroundColor: TOKENS.colors.warningSubtle,
+    borderColor: '#F0C08A',
+  },
   head: {
     alignItems: 'center',
     flexDirection: rtlFlex.row,
@@ -712,6 +733,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  cueAlert: { color: TOKENS.colors.warning },
   chip: {
     ...rtlBaseText,
     backgroundColor: TOKENS.colors.primarySubtle,

@@ -2,6 +2,7 @@ export const RULE_RECOMMENDATION_LABEL = 'לפי נתוני העסק';
 export const AI_RECOMMENDATION_LABEL = 'נוצר';
 export const SAVED_RECOMMENDATION_LABEL = 'נוסח שמור';
 export const EMPTY_RECOMMENDATION_LABEL = 'אין צעד דחוף כרגע';
+export const SUBSCRIPTION_BLOCKER_STABLE_ID = 'subscription.action_required';
 
 export type WebRuleRecommendationInput = {
   priority: number;
@@ -17,6 +18,12 @@ export type WebDashboardRecommendationChoice =
   | { kind: 'stored-ai'; label: typeof AI_RECOMMENDATION_LABEL }
   | { kind: 'stored-saved'; label: typeof SAVED_RECOMMENDATION_LABEL }
   | { kind: 'empty'; label: typeof EMPTY_RECOMMENDATION_LABEL };
+
+export function isSubscriptionBlockerRecommendation(
+  recommendation: { stableId?: string } | null
+) {
+  return recommendation?.stableId === SUBSCRIPTION_BLOCKER_STABLE_ID;
+}
 
 export function isUrgentRuleRecommendation(
   recommendation: WebRuleRecommendationInput | null

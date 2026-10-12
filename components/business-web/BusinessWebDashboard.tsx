@@ -1,11 +1,5 @@
 import { useQuery } from 'convex/react';
-import {
-  Building2,
-  CircleAlert,
-  Gift,
-  Stamp,
-  Users,
-} from 'lucide-react-native';
+import { Building2, CircleAlert, Gift, Stamp } from 'lucide-react-native';
 import { Component, type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -13,7 +7,15 @@ import { BusinessWebRecommendation } from '@/components/business-web/BusinessWeb
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { readBusinessDashboardCounters } from '@/lib/business-web/dashboardCounters';
+import {
+  readHomeAchievements,
+  readStampsToday,
+  visibleTodayStampCount,
+} from '@/lib/business-web/dashboardCounters';
+import {
+  nextStampMilestone,
+  stampMilestoneMessage,
+} from '@/lib/business-web/stampMilestones';
 import { getBusinessWebResponsiveLayout } from '@/lib/design/businessWebResponsive';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
@@ -22,6 +24,7 @@ import {
   rtlBaseText,
   flexDirection as rtlFlex,
   justifyContent as rtlJustify,
+  selfStart,
 } from '@/lib/rtl';
 
 type BusinessWebDashboardProps = {
@@ -32,12 +35,10 @@ type BusinessWebDashboardProps = {
 };
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
-const DASHBOARD_TITLE = 'היום';
-const CUMULATIVE_PERIOD_LABEL = 'במצטבר';
-const STAMP_30_PERIOD_LABEL = 'חותמות ב־30 הימים האחרונים';
-const ACTIVE_CUSTOMERS_PERIOD = 'פעילים ב־30 הימים האחרונים';
-const AT_RISK_PERIOD = 'לפי דפוס הפעילות';
-const MEMBER_PERIOD_LABEL = 'הצטרפו עד היום';
+const HERO_HEADING = 'המועדון שלך במספרים';
+const STAMP_ACHIEVEMENT = 'חותמות שהוענקו במועדון';
+const REWARD_ACHIEVEMENT = 'הטבות מומשו';
+const TODAY_STAMP_LABEL = 'חותמות היום';
 const SHELL_CONTENT_PADDING = TOKENS.space.lg;
 const SHELL_CONTENT_BOTTOM = 28;
 
@@ -77,8 +78,6 @@ function BusinessWebDashboardContent({
   const layout = getBusinessWebResponsiveLayout(width);
   const isDesktop = layout.composition === 'desktop';
   const narrow = layout.composition === 'narrow-mobile';
-  const progressInRow =
-    layout.composition === 'tablet' || layout.composition === 'desktop';
   const [periodAnchor] = useState(() => Date.now());
   const dashboardSummary = useQuery(api.dashboard.getBusinessDashboardSummary, {
     businessId: activeBusinessId,
@@ -87,11 +86,6 @@ function BusinessWebDashboardContent({
     businessId: activeBusinessId,
     dayStart: periodAnchor,
     rangeDays: 1,
-  });
-  const dashboardMonth = useQuery(api.dashboard.getBusinessDashboardDay, {
-    businessId: activeBusinessId,
-    dayStart: periodAnchor,
-    rangeDays: 30,
   });
   const recentActivity = useQuery(api.events.getRecentActivity, {
     businessId: activeBusinessId,
@@ -107,20 +101,17 @@ function BusinessWebDashboardContent({
     isSwitchingBusiness ||
     dashboardSummary === undefined ||
     dashboardToday === undefined ||
-    dashboardMonth === undefined ||
     recentActivity === undefined
   ) {
     return <DashboardSkeleton bleed={bleed} />;
   }
 
-  const counters = readBusinessDashboardCounters({
+  const achievements = readHomeAchievements({
     activeBusinessId: String(activeBusinessId),
     isSwitchingBusiness,
     summary: dashboardSummary,
-    today: dashboardToday,
-    month: dashboardMonth,
   });
-  if (!counters) {
+  if (!achievements) {
     return (
       <View style={[styles.page, bleed]}>
         <Text style={styles.mismatch}>הנתונים אינם תואמים לעסק הפעיל.</Text>
@@ -128,6 +119,15 @@ function BusinessWebDashboardContent({
     );
   }
 
+  const stampsToday = visibleTodayStampCount(
+    readStampsToday({
+      activeBusinessId: String(activeBusinessId),
+      isSwitchingBusiness,
+      today: dashboardToday,
+    })
+  );
+  const milestone = nextStampMilestone(achievements.stampsAllTime);
+  const milestoneMessage = stampMilestoneMessage(achievements.stampsAllTime);
   const inset = isDesktop ? 20 : narrow ? 12 : 16;
   const recommendation = (
     <View
@@ -142,41 +142,6 @@ function BusinessWebDashboardContent({
         isInteractionCurrent={isInteractionCurrent}
         narrow={narrow}
       />
-    </View>
-  );
-  const progress = (
-    <View style={[styles.progress, { marginHorizontal: inset }]}>
-      <Text style={styles.sectionTitle}>תמונת מצב</Text>
-      <View
-        style={[styles.progressCard, progressInRow ? styles.progressRow : null]}
-      >
-        <ProgressCell
-          accent={true}
-          icon={Stamp}
-          label="חותמות"
-          last={false}
-          period={STAMP_30_PERIOD_LABEL}
-          row={progressInRow}
-          value={counters.stampsLast30Days}
-        />
-        <ProgressCell
-          icon={Users}
-          label="לקוחות פעילים"
-          last={false}
-          period={ACTIVE_CUSTOMERS_PERIOD}
-          row={progressInRow}
-          value={counters.activeCustomers}
-        />
-        <ProgressCell
-          icon={CircleAlert}
-          label="דורשים תשומת לב"
-          last={true}
-          period={AT_RISK_PERIOD}
-          row={progressInRow}
-          value={counters.atRiskCustomers}
-          warning={counters.atRiskCustomers > 0}
-        />
-      </View>
     </View>
   );
   const activity = (
@@ -224,196 +189,69 @@ function BusinessWebDashboardContent({
         <Text
           accessibilityRole="header"
           aria-level={1}
-          style={[styles.pageTitle, narrow ? styles.pageTitleNarrow : null]}
+          style={[styles.heroHeading, narrow ? styles.heroHeadingNarrow : null]}
         >
-          {DASHBOARD_TITLE}
+          {HERO_HEADING}
         </Text>
-        <View
-          style={[styles.heroBody, isDesktop ? styles.heroBodyDesktop : null]}
+        <Text
+          adjustsFontSizeToFit={true}
+          minimumFontScale={0.6}
+          numberOfLines={1}
+          style={[
+            styles.heroNumber,
+            narrow ? styles.heroNumberNarrow : null,
+            isDesktop ? styles.heroNumberWide : null,
+          ]}
         >
-          <View style={styles.todayBlock}>
-            <View style={styles.todayRow}>
-              <NavyStat
-                icon={Stamp}
-                label="חותמות"
-                narrow={narrow}
-                period={DASHBOARD_TITLE}
-                value={counters.stampsToday}
-              />
-              <View style={styles.todayRule} />
-              <NavyStat
-                icon={Gift}
-                label="מימושים"
-                narrow={narrow}
-                period={DASHBOARD_TITLE}
-                value={counters.redemptionsToday}
-              />
-            </View>
-          </View>
-          <View
-            style={[
-              styles.lifeBlock,
-              isDesktop ? styles.lifeBlockDesktop : null,
-            ]}
-          >
-            <Text style={styles.lifeKicker}>{CUMULATIVE_PERIOD_LABEL}</Text>
-            <View style={styles.lifeRow}>
-              <LifeStat label="חותמות" value={counters.stampsAllTime} />
-              <LifeStat label="מימושים" value={counters.redemptionsAllTime} />
-              <LifeStat
-                caption={MEMBER_PERIOD_LABEL}
-                label="חברים"
-                value={counters.customersAllTime}
-              />
-            </View>
-          </View>
+          {NUMBER_FORMATTER.format(achievements.stampsAllTime)}
+        </Text>
+        <View style={styles.heroCaptionRow}>
+          <Stamp color="#D5DCEC" size={16} strokeWidth={1.75} />
+          <Text style={styles.heroCaption}>{STAMP_ACHIEVEMENT}</Text>
         </View>
+        <View style={styles.rewardRow}>
+          <Gift color="#F4F1E8" size={16} strokeWidth={1.75} />
+          <Text style={styles.rewardText}>
+            {NUMBER_FORMATTER.format(achievements.redemptionsAllTime)}{' '}
+            {REWARD_ACHIEVEMENT}
+          </Text>
+        </View>
+        {stampsToday != null ? (
+          <Text style={styles.todayPill}>
+            <Text style={ltrIslandText}>
+              +{NUMBER_FORMATTER.format(stampsToday)}
+            </Text>
+            {` ${TODAY_STAMP_LABEL}`}
+          </Text>
+        ) : null}
+        {milestone && milestoneMessage ? (
+          <View style={styles.milestone}>
+            <Text style={styles.milestoneText}>{milestoneMessage}</Text>
+            <View
+              accessibilityLabel={milestoneMessage}
+              style={styles.milestoneTrack}
+            >
+              <View
+                style={[
+                  styles.milestoneFill,
+                  { width: `${Math.round(milestone.progress * 100)}%` },
+                ]}
+              />
+            </View>
+          </View>
+        ) : null}
       </View>
       {isDesktop ? (
-        <>
-          {progress}
-          <View style={styles.desktopSplit}>
-            {recommendation}
-            {activity}
-          </View>
-        </>
+        <View style={styles.desktopSplit}>
+          {recommendation}
+          {activity}
+        </View>
       ) : (
         <>
           {recommendation}
-          {progress}
           {activity}
         </>
       )}
-    </View>
-  );
-}
-
-function NavyStat({
-  icon: Icon,
-  label,
-  narrow,
-  period,
-  value,
-}: {
-  icon: typeof Stamp;
-  label: string;
-  narrow: boolean;
-  period: string;
-  value: number;
-}) {
-  return (
-    <View style={styles.navyStat}>
-      <View style={styles.navyStatLabel}>
-        <Icon color="#D5DCEC" size={15} strokeWidth={1.75} />
-        <Text numberOfLines={1} style={styles.navyStatName}>
-          {label}
-        </Text>
-      </View>
-      <Text
-        adjustsFontSizeToFit={true}
-        minimumFontScale={0.65}
-        numberOfLines={1}
-        style={[
-          styles.navyStatValue,
-          narrow ? styles.navyStatValueNarrow : null,
-        ]}
-      >
-        {NUMBER_FORMATTER.format(value)}
-      </Text>
-      <Text style={styles.navyStatPeriod}>{period}</Text>
-    </View>
-  );
-}
-
-function LifeStat({
-  caption,
-  label,
-  value,
-}: {
-  caption?: string;
-  label: string;
-  value: number;
-}) {
-  return (
-    <View style={styles.lifeStat}>
-      <Text numberOfLines={1} style={styles.lifeLabel}>
-        {label}
-      </Text>
-      <Text
-        adjustsFontSizeToFit={true}
-        minimumFontScale={0.7}
-        numberOfLines={1}
-        style={styles.lifeValue}
-      >
-        {NUMBER_FORMATTER.format(value)}
-      </Text>
-      {caption ? (
-        <Text numberOfLines={2} style={styles.lifeCaption}>
-          {caption}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function ProgressCell({
-  accent = false,
-  icon: Icon,
-  label,
-  last,
-  period,
-  row,
-  value,
-  warning = false,
-}: {
-  accent?: boolean;
-  icon: typeof Stamp;
-  label: string;
-  last: boolean;
-  period: string;
-  row: boolean;
-  value: number;
-  warning?: boolean;
-}) {
-  return (
-    <View
-      style={[
-        styles.progressCell,
-        row ? styles.progressCellRow : null,
-        !last && row ? styles.progressEnd : null,
-        !last && !row ? styles.progressBottom : null,
-      ]}
-    >
-      <View style={styles.progressCopy}>
-        <View style={styles.progressLabelRow}>
-          <Icon
-            color={
-              warning
-                ? TOKENS.colors.warning
-                : accent
-                  ? TOKENS.colors.primary
-                  : TOKENS.colors.textMuted
-            }
-            size={15}
-            strokeWidth={1.75}
-          />
-          <Text numberOfLines={1} style={styles.progressLabel}>
-            {label}
-          </Text>
-        </View>
-        <Text numberOfLines={2} style={styles.progressPeriod}>
-          {period}
-        </Text>
-      </View>
-      <Text
-        style={[
-          styles.progressValue,
-          accent ? styles.progressValueAccent : null,
-          warning ? styles.progressValueWarning : null,
-        ]}
-      >
-        {NUMBER_FORMATTER.format(value)}
-      </Text>
     </View>
   );
 }
@@ -475,167 +313,104 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 72,
     backgroundColor: '#F4F6FA',
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   hero: {
     alignSelf: 'stretch',
     backgroundColor: '#101936',
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 28,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 36,
   },
   heroFull: { width: '100%' },
-  heroNarrow: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 24 },
-  heroWide: { paddingHorizontal: 24, paddingTop: 22, paddingBottom: 28 },
+  heroNarrow: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  heroWide: { paddingHorizontal: 28, paddingTop: 28, paddingBottom: 40 },
   heroDesktop: {
     marginHorizontal: 20,
     marginTop: 16,
     borderRadius: 18,
-    paddingHorizontal: 24,
-    paddingBottom: 22,
+    paddingHorizontal: 32,
+    paddingTop: 28,
+    paddingBottom: 32,
   },
   kicker: { ...rtlBaseText, color: '#C5CEDD', fontSize: 12, fontWeight: '500' },
-  pageTitle: {
+  heroHeading: {
     ...rtlBaseText,
     color: '#F4F1E8',
     fontSize: 22,
     fontWeight: '600',
     lineHeight: 28,
+    marginTop: 6,
   },
-  pageTitleNarrow: { fontSize: 20, lineHeight: 26 },
-  heroBody: { marginTop: 12, gap: 16 },
-  heroBodyDesktop: {
-    alignItems: rtlAlign.end,
-    flexDirection: rtlFlex.row,
-    gap: 20,
+  heroHeadingNarrow: { fontSize: 20, lineHeight: 26 },
+  heroNumber: {
+    ...rtlBaseText,
+    color: '#F4F1E8',
+    fontSize: 80,
+    fontWeight: '600',
+    lineHeight: 84,
+    marginTop: 8,
   },
-  todayBlock: { flex: 1.2, minWidth: 0 },
-  todayRow: { flexDirection: rtlFlex.row, gap: 12 },
-  todayRule: {
-    alignSelf: 'stretch',
-    backgroundColor: '#2A3A5C',
-    width: 1,
-  },
-  navyStat: { flex: 1, minWidth: 0, gap: 2 },
-  navyStatLabel: {
+  heroNumberNarrow: { fontSize: 64, lineHeight: 68 },
+  heroNumberWide: { fontSize: 96, lineHeight: 100 },
+  heroCaptionRow: {
     alignItems: 'center',
     flexDirection: rtlFlex.row,
     gap: 6,
+    marginTop: 2,
   },
-  navyStatName: {
+  heroCaption: {
     ...rtlBaseText,
     color: '#D5DCEC',
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  navyStatValue: {
-    ...rtlBaseText,
-    color: '#F4F1E8',
-    fontSize: 44,
-    fontWeight: '600',
-    lineHeight: 48,
-  },
-  navyStatValueNarrow: { fontSize: 36, lineHeight: 40 },
-  navyStatPeriod: {
-    ...rtlBaseText,
-    color: '#9AABC8',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  lifeBlock: {
-    borderTopColor: '#2A3A5C',
-    borderTopWidth: 1,
+  rewardRow: {
+    alignItems: 'center',
+    flexDirection: rtlFlex.row,
     gap: 8,
-    paddingTop: 12,
+    marginTop: 16,
   },
-  lifeBlockDesktop: {
-    flex: 0.9,
-    borderTopWidth: 0,
-    paddingTop: 0,
-  },
-  lifeKicker: {
-    ...rtlBaseText,
-    color: '#9AABC8',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
-  },
-  lifeRow: { flexDirection: rtlFlex.row, gap: 8 },
-  lifeStat: { flex: 1, minWidth: 0, gap: 1 },
-  lifeLabel: {
-    ...rtlBaseText,
-    color: '#C5CEDD',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  lifeValue: {
+  rewardText: {
     ...rtlBaseText,
     color: '#F4F1E8',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    lineHeight: 26,
+    lineHeight: 24,
   },
-  lifeCaption: {
+  todayPill: {
     ...rtlBaseText,
-    color: '#9AABC8',
-    fontSize: 10,
-    lineHeight: 14,
+    alignSelf: selfStart,
+    backgroundColor: '#243056',
+    borderRadius: 999,
+    color: '#F4F1E8',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 14,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  progress: { marginTop: 16 },
-  progressCard: {
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: '#E3E8F0',
-    borderRadius: 16,
-    borderWidth: 1,
+  milestone: { marginTop: 22, maxWidth: 420, gap: 8 },
+  milestoneText: {
+    ...rtlBaseText,
+    color: '#D5DCEC',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  milestoneTrack: {
+    alignSelf: 'stretch',
+    backgroundColor: '#2A3A5C',
+    borderRadius: 999,
+    flexDirection: rtlFlex.row,
+    height: 4,
     overflow: 'hidden',
   },
-  progressRow: { flexDirection: rtlFlex.row },
-  progressCell: {
-    alignItems: 'center',
-    flexDirection: rtlFlex.row,
-    gap: 12,
-    justifyContent: rtlJustify.between,
-    minWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  milestoneFill: {
+    backgroundColor: '#F4F1E8',
+    height: 4,
   },
-  progressCellRow: {
-    flex: 1,
-    alignItems: 'stretch',
-    flexDirection: rtlFlex.col,
-  },
-  progressEnd: { borderLeftColor: '#E3E8F0', borderLeftWidth: 1 },
-  progressBottom: { borderBottomColor: '#E3E8F0', borderBottomWidth: 1 },
-  progressCopy: { flex: 1, gap: 2, minWidth: 0 },
-  progressLabelRow: {
-    alignItems: 'center',
-    flexDirection: rtlFlex.row,
-    gap: 6,
-  },
-  progressLabel: {
-    ...rtlBaseText,
-    color: '#5C6778',
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  progressPeriod: {
-    ...rtlBaseText,
-    color: '#7B8798',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  progressValue: {
-    ...rtlBaseText,
-    color: TOKENS.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  progressValueAccent: { color: TOKENS.colors.primary },
-  progressValueWarning: { color: TOKENS.colors.warning },
-  activity: { marginTop: 16, marginBottom: 8 },
+  activity: { marginTop: 18, marginBottom: 8 },
   activityDesktop: { flex: 0.85, marginTop: 0, marginBottom: 0, minWidth: 0 },
   sectionTitle: {
     ...rtlBaseText,
@@ -686,12 +461,12 @@ const styles = StyleSheet.create({
     flexDirection: rtlFlex.row,
     gap: 16,
     marginHorizontal: 20,
-    marginTop: 16,
+    marginTop: 18,
   },
   desktopPrimary: { flex: 1.15, minWidth: 0 },
   skeleton: { backgroundColor: '#243056', borderRadius: 8 },
-  skeletonLine: { height: 16, width: 120 },
-  skeletonNumber: { height: 48, marginTop: 12, width: 80 },
+  skeletonLine: { height: 16, width: 160 },
+  skeletonNumber: { height: 64, marginTop: 16, width: 120 },
   mismatch: { ...rtlBaseText, color: '#5C6778', fontSize: 14, margin: 16 },
   emptyDashboard: {
     alignItems: 'center',
@@ -730,8 +505,8 @@ const styles = StyleSheet.create({
   retryButton: {
     backgroundColor: TOKENS.colors.primary,
     borderRadius: 12,
-    minHeight: 44,
     justifyContent: 'center',
+    minHeight: 44,
     paddingHorizontal: 16,
   },
   retryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
