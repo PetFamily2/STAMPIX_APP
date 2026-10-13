@@ -1,8 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { planConfig } from '@/lib/billing/productionContract';
 import { flexDirection, justifyContent, rtlBaseView } from '@/lib/rtl';
+
+type PlanRestrictionReason =
+  | 'feature_locked'
+  | 'limit_reached'
+  | 'subscription_inactive';
 
 type PlanLimitModalProps = {
   visible: boolean;
@@ -11,9 +24,28 @@ type PlanLimitModalProps = {
   currentPlan?: string | null;
   limitSummary?: string | null;
   canManageSubscription: boolean;
+  navigationReason?: PlanRestrictionReason;
   onManageSubscription?: () => void;
   onDismiss: () => void;
 };
+
+function webPlanMessage(reason: PlanRestrictionReason | undefined) {
+  const offer = `Pro כולל עד ${planConfig.pro.limits.maxCards} כרטיסיות, ו-Premium עד ${planConfig.premium.limits.maxCards}.`;
+  if (reason === 'subscription_inactive') {
+    return `המנוי לא פעיל כרגע, ולכן אי אפשר להפעיל כרטיסיות נוספות. הפעלה מחדש מחזירה את המסלול הקיים. ${offer}`;
+  }
+  if (reason === 'limit_reached') {
+    return `הגעתם למכסה של המסלול הנוכחי. זו לא חסימה של יכולת שאינה כלולה במסלול. ${offer}`;
+  }
+  if (reason === 'feature_locked') {
+    return `רוצים להפעיל יותר כרטיסיות ולבנות מועדון לקוחות גדול יותר? גלו את המסלול המתאים לעסק שלכם. ${offer}`;
+  }
+  return offer;
+}
+
+function webPlanCta(reason: PlanRestrictionReason | undefined) {
+  return reason === 'subscription_inactive' ? 'הפעלת המנוי' : 'שדרוג המסלול';
+}
 
 export function PlanLimitModal({
   visible,
@@ -22,6 +54,8 @@ export function PlanLimitModal({
   currentPlan,
   limitSummary,
   canManageSubscription,
+  navigationReason,
+  onManageSubscription,
   onDismiss,
 }: PlanLimitModalProps) {
   const insets = useSafeAreaInsets();
@@ -70,10 +104,32 @@ export function PlanLimitModal({
           ) : null}
 
           <Text style={styles.ownerHint}>
-            {canManageSubscription
-              ? 'היכולת הזו אינה כלולה במסלול הנוכחי.'
-              : 'רק בעלי העסק רואים את פרטי המסלול המלאים.'}
+            {Platform.OS === 'web'
+              ? canManageSubscription
+                ? webPlanMessage(navigationReason)
+                : 'רק בעלי העסק יכולים להפעיל או לשדרג מנוי.'
+              : canManageSubscription
+                ? 'היכולת הזו אינה כלולה במסלול הנוכחי.'
+                : 'רק בעלי העסק רואים את פרטי המסלול המלאים.'}
           </Text>
+
+          {Platform.OS === 'web' &&
+          canManageSubscription &&
+          onManageSubscription ? (
+            <Pressable
+              accessibilityLabel={webPlanCta(navigationReason)}
+              accessibilityRole="button"
+              onPress={onManageSubscription}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {webPlanCta(navigationReason)}
+              </Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"

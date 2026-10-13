@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
   Building2,
@@ -7,12 +8,8 @@ import {
   Save,
   Tags,
   X,
-  } from 'lucide-react-native';
-import { useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -21,12 +18,12 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
-
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { validateProfileFields } from '@/components/business-settings';
+import { BusinessLogoField } from '@/components/business-web/BusinessLogoField';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
+import { AppText as Text } from '@/components/ui/AppText';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BusinessSettingsSnapshot,
@@ -103,6 +100,7 @@ function snapshotCopy(snapshot: BusinessSettingsSnapshot) {
 }
 
 export function BusinessWebSettings() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
   const profile = useBusinessSettingsProfile();
@@ -379,6 +377,15 @@ export function BusinessWebSettings() {
 
   return (
     <View style={styles.page}>
+      <WebPushSettings />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="קוד הצטרפות לעסק"
+        onPress={() => router.push('/business/qr')}
+        style={{ minHeight: 48, justifyContent: 'center' }}
+      >
+        <Text>קוד הצטרפות לעסק</Text>
+      </Pressable>
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>הגדרות העסק</Text>
@@ -434,6 +441,18 @@ export function BusinessWebSettings() {
             icon={Building2}
             title="פרטי העסק"
           >
+            <BusinessLogoField
+              businessId={activeBusinessId}
+              businessName={draft.name || activeBusiness.name}
+              canEdit={editable && !isSaving}
+              expectedUpdatedAt={profile.baseUpdatedAt}
+              logoUrl={
+                profile.businessSettings?.businessId === activeBusinessId
+                  ? (profile.businessSettings.logoUrl ?? null)
+                  : (activeBusiness.logoUrl ?? null)
+              }
+              onRevision={profile.noteProfileRevision}
+            />
             <FormField label="שם העסק">
               <TextInput
                 accessibilityLabel="שם העסק"

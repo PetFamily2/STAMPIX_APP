@@ -196,6 +196,7 @@ describe('customer membership presentation lifecycle', () => {
     expect(initial[0].previewRewardName).toBe('קפה');
     expect(initial[0].previewCurrentStamps).toBe(4);
     expect(initial[0].previewMaxStamps).toBe(10);
+    expect(initial[0].previewStampIcon).toBe('star');
 
     const replaced = await byCustomerBusinesses._handler(
       buildContext({
@@ -238,6 +239,7 @@ describe('customer membership presentation lifecycle', () => {
     expect(replaced[0].previewMaxStamps).toBe(8);
     expect(replaced[0].previewCardThemeId).toBe('theme_newer');
     expect(replaced[0].previewStampShape).toBe('square');
+    expect(replaced[0].previewStampIcon).toBe('heart');
     expect(replaced[0].previewProgramLifecycle).toBe('active');
   });
 });

@@ -1,17 +1,13 @@
-import {
-  useAction,
-  useQuery } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import {
   CalendarDays,
   Check,
-  CreditCard,
   ExternalLink,
   FileText,
   ReceiptText,
   ShieldCheck,
-  } from 'lucide-react-native';
-import { useMemo,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -20,10 +16,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
-
 import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
+import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
@@ -98,6 +92,10 @@ export function BusinessWebBilling() {
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
   );
   const createCheckout = useAction(api.sumitBilling.createSUMITCheckout);
+  const checkoutAvailability = useQuery(
+    api.businessBilling.getCheckoutAvailability,
+    activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
+  );
   const cancelRecurring = useAction(api.sumitBilling.cancelSUMITRecurring);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
@@ -112,6 +110,7 @@ export function BusinessWebBilling() {
     if (!activeBusinessId || pendingPlan || overview?.hasCurrentPaidAccess) {
       return;
     }
+    if (checkoutAvailability?.available !== true) return;
     setActionError('');
     setPendingPlan(plan);
     try {
@@ -274,16 +273,18 @@ export function BusinessWebBilling() {
             >
               <Text style={styles.dangerOutlineText}>ביטול חידוש המנוי</Text>
             </Pressable>
-            <View
-              accessibilityState={{ disabled: true }}
-              style={styles.disabledButton}
-            >
-              <CreditCard color={TOKENS.colors.textMuted} size={17} />
-              <Text style={styles.disabledButtonText}>עדכון כרטיס — בקרוב</Text>
-            </View>
           </View>
         ) : null}
       </SectionCard>
+
+      {checkoutAvailability?.available === false && !hasCurrentPaidAccess ? (
+        <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
+          <Text style={styles.errorText}>
+            התשלום אינו זמין כרגע. אפשר לעיין במסלולים; המנוי לא ישתנה ללא תשלום
+            מאומת. בתקופת הניסיון לא מתבצע חיוב אוטומטי.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.plansHeader}>
         <View style={styles.plansHeaderCopy}>
@@ -342,7 +343,10 @@ export function BusinessWebBilling() {
           const price = definition.pricing[displayedBillingPeriod];
           const isCurrent = hasCurrentPaidAccess && overview?.plan === plan;
           const busy = pendingPlan === plan;
-          const checkoutDisabled = hasCurrentPaidAccess || pendingPlan !== null;
+          const checkoutDisabled =
+            hasCurrentPaidAccess ||
+            pendingPlan !== null ||
+            checkoutAvailability?.available !== true;
           return (
             <View
               key={plan}
@@ -399,10 +403,12 @@ export function BusinessWebBilling() {
                     : isCurrent
                       ? 'המסלול הנוכחי'
                       : hasCurrentPaidAccess
-                        ? 'שינוי מסלול — בקרוב'
-                        : isTrialing
-                          ? 'בחירת מסלול והמשך לתשלום'
-                          : 'המשך לתשלום מאובטח'}
+                        ? 'שינוי מסלול אינו זמין בגרסה זו'
+                        : checkoutAvailability?.available !== true
+                          ? 'התשלום אינו זמין כרגע'
+                          : isTrialing
+                            ? 'בחירת מסלול והמשך לתשלום'
+                            : 'המשך לתשלום מאובטח'}
                 </Text>
               </Pressable>
             </View>

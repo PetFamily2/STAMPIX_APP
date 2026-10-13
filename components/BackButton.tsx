@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
+
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 
 type BackButtonProps = {
   onPress: () => void;
@@ -14,7 +16,11 @@ export function BackButton({ onPress }: BackButtonProps) {
       accessibilityLabel="חזרה"
       accessibilityHint="חוזר למסך הקודם"
     >
-      <Ionicons name="arrow-forward" size={18} color="#111827" />
+      <Ionicons
+        name="arrow-forward"
+        size={18}
+        color={Platform.OS === 'web' ? T.colors.textPrimary : '#111827'}
+      />
     </Pressable>
   );
 }
@@ -27,8 +33,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? {
+          borderRadius: T.radii.md,
+          borderWidth: 1,
+          borderColor: T.colors.border,
+          backgroundColor: T.colors.elevatedSurface,
+        }
+      : null),
   },
   pressed: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: Platform.OS === 'web' ? T.colors.primarySubtle : '#E5E7EB',
   },
 });

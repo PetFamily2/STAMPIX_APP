@@ -136,6 +136,12 @@ export function useBusinessSettingsProfile() {
     baseUpdatedAtRef.current = value;
     setBaseUpdatedAt(value);
   }, []);
+  const noteProfileRevision = useCallback(
+    (updatedAt: number) => {
+      commitBaseUpdatedAt(updatedAt);
+    },
+    [commitBaseUpdatedAt]
+  );
 
   const applyBusinessSettingsSnapshot = useCallback(
     (settings: typeof businessSettings) => {
@@ -384,6 +390,7 @@ export function useBusinessSettingsProfile() {
     saveProfileFields,
     saveOnboardingFields,
     saveBusinessAddress,
+    noteProfileRevision,
     applyBusinessSettingsSnapshot: () =>
       applyBusinessSettingsSnapshot(businessSettings),
     isProfileCompletionField,

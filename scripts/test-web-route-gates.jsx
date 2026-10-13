@@ -36,6 +36,9 @@ mock.module('expo-router', () => ({
   Stack,
   useLocalSearchParams: () => state.params,
   useSegments: () => state.segments,
+  usePathname: () =>
+    '/' +
+    state.segments.filter((segment) => !segment.startsWith('(')).join('/'),
   useRouter: () => ({ replace() {} }),
 }));
 mock.module('convex/react', () => ({
@@ -174,6 +177,12 @@ await check(Business, 'redirect', '/(auth)/sign-up');
 await check(Staff, 'redirect', '/(auth)/sign-up');
 await check(Authenticated, 'redirect', '/(auth)/sign-up');
 await check(Auth, 'view');
+state.auth.isLoading = true;
+state.segments = ['(auth)', 'welcome'];
+await check(Auth, 'view');
+state.segments = ['(auth)', 'sign-in'];
+await check(Auth, 'loading');
+state.auth.isLoading = false;
 state.auth.isAuthenticated = true;
 state.user = { customerOnboardedAt: null };
 state.session = { activeMode: 'customer', businesses: [] };

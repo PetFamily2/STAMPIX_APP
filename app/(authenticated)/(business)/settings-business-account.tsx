@@ -3,14 +3,7 @@ import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-
+import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 import {
   BusinessSettingsSubpageHeader,
   SETTINGS_TOKENS,
@@ -26,6 +19,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import {
   type AccountFormState,
   accountBaselines,

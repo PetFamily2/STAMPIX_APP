@@ -1477,6 +1477,27 @@ export default defineSchema({
     ])
     .index('by_createdAt', ['createdAt']),
 
+  // Additive, authenticated operation receipts. No QR, tokens or executable intent.
+  webPushSubscriptions: defineTable({
+    userId: v.id('users'), endpointHash: v.string(), endpoint: v.string(),
+    p256dh: v.string(), auth: v.string(), active: v.boolean(),
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index('by_user_active', ['userId', 'active']).index('by_endpointHash', ['endpointHash']),
+
+  scannerCommandReceipts: defineTable({
+    actorId: v.id('users'),
+    customerId: v.optional(v.id('users')),
+    operationId: v.string(),
+    operation: v.string(),
+    businessId: v.id('businesses'),
+    programId: v.id('loyaltyPrograms'),
+    runtimeId: v.string(),
+    deviceId: v.string(),
+    binding: v.string(),
+    result: v.any(),
+    createdAt: v.number(),
+  }).index('by_actor_operation', ['actorId', 'operationId']).index('by_customer', ['customerId']),
+
   scanSessions: defineTable({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
@@ -2550,7 +2571,6 @@ export default defineSchema({
     .index('by_provider_lastReconciledAt', ['provider', 'lastReconciledAt'])
     .index('by_status_gracePeriodEndAt', ['status', 'gracePeriodEndAt'])
     .index('by_trialSource_trialEndsAt', ['trialSource', 'trialEndsAt']),
-
 
   billingReminderEvents: defineTable({
     dedupeKey: v.string(),

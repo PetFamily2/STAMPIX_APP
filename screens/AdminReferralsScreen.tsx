@@ -3,7 +3,6 @@ import { Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,12 +14,12 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { selfEnd } from '@/lib/rtl';
 
 const TEXT = {
@@ -465,8 +464,7 @@ export default function AdminReferralsScreen() {
                   פעולה: {asString(row.action)}
                 </Text>
                 <Text style={styles.itemLine}>
-                  סיבה: {asString(row.reasonCode)} /{' '}
-                  {asString(row.reasonNote)}
+                  סיבה: {asString(row.reasonCode)} / {asString(row.reasonNote)}
                 </Text>
                 <Text style={styles.itemLine}>
                   זמן: {formatTimestamp(row.createdAt)}

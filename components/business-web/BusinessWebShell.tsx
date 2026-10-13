@@ -1,38 +1,28 @@
 import type { Href } from 'expo-router';
+import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
-  Building2,
-  ChartNoAxesCombined,
-  ChevronDown,
-  Gift,
-  LayoutDashboard,
-  LogOut,
-  type LucideIcon,
-  Menu,
-  ReceiptText,
-  Settings,
-  UserRoundCog,
-  Users,
-  X,
-  } from 'lucide-react-native';
-import { type ReactNode,
-  useEffect,
-  useMemo,
-  useState } from 'react';
-import {
+  ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BUSINESS_WEB_BOTTOM_NAV_HEIGHT,
+  BusinessWebBottomNav,
+  businessWebNavIcons,
+} from '@/components/business-web/BusinessWebBottomNav';
+import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';
 import {
-  BUSINESS_WEB_ROUTES,
+  type BusinessWebNavItem,
   isBusinessWebRouteActive,
+  selectBusinessWebNav,
 } from '@/lib/businessWebNavigation';
 import {
   type BusinessWebShellOverlay,
@@ -40,6 +30,7 @@ import {
   getNextBusinessWebShellOverlay,
 } from '@/lib/design/businessWebResponsive';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import { useBusinessNavigationMode } from '@/lib/design/useBusinessNavigationMode';
 import {
   alignItems,
   flexDirection,
@@ -50,7 +41,9 @@ import {
 type BusinessIdentity = {
   businessId: Id<'businesses'>;
   name: string;
+  logoUrl?: string | null;
   staffRole: 'owner' | 'manager' | 'staff';
+  capabilities?: { scanner_access?: boolean } | null;
 };
 
 type BusinessWebShellProps = {
@@ -61,65 +54,19 @@ type BusinessWebShellProps = {
   currentPathname: string;
   displayName: string;
   email: string;
+  scannerEnabled: boolean;
+  customerSwitchError: string;
   isSigningOut: boolean;
   isSwitchingBusiness: boolean;
+  isSwitchingToCustomer: boolean;
   onLogout: () => void;
   onNavigate: (href: Href) => void;
+  onSwitchToCustomerWallet: () => void;
   onSelectBusiness: (businessId: Id<'businesses'>) => void;
   selectError: string;
 };
 
-type NavigationItem = {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  href?: Href;
-};
-
-export const BUSINESS_WEB_NAV_ITEMS: NavigationItem[] = [
-  {
-    key: 'dashboard',
-    label: 'דף הבית',
-    icon: LayoutDashboard,
-    href: BUSINESS_WEB_ROUTES.dashboard,
-  },
-  {
-    key: 'customers',
-    label: 'לקוחות',
-    icon: Users,
-    href: BUSINESS_WEB_ROUTES.customers,
-  },
-  {
-    key: 'loyalty',
-    label: 'מועדון והטבות',
-    icon: Gift,
-    href: BUSINESS_WEB_ROUTES.loyalty,
-  },
-  {
-    key: 'team',
-    label: 'צוות',
-    icon: UserRoundCog,
-    href: BUSINESS_WEB_ROUTES.team,
-  },
-  {
-    key: 'analytics',
-    label: 'ניתוחים',
-    icon: ChartNoAxesCombined,
-    href: BUSINESS_WEB_ROUTES.analytics,
-  },
-  {
-    key: 'billing',
-    label: 'חיוב וחשבוניות',
-    icon: ReceiptText,
-    href: BUSINESS_WEB_ROUTES.billing,
-  },
-  {
-    key: 'settings',
-    label: 'הגדרות העסק',
-    icon: Settings,
-    href: BUSINESS_WEB_ROUTES.settings,
-  },
-];
+const CUSTOMER_WALLET_LABEL = 'מעבר לארנק האישי';
 
 const ROLE_LABELS = {
   owner: 'בעלים',
@@ -139,55 +86,137 @@ function initialsForName(displayName: string) {
   );
 }
 
+function BusinessIdentityMark({
+  logoUrl,
+  name,
+}: {
+  logoUrl?: string | null;
+  name: string;
+}) {
+  const initial = name.trim().charAt(0) || 'ע';
+  if (logoUrl) {
+    return (
+      <Image
+        accessibilityLabel={`לוגו ${name}`}
+        source={{ uri: logoUrl }}
+        style={styles.identityLogo}
+      />
+    );
+  }
+  return (
+    <View style={styles.identityFallback}>
+      <Text style={styles.identityFallbackText}>{initial}</Text>
+    </View>
+  );
+}
+
+const NAV_SECTIONS = [
+  {
+    label: 'תפעול',
+    keys: ['dashboard', 'customers', 'scanner'] as const,
+  },
+  {
+    label: 'מועדון',
+    keys: ['loyalty', 'campaigns', 'referrals'] as const,
+  },
+  {
+    label: 'ניהול',
+    keys: ['team', 'inbox', 'billing', 'settings'] as const,
+  },
+] as const;
+
+function NavItemButton({
+  compact,
+  currentPathname,
+  item,
+  onNavigate,
+}: {
+  compact: boolean;
+  currentPathname: string;
+  item: BusinessWebNavItem;
+  onNavigate: (href: Href) => void;
+}) {
+  const Icon = businessWebNavIcons[item.key];
+  const isDisabled = !item.href;
+  const isActive = isBusinessWebRouteActive(currentPathname, item.href);
+  return (
+    <Pressable
+      accessibilityLabel={item.label}
+      accessibilityRole="link"
+      accessibilityState={{ disabled: isDisabled, selected: isActive }}
+      disabled={isDisabled}
+      onPress={() => item.href && onNavigate(item.href as Href)}
+      style={({ pressed }) => [
+        styles.navItem,
+        isActive ? styles.navItemActive : null,
+        compact ? styles.navItemCompact : null,
+        pressed ? styles.controlPressed : null,
+      ]}
+    >
+      <Icon
+        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
+        size={TOKENS.icons.navigation}
+        strokeWidth={TOKENS.icons.strokeWidth}
+      />
+      <Text style={[styles.navLabel, isActive ? styles.navLabelActive : null]}>
+        {item.label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function NavList({
+  items,
   compact = false,
   currentPathname,
   onNavigate,
 }: {
+  items: readonly BusinessWebNavItem[];
   compact?: boolean;
   currentPathname: string;
   onNavigate: (href: Href) => void;
 }) {
+  if (!compact) {
+    return (
+      <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
+        {NAV_SECTIONS.map((section) => {
+          const sectionItems = section.keys.flatMap((key) => {
+            const item = items.find((entry) => entry.key === key);
+            return item ? [item] : [];
+          });
+          if (sectionItems.length === 0) {
+            return null;
+          }
+          return (
+            <View key={section.label} style={styles.navSection}>
+              <Text style={styles.navSectionLabel}>{section.label}</Text>
+              {sectionItems.map((item) => (
+                <NavItemButton
+                  compact={false}
+                  currentPathname={currentPathname}
+                  item={item}
+                  key={item.key}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+
   return (
     <View accessibilityLabel="ניווט עסקי" style={styles.navList}>
-      {BUSINESS_WEB_NAV_ITEMS.map((item) => {
-        const Icon = item.icon;
-        const isDisabled = !item.href;
-        const isActive = isBusinessWebRouteActive(
-          currentPathname,
-          item.href ? String(item.href) : null
-        );
-        return (
-          <Pressable
-            accessibilityLabel={
-              isDisabled ? `${item.label}, בקרוב` : item.label
-            }
-            accessibilityRole="link"
-            accessibilityState={{ disabled: isDisabled, selected: isActive }}
-            disabled={isDisabled}
-            key={item.key}
-            onPress={() => item.href && onNavigate(item.href)}
-            style={({ pressed }) => [
-              styles.navItem,
-              isActive ? styles.navItemActive : null,
-              compact ? styles.navItemCompact : null,
-              pressed ? styles.controlPressed : null,
-            ]}
-          >
-            <Icon
-              color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
-              size={TOKENS.icons.navigation}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-            <Text
-              style={[styles.navLabel, isActive ? styles.navLabelActive : null]}
-            >
-              {item.label}
-            </Text>
-            {isDisabled ? <Text style={styles.soonLabel}>בקרוב</Text> : null}
-          </Pressable>
-        );
-      })}
+      {items.map((item) => (
+        <NavItemButton
+          compact={true}
+          currentPathname={currentPathname}
+          item={item}
+          key={item.key}
+          onNavigate={onNavigate}
+        />
+      ))}
     </View>
   );
 }
@@ -203,7 +232,7 @@ function BusinessSwitcher({
   onSelectBusiness,
   popoverWidth,
   selectError,
-  showBrandMark,
+  showBrandMark: _showBrandMark,
   showClosedError,
 }: Pick<
   BusinessWebShellProps,
@@ -245,21 +274,11 @@ function BusinessSwitcher({
           pressed ? styles.controlPressed : null,
         ]}
       >
-        <View
-          style={[
-            styles.switcherIcon,
-            showBrandMark ? styles.switcherBrandMark : null,
-          ]}
-        >
-          {showBrandMark ? (
-            <Text style={styles.switcherBrandMarkText}>S</Text>
-          ) : (
-            <Building2
-              color={TOKENS.colors.primary}
-              size={TOKENS.icons.standard}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-          )}
+        <View style={styles.switcherIcon}>
+          <BusinessIdentityMark
+            logoUrl={activeBusiness?.logoUrl}
+            name={activeBusiness?.name ?? ''}
+          />
         </View>
         <View style={styles.switcherCopy}>
           <Text numberOfLines={1} style={styles.switcherName}>
@@ -355,54 +374,91 @@ function AccountBlock({
   displayName,
   email,
   isSigningOut,
+  isSwitchingToCustomer,
   onLogout,
+  onSwitchToCustomerWallet,
   compact = false,
 }: Pick<
   BusinessWebShellProps,
-  'displayName' | 'email' | 'isSigningOut' | 'onLogout'
+  | 'displayName'
+  | 'email'
+  | 'isSigningOut'
+  | 'isSwitchingToCustomer'
+  | 'onLogout'
+  | 'onSwitchToCustomerWallet'
 > & { compact?: boolean }) {
+  const customerSwitchDisabled = isSigningOut || isSwitchingToCustomer;
+
   return (
     <View
       style={[styles.accountBlock, compact ? styles.accountBlockCompact : null]}
     >
-      <View accessibilityLabel={`חשבון ${displayName}`} style={styles.avatar}>
-        <Text style={styles.avatarText}>{initialsForName(displayName)}</Text>
-      </View>
-      <View style={styles.accountCopy}>
-        <Text numberOfLines={1} style={styles.accountName}>
-          {displayName || 'החשבון שלי'}
-        </Text>
-        {email ? (
-          <Text numberOfLines={1} style={styles.accountEmail}>
-            {email}
+      <View style={styles.accountIdentityRow}>
+        <View accessibilityLabel={`חשבון ${displayName}`} style={styles.avatar}>
+          <Text style={styles.avatarText}>{initialsForName(displayName)}</Text>
+        </View>
+        <View style={styles.accountCopy}>
+          <Text numberOfLines={1} style={styles.accountName}>
+            {displayName || 'החשבון שלי'}
           </Text>
-        ) : null}
+          {email ? (
+            <Text numberOfLines={1} style={styles.accountEmail}>
+              {email}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          accessibilityLabel="התנתקות"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: customerSwitchDisabled }}
+          disabled={customerSwitchDisabled}
+          onPress={onLogout}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed ? styles.controlPressed : null,
+          ]}
+        >
+          <LogOut
+            color={TOKENS.colors.textSecondary}
+            size={TOKENS.icons.standard}
+            strokeWidth={TOKENS.icons.strokeWidth}
+          />
+        </Pressable>
       </View>
       <Pressable
-        accessibilityLabel="התנתקות"
+        accessibilityLabel={CUSTOMER_WALLET_LABEL}
         accessibilityRole="button"
-        accessibilityState={{ disabled: isSigningOut }}
-        disabled={isSigningOut}
-        onPress={onLogout}
+        accessibilityState={{
+          busy: isSwitchingToCustomer,
+          disabled: customerSwitchDisabled,
+        }}
+        disabled={customerSwitchDisabled}
+        onPress={onSwitchToCustomerWallet}
         style={({ pressed }) => [
-          styles.logoutButton,
+          styles.customerWalletButton,
           pressed ? styles.controlPressed : null,
+          customerSwitchDisabled ? styles.customerWalletButtonDisabled : null,
         ]}
       >
-        <LogOut
-          color={TOKENS.colors.textSecondary}
-          size={TOKENS.icons.standard}
-          strokeWidth={TOKENS.icons.strokeWidth}
-        />
+        {isSwitchingToCustomer ? (
+          <ActivityIndicator color={TOKENS.colors.primary} />
+        ) : null}
+        <Text style={styles.customerWalletButtonText}>
+          {CUSTOMER_WALLET_LABEL}
+        </Text>
       </Pressable>
     </View>
   );
 }
 
 export function BusinessWebShell(props: BusinessWebShellProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const responsiveLayout = getBusinessWebResponsiveLayout(width);
-  const isCompact = responsiveLayout.navigation === 'compact';
+  const navigationMode = useBusinessNavigationMode(width, height);
+  const showSidebar = navigationMode === 'sidebar';
+  const showBottomNav = navigationMode === 'bottom';
+  const showCompactMenu = navigationMode === 'compact';
+  const isCompact = !showSidebar;
   const isMobileComposition =
     responsiveLayout.composition === 'mobile' ||
     responsiveLayout.composition === 'narrow-mobile';
@@ -412,9 +468,29 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
   const drawerWidth = Math.min(360, Math.max(0, width - 16));
   const [activeOverlay, setActiveOverlay] =
     useState<BusinessWebShellOverlay>(null);
+  const [bottomNavHeight, setBottomNavHeight] = useState(
+    BUSINESS_WEB_BOTTOM_NAV_HEIGHT
+  );
   const isMobileMenuOpen = activeOverlay === 'navigation';
+  const isMoreOpen = activeOverlay === 'more';
   const isBusinessMenuOpen = activeOverlay === 'business';
   const isAccountMenuOpen = activeOverlay === 'account';
+  const navigation = useMemo(
+    () =>
+      selectBusinessWebNav({
+        role: props.activeBusiness?.staffRole ?? null,
+        mode: navigationMode,
+        scannerEnabled:
+          props.scannerEnabled &&
+          props.activeBusiness?.capabilities?.scanner_access !== false,
+      }),
+    [
+      navigationMode,
+      props.activeBusiness?.capabilities?.scanner_access,
+      props.activeBusiness?.staffRole,
+      props.scannerEnabled,
+    ]
+  );
   const initials = useMemo(
     () => initialsForName(props.displayName),
     [props.displayName]
@@ -432,10 +508,28 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
   }, []);
 
   useEffect(() => {
-    if (!isCompact && activeOverlay === 'navigation') {
-      setActiveOverlay(null);
+    setActiveOverlay((current) => {
+      if (current === 'navigation' && !showCompactMenu) {
+        return null;
+      }
+      if (current === 'more' && !showBottomNav) {
+        return null;
+      }
+      return current;
+    });
+  }, [showBottomNav, showCompactMenu]);
+
+  useEffect(() => {
+    if (props.currentPathname.length === 0) {
+      return;
     }
-  }, [activeOverlay, isCompact]);
+    setActiveOverlay((current) => (current === 'more' ? null : current));
+  }, [props.currentPathname]);
+
+  function requestCustomerWallet() {
+    setActiveOverlay(null);
+    props.onSwitchToCustomerWallet();
+  }
 
   function toggleOverlay(
     requestedOverlay: Exclude<BusinessWebShellOverlay, null>
@@ -465,13 +559,20 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               </View>
             </View>
             <View style={styles.sidebarBusiness}>
-              <Text style={styles.sidebarEyebrow}>העסק הפעיל</Text>
-              <Text numberOfLines={1} style={styles.sidebarBusinessName}>
-                {props.activeBusiness?.name ?? 'לא נבחר עסק'}
-              </Text>
+              <BusinessIdentityMark
+                logoUrl={props.activeBusiness?.logoUrl}
+                name={props.activeBusiness?.name ?? ''}
+              />
+              <View style={styles.sidebarBusinessCopy}>
+                <Text style={styles.sidebarEyebrow}>העסק הפעיל</Text>
+                <Text numberOfLines={1} style={styles.sidebarBusinessName}>
+                  {props.activeBusiness?.name ?? 'לא נבחר עסק'}
+                </Text>
+              </View>
             </View>
             <NavList
               currentPathname={props.currentPathname}
+              items={navigation.menu}
               onNavigate={props.onNavigate}
             />
             <View style={styles.sidebarSpacer} />
@@ -479,19 +580,22 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               displayName={props.displayName}
               email={props.email}
               isSigningOut={props.isSigningOut}
+              isSwitchingToCustomer={props.isSwitchingToCustomer}
               onLogout={props.onLogout}
+              onSwitchToCustomerWallet={requestCustomerWallet}
             />
           </View>
         ) : null}
 
         <View style={styles.mainColumn}>
           <View
+            role="banner"
             style={[
               styles.topbar,
               isMobileComposition ? styles.topbarMobile : null,
             ]}
           >
-            {isCompact ? (
+            {showCompactMenu ? (
               <Pressable
                 accessibilityLabel={
                   isMobileMenuOpen ? 'סגירת תפריט' : 'פתיחת תפריט'
@@ -510,7 +614,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                   <Menu color={TOKENS.colors.textPrimary} size={22} />
                 )}
               </Pressable>
-            ) : (
+            ) : showSidebar ? (
               <BusinessSwitcher
                 activeBusiness={props.activeBusiness}
                 activeBusinessId={props.activeBusinessId}
@@ -527,7 +631,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                 showBrandMark={false}
                 showClosedError={activeOverlay === null}
               />
-            )}
+            ) : null}
 
             {isCompact ? (
               <BusinessSwitcher
@@ -576,10 +680,12 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                     displayName={props.displayName}
                     email={props.email}
                     isSigningOut={props.isSigningOut}
+                    isSwitchingToCustomer={props.isSwitchingToCustomer}
                     onLogout={() => {
                       setActiveOverlay(null);
                       props.onLogout();
                     }}
+                    onSwitchToCustomerWallet={requestCustomerWallet}
                   />
                 </View>
               ) : null}
@@ -595,7 +701,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             />
           ) : null}
 
-          {isCompact && isMobileMenuOpen ? (
+          {showCompactMenu && isMobileMenuOpen ? (
             <View
               accessibilityViewIsModal={true}
               style={[styles.mobileMenuOverlay, { top: topbarHeight }]}
@@ -618,6 +724,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                   <NavList
                     compact={true}
                     currentPathname={props.currentPathname}
+                    items={navigation.menu}
                     onNavigate={(href) => {
                       setActiveOverlay(null);
                       props.onNavigate(href);
@@ -628,13 +735,27 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
                     displayName={props.displayName}
                     email={props.email}
                     isSigningOut={props.isSigningOut}
+                    isSwitchingToCustomer={props.isSwitchingToCustomer}
                     onLogout={() => {
                       setActiveOverlay(null);
                       props.onLogout();
                     }}
+                    onSwitchToCustomerWallet={requestCustomerWallet}
                   />
                 </ScrollView>
               </View>
+            </View>
+          ) : null}
+
+          {props.customerSwitchError ? (
+            <View
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+              style={styles.customerSwitchBanner}
+            >
+              <Text style={styles.customerSwitchBannerText}>
+                {props.customerSwitchError}
+              </Text>
             </View>
           ) : null}
 
@@ -645,10 +766,78 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               { paddingTop: responsiveLayout.pageTopPadding },
             ]}
             keyboardShouldPersistTaps="handled"
+            role="main"
+            tabIndex={0}
+            accessibilityLabel="תוכן ראשי של העסק"
             style={styles.scroll}
           >
             {props.children}
           </ScrollView>
+
+          {showBottomNav && isMoreOpen ? (
+            <View
+              accessibilityViewIsModal={true}
+              style={[
+                styles.moreOverlay,
+                { top: topbarHeight, bottom: bottomNavHeight },
+              ]}
+            >
+              <Pressable
+                accessibilityLabel="סגירת פעולות נוספות"
+                accessibilityRole="button"
+                onPress={() => setActiveOverlay(null)}
+                style={styles.mobileMenuBackdrop}
+              />
+              <View
+                accessibilityLabel="פעולות נוספות"
+                accessibilityRole="menu"
+                style={styles.moreSheet}
+              >
+                <Text style={styles.moreTitle}>פעולות נוספות</Text>
+                <ScrollView
+                  contentContainerStyle={styles.moreScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  style={[
+                    styles.moreScroll,
+                    {
+                      maxHeight: Math.min(
+                        360,
+                        Math.max(
+                          120,
+                          height - topbarHeight - bottomNavHeight - 120
+                        )
+                      ),
+                    },
+                  ]}
+                >
+                  <NavList
+                    compact={true}
+                    currentPathname={props.currentPathname}
+                    items={navigation.overflow}
+                    onNavigate={(href) => {
+                      setActiveOverlay(null);
+                      props.onNavigate(href);
+                    }}
+                  />
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+
+          {showBottomNav ? (
+            <BusinessWebBottomNav
+              currentPathname={props.currentPathname}
+              moreOpen={isMoreOpen}
+              onBarHeight={setBottomNavHeight}
+              onNavigate={(href) => {
+                setActiveOverlay(null);
+                props.onNavigate(href);
+              }}
+              onToggleMore={() => toggleOverlay('more')}
+              overflow={navigation.overflow}
+              primary={navigation.primary}
+            />
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
@@ -660,8 +849,8 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: flexDirection.row },
   shellCompact: { flexDirection: 'column' },
   sidebar: {
-    width: 188,
-    minWidth: 188,
+    width: 232,
+    minWidth: 232,
     borderLeftWidth: 1,
     borderLeftColor: TOKENS.colors.border,
     backgroundColor: TOKENS.colors.elevatedSurface,
@@ -696,12 +885,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sidebarBusiness: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
     marginTop: TOKENS.space.lg,
     marginBottom: TOKENS.space.md,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.colors.border,
     paddingHorizontal: TOKENS.space.xs,
     paddingBottom: TOKENS.space.md,
+  },
+  sidebarBusinessCopy: { flex: 1, minWidth: 0 },
+  identityLogo: {
+    backgroundColor: TOKENS.colors.subtleSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 28,
+    width: 28,
+  },
+  identityFallback: {
+    alignItems: 'center',
+    backgroundColor: TOKENS.colors.primarySubtle,
+    borderRadius: 8,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  identityFallbackText: {
+    color: TOKENS.colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
   },
   sidebarEyebrow: {
     ...rtlBaseText,
@@ -719,7 +933,7 @@ const styles = StyleSheet.create({
   },
   navList: { gap: TOKENS.space.xs },
   navItem: {
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -727,7 +941,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: TOKENS.space.sm,
     opacity: 0.78,
   },
-  navItemActive: { backgroundColor: '#F3F6FF', opacity: 1 },
+  navItemActive: {
+    backgroundColor: TOKENS.colors.primarySubtle,
+    opacity: 1,
+  },
+  navSection: { gap: TOKENS.space.xs, marginBottom: TOKENS.space.sm },
+  navSectionLabel: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    paddingHorizontal: TOKENS.space.sm,
+    paddingTop: TOKENS.space.sm,
+  },
   navItemCompact: { minHeight: 46 },
   navLabel: {
     ...rtlBaseText,
@@ -747,12 +974,51 @@ const styles = StyleSheet.create({
   },
   sidebarSpacer: { flex: 1, minHeight: TOKENS.space.xl },
   accountBlock: {
-    flexDirection: flexDirection.row,
-    alignItems: 'center',
     gap: TOKENS.space.sm,
     borderTopWidth: 1,
     borderTopColor: TOKENS.colors.border,
     paddingTop: TOKENS.space.lg,
+  },
+  accountIdentityRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: TOKENS.space.sm,
+  },
+  customerWalletButton: {
+    minHeight: 44,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: TOKENS.space.sm,
+    borderWidth: 1,
+    borderColor: '#D7E1FF',
+    borderRadius: TOKENS.radii.md,
+    backgroundColor: TOKENS.colors.primarySubtle,
+    paddingHorizontal: TOKENS.space.sm,
+    paddingVertical: TOKENS.space.sm,
+    cursor: 'pointer',
+  },
+  customerWalletButtonDisabled: { opacity: 0.6 },
+  customerWalletButtonText: {
+    ...rtlBaseText,
+    color: TOKENS.colors.primary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  customerSwitchBanner: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#FECACA',
+    backgroundColor: TOKENS.colors.dangerSubtle,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingVertical: TOKENS.space.sm,
+  },
+  customerSwitchBannerText: {
+    ...rtlBaseText,
+    color: TOKENS.colors.danger,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   accountBlockCompact: { borderTopWidth: 0, paddingTop: 0 },
   avatar: {
@@ -764,8 +1030,8 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.primarySubtle,
   },
   avatarButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -790,8 +1056,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   logoutButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -826,8 +1092,8 @@ const styles = StyleSheet.create({
   },
   topbarSpacer: { flex: 1 },
   iconButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: TOKENS.radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -841,7 +1107,7 @@ const styles = StyleSheet.create({
   switcherButton: {
     minWidth: 168,
     maxWidth: 220,
-    minHeight: 36,
+    minHeight: 44,
     flexDirection: flexDirection.row,
     alignItems: 'center',
     gap: TOKENS.space.sm,
@@ -857,7 +1123,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
     maxWidth: 360,
-    minHeight: 42,
+    minHeight: 44,
   },
   switcherIcon: {
     width: 28,
@@ -1003,6 +1269,38 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.lg,
     padding: TOKENS.space.lg,
   },
+  moreOverlay: {
+    position: 'absolute',
+    right: 0,
+    left: 0,
+    zIndex: 36,
+    flexDirection: flexDirection.col,
+  },
+  moreSheet: {
+    marginTop: 'auto',
+    maxHeight: '80%',
+    zIndex: 2,
+    borderTopWidth: 1,
+    borderTopColor: TOKENS.colors.border,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingTop: TOKENS.space.md,
+    paddingBottom: TOKENS.space.sm,
+    ...TOKENS.shadow,
+    elevation: 12,
+  },
+  moreTitle: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '700',
+    marginBottom: TOKENS.space.sm,
+  },
+  moreScroll: { flexGrow: 0 },
+  moreScrollContent: { gap: TOKENS.space.xs, paddingBottom: TOKENS.space.sm },
   scroll: { flex: 1 },
   content: {
     width: '100%',
