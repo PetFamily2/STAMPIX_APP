@@ -3,7 +3,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -11,6 +11,7 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
 import {
@@ -151,28 +152,52 @@ export default function RewardsScreen() {
                       key={reward.membershipId}
                       style={styles.readyRewardItem}
                     >
-                      <LoyaltyCard
-                        variant="wallet"
-                        businessName={reward.businessName}
-                        businessLogoUrl={reward.businessLogoUrl}
-                        programImageUrl={reward.programImageUrl}
-                        programTitle={reward.programTitle}
-                        rewardName={reward.rewardName}
-                        maxStamps={reward.maxStamps}
-                        progress={{
-                          kind: 'actual',
-                          currentStamps: reward.currentStamps,
-                        }}
-                        lifecycle={reward.programLifecycle}
-                        cardThemeId={reward.cardThemeId}
-                        stampIcon={reward.stampIcon}
-                        stampShape={normalizeStampShape(reward.stampShape)}
-                        onPress={() =>
-                          router.push(
-                            customerCardRoute(reward.membershipId) as Href
-                          )
-                        }
-                      />
+                      {Platform.OS === 'web' ? (
+                        <LoyaltyCardClassic
+                          businessLogoUrl={reward.businessLogoUrl}
+                          businessName={reward.businessName}
+                          cardThemeId={reward.cardThemeId}
+                          lifecycle={reward.programLifecycle}
+                          maxStamps={reward.maxStamps}
+                          onPress={() =>
+                            router.push(
+                              customerCardRoute(reward.membershipId) as Href
+                            )
+                          }
+                          programTitle={reward.programTitle}
+                          progress={{
+                            kind: 'actual',
+                            currentStamps: reward.currentStamps,
+                          }}
+                          rewardName={reward.rewardName}
+                          stampIcon={reward.stampIcon}
+                          stampShape={normalizeStampShape(reward.stampShape)}
+                          variant="wallet"
+                        />
+                      ) : (
+                        <LoyaltyCard
+                          variant="wallet"
+                          businessName={reward.businessName}
+                          businessLogoUrl={reward.businessLogoUrl}
+                          programImageUrl={reward.programImageUrl}
+                          programTitle={reward.programTitle}
+                          rewardName={reward.rewardName}
+                          maxStamps={reward.maxStamps}
+                          progress={{
+                            kind: 'actual',
+                            currentStamps: reward.currentStamps,
+                          }}
+                          lifecycle={reward.programLifecycle}
+                          cardThemeId={reward.cardThemeId}
+                          stampIcon={reward.stampIcon}
+                          stampShape={normalizeStampShape(reward.stampShape)}
+                          onPress={() =>
+                            router.push(
+                              customerCardRoute(reward.membershipId) as Href
+                            )
+                          }
+                        />
+                      )}
                       <ActionButton
                         label={TEXT.showForRedemption}
                         onPress={() =>

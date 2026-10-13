@@ -1,9 +1,10 @@
-import Editor from '@/app/(authenticated)/(business)/cards/new';
+import { ClassicCardWizard } from '@/components/business-web/ClassicCardWizard';
 import { WebManagementSurface } from '@/components/business-web/WebManagementSurface';
+
 export default function NewCard() {
   return (
     <WebManagementSurface>
-      <Editor />
+      <ClassicCardWizard />
     </WebManagementSurface>
   );
 }

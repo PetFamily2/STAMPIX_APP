@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import LoyaltyCard, {
-  LoyaltyCardSkeleton,
-} from '@/components/loyalty/LoyaltyCard';
+import {
+  LoyaltyCardClassic,
+  LoyaltyCardClassicSkeleton,
+} from '@/components/loyalty/LoyaltyCardClassic';
 import { PwaButton } from '@/components/pwa-ui/PwaButton';
 import { PwaEmptyState } from '@/components/pwa-ui/PwaEmptyState';
 import { AppText as Text } from '@/components/ui/AppText';
@@ -45,6 +46,7 @@ type WalletBusiness = {
   previewMaxStamps: number | null;
   previewCurrentStamps: number | null;
   previewStampShape: string | null;
+  previewStampIcon: string | null;
   previewProgramLifecycle: 'active' | 'archived';
 };
 
@@ -137,7 +139,7 @@ export default function WalletWebScreen() {
         />
       ) : null}
 
-      {isLoading ? <LoyaltyCardSkeleton variant="wallet" /> : null}
+      {isLoading ? <LoyaltyCardClassicSkeleton /> : null}
 
       {!isLoading && businesses.length === 0 ? (
         <PwaEmptyState
@@ -212,20 +214,20 @@ function CardBlock({
   const cardRoute = resolveWalletPreviewCardRoute(business.previewMembershipId);
   return (
     <View style={styles.card}>
-      <LoyaltyCard
+      <LoyaltyCardClassic
         businessLogoUrl={business.businessLogoUrl}
         businessName={business.businessName || 'עסק'}
         cardThemeId={business.previewCardThemeId}
         lifecycle={business.previewProgramLifecycle}
         maxStamps={Math.max(1, Number(business.previewMaxStamps ?? 1))}
         onPress={cardRoute ? () => router.push(cardRoute as Href) : undefined}
-        programImageUrl={business.previewProgramImageUrl}
         programTitle={business.previewProgramTitle ?? 'כרטיסייה'}
         progress={{
           kind: 'actual',
           currentStamps: Number(business.previewCurrentStamps ?? 0),
         }}
         rewardName={business.previewRewardName ?? 'הטבה'}
+        stampIcon={business.previewStampIcon ?? 'star'}
         stampShape={normalizeStampShape(business.previewStampShape)}
         variant="wallet"
       />

@@ -26,6 +26,7 @@ import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
@@ -457,20 +458,36 @@ export default function CardDetailsScreen() {
         </View>
 
         <View style={styles.loyaltyCardSection}>
-          <LoyaltyCard
-            variant="full"
-            businessName={membership.businessName}
-            businessLogoUrl={membership.businessLogoUrl}
-            programImageUrl={membership.programImageUrl}
-            programTitle={membership.programTitle}
-            rewardName={membership.rewardName}
-            maxStamps={goal}
-            progress={{ kind: 'actual', currentStamps: current }}
-            lifecycle={membership.programLifecycle}
-            cardThemeId={membership.cardThemeId}
-            stampIcon={membership.stampIcon}
-            stampShape={normalizeStampShape(membership.stampShape)}
-          />
+          {Platform.OS === 'web' ? (
+            <LoyaltyCardClassic
+              businessLogoUrl={membership.businessLogoUrl}
+              businessName={membership.businessName}
+              cardThemeId={membership.cardThemeId}
+              lifecycle={membership.programLifecycle}
+              maxStamps={goal}
+              programTitle={membership.programTitle}
+              progress={{ kind: 'actual', currentStamps: current }}
+              rewardName={membership.rewardName}
+              stampIcon={membership.stampIcon}
+              stampShape={normalizeStampShape(membership.stampShape)}
+              variant="full"
+            />
+          ) : (
+            <LoyaltyCard
+              variant="full"
+              businessName={membership.businessName}
+              businessLogoUrl={membership.businessLogoUrl}
+              programImageUrl={membership.programImageUrl}
+              programTitle={membership.programTitle}
+              rewardName={membership.rewardName}
+              maxStamps={goal}
+              progress={{ kind: 'actual', currentStamps: current }}
+              lifecycle={membership.programLifecycle}
+              cardThemeId={membership.cardThemeId}
+              stampIcon={membership.stampIcon}
+              stampShape={normalizeStampShape(membership.stampShape)}
+            />
+          )}
 
           {isRedeemEligible || isArchived ? (
             <View

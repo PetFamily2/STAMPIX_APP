@@ -20,6 +20,7 @@ import {
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
 import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
@@ -883,26 +884,48 @@ export default function ProgramDetailsScreen() {
             ) : (
               <View className="mt-2 bg-[#E9F0FF] pb-3">
                 <EditorPreviewSurface title="כך הלקוחות יראו את הכרטיסייה">
-                  <LoyaltyCard
-                    variant={isPreviewExpanded ? 'preview' : 'management'}
-                    businessName={selectedBusiness?.name ?? 'העסק שלך'}
-                    businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                    programImageUrl={previewImageUrl}
-                    programTitle={title || details.title}
-                    rewardName={rewardName || details.rewardName}
-                    maxStamps={parsedMaxStamps || details.maxStamps}
-                    progress={{
-                      kind: 'sample',
-                      currentStamps: Math.min(
-                        3,
-                        Math.max(1, parsedMaxStamps || details.maxStamps)
-                      ),
-                    }}
-                    lifecycle={lifecycle}
-                    cardThemeId={cardThemeId}
-                    stampShape={stampShape}
-                    stampIcon={stampIcon || details.stampIcon}
-                  />
+                  {Platform.OS === 'web' ? (
+                    <LoyaltyCardClassic
+                      businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                      businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                      cardThemeId={cardThemeId}
+                      lifecycle={lifecycle}
+                      maxStamps={parsedMaxStamps || details.maxStamps}
+                      programTitle={title || details.title}
+                      progress={{
+                        kind: 'sample',
+                        currentStamps: Math.min(
+                          3,
+                          Math.max(1, parsedMaxStamps || details.maxStamps)
+                        ),
+                      }}
+                      rewardName={rewardName || details.rewardName}
+                      stampIcon={stampIcon || details.stampIcon}
+                      stampShape={stampShape}
+                      variant={isPreviewExpanded ? 'preview' : 'management'}
+                    />
+                  ) : (
+                    <LoyaltyCard
+                      variant={isPreviewExpanded ? 'preview' : 'management'}
+                      businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                      businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                      programImageUrl={previewImageUrl}
+                      programTitle={title || details.title}
+                      rewardName={rewardName || details.rewardName}
+                      maxStamps={parsedMaxStamps || details.maxStamps}
+                      progress={{
+                        kind: 'sample',
+                        currentStamps: Math.min(
+                          3,
+                          Math.max(1, parsedMaxStamps || details.maxStamps)
+                        ),
+                      }}
+                      lifecycle={lifecycle}
+                      cardThemeId={cardThemeId}
+                      stampShape={stampShape}
+                      stampIcon={stampIcon || details.stampIcon}
+                    />
+                  )}
                   <TouchableOpacity
                     accessibilityRole="button"
                     onPress={() => setIsPreviewExpanded((current) => !current)}

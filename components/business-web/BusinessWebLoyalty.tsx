@@ -2,14 +2,21 @@ import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { PwaButton } from '@/components/pwa-ui/PwaButton';
 import { PwaEmptyState } from '@/components/pwa-ui/PwaEmptyState';
 import { AppText as Text } from '@/components/ui/AppText';
+import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
-import { flexDirection, ltrIslandText, rtlBaseText, selfStart } from '@/lib/rtl';
+import {
+  flexDirection,
+  ltrIslandText,
+  rtlBaseText,
+  selfStart,
+} from '@/lib/rtl';
 
 const LIFECYCLE_LABEL: Record<string, string> = {
   active: 'פעיל',
@@ -120,12 +127,7 @@ export function BusinessWebLoyalty({
                   style={styles.programCard}
                 >
                   <View style={styles.programTop}>
-                    <View style={styles.programCopy}>
-                      <Text style={styles.programTitle}>{program.title}</Text>
-                      <Text style={styles.rewardName}>
-                        {program.rewardName}
-                      </Text>
-                    </View>
+                    <Text style={styles.programKicker}>כרטיסייה</Text>
                     <Text
                       style={[
                         styles.lifecycle,
@@ -143,6 +145,24 @@ export function BusinessWebLoyalty({
                       {LIFECYCLE_LABEL[program.lifecycle] ?? program.lifecycle}
                     </Text>
                   </View>
+                  <LoyaltyCardClassic
+                    businessLogoUrl={activeBusiness?.logoUrl ?? null}
+                    businessName={activeBusiness?.name ?? 'העסק'}
+                    cardThemeId={program.cardThemeId}
+                    lifecycle={
+                      program.lifecycle === 'draft' ||
+                      program.lifecycle === 'archived'
+                        ? program.lifecycle
+                        : 'active'
+                    }
+                    maxStamps={program.maxStamps}
+                    programTitle={program.title}
+                    progress={{ kind: 'none' }}
+                    rewardName={program.rewardName}
+                    stampIcon={program.stampIcon}
+                    stampShape={normalizeStampShape(program.stampShape)}
+                    variant="management"
+                  />
                   <Text style={styles.count}>
                     <Text style={styles.num}>
                       {program.metrics.activeMembers}
@@ -323,6 +343,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   programCopy: { flex: 1, gap: 2 },
+  programKicker: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   programTitle: {
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,

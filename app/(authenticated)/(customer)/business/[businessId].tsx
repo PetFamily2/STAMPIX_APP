@@ -19,6 +19,7 @@ import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import {
   PaintedPressable,
@@ -442,23 +443,42 @@ export default function CustomerBusinessDetailsScreen() {
                       selected ? styles.programCardSelected : null,
                     ]}
                   >
-                    <LoyaltyCard
-                      variant="wallet"
-                      businessName={business.name}
-                      businessLogoUrl={business.logoUrl}
-                      programImageUrl={program.programImageUrl}
-                      programTitle={program.title}
-                      rewardName={program.rewardName}
-                      maxStamps={program.maxStamps}
-                      progress={{ kind: 'actual', currentStamps: 0 }}
-                      lifecycle={program.programLifecycle}
-                      membershipStatus="available"
-                      cardThemeId={program.cardThemeId}
-                      stampIcon={program.stampIcon}
-                      stampShape={normalizeStampShape(program.stampShape)}
-                      selected={selected}
-                      onPress={() => toggleProgramSelection(key)}
-                    />
+                    {Platform.OS === 'web' ? (
+                      <LoyaltyCardClassic
+                        businessLogoUrl={business.logoUrl}
+                        businessName={business.name}
+                        cardThemeId={program.cardThemeId}
+                        lifecycle={program.programLifecycle}
+                        maxStamps={program.maxStamps}
+                        membershipStatus="available"
+                        onPress={() => toggleProgramSelection(key)}
+                        programTitle={program.title}
+                        progress={{ kind: 'actual', currentStamps: 0 }}
+                        rewardName={program.rewardName}
+                        selected={selected}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        variant="wallet"
+                      />
+                    ) : (
+                      <LoyaltyCard
+                        variant="wallet"
+                        businessName={business.name}
+                        businessLogoUrl={business.logoUrl}
+                        programImageUrl={program.programImageUrl}
+                        programTitle={program.title}
+                        rewardName={program.rewardName}
+                        maxStamps={program.maxStamps}
+                        progress={{ kind: 'actual', currentStamps: 0 }}
+                        lifecycle={program.programLifecycle}
+                        membershipStatus="available"
+                        cardThemeId={program.cardThemeId}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        selected={selected}
+                        onPress={() => toggleProgramSelection(key)}
+                      />
+                    )}
                     <Pressable
                       style={styles.programFooterRow}
                       onPress={() => toggleProgramSelection(key)}
@@ -515,24 +535,44 @@ export default function CustomerBusinessDetailsScreen() {
                     key={String(program.programId)}
                     style={styles.programCard}
                   >
-                    <LoyaltyCard
-                      variant="wallet"
-                      businessName={business.name}
-                      businessLogoUrl={business.logoUrl}
-                      programImageUrl={program.programImageUrl}
-                      programTitle={program.title}
-                      rewardName={program.rewardName}
-                      maxStamps={program.maxStamps}
-                      progress={{
-                        kind: 'actual',
-                        currentStamps: program.currentStamps,
-                      }}
-                      lifecycle={program.programLifecycle}
-                      cardThemeId={program.cardThemeId}
-                      stampIcon={program.stampIcon}
-                      stampShape={normalizeStampShape(program.stampShape)}
-                      onPress={() => openJoinedCard(program.membershipId)}
-                    />
+                    {Platform.OS === 'web' ? (
+                      <LoyaltyCardClassic
+                        businessLogoUrl={business.logoUrl}
+                        businessName={business.name}
+                        cardThemeId={program.cardThemeId}
+                        lifecycle={program.programLifecycle}
+                        maxStamps={program.maxStamps}
+                        onPress={() => openJoinedCard(program.membershipId)}
+                        programTitle={program.title}
+                        progress={{
+                          kind: 'actual',
+                          currentStamps: program.currentStamps,
+                        }}
+                        rewardName={program.rewardName}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        variant="wallet"
+                      />
+                    ) : (
+                      <LoyaltyCard
+                        variant="wallet"
+                        businessName={business.name}
+                        businessLogoUrl={business.logoUrl}
+                        programImageUrl={program.programImageUrl}
+                        programTitle={program.title}
+                        rewardName={program.rewardName}
+                        maxStamps={program.maxStamps}
+                        progress={{
+                          kind: 'actual',
+                          currentStamps: program.currentStamps,
+                        }}
+                        lifecycle={program.programLifecycle}
+                        cardThemeId={program.cardThemeId}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        onPress={() => openJoinedCard(program.membershipId)}
+                      />
+                    )}
                     <Pressable
                       style={styles.programFooterRow}
                       onPress={() => openJoinedCard(program.membershipId)}
