@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { validateProfileFields } from '@/components/business-settings';
+import { BusinessLogoField } from '@/components/business-web/BusinessLogoField';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { AppText as Text } from '@/components/ui/AppText';
 import WebPushSettings from '@/components/WebPushSettings';
@@ -440,6 +441,18 @@ export function BusinessWebSettings() {
             icon={Building2}
             title="פרטי העסק"
           >
+            <BusinessLogoField
+              businessId={activeBusinessId}
+              businessName={draft.name || activeBusiness.name}
+              canEdit={editable && !isSaving}
+              expectedUpdatedAt={profile.baseUpdatedAt}
+              logoUrl={
+                profile.businessSettings?.businessId === activeBusinessId
+                  ? (profile.businessSettings.logoUrl ?? null)
+                  : (activeBusiness.logoUrl ?? null)
+              }
+              onRevision={profile.noteProfileRevision}
+            />
             <FormField label="שם העסק">
               <TextInput
                 accessibilityLabel="שם העסק"

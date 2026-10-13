@@ -14,6 +14,15 @@ import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { AppText as Text } from '@/components/ui/AppText';
 import { useWebAuthAvailability } from '@/lib/auth/useWebAuthAvailability';
+import {
+  webAccentFill,
+  webAccentText,
+  webBody,
+  webField,
+  webLabel,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 
@@ -209,6 +218,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -229,6 +239,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 32,
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
@@ -237,6 +248,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   form: {
     marginTop: 20,
@@ -249,6 +261,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     marginBottom: 8,
+    ...webLabel,
   },
   input: {
     backgroundColor: '#ffffff',
@@ -261,6 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     writingDirection: 'ltr',
+    ...webField,
   },
   footer: {
     marginTop: 'auto',
@@ -273,11 +287,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonPressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.99 }],
+    opacity: Platform.OS === 'web' ? 0.92 : 0.84,
+    ...(Platform.OS === 'web' ? null : { transform: [{ scale: 0.99 }] }),
   },
   buttonActive: {
     backgroundColor: '#2563eb',
+    ...webAccentFill,
   },
   buttonInactive: {
     backgroundColor: '#d8dce2',
@@ -303,6 +318,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: '#1d4ed8',
+    ...webAccentText,
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',

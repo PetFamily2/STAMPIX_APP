@@ -30,6 +30,14 @@ import {
 } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
+import {
+  productPageBackground,
+  productPrimary,
+  webAccentFill,
+  webAccentSoft,
+  webAccentText,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { formatDistance } from '@/lib/location';
 import { getBusinessMonogram } from '@/lib/loyalty/cardPresentation';
 import { customerBusinessRoute } from '@/lib/navigation/customerRoutes';
@@ -350,7 +358,7 @@ export default function DiscoveryScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <View style={styles.headerRow}>
             <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
@@ -403,7 +411,7 @@ export default function DiscoveryScreen() {
 
         {!needsPermission && !coords && isLoadingState ? (
           <View style={styles.infoCard}>
-            <ActivityIndicator color="#2F6BFF" />
+            <ActivityIndicator color={productPrimary} />
             <Text style={styles.statusText}>{TEXT.loadingLocation}</Text>
           </View>
         ) : null}
@@ -496,7 +504,7 @@ export default function DiscoveryScreen() {
                   <Ionicons
                     name="options-outline"
                     size={16}
-                    color={showAdvancedFilters ? '#1D4ED8' : '#334155'}
+                    color={showAdvancedFilters ? productPrimary : '#334155'}
                   />
                   <Text
                     style={[
@@ -567,9 +575,9 @@ export default function DiscoveryScreen() {
                     minimumValue={1}
                     maximumValue={10}
                     step={1}
-                    minimumTrackTintColor="#2F6BFF"
+                    minimumTrackTintColor={productPrimary}
                     maximumTrackTintColor="#C7D6FF"
-                    thumbTintColor="#2F6BFF"
+                    thumbTintColor={productPrimary}
                   />
                   <Text style={styles.sortTitle}>{TEXT.sortTitle}</Text>
                   <View style={styles.sortButtonsRow}>
@@ -652,7 +660,7 @@ export default function DiscoveryScreen() {
 
                 {isBusinessesLoading ? (
                   <View style={styles.loadingState}>
-                    <ActivityIndicator color="#2F6BFF" />
+                    <ActivityIndicator color={productPrimary} />
                     <Text style={styles.statusText}>{TEXT.loadingNearby}</Text>
                   </View>
                 ) : null}
@@ -778,7 +786,7 @@ export default function DiscoveryScreen() {
                                 <Ionicons
                                   name="navigate-outline"
                                   size={14}
-                                  color="#1D4ED8"
+                                  color={productPrimary}
                                 />
                                 <Text style={styles.directionsText}>
                                   {TEXT.directions}
@@ -856,6 +864,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   contentContainer: {
     paddingHorizontal: 20,
@@ -924,6 +933,7 @@ const styles = StyleSheet.create({
   toolButtonActive: {
     borderColor: '#2F6BFF',
     backgroundColor: '#EEF3FF',
+    ...webAccentSoft,
   },
   toolButtonText: {
     fontSize: 13,
@@ -932,11 +942,13 @@ const styles = StyleSheet.create({
   },
   toolButtonTextActive: {
     color: '#1D4ED8',
+    ...webAccentText,
   },
   mapButton: {
     minHeight: 44,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingHorizontal: 14,
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -989,6 +1001,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'center',
     overflow: 'hidden',
   },
@@ -1006,6 +1019,7 @@ const styles = StyleSheet.create({
   filterChipActive: {
     borderColor: '#2F6BFF',
     backgroundColor: '#EAF1FF',
+    ...webAccentSoft,
   },
   filterChipText: {
     fontSize: 12,
@@ -1014,6 +1028,7 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#1D4ED8',
+    ...webAccentText,
   },
   sortTitle: {
     marginTop: 4,
@@ -1040,6 +1055,7 @@ const styles = StyleSheet.create({
   sortButtonActive: {
     borderColor: '#2F6BFF',
     backgroundColor: '#EAF1FF',
+    ...webAccentSoft,
   },
   sortButtonText: {
     fontSize: 13,
@@ -1048,6 +1064,7 @@ const styles = StyleSheet.create({
   },
   sortButtonTextActive: {
     color: '#1D4ED8',
+    ...webAccentText,
   },
   mapShell: {
     height: 360,
@@ -1090,6 +1107,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#1D4ED8',
+    ...webAccentText,
   },
   businessCopy: {
     flex: 1,
@@ -1127,6 +1145,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   directionsButton: {
@@ -1145,6 +1164,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#1D4ED8',
+    ...webAccentText,
   },
   infoCard: {
     marginTop: 14,
@@ -1195,6 +1215,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   primaryButton: {
@@ -1202,6 +1223,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1218,6 +1240,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#2F6BFF',
+    ...webAccentSoft,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1227,6 +1250,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'center',
   },
   ctaCard: {

@@ -17,6 +17,14 @@ import {
   showsAppleOAuthOnSignUp,
   showsGoogleOAuthOnSignUp,
 } from '@/lib/auth/webAuthEntry';
+import {
+  productAccent,
+  webAccentSoft,
+  webAccentText,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -238,7 +246,7 @@ export default function SignUpScreen() {
                 accessibilityLabel="בדיקה מחדש"
                 onPress={webAuth.retry}
               >
-                <Text style={{ textAlign: 'right', color: '#2563eb' }}>
+                <Text style={{ textAlign: 'right', color: productAccent }}>
                   בדיקה מחדש
                 </Text>
               </Pressable>
@@ -268,7 +276,7 @@ export default function SignUpScreen() {
                 <Ionicons
                   name="logo-apple"
                   size={18}
-                  color={selectedMethod === 'apple' ? '#2563eb' : '#111827'}
+                  color={selectedMethod === 'apple' ? productAccent : '#111827'}
                 />
                 <Text
                   style={
@@ -342,7 +350,7 @@ export default function SignUpScreen() {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={selectedMethod === 'email' ? '#2563eb' : '#111827'}
+                color={selectedMethod === 'email' ? productAccent : '#111827'}
               />
               <Text
                 style={
@@ -394,6 +402,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -415,6 +424,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     lineHeight: 30,
     includeFontPadding: false,
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
@@ -423,6 +433,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   optionsContainer: {
     marginTop: 20,
@@ -441,6 +452,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderWidth: 1,
     borderColor: '#93c5fd',
+    ...webAccentSoft,
   },
   optionUnselected: {
     flexDirection: flexDirection.row,
@@ -460,6 +472,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#2563eb',
+    ...webAccentText,
     textAlign: 'center',
   },
   optionTextUnselected: {
@@ -497,6 +510,7 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     color: '#2563eb',
+    ...webAccentText,
     textDecorationLine: 'underline',
     fontWeight: '700',
   },

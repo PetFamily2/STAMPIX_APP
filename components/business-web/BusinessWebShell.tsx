@@ -1,8 +1,9 @@
 import type { Href } from 'expo-router';
-import { Building2, ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
+import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,6 +41,7 @@ import {
 type BusinessIdentity = {
   businessId: Id<'businesses'>;
   name: string;
+  logoUrl?: string | null;
   staffRole: 'owner' | 'manager' | 'staff';
   capabilities?: { scanner_access?: boolean } | null;
 };
@@ -81,6 +83,30 @@ function initialsForName(displayName: string) {
       .map((part) => part.charAt(0))
       .join('')
       .toUpperCase() || 'S'
+  );
+}
+
+function BusinessIdentityMark({
+  logoUrl,
+  name,
+}: {
+  logoUrl?: string | null;
+  name: string;
+}) {
+  const initial = name.trim().charAt(0) || 'ע';
+  if (logoUrl) {
+    return (
+      <Image
+        accessibilityLabel={`לוגו ${name}`}
+        source={{ uri: logoUrl }}
+        style={styles.identityLogo}
+      />
+    );
+  }
+  return (
+    <View style={styles.identityFallback}>
+      <Text style={styles.identityFallbackText}>{initial}</Text>
+    </View>
   );
 }
 
@@ -206,7 +232,7 @@ function BusinessSwitcher({
   onSelectBusiness,
   popoverWidth,
   selectError,
-  showBrandMark,
+  showBrandMark: _showBrandMark,
   showClosedError,
 }: Pick<
   BusinessWebShellProps,
@@ -248,21 +274,11 @@ function BusinessSwitcher({
           pressed ? styles.controlPressed : null,
         ]}
       >
-        <View
-          style={[
-            styles.switcherIcon,
-            showBrandMark ? styles.switcherBrandMark : null,
-          ]}
-        >
-          {showBrandMark ? (
-            <Text style={styles.switcherBrandMarkText}>S</Text>
-          ) : (
-            <Building2
-              color={TOKENS.colors.primary}
-              size={TOKENS.icons.standard}
-              strokeWidth={TOKENS.icons.strokeWidth}
-            />
-          )}
+        <View style={styles.switcherIcon}>
+          <BusinessIdentityMark
+            logoUrl={activeBusiness?.logoUrl}
+            name={activeBusiness?.name ?? ''}
+          />
         </View>
         <View style={styles.switcherCopy}>
           <Text numberOfLines={1} style={styles.switcherName}>
@@ -543,10 +559,16 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
               </View>
             </View>
             <View style={styles.sidebarBusiness}>
-              <Text style={styles.sidebarEyebrow}>העסק הפעיל</Text>
-              <Text numberOfLines={1} style={styles.sidebarBusinessName}>
-                {props.activeBusiness?.name ?? 'לא נבחר עסק'}
-              </Text>
+              <BusinessIdentityMark
+                logoUrl={props.activeBusiness?.logoUrl}
+                name={props.activeBusiness?.name ?? ''}
+              />
+              <View style={styles.sidebarBusinessCopy}>
+                <Text style={styles.sidebarEyebrow}>העסק הפעיל</Text>
+                <Text numberOfLines={1} style={styles.sidebarBusinessName}>
+                  {props.activeBusiness?.name ?? 'לא נבחר עסק'}
+                </Text>
+              </View>
             </View>
             <NavList
               currentPathname={props.currentPathname}
@@ -863,12 +885,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sidebarBusiness: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
     marginTop: TOKENS.space.lg,
     marginBottom: TOKENS.space.md,
     borderBottomWidth: 1,
     borderBottomColor: TOKENS.colors.border,
     paddingHorizontal: TOKENS.space.xs,
     paddingBottom: TOKENS.space.md,
+  },
+  sidebarBusinessCopy: { flex: 1, minWidth: 0 },
+  identityLogo: {
+    backgroundColor: TOKENS.colors.subtleSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 28,
+    width: 28,
+  },
+  identityFallback: {
+    alignItems: 'center',
+    backgroundColor: TOKENS.colors.primarySubtle,
+    borderRadius: 8,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  identityFallbackText: {
+    color: TOKENS.colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
   },
   sidebarEyebrow: {
     ...rtlBaseText,

@@ -31,6 +31,10 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { Alert } from '@/lib/alert';
+import {
+  productPageBackground,
+  webClassName,
+} from '@/lib/design/webProductChrome';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -326,7 +330,7 @@ export function CampaignsHubContent() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
         className="flex-1"
@@ -340,7 +344,7 @@ export function CampaignsHubContent() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <BusinessScreenHeader
             title="קמפיינים"
@@ -544,6 +548,7 @@ export function CampaignsHubContent() {
         currentPlan={entitlements?.plan ?? null}
         limitSummary={`בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`}
         canManageSubscription={canManageSubscription}
+        navigationReason={planLimitNotice?.navigationReason}
         onManageSubscription={
           planLimitNotice
             ? () => {

@@ -30,6 +30,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { Alert } from '@/lib/alert';
+import { productPrimary, webClassName } from '@/lib/design/webProductChrome';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -693,6 +694,7 @@ export default function CampaignDraftEditorScreen() {
           : `בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`
       }
       canManageSubscription={canManageSubscription}
+      navigationReason={planLimitNotice?.navigationReason}
       onManageSubscription={
         planLimitNotice
           ? () => {
@@ -793,13 +795,17 @@ export default function CampaignDraftEditorScreen() {
 
   if (!selectedBusinessId) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי עסק.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -809,7 +815,7 @@ export default function CampaignDraftEditorScreen() {
 
   if (isCreateFlow) {
     return (
-      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+      <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
         <ScrollView
           stickyHeaderIndices={[0]}
           className="flex-1"
@@ -857,7 +863,7 @@ export default function CampaignDraftEditorScreen() {
                   key={option.key}
                   onPress={() => setCreateMode(option.key)}
                   className={`flex-1 rounded-full py-2.5 ${
-                    isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
+                    isActive ? webClassName('bg-[#2F6BFF]') : 'bg-transparent'
                   }`}
                 >
                   <Text
@@ -952,7 +958,7 @@ export default function CampaignDraftEditorScreen() {
                 className={`mt-4 rounded-2xl px-4 py-3 ${
                   !canCreateCampaigns || isCreatingDraft != null
                     ? 'bg-[#CBD5E1]'
-                    : 'bg-[#2F6BFF]'
+                    : webClassName('bg-[#2F6BFF]')
                 }`}
               >
                 {isCreatingDraft === 'custom' ? (
@@ -973,13 +979,17 @@ export default function CampaignDraftEditorScreen() {
 
   if (!campaignId) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי קמפיין לעריכה.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -989,21 +999,29 @@ export default function CampaignDraftEditorScreen() {
 
   if (campaignDraft === undefined) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
-        <ActivityIndicator color="#2F6BFF" />
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF]'
+        )}
+      >
+        <ActivityIndicator color={productPrimary} />
       </SafeAreaView>
     );
   }
 
   if (!campaignDraft) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           לא נמצאה טיוטת קמפיין.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -1600,7 +1618,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

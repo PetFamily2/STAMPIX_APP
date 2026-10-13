@@ -8,6 +8,7 @@ import {
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { Alert } from '@/lib/alert';
+import { webAccentFill } from '@/lib/design/webProductChrome';
 import {
   SUPPORT_CONTACT_COPY,
   SUPPORT_MESSAGE_MAX_LENGTH,
@@ -212,6 +213,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,

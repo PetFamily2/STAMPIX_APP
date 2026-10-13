@@ -56,6 +56,7 @@ import {
 import { Alert } from '@/lib/alert';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
+import { productPageBackground, webPage } from '@/lib/design/webProductChrome';
 import { safePush } from '@/lib/navigation';
 import {
   CUSTOMER_ROUTES,
@@ -708,7 +709,7 @@ export default function SettingsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
           style={styles.headerRow}
         >
           <BusinessScreenHeader
@@ -986,7 +987,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF', ...webPage },
   scrollArea: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1006,7 +1007,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 52,
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1022,7 +1023,7 @@ const styles = StyleSheet.create({
   staffRowActionPill: {
     minHeight: 32,
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1109,7 +1110,7 @@ const styles = StyleSheet.create({
     borderRadius: 10.5,
   },
   notificationSwitchThumbEnabled: {
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
   },
   notificationSwitchThumbDisabled: {
     backgroundColor: '#A1A1AA',

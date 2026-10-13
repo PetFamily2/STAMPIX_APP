@@ -13,6 +13,7 @@ import {
   buildLoyaltyCardAccessibilityLabel,
   resolveLoyaltyCardPresentation,
 } from '@/lib/loyalty/cardPresentation';
+import { classicPrintedRewardLine } from '@/lib/loyalty/classicPrintedCopy';
 import {
   classicNameWeight,
   classicStampColumns,
@@ -85,6 +86,7 @@ export function LoyaltyCardClassic({
   stampShape = 'circle',
   variant,
   selected = false,
+  density = 'full',
   onPress,
 }: LoyaltyCardProps) {
   const palette = resolveClassicStampPalette(cardThemeId);
@@ -101,10 +103,14 @@ export function LoyaltyCardClassic({
   const ready = presentation.state === 'rewardReady';
   const archived = presentation.state === 'archived';
   const columns = classicStampColumns(presentation.target);
+  const compact = density === 'compact';
+  const visibleStampCount =
+    compact && presentation.target > 10 ? 5 : presentation.target;
+  const printedReward = classicPrintedRewardLine(programTitle, rewardName);
   const label = buildLoyaltyCardAccessibilityLabel({
     businessName,
     programTitle,
-    rewardName,
+    rewardName: printedReward ?? programTitle,
     presentation,
   });
   const logoUri = businessLogoUrl?.trim() || null;
@@ -116,6 +122,7 @@ export function LoyaltyCardClassic({
     <View
       style={[
         styles.card,
+        compact ? styles.cardCompact : null,
         {
           backgroundColor: palette.paper,
           borderColor: selected ? palette.ink : 'transparent',
@@ -124,7 +131,7 @@ export function LoyaltyCardClassic({
       ]}
     >
       <PaperGrain ink={palette.ink} />
-      <View style={styles.face}>
+      <View style={[styles.face, compact ? styles.faceCompact : null]}>
         {logoUri ? (
           <Image
             accessible={false}
@@ -137,6 +144,7 @@ export function LoyaltyCardClassic({
             numberOfLines={2}
             style={[
               styles.name,
+              compact ? styles.nameCompact : null,
               shape === 'square' || shape === 'hexagon'
                 ? styles.nameRuled
                 : null,
@@ -153,7 +161,11 @@ export function LoyaltyCardClassic({
         </View>
         <Text
           numberOfLines={2}
-          style={[styles.program, { color: palette.soft }]}
+          style={[
+            styles.program,
+            compact ? styles.programCompact : null,
+            { color: palette.soft },
+          ]}
         >
           {programTitle}
         </Text>
@@ -162,7 +174,7 @@ export function LoyaltyCardClassic({
           importantForAccessibility="no-hide-descendants"
           style={styles.grid}
         >
-          {Array.from({ length: presentation.target }, (_, index) => {
+          {Array.from({ length: visibleStampCount }, (_, index) => {
             const on = index < earned;
             const rewardSlot = index === presentation.target - 1;
             const rotation = on ? classicStampRotation(index) : 0;
@@ -241,9 +253,18 @@ export function LoyaltyCardClassic({
             );
           })}
         </View>
-        <Text numberOfLines={2} style={[styles.reward, { color: palette.ink }]}>
-          {rewardName}
-        </Text>
+        {printedReward ? (
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.reward,
+              compact ? styles.rewardCompact : null,
+              { color: palette.ink },
+            ]}
+          >
+            {printedReward}
+          </Text>
+        ) : null}
         <Text
           accessibilityRole={
             presentation.hasProgressData ? 'progressbar' : undefined
@@ -344,6 +365,10 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     letterSpacing: -0.6,
   },
+  nameCompact: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
   nameRuled: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -362,6 +387,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  programCompact: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   grid: {
     width: '100%',
@@ -403,6 +432,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '700',
+  },
+  rewardCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  cardCompact: {
+    maxWidth: 280,
+  },
+  faceCompact: {
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 10,
+    gap: 4,
   },
   tally: {
     fontSize: 15,

@@ -2,11 +2,10 @@ import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
+import { LoyaltyManagementEntry } from '@/components/business-web/LoyaltyManagementEntry';
 import { PwaButton } from '@/components/pwa-ui/PwaButton';
 import { PwaEmptyState } from '@/components/pwa-ui/PwaEmptyState';
 import { AppText as Text } from '@/components/ui/AppText';
-import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -120,75 +119,36 @@ export function BusinessWebLoyalty({
               title="עדיין אין כרטיסיות"
             />
           ) : (
-            <View style={[styles.cards, wide ? styles.cardsWide : null]}>
-              {programs.map((program) => (
-                <View
-                  key={String(program.loyaltyProgramId)}
-                  style={styles.programCard}
-                >
-                  <View style={styles.programTop}>
-                    <Text style={styles.programKicker}>כרטיסייה</Text>
-                    <Text
-                      style={[
-                        styles.lifecycle,
-                        program.lifecycle === 'active'
-                          ? styles.lifecycleLive
-                          : null,
-                        program.lifecycle === 'draft'
-                          ? styles.lifecycleDraft
-                          : null,
-                        program.lifecycle === 'archived'
-                          ? styles.lifecycleArchived
-                          : null,
-                      ]}
-                    >
-                      {LIFECYCLE_LABEL[program.lifecycle] ?? program.lifecycle}
-                    </Text>
-                  </View>
-                  <LoyaltyCardClassic
-                    businessLogoUrl={activeBusiness?.logoUrl ?? null}
+            <View style={styles.list}>
+              {programs.map((program) => {
+                const openProgram = () =>
+                  router.push({
+                    pathname: '/business/cards/[programId]' as Href,
+                    params: {
+                      programId: String(program.loyaltyProgramId),
+                      businessId: String(activeBusinessId),
+                    },
+                  } as Href);
+                return (
+                  <LoyaltyManagementEntry
+                    key={String(program.loyaltyProgramId)}
                     businessName={activeBusiness?.name ?? 'העסק'}
-                    cardThemeId={program.cardThemeId}
-                    lifecycle={
-                      program.lifecycle === 'draft' ||
-                      program.lifecycle === 'archived'
-                        ? program.lifecycle
-                        : 'active'
+                    canEdit={canEdit}
+                    lifecycle={program.lifecycle}
+                    lifecycleLabel={
+                      LIFECYCLE_LABEL[program.lifecycle] ?? program.lifecycle
                     }
+                    logoUrl={activeBusiness?.logoUrl ?? null}
                     maxStamps={program.maxStamps}
-                    programTitle={program.title}
+                    memberCount={program.metrics.activeMembers}
+                    onDetails={openProgram}
+                    onEdit={openProgram}
                     progress={{ kind: 'none' }}
-                    rewardName={program.rewardName}
-                    stampIcon={program.stampIcon}
-                    stampShape={normalizeStampShape(program.stampShape)}
-                    variant="management"
+                    themeId={program.cardThemeId}
+                    title={program.title}
                   />
-                  <Text style={styles.count}>
-                    <Text style={styles.num}>
-                      {program.metrics.activeMembers}
-                    </Text>
-                    {' חברים · '}
-                    <Text style={styles.num}>{program.metrics.stamps7d}</Text>
-                    {' חותמות ב־7 ימים'}
-                  </Text>
-                  {canEdit ? (
-                    <PwaButton
-                      fullWidth={true}
-                      label="ניהול הכרטיסייה"
-                      onPress={() =>
-                        router.push({
-                          pathname: '/business/cards/[programId]' as Href,
-                          params: {
-                            programId: String(program.loyaltyProgramId),
-                            businessId: String(activeBusinessId),
-                          },
-                        } as Href)
-                      }
-                      variant="secondary"
-                    />
-                  ) : null}
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>
@@ -325,6 +285,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   loading: { ...rtlBaseText, color: TOKENS.colors.textSecondary },
+  list: { gap: 8 },
   cards: { gap: 12 },
   cardsWide: { flexDirection: flexDirection.row, flexWrap: 'wrap' },
   programCard: {

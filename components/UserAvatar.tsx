@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fallback: {
-    color: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    color: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     fontWeight: '900',
     textAlign: 'center',
   },

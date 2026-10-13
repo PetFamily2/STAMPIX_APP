@@ -51,7 +51,7 @@ export function DiscoveryMap(props: DiscoveryMapProps) {
             title: business.name,
             icon: L.divIcon({
               className: '',
-              html: '<span style="display:block;width:20px;height:20px;border-radius:50%;background:#2F6BFF;border:2px solid white"></span>',
+              html: '<span style="display:block;width:20px;height:20px;border-radius:50%;background:#1230A8;border:2px solid white"></span>',
               iconSize: [24, 24],
             }),
           })

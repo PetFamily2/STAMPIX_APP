@@ -146,7 +146,7 @@ export default function WebPushSettings() {
           minHeight: 44,
           padding: '10px 18px',
           borderRadius: 12,
-          background: '#2563eb',
+          background: '#1230A8',
           color: '#fff',
           cursor: busy ? 'wait' : 'pointer',
           opacity: busy ? 0.65 : 1,

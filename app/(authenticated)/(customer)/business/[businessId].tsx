@@ -4,6 +4,7 @@ import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Platform,
   ScrollView,
@@ -32,6 +33,13 @@ import { useCustomerTabBarHeight } from '@/hooks/useCustomerTabBarHeight';
 import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  productPageBackground,
+  productPrimary,
+  webAccentFill,
+  webAccentText,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import {
   CUSTOMER_BACK_FALLBACKS,
@@ -42,6 +50,7 @@ import {
   flexDirection,
   justifyContent,
   rtlBaseView,
+  selfStart,
 } from '@/lib/rtl';
 import { Share } from '@/lib/share';
 import { shareUrl } from '@/lib/shareUrl';
@@ -254,7 +263,7 @@ export default function CustomerBusinessDetailsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <View style={styles.centerMessage}>
-          <ActivityIndicator color="#2F6BFF" />
+          <ActivityIndicator color={productPrimary} />
           <Text style={styles.centerMessageText}>{TEXT.loading}</Text>
         </View>
       </SafeAreaView>
@@ -366,9 +375,16 @@ export default function CustomerBusinessDetailsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <View style={styles.headerRow}>
+            {Platform.OS === 'web' && business.logoUrl ? (
+              <Image
+                accessibilityLabel={`לוגו ${business.name}`}
+                source={{ uri: business.logoUrl }}
+                style={styles.businessLogo}
+              />
+            ) : null}
             <BusinessScreenHeader
               title={business.name}
               subtitle={business.formattedAddress ?? ''}
@@ -494,7 +510,7 @@ export default function CustomerBusinessDetailsScreen() {
                             selected ? 'checkmark-circle' : 'ellipse-outline'
                           }
                           size={22}
-                          color={selected ? '#2F6BFF' : '#9AA4B8'}
+                          color={selected ? productPrimary : '#9AA4B8'}
                         />
                       </View>
                     </Pressable>
@@ -626,9 +642,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollBackground: {
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollContainer: {
     paddingHorizontal: 20,
@@ -640,6 +658,13 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: 'stretch',
     marginBottom: 2,
+  },
+  businessLogo: {
+    alignSelf: selfStart,
+    borderRadius: 12,
+    height: 48,
+    marginBottom: 8,
+    width: 48,
   },
   backButton: {
     width: 32,
@@ -703,6 +728,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -784,13 +810,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   joinButton: {
     marginTop: 2,
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -815,12 +842,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   openCardText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#1D4ED8',
+    ...webAccentText,
     textAlign: 'right',
   },
   redeemBadge: {

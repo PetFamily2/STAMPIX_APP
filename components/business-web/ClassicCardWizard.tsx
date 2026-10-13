@@ -3,14 +3,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
@@ -47,7 +47,7 @@ import {
 } from '@/lib/loyalty/classicWizard';
 import { loyaltyWriteErrorToHebrewMessage } from '@/lib/loyalty/programErrors';
 import { businessHref } from '@/lib/navigation/businessHref';
-import { rtlBaseView, tw } from '@/lib/rtl';
+import { rtlBaseView, tw, justifyContent } from '@/lib/rtl';
 
 const STEPS = [
   { id: 1, label: 'פרטים' },
@@ -57,7 +57,6 @@ const STEPS = [
 
 export function ClassicCardWizard() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { businessId: businessIdParam } = useLocalSearchParams<{
     businessId?: string;
   }>();
@@ -68,6 +67,9 @@ export function ClassicCardWizard() {
   const createProgram = useMutation(api.loyaltyPrograms.createLoyaltyProgram);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [designPanel, setDesignPanel] = useState<
+    'theme' | 'icon' | 'shape' | null
+  >(null);
   const [showIssues, setShowIssues] = useState(false);
   const [title, setTitle] = useState('');
   const [rewardName, setRewardName] = useState('');
@@ -147,15 +149,19 @@ export function ClassicCardWizard() {
   };
 
   return (
-    <View className="flex-1 bg-[#E9F0FF]">
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1 bg-[#F3F5F9]"
+      style={{ flex: 1 }}
+    >
+      <View
+        style={{
           width: '100%',
           maxWidth: 720,
           alignSelf: 'center',
-          paddingHorizontal: 20,
-          paddingBottom: (insets.bottom || 0) + 124,
+          flex: 1,
+          paddingHorizontal: 16,
+          paddingBottom: 8,
         }}
       >
         <ManagementPageHeader
@@ -198,6 +204,7 @@ export function ClassicCardWizard() {
               businessLogoUrl={activeBusiness?.logoUrl ?? null}
               businessName={activeBusiness?.name ?? 'העסק שלך'}
               cardThemeId={cardThemeId}
+              density="compact"
               lifecycle="draft"
               maxStamps={maxStamps}
               programTitle={title.trim() || 'שם הכרטיסייה'}
@@ -279,38 +286,27 @@ export function ClassicCardWizard() {
         ) : null}
 
         {step === 2 ? (
-          <View className="mt-4 gap-5 rounded-3xl border border-[#D6CBBA] bg-white p-5">
-            <View className="gap-2">
-              <Text
-                className={`text-base font-black text-[#1C1917] ${tw.textStart}`}
+          <View className="mt-3 gap-2">
+            {(
+              [
+                ['theme', 'צבע', theme.name],
+                ['icon', 'אייקון', icon.label],
+                ['shape', 'צורה', shapeLabel],
+              ] as const
+            ).map(([id, label, value]) => (
+              <TouchableOpacity
+                accessibilityRole="button"
+                key={id}
+                onPress={() => setDesignPanel(id)}
+                className="min-h-[44px] justify-center rounded-xl border border-[#D5DBE6] bg-white px-3"
               >
-                צבע הכרטיסייה
-              </Text>
-              <LoyaltyThemePalette
-                onChange={setCardThemeId}
-                value={cardThemeId}
-              />
-            </View>
-            <View className="gap-2">
-              <Text
-                className={`text-base font-black text-[#1C1917] ${tw.textStart}`}
-              >
-                אייקון החותמת
-              </Text>
-              <StampIconPicker onChange={setStampIcon} value={stampIcon} />
-            </View>
-            <View className="gap-2">
-              <Text
-                className={`text-base font-black text-[#1C1917] ${tw.textStart}`}
-              >
-                צורת החותמת
-              </Text>
-              <StampShapePicker
-                onChange={setStampShape}
-                stampIcon={stampIcon}
-                value={stampShape}
-              />
-            </View>
+                <Text
+                  className={`text-sm font-semibold text-[#101936] ${tw.textStart}`}
+                >
+                  {label}: {value}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         ) : null}
 
@@ -333,7 +329,55 @@ export function ClassicCardWizard() {
             </Text>
           </View>
         ) : null}
-      </ScrollView>
+      </View>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setDesignPanel(null)}
+        transparent={true}
+        visible={designPanel !== null}
+      >
+        <View
+          className="flex-1 bg-black/40"
+          style={{ justifyContent: justifyContent.start }}
+        >
+          <View className="max-h-[70%] rounded-t-2xl bg-white p-4">
+            <Text
+              className={`mb-3 text-base font-semibold text-[#101936] ${tw.textStart}`}
+            >
+              {designPanel === 'theme'
+                ? 'צבע הכרטיסייה'
+                : designPanel === 'icon'
+                  ? 'אייקון החותמת'
+                  : 'צורת החותמת'}
+            </Text>
+            <View className="max-h-[420px]">
+              {designPanel === 'theme' ? (
+                <LoyaltyThemePalette
+                  onChange={setCardThemeId}
+                  value={cardThemeId}
+                />
+              ) : null}
+              {designPanel === 'icon' ? (
+                <StampIconPicker onChange={setStampIcon} value={stampIcon} />
+              ) : null}
+              {designPanel === 'shape' ? (
+                <StampShapePicker
+                  onChange={setStampShape}
+                  stampIcon={stampIcon}
+                  value={stampShape}
+                />
+              ) : null}
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              className="mt-3 min-h-[44px] items-center justify-center rounded-xl bg-[#1230A8]"
+              onPress={() => setDesignPanel(null)}
+            >
+              <Text className="font-semibold text-white">סגירה</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <EditorStickyFooter>
         <View className={`${tw.flexRow} gap-2`} style={rtlBaseView}>
           {step > 1 ? (
@@ -384,7 +428,7 @@ export function ClassicCardWizard() {
           )}
         </View>
       </EditorStickyFooter>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

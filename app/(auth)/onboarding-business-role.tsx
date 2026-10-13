@@ -17,6 +17,14 @@ import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import { Alert } from '@/lib/alert';
+import {
+  webAccentFill,
+  webBody,
+  webField,
+  webLabel,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_PROGRESS,
@@ -407,6 +415,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -458,6 +467,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     marginBottom: 8,
+    ...webTitle,
   },
   subtitle: {
     fontSize: 14,
@@ -465,6 +475,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     lineHeight: 20,
+    ...webBody,
   },
   form: {
     marginTop: 20,
@@ -477,6 +488,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webLabel,
   },
   input: {
     borderRadius: 16,
@@ -489,6 +501,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     writingDirection: 'rtl',
+    ...webField,
   },
   ageSection: {
     marginTop: 20,
@@ -518,6 +531,7 @@ const styles = StyleSheet.create({
   ageChipSelected: {
     backgroundColor: '#2F66E8',
     borderColor: '#2F66E8',
+    ...webAccentFill,
   },
   ageChipText: {
     fontSize: 13,

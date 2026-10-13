@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#FFFFFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D5E3FF',
     shadowColor: '#1B4FD6',

@@ -21,6 +21,11 @@ import {
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import {
+  productPageBackground,
+  webAccentFill,
+  webPage,
+} from '@/lib/design/webProductChrome';
+import {
   type CustomerMembershipView,
   isReadyLoyaltyMembership,
 } from '@/lib/domain/customerMemberships';
@@ -91,7 +96,7 @@ export default function RewardsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <View style={styles.headerRow}>
             <BusinessScreenHeader title={TEXT.title} subtitle={TEXT.subtitle} />
@@ -269,6 +274,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -309,6 +315,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2F6BFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
+    ...webAccentFill,
   },
   emptyButtonPressed: {
     opacity: 0.86,

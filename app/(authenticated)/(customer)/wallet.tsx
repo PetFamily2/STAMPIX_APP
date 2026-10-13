@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   joinBusinessButton: {
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     minHeight: 48,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   emptyPrimaryButton: {
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: Platform.OS === 'web' ? '#2563EB' : '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',

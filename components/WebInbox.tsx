@@ -2,9 +2,11 @@ import { useAuthToken } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
 import { makeFunctionReference } from 'convex/server';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { useUser } from '@/contexts/UserContext';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
+import { webPage } from '@/lib/design/webProductChrome';
 import { createHttpTransport } from '@/lib/web-scanner/httpTransport';
 import { getConvexUrl } from '@/utils/convexConfig';
 
@@ -95,15 +97,36 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
     width: '100%',
-    maxWidth: 800,
+    maxWidth: 720,
     alignSelf: 'center',
+    ...webPage,
   },
-  card: { borderRadius: 16, backgroundColor: 'white', padding: 20, gap: 12 },
+  card: {
+    borderRadius: 16,
+    backgroundColor: 'white',
+    padding: 16,
+    gap: 12,
+    ...(Platform.OS === 'web'
+      ? {
+          borderWidth: 1,
+          borderColor: T.colors.border,
+          borderRadius: T.radii.lg,
+        }
+      : null),
+  },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: Platform.OS === 'web' ? 16 : 22,
+    fontWeight: Platform.OS === 'web' ? '600' : '700',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...(Platform.OS === 'web' ? { color: T.colors.textPrimary } : null),
   },
-  text: { fontSize: 16, textAlign: 'right', writingDirection: 'rtl' },
+  text: {
+    fontSize: Platform.OS === 'web' ? 14 : 16,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    ...(Platform.OS === 'web'
+      ? { color: T.colors.textSecondary, lineHeight: 21 }
+      : null),
+  },
 });

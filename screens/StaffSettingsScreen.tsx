@@ -22,6 +22,11 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { Alert } from '@/lib/alert';
+import {
+  productPageBackground,
+  productPrimary,
+  webClassName,
+} from '@/lib/design/webProductChrome';
 import { tw } from '@/lib/rtl';
 
 const ROLE_LABEL: Record<'owner' | 'manager' | 'staff', string> = {
@@ -139,7 +144,7 @@ export default function StaffSettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <ScrollView
         className="flex-1"
         stickyHeaderIndices={[0]}
@@ -154,7 +159,7 @@ export default function StaffSettingsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <BusinessScreenHeader title="הגדרות עובד" />
         </StickyScrollHeader>
@@ -167,7 +172,7 @@ export default function StaffSettingsScreen() {
           className="min-h-12 justify-center rounded-2xl border border-[#C7D8F7] bg-white px-4"
         >
           <View className={`${tw.flexRow} items-center gap-3`}>
-            <Ionicons name="wallet-outline" size={20} color="#2F6BFF" />
+            <Ionicons name="wallet-outline" size={20} color={productPrimary} />
             <Text
               className={`flex-1 text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
             >
@@ -181,7 +186,10 @@ export default function StaffSettingsScreen() {
             הגישה שלי
           </Text>
           {profile === undefined ? (
-            <ActivityIndicator color="#2F6BFF" style={{ marginTop: 12 }} />
+            <ActivityIndicator
+              color={productPrimary}
+              style={{ marginTop: 12 }}
+            />
           ) : profile ? (
             <View className="mt-3 gap-2">
               <Text
@@ -214,7 +222,7 @@ export default function StaffSettingsScreen() {
                   <Ionicons
                     name="checkmark-circle-outline"
                     size={17}
-                    color="#2F6BFF"
+                    color={productPrimary}
                   />
                   <Text
                     className={`flex-1 text-xs font-semibold text-[#334155] ${tw.textStart}`}
@@ -233,7 +241,7 @@ export default function StaffSettingsScreen() {
           </Text>
           <View className="mt-3 gap-2">
             {membershipsQuery === undefined ? (
-              <ActivityIndicator color="#2F6BFF" />
+              <ActivityIndicator color={productPrimary} />
             ) : myMemberships.length === 0 ? (
               <Text className={`text-sm text-[#64748B] ${tw.textStart}`}>
                 אין עסקים זמינים.
@@ -279,9 +287,13 @@ export default function StaffSettingsScreen() {
                         </Text>
                       </View>
                       {isBusy ? (
-                        <ActivityIndicator color="#2F6BFF" />
+                        <ActivityIndicator color={productPrimary} />
                       ) : isActive ? (
-                        <Text className="text-xs font-bold text-[#2F6BFF]">
+                        <Text
+                          className={webClassName(
+                            'text-xs font-bold text-[#2F6BFF]'
+                          )}
+                        >
                           פעיל
                         </Text>
                       ) : (
