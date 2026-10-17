@@ -126,15 +126,12 @@ export default function CardDetailsScreen() {
   const qrSectionOffsetY = useRef(0);
   const stickyHeaderHeightRef = useRef(0);
 
-  const membershipIdForToken =
-    membership?.programLifecycle === 'archived'
-      ? undefined
-      : membership?.membershipId;
+  const membershipIdForToken = membership?.membershipId;
   const membershipActivity = useQuery(
     api.memberships.getMembershipActivity,
-    membership?.membershipId
+    membershipIdForToken
       ? {
-          membershipId: membership.membershipId as Id<'memberships'>,
+          membershipId: membershipIdForToken as Id<'memberships'>,
           limit: 20,
         }
       : 'skip'
@@ -350,15 +347,15 @@ export default function CardDetailsScreen() {
     programName: string;
   }) => {
     if (item.actionType === 'stamp_reverted') {
-      return 'חותמת בוטלה';
+      return `בוצע תיקון בכרטיסייה שלך בעסק ${item.businessName} - חותמת בוטלה`;
     }
     if (item.actionType === 'reward_redeem_reverted') {
-      return 'מימוש בוטל';
+      return `בוצע תיקון בכרטיס שלך בעסק ${item.businessName} - מימוש בוטל`;
     }
     if (item.actionType === 'reward_redeemed') {
-      return 'הטבה מומשה';
+      return `מומשה הטבה בכרטיס ${item.programName}`;
     }
-    return 'חותמת נוספה';
+    return `נוספה חותמת בכרטיסייה ${item.programName}`;
   };
 
   const buildInviteMessage = (url: string) =>
@@ -521,16 +518,18 @@ export default function CardDetailsScreen() {
               >
                 {isArchived ? TEXT.archivedSubtitle : TEXT.cardReadySubtitle}
               </Text>
-              {!isArchived ? (
-                <ActionButton
-                  label={TEXT.redeemButtonReady}
-                  onPress={revealQrForRedemption}
-                  disabled={!isRedeemEligible}
-                  fullWidth={true}
-                  accessibilityLabel={TEXT.redeemButtonReady}
-                  style={styles.redeemAction}
-                />
-              ) : null}
+              <ActionButton
+                label={
+                  isArchived ? TEXT.archivedButton : TEXT.redeemButtonReady
+                }
+                onPress={revealQrForRedemption}
+                disabled={!isRedeemEligible}
+                fullWidth={true}
+                accessibilityLabel={
+                  isArchived ? TEXT.archivedButton : TEXT.redeemButtonReady
+                }
+                style={styles.redeemAction}
+              />
             </View>
           ) : null}
 
@@ -564,63 +563,59 @@ export default function CardDetailsScreen() {
           </View>
         </View>
 
-        {!isArchived ? (
-          <View
-            ref={qrSectionRef}
-            collapsable={false}
-            onLayout={(event) => {
-              qrSectionOffsetY.current = event.nativeEvent.layout.y;
-            }}
-            style={styles.card}
-          >
-            <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
-            <Text style={styles.cardSubtitle}>
-              {isRedeemEligible
-                ? TEXT.personalQrRedeemSubtitle
-                : TEXT.personalQrSubtitle}
-            </Text>
-            <View style={styles.qrFrame}>
-              {scanTokenPayload ? (
-                <QRCode
-                  value={scanTokenPayload}
-                  size={200}
-                  color="#1A2B4A"
-                  backgroundColor="#FFFFFF"
-                />
-              ) : (
-                <View style={styles.qrPlaceholder}>
-                  {isTokenLoading ? (
-                    <ActivityIndicator color="#2F6BFF" />
-                  ) : null}
-                  <Text style={styles.qrPlaceholderText}>
-                    {tokenError ? tokenError : TEXT.qrLoading}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <PaintedPressable
-              onPress={() => void refreshScanToken()}
-              disabled={isTokenLoading || !membershipIdForToken}
-              style={({ pressed }) => [
-                styles.refreshButton,
-                isTokenLoading || !membershipIdForToken
-                  ? styles.refreshButtonDisabled
-                  : null,
-                pressed ? styles.refreshButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.refreshButtonText}>
-                {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
-              </Text>
-            </PaintedPressable>
-
-            {tokenError ? (
-              <View style={styles.errorRow}>
-                <Text style={styles.errorText}>{tokenError}</Text>
+        <View
+          ref={qrSectionRef}
+          collapsable={false}
+          onLayout={(event) => {
+            qrSectionOffsetY.current = event.nativeEvent.layout.y;
+          }}
+          style={styles.card}
+        >
+          <Text style={styles.cardTitle}>{TEXT.personalQr}</Text>
+          <Text style={styles.cardSubtitle}>
+            {isRedeemEligible
+              ? TEXT.personalQrRedeemSubtitle
+              : TEXT.personalQrSubtitle}
+          </Text>
+          <View style={styles.qrFrame}>
+            {scanTokenPayload ? (
+              <QRCode
+                value={scanTokenPayload}
+                size={200}
+                color="#1A2B4A"
+                backgroundColor="#FFFFFF"
+              />
+            ) : (
+              <View style={styles.qrPlaceholder}>
+                {isTokenLoading ? <ActivityIndicator color="#2F6BFF" /> : null}
+                <Text style={styles.qrPlaceholderText}>
+                  {tokenError ? tokenError : TEXT.qrLoading}
+                </Text>
               </View>
-            ) : null}
+            )}
           </View>
-        ) : null}
+          <PaintedPressable
+            onPress={() => void refreshScanToken()}
+            disabled={isTokenLoading || !membershipIdForToken}
+            style={({ pressed }) => [
+              styles.refreshButton,
+              isTokenLoading || !membershipIdForToken
+                ? styles.refreshButtonDisabled
+                : null,
+              pressed ? styles.refreshButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.refreshButtonText}>
+              {isTokenLoading ? TEXT.qrLoading : TEXT.refreshCta}
+            </Text>
+          </PaintedPressable>
+
+          {tokenError ? (
+            <View style={styles.errorRow}>
+              <Text style={styles.errorText}>{tokenError}</Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{CUSTOMER_ACTIVITY_TITLE}</Text>
