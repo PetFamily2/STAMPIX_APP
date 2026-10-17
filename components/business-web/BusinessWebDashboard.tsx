@@ -36,7 +36,7 @@ type BusinessWebDashboardProps = {
 
 const NUMBER_FORMATTER = new Intl.NumberFormat('he-IL');
 const HERO_HEADING = 'המועדון שלך במספרים';
-const STAMP_ACHIEVEMENT = 'חותמות שהוענקו במועדון';
+const STAMP_ACHIEVEMENT = 'חותמות שהוענקו במועדון מאז פתיחתו';
 const REWARD_ACHIEVEMENT = 'הטבות מומשו';
 const TODAY_STAMP_LABEL = 'חותמות היום';
 const SHELL_CONTENT_PADDING = TOKENS.space.lg;
@@ -229,6 +229,12 @@ function BusinessWebDashboardContent({
             <Text style={styles.milestoneText}>{milestoneMessage}</Text>
             <View
               accessibilityLabel={milestoneMessage}
+              accessibilityRole="progressbar"
+              accessibilityValue={{
+                min: 0,
+                max: 100,
+                now: Math.round(milestone.progress * 100),
+              }}
               style={styles.milestoneTrack}
             >
               <View
@@ -346,13 +352,13 @@ const styles = StyleSheet.create({
   heroNumber: {
     ...rtlBaseText,
     color: '#F4F1E8',
-    fontSize: 80,
+    fontSize: 52,
     fontWeight: '600',
-    lineHeight: 84,
+    lineHeight: 60,
     marginTop: 8,
   },
-  heroNumberNarrow: { fontSize: 64, lineHeight: 68 },
-  heroNumberWide: { fontSize: 96, lineHeight: 100 },
+  heroNumberNarrow: { fontSize: 44, lineHeight: 52 },
+  heroNumberWide: { fontSize: 64, lineHeight: 72 },
   heroCaptionRow: {
     alignItems: 'center',
     flexDirection: rtlFlex.row,

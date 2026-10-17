@@ -5,6 +5,7 @@ import BusinessScanner from '@/components/web-scanner/BusinessScanner';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { scannerCommandsEnabled } from '@/lib/web-scanner/previewGate';
 import {
   retainRecoverySelection,
@@ -92,20 +93,48 @@ export default function ScannerPreviewRoute() {
       style={{ height: '100%', minHeight: 0, overflowY: 'auto' }}
       {...(!scannerProgramId ? { role: 'main' } : {})}
     >
-      {!scannerProgramId ? <h1>סריקת QR</h1> : null}
-      <label>
+      <h1
+        style={{
+          margin: '0 0 8px',
+          fontSize: 22,
+          color: TOKENS.colors.textPrimary,
+        }}
+      >
+        סריקת לקוח
+      </h1>
+      <p style={{ margin: '0 0 20px', color: TOKENS.colors.textSecondary }}>
+        בחרו כרטיסייה והציגו למצלמה את קוד הלקוח.
+      </p>
+      <label
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          color: TOKENS.colors.textPrimary,
+        }}
+      >
         {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
           ? 'כרטיס לבדיקה'
           : 'כרטיסייה'}{' '}
         <select
-          style={{ minHeight: 44, padding: '8px 12px', maxWidth: '100%' }}
+          style={{
+            minHeight: TOKENS.control.height,
+            padding: '8px 12px',
+            width: '100%',
+            boxSizing: 'border-box',
+            font: 'inherit',
+            borderRadius: TOKENS.radii.md,
+            border: `1px solid ${TOKENS.colors.borderStrong}`,
+            background: TOKENS.colors.elevatedSurface,
+            color: TOKENS.colors.textPrimary,
+          }}
           disabled={busy || !!priorProgram}
           value={scannerProgramId ?? ''}
           onChange={(event) =>
             setSelection({ scopeKey, programId: event.target.value })
           }
         >
-          <option value="">בחרו כרטיס</option>
+          <option value="">בחרו כרטיסייה לסריקה</option>
           {scannerProgramId &&
           !programs?.some(
             (p: any) => p.loyaltyProgramId === scannerProgramId
@@ -135,7 +164,37 @@ export default function ScannerPreviewRoute() {
           }
           onBusy={setBusy}
         />
-      ) : null}
+      ) : (
+        <section
+          aria-live="polite"
+          style={{
+            marginTop: 16,
+            padding: 24,
+            borderRadius: TOKENS.radii.lg,
+            background: TOKENS.colors.elevatedSurface,
+            color: TOKENS.colors.textSecondary,
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 18,
+              margin: '0 0 8px',
+              color: TOKENS.colors.textPrimary,
+            }}
+          >
+            {programs === undefined
+              ? 'טוענים כרטיסיות…'
+              : programs.length === 0
+                ? 'אין כרטיסיות זמינות לסריקה'
+                : 'מתחילים בבחירת כרטיסייה'}
+          </h2>
+          <p style={{ margin: 0 }}>
+            {programs?.length === 0
+              ? 'כרטיסיות פעילות יופיעו כאן לאחר יצירתן במועדון.'
+              : 'לאחר הבחירה תוכלו להפעיל את המצלמה. כל חותמת או מימוש ידרשו אישור שלכם.'}
+          </p>
+        </section>
+      )}
     </div>
   );
 }
