@@ -118,7 +118,7 @@ export function BusinessWebCustomers({
       </Text>
 
       <View style={styles.panel}>
-        <View style={styles.searchWrap}>
+        <View nativeID="business-customer-search" style={styles.searchWrap}>
           <Search color={TOKENS.colors.textMuted} size={18} />
           <TextInput
             accessibilityLabel="חיפוש לקוחות"

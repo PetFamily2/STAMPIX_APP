@@ -9,6 +9,7 @@ import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolveCampaignManagementVisualMeta } from '@/lib/campaigns/managementPresentation';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
   flexDirection,
@@ -183,9 +184,12 @@ export function BusinessWebLoyalty({
               >
                 <View style={styles.programCopy}>
                   <Text style={styles.programTitle}>
-                    {campaign.messageTitle || campaign.type}
+                    {campaign.messageTitle ||
+                      resolveCampaignManagementVisualMeta(campaign.type).label}
                   </Text>
-                  <Text style={styles.rewardName}>{campaign.type}</Text>
+                  <Text style={styles.rewardName}>
+                    {resolveCampaignManagementVisualMeta(campaign.type).label}
+                  </Text>
                 </View>
                 <Text
                   style={[
