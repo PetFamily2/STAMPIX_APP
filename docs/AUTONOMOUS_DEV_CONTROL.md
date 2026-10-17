@@ -32,10 +32,14 @@ Every development batch must have one bounded work item with:
 - rollback notes;
 - approvals still required.
 
-Branches use `agent/<task-id>-<slug>`. Agent work targets
-`pwa/phase-3-scanner-commands-20261005` through a Draft PR. The safe verification
-workflow has read-only repository permission, does not receive secrets, and performs
-no deployment.
+Branches use `agent/<task-id>-<slug>`. Until the control PR is explicitly approved
+for merge, new task branches start from and target `agent/dev-control-001` as stacked
+Draft PRs. This keeps verification available without changing the deployment-connected
+working branch. After an explicitly approved merge/deployment gate, task PRs may target
+`pwa/phase-3-scanner-commands-20261005`.
+
+The safe verification workflow has read-only repository permission, does not receive
+secrets, and performs no deployment.
 
 ## Approval gates
 
@@ -53,6 +57,11 @@ Approvals are scoped and do not imply later gates.
 The following always require a separate explicit approval: shared Convex deployment,
 schema or data migration, data reset/deletion, secret rotation, campaign or push delivery,
 real payment, merge, force-push, Production deployment, and store submission.
+
+A merge into `pwa/phase-3-scanner-commands-20261005` currently updates PR #10 and can
+trigger the existing `shared-web` job. Such a merge therefore requires both an exact
+merge approval and an explicit Preview deployment approval; `MERGE-<pr>` alone is not
+sufficient while that coupling exists.
 
 ## Required reports
 
