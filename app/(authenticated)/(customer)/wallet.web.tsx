@@ -163,6 +163,7 @@ export default function WalletWebScreen() {
                 business={business}
                 key={String(business.businessId)}
                 ready={true}
+                wide={wide}
               />
             ))}
           </View>
@@ -177,6 +178,7 @@ export default function WalletWebScreen() {
               <CardBlock
                 business={business}
                 key={`all-${String(business.businessId)}`}
+                wide={wide}
               />
             ))}
           </View>
@@ -207,13 +209,15 @@ export default function WalletWebScreen() {
 function CardBlock({
   business,
   ready = false,
+  wide,
 }: {
   business: WalletBusiness;
   ready?: boolean;
+  wide: boolean;
 }) {
   const cardRoute = resolveWalletPreviewCardRoute(business.previewMembershipId);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, wide ? styles.cardWide : null]}>
       <LoyaltyCardClassic
         businessLogoUrl={business.businessLogoUrl}
         businessName={business.businessName || 'עסק'}
@@ -240,7 +244,8 @@ function CardBlock({
       ) : (
         <PwaButton
           fullWidth={true}
-          label="פתח את העסק"
+          accessibilityLabel={`לעמוד העסק: ${business.businessName || 'עסק'}`}
+          label="לעמוד העסק"
           onPress={() =>
             router.push(
               customerBusinessRoute(String(business.businessId)) as Href
@@ -276,7 +281,9 @@ const styles = StyleSheet.create({
   },
   grid: { gap: 16 },
   gridWide: { flexDirection: flexDirection.row, flexWrap: 'wrap' },
-  card: { flexGrow: 1, flexBasis: 300, gap: 8 },
+  // A column's flex basis controls height; reserve it for the wide row grid.
+  card: { minWidth: 0, gap: 8 },
+  cardWide: { flexGrow: 1, flexBasis: 300 },
   message: {
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
