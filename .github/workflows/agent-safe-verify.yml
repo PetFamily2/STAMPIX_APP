@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - pwa/phase-3-scanner-commands-20261005
+      - agent/dev-control-001
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
