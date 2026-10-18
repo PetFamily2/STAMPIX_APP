@@ -2,11 +2,13 @@ import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { BusinessWebCustomerDetails } from '@/components/business-web/BusinessWebCustomerDetails';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { webCustomerStateLabel } from '@/lib/customers/webCustomerGuidance';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
   customerMatchesWebRouteFilter,
@@ -32,14 +34,6 @@ type CustomerRow = {
   loyaltyProgress: number;
 };
 
-const STATE_LABELS: Record<string, string> = {
-  NEW: 'חדש',
-  ACTIVE: 'פעיל',
-  NEEDS_NURTURE: 'דורש חימום',
-  NEEDS_WINBACK: 'דורש חזרה',
-  CLOSE_TO_REWARD: 'קרוב להטבה',
-};
-
 function lastVisitLabel(days: number) {
   if (days <= 0) return 'היום';
   if (days === 1) return 'אתמול';
@@ -57,6 +51,9 @@ export function BusinessWebCustomers({
   const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
   const routeFilter = parseWebCustomerRouteFilter(filter);
   const [search, setSearch] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null
+  );
   const customers = (data ?? []) as CustomerRow[];
 
   const filtered = useMemo(() => {
@@ -172,7 +169,16 @@ export function BusinessWebCustomers({
                     )
                   : 0;
               return (
-                <View key={customer.customerId} style={styles.customerRow}>
+                <Pressable
+                  key={customer.customerId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`פתיחת כרטיס לקוח: ${customer.name || 'לקוח'}, ${webCustomerStateLabel(customer.customerState)}`}
+                  onPress={() => setSelectedCustomerId(customer.customerId)}
+                  style={({ pressed }) => [
+                    styles.customerRow,
+                    pressed ? styles.customerRowPressed : null,
+                  ]}
+                >
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
                       {(customer.name || 'ל').charAt(0)}
@@ -185,8 +191,7 @@ export function BusinessWebCustomers({
                       </Text>
                       <View style={styles.stateBadge}>
                         <Text style={styles.stateText}>
-                          {STATE_LABELS[customer.customerState ?? ''] ??
-                            'ללא סיווג'}
+                          {webCustomerStateLabel(customer.customerState)}
                         </Text>
                       </View>
                     </View>
@@ -209,13 +214,24 @@ export function BusinessWebCustomers({
                         style={[styles.progressFill, { width: `${progress}%` }]}
                       />
                     </View>
+                    <Text style={styles.openCustomer}>
+                      כרטיסיות, פעילות ומה מומלץ לעשות ←
+                    </Text>
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         )}
       </View>
+      {selectedCustomerId ? (
+        <BusinessWebCustomerDetails
+          key={`${String(activeBusinessId)}-${selectedCustomerId}`}
+          businessId={activeBusinessId}
+          customerUserId={selectedCustomerId as Id<'users'>}
+          onClose={() => setSelectedCustomerId(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -308,6 +324,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
+  },
+  customerRowPressed: { backgroundColor: TOKENS.colors.primarySubtle },
+  openCustomer: {
+    ...rtlBaseText,
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.primary,
+    marginTop: TOKENS.space.xs,
   },
   avatarText: { fontSize: 12, fontWeight: '700', color: TOKENS.colors.primary },
   customerMain: { flex: 1, minWidth: 0, gap: 3 },
